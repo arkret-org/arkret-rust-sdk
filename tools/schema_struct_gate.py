@@ -235,12 +235,33 @@ def validate(
     for entry in mappings:
         rust_type = entry.get("rust_type")
         pointer = entry.get("schema")
+        comparison = entry.get("comparison", "exact")
+        reason = entry.get("reason")
         item = structs.get(rust_type)
         if item is None:
             errors.append(f"registered Rust struct no longer exists: {rust_type}")
             continue
         if not isinstance(pointer, str):
             errors.append(f"mapping for {rust_type} has no schema pointer")
+            continue
+        if comparison not in {"exact", "rust_fields_subset"}:
+            errors.append(f"mapping for {rust_type} has unknown comparison {comparison!r}")
+            continue
+        if comparison == "rust_fields_subset":
+            if not item.has_flatten:
+                errors.append(
+                    f"subset mapping for {rust_type} requires a serde(flatten) field"
+                )
+                continue
+            if not isinstance(reason, str) or len(reason.strip()) < 20:
+                errors.append(
+                    f"subset mapping for {rust_type} needs a concrete schema-only exemption reason"
+                )
+                continue
+        elif item.has_flatten:
+            errors.append(
+                f"flattened mapping for {rust_type} must use comparison=rust_fields_subset"
+            )
             continue
         if item.fields is None:
             errors.append(f"mapping for {rust_type} is not statically comparable: {item.unsupported_reason}")
@@ -255,39 +276,24 @@ def validate(
             errors.append(f"schema target for {rust_type} has no object properties: {pointer}")
             continue
         rust_only = set(item.fields) - schema_fields
-        spec_only = schema_fields - set(item.fields)
-        if rust_only or (spec_only and not item.has_flatten):
+        schema_only = schema_fields - set(item.fields)
+        if rust_only or (comparison == "exact" and schema_only):
             errors.append(
                 f"field mismatch for {rust_type} -> {pointer}: "
                 f"Rust-only={sorted(rust_only)}, "
-                f"Spec-only={sorted(spec_only)}"
+                f"Spec-only={sorted(schema_only)}"
             )
     for entry in exemptions:
         rust_type = entry.get("rust_type")
         reason = entry.get("reason")
         if rust_type not in structs:
             errors.append(f"exempted Rust struct no longer exists: {rust_type}")
-            continue
+        elif structs[rust_type].has_flatten:
+            errors.append(
+                f"flattened Rust struct {rust_type} cannot bypass Rust-only field checking"
+            )
         if not isinstance(reason, str) or len(reason.strip()) < 20:
             errors.append(f"exemption for {rust_type} needs a concrete reason")
-        item = structs[rust_type]
-        one_way_pointer = entry.get("schema")
-        if one_way_pointer is not None and not isinstance(one_way_pointer, str):
-            errors.append(f"exemption for {rust_type} has a non-string schema pointer")
-            continue
-        if item.has_flatten and item.fields is not None and one_way_pointer:
-            try:
-                schema_path, node = resolver.pointer_node(one_way_pointer)
-                schema_fields = schema_property_names(resolver, schema_path, node)
-            except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
-                errors.append(f"cannot resolve {one_way_pointer} for {rust_type}: {error}")
-                continue
-            rust_only = set(item.fields) - schema_fields
-            if rust_only:
-                errors.append(
-                    f"field mismatch for flattened {rust_type} -> {one_way_pointer}: "
-                    f"Rust-only={sorted(rust_only)}"
-                )
     return errors
 
 
@@ -302,24 +308,25 @@ def bootstrap(registry_path: Path, spec_root: Path) -> None:
         if item.fields is None:
             exemptions.append({"rust_type": item.rust_type, "reason": item.unsupported_reason or "unsupported shape"})
             continue
-        if item.has_flatten:
-            exemptions.append(
-                {
-                    "rust_type": item.rust_type,
-                    "reason": (
-                        "serde(flatten) permits schema-only fields; declared "
-                        "non-flatten fields are checked one-way."
-                    ),
-                }
-            )
-            continue
         try:
             schema_path, node = resolver.pointer_node(item.pointer)
             schema_fields = schema_property_names(resolver, schema_path, node)
         except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
             exemptions.append({"rust_type": item.rust_type, "reason": f"Documented pointer is not a direct object node: {error}."})
             continue
-        if schema_fields and schema_fields == set(item.fields):
+        if item.has_flatten and schema_fields:
+            mappings.append(
+                {
+                    "rust_type": item.rust_type,
+                    "schema": item.pointer,
+                    "comparison": "rust_fields_subset",
+                    "reason": (
+                        "serde(flatten) may carry schema-only fields; every declared "
+                        "non-flatten Rust field remains checked against schema properties."
+                    ),
+                }
+            )
+        elif schema_fields and schema_fields == set(item.fields):
             mappings.append({"rust_type": item.rust_type, "schema": item.pointer})
         else:
             exemptions.append(

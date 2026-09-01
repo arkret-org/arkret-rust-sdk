@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Audience, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, Hash, NonEmptyString,
-    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, Result, SchemaId, TrustDomainId,
-    WireError, canonical, project_did_to_core_id,
+    Audience, Base64UrlString, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, Hash,
+    NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId, Result, SchemaId,
+    TrustDomainId, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -499,17 +499,17 @@ mod tests {
 // The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/key_verification_content`.
+/// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/key_verification_content/
+/// properties/new_device_pubkey`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct KeyVerificationContentNewDevicePubkey {
+    pub kty: NonEmptyString,
+    pub kid: DeviceId,
+    pub algorithm: NonEmptyString,
+    pub key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub kid: Option<DeviceId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub algorithm: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub public_key: Option<NonEmptyString>,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
+    pub key_digest: Option<Hash>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

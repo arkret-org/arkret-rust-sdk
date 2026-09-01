@@ -746,11 +746,7 @@ fn verify_did_webvh_v1_internal(
     let mut previous_version_id: Option<&str> = None;
     let mut previous_next_hashes: Option<Vec<String>> = None;
     let mut active_update_keys = Vec::new();
-    let inception_portable = entries[0]
-        .parameters
-        .get("portable")
-        .and_then(Value::as_bool)
-        == Some(true);
+    let mut effective_portable = false;
     let mut previous_state_id: Option<String> = None;
 
     for (index, (entry, raw)) in entries.iter().zip(raw_entries).enumerate() {
@@ -775,14 +771,9 @@ fn verify_did_webvh_v1_internal(
                 "did:webvh log entry method must be did:webvh:1.0".to_owned(),
             ));
         }
-        if index > 0
-            && entry.parameters.get("portable").and_then(Value::as_bool) == Some(true)
-            && !inception_portable
-        {
-            return Err(IdentityError::Protocol(
-                "did:webvh portability cannot be enabled after inception".to_owned(),
-            ));
-        }
+        let parameters = entry.parameters.as_object().expect("validated above");
+        let successor_effective_portable =
+            arkret_wire::did_webvh_v1_effective_portable(effective_portable, parameters)?;
         let state_id = entry
             .state
             .get("id")
@@ -799,9 +790,10 @@ fn verify_did_webvh_v1_internal(
         if let Some(previous_state_id) = previous_state_id.as_deref()
             && state_id != previous_state_id
         {
-            if !inception_portable {
+            if !effective_portable {
                 return Err(IdentityError::Protocol(
-                    "did:webvh rename requires portable=true at inception".to_owned(),
+                    "did:webvh rename requires portable=true in its predecessor effective state"
+                        .to_owned(),
                 ));
             }
             let links_predecessor = entry
@@ -921,6 +913,7 @@ fn verify_did_webvh_v1_internal(
         previous_next_hashes = Some(next_hashes);
         previous_version_id = Some(&entry.version_id);
         previous_state_id = Some(state_id.to_owned());
+        effective_portable = successor_effective_portable;
     }
 
     let head = entries.last().expect("non-empty checked above");

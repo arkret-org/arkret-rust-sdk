@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://arkret.org/schemas/compatibility-manifest-v1.schema.json",
+  "title": "Arkret multi-repository compatibility manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "train",
+    "repositories",
+    "public_model_probes",
+    "artifact_probes",
+    "checks",
+    "policy"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "train": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "merge_order"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "merge_order": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "repositories": {
+      "type": "object",
+      "minProperties": 7,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "commit", "checkout_path", "roles"],
+        "properties": {
+          "repository": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
+          "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "checkout_path": { "type": "string", "minLength": 1 },
+          "roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "public_model_probes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "type", "source", "required_fields"],
+        "properties": {
+          "repository": { "type": "string" },
+          "type": { "type": "string" },
+          "source": { "type": "string" },
+          "required_fields": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "artifact_probes": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "kind", "name", "path"],
+        "properties": {
+          "repository": { "type": "string" },
+          "kind": { "enum": ["operation", "schema", "registry"] },
+          "name": { "type": "string" },
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "repository", "category", "surface", "working_directory", "command"],
+        "properties": {
+          "id": { "type": "string" },
+          "repository": { "type": "string" },
+          "category": { "enum": ["static", "compile", "contract"] },
+          "surface": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "name"],
+            "properties": {
+              "kind": { "enum": ["operation", "schema", "type"] },
+              "name": { "type": "string" }
+            }
+          },
+          "working_directory": { "type": "string" },
+          "command": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["forbidden_compatibility_techniques", "required_status_check", "source_guards"],
+      "properties": {
+        "forbidden_compatibility_techniques": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "required_status_check": { "type": "string", "minLength": 1 },
+        "source_guards": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "repositories", "pattern"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "repositories": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": { "type": "string" }
+              },
+              "pattern": { "type": "string", "minLength": 1 },
+              "allow_paths": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "resolved_candidates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "commit"],
+        "properties": {
+          "repository": { "type": "string" },
+          "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+        }
+      }
+    }
+  }
+}

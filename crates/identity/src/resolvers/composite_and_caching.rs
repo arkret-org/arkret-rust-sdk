@@ -167,8 +167,8 @@ pub enum Freshness {
 
 /// Single cached DID resolution.
 ///
-/// `document_hash` is the canonical JSON SHA-256 digest with the `sha256:`
-/// prefix. The method evidence is cached alongside the document because a cache
+/// `document_hash` is the normalized DID Document SHA-256 digest with the
+/// `sha256:` prefix. The method evidence is cached alongside the document because a cache
 /// hit must be able to produce the same section 5.2 evidence receipt an upstream
 /// resolution would: caching the document alone would silently downgrade every
 /// cached authority acceptance into a proofless one.
@@ -182,7 +182,7 @@ pub struct CachedResolution {
     pub cached_at: DateTime<Utc>,
     /// Expiry time (`cached_at + ttl`).
     pub expires_at: DateTime<Utc>,
-    /// Canonical SHA-256 digest of the document, including the `sha256:` prefix.
+    /// Normalized DID Document digest, including the `sha256:` prefix.
     pub document_hash: String,
 }
 
@@ -229,12 +229,11 @@ impl CachedResolution {
     }
 }
 
-/// Compute the document's canonical SHA-256 digest with the `sha256:` prefix.
+/// Compute the sole normalized document digest with the `sha256:` prefix.
 fn document_canonical_hash(document: &DidDocument) -> Result<String> {
-    let bytes = arkret_canonical::canonical::canonical_json_bytes(document).map_err(|e| {
-        IdentityError::Protocol(format!("DID document canonicalization failed: {e}"))
-    })?;
-    Ok(arkret_canonical::canonical::sha256_digest(bytes))
+    document_canonical_digest(document)
+        .map(|digest| digest.as_ref().to_owned())
+        .map_err(|error| IdentityError::Protocol(error.to_string()))
 }
 
 /// Mutable state for [`DidResolutionCache`], protected by a `Mutex`.

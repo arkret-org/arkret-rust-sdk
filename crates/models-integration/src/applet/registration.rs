@@ -1170,7 +1170,7 @@ fn verification_method_controller_core(verification_method: &str) -> Result<DidC
 }
 
 pub fn applet_document_digest(document: &DidDocument) -> Result<Hash> {
-    Hash::new(canonical::canonical_sha256(document)?).map_err(Into::into)
+    arkret_models_identity::normalized_did_document_digest(document)
 }
 
 // ─── S-13 (2026-06-04): Applet Package + install aggregate objects ────────

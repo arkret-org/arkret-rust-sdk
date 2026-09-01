@@ -2690,13 +2690,12 @@ pub struct RecoveryReceipt {
     pub trust_domain: TrustDomainId,
     pub new_device_id: DeviceId,
     pub identity_model: RecoveryIdentityModel,
+    pub recovery_authority_kind: RecoveryAuthorityKind,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub previous_model_generation_ref: u64,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub result_model_generation_ref: u64,
     pub authorization_event_id: EventId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_list_update_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reanchor_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2747,7 +2746,6 @@ impl RecoveryReceipt {
             self.identity_model,
             &self.previous_model_generation_ref,
             &self.result_model_generation_ref,
-            self.device_list_update_event_id.is_some(),
             self.reanchor_event_id.is_some(),
             self.reanchor_batch_receipt_id.is_some(),
             self.outcome,
@@ -2769,6 +2767,16 @@ impl RecoveryReceipt {
     }
 }
 
+/// Recovery authority selected by the accepted PCR recovery policy for the
+/// signed terminal receipt.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecoveryAuthorityKind {
+    PcrPolicy,
+    DidRoot,
+}
+
 /// Strongly typed recovery-receipt members before signature metadata exists.
 #[derive(Clone, Debug)]
 pub struct UnsignedRecoveryReceiptBody {
@@ -2783,10 +2791,10 @@ pub struct UnsignedRecoveryReceiptBody {
     pub trust_domain: TrustDomainId,
     pub new_device_id: DeviceId,
     pub identity_model: RecoveryIdentityModel,
+    pub recovery_authority_kind: RecoveryAuthorityKind,
     pub previous_model_generation_ref: u64,
     pub result_model_generation_ref: u64,
     pub authorization_event_id: EventId,
-    pub device_list_update_event_id: Option<EventId>,
     pub reanchor_event_id: Option<EventId>,
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
     pub proof_summary: RecoveryProofSummary,
@@ -2814,7 +2822,6 @@ impl UnsignedRecoveryReceipt {
             body.identity_model,
             &body.previous_model_generation_ref,
             &body.result_model_generation_ref,
-            body.device_list_update_event_id.is_some(),
             body.reanchor_event_id.is_some(),
             body.reanchor_batch_receipt_id.is_some(),
             body.outcome,
@@ -2848,10 +2855,10 @@ impl UnsignedRecoveryReceipt {
             trust_domain: body.trust_domain,
             new_device_id: body.new_device_id,
             identity_model: body.identity_model,
+            recovery_authority_kind: body.recovery_authority_kind,
             previous_model_generation_ref: body.previous_model_generation_ref,
             result_model_generation_ref: body.result_model_generation_ref,
             authorization_event_id: body.authorization_event_id,
-            device_list_update_event_id: body.device_list_update_event_id,
             reanchor_event_id: body.reanchor_event_id,
             reanchor_batch_receipt_id: body.reanchor_batch_receipt_id,
             proof_summary: body.proof_summary,
@@ -2880,7 +2887,6 @@ fn validate_recovery_receipt_body(
     identity_model: RecoveryIdentityModel,
     previous_model_generation_ref: &u64,
     result_model_generation_ref: &u64,
-    device_list_update_present: bool,
     reanchor_event_present: bool,
     reanchor_batch_receipt_present: bool,
     outcome: RecoveryReceiptOutcome,
@@ -2896,7 +2902,6 @@ fn validate_recovery_receipt_body(
     if identity_model != RecoveryIdentityModel::PcrPolicy
         || *previous_model_generation_ref == 0
         || *result_model_generation_ref <= *previous_model_generation_ref
-        || device_list_update_present
         || !reanchor_event_present
         || !reanchor_batch_receipt_present
     {
@@ -2941,10 +2946,10 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
         "trust_domain": &body.trust_domain,
         "new_device_id": &body.new_device_id,
         "identity_model": body.identity_model,
+        "recovery_authority_kind": body.recovery_authority_kind,
         "previous_model_generation_ref": &body.previous_model_generation_ref,
         "result_model_generation_ref": &body.result_model_generation_ref,
         "authorization_event_id": &body.authorization_event_id,
-        "device_list_update_event_id": &body.device_list_update_event_id,
         "reanchor_event_id": &body.reanchor_event_id,
         "reanchor_batch_receipt_id": &body.reanchor_batch_receipt_id,
         "proof_summary": &body.proof_summary,
@@ -2958,10 +2963,6 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
     });
     let object = value.as_object_mut().expect("receipt literal is an object");
     for (present, field) in [
-        (
-            body.device_list_update_event_id.is_some(),
-            "device_list_update_event_id",
-        ),
         (body.reanchor_event_id.is_some(), "reanchor_event_id"),
         (
             body.reanchor_batch_receipt_id.is_some(),

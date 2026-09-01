@@ -14,8 +14,6 @@
 //! feature, and other backends (HSM, threshold scheme) can layer on the
 //! same trait.
 
-use std::collections::BTreeSet;
-
 use chrono::Utc;
 
 use crate::{
@@ -36,7 +34,8 @@ pub trait PayloadSigner {
 
     /// Sign arbitrary canonical bytes with the signer's key, producing a
     /// detached JWS plus the matching `payload_digest`. Helpers such as
-    /// [`Seal::sign_single`] build the canonical body bytes and delegate here.
+    /// [`Seal::sign_single_with_roots`] build the canonical body bytes and
+    /// delegate here.
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature>;
 
     /// Sign a Seal/notary payload while binding both the typed digest suite and
@@ -52,113 +51,6 @@ pub trait PayloadSigner {
 }
 
 impl Seal {
-    /// Build + single-sign a normal Seal (delta-accepting). Delegates to
-    /// [`Seal::sign_single_kind`] with `kind=Normal`.
-    pub fn sign_single<S: PayloadSigner + ?Sized>(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        state_root: Hash,
-        hlc: Hlc,
-        digest_suite: arkret_canonical::DigestSuite,
-        signer: &S,
-    ) -> Result<Seal> {
-        Self::sign_single_kind(
-            realm_id,
-            predecessor_refs,
-            delta,
-            state_root,
-            hlc,
-            crate::SealKind::Normal,
-            digest_suite,
-            signer,
-        )
-    }
-
-    /// Build + single-sign a normal Seal with an explicit construction mode.
-    /// Compaction Seals require an explicit, complete
-    /// `covered_event_digests` input and are therefore rejected by this
-    /// delta-only convenience builder.
-    ///
-    /// Derives `control_event_set_root` from `delta` alone, which only
-    /// equals the value a verifier recomputes when `predecessor_refs`
-    /// carry no coverage of their own — i.e. genesis, or a Seal whose
-    /// predecessors are all empty. `control_event_set_root` is
-    /// *cumulative*: [`crate::state`-side verification][av] recomputes it
-    /// over predecessor coverage ∪ delta and rejects the Seal when the
-    /// declared root differs. Any Seal built on non-empty predecessors —
-    /// every compaction Seal, in particular, whose empty delta hashes to
-    /// the empty root — MUST use
-    /// [`Seal::sign_single_kind_with_control_root`] and pass the
-    /// cumulative root from the effective seal view.
-    ///
-    /// [av]: https://docs.rs/arkret-state
-    #[allow(clippy::too_many_arguments)]
-    pub fn sign_single_kind<S: PayloadSigner + ?Sized>(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        state_root: Hash,
-        hlc: Hlc,
-        kind: crate::SealKind,
-        digest_suite: arkret_canonical::DigestSuite,
-        signer: &S,
-    ) -> Result<Seal> {
-        if kind.is_compaction() {
-            return Err(WireError::Protocol(
-                "compaction Seal requires an explicit covered_event_digests set".to_owned(),
-            ));
-        }
-        let control_event_set_root = delta_control_root(&delta, digest_suite)?;
-        Self::sign_single_kind_with_control_root(
-            realm_id,
-            predecessor_refs,
-            delta,
-            control_event_set_root,
-            state_root,
-            hlc,
-            kind,
-            digest_suite,
-            signer,
-        )
-    }
-
-    /// Build + single-sign a Seal whose cumulative `control_event_set_root`
-    /// is supplied by the caller.
-    ///
-    /// This is the form to use whenever the Seal has predecessors that
-    /// already cover control-plane Events: pass the root the notary computes over
-    /// predecessor coverage ∪ delta (an effective seal view exposes it
-    /// directly), because that is what a verifier recomputes. The
-    /// delta-only shorthand [`Seal::sign_single_kind`] silently produces a
-    /// root that a verifier rejects in exactly that case.
-    #[allow(clippy::too_many_arguments)]
-    pub fn sign_single_kind_with_control_root<S: PayloadSigner + ?Sized>(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        control_event_set_root: Hash,
-        state_root: Hash,
-        hlc: Hlc,
-        kind: crate::SealKind,
-        digest_suite: arkret_canonical::DigestSuite,
-        signer: &S,
-    ) -> Result<Seal> {
-        let completeness_root = control_event_set_root.clone();
-        Self::sign_single_kind_with_roots(
-            realm_id,
-            predecessor_refs,
-            delta,
-            control_event_set_root,
-            completeness_root,
-            state_root,
-            hlc,
-            kind,
-            digest_suite,
-            signer,
-        )
-    }
-
     /// Build + single-sign a Seal with independently computed cumulative
     /// control-set and actor-sequence completeness roots.
     ///
@@ -166,7 +58,7 @@ impl Seal {
     /// Events. The two roots use different Merkle domains and are not
     /// interchangeable even when the Seal has no predecessors.
     #[allow(clippy::too_many_arguments)]
-    pub fn sign_single_kind_with_roots<S: PayloadSigner + ?Sized>(
+    pub fn sign_single_with_roots<S: PayloadSigner + ?Sized>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
         delta: Vec<Hash>,
@@ -174,7 +66,6 @@ impl Seal {
         completeness_root: Hash,
         state_root: Hash,
         hlc: Hlc,
-        _kind: crate::SealKind,
         digest_suite: arkret_canonical::DigestSuite,
         signer: &S,
     ) -> Result<Seal> {
@@ -229,64 +120,31 @@ impl Seal {
         })
     }
 
-    /// Build + multi-sign a normal Seal. Delegates to
-    /// [`Seal::sign_multi_kind`] with `kind=Normal`.
-    pub fn sign_multi<S>(
-        realm_id: RealmId,
-        predecessor_refs: Vec<SealId>,
-        delta: Vec<Hash>,
-        state_root: Hash,
-        hlc: Hlc,
-        digest_suite: arkret_canonical::DigestSuite,
-        signers: &[&S],
-    ) -> Result<Seal>
-    where
-        S: PayloadSigner + ?Sized,
-    {
-        Self::sign_multi_kind(
-            realm_id,
-            predecessor_refs,
-            delta,
-            state_root,
-            hlc,
-            crate::SealKind::Normal,
-            digest_suite,
-            signers,
-        )
-    }
-
-    /// Build + multi-sign a normal Seal with an explicit construction mode.
-    /// Compaction Seals are rejected for the same reason as
-    /// [`Seal::sign_single_kind`].
+    /// Build + multi-sign a Seal with independently computed cumulative
+    /// control-set and actor-sequence completeness roots.
     #[allow(clippy::too_many_arguments)]
-    pub fn sign_multi_kind<S>(
+    pub fn sign_multi_with_roots<S>(
         realm_id: RealmId,
         predecessor_refs: Vec<SealId>,
         delta: Vec<Hash>,
+        control_event_set_root: Hash,
+        completeness_root: Hash,
         state_root: Hash,
         hlc: Hlc,
-        kind: crate::SealKind,
         digest_suite: arkret_canonical::DigestSuite,
         signers: &[&S],
     ) -> Result<Seal>
     where
         S: PayloadSigner + ?Sized,
     {
-        if kind.is_compaction() {
-            return Err(WireError::Protocol(
-                "compaction Seal requires an explicit covered_event_digests set".to_owned(),
-            ));
-        }
         if signers.is_empty() {
             return Err(WireError::Protocol(
-                "Seal::sign_multi requires at least one signer".to_owned(),
+                "Seal::sign_multi_with_roots requires at least one signer".to_owned(),
             ));
         }
         let sealed_at = Utc::now();
         let previous_state_root = None;
         let previous_digest_algorithm = None;
-        let control_event_set_root = delta_control_root(&delta, digest_suite)?;
-        let completeness_root = control_event_set_root.clone();
         let notary_seq = 0;
         let data_view_root = None;
         let data_event_set_root = None;
@@ -342,50 +200,6 @@ impl Seal {
         seal.validate_structural()?;
         Ok(seal)
     }
-}
-
-fn delta_control_root(delta: &[Hash], digest_suite: arkret_canonical::DigestSuite) -> Result<Hash> {
-    let covered: BTreeSet<Hash> = delta.iter().cloned().collect();
-    let mut leaves: Vec<[u8; 32]> = covered
-        .iter()
-        .map(|event_digest| {
-            let (suite, digest) = event_digest.as_str().split_once(':').ok_or_else(|| {
-                WireError::Protocol("control-plane event_digest must carry a suite".to_owned())
-            })?;
-            canonical::digest_suite(suite)?;
-            let mut bytes = [0_u8; 32];
-            hex::decode_to_slice(digest, &mut bytes).map_err(|error| {
-                WireError::Protocol(format!("invalid control-plane event_digest: {error}"))
-            })?;
-            Ok(bytes)
-        })
-        .collect::<Result<_>>()?;
-    if leaves.is_empty() {
-        return Hash::new(canonical::digest(digest_suite, [])).map_err(WireError::from);
-    }
-    for leaf in &mut leaves {
-        *leaf = canonical::digest_bytes_from_slices(digest_suite, &[&[0x00], leaf]);
-    }
-    while leaves.len() > 1 {
-        let mut next = Vec::with_capacity(leaves.len().div_ceil(2));
-        for pair in leaves.chunks(2) {
-            if let Some(right) = pair.get(1) {
-                next.push(canonical::digest_bytes_from_slices(
-                    digest_suite,
-                    &[&[0x01], &pair[0], right],
-                ));
-            } else {
-                next.push(pair[0]);
-            }
-        }
-        leaves = next;
-    }
-    Hash::new(format!(
-        "{}:{}",
-        digest_suite.as_str(),
-        hex::encode(leaves[0])
-    ))
-    .map_err(WireError::from)
 }
 
 fn seal_signature(signature: PayloadSignature) -> SealSignature {
@@ -670,12 +484,14 @@ mod tests {
     }
 
     #[test]
-    fn seal_sign_single_validates_id_and_structural() {
+    fn seal_sign_single_with_roots_validates_id_and_structural() {
         let s = signer();
-        let a = Seal::sign_single(
+        let a = Seal::sign_single_with_roots(
             realm(),
             vec![seal_id(0xaa)],
             vec![hash(0x11)],
+            hash(0x22),
+            hash(0x33),
             hash(0x77),
             hlc(),
             arkret_canonical::DigestSuite::Sha256,
@@ -693,7 +509,7 @@ mod tests {
 
     #[test]
     fn seal_sign_single_preserves_independent_completeness_root() {
-        let seal = Seal::sign_single_kind_with_roots(
+        let seal = Seal::sign_single_with_roots(
             realm(),
             Vec::new(),
             vec![hash(0x11)],
@@ -701,7 +517,6 @@ mod tests {
             hash(0x33),
             hash(0x44),
             hlc(),
-            crate::SealKind::Normal,
             arkret_canonical::DigestSuite::Sha256,
             &signer(),
         )
@@ -714,17 +529,19 @@ mod tests {
     }
 
     #[test]
-    fn seal_sign_multi_collects_one_sig_per_signer() {
+    fn seal_sign_multi_with_roots_collects_one_sig_per_signer() {
         let alice = signer();
         let bob = StubSigner {
             did: Did::new("did:webvh:z6mkfixture:bob.example".to_owned()).unwrap(),
             kid: bob_kid(),
         };
         let signers: &[&dyn PayloadSigner] = &[&alice, &bob];
-        let a = Seal::sign_multi(
+        let a = Seal::sign_multi_with_roots(
             realm(),
             vec![seal_id(0xaa)],
             vec![hash(0x11)],
+            hash(0x22),
+            hash(0x33),
             hash(0x77),
             hlc(),
             arkret_canonical::DigestSuite::Sha256,
@@ -738,11 +555,13 @@ mod tests {
     }
 
     #[test]
-    fn seal_sign_multi_rejects_empty_signer_set() {
-        let err = Seal::sign_multi::<dyn PayloadSigner>(
+    fn seal_sign_multi_with_roots_rejects_empty_signer_set() {
+        let err = Seal::sign_multi_with_roots::<dyn PayloadSigner>(
             realm(),
             vec![seal_id(0xaa)],
             vec![hash(0x11)],
+            hash(0x22),
+            hash(0x33),
             hash(0x77),
             hlc(),
             arkret_canonical::DigestSuite::Sha256,
@@ -750,6 +569,24 @@ mod tests {
         )
         .unwrap_err();
         assert!(format!("{err}").contains("requires at least one signer"));
+    }
+
+    #[test]
+    fn seal_signer_public_api_has_no_merged_root_convenience_builders() {
+        let source = include_str!("signer.rs");
+        let forbidden = [
+            ["pub fn sign_", "single("].concat(),
+            ["pub fn sign_", "single_kind("].concat(),
+            ["pub fn sign_single_kind_with_", "control_root("].concat(),
+            ["pub fn sign_", "multi("].concat(),
+            ["pub fn sign_", "multi_kind("].concat(),
+        ];
+        for signature in forbidden {
+            assert!(
+                !source.contains(&signature),
+                "merged-root Seal builder returned to the public SDK surface: {signature}"
+            );
+        }
     }
 
     // -------------------------------------------------------------------

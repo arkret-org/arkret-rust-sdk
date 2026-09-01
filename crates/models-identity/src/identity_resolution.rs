@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::DidDocument;
+use crate::{DidDocument, normalized_did_document_digest};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -648,9 +648,7 @@ impl AuthenticatedServiceResolution {
             || boundary.to_method_history_head != record.method_history_head
             || boundary.to_version_id != record.version_id
             || self.method_history_evidence.evidence().document_digest
-                != Hash::new(arkret_canonical::canonical_sha256(
-                    &self.normalized_did_document,
-                )?)?
+                != normalized_did_document_digest(&self.normalized_did_document)?
             || record.issued_at > record.refresh_after
             || record.refresh_after >= record.expires_at
             || now >= record.refresh_after

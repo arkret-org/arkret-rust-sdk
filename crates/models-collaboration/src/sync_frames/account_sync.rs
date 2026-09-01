@@ -372,8 +372,6 @@ pub struct DeviceMessageEnvelope {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub content: DeviceMessageContent,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_proof: Option<PayloadProof>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unsigned: Option<BTreeMap<String, Value>>,
 }
 
@@ -415,8 +413,6 @@ struct DeviceMessageEnvelopeWire {
     #[serde(deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
     content: Value,
-    #[serde(default)]
-    device_proof: Option<PayloadProof>,
     #[serde(default)]
     unsigned: Option<BTreeMap<String, Value>>,
 }
@@ -464,7 +460,6 @@ impl<'de> Deserialize<'de> for DeviceMessageEnvelope {
             sent_at: wire.sent_at,
             expires_at: wire.expires_at,
             content,
-            device_proof: wire.device_proof,
             unsigned: wire.unsigned,
         })
     }
@@ -1180,13 +1175,6 @@ mod device_message_tests {
                 "methods": ["ak.key.verification.sas_v1"],
                 "timestamp": "2026-07-15T00:00:00.000Z",
                 "expires_at": "2026-07-15T00:10:00.000Z"
-            },
-            "device_proof": {
-                "kind": "detached_jws",
-                "verification_method": "did:webvh:z6mkfixture:example.test#device-1",
-                "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "created_at": "2026-07-15T00:00:00.000Z",
-                "jws": "e30..c2ln"
             },
             "unsigned": {"retry_after_ms": 1000}
         })

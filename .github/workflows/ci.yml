@@ -81,26 +81,25 @@ jobs:
       # crates to assemble downstream, and `cargo check --all-features` above
       # already compiles them.
 
-  downstream-matrix-gate:
-    name: downstream compile matrix gate
+  compatibility-manifest-authoring:
+    name: compatibility manifest authoring gate
     runs-on: ubuntu-latest
-    # Public-surface changes under crates/wire or crates/models-* can break
-    # downstream repositories that this repo's own `cargo check` never compiles
-    # (indirect consumers reached through `arkret` re-exports). A cross-repo
-    # compile job was evaluated and rejected (see CONTRIBUTING.md), so this
-    # gate instead requires an explicit assertion: the PR body must contain
-    # `compile-matrix: green` — added by the author after running
-    # arkret-work/tools/check-workspace-compiles.ps1 — or
-    # `compile-matrix: n/a` with a reason.
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Require matrix assertion on wire/models public surface changes
+      - name: Validate manifest and negative mutation gate
+        run: |
+          python tools/compatibility_gate.py resolve \
+            --manifest compatibility/manifest.json \
+            --candidate "arkret-rust-sdk=${{ github.event.pull_request.head.sha }}" \
+            --output "${{ runner.temp }}/resolved-compatibility-manifest.json"
+          python tools/compatibility_gate.py negative-mutation \
+            --manifest "${{ runner.temp }}/resolved-compatibility-manifest.json" \
+            --workspace-root ..
+      - name: Require a candidate manifest for public model changes
         shell: bash
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
           changed=$(git diff --name-only "${{ github.event.pull_request.base.sha }}...HEAD" \
@@ -111,18 +110,14 @@ jobs:
           fi
           echo "wire/models source files changed:"
           echo "$changed"
-          if printf '%s' "$PR_BODY" | grep -qE 'compile-matrix:[[:space:]]*(green|n/a)'; then
-            echo "compile matrix assertion present in PR body"
+          if git diff --quiet "${{ github.event.pull_request.base.sha }}...HEAD" -- compatibility/manifest.json; then
+            echo "::error::Public SDK models changed without updating compatibility/manifest.json."
+            echo "::error::Pin every coordinated consumer candidate before the atomic compatibility gate runs."
+            exit 1
+          else
+            echo "candidate compatibility manifest changed"
             exit 0
           fi
-          echo "::error::This PR changes the wire/models public surface. Single-repo"
-          echo "::error::\`cargo check\` cannot see indirect downstream consumers — run the"
-          echo "::error::workspace compile matrix first:"
-          echo "::error::  powershell -File arkret-work/tools/check-workspace-compiles.ps1"
-          echo "::error::Then add 'compile-matrix: green' to the PR body (or"
-          echo "::error::'compile-matrix: n/a — <reason>' if the change cannot affect"
-          echo "::error::downstream compilation)."
-          exit 1
 
   wasm:
     name: wasm32 checks

@@ -24,7 +24,7 @@ use arkret_wire::DidCoreId;
 use arkret_wire::signal::MAX_SIGNAL_PLAINTEXT_BYTES;
 use arkret_wire::{
     ActorId, DeviceId, ErrorCode, EventId, Hash, Hlc, ReadReceiptScope, Result, SchemaId, ScopeRef,
-    SignalEnvelope, StrandId, WireError, canonical,
+    SignalClass, SignalEnvelope, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::de::DeserializeOwned;
@@ -370,6 +370,29 @@ impl SignalPlaintext {
             Self::ReadReceipt(payload) => payload.ttl_ms(),
             Self::CallSignal(payload) => payload.ttl_ms(),
             Self::MessageStream(payload) => payload.ttl_ms(),
+        }
+    }
+
+    /// Exact server-visible class required by this closed plaintext profile.
+    ///
+    /// The outer class is an authorization and TTL selector, not a sender
+    /// hint. In particular a moderator mute cannot be hidden inside `session`
+    /// to bypass the recipient's `ak.call.moderate` gate.
+    pub fn signal_class(&self) -> SignalClass {
+        match self {
+            Self::CallSignal(payload) => match &payload.signal {
+                crate::call_signal::CallSignalData::Invite(_)
+                | crate::call_signal::CallSignalData::Answer(_) => SignalClass::Setup,
+                crate::call_signal::CallSignalData::Moderation(_)
+                | crate::call_signal::CallSignalData::MuteState(
+                    crate::call_signal::CallMuteStateSignalData {
+                        changed_by: crate::call_signal::MuteChangedBy::Moderator,
+                        ..
+                    },
+                ) => SignalClass::Moderation,
+                _ => SignalClass::Session,
+            },
+            _ => SignalClass::Session,
         }
     }
 

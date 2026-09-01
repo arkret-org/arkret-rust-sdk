@@ -7,7 +7,8 @@ use arkret_wire::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/provider_directory`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/provider_directory/properties/mimi`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ProviderDirectoryMimi {
@@ -86,7 +87,9 @@ impl ProviderDirectory {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/room_binding`.
+/// Counterpart for
+/// `spec/v1/artifacts/schemas/mimi-interop.schema.json#/$defs/room_binding/properties/payload/
+/// properties/binding_scope`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RoomBindingPayloadBindingScope {
     pub realm_id: RealmId,

@@ -27,14 +27,15 @@ pub use range_completeness::{
     range_completeness_root_with_suite, verify_full_realm_range_completeness_with_suite,
 };
 pub use seal::{
-    EffectiveSealView, EventDigestSetInclusionProof, SealBasisVerificationContext,
-    SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject, apply_accepted_seal_in_context,
-    apply_replayed_seal_in_context, apply_seal_in_context, control_event_completeness_root,
+    EffectiveSealView, EventDigestSetInclusionProof, ListedControlEvent, PreparedSealEffect,
+    SealBasisVerificationContext, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,
+    apply_accepted_seal_in_context, apply_replayed_seal_in_context, apply_seal_in_context,
+    control_event_completeness_root, control_event_completeness_root_from_listed,
     control_event_set_root, deterministic_order, effective_seal_view, effective_state_at,
     event_digest_set_inclusion_proof, event_digest_set_root, join_cell, join_cell_seal_batches,
     leaf_union_proof, live_digest_suite_from_state, predecessor_seal_closure,
-    union_predecessor_covered_events, verify_event_digest_set_inclusion_proof,
-    verify_recovery_witness, verify_seal_basis, view_hash,
+    prepare_seal_in_context, union_predecessor_covered_events,
+    verify_event_digest_set_inclusion_proof, verify_recovery_witness, verify_seal_basis, view_hash,
 };
 pub use state_root::{
     EMPTY_STATE_ROOT, StateInclusionProof, compute_state_root, leaf_hash, state_inclusion_proof,

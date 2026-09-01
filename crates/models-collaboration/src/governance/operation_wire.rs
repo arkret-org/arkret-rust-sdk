@@ -87,8 +87,8 @@ pub enum PolicyRuleKind {
     Extension,
 }
 
-/// A single typed policy rule (mirrors `policy.schema.json`
-/// `$defs.policy_rule`). `rule_id` / `kind` / `effect` are required; the
+/// A single typed policy rule (mirrors
+/// `policy.schema.json#/$defs/policy_rule`). `rule_id` / `kind` / `effect` are required; the
 /// kind-specific fields (e.g. `actions` for `kind=action`) ride in `extra`
 /// and are validated by [`PolicyRule::validate`].
 #[derive(Clone, Debug, Serialize, Deserialize)]

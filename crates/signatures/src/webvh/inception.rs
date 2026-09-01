@@ -35,7 +35,10 @@ use arkret_models_identity::service_identity::{
     CanonicalServiceUrl, ServiceRegistrationKey, ServiceWebvhInceptionOperation,
     service_registration_local_id,
 };
-use arkret_models_identity::{IdentityCreationControlProof, UnsignedIdentityCreationControlProof};
+use arkret_models_identity::{
+    DidDocument, IdentityCreationControlProof, UnsignedIdentityCreationControlProof,
+    normalized_did_document_digest,
+};
 use arkret_wire::{
     Base64UrlString, Did, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
     DidBindingMethodProofKind, DidCoreId, DidUrl, Hash, RegistrationControlSignature,
@@ -506,11 +509,10 @@ pub fn verify_registration_did_evidence_draft(
             "registration evidence operation has no DID document state".to_owned(),
         )
     })?;
-    let document_digest = Hash::new(
-        arkret_canonical::canonical::canonical_sha256(document)
-            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
-    )
-    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let document: DidDocument = serde_json::from_value(document.clone())
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let document_digest = normalized_did_document_digest(&document)
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let empty_witness_proofs_digest = Hash::new(
         arkret_canonical::canonical::canonical_sha256(&Vec::<Value>::new())
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
@@ -569,11 +571,10 @@ pub fn sign_registration_did_evidence_draft(
             "registration evidence operation has no DID document state".to_owned(),
         )
     })?;
-    let document_digest = Hash::new(
-        arkret_canonical::canonical::canonical_sha256(document)
-            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
-    )
-    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let document: DidDocument = serde_json::from_value(document.clone())
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let document_digest = normalized_did_document_digest(&document)
+        .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let witness_proofs_digest = Hash::new(
         arkret_canonical::canonical::canonical_sha256(&Vec::<Value>::new())
             .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
@@ -666,8 +667,8 @@ pub struct PreparedPrincipalRotation {
 }
 
 /// Inputs for one method-native same-SCID WebVH relocation successor. The
-/// preceding log must be complete through `current_did`, and inception must
-/// have committed `portable=true`.
+/// preceding log must be complete through `current_did`, and its terminal
+/// predecessor effective state must have `portable=true`.
 pub struct WebvhRelocationInput<'a> {
     pub current_did: &'a str,
     pub target_did: &'a str,
@@ -855,8 +856,8 @@ pub fn prepare_agent_inception(
     )
 }
 
-/// Prepare a principal inception that irrevocably opts into method-native
-/// same-SCID relocation. Portability cannot be introduced by a later entry.
+/// Prepare a principal inception whose initial effective state permits a later
+/// method-native same-SCID relocation.
 pub fn prepare_portable_principal_inception(
     input: &PrincipalInceptionInput<'_>,
 ) -> Result<PreparedPrincipalInception, WebvhInceptionError> {
@@ -979,7 +980,7 @@ where
 fn validate_principal_rotation_history<'a>(
     did: &str,
     entries: &'a [Value],
-) -> Result<(&'a Value, BTreeSet<String>), WebvhInceptionError> {
+) -> Result<(&'a Value, BTreeSet<String>, bool), WebvhInceptionError> {
     if entries.is_empty() {
         return Err(WebvhInceptionError::InvalidProof(
             "principal rotation requires the complete non-empty preceding log".to_owned(),
@@ -991,10 +992,7 @@ fn validate_principal_rotation_history<'a>(
     let mut activated_roots = BTreeSet::new();
     let mut previous_version_id: Option<&str> = None;
     let mut previous_next_hash: Option<String> = None;
-    let inception_portable = entries[0]
-        .pointer("/parameters/portable")
-        .and_then(Value::as_bool)
-        == Some(true);
+    let mut effective_portable = false;
     let mut previous_state_id: Option<&str> = None;
 
     for (index, entry) in entries.iter().enumerate() {
@@ -1012,6 +1010,26 @@ fn validate_principal_rotation_history<'a>(
                 "principal history entry {sequence} has a non-contiguous versionId"
             )));
         }
+        let parameters = entry
+            .get("parameters")
+            .and_then(Value::as_object)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing parameters"
+                ))
+            })?;
+        arkret_wire::validate_did_webvh_v1_parameter_names(parameters.keys().map(String::as_str))
+            .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
+        if parameters.get("method").and_then(Value::as_str) != Some(WEBVH_METHOD_VERSION)
+            || parameters.get("scid").and_then(Value::as_str) != Some(scid)
+        {
+            return Err(WebvhInceptionError::InvalidProof(format!(
+                "principal history entry {sequence} method or SCID does not match DID"
+            )));
+        }
+        let successor_effective_portable =
+            arkret_wire::did_webvh_v1_effective_portable(effective_portable, parameters)
+                .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
         let state_id = entry
             .pointer("/state/id")
             .and_then(Value::as_str)
@@ -1038,26 +1056,11 @@ fn validate_principal_rotation_history<'a>(
                         .iter()
                         .any(|alias| alias.as_str() == Some(previous_state_id))
                 });
-            if !inception_portable || !links_predecessor {
+            if !effective_portable || !links_predecessor {
                 return Err(WebvhInceptionError::InvalidProof(format!(
                     "principal history entry {sequence} has an unauthorized portable rename"
                 )));
             }
-        }
-        let parameters = entry
-            .get("parameters")
-            .and_then(Value::as_object)
-            .ok_or_else(|| {
-                WebvhInceptionError::InvalidProof(format!(
-                    "principal history entry {sequence} is missing parameters"
-                ))
-            })?;
-        if parameters.get("method").and_then(Value::as_str) != Some(WEBVH_METHOD_VERSION)
-            || parameters.get("scid").and_then(Value::as_str) != Some(scid)
-        {
-            return Err(WebvhInceptionError::InvalidProof(format!(
-                "principal history entry {sequence} method or SCID does not match DID"
-            )));
         }
         let update_keys = parameters
             .get("updateKeys")
@@ -1131,6 +1134,7 @@ fn validate_principal_rotation_history<'a>(
         verify_constructed_webvh_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
         previous_version_id = Some(version_id);
         previous_state_id = Some(state_id);
+        effective_portable = successor_effective_portable;
     }
 
     if previous_state_id != Some(did) {
@@ -1142,6 +1146,7 @@ fn validate_principal_rotation_history<'a>(
     Ok((
         entries.last().expect("history is non-empty"),
         activated_roots,
+        effective_portable,
     ))
 }
 
@@ -1164,7 +1169,30 @@ pub fn prepare_principal_rotation(
             input.next_root_public_key_multibase,
         ],
     )?;
-    prepare_principal_rotation_inner(input)
+    prepare_principal_rotation_inner(input, None)
+}
+
+/// Build a same-DID principal transition that explicitly replaces the
+/// effective WebVH `portable` value. Enabling portability authorizes only a
+/// later successor; it never authorizes a relocation in this transition.
+pub fn prepare_principal_portability_update(
+    input: &PrincipalRotationInput<'_>,
+    portable: bool,
+) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
+    let current_root_public_key_multibase = encode_ed25519_pubkey_multibase(
+        &SigningKey::from_bytes(input.current_root_seed)
+            .verifying_key()
+            .to_bytes(),
+    );
+    validate_principal_did_document_profile(
+        input.did,
+        input.state,
+        &[
+            current_root_public_key_multibase.as_str(),
+            input.next_root_public_key_multibase,
+        ],
+    )?;
+    prepare_principal_rotation_inner(input, Some(portable))
 }
 
 /// Build the first post-create Agent DID update. The complete
@@ -1233,19 +1261,23 @@ pub fn prepare_agent_binding_update(
             input.next_root_public_key_multibase,
         ],
     )?;
-    prepare_principal_rotation_inner(&PrincipalRotationInput {
-        did: input.did,
-        local_id: input.local_id,
-        previous_entries: input.previous_entries,
-        version_time: input.version_time,
-        current_root_seed: input.current_root_seed,
-        next_root_public_key_multibase: input.next_root_public_key_multibase,
-        state: &state,
-    })
+    prepare_principal_rotation_inner(
+        &PrincipalRotationInput {
+            did: input.did,
+            local_id: input.local_id,
+            previous_entries: input.previous_entries,
+            version_time: input.version_time,
+            current_root_seed: input.current_root_seed,
+            next_root_public_key_multibase: input.next_root_public_key_multibase,
+            state: &state,
+        },
+        None,
+    )
 }
 
 fn prepare_principal_rotation_inner(
     input: &PrincipalRotationInput<'_>,
+    portable: Option<bool>,
 ) -> Result<PreparedPrincipalRotation, WebvhInceptionError> {
     let did = Did::new(input.did.to_owned())
         .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
@@ -1260,7 +1292,7 @@ fn prepare_principal_rotation_inner(
             "local_id does not match the principal DID".to_owned(),
         ));
     }
-    let (previous_entry, activated_roots) =
+    let (previous_entry, activated_roots, _) =
         validate_principal_rotation_history(input.did, input.previous_entries)?;
     let previous_version_id = previous_entry
         .get("versionId")
@@ -1353,6 +1385,9 @@ fn prepare_principal_rotation_inner(
         },
         "state": input.state,
     });
+    if let Some(portable) = portable {
+        log_entry["parameters"]["portable"] = Value::Bool(portable);
+    }
     let version_hash = sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(
         &log_entry,
         previous_version_id,
@@ -1426,17 +1461,6 @@ pub fn prepare_webvh_relocation(
             "portable relocation must change the WebVH host or path".to_owned(),
         ));
     }
-    if input
-        .previous_entries
-        .first()
-        .and_then(|entry| entry.pointer("/parameters/portable"))
-        .and_then(Value::as_bool)
-        != Some(true)
-    {
-        return Err(WebvhInceptionError::InvalidProof(
-            "portable relocation requires portable=true at inception".to_owned(),
-        ));
-    }
     if input.state.get("id").and_then(Value::as_str) != Some(input.target_did) {
         return Err(WebvhInceptionError::InvalidDid(
             "relocation successor state id must equal target_did".to_owned(),
@@ -1457,8 +1481,14 @@ pub fn prepare_webvh_relocation(
         ));
     }
 
-    let (previous_entry, activated_roots) =
+    let (previous_entry, activated_roots, predecessor_effective_portable) =
         validate_principal_rotation_history(input.current_did, input.previous_entries)?;
+    if !predecessor_effective_portable {
+        return Err(WebvhInceptionError::InvalidProof(
+            "portable relocation requires portable=true in the predecessor effective state"
+                .to_owned(),
+        ));
+    }
     let previous_version_id = previous_entry
         .get("versionId")
         .and_then(Value::as_str)

@@ -545,6 +545,69 @@ fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
     assert!(control_event_completeness_root(&[alice], &covered).is_err());
 }
 
+fn listed(actor_id: &str, actor_seq: u64, byte: u8) -> ListedControlEvent {
+    ListedControlEvent {
+        actor_id: ActorId::service(DidCoreId::new(actor_id.to_owned()).unwrap()),
+        actor_seq,
+        event_digest: move_id(byte),
+    }
+}
+
+#[test]
+fn genesis_vector_recomputes_independent_seal_roots() {
+    let events = [
+        listed("ak:did_core:webvh:z6mkfixturealice", 1, 0x11),
+        listed("ak:did_core:webvh:z6mkfixturealice", 2, 0x22),
+    ];
+    let covered = events
+        .iter()
+        .map(|event| event.event_digest.clone())
+        .collect::<BTreeSet<_>>();
+    let control = super::control_event_set_root(&covered, SUITE).unwrap();
+    let completeness = control_event_completeness_root_from_listed(&events, SUITE).unwrap();
+    assert_ne!(control, completeness);
+}
+
+#[test]
+fn predecessor_vector_recomputes_roots_over_the_cumulative_closure() {
+    let predecessor = listed("ak:did_core:webvh:z6mkfixturealice", 7, 0x11);
+    let successor = listed("ak:did_core:webvh:z6mkfixturealice", 9, 0x22);
+    let cumulative = [predecessor.clone(), successor.clone()];
+    let cumulative_covered = cumulative
+        .iter()
+        .map(|event| event.event_digest.clone())
+        .collect::<BTreeSet<_>>();
+    let delta_only = BTreeSet::from([successor.event_digest.clone()]);
+
+    assert_ne!(
+        super::control_event_set_root(&cumulative_covered, SUITE).unwrap(),
+        super::control_event_set_root(&delta_only, SUITE).unwrap()
+    );
+    assert_ne!(
+        control_event_completeness_root_from_listed(&cumulative, SUITE).unwrap(),
+        control_event_completeness_root_from_listed(&[successor], SUITE).unwrap()
+    );
+}
+
+#[test]
+fn multi_actor_vector_recomputes_one_completeness_leaf_per_actor() {
+    let events = [
+        listed("ak:did_core:webvh:z6mkfixturealice", 7, 0x11),
+        listed("ak:did_core:webvh:z6mkfixturebob", 3, 0x22),
+        listed("ak:did_core:webvh:z6mkfixturealice", 9, 0x33),
+    ];
+    let reversed = [events[2].clone(), events[1].clone(), events[0].clone()];
+    let root = control_event_completeness_root_from_listed(&events, SUITE).unwrap();
+    assert_eq!(
+        root,
+        control_event_completeness_root_from_listed(&reversed, SUITE).unwrap()
+    );
+    assert_ne!(
+        root,
+        control_event_completeness_root_from_listed(&events[..2], SUITE).unwrap()
+    );
+}
+
 #[test]
 fn effective_state_at_filters_ops_by_seal_coverage() {
     let seals = MemorySealStore::default();
@@ -937,6 +1000,110 @@ fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
     .unwrap();
     assert_eq!(effect.accepted_event_digests, vec![digest]);
     assert_eq!(effect.post_state_root, seal.state_root);
+}
+
+#[test]
+fn prepared_seal_transition_is_store_immutable_until_commit() {
+    let events = MemoryControlEventStore::default();
+    let seals = MemorySealStore::default();
+    let cells = MemoryCellStore::default();
+    let registry = MemoryCellRegistry::default();
+    let event = genesis_create();
+    let digest = control_event_digest(&event, SUITE).unwrap();
+    events
+        .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .unwrap();
+    let seal = signed_seal_with_coverage(
+        Vec::new(),
+        vec![digest.clone()],
+        std::slice::from_ref(&event),
+        &state_with_digest_suite([]),
+        0,
+    );
+
+    let prepared = super::prepare_seal_in_context(
+        &seal,
+        &events,
+        &seals,
+        &cells,
+        &registry,
+        SealDigestSuites::standard(SUITE),
+        |event, _| ok_proofs(event),
+        |event, _| genesis_digest_suite_write(event),
+        EventSubmitContext::AnchorUnit,
+    )
+    .unwrap();
+
+    assert_eq!(prepared.effect.accepted_event_digests, vec![digest.clone()]);
+    assert_eq!(
+        prepared.covered_event_digests,
+        [digest.clone()].into_iter().collect()
+    );
+    assert!(seals.get(&seal.id).unwrap().is_none());
+    assert!(cells.list_cells(&seal.realm_id).unwrap().is_empty());
+
+    let committed = apply_seal_in_context(
+        &seal,
+        &events,
+        &seals,
+        &cells,
+        &registry,
+        ok_proofs,
+        genesis_digest_suite_write,
+        EventSubmitContext::AnchorUnit,
+    )
+    .unwrap();
+    assert_eq!(committed.accepted_event_digests, vec![digest]);
+}
+
+#[test]
+fn seal_rejects_each_independently_recomputed_root_mismatch() {
+    let event = genesis_create();
+    let digest = control_event_digest(&event, SUITE).unwrap();
+    let post_state = state_with_digest_suite([]);
+    let valid = signed_seal_with_coverage(
+        Vec::new(),
+        vec![digest],
+        std::slice::from_ref(&event),
+        &post_state,
+        0,
+    );
+
+    for (index, mut seal) in [valid.clone(), valid].into_iter().enumerate() {
+        let expected_variant = if index == 0 {
+            seal.control_event_set_root = hash(0x91);
+            "control"
+        } else {
+            seal.completeness_root = hash(0x92);
+            "completeness"
+        };
+        seal.id = seal.derive_id(SUITE).unwrap();
+        let events = MemoryControlEventStore::default();
+        events
+            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+            .unwrap();
+        let error = apply_seal_in_context(
+            &seal,
+            &events,
+            &MemorySealStore::default(),
+            &MemoryCellStore::default(),
+            &MemoryCellRegistry::default(),
+            ok_proofs,
+            genesis_digest_suite_write,
+            EventSubmitContext::AnchorUnit,
+        )
+        .unwrap_err();
+        match expected_variant {
+            "control" => assert!(matches!(
+                error,
+                SealReject::ControlEventSetRootMismatch { .. }
+            )),
+            "completeness" => {
+                assert!(matches!(error, SealReject::CompletenessRootMismatch { .. }))
+            }
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[test]

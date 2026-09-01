@@ -305,14 +305,18 @@ impl Client {
             .map(|(key, value)| format!("{key} {}", b64_metadata_value(value)))
             .collect::<Vec<_>>()
             .join(",");
-        let create = self
-            .execute(
-                self.tus_request(Method::POST, base_url.clone())?
-                    .header("tus-resumable", TUS_VERSION)
-                    .header("upload-length", payload.len().to_string())
-                    .header("upload-metadata", upload_metadata),
+        let mut create_request = self
+            .tus_request(Method::POST, base_url.clone())?
+            .header(
+                crate::HEADER_OPERATION,
+                arkret_wire::ServiceOperationId::SelfBlobUploadCreateV1.as_str(),
             )
-            .await?;
+            .header("tus-resumable", TUS_VERSION)
+            .header("upload-length", payload.len().to_string());
+        if !upload_metadata.is_empty() {
+            create_request = create_request.header("upload-metadata", upload_metadata);
+        }
+        let create = self.execute(create_request).await?;
         if create.status() != reqwest::StatusCode::CREATED {
             return Err(Error::Protocol(format!(
                 "resumable upload create failed with status {}",

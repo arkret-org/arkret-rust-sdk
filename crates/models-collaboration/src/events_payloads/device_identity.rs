@@ -372,13 +372,6 @@ pub fn validate_root_anchored_authorize_payload_digest(
 /// Event's `event_id` in `prev_refs`, and every `event_id` is a function of its
 /// own signed content, so an id or envelope binding would make the two Events
 /// preimages of each other. See `key-management.md` §5.0.7.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryAuthorityKind {
-    PcrPolicy,
-    DidRoot,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceReanchorPayload {

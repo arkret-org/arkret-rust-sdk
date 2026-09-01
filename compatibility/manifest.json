@@ -1,0 +1,240 @@
+{
+  "$schema": "./manifest.schema.json",
+  "schema_version": 1,
+  "train": {
+    "id": "arkret-v1-main",
+    "merge_order": [
+      "arkret-spec",
+      "arkret-rust-sdk",
+      "floria",
+      "soland",
+      "coauth",
+      "garth",
+      "chime",
+      "inkson",
+      "cotest"
+    ]
+  },
+  "repositories": {
+    "arkret-spec": {
+      "repository": "arkret-org/arkret-spec",
+      "commit": "77408920758a7236011ea7f572fe61035f7ad6c2",
+      "checkout_path": "arkret-spec",
+      "roles": ["normative-artifacts", "operation-registry", "schemas"]
+    },
+    "arkret-rust-sdk": {
+      "repository": "arkret-org/arkret-rust-sdk",
+      "commit": "fee44cdb851721b2e525bbd9d3c55aef5f67c59c",
+      "checkout_path": "arkret-rust-sdk",
+      "roles": ["public-models", "generated-contracts", "shared-validators"]
+    },
+    "floria": {
+      "repository": "arkret-org/floria",
+      "commit": "52e4124beed6a6683122e109252fb4497f99507f",
+      "checkout_path": "floria",
+      "roles": ["soland-build-dependency"]
+    },
+    "soland": {
+      "repository": "arkret-org/soland",
+      "commit": "444e897032c3b10852d8472ef73414a7d8717569",
+      "checkout_path": "soland",
+      "roles": ["protocol-producer", "server"]
+    },
+    "coauth": {
+      "repository": "arkret-org/coauth",
+      "commit": "b5f4c8b09d5d1c65ae2e1e0c013db4d9d60ab0c3",
+      "checkout_path": "coauth",
+      "roles": ["identity-producer", "authorization-producer"]
+    },
+    "garth": {
+      "repository": "arkret-org/garth",
+      "commit": "cffabf2f33f0570774095093b54127f379d252ca",
+      "checkout_path": "garth",
+      "roles": ["runtime-consumer"]
+    },
+    "chime": {
+      "repository": "arkret-org/chime",
+      "commit": "7bc9678bd053b5877a53713e4bef002075db4ae2",
+      "checkout_path": "chime",
+      "roles": ["inkson-build-dependency"]
+    },
+    "inkson": {
+      "repository": "arkret-org/inkson",
+      "commit": "c4811f767e041497ed210584a1f58e907317439d",
+      "checkout_path": "inkson",
+      "roles": ["application-consumer"]
+    },
+    "cotest": {
+      "repository": "arkret-org/cotest",
+      "commit": "03b4f0027a03536db700a7a055b2ee4f90d71567",
+      "checkout_path": "cotest",
+      "roles": ["joint-contract-tests", "wire-type-mirror"]
+    }
+  },
+  "public_model_probes": [
+    {
+      "repository": "arkret-rust-sdk",
+      "type": "arkret_wire::Event",
+      "source": "crates/wire/src/event_envelope.rs",
+      "required_fields": [
+        "event_id",
+        "kind",
+        "realm_id",
+        "scope_ref",
+        "actor_id",
+        "actor_seq",
+        "created_at",
+        "prev_refs",
+        "payload"
+      ]
+    }
+  ],
+  "artifact_probes": [
+    {
+      "repository": "arkret-spec",
+      "kind": "operation",
+      "name": "canonical operation registry",
+      "path": "spec/v1/artifacts/registry/operation-registry.json"
+    },
+    {
+      "repository": "arkret-spec",
+      "kind": "registry",
+      "name": "registry manifest",
+      "path": "spec/v1/artifacts/registry/registry-manifest.json"
+    },
+    {
+      "repository": "arkret-spec",
+      "kind": "schema",
+      "name": "event envelope",
+      "path": "spec/v1/artifacts/schemas/event-envelope.schema.json"
+    }
+  ],
+  "checks": [
+    {
+      "id": "sdk.generated-contracts",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": { "kind": "schema", "name": "all registered spec schemas" },
+      "working_directory": "arkret-rust-sdk",
+      "command": ["python", "tools/schema_struct_gate.py", "--spec-root", "../arkret-spec/spec/v1/artifacts/schemas"]
+    },
+    {
+      "id": "sdk.compile",
+      "repository": "arkret-rust-sdk",
+      "category": "compile",
+      "surface": { "kind": "type", "name": "arkret SDK public model surface" },
+      "working_directory": "arkret-rust-sdk",
+      "command": ["cargo", "check", "--workspace", "--all-targets", "--all-features", "--locked"]
+    },
+    {
+      "id": "soland.compile",
+      "repository": "soland",
+      "category": "compile",
+      "surface": { "kind": "type", "name": "Soland SDK producer integration" },
+      "working_directory": "soland",
+      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+    },
+    {
+      "id": "coauth.compile",
+      "repository": "coauth",
+      "category": "compile",
+      "surface": { "kind": "type", "name": "Coauth SDK producer integration" },
+      "working_directory": "coauth",
+      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+    },
+    {
+      "id": "garth.compile",
+      "repository": "garth",
+      "category": "compile",
+      "surface": { "kind": "type", "name": "Garth SDK consumer integration" },
+      "working_directory": "garth",
+      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+    },
+    {
+      "id": "inkson.compile",
+      "repository": "inkson",
+      "category": "compile",
+      "surface": { "kind": "type", "name": "Inkson SDK and Garth consumer integration" },
+      "working_directory": "inkson",
+      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+    },
+    {
+      "id": "cotest.compile",
+      "repository": "cotest",
+      "category": "compile",
+      "surface": { "kind": "type", "name": "Cotest Rust conformance integration" },
+      "working_directory": "cotest",
+      "command": ["cargo", "check", "--workspace", "--all-targets", "--all-features", "--locked"]
+    },
+    {
+      "id": "cotest.typecheck",
+      "repository": "cotest",
+      "category": "contract",
+      "surface": { "kind": "type", "name": "Cotest TypeScript wire consumers" },
+      "working_directory": "cotest/e2e",
+      "command": ["npm", "run", "typecheck"]
+    },
+    {
+      "id": "cotest.wire-types",
+      "repository": "cotest",
+      "category": "contract",
+      "surface": { "kind": "schema", "name": "generated Cotest wire objects" },
+      "working_directory": "cotest/e2e",
+      "command": ["npm", "run", "check:wire-types"]
+    },
+    {
+      "id": "cotest.joint-smoke",
+      "repository": "cotest",
+      "category": "contract",
+      "surface": { "kind": "operation", "name": "joint identity login and recovery operations" },
+      "working_directory": "cotest",
+      "command": [
+        "pwsh",
+        "-File",
+        "./scripts/run-joint-e2e.ps1",
+        "-SolandRuntime",
+        "docker",
+        "-SolandImage",
+        "cotest-soland:compatibility",
+        "-StartCoauth",
+        "-SkipNpmInstall",
+        "-SkipBrowserInstall",
+        "-RunProfile",
+        "joint-smoke",
+        "-PlaywrightProject",
+        "joint-inkson",
+        "-Grep",
+        "@returning-login-gate|@onboarding-recovery-gate",
+        "-RequireScenario",
+        "identity/oidc-login-flow.spec.ts",
+        "-ForbidSkippedTests"
+      ]
+    }
+  ],
+  "policy": {
+    "forbidden_compatibility_techniques": [
+      "consumer-local-compatibility-dto",
+      "dual-read-fallback",
+      "permissive-extra-fields"
+    ],
+    "required_status_check": "atomic compatibility / exact manifest gate",
+    "source_guards": [
+      {
+        "id": "no-consumer-local-compatibility-dto",
+        "repositories": ["soland", "coauth", "garth", "inkson", "cotest"],
+        "pattern": "(?i)\\bcompat(?:ibility)?[_ -]?dto\\b"
+      },
+      {
+        "id": "no-dual-read-fallback",
+        "repositories": ["soland", "coauth", "garth", "inkson", "cotest"],
+        "pattern": "(?i)\\bdual[_ -]?read(?:ing)?\\b"
+      },
+      {
+        "id": "no-permissive-flattened-extra",
+        "repositories": ["soland", "coauth", "garth", "inkson", "cotest"],
+        "pattern": "(?is)#\\[serde\\([^]]*flatten[^]]*\\)\\]\\s*(?:pub\\s+)?(?:extra|additional|unknown)\\b",
+        "allow_paths": ["coauth/crates/backend/src/services/email_webhook.rs"]
+      }
+    ]
+  }
+}

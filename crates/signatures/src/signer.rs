@@ -293,10 +293,12 @@ mod tests {
             alice(),
             DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         );
-        let a = Seal::sign_single(
+        let a = Seal::sign_single_with_roots(
             space(),
             vec![seal_id(0xaa)],
             vec![move_id(0x11)],
+            hash(0x22),
+            hash(0x33),
             hash(0x77),
             hlc(),
             arkret_canonical::DigestSuite::Sha256,

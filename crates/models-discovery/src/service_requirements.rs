@@ -312,9 +312,6 @@ mod tests {
             takedown_contact: None,
             rate_limits: Some(BTreeMap::new()),
             supported_reducer_profiles: vec![arkret_wire::CORE_REDUCER_PROFILE.to_owned()],
-            frontier: Vec::new(),
-            snapshot_frontier: Vec::new(),
-            last_materialized_at: None,
             extensions: Default::default(),
         };
 

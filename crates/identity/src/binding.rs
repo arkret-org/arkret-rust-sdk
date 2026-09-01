@@ -502,15 +502,13 @@ pub enum BindingError {
 // Canonical document digest
 // ============================================================================
 
-/// Canonical SHA-256 digest of a DID document, byte-identical to the value
-/// stored in [`CachedResolution::document_hash`](crate::CachedResolution) — the
-/// same `canonical_json_bytes` + `sha256_digest` pair, wrapped in the typed
-/// [`Hash`](struct@Hash) newtype so it cannot be confused with an arbitrary string.
+/// Canonical SHA-256 digest of the Arkret v1 normalized DID Document projection.
+/// Resolver/convenience metadata is never part of this preimage; raw resolver
+/// bytes, when retained as internal evidence, use the separately named
+/// `raw_document_digest` contract.
 pub fn document_canonical_digest(document: &DidDocument) -> Result<Hash, BindingError> {
-    let bytes = canonical::canonical_json_bytes(document)
-        .map_err(|error| BindingError::Canonicalization(error.to_string()))?;
-    Hash::new(canonical::sha256_digest(bytes))
-        .map_err(|error| BindingError::InvalidDigest(error.to_string()))
+    arkret_models_identity::normalized_did_document_digest(document)
+        .map_err(|error| BindingError::Canonicalization(error.to_string()))
 }
 
 // ============================================================================

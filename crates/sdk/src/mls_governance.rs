@@ -218,7 +218,9 @@ pub(crate) fn authenticated_document_key(
                     .method_history_evidence
                     .evidence()
                     .document_digest
-                    != Hash::new(arkret_canonical::canonical_sha256(normalized_did_document)?)?
+                    != arkret_models_identity::normalized_did_document_digest(
+                        normalized_did_document,
+                    )?
             {
                 return Err(WireError::Protocol(
                     "principal signer evidence projection does not bind its normalized document"

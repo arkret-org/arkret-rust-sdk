@@ -227,7 +227,7 @@ impl DetachedProof {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/applet.schema.json#/properties/error`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AppletError {

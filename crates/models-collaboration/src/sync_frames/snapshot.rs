@@ -158,7 +158,7 @@ impl RangeCompletenessAttestation {
     }
 }
 
-/// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json`.
+/// Counterpart for `spec/v1/artifacts/schemas/snapshot.schema.json#/properties/frontier`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotFrontierValue {
     pub event_ids: Vec<EventId>,

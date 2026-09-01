@@ -242,6 +242,8 @@ pub use websocket_binding::{
     WebSocketDpopPublicJwk, WebSocketOperationId, WebSocketReplayLedgerKey,
     WebSocketTransportError, canonical_http_origin, validate_websocket_base_url,
 };
-pub use webvh_parameters::validate_did_webvh_v1_parameter_names;
+pub use webvh_parameters::{
+    did_webvh_v1_effective_portable, validate_did_webvh_v1_parameter_names,
+};
 pub use wire_presence::WirePresence;
 pub use wire_strings::*;

@@ -323,7 +323,7 @@ mod tests {
         )
         .unwrap();
         let document_digest =
-            Hash::new(arkret_canonical::canonical_sha256(&document).unwrap()).unwrap();
+            arkret_models_identity::normalized_did_document_digest(&document).unwrap();
         let evidence = ResolutionMethodHistoryEvidence::DidWebDocument {
             adapter_version: "did:web:1".to_owned(),
             boundary: ResolutionMethodEvidenceBoundary {

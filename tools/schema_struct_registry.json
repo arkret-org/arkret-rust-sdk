@@ -262,6 +262,10 @@
       "schema": "moderation-evidence.schema.json#/$defs/franking_proof"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionLiftPayload",
+      "schema": "event-payload.schema.json#/$defs/moderation_decision_lift_payload"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionPayload",
       "schema": "event-payload.schema.json#/$defs/moderation_decision_payload"
     },
@@ -410,6 +414,16 @@
       "schema": "event-payload.schema.json#/$defs/strand_watch_set_payload"
     },
     {
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload",
+      "schema": "event-payload.schema.json#/$defs/view_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject",
+      "schema": "view.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewReconcilePayload",
       "schema": "event-payload.schema.json#/$defs/view_reconcile_payload"
     },
@@ -438,6 +452,12 @@
       "schema": "circle.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
+      "schema": "grant-constraint.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteDelivery",
       "schema": "invite-delivery.schema.json"
     },
@@ -454,12 +474,22 @@
       "schema": "moderation-queue-item.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyRule",
+      "schema": "policy.schema.json#/$defs/policy_rule",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::Invite",
       "schema": "invite.schema.json"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/plaintext_visibility.rs::PlaintextVisibleServicesPayload",
       "schema": "event-payload.schema.json#/$defs/plaintext_visible_services_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/realm_governance.rs::RealmLinkList",
+      "schema": "realm-link-operations.schema.json#/$defs/realm_link_list"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_governance.rs::RealmAliasDeclarationPayload",
@@ -472,10 +502,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_governance.rs::RealmOrganizationRelationshipList",
       "schema": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_list"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/realm_governance.rs::RealmLinkList",
-      "schema": "realm-link-operations.schema.json#/$defs/realm_link_list"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/realm_lifecycle.rs::RealmJoinRulePayload",
@@ -514,14 +540,6 @@
       "schema": "service-operation-dtos.schema.json#/$defs/EventsSubmitOutcome"
     },
     {
-      "rust_type": "crates/models-collaboration/src/http_bodies.rs::ContactListRow",
-      "schema": "contact-operations.schema.json#/$defs/contact_list_row"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/http_bodies.rs::ContactList",
-      "schema": "contact-operations.schema.json#/$defs/contact_list"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/http_bodies.rs::ProjectionSpaceList",
       "schema": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceList"
     },
@@ -532,6 +550,14 @@
     {
       "rust_type": "crates/models-collaboration/src/http_bodies.rs::ProjectionMorphList",
       "schema": "service-operation-dtos.schema.json#/$defs/ProjectionMorphList"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::ContactListRow",
+      "schema": "contact-operations.schema.json#/$defs/contact_list_row"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::ContactList",
+      "schema": "contact-operations.schema.json#/$defs/contact_list"
     },
     {
       "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingStageRequestBody",
@@ -558,6 +584,18 @@
       "schema": "device-pairing.schema.json#/$defs/device_pairing_status_outcome"
     },
     {
+      "rust_type": "crates/models-collaboration/src/objects/interop.rs::ProviderDirectoryMimi",
+      "schema": "mimi-interop.schema.json#/$defs/provider_directory/properties/mimi",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/interop.rs::RoomBindingPayloadBindingScope",
+      "schema": "mimi-interop.schema.json#/$defs/room_binding/properties/payload/properties/binding_scope",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-collaboration/src/objects/interop.rs::Ciphertext",
       "schema": "mimi-operations.schema.json#/$defs/ciphertext"
     },
@@ -574,8 +612,30 @@
       "schema": "strand.schema.json#/$defs/strand_track"
     },
     {
+      "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::MorphCustomerRiskFields",
+      "schema": "morph-customer-risk.schema.json#/properties/fields",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-collaboration/src/objects/productivity.rs::CalendarEventFields",
       "schema": "calendar-event.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/queries.rs::SortSpec",
+      "schema": "view.schema.json#/$defs/sort_spec"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/query_projection.rs::DocumentMorphProjection",
+      "schema": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/objects/view.rs::QueryValue",
+      "schema": "view.schema.json#/$defs/query",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-collaboration/src/seal_transparency.rs::InclusionList",
@@ -594,8 +654,56 @@
       "schema": "read-receipt.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::DeviceMessageEnvelope",
+      "schema": "device-message.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::EventContainer",
+      "schema": "account-subscribe-frame.schema.json#/$defs/event_container",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::Timeline",
+      "schema": "account-subscribe-frame.schema.json#/$defs/timeline",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::RangeCompletenessAttestationEventRangeFromFrontier",
+      "schema": "range-completeness-attestation.schema.json#/properties/event_range/properties/from_frontier",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::RangeCompletenessAttestationEventRangeToFrontier",
+      "schema": "range-completeness-attestation.schema.json#/properties/event_range/properties/to_frontier",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotFrontierValue",
+      "schema": "snapshot.schema.json#/properties/frontier",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotWitnessAttestationItem",
       "schema": "snapshot.schema.json#/$defs/snapshot_witness_attestation"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyBackupPlaintext",
+      "schema": "key-backup-plaintext.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::SecretStorageItem",
+      "schema": "key-backup-plaintext.schema.json#/$defs/secret_storage_item",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyBackupUnlockProofAuthData",
@@ -658,6 +766,12 @@
       "schema": "keys-operations.schema.json#/$defs/keys_backups_delete_challenge"
     },
     {
+      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryPolicy",
+      "schema": "recovery-policy.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryThresholdConfig",
       "schema": "recovery-policy.schema.json#/properties/threshold"
     },
@@ -688,6 +802,12 @@
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryPolicyAuthData",
       "schema": "recovery-policy.schema.json#/properties/auth_data"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryReceipt",
+      "schema": "recovery-receipt.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryProofSummary",
@@ -722,24 +842,100 @@
       "schema": "directory-operations.schema.json#/$defs/object_preview"
     },
     {
+      "rust_type": "crates/models-discovery/src/service_description.rs::ServiceDescribe",
+      "schema": "service-describe.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
+      "schema": "service-describe.schema.json#/properties/auth_metadata",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-discovery/src/service_description.rs::AccountAuthority",
-      "schema": "service-describe.schema.json#/$defs/account_authority"
+      "schema": "service-describe.schema.json#/$defs/account_authority",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::AuthMethod",
-      "schema": "service-describe.schema.json#/$defs/auth_method"
+      "schema": "service-describe.schema.json#/$defs/auth_method",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::AuthGrantExchange",
-      "schema": "service-describe.schema.json#/$defs/auth_grant_exchange"
+      "schema": "service-describe.schema.json#/$defs/auth_grant_exchange",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::ClaimedProfileEntry",
+      "schema": "service-describe.schema.json#/properties/claimed_profiles/items",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::VerifiedProfileEntry",
+      "schema": "service-describe.schema.json#/properties/verified_profiles/items",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::InteropSurfaceEntry",
       "schema": "service-describe.schema.json#/properties/interop_surfaces/items"
     },
     {
+      "rust_type": "crates/models-discovery/src/service_description.rs::PlaintextVisibility",
+      "schema": "service-describe.schema.json#/properties/plaintext_visibility",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-discovery/src/service_description.rs::RateLimitPolicy",
+      "schema": "service-describe.schema.json#/properties/rate_limit_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-identity/src/artifacts_account.rs::DeviceSummary",
       "schema": "account-operations.schema.json#/$defs/device_summary"
+    },
+    {
+      "rust_type": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContentNewDevicePubkey",
+      "schema": "device-message.schema.json#/$defs/key_verification_content/properties/new_device_pubkey"
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookAuth",
+      "schema": "applet-package.schema.json#/$defs/webhook_auth",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointEntry",
+      "schema": "applet-package.schema.json#/$defs/endpoint_entry",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointPolicy",
+      "schema": "applet-package.schema.json#/$defs/endpoint_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletLimits",
+      "schema": "applet-package.schema.json#/$defs/limits",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletGhostPolicy",
+      "schema": "applet-package.schema.json#/$defs/ghost_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
       "rust_type": "crates/models-integration/src/applet_audit_payload.rs::AppletBridgeErrorPayload",
@@ -782,6 +978,36 @@
       "schema": "applet-install-plan.schema.json#/$defs/widget_effect"
     },
     {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DelegationPolicy",
+      "schema": "applet-package.schema.json#/$defs/delegation_policy",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DetachedProof",
+      "schema": "applet-package.schema.json#/$defs/detached_proof",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletError",
+      "schema": "applet.schema.json#/properties/error",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::WidgetTokenScope",
+      "schema": "applet-widget-declaration.schema.json#/properties/token_scope",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::Widget",
+      "schema": "applet-widget-declaration.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
       "rust_type": "crates/models-integration/src/models_push.rs::PushNotifyDeviceOutcome",
       "schema": "push-operations.schema.json#/$defs/push_notify_device_outcome"
     },
@@ -798,16 +1024,16 @@
       "schema": "device-revocation-state.schema.json#/$defs/device_revocation_gate_decision_receipt"
     },
     {
+      "rust_type": "crates/wire/src/event_receipt.rs::DeviceReanchorReceiptScope",
+      "schema": "event-batch-receipt.schema.json#/$defs/device_reanchor_scope"
+    },
+    {
       "rust_type": "crates/wire/src/event_submission.rs::EventInitialSubmission",
       "schema": "service-operation-dtos.schema.json#/$defs/EventInitialSubmission"
     },
     {
       "rust_type": "crates/wire/src/event_submission.rs::EventFederationSubmission",
       "schema": "service-operation-dtos.schema.json#/$defs/EventFederationSubmission"
-    },
-    {
-      "rust_type": "crates/wire/src/event_receipt.rs::DeviceReanchorReceiptScope",
-      "schema": "event-batch-receipt.schema.json#/$defs/device_reanchor_scope"
     },
     {
       "rust_type": "crates/wire/src/history_secret.rs::EpochRange",
@@ -836,78 +1062,6 @@
     {
       "rust_type": "crates/wire/src/seal.rs::MultiSignature",
       "schema": "seal.schema.json#/$defs/multi_signature"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::AccountDeviceAlgorithmEntry",
-      "schema": "keys-operations.schema.json#/$defs/account_device_algorithm_entries/items"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::AccountDeviceKeyEntry",
-      "schema": "keys-operations.schema.json#/$defs/account_device_key_entries/items"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::QueryAccountDeviceSelector",
-      "schema": "keys-operations.schema.json#/$defs/query_account_device_selectors/items"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::QueryAccountDeviceEntry",
-      "schema": "keys-operations.schema.json#/$defs/query_account_device_entries/items"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::AccountDeviceGenerationEntry",
-      "schema": "keys-operations.schema.json#/$defs/account_device_generation_entries/items"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::KeysQueryRequestBody",
-      "schema": "keys-operations.schema.json#/$defs/keys_query_request_body"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::KeysQueryOutcome",
-      "schema": "keys-operations.schema.json#/$defs/keys_query_outcome"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::KeysClaimRequestBody",
-      "schema": "keys-operations.schema.json#/$defs/keys_claim_request_body"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::KeysClaimOutcome",
-      "schema": "keys-operations.schema.json#/$defs/keys_claim_outcome"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/keys.rs::KeysOperationFailure",
-      "schema": "keys-operations.schema.json#/$defs/failure"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/invite_quarantine.rs::InviteQuarantine",
-      "schema": "invite-quarantine.schema.json#"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/invite_quarantine.rs::InviteQuarantineEntry",
-      "schema": "invite-quarantine.schema.json#/$defs/quarantine_entry"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/invite_quarantine.rs::InviteQuarantineInvalidation",
-      "schema": "invite-quarantine.schema.json#/$defs/consent_revoke_invalidation"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::InviteReceivePolicy",
-      "schema": "invite-receive-policy.schema.json#"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/invite_addressing.rs::PrincipalLocator",
-      "schema": "principal-locator.schema.json#"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceReanchorPayload",
-      "schema": "event-payload.schema.json#/$defs/device_reanchor_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewPayload",
-      "schema": "event-payload.schema.json#/$defs/view_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/queries.rs::SortSpec",
-      "schema": "view.schema.json#/$defs/sort_spec"
     }
   ],
   "exemptions": [
@@ -945,7 +1099,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/capability.rs::CapabilityGrantCreateBody",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['actions', 'constraints', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'realm_id', 'resources', 'schema', 'subject', 'subject_station_id'], Spec-only=['grant']."
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['actions', 'constraints', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'realm_id', 'resources', 'schema', 'subject'], Spec-only=['grant']."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/event_wire.rs::VerificationStubSubject",
@@ -958,10 +1112,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/mls.rs::MlsWelcomePayloadClaimRef",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['capabilities_digest', 'keypackage_digest', 'trust_binding'], Spec-only=['agent_key_authorize_event_id', 'ciphertext', 'claim_envelope', 'claim_receipt', 'claim_ref', 'commit_ref', 'epoch', 'expires_at', 'governance_binding', 'mls_group_id', 'recipient_agent_id', 'recipient_agent_verification_method', 'recipient_device_id', 'recipient_pairwise_actor_id', 'recipient_pairwise_verification_method', 'recipient_principal_id', 'sender_device_id']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/moderation.rs::ModerationDecisionLiftPayload",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['observed_dot_ids']."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/preview.rs::PreviewPolicyPayloadValueHistory",
@@ -1001,75 +1151,15 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::ConditionSubjectSelector",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'required_claims'], Spec-only=['actions', 'authority_depth', 'authority_root_refs', 'constraints', 'id', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'issuer_station_id', 'realm_id', 'resources', 'revoked_at', 'revoked_by', 'schema', 'subject', 'subject_station_id', 'updated_at', 'updated_by']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyRule",
-      "reason": "serde(flatten) prevents a static complete field set"
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'required_claims'], Spec-only=['actions', 'authority_depth', 'authority_root_refs', 'constraints', 'id', 'issued_at', 'issuer_authority_refs', 'issuer_id', 'realm_id', 'resources', 'revoked_at', 'revoked_by', 'schema', 'subject', 'updated_at', 'updated_by']."
     },
     {
       "rust_type": "crates/models-collaboration/src/objects/blob.rs::SignatureValue",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['kid', 'sig', 'signature_algorithm'], Spec-only=['blob_ref', 'content_digest', 'issuer_id', 'received_at', 'signature', 'size_bytes']."
     },
     {
-      "rust_type": "crates/models-collaboration/src/objects/interop.rs::ProviderDirectoryMimi",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/interop.rs::RoomBindingPayloadBindingScope",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::DisplaySymbol",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['emoji', 'glyph'], Spec-only=['color_token', 'short_name', 'symbol']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::MorphCustomerRiskFields",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/query_projection.rs::DocumentMorphProjection",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/objects/view.rs::QueryValue",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::DeviceMessageEnvelope",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::EventContainer",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::Timeline",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::RangeCompletenessAttestationEventRangeFromFrontier",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::RangeCompletenessAttestationEventRangeToFrontier",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotFrontierValue",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::KeyBackupPlaintext",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::SecretStorageItem",
-      "reason": "serde(flatten) prevents a static complete field set"
     },
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::ShareShareCommitment",
@@ -1080,16 +1170,8 @@
       "reason": "Documented counterpart is not field-set exact; Rust-only=['holder_id', 'share_id', 'signature', 'signature_algorithm', 'transcript_digest', 'verification_method'], Spec-only=['challenge', 'kind', 'share_releases', 'threshold']."
     },
     {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryPolicy",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryTrustedService",
       "reason": "Documented pointer is not a direct object node: 'trusted_recovery_services[]'."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryReceipt",
-      "reason": "serde(flatten) prevents a static complete field set"
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryBackupClassUnlocked",
@@ -1104,57 +1186,8 @@
       "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['audience', 'domain']."
     },
     {
-      "rust_type": "crates/models-discovery/src/service_description.rs::ServiceDescribe",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::AuthMetadata",
-      "schema": "service-describe.schema.json#/properties/auth_metadata",
-      "reason": "serde(flatten) permits schema-only fields; declared non-flatten fields are checked one-way"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::ClaimedProfileEntry",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::VerifiedProfileEntry",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::PlaintextVisibility",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::RateLimitPolicy",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContentNewDevicePubkey",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
       "rust_type": "crates/models-identity/src/handle.rs::Handle",
       "reason": "struct-level serde conversion/transparent representation is not an object field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::WebhookAuth",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointEntry",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointPolicy",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletLimits",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/applet/registration.rs::AppletGhostPolicy",
-      "reason": "serde(flatten) prevents a static complete field set"
     },
     {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::ExternalRef",
@@ -1169,36 +1202,12 @@
       "reason": "Documented pointer is not a direct object node: 'scope_grant'."
     },
     {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DelegationPolicy",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::DetachedProof",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletError",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::WidgetTokenScope",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::Widget",
-      "reason": "serde(flatten) prevents a static complete field set"
-    },
-    {
       "rust_type": "crates/wire/src/history_store.rs::EventCandidateBindingKey",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['effective_scope', 'epoch', 'event_id', 'mls_group_id', 'verified_sender_domain'], Spec-only=['candidate_digest', 'event_binding_key', 'first_observed_at', 'outcome']."
     },
     {
       "rust_type": "crates/wire/src/seal.rs::PayloadSignature",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['created_at'], Spec-only=[]."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/view.rs::ViewCreateObject",
-      "reason": "The current create object combines the View schema with forbidden id/type and a restricted x_* flattened XExtensionMap; the field-set gate cannot statically compare flattened schemas. View create tests cover identity rejection, closed declared fields, extensions and kind-specific configuration."
     }
   ]
 }

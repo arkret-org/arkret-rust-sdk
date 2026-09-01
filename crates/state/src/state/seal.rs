@@ -35,6 +35,17 @@ pub struct SealEffect {
     pub post_state_root: Hash,
 }
 
+/// Fully verified Seal transition that has not mutated durable state yet.
+///
+/// Receivers that must persist additional evidence atomically with Seal
+/// acceptance use this value as the immutable input to their single commit.
+#[derive(Clone, Debug)]
+pub struct PreparedSealEffect {
+    pub effect: SealEffect,
+    pub new_ops: Vec<(CellRef, IssuedOp)>,
+    pub covered_event_digests: BTreeSet<Hash>,
+}
+
 /// Digest suites selected from the verified predecessor Realm state for one
 /// Seal application. An ordinary Seal uses one suite everywhere. A Genesis
 /// Seal uses `event_digest_suite` for every founding Event except the fixed
@@ -190,7 +201,44 @@ where
     ProjectWrites:
         Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
-    apply_seal_with_proof_set(
+    let prepared = prepare_seal_with_proof_set(
+        seal,
+        events,
+        seals,
+        cells,
+        registry,
+        digest_suites,
+        verify_proofs,
+        project_writes,
+        context,
+        SealEventProofRegime::ProducerSubmission,
+    )?;
+    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared)
+}
+
+/// Verify an incoming producer-submission Seal without mutating its stores.
+///
+/// This is the validation half of [`apply_seal_in_context`]. It exists for
+/// receivers whose acceptance transaction also persists typed dependency
+/// evidence or other receiver-owned indexes.
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_seal_in_context<VerifyProofs, ProjectWrites>(
+    seal: &Seal,
+    events: &dyn ControlEventStore,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    digest_suites: SealDigestSuites,
+    verify_proofs: VerifyProofs,
+    project_writes: ProjectWrites,
+    context: EventSubmitContext,
+) -> Result<PreparedSealEffect, SealReject>
+where
+    VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
+    ProjectWrites:
+        Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    prepare_seal_with_proof_set(
         seal,
         events,
         seals,
@@ -224,7 +272,7 @@ where
     ProjectWrites:
         Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
-    apply_seal_with_proof_set(
+    let prepared = prepare_seal_with_proof_set(
         seal,
         events,
         seals,
@@ -235,7 +283,8 @@ where
         project_writes,
         context,
         SealEventProofRegime::FederationAccepted,
-    )
+    )?;
+    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared)
 }
 
 /// Apply a retained Seal whose Events may use either the historical
@@ -259,7 +308,7 @@ where
     ProjectWrites:
         Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
-    apply_seal_with_proof_set(
+    let prepared = prepare_seal_with_proof_set(
         seal,
         events,
         seals,
@@ -270,7 +319,8 @@ where
         project_writes,
         context,
         SealEventProofRegime::RetainedReplay,
-    )
+    )?;
+    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared)
 }
 
 #[derive(Clone, Copy)]
@@ -281,7 +331,7 @@ enum SealEventProofRegime {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn apply_seal_with_proof_set<VerifyProofs, ProjectWrites>(
+fn prepare_seal_with_proof_set<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -292,7 +342,7 @@ fn apply_seal_with_proof_set<VerifyProofs, ProjectWrites>(
     project_writes: ProjectWrites,
     context: EventSubmitContext,
     proof_regime: SealEventProofRegime,
-) -> Result<SealEffect, SealReject>
+) -> Result<PreparedSealEffect, SealReject>
 where
     VerifyProofs: Fn(&Event, arkret_canonical::DigestSuite) -> Result<(), String> + Copy,
     ProjectWrites:
@@ -558,20 +608,34 @@ where
         });
     }
 
-    cells.append_sealed_effects(&seal.realm_id, &seal.id, &new_ops)?;
+    Ok(PreparedSealEffect {
+        effect: SealEffect {
+            seal: seal.id.clone(),
+            accepted_event_digests: accepted.iter().map(|(digest, ..)| digest.clone()).collect(),
+            post_state_root: recomputed_state,
+        },
+        new_ops,
+        covered_event_digests: covered,
+    })
+}
+
+fn commit_prepared_seal(
+    seal: &Seal,
+    events: &dyn ControlEventStore,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    digest_suites: SealDigestSuites,
+    prepared: PreparedSealEffect,
+) -> Result<SealEffect, SealReject> {
+    cells.append_sealed_effects(&seal.realm_id, &seal.id, &prepared.new_ops)?;
     if let Err(error) = seals.put(seal, digest_suites.seal_digest_suite) {
         let _ = cells.rollback_seal(&seal.realm_id, &seal.id);
         return Err(error.into());
     }
-    for (digest, ..) in &accepted {
+    for digest in &prepared.effect.accepted_event_digests {
         events.mark_sealed(digest, seal)?;
     }
-
-    Ok(SealEffect {
-        seal: seal.id.clone(),
-        accepted_event_digests: accepted.iter().map(|(digest, ..)| digest.clone()).collect(),
-        post_state_root: recomputed_state,
-    })
+    Ok(prepared.effect)
 }
 
 fn event_digest_suite_for_seal(
@@ -1269,6 +1333,13 @@ struct CompletenessLeaf<'a> {
     event_digests: Vec<&'a Hash>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedControlEvent {
+    pub actor_id: arkret_wire::ActorId,
+    pub actor_seq: u64,
+    pub event_digest: Hash,
+}
+
 /// Compute the Seal `completeness_root` from the listed Control Events.
 ///
 /// The caller supplies the exact cumulative covered set. Every covered digest
@@ -1278,8 +1349,8 @@ pub fn control_event_completeness_root(
     covered: &BTreeSet<Hash>,
     root_digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, SealReject> {
-    let mut by_actor = BTreeMap::<arkret_wire::ActorId, Vec<(u64, Hash)>>::new();
     let mut resolved = BTreeSet::new();
+    let mut listed = Vec::new();
     for (event, event_digest_suite) in events {
         let digest = Hash::new(
             event
@@ -1299,15 +1370,42 @@ pub fn control_event_completeness_root(
                 "duplicate listed Control Event digest".to_owned(),
             ));
         }
-        by_actor
-            .entry(event.actor_id.clone())
-            .or_default()
-            .push((event.actor_seq, digest));
+        listed.push(ListedControlEvent {
+            actor_id: event.actor_id.clone(),
+            actor_seq: event.actor_seq,
+            event_digest: digest,
+        });
     }
     if &resolved != covered {
         return Err(SealReject::Structural(
             "Seal coverage contains an unresolved Control Event digest".to_owned(),
         ));
+    }
+
+    control_event_completeness_root_from_listed(&listed, root_digest_suite)
+}
+
+/// Compute `completeness_root` from an exact resolved listed Control Event set.
+///
+/// This lower-level form is for notary construction paths that already retain
+/// authenticated actor/sequence descriptors beside Event digests. Callers must
+/// supply every cumulatively covered Control Event exactly once.
+pub fn control_event_completeness_root_from_listed(
+    events: &[ListedControlEvent],
+    root_digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, SealReject> {
+    let mut by_actor = BTreeMap::<arkret_wire::ActorId, Vec<(u64, Hash)>>::new();
+    let mut digests = BTreeSet::new();
+    for event in events {
+        if !digests.insert(event.event_digest.clone()) {
+            return Err(SealReject::Structural(
+                "duplicate listed Control Event digest".to_owned(),
+            ));
+        }
+        by_actor
+            .entry(event.actor_id.clone())
+            .or_default()
+            .push((event.actor_seq, event.event_digest.clone()));
     }
 
     let mut leaf_data = Vec::with_capacity(by_actor.len());

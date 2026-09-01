@@ -138,6 +138,24 @@ impl ReplayEventLookup for BTreeMap<Hash, Event> {
     }
 }
 
+pub struct ControlEventReplayLookup<'a> {
+    store: &'a dyn ControlEventStore,
+}
+
+impl<'a> ControlEventReplayLookup<'a> {
+    pub const fn new(store: &'a dyn ControlEventStore) -> Self {
+        Self { store }
+    }
+}
+
+impl ReplayEventLookup for ControlEventReplayLookup<'_> {
+    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
+        self.store
+            .get(digest)
+            .map_err(|error| WireError::Protocol(format!("Control Event lookup failed: {error}")))
+    }
+}
+
 /// Reducer-derived predecessor facts required to evaluate one Seal's
 /// AvailabilityReceipt policy without consulting current Realm state.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -245,6 +263,35 @@ pub fn materialize_registered_cell_value_at_basis_from_verified_checkpoint<Proje
 where
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
+    let mut values = materialize_registered_cell_values_at_basis_from_verified_checkpoint(
+        checkpoint,
+        basis,
+        std::slice::from_ref(cell),
+        registry,
+        project_writes,
+    )?;
+    match values.remove(cell) {
+        Some(value) => Ok(value),
+        None => frontier_rejected("verified checkpoint target cell is missing"),
+    }
+}
+
+/// Read a bounded set of registered cells from one verified accepted cut.
+///
+/// The checkpoint is replayed once for the whole set so an authorization
+/// query over many capability-grant cells cannot amplify one Signal into one
+/// complete governance replay per grant. Missing cells are omitted; any
+/// requested Bottom cell rejects the batch.
+pub fn materialize_registered_cell_values_at_basis_from_verified_checkpoint<ProjectWrites>(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    basis: &SealBasis,
+    cells: &[CellRef],
+    registry: &dyn CellRegistry,
+    project_writes: ProjectWrites,
+) -> arkret_wire::Result<BTreeMap<CellRef, Value>>
+where
+    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
     checkpoint.validate_checkpoint()?;
     basis.validate_protocol_bounds()?;
     if basis
@@ -276,13 +323,19 @@ where
         registry,
     )
     .map_err(replay_reject_error)?;
-    match state.get(cell) {
-        Some(CellState::Value(value)) => Ok(value.clone()),
-        Some(CellState::Bottom(_)) => {
-            frontier_rejected("verified checkpoint target cell is Bottom")
+    let mut values = BTreeMap::new();
+    for cell in cells {
+        match state.get(cell) {
+            Some(CellState::Value(value)) => {
+                values.insert(cell.clone(), value.clone());
+            }
+            Some(CellState::Bottom(_)) => {
+                return frontier_rejected("verified checkpoint target cell is Bottom");
+            }
+            None => {}
         }
-        None => frontier_rejected("verified checkpoint target cell is missing"),
     }
+    Ok(values)
 }
 
 /// Return the exact Event that established the effective `join` value of one
@@ -2190,15 +2243,11 @@ fn seal_dependency_replay_context(
             }
         },
     };
-    let covered = if seal.predecessor_refs.is_empty() {
-        seal.delta.iter().cloned().collect::<BTreeSet<_>>()
-    } else {
-        union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
-            .map_err(replay_reject_error)?
-    };
     if !seal.predecessor_refs.is_empty()
-        && !add_pcr_holder_from_accepted_create(&covered, all_events, &mut context)?
+        && !add_pcr_holder_from_verified_create_anchor(seal, all_events, seal_store, &mut context)?
     {
+        let covered = union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
+            .map_err(replay_reject_error)?;
         for (cell, state) in predecessor_state {
             let cell_id = CellId::from_ref(cell)?;
             if cell_id.component() != arkret_wire::CellFamilyId::MEMBER_STATE_V1
@@ -2222,25 +2271,43 @@ fn seal_dependency_replay_context(
     Ok(context)
 }
 
-fn add_pcr_holder_from_accepted_create(
-    covered: &BTreeSet<Hash>,
+fn add_pcr_holder_from_verified_create_anchor(
+    seal: &Seal,
     all_events: &dyn ReplayEventLookup,
+    seal_store: &dyn SealStore,
     context: &mut SealDependencyReplayContext,
 ) -> arkret_wire::Result<bool> {
+    let genesis_id = seal_store
+        .genesis(&seal.realm_id)
+        .map_err(replay_store_error)?
+        .ok_or_else(|| {
+            WireError::Protocol("predecessor closure has no Realm genesis Seal".to_owned())
+        })?;
+    let genesis = seal_store
+        .get(&genesis_id)
+        .map_err(replay_store_error)?
+        .ok_or_else(|| {
+            WireError::Protocol("indexed Realm genesis Seal is unresolved".to_owned())
+        })?;
+    if genesis.realm_id != seal.realm_id || !genesis.predecessor_refs.is_empty() {
+        return frontier_rejected("indexed Realm genesis Seal is not the verified create anchor");
+    }
     let mut create = None;
-    for digest in covered {
+    for digest in &genesis.delta {
         let event = all_events.event(digest)?.ok_or_else(|| {
-            WireError::Protocol("predecessor-covered Event is unresolved".to_owned())
+            WireError::Protocol("genesis create-anchor Event is unresolved".to_owned())
         })?;
         if event.kind != arkret_wire::EventKind::RealmCreate {
             continue;
         }
         if create.replace(event).is_some() {
-            return frontier_rejected("predecessor closure contains multiple Realm create Events");
+            return frontier_rejected(
+                "genesis create anchor contains multiple Realm create Events",
+            );
         }
     }
     let Some(create) = create else {
-        return frontier_rejected("predecessor closure has no Realm create Event");
+        return frontier_rejected("genesis create anchor has no Realm create Event");
     };
     let payload: RealmCreatePayload =
         serde_json::from_value(serde_json::to_value(&create.payload)?)?;
@@ -2707,13 +2774,16 @@ fn project_frontier_value(
     let subject = decoded_cell_subject(cell_id)?;
     match family {
         arkret_wire::CellFamilyId::MEMBER_STATE_V1 => {
-            let principal = subject_single_string(&subject)?;
-            if matches!(scope, ScopeRef::Circle { .. })
-                && !leaf_actors
-                    .iter()
-                    .any(|actor| actor.canonical_key().is_ok_and(|key| key == principal))
-            {
-                return Ok(None);
+            let registry_subject = subject_single_string(&subject)?;
+            if matches!(scope, ScopeRef::Circle { .. }) {
+                let mut selected = false;
+                for actor in leaf_actors {
+                    let expected = arkret_wire::cell::composite_subject(&[actor.canonical_key()?])?;
+                    selected |= expected == registry_subject;
+                }
+                if !selected {
+                    return Ok(None);
+                }
             }
             Ok(project_membership(value))
         }
@@ -3010,6 +3080,64 @@ mod tests {
                 "credential_ref": "device-a"
             }))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn circle_frontier_selects_realm_members_by_registry_subject_encoding() {
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        let registry_subject =
+            arkret_wire::cell::composite_subject(&[actor.canonical_key().unwrap()]).unwrap();
+        let cell = CellId::parse(&arkret_wire::cell::subject_cell(
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+            &registry_subject,
+        ))
+        .unwrap();
+        let scope = ScopeRef::Circle {
+            realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
+                .unwrap(),
+            circle_id: arkret_wire::CircleId::new(
+                "ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_",
+            )
+            .unwrap(),
+        };
+        let binding = MlsGroupGenesisBinding {
+            content_scheme: ContentScheme::MlsRfc9420,
+            durability_policy: None,
+        };
+
+        assert_eq!(
+            project_frontier_value(
+                arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+                &json!("join"),
+                &scope,
+                &BTreeSet::from([actor.clone()]),
+                &BTreeSet::new(),
+                &cell,
+                &binding,
+            )
+            .unwrap(),
+            Some(json!("join")),
+        );
+        let other = ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        assert_eq!(
+            project_frontier_value(
+                arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+                &json!("join"),
+                &scope,
+                &BTreeSet::from([other]),
+                &BTreeSet::new(),
+                &cell,
+                &binding,
+            )
+            .unwrap(),
+            None,
         );
     }
 

@@ -561,21 +561,6 @@ pub struct ServiceDescribe {
     /// This is a capability set, not a selected Realm profile.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub supported_reducer_profiles: Vec<String>,
-    /// Current causal frontier exposed by the service. Clients SHOULD
-    /// use this to detect a service that has fallen behind a known
-    /// snapshot.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub frontier: Vec<EventId>,
-    /// Frontier of the most recent snapshot the service can serve from
-    /// (empty means snapshot-assisted resolution is unavailable).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub snapshot_frontier: Vec<EventId>,
-    /// Wall-clock time of the most recent successful state
-    /// materialization. A stale `last_materialized_at` paired with a
-    /// fresh `frontier` indicates the projection layer is degraded.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub last_materialized_at: Option<DateTime<Utc>>,
     /// Vendor extensions permitted by the service-describe schema. Keys must
     /// use the reserved `x_<vendor>_*` namespace and are serialized at the
     /// top level.
@@ -640,9 +625,6 @@ impl ServiceDescribe {
             takedown_contact: None,
             rate_limits: None,
             supported_reducer_profiles: Vec::new(),
-            frontier: Vec::new(),
-            snapshot_frontier: Vec::new(),
-            last_materialized_at: None,
             extensions: XExtensionMap::default(),
         }
     }
@@ -1109,10 +1091,23 @@ mod tests {
     }
 
     #[test]
-    fn auth_grant_exchange_is_the_account_handoff_shape_with_x_extensions() {
+    fn auth_grant_exchange_is_the_closed_account_handoff_shape() {
         let exchange: AuthGrantExchange =
-            serde_json::from_value(json!({"kind": "account_handoff", "x_vendor": true})).unwrap();
+            serde_json::from_value(json!({"kind": "account_handoff"})).unwrap();
         assert_eq!(exchange.kind, AuthGrantExchangeKind::AccountHandoff);
+        assert!(exchange.extra.is_empty());
+        assert!(
+            serde_json::from_value::<AuthGrantExchange>(
+                json!({"kind": "account_handoff", "x_vendor": true})
+            )
+            .is_ok()
+        );
+        assert!(
+            serde_json::from_value::<AuthGrantExchange>(
+                json!({"kind": "account_handoff", "mode": "legacy"})
+            )
+            .is_err()
+        );
         assert!(
             serde_json::from_value::<AuthGrantExchange>(
                 json!({"proof_kind": "oidc_code_exchange"})
@@ -1122,61 +1117,46 @@ mod tests {
     }
 
     #[test]
-    fn auth_metadata_subtree_round_trips_x_extensions_and_rejects_bare_keys() {
-        let wire = json!({
+    fn auth_metadata_subtree_accepts_only_protocol_inert_extensions() {
+        let value = json!({
             "account_authority": {
                 "origin": "https://auth.example",
                 "gate_account_base_url": "https://auth.example/_arkret/gate/account",
-                "x_authority": true
+                "x_authority_note": "display-only"
             },
             "methods": [{
                 "method": "oidc",
                 "issuer_uri": "https://auth.example",
                 "openid_configuration_url": "https://auth.example/.well-known/openid-configuration",
-                "client_id": "fixture",
-                "scopes": ["openid"],
                 "grant_exchange": {
                     "kind": "account_handoff",
-                    "x_exchange": {"label": "safe-to-ignore"}
+                    "x_exchange_note": true
                 },
-                "x_method": 1
+                "x_method_note": 7
             }],
-            "did_binding_methods": ["session_grant"],
-            "x_metadata": "safe-to-ignore"
+            "x_auth_note": {"display": true}
         });
-        let decoded: AuthMetadata = serde_json::from_value(wire.clone()).unwrap();
-        assert_eq!(serde_json::to_value(decoded).unwrap(), wire);
+        let metadata: AuthMetadata = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(metadata).unwrap(), value);
 
-        let invalid_values = [
-            json!({"mode": "development"}),
-            json!({
-                "account_authority": {
-                    "origin": "https://auth.example",
-                    "gate_account_base_url": "https://auth.example/_arkret/gate/account",
-                    "mode": "development"
-                }
-            }),
-            json!({
-                "methods": [{
-                    "method": "passkey",
-                    "grant_exchange": {"kind": "account_handoff"},
-                    "mode": "development"
-                }]
-            }),
-            json!({
-                "methods": [{
-                    "method": "passkey",
-                    "grant_exchange": {
-                        "kind": "account_handoff",
-                        "mode": "development"
-                    }
-                }]
-            }),
-            json!({"read": "legacy"}),
-        ];
-        for invalid in invalid_values {
-            assert!(serde_json::from_value::<AuthMetadata>(invalid).is_err());
-        }
+        assert!(serde_json::from_value::<AuthMetadata>(json!({"mode": "legacy"})).is_err());
+        assert!(serde_json::from_value::<AuthMetadata>(json!({"read": "legacy"})).is_err());
+        assert!(
+            serde_json::from_value::<AuthMethod>(json!({
+                "method": "passkey",
+                "grant_exchange": {"kind": "account_handoff"},
+                "mode": "legacy"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<AccountAuthority>(json!({
+                "origin": "https://auth.example",
+                "gate_account_base_url": "https://auth.example/_arkret/gate/account",
+                "mode": "legacy"
+            }))
+            .is_err()
+        );
     }
 
     fn directory_description() -> ServiceDescribe {
@@ -1244,9 +1224,6 @@ mod tests {
                 json!(60),
             )])),
             supported_reducer_profiles: vec![],
-            frontier: vec![],
-            snapshot_frontier: vec![],
-            last_materialized_at: None,
             extensions: XExtensionMap::default(),
         }
     }
@@ -1362,9 +1339,8 @@ mod tests {
 /// Strongly-typed `auth_metadata` block of the service-describe response.
 /// Mirrors `service-describe.schema.json#/properties/auth_metadata`. Every
 /// declared field is optional or defaulted so a conforming service that sends
-/// only what the schema declares still deserializes. The `extra` flatten
-/// preserves schema-authorized `x_*` metadata and rejects every other
-/// unregistered key.
+/// only what the schema declares still deserializes; the `extra` flatten
+/// round-trips only the closed `x_*` extension namespace.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthMetadata {
@@ -1374,8 +1350,9 @@ pub struct AuthMetadata {
     pub methods: Vec<AuthMethod>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub did_binding_methods: Vec<String>,
-    /// Schema-authorized, safely ignorable `x_*` metadata.
-    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    /// Closed `x_*` metadata extensions. These values are protocol-inert.
+    #[serde(default, flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 
@@ -1400,8 +1377,9 @@ impl AuthMetadata {
 pub struct AccountAuthority {
     pub origin: WebOrigin,
     pub gate_account_base_url: String,
-    /// Schema-authorized, safely ignorable `x_*` metadata.
-    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    /// Closed `x_*` metadata extensions. These values are protocol-inert.
+    #[serde(default, flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 
@@ -1423,8 +1401,9 @@ pub struct AuthMethod {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scopes: Vec<String>,
     pub grant_exchange: AuthGrantExchange,
-    /// Schema-authorized, safely ignorable `x_*` metadata.
-    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    /// Closed `x_*` metadata extensions. These values are protocol-inert.
+    #[serde(default, flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 
@@ -1448,8 +1427,9 @@ pub enum AuthMethodKind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AuthGrantExchange {
     pub kind: AuthGrantExchangeKind,
-    /// Schema-authorized, safely ignorable `x_*` metadata.
-    #[serde(default, flatten, skip_serializing_if = "XExtensionMap::is_empty")]
+    /// Closed `x_*` metadata extensions. These values are protocol-inert.
+    #[serde(default, flatten)]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extra: XExtensionMap,
 }
 

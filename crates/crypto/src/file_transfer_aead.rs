@@ -12,6 +12,23 @@ use serde_json::json;
 
 use crate::{Error, Result};
 
+const AEAD_TAG_LEN: u64 = 16;
+
+/// Locally-derived ciphertext geometry for one file-transfer segment.
+///
+/// This is not a wire type. The authenticated record remains the only source
+/// of `plaintext_size_bytes` and `segment_bytes`; callers use this derived
+/// value solely to issue an exact HTTP byte-range request.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FileTransferSegment {
+    pub index: u32,
+    pub count: u32,
+    pub ciphertext_start: u64,
+    pub ciphertext_end: u64,
+    pub ciphertext_len: usize,
+    pub plaintext_len: usize,
+}
+
 fn invalid(message: impl Into<String>) -> Error {
     Error::Protocol(message.into())
 }
@@ -74,6 +91,110 @@ fn transcript(
     }
 }
 
+/// Validate the authenticated record geometry and derive its segment count.
+///
+/// Both stream and whole-file records use the same `plaintext + 16-byte tag
+/// per segment` stored-object length rule. Validating it before any range
+/// request prevents an attacker-controlled record from driving an invalid
+/// download plan.
+pub fn segment_count(record: &FileTransferRecord) -> Result<u32> {
+    record.validate().map_err(|e| invalid(e.to_string()))?;
+    let count = record
+        .encryption
+        .segment_bytes
+        .map(|bytes| stream_segment_count(record.plaintext_size_bytes, bytes))
+        .transpose()
+        .map_err(|e| invalid(e.to_string()))?
+        .unwrap_or(1);
+    let expected = record
+        .plaintext_size_bytes
+        .checked_add(u64::from(count) * AEAD_TAG_LEN)
+        .ok_or_else(|| invalid("segment_bounds_invalid"))?;
+    if expected != record.blob_size_bytes {
+        return Err(invalid(
+            "segment_stream_truncated: unexpected ciphertext length",
+        ));
+    }
+    Ok(count)
+}
+
+/// Derive the exact inclusive ciphertext byte range for one segment.
+pub fn segment(record: &FileTransferRecord, index: u32) -> Result<FileTransferSegment> {
+    let count = segment_count(record)?;
+    if index >= count {
+        return Err(invalid("segment_bounds_invalid"));
+    }
+    let nominal_plaintext_len = record
+        .encryption
+        .segment_bytes
+        .map(u64::from)
+        .unwrap_or(record.plaintext_size_bytes);
+    let plaintext_start = u64::from(index)
+        .checked_mul(nominal_plaintext_len)
+        .ok_or_else(|| invalid("segment_bounds_invalid"))?;
+    let plaintext_len = record
+        .plaintext_size_bytes
+        .checked_sub(plaintext_start)
+        .ok_or_else(|| invalid("segment_bounds_invalid"))?
+        .min(nominal_plaintext_len);
+    let ciphertext_start = plaintext_start
+        .checked_add(u64::from(index) * AEAD_TAG_LEN)
+        .ok_or_else(|| invalid("segment_bounds_invalid"))?;
+    let ciphertext_len = plaintext_len
+        .checked_add(AEAD_TAG_LEN)
+        .ok_or_else(|| invalid("segment_bounds_invalid"))?;
+    let ciphertext_end = ciphertext_start
+        .checked_add(ciphertext_len)
+        .and_then(|value| value.checked_sub(1))
+        .ok_or_else(|| invalid("segment_bounds_invalid"))?;
+    Ok(FileTransferSegment {
+        index,
+        count,
+        ciphertext_start,
+        ciphertext_end,
+        ciphertext_len: usize::try_from(ciphertext_len)
+            .map_err(|_| invalid("segment_bounds_invalid"))?,
+        plaintext_len: usize::try_from(plaintext_len)
+            .map_err(|_| invalid("segment_bounds_invalid"))?,
+    })
+}
+
+/// Authenticate and open one exact segment from a file-transfer record.
+///
+/// The caller must still verify the complete concatenated ciphertext digest
+/// before committing a persisted output. A successfully opened segment may be
+/// sent to a transactional sink or progressive consumer as allowed by the
+/// file-transfer streaming contract.
+pub fn decrypt_segment(
+    record: &FileTransferRecord,
+    index: u32,
+    ciphertext: &[u8],
+    content_key: &[u8; 32],
+) -> Result<Vec<u8>> {
+    let plan = segment(record, index)?;
+    if ciphertext.len() != plan.ciphertext_len {
+        return Err(invalid("segment_bounds_invalid"));
+    }
+    let (nonce, aad, plaintext_len) = transcript(
+        &record.encryption,
+        &record.media_type,
+        record.plaintext_size_bytes,
+        index,
+    )?;
+    if plaintext_len != plan.plaintext_len {
+        return Err(invalid("segment_bounds_invalid"));
+    }
+    XChaCha20Poly1305::new(content_key.into())
+        .decrypt(
+            &XNonce::from(nonce),
+            Payload {
+                msg: ciphertext,
+                aad: &aad,
+            },
+        )
+        .map_err(|_| invalid("segment_aead_failed"))
+}
+
 /// Seal an immutable descriptor; its Blob digest is computed only afterwards.
 pub fn encrypt(
     encryption: &FileTransferEncryption,
@@ -125,43 +246,19 @@ pub fn decrypt(
     {
         return Err(invalid("digest_mismatch"));
     }
-    let count = record
-        .encryption
-        .segment_bytes
-        .map(|bytes| stream_segment_count(record.plaintext_size_bytes, bytes))
-        .transpose()
-        .map_err(|e| invalid(e.to_string()))?
-        .unwrap_or(1);
-    let expected = record
-        .plaintext_size_bytes
-        .checked_add(u64::from(count) * 16)
-        .ok_or_else(|| invalid("segment_bounds_invalid"))?;
-    if expected != ciphertext.len() as u64 {
-        return Err(invalid(
-            "segment_stream_truncated: unexpected ciphertext length",
-        ));
-    }
-    let cipher = XChaCha20Poly1305::new(content_key.into());
-    let mut plaintext = Vec::new();
-    let mut offset = 0;
+    let count = segment_count(record)?;
+    let capacity =
+        usize::try_from(record.plaintext_size_bytes).map_err(|_| invalid("file too large"))?;
+    let mut plaintext = Vec::with_capacity(capacity);
     for index in 0..count {
-        let (nonce, aad, length) = transcript(
-            &record.encryption,
-            &record.media_type,
-            record.plaintext_size_bytes,
-            index,
-        )?;
-        let segment = cipher
-            .decrypt(
-                &XNonce::from(nonce),
-                Payload {
-                    msg: &ciphertext[offset..offset + length + 16],
-                    aad: &aad,
-                },
-            )
-            .map_err(|_| invalid("segment_aead_failed"))?;
-        plaintext.extend_from_slice(&segment);
-        offset += length + 16;
+        let plan = segment(record, index)?;
+        let start = usize::try_from(plan.ciphertext_start)
+            .map_err(|_| invalid("segment_bounds_invalid"))?;
+        let end = start
+            .checked_add(plan.ciphertext_len)
+            .ok_or_else(|| invalid("segment_bounds_invalid"))?;
+        let opened = decrypt_segment(record, index, &ciphertext[start..end], content_key)?;
+        plaintext.extend_from_slice(&opened);
     }
     Ok(plaintext)
 }
@@ -259,6 +356,33 @@ mod tests {
                 assert!(decrypt(&swapped, &reordered, &[7; 32]).is_err());
             }
         }
+    }
+
+    #[test]
+    fn range_plan_and_segment_open_match_the_whole_file_kat() {
+        let plaintext = vec![42; 2049];
+        let encryption = descriptor();
+        let ciphertext = encrypt(&encryption, "text/plain", &plaintext, &[7; 32]).unwrap();
+        let record = transfer_record(encryption, plaintext.len(), &ciphertext);
+        let expected_ranges = [(0, 1039), (1040, 2079), (2080, 2096)];
+        let mut opened = Vec::new();
+
+        for (index, expected_range) in expected_ranges.into_iter().enumerate() {
+            let plan = segment(&record, index as u32).unwrap();
+            assert_eq!((plan.ciphertext_start, plan.ciphertext_end), expected_range);
+            opened.extend_from_slice(
+                &decrypt_segment(
+                    &record,
+                    index as u32,
+                    &ciphertext[plan.ciphertext_start as usize..=plan.ciphertext_end as usize],
+                    &[7; 32],
+                )
+                .unwrap(),
+            );
+        }
+
+        assert_eq!(opened, plaintext);
+        assert_eq!(opened, decrypt(&record, &ciphertext, &[7; 32]).unwrap());
     }
 
     #[test]

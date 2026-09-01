@@ -53,10 +53,8 @@ pub fn build_authenticated_webvh_service_resolution(
     let witnesses = terminal_witnesses(&log_entries)?;
     let witness_proofs_digest = Hash::new(arkret_canonical::canonical_sha256(&witness_records)?)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    let document_digest = Hash::new(arkret_canonical::canonical_sha256(
-        &normalized_did_document,
-    )?)
-    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
+    let document_digest = crate::document_canonical_digest(&normalized_did_document)
+        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let resolution = AuthenticatedServiceResolution {
         service_resolution_record,
         method_history_evidence: ResolutionMethodHistoryEvidence::WebvhLog {
@@ -202,7 +200,7 @@ pub fn verify_public_principal_resolution_history(
         )
         .into());
     }
-    let document_digest = Hash::new(arkret_canonical::canonical_sha256(principal_document)?)
+    let document_digest = crate::document_canonical_digest(principal_document)
         .map_err(|error| WireError::Protocol(error.to_string()))?;
     if evidence.evidence().document_digest != document_digest {
         return Err(WireError::Protocol(
