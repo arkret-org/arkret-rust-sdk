@@ -21,6 +21,8 @@ use crate::key_backup::{
 };
 use crate::keys::DeviceGenerationStatus;
 
+pub use arkret_wire::RecoveryIdentityModel;
+
 /// The `backup_kind`-discriminated keybag body of
 /// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json` (`oneOf`).
 ///
@@ -1207,13 +1209,6 @@ pub struct ProofSummary {
 pub struct RecoveryPolicyRef {
     pub policy_id: PolicyId,
     pub policy_version: u64,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryIdentityModel {
-    PcrPolicy,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
