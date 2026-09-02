@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-02.1;
-//! sha256=82c127fea3bcdc062655f070dd19ef4b6a4c70a9b36eaa8af59f2458ba5dbba6 Entries: registered=164
+//! Input: registry/capability-action-registry.json; version=2026-09-02.8;
+//! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Entries: registered=162
 
 use serde::{Deserialize, Serialize};
 
@@ -77,8 +77,6 @@ pub enum CapabilityActionId {
     MlsProposal,
     MlsWelcome,
     MlsWelcomeOwnDevice,
-    ModerationAppealReview,
-    ModerationAppealSubmit,
     ModerationDecision,
     ModerationDecisionLift,
     MorphArchive,
@@ -245,8 +243,6 @@ impl CapabilityActionId {
         Self::MlsProposal,
         Self::MlsWelcome,
         Self::MlsWelcomeOwnDevice,
-        Self::ModerationAppealReview,
-        Self::ModerationAppealSubmit,
         Self::ModerationDecision,
         Self::ModerationDecisionLift,
         Self::MorphArchive,
@@ -411,8 +407,6 @@ impl CapabilityActionId {
     pub const MLS_PROPOSAL: &'static str = "ak.mls.proposal";
     pub const MLS_WELCOME: &'static str = "ak.mls.welcome";
     pub const MLS_WELCOME_OWN_DEVICE: &'static str = "ak.mls.welcome.own_device";
-    pub const MODERATION_APPEAL_REVIEW: &'static str = "ak.moderation.appeal.review";
-    pub const MODERATION_APPEAL_SUBMIT: &'static str = "ak.moderation.appeal.submit";
     pub const MODERATION_DECISION: &'static str = "ak.moderation.decision";
     pub const MODERATION_DECISION_LIFT: &'static str = "ak.moderation.decision.lift";
     pub const MORPH_ARCHIVE: &'static str = "ak.morph.archive";
@@ -586,8 +580,6 @@ impl CapabilityActionId {
             Self::MlsProposal => Self::MLS_PROPOSAL,
             Self::MlsWelcome => Self::MLS_WELCOME,
             Self::MlsWelcomeOwnDevice => Self::MLS_WELCOME_OWN_DEVICE,
-            Self::ModerationAppealReview => Self::MODERATION_APPEAL_REVIEW,
-            Self::ModerationAppealSubmit => Self::MODERATION_APPEAL_SUBMIT,
             Self::ModerationDecision => Self::MODERATION_DECISION,
             Self::ModerationDecisionLift => Self::MODERATION_DECISION_LIFT,
             Self::MorphArchive => Self::MORPH_ARCHIVE,
@@ -759,8 +751,6 @@ impl CapabilityActionId {
             Self::MLS_PROPOSAL => Some(Self::MlsProposal),
             Self::MLS_WELCOME => Some(Self::MlsWelcome),
             Self::MLS_WELCOME_OWN_DEVICE => Some(Self::MlsWelcomeOwnDevice),
-            Self::MODERATION_APPEAL_REVIEW => Some(Self::ModerationAppealReview),
-            Self::MODERATION_APPEAL_SUBMIT => Some(Self::ModerationAppealSubmit),
             Self::MODERATION_DECISION => Some(Self::ModerationDecision),
             Self::MODERATION_DECISION_LIFT => Some(Self::ModerationDecisionLift),
             Self::MORPH_ARCHIVE => Some(Self::MorphArchive),

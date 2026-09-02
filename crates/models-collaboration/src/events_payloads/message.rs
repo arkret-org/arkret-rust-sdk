@@ -725,16 +725,29 @@ impl ContentBlock {
                 ));
             }
             let blob_ref = field("blob_ref");
-            let Some((suite, hex)) = hash_blob_ref_suite_and_hex(blob_ref) else {
+            if hash_blob_ref_suite_and_hex(blob_ref).is_none() {
                 return Err(WireError::Protocol(
                     "E2EE long_text attachment blob_ref must be hash-addressed".to_owned(),
                 ));
-            };
-            if field("ciphertext_digest") != format!("{suite}:{hex}") {
-                return Err(WireError::Protocol(
-                    "E2EE long_text attachment ciphertext_digest must equal the blob_ref digest"
-                        .to_owned(),
-                ));
+            }
+            const STREAM_ATTACHMENT_FIELDS: &[&str] = &[
+                "blob_ref",
+                "encrypted",
+                "scheme",
+                "encryption_algorithm",
+                "key_ref",
+                "size_bytes",
+                "media_type",
+                "nonce_prefix",
+                "segment_bytes",
+            ];
+            if let Some(unknown) = attachment
+                .keys()
+                .find(|key| !STREAM_ATTACHMENT_FIELDS.contains(&key.as_str()))
+            {
+                return Err(WireError::Protocol(format!(
+                    "E2EE long_text attachment does not allow field {unknown:?}"
+                )));
             }
             for key in ["nonce_prefix", "segment_bytes", "size_bytes"] {
                 if !attachment.contains_key(key) {

@@ -19,9 +19,7 @@ pub struct MlsGroupStateMaterialRequestBody {
     pub epoch: crate::events_payloads::mls::MlsGenesisEpoch,
     pub group_state_event_id: EventId,
     pub group_info_ref: BlobRef,
-    pub group_info_digest: Hash,
     pub ratchet_tree_ref: BlobRef,
-    pub ratchet_tree_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_response_bytes: Option<u32>,
 }
@@ -33,8 +31,8 @@ impl MlsGroupStateMaterialRequestBody {
                 "MLS group-state material scope does not match realm_id".to_owned(),
             ));
         }
-        validate_content_address(&self.group_info_ref, &self.group_info_digest)?;
-        validate_content_address(&self.ratchet_tree_ref, &self.ratchet_tree_digest)?;
+        material_digest_from_ref(&self.group_info_ref)?;
+        material_digest_from_ref(&self.ratchet_tree_ref)?;
         if let Some(limit) = self.max_response_bytes
             && !(MLS_GROUP_STATE_MATERIAL_MIN_RESPONSE_BYTES
                 ..=MLS_GROUP_STATE_MATERIAL_MAX_RESPONSE_BYTES)
@@ -58,10 +56,8 @@ pub struct MlsGroupStateMaterialOutcome {
     pub epoch: crate::events_payloads::mls::MlsGenesisEpoch,
     pub group_state_event_id: EventId,
     pub group_info_ref: BlobRef,
-    pub group_info_digest: Hash,
     pub group_info_bytes_b64: Base64UrlString,
     pub ratchet_tree_ref: BlobRef,
-    pub ratchet_tree_digest: Hash,
     pub ratchet_tree_bytes_b64: Base64UrlString,
 }
 
@@ -85,26 +81,24 @@ impl MlsGroupStateMaterialOutcome {
             || self.epoch != request.epoch
             || self.group_state_event_id != request.group_state_event_id
             || self.group_info_ref != request.group_info_ref
-            || self.group_info_digest != request.group_info_digest
             || self.ratchet_tree_ref != request.ratchet_tree_ref
-            || self.ratchet_tree_digest != request.ratchet_tree_digest
         {
             return Err(WireError::Protocol(
                 "MLS group-state material response does not match request selectors".to_owned(),
             ));
         }
 
-        validate_content_address(&self.group_info_ref, &self.group_info_digest)?;
-        validate_content_address(&self.ratchet_tree_ref, &self.ratchet_tree_digest)?;
+        let group_info_digest = material_digest_from_ref(&self.group_info_ref)?;
+        let ratchet_tree_digest = material_digest_from_ref(&self.ratchet_tree_ref)?;
         let group_info_bytes = decode_and_validate_bytes(
             "group_info",
             &self.group_info_bytes_b64,
-            &self.group_info_digest,
+            &group_info_digest,
         )?;
         let ratchet_tree_bytes = decode_and_validate_bytes(
             "ratchet_tree",
             &self.ratchet_tree_bytes_b64,
-            &self.ratchet_tree_digest,
+            &ratchet_tree_digest,
         )?;
         let total = group_info_bytes
             .len()
@@ -127,23 +121,16 @@ impl MlsGroupStateMaterialOutcome {
     }
 }
 
-pub fn validate_content_address(blob_ref: &BlobRef, digest: &Hash) -> Result<()> {
-    let embedded = blob_ref
-        .as_str()
-        .strip_prefix("ak:blob:sha256:")
-        .ok_or_else(|| {
-            WireError::Protocol("MLS material ref must use ak:blob:sha256".to_owned())
-        })?;
-    let explicit = digest
-        .as_str()
-        .strip_prefix("sha256:")
-        .ok_or_else(|| WireError::Protocol("MLS material digest must use sha256".to_owned()))?;
-    if embedded != explicit {
+pub fn material_digest_from_ref(blob_ref: &BlobRef) -> Result<Hash> {
+    let digest = blob_ref.as_str().strip_prefix("ak:blob:").ok_or_else(|| {
+        WireError::Protocol("MLS material ref must be content-addressed".to_owned())
+    })?;
+    if !(digest.starts_with("sha256:") || digest.starts_with("blake3:")) {
         return Err(WireError::Protocol(
-            "MLS material content-addressed ref does not match explicit digest".to_owned(),
+            "MLS material ref must use the Realm digest suite".to_owned(),
         ));
     }
-    Ok(())
+    Ok(Hash::new(digest.to_owned())?)
 }
 
 fn decode_and_validate_bytes(
@@ -156,8 +143,7 @@ fn decode_and_validate_bytes(
             "MLS {field} bytes are not unpadded base64url: {error}"
         ))
     })?;
-    let actual = arkret_canonical::canonical::sha256_digest(&bytes);
-    if actual != expected_digest.as_str() {
+    if arkret_canonical::canonical::verify_digest(&bytes, expected_digest.as_str()).is_err() {
         return Err(WireError::Protocol(format!(
             "MLS {field} raw-byte digest mismatch"
         )));
@@ -184,20 +170,23 @@ mod tests {
             )
             .unwrap(),
             group_info_ref: BlobRef::new(format!("ak:blob:sha256:{hex}")).unwrap(),
-            group_info_digest: Hash::new(digest.clone()).unwrap(),
             ratchet_tree_ref: BlobRef::new(format!("ak:blob:sha256:{hex}")).unwrap(),
-            ratchet_tree_digest: Hash::new(digest).unwrap(),
             max_response_bytes: Some(1024),
         }
     }
 
     #[test]
-    fn content_address_requires_the_same_sha256() {
-        let blob_ref = BlobRef::new(format!("ak:blob:sha256:{}", "a".repeat(64))).unwrap();
-        let matching = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
-        let mismatch = Hash::new(format!("sha256:{}", "b".repeat(64))).unwrap();
-        validate_content_address(&blob_ref, &matching).unwrap();
-        assert!(validate_content_address(&blob_ref, &mismatch).is_err());
+    fn content_address_derives_the_digest_from_the_ref() {
+        let sha = BlobRef::new(format!("ak:blob:sha256:{}", "a".repeat(64))).unwrap();
+        let blake = BlobRef::new(format!("ak:blob:blake3:{}", "b".repeat(64))).unwrap();
+        assert_eq!(
+            material_digest_from_ref(&sha).unwrap().as_str(),
+            &sha.as_str()[8..]
+        );
+        assert_eq!(
+            material_digest_from_ref(&blake).unwrap().as_str(),
+            &blake.as_str()[8..]
+        );
     }
 
     #[test]
@@ -211,13 +200,11 @@ mod tests {
             epoch: request.epoch,
             group_state_event_id: request.group_state_event_id.clone(),
             group_info_ref: request.group_info_ref.clone(),
-            group_info_digest: request.group_info_digest.clone(),
             group_info_bytes_b64: Base64UrlString::new(
                 arkret_canonical::base64url::base64url_encode(bytes),
             )
             .unwrap(),
             ratchet_tree_ref: request.ratchet_tree_ref.clone(),
-            ratchet_tree_digest: request.ratchet_tree_digest.clone(),
             ratchet_tree_bytes_b64: Base64UrlString::new(
                 arkret_canonical::base64url::base64url_encode(bytes),
             )

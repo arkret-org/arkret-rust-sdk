@@ -109,7 +109,6 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
             verification_method: verification_method.clone(),
             event_digest: digest,
             signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
             created_at: event.created_at,
             domain: None,
             audience: None,
@@ -133,14 +132,11 @@ fn attach_fixture_admission_proof(event: &mut Event) {
         producer_verification_method: producer.verification_method.clone(),
         producer_signing_key_did: DidKey::new(founding_device_public_key()).unwrap(),
         producer_signer_resolution_evidence_ref: None,
-        producer_signer_resolution_evidence_digest: None,
         signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
             "ak:signer_evidence:sha256:{}",
             "11".repeat(32)
         ))
         .unwrap(),
-        signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
-            .unwrap(),
         accepted_at: event.created_at,
         jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
     };

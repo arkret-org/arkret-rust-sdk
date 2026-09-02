@@ -322,9 +322,6 @@ fn control_move(
                 ))
                 .unwrap(),
             ),
-            signer_resolution_evidence_digest: Some(
-                Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-            ),
             created_at,
             domain: None,
             audience: None,
@@ -349,9 +346,6 @@ fn genesis_create() -> Event {
                     "11".repeat(32)
                 ))
                 .unwrap(),
-            ),
-            signer_resolution_evidence_digest: Some(
-                Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
             ),
             created_at: event.created_at,
             domain: None,

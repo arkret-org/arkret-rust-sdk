@@ -169,11 +169,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::ReactionRemove
         | EventKind::Redaction => EventProductClass::Message,
         EventKind::MimiRoomBinding => EventProductClass::Mimi,
-        EventKind::ModerationAppealClose
-        | EventKind::ModerationAppealDecision
-        | EventKind::ModerationAppealReview
-        | EventKind::ModerationAppealSubmit
-        | EventKind::ModerationDecision
+        EventKind::ModerationDecision
         | EventKind::ModerationDecisionLift
         | EventKind::ModerationFrankingProof
         | EventKind::SelfModerationReport => EventProductClass::Moderation,

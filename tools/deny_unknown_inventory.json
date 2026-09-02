@@ -6025,58 +6025,6 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/governance/moderation_appeal.rs::AppealSubmitPayload",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation_appeal.rs",
-      "line": 34,
-      "kind": "struct",
-      "value_kind": "AppealSubmitPayload",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation_appeal.rs::AppealReviewPayload",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation_appeal.rs",
-      "line": 51,
-      "kind": "struct",
-      "value_kind": "AppealReviewPayload",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation_appeal.rs::AppealDecisionPayload",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation_appeal.rs",
-      "line": 64,
-      "kind": "struct",
-      "value_kind": "AppealDecisionPayload",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/moderation_appeal.rs::AppealClosePayload",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/governance/moderation_appeal.rs",
-      "line": 80,
-      "kind": "struct",
-      "value_kind": "AppealClosePayload",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/governance/peer_contact.rs::PeerContactAddress",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/governance/peer_contact.rs",

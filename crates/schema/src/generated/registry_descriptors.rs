@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-02.3;
-//! sha256=6120135c1203863aa53048fd640ddd5f03605ec8ac57496954bd6df686b16b4a Input: registry/
-//! capability-action-registry.json; version=2026-09-02.1;
-//! sha256=82c127fea3bcdc062655f070dd19ef4b6a4c70a9b36eaa8af59f2458ba5dbba6 Input: registry/
-//! schema-registry.json; version=2026-09-02.4;
-//! sha256=840db0330011453722306d033c3731765b76fb23a91c8a3fad28b7c3282f162e Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-02.4;
+//! sha256=48a70d02bae777d98f46cbdbadc6380d8263776e428dedd31fc29a1e7c8727f1 Input: registry/
+//! capability-action-registry.json; version=2026-09-02.8;
+//! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
+//! schema-registry.json; version=2026-09-02.5;
+//! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
-//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=60,
-//! special_forms=14, actions=164, schemas=200, account_data_patterns=24
+//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
+//! special_forms=14, actions=162, schemas=199, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -94,11 +94,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "announce",
         category: "discovery",
         wire_form: "ak:announce:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "appeal",
-        category: "moderation",
-        wire_form: "ak:appeal:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "applet",
@@ -1477,38 +1472,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::ModerationAppealReview,
-        category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::MODERATION_APPEAL_REVIEW,
-            event_kind_str::MODERATION_APPEAL_DECISION,
-            event_kind_str::MODERATION_APPEAL_CLOSE,
-        ],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "aggregate_admin",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ModerationAppealSubmit,
-        category: "management",
-        risk_tier: CapabilityRiskTier::Low,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MODERATION_APPEAL_SUBMIT],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationDecision,
         category: "management",
         risk_tier: CapabilityRiskTier::High,
@@ -2151,10 +2114,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MLS_KEYPACKAGE,
             event_kind_str::MLS_PROPOSAL,
             event_kind_str::MLS_WELCOME,
-            event_kind_str::MODERATION_APPEAL_CLOSE,
-            event_kind_str::MODERATION_APPEAL_DECISION,
-            event_kind_str::MODERATION_APPEAL_REVIEW,
-            event_kind_str::MODERATION_APPEAL_SUBMIT,
             event_kind_str::MODERATION_DECISION,
             event_kind_str::MODERATION_DECISION_LIFT,
             event_kind_str::MORPH_ARCHIVE,
@@ -2265,8 +2224,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.mls.keypackage",
             "ak.mls.proposal",
             "ak.mls.welcome",
-            "ak.moderation.appeal.review",
-            "ak.moderation.appeal.submit",
             "ak.moderation.decision",
             "ak.moderation.decision.lift",
             "ak.morph.archive",
@@ -3576,10 +3533,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
         file: "schemas/mls-governance-proof-bundle.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::MODERATION_APPEAL_V1,
-        file: "schemas/moderation-appeal.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_EVIDENCE_V1,

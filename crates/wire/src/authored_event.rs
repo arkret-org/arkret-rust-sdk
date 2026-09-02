@@ -284,7 +284,6 @@ mod tests {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
             signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
             created_at: "2026-08-09T01:02:03.000Z".parse().unwrap(),
             domain: None,
             audience: None,

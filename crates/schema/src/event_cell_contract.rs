@@ -1994,10 +1994,6 @@ mod tests {
             .expect("fixture event id");
         for (event_kind, expected) in [
             (
-                "ak.moderation.appeal.submit",
-                "ak:appeal:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
-            ),
-            (
                 "ak.audit.session.request",
                 "ak:audit_session:AV1bzsPGpTD74Cq12d9EOrCkieTddiSndS0kDtK1W2hM",
             ),

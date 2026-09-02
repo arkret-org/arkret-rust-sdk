@@ -225,7 +225,6 @@ fn proof_for_negative(base: &Value, jws: &str) -> ProducerEventProof {
         verification_method: DidUrl::new(s(&base["proof"], "verification_method")).unwrap(),
         event_digest: Hash::new(s(base, "event_digest")).unwrap(),
         signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
         created_at: s(&base["proof"], "created_at").parse().unwrap(),
         domain: base["proof"]["domain"].as_str().map(str::to_owned),
         audience: None,

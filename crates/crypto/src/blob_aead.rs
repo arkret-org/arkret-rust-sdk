@@ -81,9 +81,8 @@ const FLAG_LAST: u8 = 0x01;
 /// All serde `rename`s match the schema exactly; absent optionals are skipped.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct AttachmentEnvelopeFields {
-    /// Content-addressed blob reference. May be filled in by the caller after
-    /// addressing the ciphertext bytes; left empty by the encrypt helpers.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
+    /// Content-addressed reference whose embedded digest covers the exact
+    /// stored ciphertext bytes.
     pub blob_ref: String,
     /// Always `true`.
     pub encrypted: bool,
@@ -94,8 +93,6 @@ struct AttachmentEnvelopeFields {
     /// MLS group-binding key reference (`{algorithm, group_state_ref}`),
     /// defined by `blob.schema.json#/$defs/encrypted_attachment`.
     pub key_ref: EncryptedAttachmentKeyRef,
-    /// `<algo>:<lowercase_hex>` digest over the concatenated ciphertext.
-    pub ciphertext_digest: String,
     /// Plaintext size in bytes.
     pub size_bytes: u64,
     /// Declared media type.
@@ -318,7 +315,6 @@ pub fn encrypt_stream(
         scheme: SCHEME_STREAM.to_owned(),
         encryption_algorithm: ALG_STREAM_XCHACHA.to_owned(),
         key_ref: params.key_ref.clone(),
-        ciphertext_digest: format!("sha256:{}", sha256_hex(&ciphertext)),
         size_bytes,
         media_type: params.media_type.clone(),
         nonce: None,
@@ -379,6 +375,12 @@ impl StreamContext {
             .try_into()
             .map_err(|_| protocol("unsupported_attachment_scheme", "nonce_prefix length != 19"))?;
 
+        let expected_digest = env
+            .blob_ref
+            .strip_prefix("ak:blob:")
+            .ok_or_else(|| protocol("schema_violation", "blob_ref is not content-addressed"))?
+            .to_owned();
+
         Ok(Self {
             cipher: cipher_from_key(content_key)?,
             nonce_prefix,
@@ -389,7 +391,7 @@ impl StreamContext {
             size_bytes: env.size_bytes,
             segment_bytes,
             segment_count,
-            expected_digest: env.ciphertext_digest.clone(),
+            expected_digest,
         })
     }
 
@@ -410,7 +412,7 @@ impl StreamContext {
 /// Supports Range / progressive playback: feed each segment ciphertext via
 /// [`push_segment`](Self::push_segment), which returns that segment's verified
 /// plaintext. [`finish`](Self::finish) enforces that a legal last segment was
-/// seen and that the overall `ciphertext_digest` matches.
+/// seen and that the overall digest matches the value embedded in `blob_ref`.
 ///
 /// Each §3.3.6 reject path is enforced here; see the inline comments.
 pub struct StreamDecryptor {
@@ -936,11 +938,12 @@ mod tests {
         let p = vec![8u8; 100];
         let (ct, env) =
             encrypt_stream(&p, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
-        // corrupt the declared overall digest; per-segment AEAD still passes,
+        // Corrupt the content address; per-segment AEAD still passes,
         // so the mismatch is only caught at finish().
         let mut fields = envelope_fields(&env).unwrap();
-        fields.ciphertext_digest =
-            "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_owned();
+        fields.blob_ref =
+            "ak:blob:sha256:0000000000000000000000000000000000000000000000000000000000000000"
+                .to_owned();
         let env = typed_envelope(fields).unwrap();
         let err = decrypt_stream(&ct, &env, &key, &winning_epoch).unwrap_err();
         assert_eq!(reason(&err), "digest_mismatch");
@@ -977,7 +980,6 @@ mod tests {
             "key_ref": { "algorithm": "MLS", "group_state_ref": "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB" },
             "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
             "segment_bytes": 262144,
-            "ciphertext_digest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
             "size_bytes": 3211264,
             "media_type": "video/mp4"
         }"#;

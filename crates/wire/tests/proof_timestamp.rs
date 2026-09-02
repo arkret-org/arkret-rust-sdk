@@ -7,7 +7,6 @@ fn proof_with_submillisecond_created_at() -> ProducerEventProof {
         verification_method: DidUrl::new("did:web:alice.example#key-1").unwrap(),
         event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
         signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
         created_at: Utc
             .with_ymd_and_hms(2026, 7, 21, 12, 34, 56)
             .unwrap()

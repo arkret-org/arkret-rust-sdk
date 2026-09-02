@@ -324,7 +324,6 @@ mod signed_request_tests {
                 verification_method: DidUrl::new(VM).unwrap(),
                 event_digest,
                 signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_digest: None,
                 created_at,
                 domain: None,
                 audience: None,

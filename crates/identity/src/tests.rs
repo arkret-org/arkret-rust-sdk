@@ -727,7 +727,6 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
         signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -788,7 +787,6 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
         signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,

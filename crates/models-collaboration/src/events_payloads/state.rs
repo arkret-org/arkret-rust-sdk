@@ -1628,7 +1628,7 @@ pub enum ForkResolutionVerdict {
     },
     CollisionWinner {
         kind: ForkResolutionWinnerKind,
-        winner_preimage: ForkResolutionVariantLocator,
+        winner_index: u8,
     },
     VoidAll {
         kind: ForkResolutionVoidKind,
@@ -1682,15 +1682,12 @@ impl ForkResolutionPayload {
                 ForkResolutionSubject::EventIdCollision { .. },
                 ForkResolutionConflictEvidence::FullHashCollision { variants },
                 ForkResolutionVerdict::CollisionWinner {
-                    winner_preimage, ..
+                    winner_index, ..
                 },
             ) => {
-                if !variants
-                    .iter()
-                    .any(|variant| variant.identity() == winner_preimage.identity())
-                {
+                if usize::from(*winner_index) >= variants.len() {
                     return schema_violation(
-                        "fork resolution collision winner is outside its own evidence set",
+                        "fork resolution collision winner_index is outside its own evidence set",
                     );
                 }
             }
@@ -2324,10 +2321,7 @@ mod tests {
             },
             "verdict": {
                 "kind": "canonical_winner",
-                "winner_preimage": {
-                    "kind": "inline_canonical_bytes",
-                    "canonical_event_bytes_b64u": "YQ"
-                }
+                "winner_index": 0
             }
         });
         serde_json::from_value::<ForkResolutionPayload>(valid.clone())
@@ -2343,7 +2337,7 @@ mod tests {
         assert!(serde_json::from_value::<ForkResolutionPayload>(digest_only).is_err());
 
         let mut outside = valid.clone();
-        outside["verdict"]["winner_preimage"]["canonical_event_bytes_b64u"] = json!("Yw");
+        outside["verdict"]["winner_index"] = json!(2);
         assert!(serde_json::from_value::<ForkResolutionPayload>(outside).is_err());
 
         let mut one_variant = valid.clone();
@@ -2382,17 +2376,21 @@ mod tests {
                     {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "Yg"}
                 ]
             },
-            "verdict": {"kind": "canonical_winner", "winner_preimage": record}
+            "verdict": {"kind": "canonical_winner", "winner_index": 0}
         });
         serde_json::from_value::<ForkResolutionPayload>(payload).expect("record locator winner");
     }
 
     /// Distinct fixture Event ids. The leading token octet selects the digest
-    /// suite, so the prefix is taken from a real id instead of padding.
+    /// suite; construct complete 33-byte tokens so every value passes the same
+    /// semantic identifier decoder as production input.
     fn fork_resolution_event_ids(count: usize) -> Vec<String> {
-        const PREFIX: &str = "AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C";
         let mut ids: Vec<String> = (0..count)
-            .map(|index| format!("ak:event:{PREFIX}{index:04}"))
+            .map(|index| {
+                let mut digest = [0_u8; 32];
+                digest[24..].copy_from_slice(&(index as u64 + 1).to_be_bytes());
+                EventId::from_digest(arkret_canonical::DigestSuite::Sha256, digest).to_string()
+            })
             .collect();
         ids.sort();
         ids

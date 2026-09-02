@@ -12,9 +12,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::HandleClaim;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    AccountId, ActorId, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId,
-    Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId,
-    SealBasis, ServiceOperationId, WireError, proof_kind,
+    AccountId, ActorId, AuditReasonText, BlobRef, DidCoreId, DidUrl, DomainSeparationId,
+    EncryptionProfile, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId,
+    RealmId, Result, SchemaId, SealBasis, ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -360,7 +360,7 @@ impl DirectoryResolveTargetRequestBody {
 
     pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
-            ProofContextId::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1,
+            DomainSeparationId::DirectoryResolveTargetRequestProofV1.as_str(),
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1,
             Some(directory_required_issuer(self.requester_id.as_ref())?),
             vec![("address", Value::String(self.address.clone()))],
@@ -484,7 +484,7 @@ impl DirectoryResolveOrganizationRequestBody {
     /// extra target member is added (`discovery-directory.md` §9.0.1).
     pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
-            ProofContextId::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1,
+            DomainSeparationId::DirectoryResolveOrganizationRequestProofV1.as_str(),
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1,
             None,
             Vec::new(),
@@ -673,7 +673,7 @@ impl DirectoryResolveHandleRequestBody {
 
     pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
-            ProofContextId::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1,
+            DomainSeparationId::DirectoryResolveHandleRequestProofV1.as_str(),
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1,
             Some(directory_required_issuer(self.requester_id.as_ref())?),
             vec![("handle", Value::String(self.handle.clone()))],
@@ -713,7 +713,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
 
     pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
-            ProofContextId::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1,
+            DomainSeparationId::DirectoryResolveAgentSelectorRequestProofV1.as_str(),
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1,
             Some(serde_json::to_value(&self.requester_id)?),
             vec![
@@ -815,7 +815,7 @@ impl DirectoryListHandlesForSubjectRequestBody {
 
     pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
-            ProofContextId::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1,
+            DomainSeparationId::DirectoryListHandlesForSubjectRequestProofV1.as_str(),
             ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
             Some(directory_required_issuer(self.requester_id.as_ref())?),
             vec![("account_id", serde_json::to_value(&self.account_id)?)],

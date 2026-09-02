@@ -14,7 +14,7 @@
 //!
 //! ```text
 //! { event_digest, actor_id, verification_method,
-//!   signer_resolution_evidence_ref?, signer_resolution_evidence_digest?,
+//!   signer_resolution_evidence_ref?,
 //!   created_at, domain?, audience? }
 //! ```
 //!
@@ -42,7 +42,7 @@ use crate::{Error, Result};
 /// Options threaded into [`sign_event`].
 ///
 /// `domain`, `audience`, and the direct-regime signer-resolution evidence
-/// pair are optional binding additions threaded into the produced [`ProducerEventProof`].
+/// ref are optional binding additions threaded into the produced [`ProducerEventProof`].
 /// They default to `None`. `created_at`
 /// defaults to `Utc::now()` when omitted so callers don't have to
 /// stamp the wall clock themselves.
@@ -52,7 +52,6 @@ pub struct SignEventOptions {
     pub audience: Option<Audience>,
     pub created_at: Option<DateTime<Utc>>,
     pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    pub signer_resolution_evidence_digest: Option<Hash>,
 }
 
 impl SignEventOptions {
@@ -148,14 +147,13 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
         verification_method: verification_method.clone(),
         event_digest: payload_digest.clone(),
         signer_resolution_evidence_ref: options.signer_resolution_evidence_ref,
-        signer_resolution_evidence_digest: options.signer_resolution_evidence_digest,
         created_at,
         domain: options.domain,
         audience: options.audience,
         proof_purpose: None,
         jws: String::new(),
     };
-    proof.validate_signer_resolution_evidence_pair()?;
+    proof.validate_signer_resolution_evidence_ref()?;
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id)?;
     let signature = signer.sign_payload(&binding_bytes)?;
     proof.jws = signature.jws;

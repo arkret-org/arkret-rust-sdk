@@ -363,7 +363,7 @@ pub enum MembershipCompensationTerminalDomain {
 pub struct MembershipCompensationTerminalCertificate {
     pub domain: MembershipCompensationTerminalDomain,
     pub admission_id: ProtocolOpaqueId,
-    pub delegation_digest: Hash,
+    pub delegation_id: MembershipCompensationDelegationRef,
     pub operation_id: ProtocolOperationId,
     pub terminal_state: MembershipCompensationTerminalState,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -392,7 +392,7 @@ pub enum MembershipCompensationExpectedState {
 pub struct MembershipCompensationCasToken {
     pub domain: MembershipCompensationCasDomain,
     pub admission_id: ProtocolOpaqueId,
-    pub delegation_digest: Hash,
+    pub delegation_id: MembershipCompensationDelegationRef,
     pub expected_state: MembershipCompensationExpectedState,
     pub destination_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -417,13 +417,12 @@ impl MembershipCompensationSubmissionEvidence {
     pub fn validate_bindings(&self) -> crate::Result<()> {
         self.delegation.validate_content_address()?;
         let core = &self.delegation.core;
-        let digest = &self.delegation.delegation_digest;
         if self.join_accepted_proof.admission_id != core.admission_id
             || self.join_accepted_proof.join_event_id != core.join_event_id
             || self.terminal_certificate.admission_id != core.admission_id
-            || self.terminal_certificate.delegation_digest != *digest
+            || self.terminal_certificate.delegation_id != self.delegation.delegation_id
             || self.single_use_cas_token.admission_id != core.admission_id
-            || self.single_use_cas_token.delegation_digest != *digest
+            || self.single_use_cas_token.delegation_id != self.delegation.delegation_id
             || self.single_use_cas_token.destination_id != *core.executor_id.route_service_id()
         {
             return Err(crate::WireError::Protocol(

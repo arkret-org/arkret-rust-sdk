@@ -354,9 +354,7 @@ pub struct AgentKeyAuthorizePayloadRuntimeAttestation {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attestation_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attestation_ref: Option<ObjectRef>,
+    pub attestation_ref: Option<BlobRef>,
 }
 
 /// One active authorization dot atomically replaced by a controller-signed

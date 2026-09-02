@@ -51,8 +51,7 @@ pub struct SnapshotVerificationHintsValue {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SnapshotChunksItem {
-    pub chunk_ref: BlobId,
-    pub digest: Hash,
+    pub chunk_ref: BlobRef,
     pub size_bytes: u64,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     pub extra: BTreeMap<String, Value>,

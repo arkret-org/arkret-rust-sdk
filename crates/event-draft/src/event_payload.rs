@@ -22,9 +22,6 @@ use arkret_models_collaboration::governance::membership_invite::{
     InviteAcceptPayload, InviteCancelPayload, InviteClaimPayload, InviteCreatePayload,
     InviteRevokePayload, InviteThirdPartyCreatePayload, MembershipPayload, RelationCreatePayload,
 };
-use arkret_models_collaboration::governance::moderation_appeal::{
-    AppealClosePayload, AppealDecisionPayload, AppealReviewPayload, AppealSubmitPayload,
-};
 use arkret_models_collaboration::governance::plaintext_visibility::PlaintextVisibleServicesPayload;
 use arkret_models_collaboration::governance::realm_governance::{
     CapabilityDerived, RealmAliasPayload, RealmLinkPayload,
@@ -360,10 +357,6 @@ event_payload_accessors! {
     event_spec::ModerationFrankingProof => (as_moderation_franking_proof, FrankingProof),
     event_spec::ModerationDecision => (as_moderation_decision, ModerationDecisionPayload),
     event_spec::ModerationDecisionLift => (as_moderation_decision_lift, ModerationDecisionLiftPayload),
-    event_spec::ModerationAppealSubmit => (as_moderation_appeal_submit, AppealSubmitPayload),
-    event_spec::ModerationAppealReview => (as_moderation_appeal_review, AppealReviewPayload),
-    event_spec::ModerationAppealDecision => (as_moderation_appeal_decision, AppealDecisionPayload),
-    event_spec::ModerationAppealClose => (as_moderation_appeal_close, AppealClosePayload),
     event_spec::ReadCursorAdvance => (as_read_cursor_advance, ReadCursor),
     event_spec::InviteCreate => (as_invite_create, InviteCreatePayload),
     event_spec::InviteCancel => (as_invite_cancel, InviteCancelPayload),

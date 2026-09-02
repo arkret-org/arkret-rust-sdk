@@ -29,7 +29,6 @@ fn operation_envelope_uses_spec_fields_and_digest_ignores_proofs() {
         )
         .unwrap(),
         signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,

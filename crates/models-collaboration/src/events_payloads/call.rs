@@ -361,7 +361,6 @@ pub struct CallRecordingEncryption {
     pub encryption_algorithm: CallRecordingEncryptionAlgorithm,
     pub exporter_label: String,
     pub context: CallRecordingEncryptionContext,
-    pub ciphertext_digest: Hash,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -411,8 +410,6 @@ pub struct CallRecordingArtifact {
     pub recording_start_event_id: EventId,
     pub artifact_kind: CallRecordingArtifactKind,
     pub blob_ref: BlobRef,
-    pub content_digest: Hash,
-    pub ciphertext_digest: Hash,
     pub size_bytes: u64,
     pub duration_ms: u64,
     pub media_type: String,
@@ -452,11 +449,6 @@ impl CallRecordingArtifact {
                 "recording artifact exporter_label must be {exporterlabelid_rtc_recording_key_v1}",
                 exporterlabelid_rtc_recording_key_v1 = ExporterLabelId::RTC_RECORDING_KEY_V1
             ));
-        }
-        if self.encryption.ciphertext_digest != self.ciphertext_digest {
-            return schema_violation(
-                "recording artifact ciphertext_digest must match encryption.ciphertext_digest",
-            );
         }
         if self.encryption.context.realm_id != self.realm_id
             || self.encryption.context.call_id != self.call_id
@@ -541,11 +533,9 @@ impl CallStatePayloadRecordingResult {
         {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
-        if self
-            .content_digest
-            .as_ref()
-            .is_some_and(|digest| digest != &artifact.content_digest)
-        {
+        if self.content_digest.as_ref().is_some_and(|digest| {
+            artifact.blob_ref.as_str().strip_prefix("ak:blob:") != Some(digest.as_str())
+        }) {
             return Err(ErrorCode::SCHEMA_VIOLATION);
         }
         if self

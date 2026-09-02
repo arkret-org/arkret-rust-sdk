@@ -297,7 +297,7 @@ where
         ));
     }
 
-    // Step 2: proofs. `validate_proof_bindings` recomputes the canonical
+    // Step 2: proof bindings. `validate_proof_bindings` recomputes the canonical
     // digest and rejects any proof that binds a different one, so a producer
     // cannot present a signature over bytes other than the ones we reduce.
     event
@@ -306,15 +306,21 @@ where
     event
         .validate_proof_bindings_with_digest_suite(digest_suite)
         .map_err(|e| ControlMoveReject::SignatureInvalid(e.to_string()))?;
-    verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
 
-    // Step 3: critical refs.
+    // Step 3: critical refs. Fork-resolution authorization is deliberately
+    // established before the proof callback: that callback also validates
+    // collision-variant records signed by the exact authorized resolution
+    // principal, and must never run as an authority substitute.
     if event.actor_id.validate().is_err() {
         return Err(ControlMoveReject::CapabilityDenied(
             "actor identity is invalid".to_owned(),
         ));
     }
     verify_capability_refs(event, pre_state)?;
+    if event.kind == arkret_wire::EventKind::ForkResolution {
+        verify_fork_resolution_refs(event, pre_state)?;
+    }
+    verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
 
     // Step 4: preconditions
     for pre in &event.preconditions {
@@ -345,9 +351,6 @@ where
         .any(|write| matches!(write.op, ProjectedOp::Reset { .. }))
     {
         verify_recovery_refs(event)?;
-    }
-    if event.kind == arkret_wire::EventKind::ForkResolution {
-        verify_fork_resolution_refs(event, pre_state)?;
     }
     let mut effects = Vec::with_capacity(projected.len());
     for write in &projected {
@@ -1116,9 +1119,6 @@ mod tests {
                     ))
                     .unwrap(),
                 ),
-                signer_resolution_evidence_digest: Some(
-                    Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-                ),
                 created_at: event.created_at,
                 domain: None,
                 audience: None,
@@ -1134,7 +1134,6 @@ mod tests {
         let mut event = control_move(preconditions, refs);
         let producer = event.proofs[0].as_producer_mut().unwrap();
         producer.signer_resolution_evidence_ref = None;
-        producer.signer_resolution_evidence_digest = None;
         let producer = event.proofs[0].as_producer().unwrap().clone();
         event
             .proofs
@@ -1150,14 +1149,11 @@ mod tests {
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
                 producer_signer_resolution_evidence_ref: None,
-                producer_signer_resolution_evidence_digest: None,
                 signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
                     "ak:signer_evidence:sha256:{}",
                     "11".repeat(32)
                 ))
                 .unwrap(),
-                signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
-                    .unwrap(),
                 accepted_at: event.created_at,
                 jws: "admission..signature".to_owned(),
             }));

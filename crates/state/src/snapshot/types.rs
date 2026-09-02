@@ -310,7 +310,6 @@ pub enum SnapshotSecurityClass {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotChunkDescriptor {
     pub chunk_ref: BlobRef,
-    pub digest: Hash,
     pub size_bytes: u64,
 }
 

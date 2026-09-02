@@ -15,9 +15,7 @@ pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
         "epoch",
         "cipher_suite",
         "group_info_ref",
-        "group_info_digest",
         "ratchet_tree_ref",
-        "ratchet_tree_digest",
         "governance_binding",
         "created_at",
     ] {

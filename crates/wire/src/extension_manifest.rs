@@ -937,7 +937,6 @@ mod tests {
                     .unwrap(),
                 event_digest: hash(0),
                 signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_digest: None,
                 created_at: published_at,
                 domain: None,
                 audience: None,

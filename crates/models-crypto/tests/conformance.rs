@@ -97,12 +97,9 @@ fn mls_commit_payload_matches_registered_event_schema() {
         value["commit_bytes_b64"],
         base64url::base64url_encode(commit_bytes)
     );
+    assert!(value.get("commit_digest").is_none());
     let mut tampered = value;
     tampered["commit_digest"] = serde_json::json!(format!("sha256:{}", "f".repeat(64)));
     let error = serde_json::from_value::<MlsCommitPayload>(tampered).unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("commit_digest does not match commit_bytes_b64")
-    );
+    assert!(error.to_string().contains("unknown field `commit_digest`"));
 }

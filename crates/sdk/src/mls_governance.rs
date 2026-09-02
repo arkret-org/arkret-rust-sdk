@@ -197,10 +197,13 @@ pub(crate) fn authenticated_document_key(
             signer_id,
             public_resolution,
             normalized_did_document,
-            attester_signer_evidence_digest,
+            attester_signer_evidence_ref,
             ..
         } => {
-            let attester = evidence_by_digest(dependencies, attester_signer_evidence_digest)?;
+            let attester = evidence_by_digest(
+                dependencies,
+                &attester_signer_evidence_ref.content_digest()?,
+            )?;
             let AuthenticatedSignerResolutionEvidence::Service {
                 signer_id: attester_id,
                 authenticated_resolution,
@@ -251,14 +254,13 @@ pub(crate) fn authenticated_document_key(
         .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
-pub(crate) fn bound_evidence_by_digest<'a>(
+pub(crate) fn bound_evidence_by_ref<'a>(
     dependencies: &'a [GovernanceDependency],
     evidence_ref: &arkret_wire::SignerEvidenceRef,
-    evidence_digest: &Hash,
     signer_id: &arkret_wire::DidCoreId,
     verification_method: &arkret_wire::DidUrl,
 ) -> Result<&'a AuthenticatedSignerResolutionEvidence, WireError> {
-    let evidence = evidence_by_digest(dependencies, evidence_digest)?;
+    let evidence = evidence_by_digest(dependencies, &evidence_ref.content_digest()?)?;
     if &evidence.evidence_ref()? != evidence_ref
         || evidence.signer_id() != signer_id
         || evidence.verification_method() != verification_method
@@ -373,14 +375,9 @@ pub fn build_agent_signer_resolution_evidence(
         verification_method,
         agent_signer_evidence: Box::new(agent_signer_evidence),
         attester_signer_evidence_ref: authority_evidence.evidence_ref()?,
-        attester_signer_evidence_digest: authority_evidence.canonical_sha256_digest()?,
         controller_signer_evidence_ref: controller_evidence.evidence_ref()?,
-        controller_signer_evidence_digest: controller_evidence.canonical_sha256_digest()?,
         account_authority_signer_evidence_ref: account_authority_evidence.evidence_ref()?,
-        account_authority_signer_evidence_digest: account_authority_evidence
-            .canonical_sha256_digest()?,
         receiver_signer_evidence_ref: receiver_evidence.evidence_ref()?,
-        receiver_signer_evidence_digest: receiver_evidence.canonical_sha256_digest()?,
     };
     result.validate_attester_binding()?;
     Ok(result)
@@ -407,13 +404,9 @@ where
         verification_method,
         agent_signer_evidence,
         attester_signer_evidence_ref,
-        attester_signer_evidence_digest,
         controller_signer_evidence_ref,
-        controller_signer_evidence_digest,
         account_authority_signer_evidence_ref,
-        account_authority_signer_evidence_digest,
         receiver_signer_evidence_ref,
-        receiver_signer_evidence_digest,
     } = evidence
     else {
         return Err(WireError::Protocol(
@@ -436,17 +429,15 @@ where
     let binding = &core.signing_key_binding;
     let gate = &admission_evidence.controller_account_gate_attestation;
 
-    let authority_evidence = bound_evidence_by_digest(
+    let authority_evidence = bound_evidence_by_ref(
         dependencies,
         attester_signer_evidence_ref,
-        attester_signer_evidence_digest,
         &core.authority_id,
         &snapshot.lease.verification_method,
     )?;
-    let controller_evidence = bound_evidence_by_digest(
+    let controller_evidence = bound_evidence_by_ref(
         dependencies,
         controller_signer_evidence_ref,
-        controller_signer_evidence_digest,
         &binding.controller_id,
         &binding.controller_proof.verification_method,
     )?;
@@ -454,10 +445,9 @@ where
         authenticated_document_key(controller_evidence, dependencies, binding.issued_at)?;
     let authority_public_key =
         authenticated_document_key(authority_evidence, dependencies, snapshot.lease.issued_at)?;
-    let account_authority_evidence = bound_evidence_by_digest(
+    let account_authority_evidence = bound_evidence_by_ref(
         dependencies,
         account_authority_signer_evidence_ref,
-        account_authority_signer_evidence_digest,
         &gate.authority_id,
         &gate.verification_method,
     )?;
@@ -467,10 +457,9 @@ where
         event_admission_receipt,
     )
     .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
-    let receiver_evidence = bound_evidence_by_digest(
+    let receiver_evidence = bound_evidence_by_ref(
         dependencies,
         receiver_signer_evidence_ref,
-        receiver_signer_evidence_digest,
         &event_admission_receipt.receiver_id,
         &receipt_method,
     )?;
@@ -532,12 +521,6 @@ where
         .ok_or_else(|| {
             WireError::Protocol("Agent Event omitted producer evidence ref".to_owned())
         })?;
-    let producer_evidence_digest = origin_admission
-        .producer_signer_resolution_evidence_digest
-        .as_ref()
-        .ok_or_else(|| {
-            WireError::Protocol("Agent Event omitted producer evidence digest".to_owned())
-        })?;
     let resolve_receiver = |method: &arkret_wire::DidUrl, at| {
         (method == &receipt_method && at == event_admission_receipt.accepted_at)
             .then(|| receiver_public_key.clone())
@@ -569,7 +552,6 @@ where
             realm_id: &event.realm_id,
             producer_accepted_at: origin_admission.accepted_at,
             producer_signer_resolution_evidence_ref: producer_evidence_ref,
-            producer_signer_resolution_evidence_digest: producer_evidence_digest,
             receiver_id: &event_admission_receipt.receiver_id,
             resolve_receiver_historical_key: &resolve_receiver,
         },
@@ -609,13 +591,9 @@ where
         verification_method,
         agent_signer_evidence,
         attester_signer_evidence_ref,
-        attester_signer_evidence_digest,
         controller_signer_evidence_ref,
-        controller_signer_evidence_digest,
         account_authority_signer_evidence_ref,
-        account_authority_signer_evidence_digest,
         receiver_signer_evidence_ref,
-        receiver_signer_evidence_digest,
     } = evidence
     else {
         return Err(WireError::Protocol(
@@ -647,28 +625,28 @@ where
     let core = &snapshot.core;
     let binding = &core.signing_key_binding;
     let gate = &admission_evidence.controller_account_gate_attestation;
-    let authority_evidence = bound_evidence_by_digest(
+    let authority_evidence = bound_evidence_by_ref(
         dependencies,
         attester_signer_evidence_ref,
-        attester_signer_evidence_digest,
         &core.authority_id,
         &snapshot.lease.verification_method,
     )?;
-    let controller_evidence = bound_evidence_by_digest(
+    let controller_evidence = bound_evidence_by_ref(
         dependencies,
         controller_signer_evidence_ref,
-        controller_signer_evidence_digest,
         &binding.controller_id,
         &binding.controller_proof.verification_method,
     )?;
-    let account_authority_evidence = bound_evidence_by_digest(
+    let account_authority_evidence = bound_evidence_by_ref(
         dependencies,
         account_authority_signer_evidence_ref,
-        account_authority_signer_evidence_digest,
         &gate.authority_id,
         &gate.verification_method,
     )?;
-    let receiver_evidence = evidence_by_digest(dependencies, receiver_signer_evidence_digest)?;
+    let receiver_evidence = evidence_by_digest(
+        dependencies,
+        &receiver_signer_evidence_ref.content_digest()?,
+    )?;
     if &receiver_evidence.evidence_ref()? != receiver_signer_evidence_ref
         || receiver_evidence.signer_id() != &current_observation.verifier_id
         || !matches!(
@@ -795,14 +773,14 @@ where
         .map_err(|error| WireError::Protocol(error.to_string()))?;
     match event.proofs.as_slice() {
         [EventProof::Producer(producer)] => {
-            let digest = producer
-                .signer_resolution_evidence_digest
+            let evidence_ref = producer
+                .signer_resolution_evidence_ref
                 .as_ref()
                 .ok_or_else(|| {
                     WireError::Protocol("direct Event omits signer evidence".to_owned())
                 })?;
-            let evidence = evidence_by_digest(dependencies, digest)?;
-            if producer.signer_resolution_evidence_ref.as_ref() != Some(&evidence.evidence_ref()?)
+            let evidence = evidence_by_digest(dependencies, &evidence_ref.content_digest()?)?;
+            if evidence_ref != &evidence.evidence_ref()?
                 || evidence.verification_method() != &producer.verification_method
                 || evidence.signer_id()
                     != event
@@ -828,7 +806,26 @@ where
                 &key,
                 event_digest_suite,
             )
-            .map_err(|error| WireError::Protocol(error.to_string()))
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+            arkret_models_collaboration::governance_dependencies::validate_fork_resolution_collision_dependencies(
+                event,
+                dependencies,
+                event_digest_suite,
+                |record, binding_bytes| {
+                    if record.proof.verification_method != producer.verification_method {
+                        return Err(WireError::Protocol(
+                            "direct collision record proof must use the verified resolution signer method"
+                                .to_owned(),
+                        ));
+                    }
+                    arkret_signatures::verify_ed25519_detached_jws_payload_proof(
+                        &record.proof,
+                        binding_bytes,
+                        &key,
+                    )
+                    .map_err(|error| WireError::Protocol(error.to_string()))
+                },
+            )
         }
         [
             EventProof::Producer(producer),
@@ -861,8 +858,10 @@ where
                 event_digest_suite,
             )
             .map_err(|error| WireError::Protocol(error.to_string()))?;
-            let evidence =
-                evidence_by_digest(dependencies, &admission.signer_resolution_evidence_digest)?;
+            let evidence = evidence_by_digest(
+                dependencies,
+                &admission.signer_resolution_evidence_ref.content_digest()?,
+            )?;
             let AuthenticatedSignerResolutionEvidence::Service {
                 signer_id,
                 authenticated_resolution,
@@ -899,7 +898,22 @@ where
                 &historical_document.id,
                 &historical_document,
             )
-            .map_err(|error| WireError::Protocol(error.to_string()))
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+            arkret_models_collaboration::governance_dependencies::validate_fork_resolution_collision_dependencies(
+                event,
+                dependencies,
+                event_digest_suite,
+                |record, binding_bytes| {
+                    arkret_identity::verify_jws_with_document(
+                        binding_bytes,
+                        &record.proof.jws,
+                        &record.proof.verification_method,
+                        &historical_document.id,
+                        &historical_document,
+                    )
+                    .map_err(|error| WireError::Protocol(error.to_string()))
+                },
+            )
         }
         _ => Err(WireError::Protocol(
             "replayed Event has an unsupported proof regime".to_owned(),
@@ -997,7 +1011,9 @@ pub fn verify_seal_availability_dependencies_default(
         availability_receipt.validate_event_bytes_digest(event, digest)?;
         let evidence = evidence_by_digest(
             dependencies,
-            &availability_receipt.holder_signer_evidence_digest,
+            &availability_receipt
+                .holder_signer_evidence_ref
+                .content_digest()?,
         )?;
         if evidence.signer_id() != &availability_receipt.holder_id
             || evidence.verification_method() != &availability_receipt.signature.verification_method
@@ -1651,6 +1667,71 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn collision_variant_record_proof_context_kat_verifies() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "../../../arkret-spec/spec/v1/artifacts/fixtures/proof-context-transcript-fixture.json",
+        );
+        let fixture: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(path).expect("proof-context fixture"))
+                .expect("proof-context JSON");
+        let vector = fixture["cases"]
+            .as_array()
+            .expect("proof-context cases")
+            .iter()
+            .find(|case| {
+                case["vector_id"]
+                    == "ak.vector.proof_context.transcript.collision_variant_record.v1"
+            })
+            .expect("collision record vector");
+        let record: arkret_models_collaboration::governance_dependencies::CollisionVariantRecord =
+            serde_json::from_value(serde_json::json!({
+                "schema": "ak.schema.collision_variant_record.v1",
+                "collision_variant_record_id": "ak:collision_variant_record:01964140-0000-7000-8000-000000000000",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+                "collision_event_id": "ak:event:AR8bu-n-kOOB3nRUvYuIEglCX5B-JpFaNTex9gxs_cWY",
+                "canonical_event_bytes_b64u": "e30",
+                "canonical_event_size_bytes": 2,
+                "recorded_at": "2026-05-01T00:00:00.000Z",
+                "proof": {
+                    "kind": "detached_jws",
+                    "verification_method": vector["binding_object"]["verification_method"],
+                    "payload_digest": vector["unsigned_digest"],
+                    "created_at": vector["binding_object"]["created_at"],
+                    "jws": vector["detached_jws"]
+                }
+            }))
+            .expect("collision record proof carrier");
+        let binding = record.proof_binding_bytes().unwrap();
+        assert_eq!(
+            std::str::from_utf8(&binding).unwrap(),
+            vector["binding_jcs"].as_str().unwrap()
+        );
+        let key = PublicKeyMaterial::Ed25519Raw {
+            bytes: arkret_canonical::base64url_decode(
+                fixture["test_key"]["public_key"].as_str().unwrap(),
+            )
+            .unwrap(),
+        };
+        arkret_signatures::verify_ed25519_detached_jws_payload_proof(&record.proof, &binding, &key)
+            .expect("registered collision record proof transcript verifies");
+        let wrong_binding = arkret_canonical::canonical_json_bytes(&serde_json::json!({
+            "context": "ak.account_binding_receipt_proof.v1",
+            "payload_digest": record.proof.payload_digest,
+            "verification_method": record.proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(record.proof.created_at),
+        }))
+        .unwrap();
+        assert!(
+            arkret_signatures::verify_ed25519_detached_jws_payload_proof(
+                &record.proof,
+                &wrong_binding,
+                &key,
+            )
+            .is_err()
+        );
+    }
 
     #[test]
     fn genesis_availability_gate_is_absent_and_commitment_is_empty() {

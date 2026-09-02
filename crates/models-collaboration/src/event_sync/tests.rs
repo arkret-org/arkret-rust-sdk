@@ -283,14 +283,11 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
             producer_verification_method: producer.verification_method.clone(),
             producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
             producer_signer_resolution_evidence_ref: None,
-            producer_signer_resolution_evidence_digest: None,
             signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
                 "ak:signer_evidence:sha256:{}",
                 "11".repeat(32)
             ))
             .unwrap(),
-            signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
-                .unwrap(),
             accepted_at: issued_at,
             jws: "admission..signature".to_owned(),
         }));

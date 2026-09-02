@@ -515,12 +515,8 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
     for (index, chunk) in built.iter().enumerate() {
         assert_eq!(chunk.payload.index, index as u32);
         assert_eq!(
-            chunk.descriptor.digest,
-            merkle::sha256_digest(&chunk.canonical_bytes)
-        );
-        assert_eq!(
             chunk.descriptor.chunk_ref.as_str(),
-            format!("ak:blob:{}", chunk.descriptor.digest).as_str()
+            format!("ak:blob:{}", merkle::sha256_digest(&chunk.canonical_bytes)).as_str()
         );
     }
 }

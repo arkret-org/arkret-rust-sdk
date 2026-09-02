@@ -402,7 +402,6 @@ pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
     pub realm_id: &'a RealmId,
     pub producer_accepted_at: DateTime<Utc>,
     pub producer_signer_resolution_evidence_ref: &'a SignerEvidenceRef,
-    pub producer_signer_resolution_evidence_digest: &'a Hash,
     pub receiver_id: &'a DidCoreId,
     /// Resolve the exact receiver assertion key identified by the detached
     /// JWS protected `kid` at the receipt acceptance time.
@@ -1257,8 +1256,6 @@ fn historical_receipt_matches(
         && receipt.verification_method == *context.common.verification_method
         && receipt.producer_signer_resolution_evidence_ref
             == *context.producer_signer_resolution_evidence_ref
-        && receipt.producer_signer_resolution_evidence_digest
-            == *context.producer_signer_resolution_evidence_digest
         && receipt.receiver_id == *context.receiver_id
         && receipt.proof.kind.as_str() == DETACHED_JWS_KIND
 }

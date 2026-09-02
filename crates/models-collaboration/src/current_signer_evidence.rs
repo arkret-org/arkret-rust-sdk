@@ -359,33 +359,35 @@ fn validate_agent_dependency_closure(
         }
     }
 
-    fn referenced_digests(evidence: &AuthenticatedSignerResolutionEvidence) -> Vec<Hash> {
-        match evidence {
+    fn referenced_digests(
+        evidence: &AuthenticatedSignerResolutionEvidence,
+    ) -> arkret_wire::Result<Vec<Hash>> {
+        Ok(match evidence {
             AuthenticatedSignerResolutionEvidence::Service { .. } => Vec::new(),
             AuthenticatedSignerResolutionEvidence::Principal {
-                attester_signer_evidence_digest,
+                attester_signer_evidence_ref,
                 ..
-            } => vec![attester_signer_evidence_digest.clone()],
+            } => vec![attester_signer_evidence_ref.content_digest()?],
             AuthenticatedSignerResolutionEvidence::Agent {
-                attester_signer_evidence_digest,
-                controller_signer_evidence_digest,
-                account_authority_signer_evidence_digest,
-                receiver_signer_evidence_digest,
+                attester_signer_evidence_ref,
+                controller_signer_evidence_ref,
+                account_authority_signer_evidence_ref,
+                receiver_signer_evidence_ref,
                 ..
             } => vec![
-                attester_signer_evidence_digest.clone(),
-                controller_signer_evidence_digest.clone(),
-                account_authority_signer_evidence_digest.clone(),
-                receiver_signer_evidence_digest.clone(),
+                attester_signer_evidence_ref.content_digest()?,
+                controller_signer_evidence_ref.content_digest()?,
+                account_authority_signer_evidence_ref.content_digest()?,
+                receiver_signer_evidence_ref.content_digest()?,
             ],
-        }
+        })
     }
 
     let graph = by_digest
         .iter()
-        .map(|(digest, evidence)| (digest.clone(), referenced_digests(evidence)))
-        .collect();
-    validate_dependency_graph(referenced_digests(root), &graph)
+        .map(|(digest, evidence)| Ok((digest.clone(), referenced_digests(evidence)?)))
+        .collect::<arkret_wire::Result<BTreeMap<_, _>>>()?;
+    validate_dependency_graph(referenced_digests(root)?, &graph)
 }
 
 fn validate_dependency_graph(

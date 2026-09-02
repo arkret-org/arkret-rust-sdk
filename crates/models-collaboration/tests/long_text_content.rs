@@ -37,7 +37,6 @@ fn e2ee_block() -> ContentBlock {
                     "algorithm": "MLS",
                     "group_state_ref": "ak:event:AUifxzFz9FHjEtSVQXh_FAew1XOfIvIEHovpdd_Bp5HO"
                 },
-                "ciphertext_digest": format!("sha256:{}", "b".repeat(64)),
                 "size_bytes": 700_000u64,
                 "media_type": "text/plain",
                 "nonce_prefix": "AAAAAAAAAAAAAAAAAAAAAAAAAA",
@@ -172,11 +171,11 @@ fn e2ee_branch_requires_the_streaming_aead_scheme() {
 }
 
 #[test]
-fn e2ee_ciphertext_digest_must_equal_the_blob_ref_digest() {
+fn e2ee_legacy_ciphertext_digest_is_rejected() {
     let mut attachment = e2ee_block().extra.get("attachment").unwrap().clone();
-    attachment["ciphertext_digest"] = json!(format!("sha256:{}", "c".repeat(64)));
-    let mismatched = e2ee_block().with_field("attachment", attachment);
-    assert!(mismatched.validate_long_text().is_err());
+    attachment["ciphertext_digest"] = json!(format!("sha256:{}", "b".repeat(64)));
+    let legacy = e2ee_block().with_field("attachment", attachment);
+    assert!(legacy.validate_long_text().is_err());
 }
 
 #[test]

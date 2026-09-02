@@ -886,7 +886,6 @@ pub fn build_proof_envelope(
         verification_method,
         event_digest: payload_digest,
         signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_digest: None,
         created_at: Utc::now(),
         domain,
         audience,

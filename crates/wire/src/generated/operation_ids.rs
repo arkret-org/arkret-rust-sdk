@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-02.4;
-//! sha256=a0fc7b338e22fea5e7682184b93128725df896cf4c3db49c38328f63148695e6 Entries: registered=233
+//! Input: registry/operation-registry.json; version=2026-09-02.5;
+//! sha256=536479614b9e7ca6c84dfc84dc931bdd0c34c5cad78a2d6fc22d686f9df89ca7 Entries: registered=233
 
 use serde::{Deserialize, Serialize};
 
@@ -4146,11 +4146,11 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         mq: Some("peer.signal.command.relay"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: Some(1048576),
-        success_shape_kind: "schema_resource",
+        success_shape_kind: "empty_response",
         idempotency_mechanism: Some("none"),
         retry_safe: Some(false),
         request_schema_ref: Some("schemas/signal-relay.schema.json"),
-        response_schema_ref: Some("schemas/signal-relay.schema.json#/$defs/signal_relay_outcome"),
+        response_schema_ref: None,
         uncertain_outcome: Some("{\"strategy\":\"drop_unconfirmed\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -6536,15 +6536,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         mq: Some("self.keys.backups.resource.delete"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
+        success_shape_kind: "empty_response",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_request_body",
         ),
-        response_schema_ref: Some(
-            "schemas/keys-operations.schema.json#/$defs/keys_backups_delete_outcome",
-        ),
+        response_schema_ref: None,
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,

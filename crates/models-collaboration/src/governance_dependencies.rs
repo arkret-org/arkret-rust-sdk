@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_wire::{
-    AvailabilityReceipt, Event, EventProof, Hash, RealmId, Result, Seal, SealId, WireError,
+    AvailabilityReceipt, Base64UrlString, CollisionVariantRecordId, Did, DidCoreId, Event, EventId,
+    EventProof, EventSubmitContext, Hash, PayloadProof, RealmId, Result, Seal, SealId, WireError,
     canonical,
 };
 use chrono::{DateTime, Utc};
@@ -22,14 +23,184 @@ use crate::history_key::{
 pub const MAX_GOVERNANCE_DEPENDENCY_SELECTORS: usize = 1_024;
 pub const MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 
+/// Complete canonical Event preimage stored outside a fork-resolution Move.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CollisionVariantRecord {
+    pub schema: String,
+    pub collision_variant_record_id: CollisionVariantRecordId,
+    pub realm_id: RealmId,
+    pub collision_event_id: EventId,
+    pub canonical_event_bytes_b64u: Base64UrlString,
+    pub canonical_event_size_bytes: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub recorded_at: DateTime<Utc>,
+    pub proof: PayloadProof,
+}
+
+impl CollisionVariantRecord {
+    pub const SCHEMA: &'static str = "ak.schema.collision_variant_record.v1";
+    pub const PROOF_CONTEXT: &'static str = "ak.collision_variant_record_proof.v1";
+
+    pub fn validate_structural(&self) -> Result<Vec<u8>> {
+        if self.schema != Self::SCHEMA {
+            return Err(WireError::Protocol(
+                "collision variant record schema must be ak.schema.collision_variant_record.v1"
+                    .to_owned(),
+            ));
+        }
+        self.proof.validate()?;
+        let event_bytes =
+            arkret_canonical::base64url_decode(self.canonical_event_bytes_b64u.as_str())?;
+        if event_bytes.is_empty()
+            || event_bytes.len() > 1_048_576
+            || event_bytes.len() as u64 != self.canonical_event_size_bytes
+        {
+            return Err(WireError::Protocol(
+                "collision variant record canonical Event byte length mismatch".to_owned(),
+            ));
+        }
+        Ok(event_bytes)
+    }
+
+    /// Exact detached-JWS transcript registered for the proof on this record.
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.proof.validate_production()?;
+        canonical::canonical_json_bytes(&serde_json::json!({
+            "context": Self::PROOF_CONTEXT,
+            "payload_digest": self.proof.payload_digest,
+            "verification_method": self.proof.verification_method,
+            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
+        }))
+        .map_err(Into::into)
+    }
+
+    /// Validate the record against the locator signed by one fork-resolution Move.
+    pub fn validate_for_locator(
+        &self,
+        expected_record_id: &CollisionVariantRecordId,
+        expected_record_digest: &Hash,
+        expected_collision_event_id: &EventId,
+        expected_realm_id: &RealmId,
+        expected_controller_id: &DidCoreId,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Event> {
+        let event_bytes = self.validate_structural()?;
+        if &self.collision_variant_record_id != expected_record_id
+            || &self.realm_id != expected_realm_id
+        {
+            return Err(WireError::Protocol(
+                "collision variant record locator or Realm binding mismatch".to_owned(),
+            ));
+        }
+        let mut unsigned_record = serde_json::to_value(self).map_err(|error| {
+            WireError::Protocol(format!(
+                "collision variant record cannot be represented as JSON: {error}"
+            ))
+        })?;
+        unsigned_record
+            .as_object_mut()
+            .expect("serialized collision variant record is an object")
+            .remove("proof");
+        let unsigned_bytes = canonical::canonical_json_bytes(&unsigned_record)?;
+        let proof_payload_digest = Hash::new(arkret_canonical::canonical::digest(
+            arkret_canonical::DigestSuite::Sha256,
+            unsigned_bytes,
+        ))?;
+        if self.proof.payload_digest != proof_payload_digest {
+            return Err(WireError::Protocol(
+                "collision variant record proof payload digest mismatch".to_owned(),
+            ));
+        }
+        let (controller, fragment) = self
+            .proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "collision variant record proof verification_method has no fragment".to_owned(),
+                )
+            })?;
+        if fragment.is_empty()
+            || arkret_wire::project_did_to_core_id(&Did::new(controller.to_owned())?)?
+                != *expected_controller_id
+        {
+            return Err(WireError::Protocol(
+                "collision variant record proof controller does not match the resolution author"
+                    .to_owned(),
+            ));
+        }
+        let record_bytes = canonical::canonical_json_bytes(self)?;
+        let record_digest = Hash::new(arkret_canonical::canonical::digest(
+            digest_suite,
+            record_bytes,
+        ))?;
+        if &record_digest != expected_record_digest {
+            return Err(WireError::Protocol(
+                "collision variant record complete-record digest mismatch".to_owned(),
+            ));
+        }
+        let collision_event = decode_collision_event(&event_bytes, digest_suite, "record")?;
+        if collision_event.realm_id != *expected_realm_id
+            || collision_event.event_id != self.collision_event_id
+            || collision_event.event_id != *expected_collision_event_id
+        {
+            return Err(WireError::Protocol(
+                "collision variant record Event identity or Realm binding mismatch".to_owned(),
+            ));
+        }
+        collision_event.verify_event_id_matches_content_with_digest_suite(digest_suite)?;
+        Ok(collision_event)
+    }
+}
+
+fn decode_collision_event(
+    event_bytes: &[u8],
+    digest_suite: arkret_canonical::DigestSuite,
+    carrier: &str,
+) -> Result<Event> {
+    let event: Event =
+        arkret_canonical::from_canonical_json_slice(event_bytes).map_err(|error| {
+            WireError::Protocol(format!(
+                "collision variant {carrier} does not contain canonical Event bytes: {error}"
+            ))
+        })?;
+    match event.proofs.as_slice() {
+        [EventProof::Producer(_)] => {
+            event.validate_for_direct_history_structural_in_context(EventSubmitContext::Standard)?
+        }
+        [EventProof::Producer(_), EventProof::StationAdmission(_)] => event
+            .validate_for_federation_structural_in_context(
+                EventSubmitContext::Standard,
+                digest_suite,
+            )?,
+        _ => {
+            return Err(WireError::Protocol(format!(
+                "collision variant {carrier} Event has an unsupported proof regime"
+            )));
+        }
+    }
+    Ok(event)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GovernanceDependencySelector {
-    AvailabilityReceipt { content_digest: Hash },
-    AuthenticatedSignerResolutionEvidence { content_digest: Hash },
-    MinimalMetadataMlsLeafSignerEvidence { content_digest: Hash },
-    CollisionVariantRecord { content_digest: Hash },
+    AvailabilityReceipt {
+        content_digest: Hash,
+    },
+    AuthenticatedSignerResolutionEvidence {
+        content_digest: Hash,
+    },
+    MinimalMetadataMlsLeafSignerEvidence {
+        content_digest: Hash,
+    },
+    CollisionVariantRecord {
+        collision_variant_record_id: CollisionVariantRecordId,
+    },
 }
 
 impl GovernanceDependencySelector {
@@ -52,9 +223,6 @@ impl GovernanceDependencySelector {
 
     pub fn validate(&self) -> Result<()> {
         match self {
-            // The collision variant record is addressed under the Realm's
-            // active digest suite, like the availability receipt, because the
-            // locator that names it is signed inside a Realm-scoped Move.
             Self::AvailabilityReceipt { .. } | Self::CollisionVariantRecord { .. } => Ok(()),
             Self::AuthenticatedSignerResolutionEvidence { content_digest }
             | Self::MinimalMetadataMlsLeafSignerEvidence { content_digest } => {
@@ -136,30 +304,30 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
         for proof in &event.proofs {
             match proof {
                 EventProof::Producer(producer) => {
-                    producer.validate_signer_resolution_evidence_pair()?;
-                    if let Some(content_digest) = &producer.signer_resolution_evidence_digest {
+                    producer.validate_signer_resolution_evidence_ref()?;
+                    if let Some(evidence_ref) = &producer.signer_resolution_evidence_ref {
                         selectors.push(
                             GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                                content_digest: content_digest.clone(),
+                                content_digest: evidence_ref.content_digest()?,
                             },
                         );
                     }
                 }
                 EventProof::StationAdmission(admission) => {
-                    if admission.signer_resolution_evidence_ref.content_digest()?
-                        != admission.signer_resolution_evidence_digest
-                        || !admission
-                            .signer_resolution_evidence_digest
-                            .as_str()
-                            .starts_with("sha256:")
+                    if let Some(producer_evidence_ref) =
+                        &admission.producer_signer_resolution_evidence_ref
                     {
-                        return Err(WireError::Protocol(
-                            "Station admission signer evidence binding mismatch".to_owned(),
-                        ));
+                        selectors.push(
+                            GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
+                                content_digest: producer_evidence_ref.content_digest()?,
+                            },
+                        );
                     }
                     selectors.push(
                         GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                            content_digest: admission.signer_resolution_evidence_digest.clone(),
+                            content_digest: admission
+                                .signer_resolution_evidence_ref
+                                .content_digest()?,
                         },
                     );
                 }
@@ -200,14 +368,123 @@ pub fn fork_resolution_variant_record_selectors(
         .into_iter()
         .filter_map(|locator| match locator {
             ForkResolutionVariantLocator::CollisionVariantRecord {
-                collision_variant_record_digest,
+                collision_variant_record_id,
                 ..
             } => Some(GovernanceDependencySelector::CollisionVariantRecord {
-                content_digest: collision_variant_record_digest.clone(),
+                collision_variant_record_id: collision_variant_record_id.clone(),
             }),
             ForkResolutionVariantLocator::InlineCanonicalBytes { .. } => None,
         })
         .collect())
+
+/// Verify every referenced collision record before a fork-resolution Move is applied.
+pub fn validate_fork_resolution_collision_dependencies<VerifyRecordProof>(
+    event: &Event,
+    dependencies: &[GovernanceDependency],
+    digest_suite: arkret_canonical::DigestSuite,
+    mut verify_record_proof: VerifyRecordProof,
+) -> Result<()>
+where
+    VerifyRecordProof: FnMut(&CollisionVariantRecord, &[u8]) -> Result<()>,
+{
+    if event.kind.as_str() != "ak.fork.resolution" {
+        return Ok(());
+    }
+    let payload_value = serde_json::to_value(&event.payload).map_err(|error| {
+        WireError::Protocol(format!(
+            "fork resolution payload cannot be represented as JSON: {error}"
+        ))
+    })?;
+    let payload: ForkResolutionPayload =
+        serde_json::from_value(payload_value).map_err(|error| {
+            WireError::Protocol(format!(
+                "fork resolution payload cannot be decoded for dependency validation: {error}"
+            ))
+        })?;
+    let ForkResolutionConflictEvidence::FullHashCollision { variants } = payload.conflict_evidence
+    else {
+        return Ok(());
+    };
+    let crate::events_payloads::ForkResolutionSubject::EventIdCollision {
+        event_id: collision_event_id,
+    } = payload.subject
+    else {
+        return Err(WireError::Protocol(
+            "full-hash collision evidence requires an Event-id collision subject".to_owned(),
+        ));
+    };
+    let expected_controller_id = event
+        .executed_by
+        .as_ref()
+        .unwrap_or(&event.actor_id)
+        .signing_principal_id();
+
+    for variant in variants {
+        match variant {
+            ForkResolutionVariantLocator::InlineCanonicalBytes {
+                canonical_event_bytes_b64u,
+            } => {
+                let event_bytes =
+                    arkret_canonical::base64url_decode(canonical_event_bytes_b64u.as_str())?;
+                if event_bytes.is_empty() || event_bytes.len() > 1_048_576 {
+                    return Err(WireError::Protocol(
+                        "inline collision variant Event byte length is invalid".to_owned(),
+                    ));
+                }
+                let collision_event =
+                    decode_collision_event(&event_bytes, digest_suite, "inline locator")?;
+                if collision_event.realm_id != event.realm_id
+                    || collision_event.event_id != collision_event_id
+                {
+                    return Err(WireError::Protocol(
+                        "inline collision variant Event identity or Realm binding mismatch"
+                            .to_owned(),
+                    ));
+                }
+                collision_event.verify_event_id_matches_content_with_digest_suite(digest_suite)?;
+            }
+            ForkResolutionVariantLocator::CollisionVariantRecord {
+                collision_variant_record_id,
+                collision_variant_record_digest,
+            } => {
+                let mut records = dependencies
+                    .iter()
+                    .filter_map(|dependency| match dependency {
+                        GovernanceDependency::CollisionVariantRecord {
+                            selector:
+                                GovernanceDependencySelector::CollisionVariantRecord {
+                                    collision_variant_record_id: selected_id,
+                                },
+                            collision_variant_record,
+                        } if selected_id == &collision_variant_record_id => {
+                            Some(collision_variant_record)
+                        }
+                        _ => None,
+                    });
+                let record = records.next().ok_or_else(|| {
+                    WireError::Protocol(format!(
+                        "collision variant record dependency missing: {collision_variant_record_id}"
+                    ))
+                })?;
+                if records.next().is_some() {
+                    return Err(WireError::Protocol(format!(
+                        "collision variant record dependency is ambiguous: {collision_variant_record_id}"
+                    )));
+                }
+                record.validate_for_locator(
+                    &collision_variant_record_id,
+                    &collision_variant_record_digest,
+                    &collision_event_id,
+                    &event.realm_id,
+                    expected_controller_id,
+                    digest_suite,
+                )?;
+                let proof_binding_bytes = record.proof_binding_bytes()?;
+                verify_record_proof(record, &proof_binding_bytes)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Discover the next signer-evidence layer referenced by already resolved
@@ -226,33 +503,33 @@ where
         match item {
             AuthenticatedSignerResolutionEvidence::Service { .. } => {}
             AuthenticatedSignerResolutionEvidence::Principal {
-                attester_signer_evidence_digest,
+                attester_signer_evidence_ref,
                 ..
             } => selectors.push(
                 GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                    content_digest: attester_signer_evidence_digest.clone(),
+                    content_digest: attester_signer_evidence_ref.content_digest()?,
                 },
             ),
             AuthenticatedSignerResolutionEvidence::Agent {
-                attester_signer_evidence_digest,
-                controller_signer_evidence_digest,
-                account_authority_signer_evidence_digest,
-                receiver_signer_evidence_digest,
+                attester_signer_evidence_ref,
+                controller_signer_evidence_ref,
+                account_authority_signer_evidence_ref,
+                receiver_signer_evidence_ref,
                 ..
-            } => selectors.extend(
-                [
-                    attester_signer_evidence_digest,
-                    controller_signer_evidence_digest,
-                    account_authority_signer_evidence_digest,
-                    receiver_signer_evidence_digest,
-                ]
-                .into_iter()
-                .map(|content_digest| {
-                    GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                        content_digest: content_digest.clone(),
-                    }
-                }),
-            ),
+            } => {
+                for evidence_ref in [
+                    attester_signer_evidence_ref,
+                    controller_signer_evidence_ref,
+                    account_authority_signer_evidence_ref,
+                    receiver_signer_evidence_ref,
+                ] {
+                    selectors.push(
+                        GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
+                            content_digest: evidence_ref.content_digest()?,
+                        },
+                    );
+                }
+            }
         }
     }
     canonicalize_selectors(selectors)
@@ -276,21 +553,21 @@ pub fn governance_transitive_signer_evidence_selectors(
         })
         .collect::<Vec<_>>();
     let mut selectors = governance_attester_evidence_selectors(authenticated)?;
-    selectors.extend(dependencies.iter().filter_map(|dependency| {
+    for dependency in dependencies {
         match dependency {
             GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
                 minimal_metadata_mls_leaf_signer_evidence,
                 ..
-            } => Some(
+            } => selectors.push(
                 GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
                     content_digest: minimal_metadata_mls_leaf_signer_evidence
-                        .identity_link_signer_evidence_digest
-                        .clone(),
+                        .identity_link_signer_evidence_ref
+                        .content_digest()?,
                 },
             ),
-            _ => None,
+            _ => {}
         }
-    }));
+    }
     canonicalize_selectors(selectors)
 }
 
@@ -358,8 +635,8 @@ pub fn validate_history_source_signer_dependency_closure(
             }
         }
     }
-    let root = &source.source_signer_evidence_digest;
-    if let Some(evidence) = minimal.get(root) {
+    let root = source.source_signer_evidence_ref.content_digest()?;
+    if let Some(evidence) = minimal.get(&root) {
         if minimal.len() != 1 || evidence.evidence_ref()? != source.source_signer_evidence_ref {
             return Err(WireError::Protocol(
                 "minimal-metadata source signer closure contains surplus or mismatched evidence"
@@ -367,8 +644,11 @@ pub fn validate_history_source_signer_dependency_closure(
             ));
         }
         let identity_link = evidence.validate_identity_link_binding()?;
+        let identity_link_signer_digest = evidence
+            .identity_link_signer_evidence_ref
+            .content_digest()?;
         let signer = authenticated
-            .get(&evidence.identity_link_signer_evidence_digest)
+            .get(&identity_link_signer_digest)
             .ok_or_else(|| {
                 WireError::Protocol(
                     "minimal-metadata source signer closure omits IdentityLink signer evidence"
@@ -388,13 +668,10 @@ pub fn validate_history_source_signer_dependency_closure(
                     .to_owned(),
             ));
         }
-        validate_authenticated_evidence_reachability(
-            &authenticated,
-            &evidence.identity_link_signer_evidence_digest,
-        )?;
+        validate_authenticated_evidence_reachability(&authenticated, &identity_link_signer_digest)?;
         return Ok(());
     }
-    let root_evidence = authenticated.get(root).ok_or_else(|| {
+    let root_evidence = authenticated.get(&root).ok_or_else(|| {
         WireError::Protocol("source signer dependency closure omits its root evidence".to_owned())
     })?;
     if !minimal.is_empty()
@@ -408,7 +685,7 @@ pub fn validate_history_source_signer_dependency_closure(
             "source signer dependency closure has an invalid root kind or coordinate".to_owned(),
         ));
     }
-    validate_authenticated_evidence_reachability(&authenticated, root)?;
+    validate_authenticated_evidence_reachability(&authenticated, &root)?;
     Ok(())
 }
 
@@ -428,21 +705,25 @@ fn validate_authenticated_evidence_reachability(
         match evidence {
             AuthenticatedSignerResolutionEvidence::Service { .. } => {}
             AuthenticatedSignerResolutionEvidence::Principal {
-                attester_signer_evidence_digest,
+                attester_signer_evidence_ref,
                 ..
-            } => pending.push(attester_signer_evidence_digest.clone()),
+            } => pending.push(attester_signer_evidence_ref.content_digest()?),
             AuthenticatedSignerResolutionEvidence::Agent {
-                attester_signer_evidence_digest,
-                controller_signer_evidence_digest,
-                account_authority_signer_evidence_digest,
-                receiver_signer_evidence_digest,
+                attester_signer_evidence_ref,
+                controller_signer_evidence_ref,
+                account_authority_signer_evidence_ref,
+                receiver_signer_evidence_ref,
                 ..
-            } => pending.extend([
-                attester_signer_evidence_digest.clone(),
-                controller_signer_evidence_digest.clone(),
-                account_authority_signer_evidence_digest.clone(),
-                receiver_signer_evidence_digest.clone(),
-            ]),
+            } => {
+                for evidence_ref in [
+                    attester_signer_evidence_ref,
+                    controller_signer_evidence_ref,
+                    account_authority_signer_evidence_ref,
+                    receiver_signer_evidence_ref,
+                ] {
+                    pending.push(evidence_ref.content_digest()?);
+                }
+            }
         }
     }
     if reached.len() != authenticated.len() {
@@ -517,10 +798,10 @@ pub fn history_source_signer_dependency_closure(
             }
         }
     }
-    let root = &source.source_signer_evidence_digest;
+    let root = source.source_signer_evidence_ref.content_digest()?;
     let mut selected = Vec::new();
-    if let Some(dependency) = minimal.get(root) {
-        if authenticated.contains_key(root) {
+    if let Some(dependency) = minimal.get(&root) {
+        if authenticated.contains_key(&root) {
             return Err(WireError::Protocol(
                 "source signer evidence digest is ambiguous across kinds".to_owned(),
             ));
@@ -533,7 +814,11 @@ pub fn history_source_signer_dependency_closure(
         else {
             unreachable!("minimal dependency map contains only minimal evidence")
         };
-        let mut pending = vec![evidence.identity_link_signer_evidence_digest.clone()];
+        let mut pending = vec![
+            evidence
+                .identity_link_signer_evidence_ref
+                .content_digest()?,
+        ];
         let mut reached = BTreeSet::new();
         while let Some(digest) = pending.pop() {
             if !reached.insert(digest.clone()) {
@@ -554,9 +839,9 @@ pub fn history_source_signer_dependency_closure(
             match evidence.as_ref() {
                 AuthenticatedSignerResolutionEvidence::Service { .. } => {}
                 AuthenticatedSignerResolutionEvidence::Principal {
-                    attester_signer_evidence_digest,
+                    attester_signer_evidence_ref,
                     ..
-                } => pending.push(attester_signer_evidence_digest.clone()),
+                } => pending.push(attester_signer_evidence_ref.content_digest()?),
                 AuthenticatedSignerResolutionEvidence::Agent { .. } => {
                     return Err(WireError::Protocol(
                         "minimal-metadata IdentityLink signer closure contains Agent evidence"
@@ -567,7 +852,7 @@ pub fn history_source_signer_dependency_closure(
             selected.push((*dependency).clone());
         }
     } else {
-        let mut pending = vec![root.clone()];
+        let mut pending = vec![root];
         let mut reached = BTreeSet::new();
         while let Some(digest) = pending.pop() {
             if !reached.insert(digest.clone()) {
@@ -588,21 +873,25 @@ pub fn history_source_signer_dependency_closure(
             match evidence.as_ref() {
                 AuthenticatedSignerResolutionEvidence::Service { .. } => {}
                 AuthenticatedSignerResolutionEvidence::Principal {
-                    attester_signer_evidence_digest,
+                    attester_signer_evidence_ref,
                     ..
-                } => pending.push(attester_signer_evidence_digest.clone()),
+                } => pending.push(attester_signer_evidence_ref.content_digest()?),
                 AuthenticatedSignerResolutionEvidence::Agent {
-                    attester_signer_evidence_digest,
-                    controller_signer_evidence_digest,
-                    account_authority_signer_evidence_digest,
-                    receiver_signer_evidence_digest,
+                    attester_signer_evidence_ref,
+                    controller_signer_evidence_ref,
+                    account_authority_signer_evidence_ref,
+                    receiver_signer_evidence_ref,
                     ..
-                } => pending.extend([
-                    attester_signer_evidence_digest.clone(),
-                    controller_signer_evidence_digest.clone(),
-                    account_authority_signer_evidence_digest.clone(),
-                    receiver_signer_evidence_digest.clone(),
-                ]),
+                } => {
+                    for evidence_ref in [
+                        attester_signer_evidence_ref,
+                        controller_signer_evidence_ref,
+                        account_authority_signer_evidence_ref,
+                        receiver_signer_evidence_ref,
+                    ] {
+                        pending.push(evidence_ref.content_digest()?);
+                    }
+                }
             }
             selected.push((*dependency).clone());
         }
@@ -639,7 +928,6 @@ pub fn history_response_record_signer_dependency_closure(
         )?,
         release_service_signer_dependencies: release_service_signer_dependency_closure(
             &record.release_service_signer_evidence_ref,
-            &record.release_service_signer_evidence_digest,
             &record.service_proof.verification_method,
             dependencies,
         )?,
@@ -656,7 +944,6 @@ pub fn history_response_lost_signer_dependency_closure(
     validate_page_signer_digest_kinds(dependencies)?;
     release_service_signer_dependency_closure(
         &lost_record.release_service_signer_evidence_ref,
-        &lost_record.release_service_signer_evidence_digest,
         &lost_record.service_proof.verification_method,
         dependencies,
     )
@@ -710,15 +997,10 @@ fn validate_page_signer_digest_kinds(dependencies: &[GovernanceDependency]) -> R
 
 fn release_service_signer_dependency_closure(
     evidence_ref: &arkret_wire::SignerEvidenceRef,
-    evidence_digest: &Hash,
     verification_method: &arkret_wire::DidUrl,
     dependencies: &[GovernanceDependency],
 ) -> Result<Vec<GovernanceDependency>> {
-    if evidence_ref.content_digest()? != *evidence_digest {
-        return Err(WireError::Protocol(
-            "release-service signer evidence ref and digest mismatch".to_owned(),
-        ));
-    }
+    let evidence_digest = evidence_ref.content_digest()?;
     let mut selected = None;
     for dependency in dependencies {
         let GovernanceDependency::AuthenticatedSignerResolutionEvidence {
@@ -729,7 +1011,7 @@ fn release_service_signer_dependency_closure(
         else {
             continue;
         };
-        if content_digest != evidence_digest {
+        if content_digest != &evidence_digest {
             continue;
         }
         authenticated_signer_resolution_evidence.validate_attester_binding()?;
@@ -860,17 +1142,18 @@ impl GovernanceDependency {
                 }
             }
             Self::CollisionVariantRecord {
-                selector: GovernanceDependencySelector::CollisionVariantRecord { content_digest },
+                selector:
+                    GovernanceDependencySelector::CollisionVariantRecord {
+                        collision_variant_record_id,
+                    },
                 collision_variant_record,
             } => {
-                // The Realm's active suite is the one that addressed this
-                // record, so the same suite recomputes the colliding Event
-                // identity the record claims.
-                let digest_suite = content_digest.digest_suite()?;
-                collision_variant_record.validate(digest_suite)?;
-                if content_digest != &collision_variant_record.content_digest(digest_suite)? {
+                collision_variant_record.validate_structural()?;
+                if collision_variant_record_id
+                    != &collision_variant_record.collision_variant_record_id
+                {
                     return Err(WireError::Protocol(
-                        "collision variant record dependency selector digest mismatch".to_owned(),
+                        "collision variant record dependency selector id mismatch".to_owned(),
                     ));
                 }
             }
@@ -1141,8 +1424,11 @@ impl SealAvailabilityReceiptIssueOutcome {
                     }
                     receipt_digests.insert(content_digest.clone());
                     receipt_event_digests.insert(availability_receipt.event_id.event_digest());
-                    required_evidence_digests
-                        .insert(availability_receipt.holder_signer_evidence_digest.clone());
+                    required_evidence_digests.insert(
+                        availability_receipt
+                            .holder_signer_evidence_ref
+                            .content_digest()?,
+                    );
                 }
                 GovernanceDependency::AuthenticatedSignerResolutionEvidence {
                     selector:

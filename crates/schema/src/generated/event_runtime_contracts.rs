@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-02.6;
-//! sha256=da1863dd4c183435707b98be80a5d8a288425117f8176e9b2cdd2413fcd6c8cb Input: registry/
-//! id-kind-registry.json; version=2026-09-02.3;
-//! sha256=6120135c1203863aa53048fd640ddd5f03605ec8ac57496954bd6df686b16b4a
-//! Entries: active_events=174, pre_state_requirements=2
+//! Input: registry/event-kind-registry.json; version=2026-09-02.8;
+//! sha256=4b9ae8f4b010335fbbfe8c86eb8567d012f57b5456145e4ff85fc905032f8f67 Input: registry/
+//! id-kind-registry.json; version=2026-09-02.4;
+//! sha256=48a70d02bae777d98f46cbdbadc6380d8263776e428dedd31fc29a1e7c8727f1
+//! Entries: active_events=170, pre_state_requirements=2
 
 use arkret_wire::{CellFamilyId, event_kind_str};
 
@@ -654,34 +654,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::MODERATION_APPEAL_CLOSE,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::MODERATION_APPEAL_DECISION,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::MODERATION_APPEAL_REVIEW,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::MODERATION_APPEAL_SUBMIT,
-        reducer_input: true,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["appeal"],
         pre_state_requirements: &[],
     },
     EventRuntimeContractDescriptor {

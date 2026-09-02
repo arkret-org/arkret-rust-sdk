@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-02.5;
-//! sha256=d0e2f869d0e0b42cac1b688bb0a0708927e4236330a8ed10253255df33c6da61 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-02.7;
+//! sha256=bf7cb2da4de92d46e80ab3eebd895b4239e0913172f129af2d6d929f03f32fd7 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -16,8 +16,8 @@
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=79, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
+//! Entries: proof_contexts=73, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -49,11 +49,6 @@ pub enum ProofContextId {
     DeviceRevocationGateDecisionProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
-    DirectoryListHandlesForSubjectRequestProofV1,
-    DirectoryResolveAgentSelectorRequestProofV1,
-    DirectoryResolveHandleRequestProofV1,
-    DirectoryResolveOrganizationRequestProofV1,
-    DirectoryResolveTargetRequestProofV1,
     DirectorySourceRefAccessProofV1,
     EventProofV1,
     ExtensionManifestProofV1,
@@ -78,7 +73,6 @@ pub enum ProofContextId {
     MimiKeyMaterialOutcomeProofV1,
     MimiKeyMaterialRequestProofV1,
     MimiProviderDirectoryProofV1,
-    MimiReporterAuthorityProofV1,
     MimiRequestConsentRequestProofV1,
     MimiUpdateConsentRequestProofV1,
     OrganizationRecoveryArchiveReplicaProofV1,
@@ -132,11 +126,6 @@ impl ProofContextId {
         Self::DeviceRevocationGateDecisionProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
-        Self::DirectoryListHandlesForSubjectRequestProofV1,
-        Self::DirectoryResolveAgentSelectorRequestProofV1,
-        Self::DirectoryResolveHandleRequestProofV1,
-        Self::DirectoryResolveOrganizationRequestProofV1,
-        Self::DirectoryResolveTargetRequestProofV1,
         Self::DirectorySourceRefAccessProofV1,
         Self::EventProofV1,
         Self::ExtensionManifestProofV1,
@@ -161,7 +150,6 @@ impl ProofContextId {
         Self::MimiKeyMaterialOutcomeProofV1,
         Self::MimiKeyMaterialRequestProofV1,
         Self::MimiProviderDirectoryProofV1,
-        Self::MimiReporterAuthorityProofV1,
         Self::MimiRequestConsentRequestProofV1,
         Self::MimiUpdateConsentRequestProofV1,
         Self::OrganizationRecoveryArchiveReplicaProofV1,
@@ -232,16 +220,6 @@ impl ProofContextId {
         "ak.did_webvh_witness_receipt_proof.v1";
     pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
         "ak.directory_governance_request_proof.v1";
-    pub const DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_list_handles_for_subject_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_agent_selector_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_handle_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_organization_request_proof.v1";
-    pub const DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1: &'static str =
-        "ak.directory_resolve_target_request_proof.v1";
     pub const DIRECTORY_SOURCE_REF_ACCESS_PROOF_V1: &'static str =
         "ak.directory_source_ref_access_proof.v1";
     pub const EVENT_PROOF_V1: &'static str = "ak.event_proof.v1";
@@ -280,8 +258,6 @@ impl ProofContextId {
         "ak.mimi_key_material_request_proof.v1";
     pub const MIMI_PROVIDER_DIRECTORY_PROOF_V1: &'static str =
         "ak.mimi_provider_directory_proof.v1";
-    pub const MIMI_REPORTER_AUTHORITY_PROOF_V1: &'static str =
-        "ak.mimi_reporter_authority_proof.v1";
     pub const MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1: &'static str =
         "ak.mimi_request_consent_request_proof.v1";
     pub const MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1: &'static str =
@@ -367,21 +343,6 @@ impl ProofContextId {
             }
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
             Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
-            Self::DirectoryListHandlesForSubjectRequestProofV1 => {
-                Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveAgentSelectorRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveHandleRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveOrganizationRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1
-            }
-            Self::DirectoryResolveTargetRequestProofV1 => {
-                Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1
-            }
             Self::DirectorySourceRefAccessProofV1 => Self::DIRECTORY_SOURCE_REF_ACCESS_PROOF_V1,
             Self::EventProofV1 => Self::EVENT_PROOF_V1,
             Self::ExtensionManifestProofV1 => Self::EXTENSION_MANIFEST_PROOF_V1,
@@ -414,7 +375,6 @@ impl ProofContextId {
             Self::MimiKeyMaterialOutcomeProofV1 => Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
             Self::MimiKeyMaterialRequestProofV1 => Self::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
             Self::MimiProviderDirectoryProofV1 => Self::MIMI_PROVIDER_DIRECTORY_PROOF_V1,
-            Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
             Self::MimiRequestConsentRequestProofV1 => Self::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
             Self::MimiUpdateConsentRequestProofV1 => Self::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1,
             Self::OrganizationRecoveryArchiveReplicaProofV1 => {
@@ -515,21 +475,6 @@ impl ProofContextId {
             Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryGovernanceRequestProofV1)
             }
-            Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryListHandlesForSubjectRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveAgentSelectorRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveHandleRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveOrganizationRequestProofV1)
-            }
-            Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1 => {
-                Some(Self::DirectoryResolveTargetRequestProofV1)
-            }
             Self::DIRECTORY_SOURCE_REF_ACCESS_PROOF_V1 => {
                 Some(Self::DirectorySourceRefAccessProofV1)
             }
@@ -574,7 +519,6 @@ impl ProofContextId {
             Self::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1 => Some(Self::MimiKeyMaterialOutcomeProofV1),
             Self::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1 => Some(Self::MimiKeyMaterialRequestProofV1),
             Self::MIMI_PROVIDER_DIRECTORY_PROOF_V1 => Some(Self::MimiProviderDirectoryProofV1),
-            Self::MIMI_REPORTER_AUTHORITY_PROOF_V1 => Some(Self::MimiReporterAuthorityProofV1),
             Self::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1 => {
                 Some(Self::MimiRequestConsentRequestProofV1)
             }
@@ -644,6 +588,11 @@ pub enum DomainSeparationId {
     ContactRequestSourceCheckpointV1,
     ControllerAccountGateV1,
     CurrentSignerEvidenceResponseV1,
+    DirectoryListHandlesForSubjectRequestProofV1,
+    DirectoryResolveAgentSelectorRequestProofV1,
+    DirectoryResolveHandleRequestProofV1,
+    DirectoryResolveOrganizationRequestProofV1,
+    DirectoryResolveTargetRequestProofV1,
     EventsFrontierLeafV1,
     EventsFrontierNodeV1,
     EventsFrontierRootV1,
@@ -659,6 +608,7 @@ pub enum DomainSeparationId {
     KeypackageConsumeReceiptV1,
     MembershipCompensationSingleUseCasV1,
     MembershipCompensationTerminalCertificateV1,
+    MimiReporterAuthorityProofV1,
     MlsRecipientDurableReceiptV1,
     PeerEventsCommandSubmitV1ServiceBindingV1,
     PeerContactControlReceiptV1,
@@ -681,6 +631,11 @@ impl DomainSeparationId {
         Self::ContactRequestSourceCheckpointV1,
         Self::ControllerAccountGateV1,
         Self::CurrentSignerEvidenceResponseV1,
+        Self::DirectoryListHandlesForSubjectRequestProofV1,
+        Self::DirectoryResolveAgentSelectorRequestProofV1,
+        Self::DirectoryResolveHandleRequestProofV1,
+        Self::DirectoryResolveOrganizationRequestProofV1,
+        Self::DirectoryResolveTargetRequestProofV1,
         Self::EventsFrontierLeafV1,
         Self::EventsFrontierNodeV1,
         Self::EventsFrontierRootV1,
@@ -696,6 +651,7 @@ impl DomainSeparationId {
         Self::KeypackageConsumeReceiptV1,
         Self::MembershipCompensationSingleUseCasV1,
         Self::MembershipCompensationTerminalCertificateV1,
+        Self::MimiReporterAuthorityProofV1,
         Self::MlsRecipientDurableReceiptV1,
         Self::PeerEventsCommandSubmitV1ServiceBindingV1,
         Self::PeerContactControlReceiptV1,
@@ -722,6 +678,16 @@ impl DomainSeparationId {
     pub const CONTROLLER_ACCOUNT_GATE_V1: &'static str = "ak.controller_account_gate.v1";
     pub const CURRENT_SIGNER_EVIDENCE_RESPONSE_V1: &'static str =
         "ak.current_signer_evidence_response.v1";
+    pub const DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1: &'static str =
+        "ak.directory_list_handles_for_subject_request_proof.v1";
+    pub const DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1: &'static str =
+        "ak.directory_resolve_agent_selector_request_proof.v1";
+    pub const DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1: &'static str =
+        "ak.directory_resolve_handle_request_proof.v1";
+    pub const DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1: &'static str =
+        "ak.directory_resolve_organization_request_proof.v1";
+    pub const DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1: &'static str =
+        "ak.directory_resolve_target_request_proof.v1";
     pub const EVENTS_FRONTIER_LEAF_V1: &'static str = "ak.events.frontier.leaf.v1";
     pub const EVENTS_FRONTIER_NODE_V1: &'static str = "ak.events.frontier.node.v1";
     pub const EVENTS_FRONTIER_ROOT_V1: &'static str = "ak.events.frontier.root.v1";
@@ -743,6 +709,8 @@ impl DomainSeparationId {
         "ak.membership_compensation.single_use_cas.v1";
     pub const MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1: &'static str =
         "ak.membership_compensation.terminal_certificate.v1";
+    pub const MIMI_REPORTER_AUTHORITY_PROOF_V1: &'static str =
+        "ak.mimi_reporter_authority_proof.v1";
     pub const MLS_RECIPIENT_DURABLE_RECEIPT_V1: &'static str =
         "ak.mls.recipient_durable_receipt.v1";
     pub const PEER_EVENTS_COMMAND_SUBMIT_V1_SERVICE_BINDING_V1: &'static str =
@@ -769,6 +737,21 @@ impl DomainSeparationId {
             Self::ContactRequestSourceCheckpointV1 => Self::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,
             Self::ControllerAccountGateV1 => Self::CONTROLLER_ACCOUNT_GATE_V1,
             Self::CurrentSignerEvidenceResponseV1 => Self::CURRENT_SIGNER_EVIDENCE_RESPONSE_V1,
+            Self::DirectoryListHandlesForSubjectRequestProofV1 => {
+                Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1
+            }
+            Self::DirectoryResolveAgentSelectorRequestProofV1 => {
+                Self::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1
+            }
+            Self::DirectoryResolveHandleRequestProofV1 => {
+                Self::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1
+            }
+            Self::DirectoryResolveOrganizationRequestProofV1 => {
+                Self::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1
+            }
+            Self::DirectoryResolveTargetRequestProofV1 => {
+                Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1
+            }
             Self::EventsFrontierLeafV1 => Self::EVENTS_FRONTIER_LEAF_V1,
             Self::EventsFrontierNodeV1 => Self::EVENTS_FRONTIER_NODE_V1,
             Self::EventsFrontierRootV1 => Self::EVENTS_FRONTIER_ROOT_V1,
@@ -790,6 +773,7 @@ impl DomainSeparationId {
             Self::MembershipCompensationTerminalCertificateV1 => {
                 Self::MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1
             }
+            Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
             Self::MlsRecipientDurableReceiptV1 => Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
             Self::PeerEventsCommandSubmitV1ServiceBindingV1 => {
                 Self::PEER_EVENTS_COMMAND_SUBMIT_V1_SERVICE_BINDING_V1
@@ -821,6 +805,21 @@ impl DomainSeparationId {
             Self::CURRENT_SIGNER_EVIDENCE_RESPONSE_V1 => {
                 Some(Self::CurrentSignerEvidenceResponseV1)
             }
+            Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1 => {
+                Some(Self::DirectoryListHandlesForSubjectRequestProofV1)
+            }
+            Self::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1 => {
+                Some(Self::DirectoryResolveAgentSelectorRequestProofV1)
+            }
+            Self::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1 => {
+                Some(Self::DirectoryResolveHandleRequestProofV1)
+            }
+            Self::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1 => {
+                Some(Self::DirectoryResolveOrganizationRequestProofV1)
+            }
+            Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1 => {
+                Some(Self::DirectoryResolveTargetRequestProofV1)
+            }
             Self::EVENTS_FRONTIER_LEAF_V1 => Some(Self::EventsFrontierLeafV1),
             Self::EVENTS_FRONTIER_NODE_V1 => Some(Self::EventsFrontierNodeV1),
             Self::EVENTS_FRONTIER_ROOT_V1 => Some(Self::EventsFrontierRootV1),
@@ -848,6 +847,7 @@ impl DomainSeparationId {
             Self::MEMBERSHIP_COMPENSATION_TERMINAL_CERTIFICATE_V1 => {
                 Some(Self::MembershipCompensationTerminalCertificateV1)
             }
+            Self::MIMI_REPORTER_AUTHORITY_PROOF_V1 => Some(Self::MimiReporterAuthorityProofV1),
             Self::MLS_RECIPIENT_DURABLE_RECEIPT_V1 => Some(Self::MlsRecipientDurableReceiptV1),
             Self::PEER_EVENTS_COMMAND_SUBMIT_V1_SERVICE_BINDING_V1 => {
                 Some(Self::PeerEventsCommandSubmitV1ServiceBindingV1)
@@ -1049,7 +1049,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "payload_digest",
             "account_authority_id",
             "account_subject",
-            "account_id",
+            "principal_id",
             "verification_method",
             "created_at",
         ],
@@ -1061,12 +1061,17 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         object_family: "account_handoff_authentication",
         consumer_operation: None,
         binding_fields: &[
-            "payload_digest",
-            "account_id",
-            "principal_id",
-            "verification_method",
-            "created_at",
+            "proof_kind",
+            "challenge",
+            "request_canonical_digest",
             "audience_id",
+            "issuer_uri",
+            "client_id",
+            "redirect_uri",
+            "state",
+            "nonce",
+            "authorization_code",
+            "code_verifier",
         ],
         schema_ref: "schemas/account-operations.schema.json#/$defs/account_handoff_authentication_proof",
     },
@@ -1121,8 +1126,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "issuer",
-            "subject",
+            "issuer_id",
+            "subject_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1171,8 +1176,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "controller_id",
-            "agent_id",
+            "controller_subject_id",
+            "subject_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1230,7 +1235,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "applet_id",
-            "publisher_id",
+            "controller_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1245,8 +1250,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "issuer",
-            "subject",
+            "operator_id",
+            "audit_actor_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1261,8 +1266,8 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "issuer",
-            "scope",
+            "issuer_id",
+            "realm_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1298,7 +1303,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "holder_id",
             "retention_expires_at",
             "holder_signer_evidence_ref",
-            "holder_signer_evidence_digest",
             "verification_method",
             "created_at",
         ],
@@ -1447,85 +1451,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof",
     },
     ProofContextDescriptor {
-        id: ProofContextId::DirectoryListHandlesForSubjectRequestProofV1,
-        context: "ak.directory_list_handles_for_subject_request_proof.v1",
-        object_family: "directory_list_handles_for_subject_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "account_id",
-            "verification_method",
-            "created_at",
-            "audience_id",
-        ],
-        schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DirectoryResolveAgentSelectorRequestProofV1,
-        context: "ak.directory_resolve_agent_selector_request_proof.v1",
-        object_family: "directory_resolve_agent_selector_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "controller_handle",
-            "agent_slug",
-            "verification_method",
-            "created_at",
-            "audience_id",
-        ],
-        schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_agent_selector_request_body",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DirectoryResolveHandleRequestProofV1,
-        context: "ak.directory_resolve_handle_request_proof.v1",
-        object_family: "directory_resolve_handle_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "handle",
-            "verification_method",
-            "created_at",
-            "audience_id",
-        ],
-        schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_handle_request_body",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DirectoryResolveOrganizationRequestProofV1,
-        context: "ak.directory_resolve_organization_request_proof.v1",
-        object_family: "directory_resolve_organization_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "operation_id",
-            "verification_method",
-            "created_at",
-            "audience_id",
-        ],
-        schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_organization_request_body",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DirectoryResolveTargetRequestProofV1,
-        context: "ak.directory_resolve_target_request_proof.v1",
-        object_family: "directory_resolve_target_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "address",
-            "verification_method",
-            "created_at",
-            "audience_id",
-        ],
-        schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_target_request_body",
-    },
-    ProofContextDescriptor {
         id: ProofContextId::DirectorySourceRefAccessProofV1,
         context: "ak.directory_source_ref_access_proof.v1",
         object_family: "directory_source_ref_access",
@@ -1556,7 +1481,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "actor_id",
             "verification_method",
             "signer_resolution_evidence_ref?",
-            "signer_resolution_evidence_digest?",
             "created_at",
             "domain?",
             "audience?",
@@ -1728,7 +1652,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "record_digest",
             "lost_at",
             "release_service_signer_evidence_ref",
-            "release_service_signer_evidence_digest",
             "verification_method",
             "created_at",
         ],
@@ -1746,7 +1669,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "source_actor_id",
             "source_sender_domain",
             "source_signer_evidence_ref",
-            "source_signer_evidence_digest",
             "request_digest",
             "request_receipt_digest",
             "expires_at",
@@ -1769,7 +1691,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "source_record",
             "sent_at",
             "release_service_signer_evidence_ref",
-            "release_service_signer_evidence_digest",
             "manifest_admission?",
             "release_attestation?",
             "verification_method",
@@ -1893,7 +1814,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "payload_digest",
             "operation",
             "request_id",
-            "principal_id",
+            "account_id",
             "backup_id",
             "reason",
             "challenge_id",
@@ -1990,32 +1911,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/mimi-interop.schema.json#/$defs/provider_directory",
     },
     ProofContextDescriptor {
-        id: ProofContextId::MimiReporterAuthorityProofV1,
-        context: "ak.mimi_reporter_authority_proof.v1",
-        object_family: "mimi_reporter_authority",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "operation_id",
-            "reporter_id",
-            "source_provider_id",
-            "mimi_room_uri",
-            "realm_id",
-            "strand_id",
-            "target_ref",
-            "report_event",
-            "membership_event_id",
-            "room_binding_event_id",
-            "expires_at",
-            "verification_method",
-            "created_at",
-            "domain",
-            "audience",
-        ],
-        schema_ref: "schemas/mimi-operations.schema.json#/$defs/mimi_reporter_authority",
-    },
-    ProofContextDescriptor {
         id: ProofContextId::MimiRequestConsentRequestProofV1,
         context: "ak.mimi_request_consent_request_proof.v1",
         object_family: "mimi_request_consent_request",
@@ -2110,7 +2005,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "challenge_id",
             "organization_id",
             "organization_did",
-            "local_admin_subject",
+            "local_admin_subject_id",
             "version_id",
             "log_head_digest",
             "verification_method",
@@ -2184,7 +2079,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "realm_id",
-            "subject_id",
+            "service_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -2199,7 +2094,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "issuer",
+            "issuer_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -2329,7 +2224,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "account_subject?",
             "account_handoff_grant_digest?",
             "predecessor_session_grant_id?",
-            "principal_id",
+            "account_id",
             "device_id",
             "audience_id",
             "holder_jkt",
@@ -2407,9 +2302,9 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "event_digest",
             "producer_proof_digest",
             "producer_verification_method",
-            "producer_signing_key",
+            "producer_signing_key_did",
+            "producer_signer_resolution_evidence_ref?",
             "signer_resolution_evidence_ref",
-            "signer_resolution_evidence_digest",
             "accepted_at",
             "verification_method",
         ],

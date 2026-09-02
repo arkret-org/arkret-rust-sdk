@@ -1211,7 +1211,6 @@ mod tests {
                 ))
                 .expect("valid digest"),
                 signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_digest: None,
                 created_at: arkret_canonical::canonical::normalize_timestamp_canonical(
                     Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
                         .single()

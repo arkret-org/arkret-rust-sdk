@@ -544,7 +544,6 @@ pub const PROVIDER_EGRESS_STRIP_KEYS: &[&str] = &[
     "snoozed",
     "snooze_expires_at",
     "snooze_until",
-    "appeal_id",
     "audit_purpose",
     "audit_policy_version_digest",
     "policy_frontier_digest",

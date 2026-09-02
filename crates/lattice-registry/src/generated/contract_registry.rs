@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-02.8;
-//! sha256=bac27909c1b0c2830bfff17cb5068cb551e65fce108a66a04ee9e745fd398213
-//! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=19
+//! Input: registry/contract-registry.json; version=2026-09-02.9;
+//! sha256=7567398a9170ab557cc1b040fe99fa003c8c7fa28f240f91695850bd3728837f
+//! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=18
 
 use crate::contract_registry::{
     ActorPrivateEffectProjection, ActorPrivateMergeKind, ActorPrivateSubjectComponent,
@@ -743,44 +743,6 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             (
                 GeneratedState::String("claimed"),
                 GeneratedState::String("revoked"),
-            ),
-        ],
-    },
-    GeneratedFsmContract {
-        cell_family: "ak.component.moderation.appeal.v1",
-        axis: "workflow",
-        states: &["submitted", "under_review", "decided", "closed"],
-        terminal_states: &["closed"],
-        initial_states: &["submitted"],
-        allowed_transitions: &[
-            ("submitted", "under_review"),
-            ("under_review", "decided"),
-            ("submitted", "closed"),
-            ("under_review", "closed"),
-            ("decided", "closed"),
-        ],
-        runtime_initial_state: GeneratedState::Null,
-        runtime_transitions: &[
-            (GeneratedState::Null, GeneratedState::String("submitted")),
-            (
-                GeneratedState::String("submitted"),
-                GeneratedState::String("under_review"),
-            ),
-            (
-                GeneratedState::String("under_review"),
-                GeneratedState::String("decided"),
-            ),
-            (
-                GeneratedState::String("submitted"),
-                GeneratedState::String("closed"),
-            ),
-            (
-                GeneratedState::String("under_review"),
-                GeneratedState::String("closed"),
-            ),
-            (
-                GeneratedState::String("decided"),
-                GeneratedState::String("closed"),
             ),
         ],
     },

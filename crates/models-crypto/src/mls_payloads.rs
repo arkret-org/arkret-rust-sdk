@@ -6,8 +6,9 @@ use std::sync::OnceLock;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    CircleId, ContentScheme, DurabilityPolicy, EventId, Hash, HistoryEffectiveScope, MlsGroupId,
-    NonEmptyString, OrganizationRecoveryArchive, RealmId, Result, SidecarId, WireError, canonical,
+    BlobRef, CircleId, ContentScheme, DurabilityPolicy, EventId, Hash, HistoryEffectiveScope,
+    MlsGroupId, NonEmptyString, OrganizationRecoveryArchive, RealmId, Result, SidecarId, WireError,
+    canonical,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -737,7 +738,8 @@ pub struct MlsCommitPayload {
     next_epoch: u64,
     commit_bytes_b64: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    commit_message_ref: Option<String>,
+    commit_message_ref: Option<BlobRef>,
+    #[serde(skip)]
     commit_digest: Hash,
     governance_binding: MlsGovernanceBindingPayload,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -754,8 +756,7 @@ struct MlsCommitPayloadWire {
     next_epoch: u64,
     commit_bytes_b64: String,
     #[serde(default)]
-    commit_message_ref: Option<String>,
-    commit_digest: Hash,
+    commit_message_ref: Option<BlobRef>,
     governance_binding: MlsGovernanceBindingPayload,
     #[serde(default)]
     organization_recovery_archive: Option<OrganizationRecoveryArchive>,
@@ -767,6 +768,10 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
         D: serde::Deserializer<'de>,
     {
         let wire = MlsCommitPayloadWire::deserialize(deserializer)?;
+        let commit_bytes =
+            base64url_decode(&wire.commit_bytes_b64).map_err(serde::de::Error::custom)?;
+        let commit_digest =
+            Hash::new(canonical::sha256_digest(&commit_bytes)).map_err(serde::de::Error::custom)?;
         let payload = Self {
             mls_group_id: wire.mls_group_id,
             base_epoch: wire.base_epoch,
@@ -775,7 +780,7 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
             next_epoch: wire.next_epoch,
             commit_bytes_b64: wire.commit_bytes_b64,
             commit_message_ref: wire.commit_message_ref,
-            commit_digest: wire.commit_digest,
+            commit_digest,
             governance_binding: wire.governance_binding,
             organization_recovery_archive: wire.organization_recovery_archive,
         };
@@ -833,7 +838,16 @@ impl MlsCommitPayload {
         }
         validate_object_ref("mls_commit_payload.base_epoch_ref", &self.base_epoch_ref)?;
         if let Some(commit_message_ref) = &self.commit_message_ref {
-            validate_object_ref("mls_commit_payload.commit_message_ref", commit_message_ref)?;
+            let expected = commit_message_ref
+                .as_str()
+                .strip_prefix("ak:blob:")
+                .expect("validated BlobRef has the content-addressed prefix");
+            canonical::verify_digest(&commit_bytes, expected).map_err(|_| {
+                WireError::Protocol(
+                    "mls_commit_payload.commit_message_ref does not address commit_bytes_b64 (schema_violation)"
+                        .to_owned(),
+                )
+            })?;
         }
         let mut seen = BTreeSet::new();
         for proposal_ref in &self.proposal_refs {
@@ -914,8 +928,8 @@ impl MlsCommitPayload {
         }
     }
 
-    pub fn commit_message_ref(&self) -> Option<&str> {
-        self.commit_message_ref.as_deref()
+    pub fn commit_message_ref(&self) -> Option<&BlobRef> {
+        self.commit_message_ref.as_ref()
     }
 
     pub fn commit_digest(&self) -> &Hash {

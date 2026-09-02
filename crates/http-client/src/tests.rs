@@ -401,9 +401,8 @@ mod events_submit_tests {
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
         AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, Base64UrlString, BlobRef,
         DeviceId, Did, DidCoreId, DidUrl, Event, EventId, EventInitialSubmission,
-        EventRequirements, Hash, Hlc, LeaseBasisRef, MimiRoomUri, NonEmptyString, PayloadProof,
-        RealmId, RiskTier, ScopeRef, SealBasis, SealId, ServiceKind, StrandId,
-        project_did_to_core_id, proof_kind,
+        EventRequirements, Hash, Hlc, LeaseBasisRef, NonEmptyString, PayloadProof, RealmId,
+        RiskTier, ScopeRef, SealBasis, SealId, ServiceKind, project_did_to_core_id, proof_kind,
     };
     use serde_json::{Value, json};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -806,7 +805,7 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn blob_upload_bytes_posts_multipart_form() {
-        let canned = r#"{"blob_ref":"ak:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":5,"media_type":"text/plain","content_digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","upload_receipt":null}"#;
+        let canned = r#"{"blob_ref":"ak:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size_bytes":5,"media_type":"text/plain","upload_receipt":null}"#;
         let (client, capture) = spawn_capture_server(canned).await;
         let metadata = BlobUploadMetadata {
             realm_id: None,
@@ -1357,16 +1356,6 @@ mod events_submit_tests {
             )
             .await;
         let request = MimiReportAbuseRequestBody {
-            strand_id: StrandId::new("ak:strand:AaCQjogT126mXVYM2VaV0guWrFdS4nCOsDP-Ft0iWyKp")
-                .unwrap(),
-            mimi_room_uri: MimiRoomUri::new("mimi://provider/rooms/room-1").unwrap(),
-            realm_id: RealmId::new(
-                "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI".to_owned(),
-            )
-            .unwrap(),
-            target_ref: NonEmptyString::new("mimi://provider/rooms/room-1/messages/msg-1").unwrap(),
-            reporter_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-            source_provider_id: DidCoreId::new("ak:did_core:web:provider.example").unwrap(),
             reporter_authority: MimiReporterAuthority {
                 actor_id: ActorId::account(AccountId::new(
                     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
@@ -1397,10 +1386,7 @@ mod events_submit_tests {
                 },
             },
             report_event: fixture_submission("mimi moderation report"),
-            abuse_reason_code: NonEmptyString::new("spam").unwrap(),
-            evidence_package: None,
-            franking_proof: None,
-            description: Some(NonEmptyString::new("unsolicited message").unwrap()),
+            cba_proof_bundles: Vec::new(),
         };
 
         let response = client.mimi_report_abuse(&request).await.unwrap();
@@ -1416,8 +1402,9 @@ mod events_submit_tests {
             "unexpected request line: {request_line}",
         );
         let parsed: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(parsed["abuse_reason_code"], "spam");
-        assert_eq!(parsed["reporter_id"], "ak:did_core:webvh:z6mkfixture");
+        assert!(parsed.get("abuse_reason_code").is_none());
+        assert!(parsed.get("reporter_id").is_none());
+        assert_eq!(parsed.as_object().unwrap().len(), 2);
     }
 
     #[tokio::test]

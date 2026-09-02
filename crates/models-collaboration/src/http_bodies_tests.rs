@@ -267,8 +267,7 @@ mod mimi_reporter_authority_tests {
 
     use arkret_wire::{
         AccountId, ActorId, Audience, DidCoreId, DidUrl, Event, EventId, EventInitialSubmission,
-        EventRequirements, Hash, Hlc, MimiRoomUri, NonEmptyString, PayloadProof, RealmId, ScopeRef,
-        StrandId, proof_kind,
+        EventRequirements, Hash, Hlc, PayloadProof, RealmId, ScopeRef, proof_kind,
     };
 
     use super::super::{MimiReportAbuseRequestBody, MimiReporterAuthority};
@@ -308,7 +307,17 @@ mod mimi_reporter_authority_tests {
                 auth_context: None,
                 seal_basis: None,
                 requirements: EventRequirements::default(),
-                payload: BTreeMap::new(),
+                payload: serde_json::from_value(serde_json::json!({
+                    "realm_id": realm_id,
+                    "effective_scope": {"kind": "realm", "realm_id": realm_id},
+                    "target_ref": realm_id,
+                    "report_reason_code": "spam",
+                    "description": "unsolicited",
+                    "reporter_id": reporter_id,
+                    "provenance": "mimi_facade",
+                    "source_provider_id": source_provider_id,
+                }))
+                .unwrap(),
                 executed_by: None,
                 authorization_ref: None,
                 applet_id: None,
@@ -324,16 +333,6 @@ mod mimi_reporter_authority_tests {
             membership_compensation_evidence: None,
         };
         let mut request = MimiReportAbuseRequestBody {
-            strand_id: StrandId::new("ak:strand:AaCQjogT126mXVYM2VaV0guWrFdS4nCOsDP-Ft0iWyKp")
-                .unwrap(),
-            mimi_room_uri: MimiRoomUri::new("mimi://provider.example/rooms/room-1").unwrap(),
-            realm_id,
-            target_ref: NonEmptyString::new(
-                "mimi://provider.example/rooms/room-1/messages/message-1",
-            )
-            .unwrap(),
-            reporter_id: reporter_id.clone(),
-            source_provider_id: source_provider_id.clone(),
             reporter_authority: MimiReporterAuthority {
                 actor_id,
                 membership_event_id: event_id(b"membership"),
@@ -352,34 +351,32 @@ mod mimi_reporter_authority_tests {
                 },
             },
             report_event,
-            abuse_reason_code: NonEmptyString::new("spam").unwrap(),
-            evidence_package: None,
-            franking_proof: None,
-            description: Some(NonEmptyString::new("unsolicited").unwrap()),
+            cba_proof_bundles: Vec::new(),
         };
         request.reporter_authority.proof.payload_digest = request.payload_digest().unwrap();
         request
     }
 
     #[test]
-    fn transcript_covers_actor_provider_room_target_and_state_refs() {
+    fn transcript_covers_compact_request_and_authority_state_refs() {
         let request = request();
         let transcript: serde_json::Value = arkret_canonical::from_canonical_json_slice(
             &request.reporter_authority_binding_bytes().unwrap(),
         )
         .unwrap();
         assert_eq!(transcript["context"], "ak.mimi_reporter_authority_proof.v1");
-        assert_eq!(transcript["reporter_id"], request.reporter_id.as_str());
         assert_eq!(
-            transcript["source_provider_id"],
-            request.source_provider_id.as_str()
+            transcript["issuer"],
+            serde_json::to_value(&request.reporter_authority.actor_id).unwrap()
         );
-        assert_eq!(transcript["mimi_room_uri"], request.mimi_room_uri.as_str());
-        assert_eq!(transcript["target_ref"], request.target_ref.as_str());
         assert_eq!(
             transcript["membership_event_id"],
             request.reporter_authority.membership_event_id.as_str()
         );
+        let wire = serde_json::to_value(&request).unwrap();
+        assert_eq!(wire.as_object().unwrap().len(), 2);
+        assert!(wire.get("reporter_id").is_none());
+        assert!(wire.get("source_provider_id").is_none());
     }
 
     #[test]
@@ -394,9 +391,10 @@ mod mimi_reporter_authority_tests {
         assert!(other_actor.reporter_authority_binding_bytes().is_err());
 
         let mut mutated = valid.clone();
-        mutated.target_ref =
-            NonEmptyString::new("mimi://provider.example/rooms/room-1/messages/other-message")
-                .unwrap();
+        mutated.report_event.event.payload.insert(
+            "target_ref".to_owned(),
+            serde_json::json!("ak:realm:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+        );
         assert!(mutated.reporter_authority_binding_bytes().is_err());
 
         let mut stale = valid;
@@ -520,7 +518,6 @@ mod device_pairing_tests {
                     .unwrap(),
                     event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
                     signer_resolution_evidence_ref: None,
-                    signer_resolution_evidence_digest: None,
                     created_at,
                     domain: None,
                     audience: None,

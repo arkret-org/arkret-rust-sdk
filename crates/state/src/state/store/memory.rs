@@ -1493,7 +1493,6 @@ mod tests {
                 event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())
                     .unwrap(),
                 signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_digest: None,
                 created_at,
                 domain: None,
                 audience: None,

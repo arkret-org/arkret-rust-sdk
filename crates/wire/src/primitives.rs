@@ -1183,8 +1183,6 @@ pub struct ProducerEventProof {
     pub event_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_digest: Option<Hash>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1406,10 +1404,7 @@ pub struct StationAdmissionProof {
     pub producer_signing_key_did: DidKey,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_signer_resolution_evidence_digest: Option<Hash>,
     pub signer_resolution_evidence_ref: SignerEvidenceRef,
-    pub signer_resolution_evidence_digest: Hash,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub jws: String,
@@ -1479,31 +1474,19 @@ impl StationAdmissionProof {
                 WireError::Protocol("admission verification method has no fragment".to_owned())
             })?;
         let controller = Did::new(controller.to_owned())?;
-        let producer_evidence_pair_valid = match (
-            &self.producer_signer_resolution_evidence_ref,
-            &self.producer_signer_resolution_evidence_digest,
-        ) {
-            (None, None) => true,
-            (Some(reference), Some(digest)) => {
-                reference
-                    .content_digest()
-                    .is_ok_and(|value| value == *digest)
-                    && digest.as_ref().starts_with("sha256:")
-            }
-            _ => false,
-        };
         if fragment.is_empty()
             || project_did_to_core_id(&controller)? != *expected_station_id
             || self.event_digest != *expected_event_digest
             || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
             || self.producer_verification_method != producer_proof.verification_method
-            || !producer_evidence_pair_valid
-            || self.signer_resolution_evidence_ref.content_digest()?
-                != self.signer_resolution_evidence_digest
-            || !self
-                .signer_resolution_evidence_digest
+            || self
+                .producer_signer_resolution_evidence_ref
                 .as_ref()
-                .starts_with("sha256:")
+                .is_some_and(|reference| reference.content_digest().is_err())
+            || self
+                .signer_resolution_evidence_ref
+                .content_digest()
+                .is_err()
             || !is_compact_jws(&self.jws)
         {
             return Err(WireError::Protocol(
@@ -1545,19 +1528,9 @@ impl StationAdmissionProof {
                 serde_json::to_value(reference)?,
             );
         }
-        if let Some(digest) = &self.producer_signer_resolution_evidence_digest {
-            binding.insert(
-                "producer_signer_resolution_evidence_digest".to_owned(),
-                serde_json::to_value(digest)?,
-            );
-        }
         binding.insert(
             "signer_resolution_evidence_ref".to_owned(),
             serde_json::to_value(&self.signer_resolution_evidence_ref)?,
-        );
-        binding.insert(
-            "signer_resolution_evidence_digest".to_owned(),
-            serde_json::to_value(&self.signer_resolution_evidence_digest)?,
         );
         binding.insert(
             "accepted_at".to_owned(),
@@ -1625,27 +1598,15 @@ const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
 
 impl ProducerEventProof {
-    pub fn validate_signer_resolution_evidence_pair(&self) -> Result<()> {
-        match (
-            &self.signer_resolution_evidence_ref,
-            &self.signer_resolution_evidence_digest,
-        ) {
-            (None, None) => Ok(()),
-            (Some(reference), Some(digest))
-                if reference.content_digest()? == *digest
-                    && digest.as_ref().starts_with("sha256:") =>
-            {
-                Ok(())
-            }
-            _ => Err(WireError::Protocol(
-                "producer signer resolution evidence ref and digest must be absent together or match"
-                    .to_owned(),
-            )),
+    pub fn validate_signer_resolution_evidence_ref(&self) -> Result<()> {
+        if let Some(reference) = &self.signer_resolution_evidence_ref {
+            reference.content_digest()?;
         }
+        Ok(())
     }
 
     pub fn validate_direct_signer_resolution_evidence(&self) -> Result<()> {
-        self.validate_signer_resolution_evidence_pair()?;
+        self.validate_signer_resolution_evidence_ref()?;
         if self.signer_resolution_evidence_ref.is_none() {
             return Err(WireError::Protocol(
                 "direct producer proof requires signer resolution evidence".to_owned(),
@@ -1674,7 +1635,7 @@ impl ProducerEventProof {
     /// Build the canonical **proof binding object** that the detached JWS
     /// signs (encoding.md §6 / event-and-patch.md §3): a canonical-JSON
     /// object over `{event_digest, actor_id, verification_method,
-    /// signer_resolution_evidence_ref?, signer_resolution_evidence_digest?,
+    /// signer_resolution_evidence_ref?,
     /// created_at, domain?, audience?}`.
     ///
     /// The detached-JWS payload MUST be these bytes — **not** the raw
@@ -1733,12 +1694,6 @@ impl ProducerEventProof {
                 Value::String(reference.as_ref().to_owned()),
             );
         }
-        if let Some(digest) = &self.signer_resolution_evidence_digest {
-            obj.insert(
-                "signer_resolution_evidence_digest".to_owned(),
-                Value::String(digest.as_str().to_owned()),
-            );
-        }
         obj.insert(
             "created_at".to_owned(),
             Value::String(canonical::format_timestamp_canonical(self.created_at)),
@@ -1787,7 +1742,7 @@ impl ProducerEventProof {
                 "producer proof purpose is not registered for Event proofs".to_owned(),
             ));
         }
-        self.validate_signer_resolution_evidence_pair()?;
+        self.validate_signer_resolution_evidence_ref()?;
         Ok(())
     }
 

@@ -46,10 +46,9 @@ pub fn verify_minimal_metadata_identity_link_signature(
 ) -> Result<arkret_models_collaboration::objects::profiles::IdentityLink, WireError> {
     signer_evidence.validate()?;
     let identity_link = signer_evidence.validate_identity_link_binding()?;
-    let identity_link_signer = super::mls_governance::bound_evidence_by_digest(
+    let identity_link_signer = super::mls_governance::bound_evidence_by_ref(
         dependencies,
         &signer_evidence.identity_link_signer_evidence_ref,
-        &signer_evidence.identity_link_signer_evidence_digest,
         &identity_link.principal_id,
         &identity_link.proof.verification_method,
     )?;
@@ -303,7 +302,6 @@ where
         &record.proof_binding_bytes()?,
         record.sent_at,
         &record.release_service_signer_evidence_ref,
-        &record.release_service_signer_evidence_digest,
         signer_dependencies,
     )?;
     if source.source_proof.created_at > record.sent_at
@@ -449,13 +447,14 @@ where
         HistorySourceProofExternalVerificationRequest<'_>,
     ) -> Result<PublicKeyMaterial, WireError>,
 {
+    let source_signer_evidence_digest = source.source_signer_evidence_ref.content_digest()?;
     let expected_selector =
         arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-            content_digest: source.source_signer_evidence_digest.clone(),
+            content_digest: source_signer_evidence_digest.clone(),
         };
     let expected_minimal_selector =
         arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::MinimalMetadataMlsLeafSignerEvidence {
-            content_digest: source.source_signer_evidence_digest.clone(),
+            content_digest: source_signer_evidence_digest,
         };
     let mut authenticated = None;
     let mut minimal = None;
@@ -596,7 +595,6 @@ pub fn verify_history_response_lost_record(
         &lost_record.proof_binding_bytes()?,
         lost_record.lost_at,
         &lost_record.release_service_signer_evidence_ref,
-        &lost_record.release_service_signer_evidence_digest,
         signer_dependencies,
     )
 }
@@ -607,17 +605,15 @@ fn verify_release_service_proof(
     binding_bytes: &[u8],
     signed_at: DateTime<Utc>,
     evidence_ref: &arkret_wire::SignerEvidenceRef,
-    evidence_digest: &Hash,
     dependencies: &[GovernanceDependency],
 ) -> Result<(), WireError> {
     let receipt = &accepted.request_receipt;
     if proof.created_at > signed_at {
         return invalid("history release service proof method or timestamp mismatch");
     }
-    let evidence = super::mls_governance::bound_evidence_by_digest(
+    let evidence = super::mls_governance::bound_evidence_by_ref(
         dependencies,
         evidence_ref,
-        evidence_digest,
         &receipt.release_id,
         &proof.verification_method,
     )?;
@@ -841,6 +837,7 @@ fn source_evidence_kind(
     source: &HistoryKeyResponseSendRequest,
     dependencies: &[GovernanceDependency],
 ) -> Result<SourceEvidenceKind, WireError> {
+    let source_signer_evidence_digest = source.source_signer_evidence_ref.content_digest()?;
     let mut found = None;
     for dependency in dependencies {
         let kind = match dependency {
@@ -850,7 +847,7 @@ fn source_evidence_kind(
                         content_digest,
                     },
                 authenticated_signer_resolution_evidence,
-            } if content_digest == &source.source_signer_evidence_digest => {
+            } if content_digest == &source_signer_evidence_digest => {
                 match authenticated_signer_resolution_evidence.as_ref() {
                     AuthenticatedSignerResolutionEvidence::Service { .. } => {
                         return invalid("service evidence cannot be a history response source root");
@@ -869,7 +866,7 @@ fn source_evidence_kind(
                         content_digest,
                     },
                 ..
-            } if content_digest == &source.source_signer_evidence_digest => {
+            } if content_digest == &source_signer_evidence_digest => {
                 SourceEvidenceKind::MinimalMetadata
             }
             _ => continue,

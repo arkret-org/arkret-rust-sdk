@@ -805,7 +805,6 @@ mod tests {
                 verification_method: DidUrl::new(format!("{controller_did}#key-1")).unwrap(),
                 event_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
                 signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_digest: None,
                 created_at: issued_at,
                 domain: None,
                 audience: None,

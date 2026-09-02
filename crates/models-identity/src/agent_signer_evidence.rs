@@ -424,7 +424,6 @@ pub struct AgentEventAdmissionReceipt {
     pub agent_id: DidCoreId,
     pub verification_method: DidUrl,
     pub producer_signer_resolution_evidence_ref: SignerEvidenceRef,
-    pub producer_signer_resolution_evidence_digest: Hash,
     pub receiver_id: DidCoreId,
     pub proof: AgentDetachedJws,
 }

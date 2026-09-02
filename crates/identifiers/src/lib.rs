@@ -635,7 +635,6 @@ impl TryFrom<u8> for RealmDerivationClass {
 /// minted, per the spec `id-kind-registry.json` `id_form` column.
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
-    "ak:appeal:",
     "ak:audit_binding:",
     "ak:audit_release:",
     "ak:audit_session:",
@@ -956,7 +955,6 @@ declare_uuid_id_kinds! {
 
 declare_event_token_id_kinds! {
     ActorProfileId, "ak:actor_profile:";
-    TypedAppealId, "ak:appeal:";
     AuditBindingId, "ak:audit_binding:";
     AuditReleaseId, "ak:audit_release:";
     AuditSessionId, "ak:audit_session:";
@@ -1126,8 +1124,8 @@ impl RealmId {
 // this crate, and the SDK ships no type for either. Declaring them was a false
 // coverage claim, not a gap to fill.
 declare_special_form_id_kinds! {
-    // Hybrid: a bare `<algo>:<hex>` digest or the `ak:blob:` content-addressed
-    // form. Distinct from `BlobId`, which is the `ak:blob:<uuidv7>` metadata id.
+    // Content-addressed Blob bytes. Distinct from `BlobId`, which is the
+    // `ak:blob:<uuidv7>` metadata-resource identity.
     BlobRef, "blob", is_blob_ref;
     CellRef, "cell", is_cell_ref;
     Cursor, "cursor", has_prefix("ak:cursor:");
@@ -1209,9 +1207,6 @@ impl EventId {
 }
 
 fn is_blob_ref(value: &str) -> bool {
-    if is_hash(value) || is_strict_typed_id(value, "ak:blob:", UUID_VERSION_PRODUCER_ALLOCATED) {
-        return true;
-    }
     value.strip_prefix("ak:blob:").is_some_and(is_hash)
 }
 
@@ -1605,6 +1600,9 @@ mod tests {
         let digest64 = "a".repeat(64);
         assert_eq!(BlobRef::ID_KIND, "blob");
         assert!(BlobRef::new(format!("ak:blob:sha256:{digest64}")).is_ok());
+        assert!(BlobRef::new(format!("ak:blob:blake3:{digest64}")).is_ok());
+        assert!(BlobRef::new(format!("sha256:{digest64}")).is_err());
+        assert!(BlobRef::new("ak:blob:01904100-0000-7000-8000-000000000001").is_err());
         assert_eq!(CellRef::ID_KIND, "cell");
         assert!(CellRef::new("ak:cell:ak.component.relation.lifecycle.v1:subject").is_ok());
         assert_eq!(Cursor::ID_KIND, "cursor");

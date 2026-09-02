@@ -266,36 +266,17 @@ pub fn verify_snapshot_chunk_bytes(
             ),
         ));
     }
-    let actual = sha256_digest(bytes);
-    if descriptor.digest != actual {
-        return Err(SnapshotValidationError::new(
-            SnapshotValidationCode::DigestMismatch,
-            format!(
-                "snapshot chunk digest mismatch: descriptor {}, bytes {}",
-                descriptor.digest, actual
-            ),
-        ));
-    }
-    verify_snapshot_chunk_ref_digest(descriptor)
-}
-
-fn verify_snapshot_chunk_ref_digest(
-    descriptor: &SnapshotChunkDescriptor,
-) -> std::result::Result<(), SnapshotValidationError> {
-    if let Some(hex) = descriptor
+    let expected = descriptor
         .chunk_ref
         .as_str()
-        .strip_prefix("ak:blob:sha256:")
-    {
-        let expected = format!("sha256:{hex}");
-        if expected != descriptor.digest.as_str() {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::DigestMismatch,
-                "snapshot chunk_ref digest does not match descriptor digest",
-            ));
-        }
-    }
-    Ok(())
+        .strip_prefix("ak:blob:")
+        .expect("validated BlobRef is content-addressed");
+    arkret_canonical::canonical::verify_digest(bytes, expected).map_err(|_| {
+        SnapshotValidationError::new(
+            SnapshotValidationCode::DigestMismatch,
+            "snapshot chunk bytes do not match chunk_ref",
+        )
+    })
 }
 
 fn sort_snapshot_items(items: &mut [SnapshotMaterializedItem]) {
@@ -323,7 +304,6 @@ fn build_chunk_descriptor(payload: SnapshotChunkPayload) -> Result<BuiltSnapshot
     let digest = sha256_digest(&canonical_bytes);
     let descriptor = SnapshotChunkDescriptor {
         chunk_ref: BlobRef::new(format!("ak:blob:{digest}")).map_err(WireError::from)?,
-        digest,
         size_bytes: canonical_bytes.len() as u64,
     };
     Ok(BuiltSnapshotChunk {

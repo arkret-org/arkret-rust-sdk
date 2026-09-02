@@ -102,7 +102,7 @@ pub use arkret_identifiers::{
     MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
     SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId,
-    TypedAppealId, ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
+    ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -156,7 +156,6 @@ pub use arkret_models_collaboration::governance::grant_constraint::*;
 pub use arkret_models_collaboration::governance::invite_addressing::*;
 pub use arkret_models_collaboration::governance::membership_invite::*;
 pub use arkret_models_collaboration::governance::moderation::*;
-pub use arkret_models_collaboration::governance::moderation_appeal::*;
 pub use arkret_models_collaboration::governance::moderation_queue::*;
 pub use arkret_models_collaboration::governance::operation_wire::*;
 pub use arkret_models_collaboration::governance::peer_contact::*;

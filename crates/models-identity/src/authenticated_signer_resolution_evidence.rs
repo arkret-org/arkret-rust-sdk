@@ -25,20 +25,15 @@ pub enum AuthenticatedSignerResolutionEvidence {
         public_resolution: PublicPrincipalResolution,
         normalized_did_document: DidDocument,
         attester_signer_evidence_ref: SignerEvidenceRef,
-        attester_signer_evidence_digest: Hash,
     },
     Agent {
         signer_id: DidCoreId,
         verification_method: DidUrl,
         agent_signer_evidence: Box<AgentSignerEvidence>,
         attester_signer_evidence_ref: SignerEvidenceRef,
-        attester_signer_evidence_digest: Hash,
         controller_signer_evidence_ref: SignerEvidenceRef,
-        controller_signer_evidence_digest: Hash,
         account_authority_signer_evidence_ref: SignerEvidenceRef,
-        account_authority_signer_evidence_digest: Hash,
         receiver_signer_evidence_ref: SignerEvidenceRef,
-        receiver_signer_evidence_digest: Hash,
     },
 }
 
@@ -158,52 +153,27 @@ impl AuthenticatedSignerResolutionEvidence {
                 }
             }
         }
-        let pairs = match self {
+        let references = match self {
             Self::Service { .. } => return Ok(()),
             Self::Principal {
                 attester_signer_evidence_ref,
-                attester_signer_evidence_digest,
                 ..
-            } => vec![(
-                attester_signer_evidence_ref,
-                attester_signer_evidence_digest,
-            )],
+            } => vec![attester_signer_evidence_ref],
             Self::Agent {
                 attester_signer_evidence_ref,
-                attester_signer_evidence_digest,
                 controller_signer_evidence_ref,
-                controller_signer_evidence_digest,
                 account_authority_signer_evidence_ref,
-                account_authority_signer_evidence_digest,
                 receiver_signer_evidence_ref,
-                receiver_signer_evidence_digest,
                 ..
             } => vec![
-                (
-                    attester_signer_evidence_ref,
-                    attester_signer_evidence_digest,
-                ),
-                (
-                    controller_signer_evidence_ref,
-                    controller_signer_evidence_digest,
-                ),
-                (
-                    account_authority_signer_evidence_ref,
-                    account_authority_signer_evidence_digest,
-                ),
-                (
-                    receiver_signer_evidence_ref,
-                    receiver_signer_evidence_digest,
-                ),
+                attester_signer_evidence_ref,
+                controller_signer_evidence_ref,
+                account_authority_signer_evidence_ref,
+                receiver_signer_evidence_ref,
             ],
         };
-        for (evidence_ref, digest) in pairs {
-            if evidence_ref.content_digest()? != *digest || !digest.as_ref().starts_with("sha256:")
-            {
-                return Err(WireError::Protocol(
-                    "signer evidence ref and digest do not match".to_owned(),
-                ));
-            }
+        for evidence_ref in references {
+            evidence_ref.content_digest()?;
         }
         Ok(())
     }

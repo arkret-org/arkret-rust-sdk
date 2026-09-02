@@ -67,7 +67,6 @@ fn agent_observation_digest_precedes_evidence_and_complete_source_proof() {
             source_actor_id: observation.source_actor_id.clone(),
             source_sender_domain: observation.source_sender_domain.clone(),
             source_signer_evidence_ref: evidence_ref.clone(),
-            source_signer_evidence_digest: evidence_digest.clone(),
             request_digest: observation.request_digest.clone(),
             request_receipt_digest: observation.request_receipt_digest.clone(),
             expires_at: observation.expires_at,

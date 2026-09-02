@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-02.3;
-//! sha256=d5029db42475e03b5adbbd9669669f24c475006aaddf50483cf0a62abe799551
-//! Entries: reason_codes=456
+//! Input: registry/error-code-registry.json; version=2026-09-02.4;
+//! sha256=4d3398ed019427fb1ae49fde439c1fbb8f36ced4f76523a889d0c1949b50674b
+//! Entries: reason_codes=452
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -38,9 +38,6 @@ pub enum ReasonCode {
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
     AgentSessionScopeRefreshRequired,
-    AppealModifyMissingLift,
-    AppealOverturnMissingLift,
-    AppealSelfReviewForbidden,
     AppletNamespaceMismatch,
     ApprovalAlreadyConsumed,
     ApprovalNonceReused,
@@ -202,7 +199,6 @@ pub enum ReasonCode {
     IntegrityFailed,
     InternalError,
     InvalidAckToken,
-    InvalidAppealFsmTransition,
     InvalidCanonicalJson,
     InvalidCursor,
     InvalidEncoding,
@@ -514,9 +510,6 @@ impl ReasonCode {
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
     pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
         "agent_session_scope_refresh_required";
-    pub const APPEAL_MODIFY_MISSING_LIFT: &'static str = "appeal_modify_missing_lift";
-    pub const APPEAL_OVERTURN_MISSING_LIFT: &'static str = "appeal_overturn_missing_lift";
-    pub const APPEAL_SELF_REVIEW_FORBIDDEN: &'static str = "appeal_self_review_forbidden";
     pub const APPLET_NAMESPACE_MISMATCH: &'static str = "applet_namespace_mismatch";
     pub const APPROVAL_ALREADY_CONSUMED: &'static str = "approval_already_consumed";
     pub const APPROVAL_NONCE_REUSED: &'static str = "approval_nonce_reused";
@@ -719,7 +712,6 @@ impl ReasonCode {
     pub const INTEGRITY_FAILED: &'static str = "integrity_failed";
     pub const INTERNAL_ERROR: &'static str = "internal_error";
     pub const INVALID_ACK_TOKEN: &'static str = "invalid_ack_token";
-    pub const INVALID_APPEAL_FSM_TRANSITION: &'static str = "invalid_appeal_fsm_transition";
     pub const INVALID_CANONICAL_JSON: &'static str = "invalid_canonical_json";
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
@@ -1057,9 +1049,6 @@ impl ReasonCode {
             }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
             Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
-            Self::AppealModifyMissingLift => Self::APPEAL_MODIFY_MISSING_LIFT,
-            Self::AppealOverturnMissingLift => Self::APPEAL_OVERTURN_MISSING_LIFT,
-            Self::AppealSelfReviewForbidden => Self::APPEAL_SELF_REVIEW_FORBIDDEN,
             Self::AppletNamespaceMismatch => Self::APPLET_NAMESPACE_MISMATCH,
             Self::ApprovalAlreadyConsumed => Self::APPROVAL_ALREADY_CONSUMED,
             Self::ApprovalNonceReused => Self::APPROVAL_NONCE_REUSED,
@@ -1259,7 +1248,6 @@ impl ReasonCode {
             Self::IntegrityFailed => Self::INTEGRITY_FAILED,
             Self::InternalError => Self::INTERNAL_ERROR,
             Self::InvalidAckToken => Self::INVALID_ACK_TOKEN,
-            Self::InvalidAppealFsmTransition => Self::INVALID_APPEAL_FSM_TRANSITION,
             Self::InvalidCanonicalJson => Self::INVALID_CANONICAL_JSON,
             Self::InvalidCursor => Self::INVALID_CURSOR,
             Self::InvalidEncoding => Self::INVALID_ENCODING,
@@ -1597,9 +1585,6 @@ impl ReasonCode {
             }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
             Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
-            Self::APPEAL_MODIFY_MISSING_LIFT => Self::AppealModifyMissingLift,
-            Self::APPEAL_OVERTURN_MISSING_LIFT => Self::AppealOverturnMissingLift,
-            Self::APPEAL_SELF_REVIEW_FORBIDDEN => Self::AppealSelfReviewForbidden,
             Self::APPLET_NAMESPACE_MISMATCH => Self::AppletNamespaceMismatch,
             Self::APPROVAL_ALREADY_CONSUMED => Self::ApprovalAlreadyConsumed,
             Self::APPROVAL_NONCE_REUSED => Self::ApprovalNonceReused,
@@ -1799,7 +1784,6 @@ impl ReasonCode {
             Self::INTEGRITY_FAILED => Self::IntegrityFailed,
             Self::INTERNAL_ERROR => Self::InternalError,
             Self::INVALID_ACK_TOKEN => Self::InvalidAckToken,
-            Self::INVALID_APPEAL_FSM_TRANSITION => Self::InvalidAppealFsmTransition,
             Self::INVALID_CANONICAL_JSON => Self::InvalidCanonicalJson,
             Self::INVALID_CURSOR => Self::InvalidCursor,
             Self::INVALID_ENCODING => Self::InvalidEncoding,
@@ -2304,21 +2288,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "The immutable provision ceiling and accepted Agent key authorization both contain every operation required by the selected runtime capability, but the requested or current session scope omits one or more. The operation fails with failed_precondition and recovery is a new session constrained by both upper ceilings. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::APPEAL_MODIFY_MISSING_LIFT,
-        applies_to: &["schema_violation", "state_resolution"],
-        description: "A ak.moderation.appeal.decision event with verdict=modify did not atomically include both a ak.moderation.decision.lift for the original decision_ref and the replacement decision named by modify_decision_ref. Reducer MUST reject the whole batch so the old and replacement decisions cannot remain active together. See zh/governance/content-moderation.md §5.5.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::APPEAL_OVERTURN_MISSING_LIFT,
-        applies_to: &["schema_violation", "state_resolution"],
-        description: "A ak.moderation.appeal.decision event with verdict=overturn was accepted without a paired ak.moderation.decision.lift event in the same ordered submit batch or equivalent control transaction (targeting the original decision_ref). Reducer MUST reject; appeal overturn is only complete when the lift is observed atomically. See zh/governance/content-moderation.md §5.5.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::APPEAL_SELF_REVIEW_FORBIDDEN,
-        applies_to: &["auth_decision"],
-        description: "The reviewer in ak.moderation.appeal.review / ak.moderation.appeal.decision is the same actor who issued the original ak.moderation.decision being appealed. Separation of duties forbids self-review; reducer MUST reject. See zh/governance/content-moderation.md §5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_NAMESPACE_MISMATCH,
@@ -3132,11 +3101,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::INVALID_ACK_TOKEN,
         applies_to: &["service_call"],
         description: "A to-device message ack carried an ack token that does not correspond to a delivered to-device cursor (unknown, malformed, or already-superseded). Carried under param_invalid. See zh/sync/client-sync.md §10.1 and zh/sync/service-http-binding.md device_messages/ack.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INVALID_APPEAL_FSM_TRANSITION,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "A moderation appeal Move requested an unlisted, out-of-order, from-state-mismatched, or post-closed transition. The reducer MUST reject it with failed_precondition. See zh/governance/content-moderation.md §5.5.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALID_CANONICAL_JSON,

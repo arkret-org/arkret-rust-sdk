@@ -1,7 +1,4 @@
 use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
-use arkret_models_collaboration::governance::moderation_appeal::{
-    AppealDecision, AppealDecisionPayload, AppealSubmitPayload, ModerationAppealPayload,
-};
 use arkret_models_collaboration::governance::third_party_invite::{
     ThirdPartyInvite, ThirdPartyInviteOobKind,
 };
@@ -9,8 +6,8 @@ use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
 use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
-    ConsentId, DeviceId, DidCoreId, DidUrl, EventId, Hash, RealmId, ScopeRef, SealId, SignalClass,
-    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, TypedAppealId,
+    ConsentId, DeviceId, DidCoreId, DidUrl, Hash, RealmId, ScopeRef, SealId, SignalClass,
+    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};
@@ -144,60 +141,6 @@ fn applet_transaction_signal_lane_keeps_plaintext_out_of_the_outer_header() {
             "{leaked} leaked on the outer header"
         );
     }
-}
-
-#[test]
-fn moderation_appeal_decision_modify_requires_ref() {
-    let payload = ModerationAppealPayload::Decision(AppealDecisionPayload {
-        appeal_id: TypedAppealId::new("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-            .unwrap(),
-        realm_id: realm(),
-        reviewer_id: core_id(),
-        decision: AppealDecision::Modify,
-        reason_text_ref: "blob:reason".to_owned(),
-        modify_decision_ref: None,
-        decided_at: Utc::now(),
-    });
-    assert!(payload.validate_minimal().is_err());
-}
-
-#[test]
-fn moderation_appeal_submit_omits_event_derived_appeal_id() {
-    let payload = AppealSubmitPayload {
-        realm_id: realm(),
-        decision_ref: EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1")
-            .unwrap(),
-        target_ref: "ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned(),
-        appellant_id: core_id(),
-        reason_text_ref: "blob:reason".to_owned(),
-        evidence_refs: Vec::new(),
-        evidence_visibility: None,
-        created_at: Utc::now(),
-    };
-    let value = serde_json::to_value(&payload).unwrap();
-    assert!(value.get("appeal_id").is_none());
-    assert!(
-        ModerationAppealPayload::Submit(payload)
-            .appeal_id()
-            .is_none()
-    );
-}
-
-#[test]
-fn moderation_appeal_decision_uphold_rejects_modify_ref() {
-    let payload = ModerationAppealPayload::Decision(AppealDecisionPayload {
-        appeal_id: TypedAppealId::new("ak:appeal:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-            .unwrap(),
-        realm_id: realm(),
-        reviewer_id: core_id(),
-        decision: AppealDecision::Uphold,
-        reason_text_ref: "blob:reason".to_owned(),
-        modify_decision_ref: Some(
-            EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1").unwrap(),
-        ),
-        decided_at: Utc::now(),
-    });
-    assert!(payload.validate_minimal().is_err());
 }
 
 #[test]

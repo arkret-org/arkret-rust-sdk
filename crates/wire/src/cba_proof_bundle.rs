@@ -45,7 +45,6 @@ pub struct AvailabilityReceipt {
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub retention_expires_at: DateTime<Utc>,
     pub holder_signer_evidence_ref: SignerEvidenceRef,
-    pub holder_signer_evidence_digest: Hash,
     pub signature: PayloadProof,
 }
 
@@ -110,16 +109,7 @@ impl AvailabilityReceipt {
 
     pub fn validate_structural(&self) -> Result<()> {
         self.signature.validate()?;
-        if self.holder_signer_evidence_ref.content_digest()? != self.holder_signer_evidence_digest
-            || !self
-                .holder_signer_evidence_digest
-                .as_ref()
-                .starts_with("sha256:")
-        {
-            return Err(WireError::Protocol(
-                "availability receipt holder signer evidence ref and digest mismatch".to_owned(),
-            ));
-        }
+        self.holder_signer_evidence_ref.content_digest()?;
         Ok(())
     }
 

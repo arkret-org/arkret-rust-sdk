@@ -237,11 +237,14 @@ pub fn decrypt(
     content_key: &[u8; 32],
 ) -> Result<Vec<u8>> {
     record.validate().map_err(|e| invalid(e.to_string()))?;
-    let (suite, _) = record
-        .content_digest
+    let content_digest = record
+        .blob_ref
+        .strip_prefix("ak:blob:")
+        .ok_or_else(|| invalid("file-transfer blob_ref is not content-addressed"))?;
+    let (suite, _) = content_digest
         .split_once(':')
         .ok_or_else(|| invalid("unsupported content digest"))?;
-    if arkret_canonical::canonical::digest_with_suite(suite, ciphertext)? != record.content_digest
+    if arkret_canonical::canonical::digest_with_suite(suite, ciphertext)? != content_digest
         || ciphertext.len() as u64 != record.blob_size_bytes
     {
         return Err(invalid("digest_mismatch"));
@@ -291,7 +294,7 @@ mod tests {
         let digest = arkret_canonical::canonical::digest_with_suite("sha256", ciphertext).unwrap();
         serde_json::from_value(json!({
             "kind": "file_transfer", "transfer_id": encryption.aad.transfer_id,
-            "blob_ref": format!("ak:blob:{digest}"), "content_digest": digest,
+            "blob_ref": format!("ak:blob:{digest}"),
             "blob_size_bytes": ciphertext.len(), "media_type": "text/plain",
             "plaintext_size_bytes": size, "access": {"visibility": "actor_private"},
             "origin_device_id": encryption.aad.origin_device_id,

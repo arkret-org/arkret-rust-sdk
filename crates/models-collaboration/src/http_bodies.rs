@@ -10,12 +10,12 @@ use std::collections::BTreeMap;
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, ConsentId,
-    ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, Event, EventFederationSubmission,
-    EventId, EventInitialSubmission, Hash, IngressReceipt, MimiRoomUri, MlsGroupId, MorphId,
-    NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId, ReportId,
-    Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError,
-    canonical,
+    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, CbaProofBundle,
+    ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, DomainSeparationId, Event,
+    EventFederationSubmission, EventId, EventInitialSubmission, Hash, IngressReceipt, MlsGroupId,
+    MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId,
+    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,8 @@ use crate::contact_operations::{
 use crate::event_sync::RealmActorFrontierView;
 use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
 use crate::events_payloads::{
-    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, SignatureMaterial,
+    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, ModerationReportPayload,
+    ModerationReportProvenance, SignatureMaterial,
 };
 use crate::governance::agent_artifacts::{DeviceMetadata, GrantSnapshot, PublicKey};
 use crate::governance::agent_membership_cascade::AgentMembershipCascadeOutcome;
@@ -1781,21 +1782,10 @@ impl MimiIdentifierQueryOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiReportAbuseRequestBody {
-    pub strand_id: StrandId,
-    pub mimi_room_uri: MimiRoomUri,
-    pub realm_id: RealmId,
-    pub target_ref: NonEmptyString,
-    pub reporter_id: DidCoreId,
-    pub source_provider_id: DidCoreId,
     pub reporter_authority: MimiReporterAuthority,
     pub report_event: EventInitialSubmission,
-    pub abuse_reason_code: NonEmptyString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub evidence_package: Option<MimiOpaquePayload>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub franking_proof: Option<MimiOpaquePayload>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<NonEmptyString>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cba_proof_bundles: Vec<CbaProofBundle>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1829,33 +1819,44 @@ impl MimiReportAbuseRequestBody {
         mimi_payload_digest(&self.unsigned_payload()?)
     }
 
-    pub fn reporter_authority_binding_bytes(&self) -> Result<Vec<u8>> {
-        let authority = &self.reporter_authority;
-        if authority.actor_id.signing_principal_id() != &self.reporter_id {
+    /// Decode the signed moderation payload only after the enclosing Event has
+    /// proved the compact MIMI request's exact kind and Actor binding.
+    pub fn report_payload(&self) -> Result<ModerationReportPayload> {
+        let event = &self.report_event.event;
+        if event.kind != arkret_wire::EventKind::SelfModerationReport
+            || event.actor_id != self.reporter_authority.actor_id
+        {
             return Err(WireError::Protocol(
-                "MIMI reporter authority actor does not bind reporter_id".to_owned(),
+                "MIMI report Event kind or actor does not bind reporter authority".to_owned(),
             ));
         }
+        let payload: ModerationReportPayload = decode_payload_after_kind_validation(event)?;
+        if payload.realm_id != event.realm_id
+            || payload.provenance != Some(ModerationReportProvenance::MimiFacade)
+            || payload
+                .validate_provenance(event.actor_id.signing_principal_id())
+                .is_err()
+        {
+            return Err(WireError::Protocol(
+                "MIMI report Event payload does not bind its signed envelope".to_owned(),
+            ));
+        }
+        Ok(payload)
+    }
+
+    pub fn reporter_authority_binding_bytes(&self) -> Result<Vec<u8>> {
+        let authority = &self.reporter_authority;
+        self.report_payload()?;
         if authority.expires_at <= authority.proof.created_at {
             return Err(WireError::Protocol(
                 "MIMI reporter authority expiry must follow proof creation".to_owned(),
             ));
         }
         mimi_proof_binding_bytes(
-            ProofContextId::MIMI_REPORTER_AUTHORITY_PROOF_V1,
+            DomainSeparationId::MimiReporterAuthorityProofV1.as_str(),
             ServiceOperationId::OPEN_MIMI_COMMAND_REPORT_ABUSE_V1,
             Some(serde_json::to_value(&authority.actor_id)?),
             vec![
-                ("reporter_id", serde_json::to_value(&self.reporter_id)?),
-                (
-                    "source_provider_id",
-                    serde_json::to_value(&self.source_provider_id)?,
-                ),
-                ("mimi_room_uri", serde_json::to_value(&self.mimi_room_uri)?),
-                ("realm_id", serde_json::to_value(&self.realm_id)?),
-                ("strand_id", serde_json::to_value(&self.strand_id)?),
-                ("target_ref", serde_json::to_value(&self.target_ref)?),
-                ("report_event", serde_json::to_value(&self.report_event)?),
                 (
                     "membership_event_id",
                     serde_json::to_value(&authority.membership_event_id)?,

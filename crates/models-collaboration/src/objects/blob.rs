@@ -6,7 +6,7 @@ pub use arkret_models_crypto::encrypted_attachment::{
     StreamEncryptionAlgorithm, StreamEncryptionScheme, WholeFileEncryptedAttachment,
     WholeFileEncryptionAlgorithm, WholeFileEncryptionScheme,
 };
-use arkret_wire::{ActorId, BlobRef, DidCoreId, Hash, RealmId, SchemaId};
+use arkret_wire::{ActorId, BlobId, BlobRef, DidCoreId, Hash, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +25,6 @@ pub struct SignatureValue {
 #[serde(deny_unknown_fields)]
 pub struct UploadReceipt {
     pub blob_ref: BlobRef,
-    pub content_digest: Hash,
     pub size_bytes: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub received_at: DateTime<Utc>,
@@ -37,7 +36,7 @@ pub struct UploadReceipt {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Blob {
-    pub blob_ref: BlobRef,
+    pub blob_id: BlobId,
     pub schema: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -112,7 +111,6 @@ pub struct BlobUploadOutcome {
     pub size_bytes: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
-    pub content_digest: Hash,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub upload_receipt: Option<UploadReceipt>,
 }
@@ -200,10 +198,9 @@ mod tests {
         let raw = serde_json::json!({
             "blob_ref": "ak:blob:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "size_bytes": 1,
-            "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "unexpected": 42
+            "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         });
         let error = serde_json::from_value::<BlobUploadOutcome>(raw).unwrap_err();
-        assert!(error.to_string().contains("unknown field"));
+        assert!(error.to_string().contains("unknown field `content_digest`"));
     }
 }

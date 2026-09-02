@@ -99,7 +99,6 @@ fn attach_proof(event: &mut Event, descriptor: &NotarySignerDescriptor) {
                 arkret_wire::SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence}"))
                     .unwrap(),
             ),
-            signer_resolution_evidence_digest: Some(evidence),
             created_at: event.created_at,
             domain: None,
             audience: None,

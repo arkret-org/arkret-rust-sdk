@@ -1545,7 +1545,6 @@ pub struct MinimalMetadataMlsLeafSignerEvidence {
     pub identity_link_canonical_bytes_b64u: Base64UrlString,
     pub identity_link_digest: Hash,
     pub identity_link_signer_evidence_ref: SignerEvidenceRef,
-    pub identity_link_signer_evidence_digest: Hash,
     pub leaf_node_canonical_bytes_b64u: Base64UrlString,
     pub leaf_node_digest: Hash,
     pub winning_group_state_transition_ref: EventId,
@@ -1622,12 +1621,10 @@ impl MinimalMetadataMlsLeafSignerEvidence {
         }
         self.target_basis.validate_protocol_bounds()?;
         let identity_link = self.validate_identity_link_binding()?;
-        if self.identity_link_signer_evidence_ref.content_digest()?
-            != self.identity_link_signer_evidence_digest
-            || !self
-                .identity_link_signer_evidence_digest
-                .as_ref()
-                .starts_with("sha256:")
+        if self
+            .identity_link_signer_evidence_ref
+            .content_digest()
+            .is_err()
             || identity_link
                 .proof
                 .verification_method
@@ -1725,7 +1722,6 @@ pub struct HistoryKeyResponseSigningInput {
     pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub source_signer_evidence_ref: SignerEvidenceRef,
-    pub source_signer_evidence_digest: Hash,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -1736,11 +1732,7 @@ pub struct HistoryKeyResponseSigningInput {
 impl HistoryKeyResponseSigningInput {
     pub fn validate(&self) -> Result<()> {
         validate_sender_domain(&self.source_sender_domain)?;
-        if self.source_signer_evidence_ref.content_digest()? != self.source_signer_evidence_digest {
-            return Err(WireError::Protocol(
-                "history source signer evidence ref and digest do not match".to_owned(),
-            ));
-        }
+        self.source_signer_evidence_ref.content_digest()?;
         match &self.content {
             HistoryKeyResponseContent::Manifest(manifest) => manifest.validate(),
             HistoryKeyResponseContent::Chunk(chunk) => chunk.validate(),
@@ -1774,7 +1766,6 @@ pub struct HistoryKeyResponseSendRequest {
     pub source_actor_id: ActorId,
     pub source_sender_domain: String,
     pub source_signer_evidence_ref: SignerEvidenceRef,
-    pub source_signer_evidence_digest: Hash,
     pub request_digest: Hash,
     pub request_receipt_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -1791,7 +1782,6 @@ impl HistoryKeyResponseSendRequest {
             source_actor_id: self.source_actor_id.clone(),
             source_sender_domain: self.source_sender_domain.clone(),
             source_signer_evidence_ref: self.source_signer_evidence_ref.clone(),
-            source_signer_evidence_digest: self.source_signer_evidence_digest.clone(),
             request_digest: self.request_digest.clone(),
             request_receipt_digest: self.request_receipt_digest.clone(),
             expires_at: self.expires_at,
@@ -1808,7 +1798,6 @@ impl HistoryKeyResponseSendRequest {
             source_actor_id: self.source_actor_id.clone(),
             source_sender_domain: self.source_sender_domain.clone(),
             source_signer_evidence_ref: self.source_signer_evidence_ref.clone(),
-            source_signer_evidence_digest: self.source_signer_evidence_digest.clone(),
             request_digest: self.request_digest.clone(),
             request_receipt_digest: self.request_receipt_digest.clone(),
             expires_at: self.expires_at,
@@ -2566,7 +2555,6 @@ pub struct HistoryKeyResponseRecord {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_admission: Option<HistoryManifestAdmission>,
     pub release_service_signer_evidence_ref: SignerEvidenceRef,
-    pub release_service_signer_evidence_digest: Hash,
     pub service_proof: PayloadProof,
     pub source_record: HistoryKeyResponseSendRequest,
 }
@@ -2574,13 +2562,7 @@ pub struct HistoryKeyResponseRecord {
 impl HistoryKeyResponseRecord {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty(&self.cursor, "cursor")?;
-        if self.release_service_signer_evidence_ref.content_digest()?
-            != self.release_service_signer_evidence_digest
-        {
-            return Err(WireError::Protocol(
-                "history response record release-service signer evidence mismatch".to_owned(),
-            ));
-        }
+        self.release_service_signer_evidence_ref.content_digest()?;
         self.source_record.validate()?;
         match (
             &self.source_record.content,
@@ -2626,20 +2608,13 @@ pub struct HistoryKeyResponseLostRecord {
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub lost_at: DateTime<Utc>,
     pub release_service_signer_evidence_ref: SignerEvidenceRef,
-    pub release_service_signer_evidence_digest: Hash,
     pub service_proof: PayloadProof,
 }
 
 impl HistoryKeyResponseLostRecord {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty(&self.cursor, "cursor")?;
-        if self.release_service_signer_evidence_ref.content_digest()?
-            != self.release_service_signer_evidence_digest
-        {
-            return Err(WireError::Protocol(
-                "history lost record release-service signer evidence mismatch".to_owned(),
-            ));
-        }
+        self.release_service_signer_evidence_ref.content_digest()?;
         self.validate_proof_binding()
     }
 }
@@ -3433,7 +3408,6 @@ impl HistoryKeyResponseSendRequest {
                     source_actor_id: self.source_actor_id.clone(),
                     source_sender_domain: self.source_sender_domain.clone(),
                     source_signer_evidence_ref: self.source_signer_evidence_ref.clone(),
-                    source_signer_evidence_digest: self.source_signer_evidence_digest.clone(),
                     request_digest: self.request_digest.clone(),
                     request_receipt_digest: self.request_receipt_digest.clone(),
                     expires_at: self.expires_at,

@@ -327,7 +327,6 @@ mod tests {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
             signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single(actor("service").to_string())),
@@ -379,7 +378,6 @@ mod tests {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
             signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_digest: None,
             created_at: Utc::now(),
             domain: None,
             audience: Some(Audience::Single(

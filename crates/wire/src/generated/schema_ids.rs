@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-02.4;
-//! sha256=840db0330011453722306d033c3731765b76fb23a91c8a3fad28b7c3282f162e Entries: schema_ids=200,
-//! active=200
+//! Input: registry/schema-registry.json; version=2026-09-02.5;
+//! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Entries: schema_ids=199,
+//! active=199
 
 use serde::{Deserialize, Serialize};
 
@@ -134,7 +134,6 @@ pub enum SchemaId {
     MimiInteropV1,
     MimiOperationsV1,
     MlsGovernanceProofBundleV1,
-    ModerationAppealV1,
     ModerationEvidenceV1,
     ModerationQueueItemV1,
     ModerationReportV1,
@@ -338,7 +337,6 @@ impl SchemaId {
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
-        Self::ModerationAppealV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
@@ -542,7 +540,6 @@ impl SchemaId {
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
-        Self::ModerationAppealV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
@@ -976,7 +973,6 @@ impl SchemaId {
     /// history use receipt-bound direct accepted-Seal traversal through standard resolve surfaces.
     pub const MLS_GOVERNANCE_PROOF_BUNDLE_V1: &'static str =
         "ak.schema.mls_governance_proof_bundle.v1";
-    pub const MODERATION_APPEAL_V1: &'static str = "ak.schema.moderation_appeal.v1";
     pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
     pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
     pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
@@ -1000,8 +996,7 @@ impl SchemaId {
     /// Signed online invite locator asserting an exact AccountId for private invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
-    /// history ingress contracts, KeyPackage terminal handling, Sidecar staging and shared
-    /// primitives.
+    /// history ingress contracts, Sidecar staging and shared primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
@@ -1315,7 +1310,6 @@ impl SchemaId {
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
             Self::MlsGovernanceProofBundleV1 => Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
-            Self::ModerationAppealV1 => Self::MODERATION_APPEAL_V1,
             Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
             Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
             Self::ModerationReportV1 => Self::MODERATION_REPORT_V1,
@@ -1562,7 +1556,6 @@ impl SchemaId {
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
             Self::MlsGovernanceProofBundleV1 => "schemas/mls-governance-proof-bundle.schema.json",
-            Self::ModerationAppealV1 => "schemas/moderation-appeal.schema.json",
             Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
             Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
             Self::ModerationReportV1 => "schemas/moderation-report.schema.json",
@@ -1807,7 +1800,6 @@ impl SchemaId {
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
             Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1 => Some(Self::MlsGovernanceProofBundleV1),
-            Self::MODERATION_APPEAL_V1 => Some(Self::ModerationAppealV1),
             Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
             Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),
             Self::MODERATION_REPORT_V1 => Some(Self::ModerationReportV1),

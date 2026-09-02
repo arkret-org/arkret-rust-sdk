@@ -981,7 +981,6 @@ pub struct FileTransferRecord {
     pub kind: String,
     pub transfer_id: String,
     pub blob_ref: String,
-    pub content_digest: String,
     pub blob_size_bytes: u64,
     pub media_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1005,8 +1004,6 @@ impl FileTransferRecord {
         }
         validate_file_transfer_id(&self.transfer_id)?;
         validate_blob_ref(&self.blob_ref)?;
-        Hash::new(self.content_digest.clone())?;
-        validate_file_transfer_blob_digest_binding(&self.blob_ref, &self.content_digest)?;
         validate_media_type(&self.media_type)?;
         if let Some(filename) = &self.filename {
             let len = filename.chars().count();
@@ -2144,7 +2141,6 @@ pub fn validate_file_transfer_id(value: &str) -> Result<()> {
 }
 
 fn validate_blob_ref(value: &str) -> Result<()> {
-    let valid_uuid = value.strip_prefix("ak:blob:").is_some_and(is_uuid_v7);
     let valid_digest = ["ak:blob:sha256:", "ak:blob:blake3:"].iter().any(|prefix| {
         value.strip_prefix(prefix).is_some_and(|hex| {
             hex.len() == 64
@@ -2153,30 +2149,13 @@ fn validate_blob_ref(value: &str) -> Result<()> {
                     .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
         })
     });
-    if valid_uuid || valid_digest {
+    if valid_digest {
         Ok(())
     } else {
         Err(WireError::Protocol(
-            "file-transfer blob_ref must be ak:blob:<uuidv7|digest>".to_owned(),
+            "file-transfer blob_ref must be content-addressed ak:blob:<suite>:<digest>".to_owned(),
         ))
     }
-}
-
-fn validate_file_transfer_blob_digest_binding(blob_ref: &str, content_digest: &str) -> Result<()> {
-    for (prefix, digest_prefix) in [
-        ("ak:blob:sha256:", "sha256:"),
-        ("ak:blob:blake3:", "blake3:"),
-    ] {
-        if let Some(hex) = blob_ref.strip_prefix(prefix) {
-            let expected = format!("{digest_prefix}{hex}");
-            if content_digest != expected {
-                return Err(WireError::Protocol(
-                    "file-transfer blob_ref digest must match content_digest".to_owned(),
-                ));
-            }
-        }
-    }
-    Ok(())
 }
 
 fn validate_media_type(value: &str) -> Result<()> {
@@ -2212,24 +2191,6 @@ fn validate_base64url(field: &str, value: &str) -> Result<()> {
     } else {
         Err(WireError::Protocol(format!("{field} must be base64url")))
     }
-}
-
-fn is_uuid_v7(value: &str) -> bool {
-    let bytes = value.as_bytes();
-    if bytes.len() != 36 {
-        return false;
-    }
-    for index in [8, 13, 18, 23] {
-        if bytes[index] != b'-' {
-            return false;
-        }
-    }
-    bytes[14] == b'7'
-        && matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
-        && bytes.iter().enumerate().all(|(index, byte)| {
-            matches!(index, 8 | 13 | 18 | 23)
-                || (byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
-        })
 }
 
 fn looks_derived_key(value: &str) -> bool {
@@ -2801,7 +2762,6 @@ mod tests {
             kind: "file_transfer".to_owned(),
             transfer_id: "0123456789abcdefghijkl".to_owned(),
             blob_ref: format!("ak:blob:sha256:{}", "ab".repeat(32)),
-            content_digest: format!("sha256:{}", "ab".repeat(32)),
             blob_size_bytes: 42,
             media_type: "text/plain".to_owned(),
             filename: Some("notes.txt".to_owned()),
@@ -2870,14 +2830,11 @@ mod tests {
     }
 
     #[test]
-    fn file_transfer_record_rejects_blob_digest_drift() {
+    fn file_transfer_record_rejects_metadata_blob_id() {
         let mut record = file_transfer_record();
-        record.blob_ref = format!("ak:blob:sha256:{}", "cd".repeat(32));
+        record.blob_ref = "ak:blob:01904100-0000-7000-8000-000000000001".to_owned();
         let err = record.validate().unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("blob_ref digest must match content_digest")
-        );
+        assert!(err.to_string().contains("invalid BlobRef"));
     }
 
     #[test]

@@ -788,9 +788,6 @@ mod tests {
                     ))
                     .unwrap(),
                 ),
-                signer_resolution_evidence_digest: Some(
-                    Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-                ),
                 created_at: event.created_at,
                 domain: None,
                 audience: None,
@@ -806,7 +803,6 @@ mod tests {
         let mut event = online_event();
         let mut producer = event.proofs[0].as_producer().unwrap().clone();
         producer.signer_resolution_evidence_ref = None;
-        producer.signer_resolution_evidence_digest = None;
         event.proofs[0] = producer.clone().into();
         event
             .proofs
@@ -822,14 +818,11 @@ mod tests {
                 producer_verification_method: producer.verification_method.clone(),
                 producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
                 producer_signer_resolution_evidence_ref: None,
-                producer_signer_resolution_evidence_digest: None,
                 signer_resolution_evidence_ref: crate::SignerEvidenceRef::new(format!(
                     "ak:signer_evidence:sha256:{}",
                     "11".repeat(32)
                 ))
                 .unwrap(),
-                signer_resolution_evidence_digest: Hash::new(format!("sha256:{}", "11".repeat(32)))
-                    .unwrap(),
                 accepted_at: event.created_at,
                 jws: "admission..signature".to_owned(),
             }));
@@ -898,7 +891,7 @@ mod tests {
             terminal_certificate: crate::MembershipCompensationTerminalCertificate {
                 domain: crate::MembershipCompensationTerminalDomain::V1,
                 admission_id: admission_id.clone(),
-                delegation_digest: delegation_digest.clone(),
+                delegation_id: delegation_id.clone(),
                 operation_id: crate::ProtocolOperationId::new(
                     "ak:operation:019a6aa0-1000-7000-8000-000000000000",
                 )
@@ -912,7 +905,7 @@ mod tests {
             single_use_cas_token: crate::MembershipCompensationCasToken {
                 domain: crate::MembershipCompensationCasDomain::V1,
                 admission_id,
-                delegation_digest,
+                delegation_id: delegation_id.clone(),
                 expected_state: crate::MembershipCompensationExpectedState::Unused,
                 destination_id: executor_id.route_service_id().clone(),
                 issued_at: instant(2),
@@ -960,6 +953,34 @@ mod tests {
         let (event, evidence) = membership_compensation_submission();
         validate_membership_compensation_evidence(&event, Some(&evidence)).unwrap();
         evidence.validate_for_event(&event).unwrap();
+        let encoded = serde_json::to_value(&evidence).unwrap();
+        assert_eq!(
+            encoded["terminal_certificate"]["delegation_id"],
+            encoded["delegation"]["delegation_id"]
+        );
+        assert!(
+            encoded["terminal_certificate"]
+                .get("delegation_digest")
+                .is_none()
+        );
+        assert_eq!(
+            encoded["single_use_cas_token"]["delegation_id"],
+            encoded["delegation"]["delegation_id"]
+        );
+        assert!(
+            encoded["single_use_cas_token"]
+                .get("delegation_digest")
+                .is_none()
+        );
+
+        let mut wrong_delegation = evidence.clone();
+        wrong_delegation.single_use_cas_token.delegation_id =
+            crate::MembershipCompensationDelegationRef::new(format!(
+                "ak:membership_compensation_delegation:sha256:{}",
+                "00".repeat(32)
+            ))
+            .unwrap();
+        assert!(wrong_delegation.validate_for_event(&event).is_err());
         assert!(validate_membership_compensation_evidence(&event, None).is_err());
 
         let ordinary = online_event();
