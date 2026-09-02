@@ -1870,6 +1870,297 @@ impl ForkResolutionRecord {
     }
 }
 
+/// Signing context for [`CollisionVariantRecord`] detached proofs.
+pub const COLLISION_VARIANT_RECORD_PROOF_CONTEXT: &str =
+    ProofContextId::COLLISION_VARIANT_RECORD_PROOF_V1;
+
+/// Counterpart for `collision-variant-record.schema.json`.
+///
+/// A typed non-Event governance-dependency object holding one complete
+/// canonical Event preimage. It exists because two preimages close to the
+/// 1 MiB Event ceiling cannot be inlined into a resolution Event that is
+/// itself bounded by 1 MiB. It is never a Seal `covered_set` member: the Seal
+/// covers the resolution Move that references it.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CollisionVariantRecord {
+    pub schema: SchemaId,
+    pub collision_variant_record_id: CollisionVariantRecordId,
+    pub realm_id: RealmId,
+    pub collision_event_id: EventId,
+    pub canonical_event_bytes_b64u: Base64UrlString,
+    pub canonical_event_size_bytes: u64,
+    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+    pub recorded_at: DateTime<Utc>,
+    pub proof: PayloadProof,
+}
+
+impl CollisionVariantRecord {
+    /// Decoded canonical Event preimage bytes, length-checked against the
+    /// signed `canonical_event_size_bytes` so a truncated transfer cannot pass
+    /// itself off as a shorter legal preimage.
+    pub fn canonical_event_bytes(&self) -> Result<Vec<u8>> {
+        let bytes = arkret_canonical::base64url_decode(self.canonical_event_bytes_b64u.as_str())?;
+        if bytes.len() as u64 != self.canonical_event_size_bytes {
+            return schema_violation(
+                "collision variant record decoded length does not match canonical_event_size_bytes",
+            );
+        }
+        Ok(bytes)
+    }
+
+    /// Digest the referencing locator signs: the Realm's active suite over the
+    /// complete canonical record, `proof` included.
+    pub fn content_digest(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<Hash> {
+        Ok(Hash::new(arkret_canonical::canonical::digest(
+            digest_suite,
+            &arkret_canonical::canonical_json_bytes(self)?,
+        ))?)
+    }
+
+    fn unsigned_payload_digest(&self) -> Result<Hash> {
+        #[derive(Serialize)]
+        struct Unsigned<'a> {
+            canonical_event_bytes_b64u: &'a Base64UrlString,
+            canonical_event_size_bytes: u64,
+            collision_event_id: &'a EventId,
+            collision_variant_record_id: &'a CollisionVariantRecordId,
+            realm_id: &'a RealmId,
+            #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+            recorded_at: DateTime<Utc>,
+            schema: &'a SchemaId,
+        }
+        Ok(Hash::new(arkret_canonical::canonical_sha256(&Unsigned {
+            canonical_event_bytes_b64u: &self.canonical_event_bytes_b64u,
+            canonical_event_size_bytes: self.canonical_event_size_bytes,
+            collision_event_id: &self.collision_event_id,
+            collision_variant_record_id: &self.collision_variant_record_id,
+            realm_id: &self.realm_id,
+            recorded_at: self.recorded_at,
+            schema: &self.schema,
+        })?)?)
+    }
+
+    /// Canonical bytes the detached proof signs.
+    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
+        #[derive(Serialize)]
+        struct Binding<'a> {
+            context: &'static str,
+            #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
+            created_at: DateTime<Utc>,
+            payload_digest: Hash,
+            verification_method: &'a DidUrl,
+        }
+        Ok(arkret_canonical::canonical_json_bytes(&Binding {
+            context: COLLISION_VARIANT_RECORD_PROOF_CONTEXT,
+            created_at: self.proof.created_at,
+            payload_digest: self.unsigned_payload_digest()?,
+            verification_method: &self.proof.verification_method,
+        })?)
+    }
+
+    /// Everything a receiver can check from the record alone, before it is
+    /// bound to a particular resolution Move: schema id, proof shape and
+    /// binding, decoded length, canonical encoding and structure of the
+    /// preimage, the Realm the preimage itself declares, and the independently
+    /// recomputed Event identity. The carried `collision_event_id` is never
+    /// trusted.
+    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        if self.schema != SchemaId::CollisionVariantRecordV1 {
+            return schema_violation("collision variant record carries a foreign schema id");
+        }
+        self.proof.validate_production()?;
+        if self.proof.payload_digest != self.unsigned_payload_digest()?
+            || self.proof.domain.is_some()
+            || self.proof.audience.is_some()
+            || self.proof.proof_purpose.is_some()
+        {
+            return schema_violation("collision variant record proof binding mismatch");
+        }
+        let variant = self.recomputed_variant(digest_suite)?;
+        if variant.realm_id != self.realm_id {
+            return schema_violation(
+                "collision variant record Realm does not match the Realm its own preimage declares",
+            );
+        }
+        if variant.event_id != self.collision_event_id {
+            return Err(WireError::Protocol(format!(
+                "{}: collision variant record preimage does not recompute to collision_event_id",
+                ReasonCode::EVENT_ID_DIGEST_MISMATCH
+            )));
+        }
+        Ok(())
+    }
+
+    /// The Event the stored preimage actually is, structurally parsed with its
+    /// identity re-derived. This is the only variant a receiver may act on:
+    /// two records in one collision group carry byte-distinct preimages that
+    /// both land on one identity here.
+    ///
+    /// Reconstruction also rejects a non-canonically encoded preimage, which
+    /// would otherwise hash to something no other implementation reproduces.
+    pub fn recomputed_variant(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<Event> {
+        Event::from_digest_payload_bytes(&self.canonical_event_bytes()?, digest_suite)
+    }
+
+    /// Bind the record to the exact locator and resolution Move that reference
+    /// it, and hand back the canonical preimage bytes the verdict may compare.
+    ///
+    /// Availability of the record is a transport concern; every authority claim
+    /// it makes is re-derived here, so a record fetched from any peer is worth
+    /// exactly as much as one fetched from the issuer.
+    pub fn canonical_event_bytes_for_locator(
+        &self,
+        resolution: &Event,
+        locator: &ForkResolutionVariantLocator,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Vec<u8>> {
+        let ForkResolutionVariantLocator::CollisionVariantRecord {
+            collision_variant_record_id,
+            collision_variant_record_digest,
+        } = locator
+        else {
+            return schema_violation(
+                "collision variant record was supplied for an inline locator arm",
+            );
+        };
+        if collision_variant_record_id != &self.collision_variant_record_id {
+            return schema_violation("collision variant record id does not match its locator");
+        }
+        if collision_variant_record_digest != &self.content_digest(digest_suite)? {
+            return Err(WireError::Protocol(format!(
+                "{}: collision variant record does not hash to the digest its locator signs",
+                ErrorCode::DIGEST_MISMATCH
+            )));
+        }
+        self.validate(digest_suite)?;
+        if self.realm_id != resolution.realm_id {
+            return schema_violation(
+                "collision variant record belongs to another Realm recovery authority",
+            );
+        }
+        let controller = self
+            .proof
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "collision variant record verification method is not a DID URL".to_owned(),
+                )
+            })?;
+        let move_principal = resolution
+            .executed_by
+            .as_ref()
+            .unwrap_or(&resolution.actor_id)
+            .signing_principal_id();
+        if &project_did_to_core_id(&Did::new(controller.to_owned())?)? != move_principal {
+            return schema_violation(
+                "collision variant record proof controller is not the resolution Move principal",
+            );
+        }
+        self.canonical_event_bytes()
+    }
+}
+
+/// Canonical preimage bytes one locator denotes, once every reference it makes
+/// has been resolved and checked.
+fn locator_canonical_event_bytes(
+    locator: &ForkResolutionVariantLocator,
+    resolution: &Event,
+    records: &BTreeMap<CollisionVariantRecordId, CollisionVariantRecord>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Vec<u8>> {
+    match locator {
+        ForkResolutionVariantLocator::InlineCanonicalBytes {
+            canonical_event_bytes_b64u,
+        } => Ok(arkret_canonical::base64url_decode(
+            canonical_event_bytes_b64u.as_str(),
+        )?),
+        ForkResolutionVariantLocator::CollisionVariantRecord {
+            collision_variant_record_id,
+            ..
+        } => {
+            let record = records.get(collision_variant_record_id).ok_or_else(|| {
+                WireError::Protocol(format!(
+                    "{}: collision variant record {} is not resolved",
+                    ReasonCode::DEPENDENCY_MISSING,
+                    collision_variant_record_id.as_str()
+                ))
+            })?;
+            record.canonical_event_bytes_for_locator(resolution, locator, digest_suite)
+        }
+    }
+}
+
+/// Event identity a canonical preimage produces under `digest_suite`.
+///
+/// Both locator arms go through the same reconstruction, so an inline copy and
+/// a record reference of the same variant can never disagree about what the
+/// bytes are or what they identify.
+fn preimage_event_id(
+    canonical_event_bytes: &[u8],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<EventId> {
+    Ok(Event::from_digest_payload_bytes(canonical_event_bytes, digest_suite)?.event_id)
+}
+
+impl ForkResolutionRecord {
+    /// Second half of the collision branch, run once the referenced records
+    /// have been resolved.
+    ///
+    /// [`Self::from_accepted_seal`] can only check what the Move itself
+    /// carries: locator identities, not the bytes behind them. This proves the
+    /// claim — two byte-distinct preimages that both recompute to the subject
+    /// identity — and that the winner is one of those two. Anything less would
+    /// let a Move quarantine a position by asserting a collision nobody can
+    /// reproduce.
+    pub fn validate_collision_evidence(
+        &self,
+        resolution: &Event,
+        records: &BTreeMap<CollisionVariantRecordId, CollisionVariantRecord>,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
+        let (ForkResolutionSubject::EventIdCollision { event_id }, evidence) =
+            (&self.subject, &self.conflict_evidence)
+        else {
+            return Ok(());
+        };
+        let ForkResolutionConflictEvidence::FullHashCollision { variants } = evidence else {
+            return Ok(());
+        };
+        let mut variant_bytes = Vec::with_capacity(variants.len());
+        for locator in variants {
+            let bytes = locator_canonical_event_bytes(locator, resolution, records, digest_suite)?;
+            if &preimage_event_id(&bytes, digest_suite)? != event_id {
+                return Err(WireError::Protocol(format!(
+                    "{}: collision variant does not recompute to the subject event_id",
+                    ReasonCode::EVENT_ID_DIGEST_MISMATCH
+                )));
+            }
+            variant_bytes.push(bytes);
+        }
+        if variant_bytes[0] == variant_bytes[1] {
+            return schema_violation("collision evidence variants are not byte-distinct");
+        }
+        if let ForkResolutionVerdict::CollisionWinner {
+            winner_preimage, ..
+        } = &self.verdict
+        {
+            let winner =
+                locator_canonical_event_bytes(winner_preimage, resolution, records, digest_suite)?;
+            if !variant_bytes.iter().any(|bytes| bytes == &winner) {
+                return schema_violation(
+                    "collision winner bytes are not one of the two evidence variants",
+                );
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Counterpart for `event-payload.schema.json#/$defs/notary_fault_equivocation_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2230,5 +2521,210 @@ mod tests {
             "verdict": {"kind": "void_all"}
         });
         assert!(serde_json::from_value::<ForkResolutionPayload>(payload).is_err());
+    }
+
+    const COLLISION_RECORD_REALM: &str = "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5";
+    const COLLISION_RECORD_ID: &str =
+        "ak:collision_variant_record:01964140-0000-7000-8000-000000000000";
+
+    fn collision_variant(nonce: &str) -> Event {
+        arkret_wire::test_support::raw_event_for_actor_at(
+            "ak.note.create",
+            ScopeRef::Realm {
+                realm_id: RealmId::new(COLLISION_RECORD_REALM).unwrap(),
+            },
+            ActorId::service(DidCoreId::new("ak:did_core:web:fixture-actor.example").unwrap()),
+            7,
+            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+            json!({"nonce": nonce}),
+            "2026-05-01T00:00:00.000Z".parse().unwrap(),
+        )
+        .expect("collision variant envelope")
+    }
+
+    fn collision_variant_record(variant: &Event) -> CollisionVariantRecord {
+        let bytes =
+            arkret_canonical::canonical_json_bytes(&variant.digest_payload().unwrap()).unwrap();
+        let mut record = CollisionVariantRecord {
+            schema: SchemaId::CollisionVariantRecordV1,
+            collision_variant_record_id: CollisionVariantRecordId::new(COLLISION_RECORD_ID)
+                .unwrap(),
+            realm_id: variant.realm_id.clone(),
+            collision_event_id: variant.event_id.clone(),
+            canonical_event_bytes_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                &bytes,
+            ))
+            .unwrap(),
+            canonical_event_size_bytes: bytes.len() as u64,
+            recorded_at: "2026-05-01T00:00:00.000Z".parse().unwrap(),
+            proof: PayloadProof {
+                kind: "detached_jws".to_owned(),
+                verification_method: DidUrl::new(
+                    "did:web:recovery.example#ed25519-2026-05-fixture",
+                )
+                .unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                created_at: "2026-05-02T00:00:00.000Z".parse().unwrap(),
+                domain: None,
+                audience: None,
+                proof_purpose: None,
+                jws: "eyJhbGciOiJFZDI1NTE5In0..c2ln".to_owned(),
+            },
+        };
+        record.proof.payload_digest = record.unsigned_payload_digest().unwrap();
+        record
+    }
+
+    #[test]
+    fn collision_variant_record_matches_its_registered_schema() {
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec schema registry");
+        let record = collision_variant_record(&collision_variant("a"));
+        registry
+            .validate_value(
+                SchemaId::COLLISION_VARIANT_RECORD_V1,
+                &serde_json::to_value(&record).unwrap(),
+            )
+            .expect("record matches the registered schema");
+    }
+
+    #[test]
+    fn collision_variant_record_recomputes_its_own_identity_and_realm() {
+        let suite = arkret_canonical::DigestSuite::Sha256;
+        let record = collision_variant_record(&collision_variant("a"));
+        record.validate(suite).expect("self-consistent record");
+
+        // The carried identity is never the answer: a record naming someone
+        // else's Event is exactly how a forged collision would be introduced.
+        let mut foreign_identity = record.clone();
+        foreign_identity.collision_event_id =
+            EventId::new("ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9").unwrap();
+        foreign_identity.proof.payload_digest = foreign_identity.unsigned_payload_digest().unwrap();
+        assert!(
+            foreign_identity
+                .validate(suite)
+                .unwrap_err()
+                .to_string()
+                .contains(ReasonCode::EVENT_ID_DIGEST_MISMATCH)
+        );
+
+        let mut foreign_realm = record.clone();
+        foreign_realm.realm_id =
+            RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj6").unwrap();
+        foreign_realm.proof.payload_digest = foreign_realm.unsigned_payload_digest().unwrap();
+        assert!(foreign_realm.validate(suite).is_err());
+
+        // A truncated transfer must not pass itself off as a shorter preimage.
+        let mut short = record.clone();
+        short.canonical_event_size_bytes -= 1;
+        short.proof.payload_digest = short.unsigned_payload_digest().unwrap();
+        assert!(short.validate(suite).is_err());
+
+        let mut resigned_elsewhere = record;
+        resigned_elsewhere.proof.payload_digest =
+            Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        assert!(resigned_elsewhere.validate(suite).is_err());
+    }
+
+    #[test]
+    fn collision_variant_record_preimage_must_be_canonically_encoded() {
+        let suite = arkret_canonical::DigestSuite::Sha256;
+        let variant = collision_variant("a");
+        let mut record = collision_variant_record(&variant);
+        // Same Event, one stray space. It hashes to something no other
+        // implementation reproduces, so a claim built on it is unverifiable.
+        let mut loose =
+            arkret_canonical::canonical_json_bytes(&variant.digest_payload().unwrap()).unwrap();
+        loose.insert(1, b' ');
+        record.canonical_event_bytes_b64u =
+            Base64UrlString::new(arkret_canonical::base64url_encode(&loose)).unwrap();
+        record.canonical_event_size_bytes = loose.len() as u64;
+        record.proof.payload_digest = record.unsigned_payload_digest().unwrap();
+        assert!(
+            record
+                .validate(suite)
+                .unwrap_err()
+                .to_string()
+                .contains("not canonical")
+        );
+    }
+
+    #[test]
+    fn collision_evidence_requires_resolved_records_and_distinct_bytes() {
+        let suite = arkret_canonical::DigestSuite::Sha256;
+        let variant_a = collision_variant_record(&collision_variant("a"));
+        let mut variant_b = collision_variant_record(&collision_variant("b"));
+        variant_b.collision_variant_record_id = CollisionVariantRecordId::new(
+            "ak:collision_variant_record:01964140-0000-7000-8000-000000000001",
+        )
+        .unwrap();
+        variant_b.collision_event_id = variant_a.collision_event_id.clone();
+        variant_b.proof.payload_digest = variant_b.unsigned_payload_digest().unwrap();
+
+        let locator = |record: &CollisionVariantRecord| {
+            ForkResolutionVariantLocator::CollisionVariantRecord {
+                collision_variant_record_id: record.collision_variant_record_id.clone(),
+                collision_variant_record_digest: record.content_digest(suite).unwrap(),
+            }
+        };
+        let record = ForkResolutionRecord {
+            realm_id: RealmId::new(COLLISION_RECORD_REALM).unwrap(),
+            subject: ForkResolutionSubject::EventIdCollision {
+                event_id: variant_a.collision_event_id.clone(),
+            },
+            conflict_evidence: ForkResolutionConflictEvidence::FullHashCollision {
+                variants: vec![locator(&variant_a), locator(&variant_b)],
+            },
+            verdict: ForkResolutionVerdict::CollisionWinner {
+                kind: ForkResolutionWinnerKind::CanonicalWinner,
+                winner_preimage: locator(&variant_a),
+            },
+            resolution_event_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+        };
+        let resolution = arkret_wire::test_support::raw_event_for_actor_at(
+            "ak.fork.resolution",
+            ScopeRef::Realm {
+                realm_id: RealmId::new(COLLISION_RECORD_REALM).unwrap(),
+            },
+            ActorId::service(DidCoreId::new("ak:did_core:web:recovery.example").unwrap()),
+            1,
+            Hlc::new("01970e589d21-0000-a13f9c2f").unwrap(),
+            json!({}),
+            "2026-05-02T00:00:00.000Z".parse().unwrap(),
+        )
+        .expect("resolution Move envelope");
+
+        // Nothing is resolved yet: this is a typed dependency miss, not a
+        // licence to adjudicate on whatever the Move inlined.
+        let missing = BTreeMap::new();
+        assert!(
+            record
+                .validate_collision_evidence(&resolution, &missing, suite)
+                .unwrap_err()
+                .to_string()
+                .contains(ReasonCode::DEPENDENCY_MISSING)
+        );
+
+        // Both variants recompute to one identity but hold different bytes,
+        // which is the whole claim a collision resolution makes.
+        let records = BTreeMap::from([
+            (
+                variant_a.collision_variant_record_id.clone(),
+                variant_a.clone(),
+            ),
+            (
+                variant_b.collision_variant_record_id.clone(),
+                variant_b.clone(),
+            ),
+        ]);
+        assert!(
+            record
+                .validate_collision_evidence(&resolution, &records, suite)
+                .unwrap_err()
+                .to_string()
+                .contains(ReasonCode::EVENT_ID_DIGEST_MISMATCH),
+            "distinct preimages cannot share one identity without a real collision"
+        );
     }
 }

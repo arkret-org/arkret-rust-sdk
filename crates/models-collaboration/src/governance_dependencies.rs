@@ -10,6 +10,10 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::events_payloads::state::{
+    CollisionVariantRecord, ForkResolutionConflictEvidence, ForkResolutionPayload,
+    ForkResolutionVariantLocator, ForkResolutionVerdict,
+};
 use crate::history_key::{
     HistoryKeyResponseLostRecord, HistoryKeyResponseRecord, HistoryKeyResponseSendRequest,
     MinimalMetadataMlsLeafSignerEvidence, PeerHistoryTraversalAccess, SelfHistoryTraversalAccess,
@@ -25,6 +29,7 @@ pub enum GovernanceDependencySelector {
     AvailabilityReceipt { content_digest: Hash },
     AuthenticatedSignerResolutionEvidence { content_digest: Hash },
     MinimalMetadataMlsLeafSignerEvidence { content_digest: Hash },
+    CollisionVariantRecord { content_digest: Hash },
 }
 
 impl GovernanceDependencySelector {
@@ -37,6 +42,7 @@ impl GovernanceDependencySelector {
             Self::MinimalMetadataMlsLeafSignerEvidence { .. } => {
                 "minimal_metadata_mls_leaf_signer_evidence"
             }
+            Self::CollisionVariantRecord { .. } => "collision_variant_record",
         }
     }
 
@@ -46,7 +52,10 @@ impl GovernanceDependencySelector {
 
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::AvailabilityReceipt { .. } => Ok(()),
+            // The collision variant record is addressed under the Realm's
+            // active digest suite, like the availability receipt, because the
+            // locator that names it is signed inside a Realm-scoped Move.
+            Self::AvailabilityReceipt { .. } | Self::CollisionVariantRecord { .. } => Ok(()),
             Self::AuthenticatedSignerResolutionEvidence { content_digest }
             | Self::MinimalMetadataMlsLeafSignerEvidence { content_digest } => {
                 if !content_digest.as_ref().starts_with("sha256:") {
@@ -156,8 +165,49 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
                 }
             }
         }
+        selectors.extend(fork_resolution_variant_record_selectors(event)?);
     }
     canonicalize_selectors(selectors)
+}
+
+/// Collision variant records an `ak.fork.resolution` Move references.
+///
+/// A receiver must hold every referenced record before `apply_seal`: a missing
+/// one is a typed dependency miss, not a licence to adjudicate the collision on
+/// the inline arm alone.
+pub fn fork_resolution_variant_record_selectors(
+    event: &Event,
+) -> Result<Vec<GovernanceDependencySelector>> {
+    if event.kind != arkret_wire::EventKind::ForkResolution {
+        return Ok(Vec::new());
+    }
+    let payload: ForkResolutionPayload = serde_json::from_value(serde_json::Value::Object(
+        event.payload.clone().into_iter().collect(),
+    ))?;
+    let mut locators: Vec<&ForkResolutionVariantLocator> = Vec::new();
+    if let ForkResolutionConflictEvidence::FullHashCollision { variants } =
+        &payload.conflict_evidence
+    {
+        locators.extend(variants.iter());
+    }
+    if let ForkResolutionVerdict::CollisionWinner {
+        winner_preimage, ..
+    } = &payload.verdict
+    {
+        locators.push(winner_preimage);
+    }
+    Ok(locators
+        .into_iter()
+        .filter_map(|locator| match locator {
+            ForkResolutionVariantLocator::CollisionVariantRecord {
+                collision_variant_record_digest,
+                ..
+            } => Some(GovernanceDependencySelector::CollisionVariantRecord {
+                content_digest: collision_variant_record_digest.clone(),
+            }),
+            ForkResolutionVariantLocator::InlineCanonicalBytes { .. } => None,
+        })
+        .collect())
 }
 
 /// Discover the next signer-evidence layer referenced by already resolved
@@ -737,6 +787,10 @@ pub enum GovernanceDependency {
         selector: GovernanceDependencySelector,
         minimal_metadata_mls_leaf_signer_evidence: MinimalMetadataMlsLeafSignerEvidence,
     },
+    CollisionVariantRecord {
+        selector: GovernanceDependencySelector,
+        collision_variant_record: Box<CollisionVariantRecord>,
+    },
 }
 
 impl Eq for GovernanceDependency {}
@@ -746,7 +800,8 @@ impl GovernanceDependency {
         match self {
             Self::AvailabilityReceipt { selector, .. }
             | Self::AuthenticatedSignerResolutionEvidence { selector, .. }
-            | Self::MinimalMetadataMlsLeafSignerEvidence { selector, .. } => selector,
+            | Self::MinimalMetadataMlsLeafSignerEvidence { selector, .. }
+            | Self::CollisionVariantRecord { selector, .. } => selector,
         }
     }
 
@@ -801,6 +856,21 @@ impl GovernanceDependency {
                     return Err(WireError::Protocol(
                         "minimal-metadata signer evidence dependency selector digest mismatch"
                             .to_owned(),
+                    ));
+                }
+            }
+            Self::CollisionVariantRecord {
+                selector: GovernanceDependencySelector::CollisionVariantRecord { content_digest },
+                collision_variant_record,
+            } => {
+                // The Realm's active suite is the one that addressed this
+                // record, so the same suite recomputes the colliding Event
+                // identity the record claims.
+                let digest_suite = content_digest.digest_suite()?;
+                collision_variant_record.validate(digest_suite)?;
+                if content_digest != &collision_variant_record.content_digest(digest_suite)? {
+                    return Err(WireError::Protocol(
+                        "collision variant record dependency selector digest mismatch".to_owned(),
                     ));
                 }
             }
