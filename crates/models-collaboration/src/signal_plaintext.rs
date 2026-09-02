@@ -606,22 +606,16 @@ impl SignalPlaintextProfile for PresencePlaintext {
 
 /// Counterpart for `spec/v1/artifacts/schemas/signal-typing.schema.json`
 /// (`ak.schema.signal_typing.v1`).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TypingTrackName {
-    Discussion,
-}
-
+///
+/// The profile is fixed to the discussion track family and the plaintext
+/// therefore carries no `track_name` at all
+/// (`zh/discovery/profiles-presence.md` §3.5).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TypingPlaintext {
     pub kind: TypingPlaintextKind,
     pub payload_sequence: u64,
     pub strand_id: StrandId,
-    /// Optional on the wire; an absent value resolves to `discussion`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_name: Option<TypingTrackName>,
     pub typing: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ttl_ms: Option<u64>,
@@ -633,7 +627,6 @@ impl TypingPlaintext {
             kind: TypingPlaintextKind::Value,
             payload_sequence,
             strand_id,
-            track_name: None,
             typing,
             ttl_ms: None,
         };
@@ -645,11 +638,6 @@ impl TypingPlaintext {
         self.ttl_ms = Some(ttl_ms);
         validate_signal_plaintext(&self)?;
         Ok(self)
-    }
-
-    /// Resolved track: absent means `discussion`.
-    pub fn track_name(&self) -> TypingTrackName {
-        self.track_name.unwrap_or(TypingTrackName::Discussion)
     }
 }
 

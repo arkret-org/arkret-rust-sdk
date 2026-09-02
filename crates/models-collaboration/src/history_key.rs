@@ -263,15 +263,15 @@ impl HistoryCandidateOriginAttribution {
             Self::ResponseSender {
                 origin_quota_domain,
                 ..
-            } => arkret_wire::canonical::canonical_json_bytes(origin_quota_domain)?,
+            } => canonical::canonical_json_bytes(origin_quota_domain)?,
             Self::RrkArchive {
                 origin_quota_domain,
                 ..
-            } => arkret_wire::canonical::canonical_json_bytes(origin_quota_domain)?,
+            } => canonical::canonical_json_bytes(origin_quota_domain)?,
             Self::PortableBackup {
                 origin_quota_domain,
                 ..
-            } => arkret_wire::canonical::canonical_json_bytes(origin_quota_domain)?,
+            } => canonical::canonical_json_bytes(origin_quota_domain)?,
         })
     }
 
@@ -279,15 +279,9 @@ impl HistoryCandidateOriginAttribution {
     /// completes the ledger row key and never selects quota identity.
     pub fn origin_ref_bytes(&self) -> Result<Vec<u8>> {
         Ok(match self {
-            Self::ResponseSender { origin_ref, .. } => {
-                arkret_wire::canonical::canonical_json_bytes(origin_ref)?
-            }
-            Self::RrkArchive { origin_ref, .. } => {
-                arkret_wire::canonical::canonical_json_bytes(origin_ref)?
-            }
-            Self::PortableBackup { origin_ref, .. } => {
-                arkret_wire::canonical::canonical_json_bytes(origin_ref)?
-            }
+            Self::ResponseSender { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
+            Self::RrkArchive { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
+            Self::PortableBackup { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
         })
     }
 
@@ -340,8 +334,8 @@ impl HistoryCandidateOriginAttribution {
     /// subsecond zeros, which would make `…:00Z` sort after `…:00.500Z` and
     /// turn a deterministic rule into a precision-dependent one.
     pub fn canonical_retention_key(&self) -> Result<Vec<u8>> {
-        arkret_wire::canonical::canonical_json_bytes(&serde_json::json!([
-            arkret_wire::canonical::format_timestamp_canonical(self.first_observed_at()),
+        canonical::canonical_json_bytes(&serde_json::json!([
+            canonical::format_timestamp_canonical(self.first_observed_at()),
             self.material_key().candidate_digest,
             self.origin_domain(),
             serde_json::from_slice::<serde_json::Value>(&self.origin_quota_domain_bytes()?)?,
@@ -498,7 +492,7 @@ impl HistoryResponseCapabilitySealContext {
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        Ok(arkret_wire::canonical::canonical_json_bytes(self)?)
+        Ok(canonical::canonical_json_bytes(self)?)
     }
 }
 
@@ -529,7 +523,7 @@ impl HistorySecretChunkSealContext {
 
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        Ok(arkret_wire::canonical::canonical_json_bytes(self)?)
+        Ok(canonical::canonical_json_bytes(self)?)
     }
 }
 
@@ -735,10 +729,8 @@ impl HistoryGovernanceTraversalRetention {
         self.traversal_intent.validate()?;
         let mut preimage = b"ak.history-governance-traversal-intent-v1".to_vec();
         preimage.push(0);
-        preimage.extend(arkret_wire::canonical::canonical_json_bytes(
-            &self.traversal_intent,
-        )?);
-        let expected = Hash::new(arkret_wire::canonical::sha256_digest(preimage))?;
+        preimage.extend(canonical::canonical_json_bytes(&self.traversal_intent)?);
+        let expected = Hash::new(canonical::sha256_digest(preimage))?;
         if expected != self.traversal_intent_digest {
             return Err(WireError::Protocol(
                 "history traversal intent digest mismatch".to_owned(),
@@ -1001,7 +993,7 @@ impl HistoryKeyRequest {
             ));
         }
         self.validate_proof_binding()?;
-        if arkret_wire::canonical::canonical_json_bytes(self)?.len() > 65_536 {
+        if canonical::canonical_json_bytes(self)?.len() > 65_536 {
             return Err(WireError::Protocol(
                 "history key request exceeds 65536 canonical bytes".to_owned(),
             ));
@@ -1954,8 +1946,8 @@ impl HistoryKeyResponseSendReceipt {
         map.remove("service_proof");
         let mut preimage = b"ak.history-response-send-receipt-v1".to_vec();
         preimage.push(0);
-        preimage.extend(arkret_wire::canonical::canonical_json_bytes(&value)?);
-        let expected = Hash::new(arkret_wire::canonical::sha256_digest(preimage))?;
+        preimage.extend(canonical::canonical_json_bytes(&value)?);
+        let expected = Hash::new(canonical::sha256_digest(preimage))?;
         if expected != self.receipt_digest {
             return Err(WireError::Protocol(
                 "history response send receipt digest mismatch".to_owned(),
@@ -2005,8 +1997,8 @@ impl HistoryManifestAdmission {
         map.remove("manifest_admission_digest");
         let mut preimage = b"ak.history-manifest-admission-v1".to_vec();
         preimage.push(0);
-        preimage.extend(arkret_wire::canonical::canonical_json_bytes(&value)?);
-        let expected = Hash::new(arkret_wire::canonical::sha256_digest(preimage))?;
+        preimage.extend(canonical::canonical_json_bytes(&value)?);
+        let expected = Hash::new(canonical::sha256_digest(preimage))?;
         if expected != self.manifest_admission_digest {
             return Err(WireError::Protocol(
                 "history manifest admission digest mismatch".to_owned(),
@@ -2238,9 +2230,7 @@ pub fn agent_signer_evidence_digest(evidence: &AgentSignerEvidence) -> Result<Ha
             "Agent evidence view digest requires current signer evidence".to_owned(),
         ));
     }
-    Ok(Hash::new(arkret_wire::canonical::canonical_sha256(
-        evidence,
-    )?)?)
+    Ok(Hash::new(canonical::canonical_sha256(evidence)?)?)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2958,17 +2948,15 @@ impl OrganizationRecoveryArchiveReplica {
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             replicated_at: DateTime<Utc>,
         }
-        Ok(Hash::new(arkret_wire::canonical::canonical_sha256(
-            &Payload {
-                kind: self.kind,
-                archive: &self.archive,
-                container_event_ref: &self.container_event_ref,
-                history_traversal_retention: &self.history_traversal_retention,
-                source_id: &self.source_id,
-                holder_id: &self.holder_id,
-                replicated_at: self.replicated_at,
-            },
-        )?)?)
+        Ok(Hash::new(canonical::canonical_sha256(&Payload {
+            kind: self.kind,
+            archive: &self.archive,
+            container_event_ref: &self.container_event_ref,
+            history_traversal_retention: &self.history_traversal_retention,
+            source_id: &self.source_id,
+            holder_id: &self.holder_id,
+            replicated_at: self.replicated_at,
+        })?)?)
     }
 
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
@@ -2988,7 +2976,7 @@ impl OrganizationRecoveryArchiveReplica {
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             created_at: DateTime<Utc>,
         }
-        Ok(arkret_wire::canonical::canonical_json_bytes(&Transcript {
+        Ok(canonical::canonical_json_bytes(&Transcript {
             context: arkret_wire::ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1,
             payload_digest: self.canonical_payload_digest()?,
             kind: self.kind,
@@ -3064,14 +3052,12 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             accepted_at: DateTime<Utc>,
         }
-        Ok(Hash::new(arkret_wire::canonical::canonical_sha256(
-            &Payload {
-                archive_replica_digest: &self.archive_replica_digest,
-                holder_id: &self.holder_id,
-                archive_sequence: self.archive_sequence,
-                accepted_at: self.accepted_at,
-            },
-        )?)?)
+        Ok(Hash::new(canonical::canonical_sha256(&Payload {
+            archive_replica_digest: &self.archive_replica_digest,
+            holder_id: &self.holder_id,
+            archive_sequence: self.archive_sequence,
+            accepted_at: self.accepted_at,
+        })?)?)
     }
 
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
@@ -3088,7 +3074,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             created_at: DateTime<Utc>,
         }
-        Ok(arkret_wire::canonical::canonical_json_bytes(&Transcript {
+        Ok(canonical::canonical_json_bytes(&Transcript {
             context:
                 arkret_wire::ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
             payload_digest: self.canonical_payload_digest()?,
@@ -3158,7 +3144,7 @@ fn proof_payload_and_binding_bytes(
             "history proof carrier is missing {proof_field}"
         )));
     }
-    let payload_digest = Hash::new(arkret_wire::canonical::canonical_sha256(&payload)?)?;
+    let payload_digest = Hash::new(canonical::canonical_sha256(&payload)?)?;
     if proof.payload_digest != payload_digest {
         return Err(WireError::Protocol(
             "history proof payload digest mismatch".to_owned(),
@@ -3178,14 +3164,9 @@ fn proof_payload_and_binding_bytes(
     );
     payload.insert(
         "created_at".to_owned(),
-        serde_json::Value::String(arkret_wire::canonical::format_timestamp_canonical(
-            proof.created_at,
-        )),
+        serde_json::Value::String(canonical::format_timestamp_canonical(proof.created_at)),
     );
-    Ok((
-        payload_digest,
-        arkret_wire::canonical::canonical_json_bytes(&payload)?,
-    ))
+    Ok((payload_digest, canonical::canonical_json_bytes(&payload)?))
 }
 
 fn build_history_proof_carrier<T, Build, Sign>(
@@ -3222,7 +3203,7 @@ where
             "history proof carrier is missing {proof_field}"
         )));
     }
-    let payload_digest = Hash::new(arkret_wire::canonical::canonical_sha256(&payload)?)?;
+    let payload_digest = Hash::new(canonical::canonical_sha256(&payload)?)?;
     let mut proof = PayloadProof {
         kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
         verification_method,
@@ -3550,7 +3531,7 @@ impl HistoryResponseAckTokenClaims {
         self.validate()?;
         let mut bytes = b"ak.history-response-ack-token-v1".to_vec();
         bytes.push(0);
-        bytes.extend(arkret_wire::canonical::canonical_json_bytes(self)?);
+        bytes.extend(canonical::canonical_json_bytes(self)?);
         Ok(bytes)
     }
 }
@@ -3628,8 +3609,8 @@ fn validate_base64url_bounded(value: &str, min: usize, max: usize, field: &str) 
 fn framed_sha256(domain: &str, value: &impl Serialize) -> Result<Hash> {
     let mut preimage = domain.as_bytes().to_vec();
     preimage.push(0);
-    preimage.extend(arkret_wire::canonical::canonical_json_bytes(value)?);
-    Ok(Hash::new(arkret_wire::canonical::sha256_digest(preimage))?)
+    preimage.extend(canonical::canonical_json_bytes(value)?);
+    Ok(Hash::new(canonical::sha256_digest(preimage))?)
 }
 
 fn is_base64url(value: &str) -> bool {

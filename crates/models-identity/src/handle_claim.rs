@@ -206,7 +206,6 @@ impl HandleClaimRevocation {
 pub struct HandleClaim {
     pub schema: String,
     pub claim: HandleClaimCore,
-    pub claim_digest: Hash,
     pub status: HandleClaimStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
@@ -214,22 +213,27 @@ pub struct HandleClaim {
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub verified_at: Option<DateTime<Utc>>,
     pub revocation: Option<HandleClaimRevocation>,
-    pub revocation_digest: Option<Hash>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub fresh_until: DateTime<Utc>,
     pub status_proof: PayloadProof,
 }
 
+/// The status transcript is the canonical status view with `status_proof`
+/// removed, member for member (`zh/identity/identity-handles.md` §3.2). The two
+/// derived digests are deliberately absent from both the wire shape and this
+/// preimage: a verifier recomputes them from `claim` / `revocation`, and
+/// putting them back here would restore exactly the mirror the schema deleted.
 #[derive(Serialize)]
 struct HandleClaimStatusDigestInput<'a> {
-    claim_digest: &'a Hash,
+    schema: &'a str,
+    claim: &'a HandleClaimCore,
     status: HandleClaimStatus,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     as_of: DateTime<Utc>,
     verifier_id: &'a DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     verified_at: &'a Option<DateTime<Utc>>,
-    revocation_digest: &'a Option<Hash>,
+    revocation: &'a Option<HandleClaimRevocation>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     fresh_until: DateTime<Utc>,
 }
@@ -241,21 +245,28 @@ impl HandleClaim {
         domain_separated_digest(
             b"ak.handle_claim_status.v1\n",
             &HandleClaimStatusDigestInput {
-                claim_digest: &self.claim_digest,
+                schema: &self.schema,
+                claim: &self.claim,
                 status: self.status,
                 as_of: self.as_of,
                 verifier_id: &self.verifier_id,
                 verified_at: &self.verified_at,
-                revocation_digest: &self.revocation_digest,
+                revocation: &self.revocation,
                 fresh_until: self.fresh_until,
             },
         )
     }
 
+    /// Derived from the carried `claim`; the status view never ships it
+    /// (`zh/identity/identity-handles.md` §3.2).
+    pub fn claim_digest(&self) -> Result<Hash> {
+        self.claim.claim_digest()
+    }
+
     pub fn validate(&self) -> Result<()> {
         self.claim.validate()?;
-        if self.schema != Self::SCHEMA || self.claim_digest != self.claim.claim_digest()? {
-            return Err(protocol("handle claim status/core digest mismatch"));
+        if self.schema != Self::SCHEMA {
+            return Err(protocol("handle claim status schema mismatch"));
         }
         if self.fresh_until <= self.as_of
             || self.fresh_until
@@ -269,10 +280,7 @@ impl HandleClaim {
         }
         match self.status {
             HandleClaimStatus::Pending => {
-                if self.verified_at.is_some()
-                    || self.revocation.is_some()
-                    || self.revocation_digest.is_some()
-                {
+                if self.verified_at.is_some() || self.revocation.is_some() {
                     return Err(protocol("pending handle claim status fields are invalid"));
                 }
             }
@@ -281,7 +289,6 @@ impl HandleClaim {
                     .verified_at
                     .is_none_or(|verified| verified < self.claim.issued_at || verified > self.as_of)
                     || self.revocation.is_some()
-                    || self.revocation_digest.is_some()
                 {
                     return Err(protocol("verified handle claim status fields are invalid"));
                 }
@@ -292,9 +299,6 @@ impl HandleClaim {
                     .as_ref()
                     .ok_or_else(|| protocol("revoked handle claim is missing carrier"))?;
                 revocation.validate_for(&self.claim, self.as_of)?;
-                if self.revocation_digest.as_ref() != Some(&revocation.digest()?) {
-                    return Err(protocol("handle claim revocation digest mismatch"));
-                }
             }
         }
         validate_proof(

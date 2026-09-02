@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-02.9;
-//! sha256=7567398a9170ab557cc1b040fe99fa003c8c7fa28f240f91695850bd3728837f Input: registry/
-//! operation-registry.json; version=2026-09-02.5;
-//! sha256=536479614b9e7ca6c84dfc84dc931bdd0c34c5cad78a2d6fc22d686f9df89ca7 Input: registry/
+//! contract-registry.json; version=2026-09-03.1;
+//! sha256=3c21fdccfe5c1353f760206fc258d03345ff9b84e11e35b80514d792ee928eca Input: registry/
+//! operation-registry.json; version=2026-09-03.1;
+//! sha256=39b9deb0afe863ba642bd09d534707589a50e6a363d721a29a255fe5c8437b42 Input: registry/
 //! event-kind-registry.json; version=2026-09-02.8;
 //! sha256=4b9ae8f4b010335fbbfe8c86eb8567d012f57b5456145e4ff85fc905032f8f67 Input: registry/
 //! schema-registry.json; version=2026-09-02.5;
@@ -13,7 +13,7 @@
 //! id-kind-registry.json; version=2026-09-02.4;
 //! sha256=48a70d02bae777d98f46cbdbadc6380d8263776e428dedd31fc29a1e7c8727f1
 //! Input: deployment-probes.json; version=2026-06-19;
-//! sha256=320013ec6aaad936b9d203e60b4a79ac04e3916d495ee9bea6af889c78d1e781
+//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
 //! operation_surface_groups=31
 
@@ -424,6 +424,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
             ServiceOperationId::PeerEventsReadResolveV1,
             ServiceOperationId::PeerEventsReadScanV1,
+            ServiceOperationId::PeerEventsReadSiblingPositionsV1,
             ServiceOperationId::PeerEventsReadFrontierV1,
             ServiceOperationId::PeerSealsReadFrontierV1,
             ServiceOperationId::PeerSealsReadResolveV1,
@@ -775,6 +776,6 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-02.8";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-02.5";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-02.5";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-03.1";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-02.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

@@ -1015,7 +1015,7 @@ fn prepared_seal_transition_is_store_immutable_until_commit() {
         0,
     );
 
-    let prepared = super::prepare_seal_in_context(
+    let prepared = prepare_seal_in_context(
         &seal,
         &events,
         &seals,

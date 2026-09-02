@@ -1,7 +1,8 @@
 //! Typed service-authenticated peer query endpoints.
 
 use arkret_models_collaboration::http_bodies::{
-    PeerEventsResolveOutcome, PeerEventsResolveRequestBody,
+    PeerEventsResolveOutcome, PeerEventsResolveRequestBody, PeerEventsSiblingPositionsOutcome,
+    PeerEventsSiblingPositionsRequestBody,
 };
 use arkret_models_collaboration::principal_operations::{
     PcrGenesisSubmitOutcome, PcrGenesisSubmitRequestBody,
@@ -33,6 +34,29 @@ impl Client {
                 "peer Event resolution is incomplete".to_owned(),
             ));
         }
+        Ok(outcome)
+    }
+
+    /// Challenge a peer for its complete canonical sibling set at exact
+    /// adjudicated `(actor_id, actor_seq)` positions.
+    ///
+    /// This is the only sibling-position disclosure face for the second phase
+    /// of clearing confirmed fork evidence (`sync/federation.md` section
+    /// 4.5.3). It is bounded by the request, so it never degrades into an
+    /// actor-wide scan; a position the responder does not adjudicate comes back
+    /// in the single indistinguishable undisclosed bucket, which is a
+    /// fail-closed answer rather than an error.
+    pub async fn peer_events_sibling_positions(
+        &self,
+        request: &PeerEventsSiblingPositionsRequestBody,
+    ) -> Result<PeerEventsSiblingPositionsOutcome> {
+        request.validate()?;
+        let method = Method::from_bytes(b"QUERY")
+            .map_err(|error| Error::Protocol(format!("invalid QUERY method: {error}")))?;
+        let builder = self.request(method, "/_arkret/peer/events/sibling-positions")?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: PeerEventsSiblingPositionsOutcome = self.send_json(builder).await?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 

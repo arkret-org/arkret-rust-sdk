@@ -2834,7 +2834,10 @@ mod tests {
         let mut record = file_transfer_record();
         record.blob_ref = "ak:blob:01904100-0000-7000-8000-000000000001".to_owned();
         let err = record.validate().unwrap_err();
-        assert!(err.to_string().contains("invalid BlobRef"));
+        assert!(
+            err.to_string()
+                .contains("blob_ref must be content-addressed")
+        );
     }
 
     #[test]

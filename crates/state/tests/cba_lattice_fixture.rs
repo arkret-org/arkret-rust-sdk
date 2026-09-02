@@ -847,7 +847,7 @@ fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
     );
 
     let target = CellRef::new(
-        vector["valid_recovery_move"]["payload"]["target_cell"]
+        vector["valid_recovery_move"]["payload"]["target_cell_id"]
             .as_str()
             .unwrap()
             .to_owned(),

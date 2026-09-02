@@ -4,16 +4,15 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_wire::{
-    AvailabilityReceipt, Base64UrlString, CollisionVariantRecordId, Did, DidCoreId, Event, EventId,
-    EventProof, EventSubmitContext, Hash, PayloadProof, RealmId, Result, Seal, SealId, WireError,
-    canonical,
+    AvailabilityReceipt, CollisionVariantRecordId, Event, EventProof, Hash, RealmId, Result, Seal,
+    SealId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::state::{
     CollisionVariantRecord, ForkResolutionConflictEvidence, ForkResolutionPayload,
-    ForkResolutionVariantLocator, ForkResolutionVerdict,
+    ForkResolutionVariantLocator,
 };
 use crate::history_key::{
     HistoryKeyResponseLostRecord, HistoryKeyResponseRecord, HistoryKeyResponseSendRequest,
@@ -22,168 +21,6 @@ use crate::history_key::{
 
 pub const MAX_GOVERNANCE_DEPENDENCY_SELECTORS: usize = 1_024;
 pub const MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
-
-/// Complete canonical Event preimage stored outside a fork-resolution Move.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CollisionVariantRecord {
-    pub schema: String,
-    pub collision_variant_record_id: CollisionVariantRecordId,
-    pub realm_id: RealmId,
-    pub collision_event_id: EventId,
-    pub canonical_event_bytes_b64u: Base64UrlString,
-    pub canonical_event_size_bytes: u64,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub recorded_at: DateTime<Utc>,
-    pub proof: PayloadProof,
-}
-
-impl CollisionVariantRecord {
-    pub const SCHEMA: &'static str = "ak.schema.collision_variant_record.v1";
-    pub const PROOF_CONTEXT: &'static str = "ak.collision_variant_record_proof.v1";
-
-    pub fn validate_structural(&self) -> Result<Vec<u8>> {
-        if self.schema != Self::SCHEMA {
-            return Err(WireError::Protocol(
-                "collision variant record schema must be ak.schema.collision_variant_record.v1"
-                    .to_owned(),
-            ));
-        }
-        self.proof.validate()?;
-        let event_bytes =
-            arkret_canonical::base64url_decode(self.canonical_event_bytes_b64u.as_str())?;
-        if event_bytes.is_empty()
-            || event_bytes.len() > 1_048_576
-            || event_bytes.len() as u64 != self.canonical_event_size_bytes
-        {
-            return Err(WireError::Protocol(
-                "collision variant record canonical Event byte length mismatch".to_owned(),
-            ));
-        }
-        Ok(event_bytes)
-    }
-
-    /// Exact detached-JWS transcript registered for the proof on this record.
-    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        self.proof.validate_production()?;
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": Self::PROOF_CONTEXT,
-            "payload_digest": self.proof.payload_digest,
-            "verification_method": self.proof.verification_method,
-            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
-        }))
-        .map_err(Into::into)
-    }
-
-    /// Validate the record against the locator signed by one fork-resolution Move.
-    pub fn validate_for_locator(
-        &self,
-        expected_record_id: &CollisionVariantRecordId,
-        expected_record_digest: &Hash,
-        expected_collision_event_id: &EventId,
-        expected_realm_id: &RealmId,
-        expected_controller_id: &DidCoreId,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<Event> {
-        let event_bytes = self.validate_structural()?;
-        if &self.collision_variant_record_id != expected_record_id
-            || &self.realm_id != expected_realm_id
-        {
-            return Err(WireError::Protocol(
-                "collision variant record locator or Realm binding mismatch".to_owned(),
-            ));
-        }
-        let mut unsigned_record = serde_json::to_value(self).map_err(|error| {
-            WireError::Protocol(format!(
-                "collision variant record cannot be represented as JSON: {error}"
-            ))
-        })?;
-        unsigned_record
-            .as_object_mut()
-            .expect("serialized collision variant record is an object")
-            .remove("proof");
-        let unsigned_bytes = canonical::canonical_json_bytes(&unsigned_record)?;
-        let proof_payload_digest = Hash::new(arkret_canonical::canonical::digest(
-            arkret_canonical::DigestSuite::Sha256,
-            unsigned_bytes,
-        ))?;
-        if self.proof.payload_digest != proof_payload_digest {
-            return Err(WireError::Protocol(
-                "collision variant record proof payload digest mismatch".to_owned(),
-            ));
-        }
-        let (controller, fragment) = self
-            .proof
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .ok_or_else(|| {
-                WireError::Protocol(
-                    "collision variant record proof verification_method has no fragment".to_owned(),
-                )
-            })?;
-        if fragment.is_empty()
-            || arkret_wire::project_did_to_core_id(&Did::new(controller.to_owned())?)?
-                != *expected_controller_id
-        {
-            return Err(WireError::Protocol(
-                "collision variant record proof controller does not match the resolution author"
-                    .to_owned(),
-            ));
-        }
-        let record_bytes = canonical::canonical_json_bytes(self)?;
-        let record_digest = Hash::new(arkret_canonical::canonical::digest(
-            digest_suite,
-            record_bytes,
-        ))?;
-        if &record_digest != expected_record_digest {
-            return Err(WireError::Protocol(
-                "collision variant record complete-record digest mismatch".to_owned(),
-            ));
-        }
-        let collision_event = decode_collision_event(&event_bytes, digest_suite, "record")?;
-        if collision_event.realm_id != *expected_realm_id
-            || collision_event.event_id != self.collision_event_id
-            || collision_event.event_id != *expected_collision_event_id
-        {
-            return Err(WireError::Protocol(
-                "collision variant record Event identity or Realm binding mismatch".to_owned(),
-            ));
-        }
-        collision_event.verify_event_id_matches_content_with_digest_suite(digest_suite)?;
-        Ok(collision_event)
-    }
-}
-
-fn decode_collision_event(
-    event_bytes: &[u8],
-    digest_suite: arkret_canonical::DigestSuite,
-    carrier: &str,
-) -> Result<Event> {
-    let event: Event =
-        arkret_canonical::from_canonical_json_slice(event_bytes).map_err(|error| {
-            WireError::Protocol(format!(
-                "collision variant {carrier} does not contain canonical Event bytes: {error}"
-            ))
-        })?;
-    match event.proofs.as_slice() {
-        [EventProof::Producer(_)] => {
-            event.validate_for_direct_history_structural_in_context(EventSubmitContext::Standard)?
-        }
-        [EventProof::Producer(_), EventProof::StationAdmission(_)] => event
-            .validate_for_federation_structural_in_context(
-                EventSubmitContext::Standard,
-                digest_suite,
-            )?,
-        _ => {
-            return Err(WireError::Protocol(format!(
-                "collision variant {carrier} Event has an unsupported proof regime"
-            )));
-        }
-    }
-    Ok(event)
-}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -352,17 +189,14 @@ pub fn fork_resolution_variant_record_selectors(
     let payload: ForkResolutionPayload = serde_json::from_value(serde_json::Value::Object(
         event.payload.clone().into_iter().collect(),
     ))?;
+    // `winner_index` selects one of these same two locators, so the verdict
+    // never adds a third reference to resolve
+    // (`authz/event-auth-state-resolution.md` collision adjudication).
     let mut locators: Vec<&ForkResolutionVariantLocator> = Vec::new();
     if let ForkResolutionConflictEvidence::FullHashCollision { variants } =
         &payload.conflict_evidence
     {
         locators.extend(variants.iter());
-    }
-    if let ForkResolutionVerdict::CollisionWinner {
-        winner_preimage, ..
-    } = &payload.verdict
-    {
-        locators.push(winner_preimage);
     }
     Ok(locators
         .into_iter()
@@ -376,8 +210,16 @@ pub fn fork_resolution_variant_record_selectors(
             ForkResolutionVariantLocator::InlineCanonicalBytes { .. } => None,
         })
         .collect())
+}
 
 /// Verify every referenced collision record before a fork-resolution Move is applied.
+///
+/// Both locator arms end at the same place: complete canonical Event bytes that
+/// independently recompute to the subject `event_id` under this Realm's suite.
+/// A referenced record additionally has to bind to the exact
+/// `(collision_variant_record_id, collision_variant_record_digest)` the Move
+/// signs and to carry a proof by the Move's own principal, which the caller
+/// verifies against the key it already resolved for that principal.
 pub fn validate_fork_resolution_collision_dependencies<VerifyRecordProof>(
     event: &Event,
     dependencies: &[GovernanceDependency],
@@ -387,40 +229,32 @@ pub fn validate_fork_resolution_collision_dependencies<VerifyRecordProof>(
 where
     VerifyRecordProof: FnMut(&CollisionVariantRecord, &[u8]) -> Result<()>,
 {
-    if event.kind.as_str() != "ak.fork.resolution" {
+    if event.kind != arkret_wire::EventKind::ForkResolution {
         return Ok(());
     }
-    let payload_value = serde_json::to_value(&event.payload).map_err(|error| {
+    let payload: ForkResolutionPayload = serde_json::from_value(serde_json::Value::Object(
+        event.payload.clone().into_iter().collect(),
+    ))
+    .map_err(|error| {
         WireError::Protocol(format!(
-            "fork resolution payload cannot be represented as JSON: {error}"
+            "fork resolution payload cannot be decoded for dependency validation: {error}"
         ))
     })?;
-    let payload: ForkResolutionPayload =
-        serde_json::from_value(payload_value).map_err(|error| {
-            WireError::Protocol(format!(
-                "fork resolution payload cannot be decoded for dependency validation: {error}"
-            ))
-        })?;
-    let ForkResolutionConflictEvidence::FullHashCollision { variants } = payload.conflict_evidence
+    let ForkResolutionConflictEvidence::FullHashCollision { variants } = &payload.conflict_evidence
     else {
         return Ok(());
     };
     let crate::events_payloads::ForkResolutionSubject::EventIdCollision {
         event_id: collision_event_id,
-    } = payload.subject
+    } = &payload.subject
     else {
         return Err(WireError::Protocol(
             "full-hash collision evidence requires an Event-id collision subject".to_owned(),
         ));
     };
-    let expected_controller_id = event
-        .executed_by
-        .as_ref()
-        .unwrap_or(&event.actor_id)
-        .signing_principal_id();
 
-    for variant in variants {
-        match variant {
+    for locator in variants {
+        let canonical_event_bytes = match locator {
             ForkResolutionVariantLocator::InlineCanonicalBytes {
                 canonical_event_bytes_b64u,
             } => {
@@ -431,21 +265,11 @@ where
                         "inline collision variant Event byte length is invalid".to_owned(),
                     ));
                 }
-                let collision_event =
-                    decode_collision_event(&event_bytes, digest_suite, "inline locator")?;
-                if collision_event.realm_id != event.realm_id
-                    || collision_event.event_id != collision_event_id
-                {
-                    return Err(WireError::Protocol(
-                        "inline collision variant Event identity or Realm binding mismatch"
-                            .to_owned(),
-                    ));
-                }
-                collision_event.verify_event_id_matches_content_with_digest_suite(digest_suite)?;
+                event_bytes
             }
             ForkResolutionVariantLocator::CollisionVariantRecord {
                 collision_variant_record_id,
-                collision_variant_record_digest,
+                ..
             } => {
                 let mut records = dependencies
                     .iter()
@@ -456,7 +280,7 @@ where
                                     collision_variant_record_id: selected_id,
                                 },
                             collision_variant_record,
-                        } if selected_id == &collision_variant_record_id => {
+                        } if selected_id == collision_variant_record_id => {
                             Some(collision_variant_record)
                         }
                         _ => None,
@@ -471,17 +295,21 @@ where
                         "collision variant record dependency is ambiguous: {collision_variant_record_id}"
                     )));
                 }
-                record.validate_for_locator(
-                    &collision_variant_record_id,
-                    &collision_variant_record_digest,
-                    &collision_event_id,
-                    &event.realm_id,
-                    expected_controller_id,
-                    digest_suite,
-                )?;
+                let canonical_event_bytes =
+                    record.canonical_event_bytes_for_locator(event, locator, digest_suite)?;
                 let proof_binding_bytes = record.proof_binding_bytes()?;
                 verify_record_proof(record, &proof_binding_bytes)?;
+                canonical_event_bytes
             }
+        };
+        let collision_event =
+            Event::from_digest_payload_bytes(&canonical_event_bytes, digest_suite)?;
+        if collision_event.realm_id != event.realm_id
+            || &collision_event.event_id != collision_event_id
+        {
+            return Err(WireError::Protocol(
+                "collision variant Event identity or Realm binding mismatch".to_owned(),
+            ));
         }
     }
     Ok(())

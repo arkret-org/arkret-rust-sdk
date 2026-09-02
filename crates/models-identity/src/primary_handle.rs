@@ -442,13 +442,11 @@ mod tests {
         let mut claim = HandleClaim {
             schema: HandleClaim::SCHEMA.to_owned(),
             claim: core,
-            claim_digest: digest.clone(),
             status: HandleClaimStatus::Verified,
             as_of,
             verifier_id: DidCoreId::new(issuer_did).unwrap(),
             verified_at: None,
             revocation: None,
-            revocation_digest: None,
             fresh_until: as_of + chrono::Duration::minutes(5),
             status_proof: placeholder_payload_proof(
                 PayloadProofPurpose::StatusAttestation,
@@ -528,13 +526,17 @@ mod tests {
             None,
         );
         let snapshot = vec![newer, matching];
+        // The status views are stamped `as_of` at construction time, and step 0
+        // rejects a resolution instant earlier than `as_of`. Read after the
+        // snapshot exists rather than before it.
+        let resolution_as_of = Utc::now();
         let input = PrimaryHandleSelectInput {
             account_id: &s,
             context: Some("ak:realm:r1"),
             claim_set_snapshot: &snapshot,
             handle_issuer_policies: &acc,
             holder_primary_handle_at_as_of: None,
-            resolution_as_of: now,
+            resolution_as_of,
         };
         let chosen = select_primary_handle(&input).unwrap();
         assert_eq!(chosen.claim.handle.canonical(), "alice:acme.example");

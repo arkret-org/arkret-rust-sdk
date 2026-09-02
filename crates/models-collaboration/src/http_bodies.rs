@@ -741,6 +741,186 @@ impl PeerEventsResolveRequestBody {
     }
 }
 
+pub const MAX_PEER_SIBLING_POSITION_SELECTORS: usize = 16;
+pub const MAX_PEER_SIBLING_POSITION_DISCLOSED_SIBLINGS: usize = 64;
+
+/// One exact authoring position, the coordinate an `event_sibling_position`
+/// fork-resolution subject names. It is never a range: `actor_seq` selects
+/// exactly one position.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsSiblingPosition {
+    pub actor_id: ActorId,
+    pub actor_seq: u64,
+}
+
+/// One exact-scope alignment challenge.
+///
+/// `fork_resolution_event_id` names the accepted `ak.fork.resolution` Move
+/// whose `event_sibling_position` subject is exactly this position. A responder
+/// that does not hold that Move as a settled non-bottom
+/// `ak.component.fork_resolution.v1` cell over exactly this position discloses
+/// nothing, so the challenge only reaches positions an authorized recovery Move
+/// already adjudicated (`sync/federation.md` section 4.5.1).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsSiblingPositionChallenge {
+    pub actor_id: ActorId,
+    pub actor_seq: u64,
+    pub fork_resolution_event_id: EventId,
+}
+
+impl PeerEventsSiblingPositionChallenge {
+    pub fn position(&self) -> PeerEventsSiblingPosition {
+        PeerEventsSiblingPosition {
+            actor_id: self.actor_id.clone(),
+            actor_seq: self.actor_seq,
+        }
+    }
+}
+
+/// The responder's complete canonical sibling set at one exact position.
+///
+/// `siblings` is exhaustive, never a page: an empty vector is the positive
+/// statement that the responder holds no Event there, which is what alignment
+/// with a `void_all` verdict looks like.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsSiblingPositionDisclosure {
+    pub actor_id: ActorId,
+    pub actor_seq: u64,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub siblings: Vec<EventFederationSubmission>,
+}
+
+impl PeerEventsSiblingPositionDisclosure {
+    pub fn position(&self) -> PeerEventsSiblingPosition {
+        PeerEventsSiblingPosition {
+            actor_id: self.actor_id.clone(),
+            actor_seq: self.actor_seq,
+        }
+    }
+}
+
+/// Bounded exact-scope sibling disclosure challenge for fork-resolution
+/// per-peer alignment (`sync/federation.md` section 4.5.3).
+///
+/// There is no cursor, no range and no actor-wide scan, so the response size is
+/// bounded by the request instead of by the actor history length.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsSiblingPositionsRequestBody {
+    pub realm_id: RealmId,
+    pub positions: Vec<PeerEventsSiblingPositionChallenge>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_response_bytes: Option<u32>,
+}
+
+impl PeerEventsSiblingPositionsRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.positions.is_empty() || self.positions.len() > MAX_PEER_SIBLING_POSITION_SELECTORS {
+            return Err(WireError::Protocol(
+                "peer sibling-position challenge carries 1..=16 positions".to_owned(),
+            ));
+        }
+        let mut canonical = Vec::with_capacity(self.positions.len());
+        for position in &self.positions {
+            canonical.push(arkret_canonical::canonical_json_bytes(position)?);
+        }
+        if canonical.windows(2).any(|pair| pair[0] >= pair[1]) {
+            return Err(WireError::Protocol(
+                "peer sibling-position selectors are canonical-bytewise sorted and duplicate-free"
+                    .to_owned(),
+            ));
+        }
+        if self
+            .max_response_bytes
+            .is_some_and(|bytes| !(1024..=MAX_PEER_RESOLVE_RESPONSE_BYTES).contains(&bytes))
+        {
+            return Err(WireError::Protocol(
+                "peer sibling-position max_response_bytes is outside 1024..=8388608".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Exact-scope sibling disclosure response.
+///
+/// Every requested position appears in exactly one of the two vectors.
+/// `undisclosed_positions` is one indistinguishable bucket: an unknown Realm
+/// scope, an unauthorized peer, a position no accepted fork-resolution cell
+/// adjudicates, a resolution Move the responder does not hold and a local
+/// response budget all land there with no distinguishing field.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerEventsSiblingPositionsOutcome {
+    pub disclosed_positions: Vec<PeerEventsSiblingPositionDisclosure>,
+    pub undisclosed_positions: Vec<PeerEventsSiblingPosition>,
+}
+
+impl PeerEventsSiblingPositionsOutcome {
+    /// Structural bounds that hold with no request in hand.
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.disclosed_positions.len() > MAX_PEER_SIBLING_POSITION_SELECTORS
+            || self.undisclosed_positions.len() > MAX_PEER_SIBLING_POSITION_SELECTORS
+        {
+            return Err(WireError::Protocol(
+                "peer sibling-position outcome exceeds the 16 position ceiling".to_owned(),
+            ));
+        }
+        for disclosure in &self.disclosed_positions {
+            if disclosure.siblings.len() > MAX_PEER_SIBLING_POSITION_DISCLOSED_SIBLINGS {
+                return Err(WireError::Protocol(
+                    "peer sibling-position disclosure exceeds the cross-bucket sibling ceiling"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Complete accounting: every requested position is answered exactly once,
+    /// and no position the caller did not ask for appears.
+    pub fn validate_for_request(
+        &self,
+        request: &PeerEventsSiblingPositionsRequestBody,
+    ) -> Result<()> {
+        self.validate_structural()?;
+        let requested = request
+            .positions
+            .iter()
+            .map(PeerEventsSiblingPositionChallenge::position)
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut answered = std::collections::BTreeSet::new();
+        for position in self
+            .disclosed_positions
+            .iter()
+            .map(PeerEventsSiblingPositionDisclosure::position)
+            .chain(self.undisclosed_positions.iter().cloned())
+        {
+            if !requested.contains(&position) || !answered.insert(position) {
+                return Err(WireError::Protocol(
+                    "peer sibling-position outcome answers an unrequested or repeated position"
+                        .to_owned(),
+                ));
+            }
+        }
+        if answered.len() != requested.len() {
+            return Err(WireError::Protocol(
+                "peer sibling-position outcome does not account for every requested position"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -2298,13 +2478,6 @@ pub enum ReferenceLockedEventStubKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ReferenceLockedEventStatus {
-    Locked,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ReferenceLockedReasonCode {
     ReferenceLocked,
     HistoryNotVisible,
@@ -2341,7 +2514,6 @@ impl<'de> Deserialize<'de> for ReducerInputFalse {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ReferenceLockedEventStub {
     pub view_kind: ReferenceLockedEventStubKind,
-    pub status: ReferenceLockedEventStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]

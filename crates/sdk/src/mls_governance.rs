@@ -1685,7 +1685,53 @@ mod tests {
                     == "ak.vector.proof_context.transcript.collision_variant_record.v1"
             })
             .expect("collision record vector");
-        let record: arkret_models_collaboration::governance_dependencies::CollisionVariantRecord =
+        let key = PublicKeyMaterial::Ed25519Raw {
+            bytes: arkret_canonical::base64url_decode(
+                fixture["test_key"]["public_key"].as_str().unwrap(),
+            )
+            .unwrap(),
+        };
+
+        // 1. The registered transcript itself: the four-member binding object the vector publishes
+        //    must be exactly the canonical bytes the vector signs, and its detached JWS must verify
+        //    against them.
+        let vector_binding = arkret_canonical::canonical_json_bytes(&vector["binding_object"])
+            .expect("binding object is canonicalizable");
+        assert_eq!(
+            std::str::from_utf8(&vector_binding).unwrap(),
+            vector["binding_jcs"].as_str().unwrap()
+        );
+        let vector_proof = arkret_wire::PayloadProof {
+            kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: arkret_wire::DidUrl::new(
+                vector["binding_object"]["verification_method"]
+                    .as_str()
+                    .unwrap(),
+            )
+            .unwrap(),
+            payload_digest: Hash::new(vector["unsigned_digest"].as_str().unwrap().to_owned())
+                .unwrap(),
+            created_at: arkret_canonical::parse_timestamp_canonical(
+                vector["binding_object"]["created_at"].as_str().unwrap(),
+            )
+            .unwrap(),
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: vector["detached_jws"].as_str().unwrap().to_owned(),
+        };
+        arkret_signatures::verify_ed25519_detached_jws_payload_proof(
+            &vector_proof,
+            &vector_binding,
+            &key,
+        )
+        .expect("registered collision record proof transcript verifies");
+
+        // 2. The SDK carrier produces that same transcript shape, and it takes `payload_digest`
+        //    from its own recomputed unsigned projection, not from whatever the carrier reports. A
+        //    record whose proof claims a foreign digest therefore produces a transcript that cannot
+        //    verify.
+        let record: arkret_models_collaboration::events_payloads::state::CollisionVariantRecord =
             serde_json::from_value(serde_json::json!({
                 "schema": "ak.schema.collision_variant_record.v1",
                 "collision_variant_record_id": "ak:collision_variant_record:01964140-0000-7000-8000-000000000000",
@@ -1703,29 +1749,51 @@ mod tests {
                 }
             }))
             .expect("collision record proof carrier");
-        let binding = record.proof_binding_bytes().unwrap();
+        let binding: serde_json::Value =
+            serde_json::from_slice(&record.proof_binding_bytes().unwrap()).unwrap();
         assert_eq!(
-            std::str::from_utf8(&binding).unwrap(),
-            vector["binding_jcs"].as_str().unwrap()
+            binding
+                .as_object()
+                .unwrap()
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>(),
+            vec![
+                "context".to_owned(),
+                "created_at".to_owned(),
+                "payload_digest".to_owned(),
+                "verification_method".to_owned(),
+            ]
         );
-        let key = PublicKeyMaterial::Ed25519Raw {
-            bytes: arkret_canonical::base64url_decode(
-                fixture["test_key"]["public_key"].as_str().unwrap(),
-            )
-            .unwrap(),
-        };
-        arkret_signatures::verify_ed25519_detached_jws_payload_proof(&record.proof, &binding, &key)
-            .expect("registered collision record proof transcript verifies");
+        assert_eq!(
+            binding["context"],
+            serde_json::json!("ak.collision_variant_record_proof.v1")
+        );
+        assert_eq!(
+            binding["created_at"],
+            vector["binding_object"]["created_at"]
+        );
+        assert_eq!(
+            binding["verification_method"],
+            vector["binding_object"]["verification_method"]
+        );
+        assert_ne!(
+            binding["payload_digest"], vector["unsigned_digest"],
+            "the transcript digest is recomputed, never copied from the carrier"
+        );
+
+        // 3. A different registered context over the same values is a different transcript and must
+        //    not verify.
         let wrong_binding = arkret_canonical::canonical_json_bytes(&serde_json::json!({
             "context": "ak.account_binding_receipt_proof.v1",
-            "payload_digest": record.proof.payload_digest,
-            "verification_method": record.proof.verification_method,
-            "created_at": arkret_canonical::format_timestamp_canonical(record.proof.created_at),
+            "payload_digest": vector["unsigned_digest"],
+            "verification_method": vector["binding_object"]["verification_method"],
+            "created_at": vector["binding_object"]["created_at"],
         }))
         .unwrap();
         assert!(
             arkret_signatures::verify_ed25519_detached_jws_payload_proof(
-                &record.proof,
+                &vector_proof,
                 &wrong_binding,
                 &key,
             )

@@ -63,9 +63,9 @@ macro_rules! impl_text_identifier_sql {
                 out: &mut ::diesel::serialize::Output<'b, '_, ::diesel::pg::Pg>,
             ) -> ::diesel::serialize::Result {
                 <str as ::diesel::serialize::ToSql<
-                                                            ::diesel::sql_types::Text,
-                                                            ::diesel::pg::Pg,
-                                                        >>::to_sql(self.as_str(), out)
+                                                                    ::diesel::sql_types::Text,
+                                                                    ::diesel::pg::Pg,
+                                                                >>::to_sql(self.as_str(), out)
             }
         }
 

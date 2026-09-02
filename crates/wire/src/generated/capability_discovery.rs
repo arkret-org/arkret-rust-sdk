@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-02.9;
-//! sha256=7567398a9170ab557cc1b040fe99fa003c8c7fa28f240f91695850bd3728837f
+//! Input: registry/contract-registry.json; version=2026-09-03.1;
+//! sha256=3c21fdccfe5c1353f760206fc258d03345ff9b84e11e35b80514d792ee928eca
 //! Entries: operation_bundles=35 features=21
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -712,6 +712,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerEventsReadScanV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerEventsReadSiblingPositionsV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

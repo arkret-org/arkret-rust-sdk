@@ -293,7 +293,6 @@ fn event_read_row_deserializes_closed_projection_variants() {
 
     let locked: EventReadRow = serde_json::from_value(json!({
         "view_kind": "reference_locked_event_stub",
-        "status": "locked",
         "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
         "reason_code": "not_found_or_unauthorized",
         "reducer_input": false
@@ -325,7 +324,6 @@ fn event_read_row_rejects_non_closed_projection_shapes() {
 
     let reducer_input = json!({
         "view_kind": "reference_locked_event_stub",
-        "status": "locked",
         "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
         "reason_code": "reference_locked",
         "reducer_input": true
@@ -338,7 +336,6 @@ fn event_view_uses_the_same_closed_event_read_row_union() {
     let view: EventView = serde_json::from_value(json!({
         "event": {
             "view_kind": "reference_locked_event_stub",
-            "status": "locked",
             "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
             "reason_code": "history_not_visible",
             "reducer_input": false

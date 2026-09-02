@@ -878,7 +878,6 @@ mod tests {
             delegation: crate::MembershipCompensationExecutorDelegation {
                 delegation_id: delegation_id.clone(),
                 core,
-                delegation_digest: delegation_digest.clone(),
                 signature: signature(),
             },
             join_accepted_proof: crate::MembershipJoinAcceptedProof {
@@ -958,6 +957,7 @@ mod tests {
             encoded["terminal_certificate"]["delegation_id"],
             encoded["delegation"]["delegation_id"]
         );
+        assert!(encoded["delegation"].get("delegation_digest").is_none());
         assert!(
             encoded["terminal_certificate"]
                 .get("delegation_digest")

@@ -2353,10 +2353,15 @@ mod tests {
                 json!({"organization_id": "ak:did_core:webvh:z6mkfixture"}),
                 "ak:did_core:webvh:z6mkfixture",
             ),
+            // `ak.actor.discovery` registers a composite rule over
+            // `canonical_json(payload.resource_id)`, so its subject is the
+            // composite digest rather than the raw id. The sibling
+            // `ak.organization.discovery` above uses the `did` rule and does
+            // echo the id — the two are not interchangeable.
             (
                 "ak.actor.discovery",
                 json!({"resource_id": "ak:did_core:webvh:z6mkfixture"}),
-                "ak:did_core:webvh:z6mkfixture",
+                "UsNeK-fwWrQE9Q_4ApTCiPTVi7y2LuGsZ-dCW4MkKb8",
             ),
             (
                 "ak.applet.discovery",

@@ -320,7 +320,9 @@ mod tests {
     #[test]
     fn canonical_fsm_contracts_resolve_all_templates_with_exact_closure() {
         let contracts = canonical_fsm_contracts().unwrap();
-        assert_eq!(contracts.len(), 19);
+        // 18 registered FSM cell families; the moderation-appeal FSM is not one
+        // of them — v1 has no protocol-native appeal workflow.
+        assert_eq!(contracts.len(), 18);
         let by_family: BTreeMap<_, _> = contracts
             .iter()
             .map(|contract| (contract.cell_family.as_str(), contract))

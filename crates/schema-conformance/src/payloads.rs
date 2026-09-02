@@ -713,8 +713,9 @@ mod tests {
     }
 
     fn registration_anchored_device_authorize_payload() -> Value {
+        // The Event envelope `actor_id` is the only carrier of the principal;
+        // the payload never mirrors it.
         json!({
-            "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "device_public_key_did": "did:key:z6Mki3devicepublickey",
             "hpke_key": "z6LSdevicehpke",

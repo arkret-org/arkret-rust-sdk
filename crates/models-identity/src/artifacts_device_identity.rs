@@ -792,11 +792,14 @@ mod key_verification_tests {
             "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "methods": ["ak.key.verification.sas_v1"],
             "pairing_code": "482 913",
+            // Canonical PublicKey spelling: `{kty, kid, algorithm, key}`. The
+            // `{kid, alg, public_key}` shape is explicitly non-canonical wire
+            // and is asserted below to be rejected.
             "new_device_pubkey": {
+                "kty": "OKP",
                 "kid": "ak:device:01904100-0000-7000-8000-000000000002",
                 "algorithm": "Ed25519",
-                "public_key": "z6MkDevice",
-                "vendor_hint": true
+                "key": "ZGV2aWNlLWtleQ"
             },
             "mac": {"ed25519:key": "c2ln"},
             "device_metadata": {"display_name": "Laptop"},
@@ -828,6 +831,17 @@ mod key_verification_tests {
         let mut long_reason = valid.clone();
         long_reason["reason"] = json!("x".repeat(257));
         assert!(serde_json::from_value::<KeyVerificationContent>(long_reason).is_err());
+
+        let mut legacy_pubkey_spelling = valid.clone();
+        legacy_pubkey_spelling["new_device_pubkey"] = json!({
+            "kid": "ak:device:01904100-0000-7000-8000-000000000002",
+            "alg": "Ed25519",
+            "public_key": "ZGV2aWNlLWtleQ"
+        });
+        assert!(
+            serde_json::from_value::<KeyVerificationContent>(legacy_pubkey_spelling).is_err(),
+            "the {{kid, alg, public_key}} spelling is not canonical wire"
+        );
 
         // The prefixed `ak:transaction:` form is not merely unusual here, it is
         // unrepresentable: `:` is outside the schema charset.

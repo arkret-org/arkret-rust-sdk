@@ -124,7 +124,6 @@ fn event_read_projection_rows_match_their_schema_definitions() {
 
     let locked: ReferenceLockedEventStub = serde_json::from_value(json!({
         "view_kind": "reference_locked_event_stub",
-        "status": "locked",
         "event_id": "ak:event:AZk4PXzJ6MpkxXnYTUmgXzeIYNd0Wfnz3N0hwLHNV6Xq",
         "kind": EventKind::MessageCreate.as_str(),
         "realm_id": "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs",
@@ -331,7 +330,6 @@ fn signal_plaintext_profiles_match_their_closed_schemas() {
         "kind": "ak.typing",
         "payload_sequence": 3,
         "strand_id": "ak:strand:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
-        "track_name": "discussion",
         "typing": true,
         "ttl_ms": 5000
     }))

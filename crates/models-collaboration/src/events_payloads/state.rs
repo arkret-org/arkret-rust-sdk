@@ -1681,9 +1681,7 @@ impl ForkResolutionPayload {
             (
                 ForkResolutionSubject::EventIdCollision { .. },
                 ForkResolutionConflictEvidence::FullHashCollision { variants },
-                ForkResolutionVerdict::CollisionWinner {
-                    winner_index, ..
-                },
+                ForkResolutionVerdict::CollisionWinner { winner_index, .. },
             ) => {
                 if usize::from(*winner_index) >= variants.len() {
                     return schema_violation(
@@ -1916,7 +1914,10 @@ impl CollisionVariantRecord {
         ))?)
     }
 
-    fn unsigned_payload_digest(&self) -> Result<Hash> {
+    /// Digest the detached proof commits to: the complete record with `proof`
+    /// removed. A producer needs it to sign, and a receiver recomputes it
+    /// rather than trusting `proof.payload_digest`.
+    pub fn unsigned_payload_digest(&self) -> Result<Hash> {
         #[derive(Serialize)]
         struct Unsigned<'a> {
             canonical_event_bytes_b64u: &'a Base64UrlString,
@@ -1957,13 +1958,11 @@ impl CollisionVariantRecord {
         })?)
     }
 
-    /// Everything a receiver can check from the record alone, before it is
-    /// bound to a particular resolution Move: schema id, proof shape and
-    /// binding, decoded length, canonical encoding and structure of the
-    /// preimage, the Realm the preimage itself declares, and the independently
-    /// recomputed Event identity. The carried `collision_event_id` is never
-    /// trusted.
-    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+    /// The suite-independent half of [`Self::validate`]: schema id, proof shape
+    /// and payload binding, and the decoded preimage length. A governance
+    /// dependency store can check this much without knowing which Realm suite
+    /// the referencing Move will be replayed under.
+    pub fn validate_structural(&self) -> Result<()> {
         if self.schema != SchemaId::CollisionVariantRecordV1 {
             return schema_violation("collision variant record carries a foreign schema id");
         }
@@ -1975,6 +1974,18 @@ impl CollisionVariantRecord {
         {
             return schema_violation("collision variant record proof binding mismatch");
         }
+        self.canonical_event_bytes()?;
+        Ok(())
+    }
+
+    /// Everything a receiver can check from the record alone, before it is
+    /// bound to a particular resolution Move: schema id, proof shape and
+    /// binding, decoded length, canonical encoding and structure of the
+    /// preimage, the Realm the preimage itself declares, and the independently
+    /// recomputed Event identity. The carried `collision_event_id` is never
+    /// trusted.
+    pub fn validate(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
+        self.validate_structural()?;
         let variant = self.recomputed_variant(digest_suite)?;
         if variant.realm_id != self.realm_id {
             return schema_violation(
@@ -2142,17 +2153,14 @@ impl ForkResolutionRecord {
         if variant_bytes[0] == variant_bytes[1] {
             return schema_violation("collision evidence variants are not byte-distinct");
         }
-        if let ForkResolutionVerdict::CollisionWinner {
-            winner_preimage, ..
-        } = &self.verdict
+        // `winner_index` indexes this Move's own two locators, so the winner is
+        // structurally one of the bytes just proven; only the range needs
+        // checking (`authz/event-auth-state-resolution.md` collision
+        // adjudication).
+        if let ForkResolutionVerdict::CollisionWinner { winner_index, .. } = &self.verdict
+            && variant_bytes.get(usize::from(*winner_index)).is_none()
         {
-            let winner =
-                locator_canonical_event_bytes(winner_preimage, resolution, records, digest_suite)?;
-            if !variant_bytes.iter().any(|bytes| bytes == &winner) {
-                return schema_violation(
-                    "collision winner bytes are not one of the two evidence variants",
-                );
-            }
+            return schema_violation("collision winner index does not select an evidence variant");
         }
         Ok(())
     }
@@ -2526,7 +2534,7 @@ mod tests {
         "ak:collision_variant_record:01964140-0000-7000-8000-000000000000";
 
     fn collision_variant(nonce: &str) -> Event {
-        arkret_wire::test_support::raw_event_for_actor_at(
+        test_support::raw_event_for_actor_at(
             "ak.note.create",
             ScopeRef::Realm {
                 realm_id: RealmId::new(COLLISION_RECORD_REALM).unwrap(),
@@ -2676,11 +2684,11 @@ mod tests {
             },
             verdict: ForkResolutionVerdict::CollisionWinner {
                 kind: ForkResolutionWinnerKind::CanonicalWinner,
-                winner_preimage: locator(&variant_a),
+                winner_index: 0,
             },
             resolution_event_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
         };
-        let resolution = arkret_wire::test_support::raw_event_for_actor_at(
+        let resolution = test_support::raw_event_for_actor_at(
             "ak.fork.resolution",
             ScopeRef::Realm {
                 realm_id: RealmId::new(COLLISION_RECORD_REALM).unwrap(),

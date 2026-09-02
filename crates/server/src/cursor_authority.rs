@@ -314,14 +314,14 @@ mod tests {
 
     #[test]
     fn account_context_separates_same_core_at_different_stations() {
-        let principal_id = arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let principal_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
         let account_a = arkret_wire::AccountId::new(
             principal_id.clone(),
-            arkret_wire::DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
         );
         let account_b = arkret_wire::AccountId::new(
             principal_id,
-            arkret_wire::DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
         );
         let context_a = CursorBindingContext::for_account(
             &account_a,

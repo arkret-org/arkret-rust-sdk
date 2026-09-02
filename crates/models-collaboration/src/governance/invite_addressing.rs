@@ -1104,13 +1104,11 @@ mod tests {
                     },
                 ],
             },
-            claim_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
             status: HandleClaimStatus::Verified,
             as_of: resolved_at,
             verifier_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureissuer").unwrap(),
             verified_at: Some(resolved_at),
             revocation: None,
-            revocation_digest: None,
             fresh_until: resolved_at + chrono::Duration::minutes(5),
             status_proof: PayloadProof {
                 kind: "detached_jws".to_owned(),

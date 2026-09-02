@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
 use crate::{
-    ActorId, AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, RealmId,
+    ActorId, AuthorizationRef, Base64UrlString, DidCoreId, DidUrl, Event, EventId, RealmId,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -304,7 +304,6 @@ impl MembershipCompensationDelegationCore {
 pub struct MembershipCompensationExecutorDelegation {
     pub delegation_id: MembershipCompensationDelegationRef,
     pub core: MembershipCompensationDelegationCore,
-    pub delegation_digest: Hash,
     pub signature: ProtocolSignature,
 }
 
@@ -313,11 +312,6 @@ impl MembershipCompensationExecutorDelegation {
         self.core.validate()?;
         let bytes = crate::canonical::canonical_json_bytes(&self.core)?;
         let digest = crate::canonical::sha256_digest(bytes);
-        if digest != self.delegation_digest.as_str() {
-            return Err(crate::WireError::Protocol(
-                "membership compensation delegation digest mismatch".to_owned(),
-            ));
-        }
         let suffix = digest.strip_prefix("sha256:").unwrap_or_default();
         if self.delegation_id.as_str()
             != format!("ak:membership_compensation_delegation:sha256:{suffix}")

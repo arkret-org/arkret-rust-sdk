@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-02.5;
-//! sha256=536479614b9e7ca6c84dfc84dc931bdd0c34c5cad78a2d6fc22d686f9df89ca7 Entries: registered=233
+//! Input: registry/operation-registry.json; version=2026-09-03.1;
+//! sha256=39b9deb0afe863ba642bd09d534707589a50e6a363d721a29a255fe5c8437b42 Entries: registered=234
 
 use serde::{Deserialize, Serialize};
 
@@ -83,6 +83,7 @@ pub enum ServiceOperationId {
     PeerEventsReadFrontierV1,
     PeerEventsReadResolveV1,
     PeerEventsReadScanV1,
+    PeerEventsReadSiblingPositionsV1,
     PeerHistoryKeyRequestsCommandReplicateV1,
     PeerHistoryKeyResponsesCommandRelayV1,
     PeerInvitesCommandSubmitV1,
@@ -319,6 +320,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_EVENTS_READ_FRONTIER_V1,
     ServiceOperationId::PEER_EVENTS_READ_RESOLVE_V1,
     ServiceOperationId::PEER_EVENTS_READ_SCAN_V1,
+    ServiceOperationId::PEER_EVENTS_READ_SIBLING_POSITIONS_V1,
     ServiceOperationId::PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE_V1,
     ServiceOperationId::PEER_HISTORY_KEY_RESPONSES_COMMAND_RELAY_V1,
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT_V1,
@@ -597,6 +599,7 @@ impl ServiceOperationId {
         Self::PeerEventsReadFrontierV1,
         Self::PeerEventsReadResolveV1,
         Self::PeerEventsReadScanV1,
+        Self::PeerEventsReadSiblingPositionsV1,
         Self::PeerHistoryKeyRequestsCommandReplicateV1,
         Self::PeerHistoryKeyResponsesCommandRelayV1,
         Self::PeerInvitesCommandSubmitV1,
@@ -893,6 +896,8 @@ impl ServiceOperationId {
     pub const PEER_EVENTS_READ_FRONTIER_V1: &'static str = "ak.peer.events.read.frontier.v1";
     pub const PEER_EVENTS_READ_RESOLVE_V1: &'static str = "ak.peer.events.read.resolve.v1";
     pub const PEER_EVENTS_READ_SCAN_V1: &'static str = "ak.peer.events.read.scan.v1";
+    pub const PEER_EVENTS_READ_SIBLING_POSITIONS_V1: &'static str =
+        "ak.peer.events.read.sibling_positions.v1";
     pub const PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE_V1: &'static str =
         "ak.peer.history_key_requests.command.replicate.v1";
     pub const PEER_HISTORY_KEY_RESPONSES_COMMAND_RELAY_V1: &'static str =
@@ -1278,6 +1283,7 @@ impl ServiceOperationId {
             Self::PeerEventsReadFrontierV1 => Self::PEER_EVENTS_READ_FRONTIER_V1,
             Self::PeerEventsReadResolveV1 => Self::PEER_EVENTS_READ_RESOLVE_V1,
             Self::PeerEventsReadScanV1 => Self::PEER_EVENTS_READ_SCAN_V1,
+            Self::PeerEventsReadSiblingPositionsV1 => Self::PEER_EVENTS_READ_SIBLING_POSITIONS_V1,
             Self::PeerHistoryKeyRequestsCommandReplicateV1 => {
                 Self::PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE_V1
             }
@@ -1702,6 +1708,9 @@ impl ServiceOperationId {
             Self::PEER_EVENTS_READ_FRONTIER_V1 => Some(Self::PeerEventsReadFrontierV1),
             Self::PEER_EVENTS_READ_RESOLVE_V1 => Some(Self::PeerEventsReadResolveV1),
             Self::PEER_EVENTS_READ_SCAN_V1 => Some(Self::PeerEventsReadScanV1),
+            Self::PEER_EVENTS_READ_SIBLING_POSITIONS_V1 => {
+                Some(Self::PeerEventsReadSiblingPositionsV1)
+            }
             Self::PEER_HISTORY_KEY_REQUESTS_COMMAND_REPLICATE_V1 => {
                 Some(Self::PeerHistoryKeyRequestsCommandReplicateV1)
             }
@@ -3806,6 +3815,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsQueryOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerEventsReadSiblingPositionsV1,
+        http_method: "QUERY",
+        http_path: "/_arkret/peer/events/sibling-positions",
+        grpc: Some("PeerEvents/SiblingPositions"),
+        mq: Some("peer.events.read.sibling_positions"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsSiblingPositionsRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsSiblingPositionsOutcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

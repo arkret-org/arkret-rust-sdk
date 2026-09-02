@@ -101,8 +101,8 @@ pub use arkret_identifiers::{
     InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
     MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
-    SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId,
-    ViewId, WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
+    SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId,
+    WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
