@@ -419,21 +419,48 @@ pub enum FoundingDeviceHpkeKeyAlgorithm {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+/// The descriptor carries the keys themselves, never their digests.
+///
+/// Review 2026-09-02-1955 deleted `device_key_digest` and `hpke_key_digest`:
+/// both are pure functions of members that stay on the wire, so a second copy
+/// could only ever disagree with the key it claims to commit to. The receipt
+/// side (`pcr_genesis_scope`) still carries them because it carries no raw key;
+/// it recomputes them from this descriptor with [`Self::device_key_digest`] and
+/// [`Self::hpke_key_digest`].
 pub struct FoundingDeviceDescriptor {
     pub descriptor_version: u8,
     pub device_id: DeviceId,
     pub device_public_key_did: NonEmptyString,
-    pub device_key_digest: Hash,
     pub device_key_algorithm: FoundingDeviceKeyAlgorithm,
     pub device_key_purpose: FoundingDeviceKeyPurpose,
     pub hpke_key: NonEmptyString,
-    pub hpke_key_digest: Hash,
     pub hpke_key_algorithm: FoundingDeviceHpkeKeyAlgorithm,
     pub algorithms: Vec<NonEmptyString>,
     pub founding_authorize_payload_digest: Hash,
 }
 
 impl FoundingDeviceDescriptor {
+    /// `SHA-256(UTF-8(canonical multikey))` over the bare `z6Mk…` string.
+    ///
+    /// Fixed at SHA-256 by the receipt schema, never the Realm digest suite.
+    pub fn device_key_digest(&self) -> Result<Hash> {
+        let multikey = self
+            .device_public_key_did
+            .as_str()
+            .strip_prefix("did:key:")
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "founding device_public_key_did is not a did:key URI".to_owned(),
+                )
+            })?;
+        Hash::new(canonical::sha256_digest(multikey.as_bytes())).map_err(Into::into)
+    }
+
+    /// `SHA-256(UTF-8(canonical multikey))` over `hpke_key` exactly as carried.
+    pub fn hpke_key_digest(&self) -> Result<Hash> {
+        Hash::new(canonical::sha256_digest(self.hpke_key.as_bytes())).map_err(Into::into)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if self.descriptor_version != 1
             || !self.device_public_key_did.as_str().starts_with("did:key:z")

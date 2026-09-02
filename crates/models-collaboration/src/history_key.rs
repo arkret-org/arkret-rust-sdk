@@ -2977,7 +2977,7 @@ impl OrganizationRecoveryArchiveReplica {
             created_at: DateTime<Utc>,
         }
         Ok(canonical::canonical_json_bytes(&Transcript {
-            context: arkret_wire::ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1,
+            context: ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1,
             payload_digest: self.canonical_payload_digest()?,
             kind: self.kind,
             archive: &self.archive,
@@ -3017,7 +3017,7 @@ impl OrganizationRecoveryArchiveReplica {
     {
         build_history_proof_carrier(
             "service_proof",
-            arkret_wire::ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1,
+            ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_PROOF_V1,
             verification_method,
             created_at,
             build,
@@ -3076,7 +3076,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
         }
         Ok(canonical::canonical_json_bytes(&Transcript {
             context:
-                arkret_wire::ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
+                ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
             payload_digest: self.canonical_payload_digest()?,
             archive_replica_digest: &self.archive_replica_digest,
             holder_id: &self.holder_id,
@@ -3113,7 +3113,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
     {
         build_history_proof_carrier(
             "service_proof",
-            arkret_wire::ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
+            ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
             verification_method,
             created_at,
             build,
@@ -3287,47 +3287,47 @@ macro_rules! history_proof_binding {
 history_proof_binding!(
     HistoryKeyRequest,
     requester_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_REQUEST_PROOF_V1
+    ProofContextId::HISTORY_KEY_REQUEST_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyRequestReceipt,
     service_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_REQUEST_RECEIPT_PROOF_V1
+    ProofContextId::HISTORY_KEY_REQUEST_RECEIPT_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyRequestReplica,
     relay_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_REQUEST_REPLICA_PROOF_V1
+    ProofContextId::HISTORY_KEY_REQUEST_REPLICA_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyRequestReplicaOutcome,
     service_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_REQUEST_REPLICA_RECEIPT_PROOF_V1
+    ProofContextId::HISTORY_KEY_REQUEST_REPLICA_RECEIPT_PROOF_V1
 );
 history_proof_binding!(
     SourceRelayAttestation,
     service_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_SOURCE_RELAY_ATTESTATION_PROOF_V1
+    ProofContextId::HISTORY_KEY_SOURCE_RELAY_ATTESTATION_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyResponseSendRequest,
     source_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_RESPONSE_PROOF_V1
+    ProofContextId::HISTORY_KEY_RESPONSE_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyResponseRecord,
     service_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_RESPONSE_RECORD_PROOF_V1
+    ProofContextId::HISTORY_KEY_RESPONSE_RECORD_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyResponseLostRecord,
     service_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_RESPONSE_LOST_RECORD_PROOF_V1
+    ProofContextId::HISTORY_KEY_RESPONSE_LOST_RECORD_PROOF_V1
 );
 history_proof_binding!(
     HistoryKeyResponseSendReceipt,
     service_proof,
-    arkret_wire::ProofContextId::HISTORY_KEY_RESPONSE_SEND_RECEIPT_PROOF_V1
+    ProofContextId::HISTORY_KEY_RESPONSE_SEND_RECEIPT_PROOF_V1
 );
 
 impl HistoryKeyRequest {

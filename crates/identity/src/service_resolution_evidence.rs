@@ -58,7 +58,6 @@ pub fn build_authenticated_webvh_service_resolution(
     let resolution = AuthenticatedServiceResolution {
         service_resolution_record,
         method_history_evidence: ResolutionMethodHistoryEvidence::WebvhLog {
-            adapter_version: "did:webvh:1.0".to_owned(),
             boundary: ResolutionMethodEvidenceBoundary {
                 from_method_history_head: first_history_head,
                 from_version_id: first_version,

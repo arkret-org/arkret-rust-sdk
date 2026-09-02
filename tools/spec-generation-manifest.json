@@ -209,6 +209,17 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/wire/src/generated/did_method_adapters.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+property",
+      "artifacts": [
+        "registry/did-method-adapter-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/wire/src/generated/authority_sources.rs"
       ],
       "owner": "arkret-wire",

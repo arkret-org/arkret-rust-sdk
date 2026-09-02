@@ -8,33 +8,8 @@ use arkret_wire::{
     BindingKind, OPERATION_BUNDLES, OperationBundleDescriptor, Result, ServiceOperationId,
     WireError,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::service_description::{ServiceDescribe, TransportBinding};
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WebSocketBindingProfile {
-    #[default]
-    #[serde(rename = "ak.profile.binding.websocket.v1")]
-    BindingWebsocketV1,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum WebSocketBindingSubprotocol {
-    #[default]
-    #[serde(rename = "arkret.v1")]
-    ArkretV1,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum WebSocketBindingAuthentication {
-    #[default]
-    ChallengeDpopSessionV1,
-}
 
 /// Validate one canonical typed WebSocket transport declaration.
 pub fn validate_websocket_transport(binding: &TransportBinding) -> Result<()> {
@@ -119,9 +94,6 @@ mod tests {
     fn binding(base_url: &str) -> TransportBinding {
         TransportBinding::Websocket {
             base_url: base_url.to_owned(),
-            extension_profile_required: WebSocketBindingProfile::BindingWebsocketV1,
-            subprotocol: WebSocketBindingSubprotocol::ArkretV1,
-            authentication: WebSocketBindingAuthentication::ChallengeDpopSessionV1,
             max_frame_bytes: 2048,
             max_channels: 16,
         }

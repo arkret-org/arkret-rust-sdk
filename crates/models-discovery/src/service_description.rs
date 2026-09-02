@@ -9,9 +9,6 @@ use curve25519_dalek::traits::Identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::websocket_binding::{
-    WebSocketBindingAuthentication, WebSocketBindingProfile, WebSocketBindingSubprotocol,
-};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,11 +165,12 @@ pub enum TransportBinding {
         tus_version: Vec<TusVersion>,
         tus_extensions: Vec<TusExtension>,
     },
+    /// `kind = websocket` fixes the binding profile, the `arkret.v1`
+    /// subprotocol and `challenge_dpop_session_v1` authentication through the
+    /// binding-kind registry and the profile itself, so the descriptor carries
+    /// only the connection coordinates and transport limits.
     Websocket {
         base_url: String,
-        extension_profile_required: WebSocketBindingProfile,
-        subprotocol: WebSocketBindingSubprotocol,
-        authentication: WebSocketBindingAuthentication,
         max_frame_bytes: u32,
         max_channels: u32,
     },
@@ -198,9 +196,6 @@ impl TransportBinding {
     pub fn websocket(base_url: impl Into<String>, max_frame_bytes: u32, max_channels: u32) -> Self {
         Self::Websocket {
             base_url: base_url.into(),
-            extension_profile_required: WebSocketBindingProfile::BindingWebsocketV1,
-            subprotocol: WebSocketBindingSubprotocol::ArkretV1,
-            authentication: WebSocketBindingAuthentication::ChallengeDpopSessionV1,
             max_frame_bytes,
             max_channels,
         }

@@ -271,17 +271,9 @@ fn founding_device_descriptor(
     FoundingDeviceDescriptor {
         descriptor_version: 1,
         device_id: founding_device_id(),
-        device_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
-            device_public_key_did.as_bytes(),
-        ))
-        .unwrap(),
         device_public_key_did,
         device_key_algorithm: FoundingDeviceKeyAlgorithm::Ed25519,
         device_key_purpose: FoundingDeviceKeyPurpose::EventSigningAndMlsIdentity,
-        hpke_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(
-            hpke_key.as_bytes(),
-        ))
-        .unwrap(),
         hpke_key,
         hpke_key_algorithm: FoundingDeviceHpkeKeyAlgorithm::X25519,
         algorithms: vec![NonEmptyString::new("ak.hpke_x25519_aead_chacha20poly1305.v1").unwrap()],

@@ -145,7 +145,7 @@ pub use generated::{
     AccountDataKey, ActorPrivateUpdateKind, AeadProfileId, AlgorithmSuiteDescriptor,
     AuthoritySetId, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthoritySourceId, BindingKind,
     CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileId, DidFreshnessRiskTier,
-    DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS, EVENT_KIND_REGISTRY_SHA256,
+    DidMethodEvidenceKind, DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS, EVENT_KIND_REGISTRY_SHA256,
     EXPORTER_LABELS, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
     EventKind, ExporterLabelDescriptor, ExporterLabelId, FEATURES, FeatureDescriptor,
     FeatureStatus, HISTORY_STORE_LIMITS, HPKE_SUITES, HistoryStoreLimits, HpkeSuiteId,

@@ -325,7 +325,6 @@ mod tests {
         let document_digest =
             arkret_models_identity::normalized_did_document_digest(&document).unwrap();
         let evidence = ResolutionMethodHistoryEvidence::DidWebDocument {
-            adapter_version: "did:web:1".to_owned(),
             boundary: ResolutionMethodEvidenceBoundary {
                 from_method_history_head: record.record.method_history_head.clone(),
                 from_version_id: record.record.version_id.clone(),

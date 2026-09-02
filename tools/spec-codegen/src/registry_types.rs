@@ -98,6 +98,7 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_profile_ids(artifacts_dir)?,
         generate_reducer_profiles(artifacts_dir)?,
         generate_did_freshness_profiles(artifacts_dir)?,
+        generate_did_method_adapters(artifacts_dir)?,
         generate_authority_sources(artifacts_dir)?,
         generate_closed_registry_types(artifacts_dir)?,
         generate_account_data_keys(artifacts_dir)?,
@@ -923,6 +924,86 @@ fn generate_did_freshness_profiles(artifacts_dir: &Path) -> Result<GeneratedOutp
     output.push_str("        _ => None,\n    } }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/did_freshness_profiles.rs".into(),
+        contents: output,
+    })
+}
+
+fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let artifact = Artifact::load(artifacts_dir, "registry/did-method-adapter-registry.json")?;
+    let rows = sorted_rows(artifact.array("adapters")?, "method_evidence_kind")?;
+    validate_unique(&rows, "method_evidence_kind", &[])?;
+    let mut output = header(&[&artifact.source], &format!("registered={}", rows.len()));
+    output.push_str(
+        "/// Method-history evidence kinds, keyed the way the registry keys them.\n\
+         ///\n\
+         /// `adapter_version` is not a wire member: review 2026-09-02-1951 A8 deleted\n\
+         /// it from every method-history evidence carrier because the registry already\n\
+         /// fixes one adapter version per evidence kind. Producers and verifiers each\n\
+         /// recompute it from `evidence_kind` through this table.\n\
+         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\n\
+         pub enum DidMethodEvidenceKind {\n",
+    );
+    for row in &rows {
+        writeln!(output, "    {},", variant(string(row, "method_evidence_kind")?, &[]))?;
+    }
+    output.push_str("}\n\nimpl DidMethodEvidenceKind {\n    pub const ALL: &'static [Self] = &[\n");
+    for row in &rows {
+        writeln!(output, "        Self::{},", variant(string(row, "method_evidence_kind")?, &[]))?;
+    }
+    output.push_str("    ];\n\n");
+    for row in &rows {
+        let kind = string(row, "method_evidence_kind")?;
+        writeln!(
+            output,
+            "    pub const {}: &'static str = {};",
+            associated_name(kind, &[]),
+            rust_string(kind)
+        )?;
+    }
+    output.push_str("\n    pub const fn as_str(self) -> &'static str { match self {\n");
+    for row in &rows {
+        let kind = string(row, "method_evidence_kind")?;
+        writeln!(
+            output,
+            "        Self::{} => Self::{},",
+            variant(kind, &[]),
+            associated_name(kind, &[])
+        )?;
+    }
+    output.push_str(
+        "    } }\n\n    /// The registry's adapter version for this evidence kind.\n\
+         pub const fn adapter_version(self) -> &'static str { match self {\n",
+    );
+    for row in &rows {
+        writeln!(
+            output,
+            "        Self::{} => {},",
+            variant(string(row, "method_evidence_kind")?, &[]),
+            rust_string(string(row, "adapter_version")?)
+        )?;
+    }
+    output.push_str("    } }\n\n    /// The DID method this adapter admits.\n    pub const fn method(self) -> &'static str { match self {\n");
+    for row in &rows {
+        writeln!(
+            output,
+            "        Self::{} => {},",
+            variant(string(row, "method_evidence_kind")?, &[]),
+            rust_string(string(row, "method")?)
+        )?;
+    }
+    output.push_str("    } }\n\n    pub fn from_wire(value: &str) -> Option<Self> { match value {\n");
+    for row in rows {
+        let kind = string(row, "method_evidence_kind")?;
+        writeln!(
+            output,
+            "        Self::{} => Some(Self::{}),",
+            associated_name(kind, &[]),
+            variant(kind, &[])
+        )?;
+    }
+    output.push_str("        _ => None,\n    } }\n}\n");
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/did_method_adapters.rs".into(),
         contents: output,
     })
 }

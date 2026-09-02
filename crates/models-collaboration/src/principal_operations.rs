@@ -188,8 +188,8 @@ impl PcrGenesisSubmitOutcome {
             || scope.registration_evidence_digest
                 != request.registration_did_evidence.canonical_digest()?
             || scope.accepted_device_id != descriptor.device_id
-            || scope.device_key_digest != descriptor.device_key_digest
-            || scope.hpke_key_digest != descriptor.hpke_key_digest
+            || scope.device_key_digest != descriptor.device_key_digest()?
+            || scope.hpke_key_digest != descriptor.hpke_key_digest()?
             || receipt_event_id(arkret_wire::event_kind_str::REALM_CREATE)
                 != Some(&request.genesis_unit.create().event_id)
             || receipt_event_id(arkret_wire::event_kind_str::DEVICE_AUTHORIZE)
