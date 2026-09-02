@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use arkret_wire::{
-    ActorId, AppletId, CollisionVariantRecordId, Did, DidCoreId, TrustDomainId,
+    ActorId, AppletId, CellFamilyId, CollisionVariantRecordId, Did, DidCoreId, TrustDomainId,
     validate_canonical_idna_domain,
 };
 
@@ -1593,7 +1593,7 @@ pub enum ForkResolutionConflictEvidence {
         event_ids: Vec<EventId>,
     },
     DomainNonJoinable {
-        cell_family: String,
+        cell_family: CellFamilyId,
         event_ids: Vec<EventId>,
     },
     FullHashCollision {
@@ -1722,15 +1722,10 @@ impl ForkResolutionConflictEvidence {
                 FORK_RESOLUTION_ACTOR_SEQ_OVERFLOW_EVENT_IDS,
                 "actor_seq overflow Event ids",
             ),
-            Self::DomainNonJoinable {
-                cell_family,
-                event_ids,
-            } => {
-                if !is_registered_cell_family(cell_family) {
-                    return schema_violation(
-                        "fork resolution domain conflict must name a registered cell family",
-                    );
-                }
+            // `cell_family` is the generated closed registry enum, so an
+            // unregistered family cannot survive deserialization and there is
+            // no second, hand-maintained answer to what is registered.
+            Self::DomainNonJoinable { event_ids, .. } => {
                 validate_resolution_event_ids(event_ids, 2, 64, "domain conflict Event ids")
             }
             Self::FullHashCollision { variants } => {
@@ -1770,26 +1765,6 @@ impl ForkResolutionSubject {
             arkret_canonical::canonical_json_bytes(self)?,
         ))?)
     }
-}
-
-fn is_registered_cell_family(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ak.component.") else {
-        return false;
-    };
-    let Some((body, version)) = rest.rsplit_once(".v") else {
-        return false;
-    };
-    !body.is_empty()
-        && body
-            .split('.')
-            .all(|segment| {
-                !segment.is_empty()
-                    && segment
-                        .chars()
-                        .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_')
-            })
-        && !version.is_empty()
-        && version.chars().all(|character| character.is_ascii_digit())
 }
 
 fn validate_resolution_event_ids(
