@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use arkret_wire::{
-    ActorId, AppletId, Did, DidCoreId, TrustDomainId, validate_canonical_idna_domain,
+    ActorId, AppletId, CollisionVariantRecordId, Did, DidCoreId, TrustDomainId,
+    validate_canonical_idna_domain,
 };
 
 use super::event_wire::decode_payload_after_kind_validation;
@@ -1527,28 +1528,82 @@ impl<'de> Deserialize<'de> for StateConflictRecoveryPayload {
     }
 }
 
-/// Original confirmed-evidence scope resolved by `ak.fork.resolution`.
+/// The disputed scope one `ak.fork.resolution` normalizes.
+///
+/// This is the whole cell subject, so it carries the position and nothing
+/// else. A single-bucket overflow and a cross-bucket overflow at the same
+/// position have to converge on one cell, which is why `prev_frontier_digest`
+/// lives in the evidence instead.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ForkResolutionSubject {
-    EventSiblingBucket {
-        actor_id: ActorId,
-        actor_seq: u64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        prev_frontier_digest: Option<Hash>,
-        sibling_event_digests: Vec<Hash>,
+    EventSiblingPosition { actor_id: ActorId, actor_seq: u64 },
+    EventIdCollision { event_id: EventId },
+}
+
+/// One complete canonical Event preimage, inline or by reference.
+///
+/// The reference arm is not a convenience: base64 of an Event near the 1 MiB
+/// ceiling cannot fit twice inside a resolution Event that is itself bounded by
+/// 1 MiB, so without it those collisions would be unadjudicable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ForkResolutionVariantLocator {
+    InlineCanonicalBytes {
+        canonical_event_bytes_b64u: Base64UrlString,
     },
-    EventIdCollision {
-        event_id: EventId,
-        variants: Vec<ForkResolutionCollisionVariant>,
+    CollisionVariantRecord {
+        collision_variant_record_id: CollisionVariantRecordId,
+        collision_variant_record_digest: Hash,
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ForkResolutionCollisionVariant {
-    pub canonical_event_bytes_b64u: Base64UrlString,
+impl ForkResolutionVariantLocator {
+    /// Stable comparison key. Two locators denote the same variant only when
+    /// they are the same arm with the same content; an inline copy and a record
+    /// reference are never compared as equal here, because proving they agree
+    /// requires resolving the record.
+    fn identity(&self) -> (&'static str, &str) {
+        match self {
+            Self::InlineCanonicalBytes {
+                canonical_event_bytes_b64u,
+            } => ("inline", canonical_event_bytes_b64u.as_str()),
+            Self::CollisionVariantRecord {
+                collision_variant_record_id,
+                ..
+            } => ("record", collision_variant_record_id.as_str()),
+        }
+    }
 }
+
+/// Why the subject is disputed.
+///
+/// Every arm is bounded at the cardinality that actually proves its claim:
+/// 17 siblings pass the v1 single-bucket ceiling of 16, 65 pass the cumulative
+/// ceiling of 64. A producer is never asked to enumerate every sibling an
+/// attacker may still submit.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ForkResolutionConflictEvidence {
+    BucketOverflow {
+        prev_frontier_digest: Hash,
+        event_ids: Vec<EventId>,
+    },
+    ActorSeqOverflow {
+        event_ids: Vec<EventId>,
+    },
+    DomainNonJoinable {
+        cell_family: String,
+        event_ids: Vec<EventId>,
+    },
+    FullHashCollision {
+        variants: Vec<ForkResolutionVariantLocator>,
+    },
+}
+
+pub(crate) const FORK_RESOLUTION_BUCKET_OVERFLOW_EVENT_IDS: usize = 17;
+pub(crate) const FORK_RESOLUTION_ACTOR_SEQ_OVERFLOW_EVENT_IDS: usize = 65;
+pub(crate) const FORK_RESOLUTION_COLLISION_VARIANTS: usize = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1569,11 +1624,11 @@ pub enum ForkResolutionVoidKind {
 pub enum ForkResolutionVerdict {
     SiblingWinner {
         kind: ForkResolutionWinnerKind,
-        event_digest: Hash,
+        winner_event_id: EventId,
     },
     CollisionWinner {
         kind: ForkResolutionWinnerKind,
-        canonical_event_bytes_b64u: Base64UrlString,
+        winner_preimage: ForkResolutionVariantLocator,
     },
     VoidAll {
         kind: ForkResolutionVoidKind,
@@ -1585,6 +1640,7 @@ pub enum ForkResolutionVerdict {
 #[serde(deny_unknown_fields)]
 pub struct ForkResolutionPayload {
     pub subject: ForkResolutionSubject,
+    pub conflict_evidence: ForkResolutionConflictEvidence,
     pub verdict: ForkResolutionVerdict,
 }
 
@@ -1592,64 +1648,58 @@ pub struct ForkResolutionPayload {
 #[serde(deny_unknown_fields)]
 struct ForkResolutionPayloadWire {
     subject: ForkResolutionSubject,
+    conflict_evidence: ForkResolutionConflictEvidence,
     verdict: ForkResolutionVerdict,
 }
 
 impl ForkResolutionPayload {
     pub fn validate(&self) -> Result<()> {
-        match (&self.subject, &self.verdict) {
+        self.conflict_evidence.validate()?;
+        match (&self.subject, &self.conflict_evidence, &self.verdict) {
             (
-                ForkResolutionSubject::EventSiblingBucket {
-                    sibling_event_digests,
-                    ..
+                ForkResolutionSubject::EventSiblingPosition { .. },
+                ForkResolutionConflictEvidence::BucketOverflow { event_ids, .. }
+                | ForkResolutionConflictEvidence::ActorSeqOverflow { event_ids }
+                | ForkResolutionConflictEvidence::DomainNonJoinable { event_ids, .. },
+                ForkResolutionVerdict::SiblingWinner {
+                    winner_event_id, ..
                 },
-                ForkResolutionVerdict::SiblingWinner { event_digest, .. },
             ) => {
-                validate_resolution_collection(
-                    sibling_event_digests.iter().map(Hash::as_str),
-                    sibling_event_digests.len(),
-                    "sibling Event digests",
-                )?;
-                if !sibling_event_digests.contains(event_digest) {
+                if !event_ids.contains(winner_event_id) {
                     return schema_violation(
-                        "fork resolution sibling winner is outside the complete subject set",
+                        "fork resolution sibling winner is outside its own evidence set",
                     );
                 }
             }
             (
-                ForkResolutionSubject::EventSiblingBucket {
-                    sibling_event_digests,
-                    ..
-                },
+                ForkResolutionSubject::EventSiblingPosition { .. },
+                ForkResolutionConflictEvidence::BucketOverflow { .. }
+                | ForkResolutionConflictEvidence::ActorSeqOverflow { .. }
+                | ForkResolutionConflictEvidence::DomainNonJoinable { .. },
                 ForkResolutionVerdict::VoidAll { .. },
-            ) => validate_resolution_collection(
-                sibling_event_digests.iter().map(Hash::as_str),
-                sibling_event_digests.len(),
-                "sibling Event digests",
-            )?,
+            ) => {}
             (
-                ForkResolutionSubject::EventIdCollision { variants, .. },
-                ForkResolutionVerdict::CollisionWinner {
-                    canonical_event_bytes_b64u,
-                    ..
-                },
+                ForkResolutionSubject::EventIdCollision { .. },
+                ForkResolutionConflictEvidence::FullHashCollision { variants },
+                ForkResolutionVerdict::CollisionWinner { winner_preimage, .. },
             ) => {
-                validate_collision_variants(variants)?;
-                if !variants.iter().any(|variant| {
-                    &variant.canonical_event_bytes_b64u == canonical_event_bytes_b64u
-                }) {
+                if !variants
+                    .iter()
+                    .any(|variant| variant.identity() == winner_preimage.identity())
+                {
                     return schema_violation(
-                        "fork resolution collision winner is outside the complete variant set",
+                        "fork resolution collision winner is outside its own evidence set",
                     );
                 }
             }
             (
-                ForkResolutionSubject::EventIdCollision { variants, .. },
+                ForkResolutionSubject::EventIdCollision { .. },
+                ForkResolutionConflictEvidence::FullHashCollision { .. },
                 ForkResolutionVerdict::VoidAll { .. },
-            ) => validate_collision_variants(variants)?,
+            ) => {}
             _ => {
                 return schema_violation(
-                    "fork resolution verdict does not match its evidence subject",
+                    "fork resolution subject, evidence and verdict are not the same branch",
                 );
             }
         }
@@ -1657,39 +1707,113 @@ impl ForkResolutionPayload {
     }
 }
 
+impl ForkResolutionConflictEvidence {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::BucketOverflow { event_ids, .. } => validate_resolution_event_ids(
+                event_ids,
+                FORK_RESOLUTION_BUCKET_OVERFLOW_EVENT_IDS,
+                FORK_RESOLUTION_BUCKET_OVERFLOW_EVENT_IDS,
+                "bucket overflow Event ids",
+            ),
+            Self::ActorSeqOverflow { event_ids } => validate_resolution_event_ids(
+                event_ids,
+                FORK_RESOLUTION_ACTOR_SEQ_OVERFLOW_EVENT_IDS,
+                FORK_RESOLUTION_ACTOR_SEQ_OVERFLOW_EVENT_IDS,
+                "actor_seq overflow Event ids",
+            ),
+            Self::DomainNonJoinable {
+                cell_family,
+                event_ids,
+            } => {
+                if !is_registered_cell_family(cell_family) {
+                    return schema_violation(
+                        "fork resolution domain conflict must name a registered cell family",
+                    );
+                }
+                validate_resolution_event_ids(event_ids, 2, 64, "domain conflict Event ids")
+            }
+            Self::FullHashCollision { variants } => {
+                if variants.len() != FORK_RESOLUTION_COLLISION_VARIANTS {
+                    return schema_violation(
+                        "fork resolution collision evidence must carry exactly two variants",
+                    );
+                }
+                if variants[0].identity() == variants[1].identity() {
+                    return schema_violation(
+                        "fork resolution collision variants must be distinct",
+                    );
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Event ids the evidence commits to, empty for the collision branch whose
+    /// members are canonical bytes rather than identities.
+    #[must_use]
+    pub fn event_ids(&self) -> &[EventId] {
+        match self {
+            Self::BucketOverflow { event_ids, .. }
+            | Self::ActorSeqOverflow { event_ids }
+            | Self::DomainNonJoinable { event_ids, .. } => event_ids,
+            Self::FullHashCollision { .. } => &[],
+        }
+    }
+}
+
 impl ForkResolutionSubject {
-    pub fn evidence_scope_key(&self) -> Result<Hash> {
+    /// Canonical cell subject. It covers the position alone, so both overflow
+    /// evidence shapes at one position resolve into the same cell.
+    pub fn cell_subject_key(&self) -> Result<Hash> {
         Ok(Hash::new(arkret_canonical::sha256_digest(
             arkret_canonical::canonical_json_bytes(self)?,
         ))?)
     }
 }
 
-fn validate_resolution_collection<'a>(
-    values: impl Iterator<Item = &'a str>,
-    len: usize,
+fn is_registered_cell_family(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("ak.component.") else {
+        return false;
+    };
+    let Some((body, version)) = rest.rsplit_once(".v") else {
+        return false;
+    };
+    !body.is_empty()
+        && body
+            .split('.')
+            .all(|segment| {
+                !segment.is_empty()
+                    && segment
+                        .chars()
+                        .all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_')
+            })
+        && !version.is_empty()
+        && version.chars().all(|character| character.is_ascii_digit())
+}
+
+fn validate_resolution_event_ids(
+    event_ids: &[EventId],
+    min: usize,
+    max: usize,
     label: &str,
 ) -> Result<()> {
-    if !(2..=64).contains(&len) {
-        return schema_violation(format!("fork resolution {label} must contain 2..=64 items"));
+    if event_ids.len() < min || event_ids.len() > max {
+        return schema_violation(if min == max {
+            format!("fork resolution {label} must contain exactly {min} items")
+        } else {
+            format!("fork resolution {label} must contain {min}..={max} items")
+        });
     }
-    let values = values.collect::<Vec<_>>();
-    if !values.windows(2).all(|pair| pair[0] < pair[1]) {
+    if !event_ids
+        .windows(2)
+        .all(|pair| pair[0].as_str() < pair[1].as_str())
+    {
         return schema_violation(format!(
             "fork resolution {label} must be strictly bytewise ascending and unique"
         ));
     }
     Ok(())
-}
-
-fn validate_collision_variants(variants: &[ForkResolutionCollisionVariant]) -> Result<()> {
-    validate_resolution_collection(
-        variants
-            .iter()
-            .map(|variant| variant.canonical_event_bytes_b64u.as_str()),
-        variants.len(),
-        "canonical collision variants",
-    )
 }
 
 impl<'de> Deserialize<'de> for ForkResolutionPayload {
@@ -1700,6 +1824,7 @@ impl<'de> Deserialize<'de> for ForkResolutionPayload {
         let wire = ForkResolutionPayloadWire::deserialize(deserializer)?;
         let payload = Self {
             subject: wire.subject,
+            conflict_evidence: wire.conflict_evidence,
             verdict: wire.verdict,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
@@ -1712,6 +1837,7 @@ impl<'de> Deserialize<'de> for ForkResolutionPayload {
 pub struct ForkResolutionRecord {
     pub realm_id: RealmId,
     pub subject: ForkResolutionSubject,
+    pub conflict_evidence: ForkResolutionConflictEvidence,
     pub verdict: ForkResolutionVerdict,
     pub resolution_event_digest: Hash,
 }
@@ -1739,27 +1865,32 @@ impl ForkResolutionRecord {
                 "fork resolution Event is not covered by the supplied accepted Seal",
             );
         }
-        if !event
+        if event
             .refs
             .iter()
-            .any(|reference| reference.critical && reference.role == "recovery_capability")
+            .filter(|reference| reference.critical && reference.role == "recovery_capability")
+            .count()
+            != 1
         {
             return schema_violation(ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED);
         }
-        if !event.refs.iter().any(|reference| {
-            reference.critical
-                && matches!(
-                    reference.role.as_str(),
-                    "attestation" | "inclusion_proof" | "state_witness"
-                )
-        }) {
+        // `state_witness` attests the legal value a cell held before Bottom.
+        // The fork-resolution cell is `__unset__` until this very write, so the
+        // role has no referent here and must not be smuggled in from the
+        // section 9.5 cell-recovery contract.
+        if event
+            .refs
+            .iter()
+            .any(|reference| reference.role == "state_witness")
+        {
             return schema_violation(
-                "fork resolution omits a critical witness or inclusion-proof reference",
+                "fork resolution must not carry a state_witness reference",
             );
         }
         Ok(Self {
             realm_id: event.realm_id.clone(),
             subject: payload.subject,
+            conflict_evidence: payload.conflict_evidence,
             verdict: payload.verdict,
             resolution_event_digest,
         })
@@ -1918,58 +2049,213 @@ mod tests {
         let valid = json!({
             "subject": {
                 "kind": "event_id_collision",
-                "event_id": "ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9",
+                "event_id": "ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9"
+            },
+            "conflict_evidence": {
+                "kind": "full_hash_collision",
                 "variants": [
-                    {"canonical_event_bytes_b64u": "YQ"},
-                    {"canonical_event_bytes_b64u": "Yg"}
+                    {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "YQ"},
+                    {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "Yg"}
                 ]
             },
             "verdict": {
                 "kind": "canonical_winner",
-                "canonical_event_bytes_b64u": "YQ"
+                "winner_preimage": {
+                    "kind": "inline_canonical_bytes",
+                    "canonical_event_bytes_b64u": "YQ"
+                }
             }
         });
         serde_json::from_value::<ForkResolutionPayload>(valid.clone())
             .expect("canonical bytes winner");
 
-        let mut digest_only = valid;
+        // A digest cannot name a variant when both variants hash to the same
+        // Event identity, so the digest-only verdict has no referent.
+        let mut digest_only = valid.clone();
         digest_only["verdict"] = json!({
             "kind": "canonical_winner",
-            "event_digest": format!("sha256:{}", "1".repeat(64))
+            "winner_event_id": "ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9"
         });
         assert!(serde_json::from_value::<ForkResolutionPayload>(digest_only).is_err());
+
+        let mut outside = valid.clone();
+        outside["verdict"]["winner_preimage"]["canonical_event_bytes_b64u"] = json!("Yw");
+        assert!(serde_json::from_value::<ForkResolutionPayload>(outside).is_err());
+
+        let mut one_variant = valid.clone();
+        one_variant["conflict_evidence"]["variants"] = json!([
+            {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "YQ"}
+        ]);
+        assert!(serde_json::from_value::<ForkResolutionPayload>(one_variant).is_err());
+
+        let mut duplicate = valid;
+        duplicate["conflict_evidence"]["variants"] = json!([
+            {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "YQ"},
+            {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "YQ"}
+        ]);
+        assert!(serde_json::from_value::<ForkResolutionPayload>(duplicate).is_err());
+    }
+
+    /// A near-1-MiB original Event cannot be inlined twice, so the record
+    /// locator has to be a first-class way to name a collision variant.
+    #[test]
+    fn fork_resolution_collision_accepts_a_variant_record_locator() {
+        let record = json!({
+            "kind": "collision_variant_record",
+            "collision_variant_record_id":
+                "ak:collision_variant_record:01964140-0000-7000-8000-000000000000",
+            "collision_variant_record_digest": format!("sha256:{}", "b".repeat(64))
+        });
+        let payload = json!({
+            "subject": {
+                "kind": "event_id_collision",
+                "event_id": "ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9"
+            },
+            "conflict_evidence": {
+                "kind": "full_hash_collision",
+                "variants": [
+                    record.clone(),
+                    {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "Yg"}
+                ]
+            },
+            "verdict": {"kind": "canonical_winner", "winner_preimage": record}
+        });
+        serde_json::from_value::<ForkResolutionPayload>(payload).expect("record locator winner");
+    }
+
+    /// Distinct fixture Event ids. The leading token octet selects the digest
+    /// suite, so the prefix is taken from a real id instead of padding.
+    fn fork_resolution_event_ids(count: usize) -> Vec<String> {
+        const PREFIX: &str = "AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C";
+        let mut ids: Vec<String> = (0..count)
+            .map(|index| format!("ak:event:{PREFIX}{index:04}"))
+            .collect();
+        ids.sort();
+        ids
     }
 
     #[test]
-    fn fork_resolution_sibling_set_is_complete_sorted_and_binds_winner() {
-        let first = format!("sha256:{}", "1".repeat(64));
-        let second = format!("sha256:{}", "2".repeat(64));
+    fn fork_resolution_sibling_evidence_is_minimal_sorted_and_binds_winner() {
+        let ids = fork_resolution_event_ids(17);
         let valid = json!({
             "subject": {
-                "kind": "event_sibling_bucket",
+                "kind": "event_sibling_position",
                 "actor_id": {
                     "kind": "service",
                     "service_id": "ak:did_core:web:actor.example"
                 },
-                "actor_seq": 4,
-                "sibling_event_digests": [first, second]
+                "actor_seq": 4
             },
-            "verdict": {
-                "kind": "canonical_winner",
-                "event_digest": format!("sha256:{}", "2".repeat(64))
-            }
+            "conflict_evidence": {
+                "kind": "bucket_overflow",
+                "prev_frontier_digest": format!("sha256:{}", "a".repeat(64)),
+                "event_ids": ids.clone()
+            },
+            "verdict": {"kind": "canonical_winner", "winner_event_id": ids[0].clone()}
         });
         serde_json::from_value::<ForkResolutionPayload>(valid.clone()).expect("sorted winner");
 
+        // 16 siblings are legal under the v1 single-bucket ceiling, so they do
+        // not prove an overflow.
+        let mut too_few = valid.clone();
+        too_few["conflict_evidence"]["event_ids"] = json!(fork_resolution_event_ids(16));
+        too_few["verdict"]["winner_event_id"] = json!(fork_resolution_event_ids(16)[0].clone());
+        assert!(serde_json::from_value::<ForkResolutionPayload>(too_few).is_err());
+
         let mut outside = valid.clone();
-        outside["verdict"]["event_digest"] = json!(format!("sha256:{}", "3".repeat(64)));
+        outside["verdict"]["winner_event_id"] =
+            json!("ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C9999");
         assert!(serde_json::from_value::<ForkResolutionPayload>(outside).is_err());
 
-        let mut reversed = valid;
-        reversed["subject"]["sibling_event_digests"] = json!([
-            format!("sha256:{}", "2".repeat(64)),
-            format!("sha256:{}", "1".repeat(64))
-        ]);
+        let mut reversed = valid.clone();
+        let mut descending = ids.clone();
+        descending.reverse();
+        reversed["conflict_evidence"]["event_ids"] = json!(descending);
         assert!(serde_json::from_value::<ForkResolutionPayload>(reversed).is_err());
+
+        // The bucket digest belongs to the evidence: inside the subject it
+        // would split one position into two conflicting resolution cells.
+        let mut bucket_in_subject = valid;
+        bucket_in_subject["subject"]["prev_frontier_digest"] =
+            json!(format!("sha256:{}", "a".repeat(64)));
+        assert!(serde_json::from_value::<ForkResolutionPayload>(bucket_in_subject).is_err());
+    }
+
+    #[test]
+    fn fork_resolution_cross_bucket_overflow_shares_the_position_cell_subject() {
+        let subject = json!({
+            "kind": "event_sibling_position",
+            "actor_id": {"kind": "service", "service_id": "ak:did_core:web:actor.example"},
+            "actor_seq": 4
+        });
+        let bucket = json!({
+            "subject": subject,
+            "conflict_evidence": {
+                "kind": "actor_seq_overflow",
+                "event_ids": fork_resolution_event_ids(65)
+            },
+            "verdict": {"kind": "void_all"}
+        });
+        let cross: ForkResolutionPayload =
+            serde_json::from_value(bucket).expect("cross-bucket overflow");
+        let ids = fork_resolution_event_ids(17);
+        let single: ForkResolutionPayload = serde_json::from_value(json!({
+            "subject": {
+                "kind": "event_sibling_position",
+                "actor_id": {"kind": "service", "service_id": "ak:did_core:web:actor.example"},
+                "actor_seq": 4
+            },
+            "conflict_evidence": {
+                "kind": "bucket_overflow",
+                "prev_frontier_digest": format!("sha256:{}", "a".repeat(64)),
+                "event_ids": ids
+            },
+            "verdict": {"kind": "void_all"}
+        }))
+        .expect("single-bucket overflow");
+        assert_eq!(
+            cross.subject.cell_subject_key().unwrap(),
+            single.subject.cell_subject_key().unwrap(),
+            "both overflow shapes at one position must normalize into one cell"
+        );
+    }
+
+    #[test]
+    fn fork_resolution_domain_conflict_needs_a_registered_cell_family() {
+        let ids = fork_resolution_event_ids(2);
+        let valid = json!({
+            "subject": {
+                "kind": "event_sibling_position",
+                "actor_id": {"kind": "service", "service_id": "ak:did_core:web:actor.example"},
+                "actor_seq": 4
+            },
+            "conflict_evidence": {
+                "kind": "domain_non_joinable",
+                "cell_family": "ak.component.notary.v1",
+                "event_ids": ids.clone()
+            },
+            "verdict": {"kind": "canonical_winner", "winner_event_id": ids[0].clone()}
+        });
+        serde_json::from_value::<ForkResolutionPayload>(valid.clone()).expect("domain conflict");
+
+        let mut unregistered = valid;
+        unregistered["conflict_evidence"]["cell_family"] = json!("notary");
+        assert!(serde_json::from_value::<ForkResolutionPayload>(unregistered).is_err());
+    }
+
+    #[test]
+    fn fork_resolution_rejects_a_mismatched_subject_and_evidence_branch() {
+        let payload = json!({
+            "subject": {
+                "kind": "event_id_collision",
+                "event_id": "ak:event:AUl7i16DNG_PX5V_-ud5fDx65PwcMpaj4uSW2K4C0Ev9"
+            },
+            "conflict_evidence": {
+                "kind": "actor_seq_overflow",
+                "event_ids": fork_resolution_event_ids(65)
+            },
+            "verdict": {"kind": "void_all"}
+        });
+        assert!(serde_json::from_value::<ForkResolutionPayload>(payload).is_err());
     }
 }

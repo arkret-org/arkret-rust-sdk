@@ -448,12 +448,12 @@ mod secret_share_send_aad_tests {
             r#"{"device_message_id":"ak:device_message:01904100-0000-7000-8000-0000000000d1","#,
             r#""expires_at":"2026-06-10T00:30:00.000Z","#,
             r#""kind":"ak.secret.send","#,
-            r#""recipient_device_id":"ak:device:01904100-0000-7000-8000-00000000000b","#,
             r#""recipient_account_id":{"principal_id":"ak:did_core:webvh:z6mkfixturerecipient","station_id":"ak:did_core:webvh:z6mkfixturestation"},"#,
+            r#""recipient_device_id":"ak:device:01904100-0000-7000-8000-00000000000b","#,
             r#""request_id":"req-01904100","#,
             r#""secret_id":"inkson_mls_account_secret","#,
-            r#""sender_device_id":"ak:device:01904100-0000-7000-8000-00000000000a","#,
-            r#""sender_account_id":{"principal_id":"ak:did_core:webvh:z6mkfixturesender","station_id":"ak:did_core:webvh:z6mkfixturestation"}}"#,
+            r#""sender_account_id":{"principal_id":"ak:did_core:webvh:z6mkfixturesender","station_id":"ak:did_core:webvh:z6mkfixturestation"},"#,
+            r#""sender_device_id":"ak:device:01904100-0000-7000-8000-00000000000a"}"#,
         );
         assert_eq!(
             String::from_utf8(Members::golden().bytes()).unwrap(),

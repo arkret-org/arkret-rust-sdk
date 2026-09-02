@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-08-30.2;
-//! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-02.2;
+//! sha256=65eb83e635c0d8fd19a2350a31d580d9d1c7dbc3c6f8ee3beab27fbcd316b299 Input: registry/
 //! capability-action-registry.json; version=2026-09-02.1;
 //! sha256=82c127fea3bcdc062655f070dd19ef4b6a4c70a9b36eaa8af59f2458ba5dbba6 Input: registry/
-//! schema-registry.json; version=2026-09-01.1;
-//! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Input: registry/
+//! schema-registry.json; version=2026-09-02.3;
+//! sha256=350036870f5349e85b537360486a3d1e90055d4aa2da691ce85023fd2b5fc11f Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
-//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
-//! special_forms=14, actions=164, schemas=200, account_data_patterns=24
+//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=60,
+//! special_forms=14, actions=164, schemas=201, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -179,6 +179,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "claim",
         category: "identity_authz",
         wire_form: "ak:claim:<uuidv7>",
+    },
+    IdKindDescriptor {
+        kind: "collision_variant_record",
+        category: "audit",
+        wire_form: "ak:collision_variant_record:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "consent",
@@ -3311,6 +3316,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CIRCLE_OPERATIONS_V1,
         file: "schemas/circle-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::COLLISION_VARIANT_RECORD_V1,
+        file: "schemas/collision-variant-record.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::COMMON_IDS_V1,

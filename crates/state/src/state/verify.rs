@@ -430,24 +430,37 @@ fn verify_fork_resolution_refs(
     event: &Event,
     pre_state: &BTreeMap<CellRef, CellState>,
 ) -> Result<(), ControlMoveReject> {
-    let capability = event
+    // Exactly one, never merely at least one: two grants would leave which
+    // authority actually approved the resolution ambiguous.
+    let mut capabilities = event
         .refs
         .iter()
-        .find(|reference| reference.role == "recovery_capability" && reference.critical)
+        .filter(|reference| reference.role == "recovery_capability" && reference.critical);
+    let capability = capabilities
+        .next()
         .ok_or_else(|| ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
             reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
         })?;
-    if !event.refs.iter().any(|reference| {
-        reference.critical
-            && matches!(
-                reference.role.as_str(),
-                "attestation" | "inclusion_proof" | "state_witness"
-            )
-    }) {
+    if capabilities.next().is_some() {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
-            reason: "recovery_witness_missing".to_owned(),
+            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
+        });
+    }
+    // `state_witness` attests the single legal value a cell held before it
+    // joined to Bottom. The fork-resolution cell is `__unset__` until this very
+    // write, so the role has no referent here and must not be carried over from
+    // the section 9.5 cell-recovery contract. Optional `attestation` /
+    // `inclusion_proof` refs stay allowed as supporting evidence.
+    if event
+        .refs
+        .iter()
+        .any(|reference| reference.role == "state_witness")
+    {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: event.realm_id.as_str().to_owned(),
+            reason: "schema_violation".to_owned(),
         });
     }
     if !recovery_capability_is_active_for(

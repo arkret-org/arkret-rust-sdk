@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/reducer-profile-registry.json; version=2026-08-25.1;
-//! sha256=103758b403caf4c27688df713a04ecb0a59626d99006f7809bc46c1f6f95cd40
+//! sha256=0fde5d1bda803d7e4600b2f7386f957fa933e7f37b3a1eb912d042127b9dd632
 //! Entries: reducer_profiles=1, upgrade_edges=0
 
 /// Active Realm reducer profiles. A Realm selects exactly one through

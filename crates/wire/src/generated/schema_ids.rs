@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-01.1;
-//! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Entries: schema_ids=200,
-//! active=200
+//! Input: registry/schema-registry.json; version=2026-09-02.3;
+//! sha256=350036870f5349e85b537360486a3d1e90055d4aa2da691ce85023fd2b5fc11f Entries: schema_ids=201,
+//! active=201
 
 use serde::{Deserialize, Serialize};
 
@@ -69,6 +69,7 @@ pub enum SchemaId {
     CbaProofBundleV1,
     CircleV1,
     CircleOperationsV1,
+    CollisionVariantRecordV1,
     CommonIdsV1,
     ConsentOperationsV1,
     ContactOperationsV1,
@@ -273,6 +274,7 @@ impl SchemaId {
         Self::CbaProofBundleV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
+        Self::CollisionVariantRecordV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
@@ -477,6 +479,7 @@ impl SchemaId {
         Self::CbaProofBundleV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
+        Self::CollisionVariantRecordV1,
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
@@ -799,6 +802,8 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface Circle administration operations
     /// (ak.self.circle.*); see zh/models/circle.md.
     pub const CIRCLE_OPERATIONS_V1: &'static str = "ak.schema.circle_operations.v1";
+    /// Stored canonical Event variant bytes referenced by an ak.fork.resolution collision locator.
+    pub const COLLISION_VARIANT_RECORD_V1: &'static str = "ak.schema.collision_variant_record.v1";
     /// Defs-only shared typed-ID patterns (e.g. circle_id) referenced cross-file by morph and
     /// relation schemas so a single id-form change propagates without inline drift. Not an
     /// object/event schema. See zh/models/common-fields.md §6.
@@ -1240,6 +1245,7 @@ impl SchemaId {
             Self::CbaProofBundleV1 => Self::CBA_PROOF_BUNDLE_V1,
             Self::CircleV1 => Self::CIRCLE_V1,
             Self::CircleOperationsV1 => Self::CIRCLE_OPERATIONS_V1,
+            Self::CollisionVariantRecordV1 => Self::COLLISION_VARIANT_RECORD_V1,
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
@@ -1485,6 +1491,7 @@ impl SchemaId {
             Self::CbaProofBundleV1 => "schemas/cba-proof-bundle.schema.json",
             Self::CircleV1 => "schemas/circle.schema.json",
             Self::CircleOperationsV1 => "schemas/circle-operations.schema.json",
+            Self::CollisionVariantRecordV1 => "schemas/collision-variant-record.schema.json",
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
@@ -1732,6 +1739,7 @@ impl SchemaId {
             Self::CBA_PROOF_BUNDLE_V1 => Some(Self::CbaProofBundleV1),
             Self::CIRCLE_V1 => Some(Self::CircleV1),
             Self::CIRCLE_OPERATIONS_V1 => Some(Self::CircleOperationsV1),
+            Self::COLLISION_VARIANT_RECORD_V1 => Some(Self::CollisionVariantRecordV1),
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),

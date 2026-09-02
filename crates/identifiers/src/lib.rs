@@ -916,6 +916,9 @@ declare_uuid_id_kinds! {
     BatchId, "ak:batch:", UUID_VERSION_PRODUCER_ALLOCATED;
     BlobId, "ak:blob:", UUID_VERSION_PRODUCER_ALLOCATED;
     BlockId, "ak:block:", UUID_VERSION_PRODUCER_ALLOCATED;
+    // Full-hash collision variant record referenced by ak.fork.resolution
+    // (id-kind-registry kind `collision_variant_record`).
+    CollisionVariantRecordId, "ak:collision_variant_record:", UUID_VERSION_PRODUCER_ALLOCATED;
     ConsentId, "ak:consent:", UUID_VERSION_PRODUCER_ALLOCATED;
     CapabilityId, "ak:capability:", UUID_VERSION_PRODUCER_ALLOCATED;
     ChunkId, "ak:chunk:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1639,6 +1642,7 @@ mod tests {
 
         assert_id!(ActorProfileId, "ak:actor_profile:");
         assert_id!(AttestationId, "ak:attestation:");
+        assert_id!(CollisionVariantRecordId, "ak:collision_variant_record:");
         assert_id!(AuditBindingId, "ak:audit_binding:");
         assert_id!(AuditReleaseId, "ak:audit_release:");
         assert_id!(AuditSessionId, "ak:audit_session:");
