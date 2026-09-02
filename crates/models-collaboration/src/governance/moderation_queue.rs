@@ -11,17 +11,16 @@ use crate::governance::moderation::ModerationReport;
 // Moderation queue item (moderation-queue-item.schema.json)
 // ---------------------------------------------------------------------------
 
-/// Lifecycle status shared by `ModerationReport` and `ModerationQueueItem`.
+/// Queue-item lifecycle (`moderation-queue-item.schema.json`). v1 is
+/// intentionally two-state (content-moderation.md §3.3): `submitted` = report
+/// accepted and awaiting handling, `resolved` = handling complete (terminal).
+/// The disposition lives on the separate `ak.moderation.decision` event, and
+/// §5.4 forbids fabricating additional enum values for policy review items.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ModerationQueueStatus {
     Submitted,
-    Triaged,
-    Reviewing,
-    Actioned,
-    Dismissed,
-    Appealed,
-    Closed,
+    Resolved,
 }
 
 /// Priority bucket for queue routing.
