@@ -2341,7 +2341,7 @@ mod tests {
         for (kind, payload, expected) in [
             (
                 "ak.organization.discovery",
-                json!({"organization_principal_id": "ak:did_core:webvh:z6mkfixture"}),
+                json!({"organization_id": "ak:did_core:webvh:z6mkfixture"}),
                 "ak:did_core:webvh:z6mkfixture",
             ),
             (
@@ -2366,7 +2366,7 @@ mod tests {
             ),
             (
                 "ak.identity.disclosure_receipt",
-                json!({"holder_principal_id": "ak:did_core:webvh:z6mkfixture"}),
+                json!({"holder_id": "ak:did_core:webvh:z6mkfixture"}),
                 "ak:did_core:webvh:z6mkfixture",
             ),
             (

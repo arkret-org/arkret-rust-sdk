@@ -765,7 +765,7 @@ mod organization_recovery_archive_tests {
             epoch: 7,
             transition_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             recovery_key_id: "ak:recovery_key:01964137-0000-7000-8000-000000000001".to_owned(),
-            holder_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap(),
+            controller_id: DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap(),
             holder_id: DidCoreId::new("ak:did_core:webvh:z6mkservice").unwrap(),
             key_agreement_ref: DidUrl::new("did:webvh:z6mkholder#recovery-kem").unwrap(),
             holder_signing_ref: DidUrl::new("did:webvh:z6mkholder#recovery-sign").unwrap(),

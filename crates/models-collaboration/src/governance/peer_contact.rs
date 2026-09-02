@@ -2,6 +2,7 @@ use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{DidCoreId, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
 use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarrier};
+#[cfg(test)]
 use arkret_wire::AccountId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

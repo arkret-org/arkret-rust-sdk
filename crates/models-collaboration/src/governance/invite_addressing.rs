@@ -645,6 +645,8 @@ pub struct InviteReceivePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_claim_behavior: Option<InviteReceiveAction>,
     pub unknown_invites: UnknownInviteAction,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub new_source_quota: Option<arkret_wire::NewSourceQuotaOverride>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub allowed_handle_domains: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -684,6 +686,7 @@ impl InviteReceivePolicy {
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: Some(InviteReceiveAction::Quarantine),
             unknown_invites: UnknownInviteAction::Drop,
+            new_source_quota: None,
             allowed_handle_domains: Vec::new(),
             denied_handle_domains: Vec::new(),
             trusted_handle_issuer_ids: Vec::new(),
@@ -987,6 +990,7 @@ mod tests {
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: None,
             unknown_invites: UnknownInviteAction::Drop,
+            new_source_quota: None,
             allowed_handle_domains: Vec::new(),
             denied_handle_domains: Vec::new(),
             trusted_handle_issuer_ids: Vec::new(),
@@ -1107,6 +1111,7 @@ mod tests {
             handle_claim_max_behavior: Some(InviteReceiveAction::Quarantine),
             explicit_address_max_behavior: None,
             unknown_invites_max_behavior: Some(UnknownInviteAction::Drop),
+            new_source_quota: None,
             disclosure_max: None,
             allowed_handle_domains: None,
             trusted_handle_issuer_ids: None,

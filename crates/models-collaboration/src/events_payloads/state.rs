@@ -320,11 +320,7 @@ macro_rules! state_payload_with_subject {
     };
 }
 
-state_payload_with_subject!(
-    OrganizationDiscoveryStatePayload,
-    organization_principal_id,
-    Did
-);
+state_payload_with_subject!(OrganizationDiscoveryStatePayload, organization_id, Did);
 
 /// Canonical resource key for actor/applet/handle discovery cells.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -499,7 +495,7 @@ fn values_are_unique<T: Ord>(values: &[T]) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryKeyTuple {
     pub recovery_key_id: String,
-    pub holder_principal_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub holder_id: DidCoreId,
     pub key_agreement_ref: DidUrl,
     pub holder_signing_ref: DidUrl,
@@ -792,7 +788,7 @@ impl IdentityDisclosureAudience {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosurePolicyDocument {
-    pub holder_principal_id: DidCoreId,
+    pub holder_id: DidCoreId,
     pub audience: IdentityDisclosureAudience,
     pub allowed_claims: Vec<IdentityDisclosurePolicyClaim>,
     pub denied_fields: Vec<NonEmptyString>,
@@ -895,7 +891,7 @@ impl IdentityDisclosureReceiptDocument {
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosureReceiptStatePayload {
-    pub holder_principal_id: DidCoreId,
+    pub holder_id: DidCoreId,
     pub value: IdentityDisclosureReceiptDocument,
 }
 
@@ -913,12 +909,12 @@ impl<'de> Deserialize<'de> for IdentityDisclosureReceiptStatePayload {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Wire {
-            holder_principal_id: DidCoreId,
+            holder_id: DidCoreId,
             value: IdentityDisclosureReceiptDocument,
         }
         let wire = Wire::deserialize(deserializer)?;
         let payload = Self {
-            holder_principal_id: wire.holder_principal_id,
+            holder_id: wire.holder_id,
             value: wire.value,
         };
         payload.validate().map_err(serde::de::Error::custom)?;
@@ -1252,47 +1248,16 @@ impl OrganizationModerationPolicyDocument {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationModerationPolicyStatePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization_principal_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub organization_id: Option<NonEmptyString>,
+    pub organization_id: DidCoreId,
     pub value: OrganizationModerationPolicyDocument,
 }
 
 impl OrganizationModerationPolicyStatePayload {
     pub fn validate(&self) -> Result<()> {
-        if self.organization_principal_id.is_some() == self.organization_id.is_some() {
-            return schema_violation(
-                "organization moderation policy requires exactly one organization identifier",
-            );
-        }
         self.value.validate()
-    }
-}
-
-impl<'de> Deserialize<'de> for OrganizationModerationPolicyStatePayload {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Wire {
-            organization_principal_id: Option<DidCoreId>,
-            organization_id: Option<NonEmptyString>,
-            value: OrganizationModerationPolicyDocument,
-        }
-        let wire = Wire::deserialize(deserializer)?;
-        let payload = Self {
-            organization_principal_id: wire.organization_principal_id,
-            organization_id: wire.organization_id,
-            value: wire.value,
-        };
-        payload.validate().map_err(serde::de::Error::custom)?;
-        Ok(payload)
     }
 }
 

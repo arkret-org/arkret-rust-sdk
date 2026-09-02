@@ -169,7 +169,7 @@ pub struct ResponseSenderOriginRef {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RrkArchiveQuotaDomain {
-    pub holder_principal_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub holder_id: DidCoreId,
     pub recovery_key_id: String,
     pub accepted_key_evidence_ref: EventId,
@@ -566,7 +566,7 @@ impl OrganizationRecoveryArchivePlaintext {
 pub struct ArchiveAuthorizationTuple {
     pub recovery_key_id: String,
     pub key_agreement_ref: DidUrl,
-    pub holder_principal_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub holder_id: DidCoreId,
     pub holder_signing_ref: DidUrl,
     pub accepted_key_evidence_ref: EventId,
@@ -775,7 +775,7 @@ impl HistoryGovernanceTraversalRetention {
             || intent_container_event_ref != container_event_ref
             || archive_authorization_tuple.recovery_key_id != archive.recovery_key_id
             || archive_authorization_tuple.key_agreement_ref != archive.key_agreement_ref
-            || archive_authorization_tuple.holder_principal_id != archive.holder_principal_id
+            || archive_authorization_tuple.controller_id != archive.controller_id
             || archive_authorization_tuple.holder_id != archive.holder_id
             || archive_authorization_tuple.holder_signing_ref != archive.holder_signing_ref
             || archive_authorization_tuple.accepted_key_evidence_ref
@@ -1211,7 +1211,7 @@ pub enum HistoryKeyRequestReplicaDestinationAuthorization {
         membership_digest: Hash,
     },
     OrganizationRecoveryHolder {
-        holder_principal_id: DidCoreId,
+        controller_id: DidCoreId,
         holder_id: DidCoreId,
         archive_tuple_digest: Hash,
     },
@@ -1288,7 +1288,7 @@ pub enum SourceKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RrkHolderAuthorityObservation {
-    pub holder_principal_id: DidCoreId,
+    pub controller_id: DidCoreId,
     pub holder_id: DidCoreId,
     pub current_holder_signing_ref: DidUrl,
     pub accepted_key_evidence_ref: EventId,
@@ -1317,7 +1317,7 @@ impl RrkHolderAuthorityObservation {
 
     pub fn validate_for_archive_tuple(&self, tuple: &ArchiveAuthorizationTuple) -> Result<()> {
         self.validate()?;
-        if self.holder_principal_id != tuple.holder_principal_id
+        if self.controller_id != tuple.controller_id
             || self.holder_id != tuple.holder_id
             || self.archive_authorization_tuple_digest
                 != tuple.archive_authorization_tuple_digest()?
@@ -1405,7 +1405,7 @@ impl SourceRelayAttestation {
                     authority_observation,
                 },
             ) if authority_observation.holder_id == self.source_id
-                && authority_observation.holder_principal_id
+                && authority_observation.controller_id
                     == *self.source_actor_id.signing_principal_id()
                 && authority_observation.current_holder_signing_ref
                     == self.service_proof.verification_method
@@ -2297,7 +2297,7 @@ impl OrganizationRecoveryArchiveSetMember {
         let tuple = ArchiveAuthorizationTuple {
             recovery_key_id: archive.recovery_key_id.clone(),
             key_agreement_ref: archive.key_agreement_ref.clone(),
-            holder_principal_id: archive.holder_principal_id.clone(),
+            controller_id: archive.controller_id.clone(),
             holder_id: archive.holder_id.clone(),
             holder_signing_ref: archive.holder_signing_ref.clone(),
             accepted_key_evidence_ref: archive.accepted_key_evidence_ref.clone(),

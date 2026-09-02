@@ -2856,7 +2856,7 @@ fn project_frontier_value(
                 &[
                     "recovery_key_id",
                     "key_agreement_ref",
-                    "holder_principal_id",
+                    "controller_id",
                     "holder_id",
                     "holder_signing_ref",
                     "hpke_suite",

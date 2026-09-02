@@ -8966,7 +8966,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 },
                 EventCellRuleField {
                     key: EventCellRuleKey::Field,
-                    value: EventCellRule::String("payload.holder_principal_id"),
+                    value: EventCellRule::String("payload.controller_id"),
                 },
             ])),
             lattice: Some(EventCellLattice::OrderedLog),
@@ -11904,7 +11904,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 },
                 EventCellRuleField {
                     key: EventCellRuleKey::Field,
-                    value: EventCellRule::String("payload.organization_principal_id"),
+                    value: EventCellRule::String("payload.organization_id"),
                 },
             ])),
             lattice: Some(EventCellLattice::CasRegister),
@@ -11955,7 +11955,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
                 EventCellRuleField {
                     key: EventCellRuleKey::Fields,
                     value: EventCellRule::Array(&[
-                        EventCellRule::String("payload.organization_principal_id"),
+                        EventCellRule::String("payload.organization_id"),
                         EventCellRule::String("payload.organization_id"),
                     ]),
                 },

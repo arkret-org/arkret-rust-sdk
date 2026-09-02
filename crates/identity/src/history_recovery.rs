@@ -343,8 +343,7 @@ mod tests {
         .unwrap();
         let kat = &fixture["rrk_registration_rotation_kat"];
         let key_tuple = &kat["events"]["register"]["payload"]["new_key_tuple"];
-        let principal_id =
-            DidCoreId::new(key_tuple["holder_principal_id"].as_str().unwrap()).unwrap();
+        let principal_id = DidCoreId::new(key_tuple["controller_id"].as_str().unwrap()).unwrap();
         let verification_method =
             DidUrl::new(key_tuple["key_agreement_ref"].as_str().unwrap()).unwrap();
         let document = &kat["did_documents"]["register"];

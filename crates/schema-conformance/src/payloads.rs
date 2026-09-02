@@ -756,7 +756,7 @@ mod tests {
             "issued_at": "2026-06-25T00:00:00.000Z",
             "authorization": {
                 "issuer_id": "ak:did_core:webvh:example.test",
-                "issuer_role": "organization_principal_id",
+                "issuer_role": "organization",
                 "verification_method": "did:webvh:example.test:orgs:org1#k1",
                 "signed_at": "2026-06-25T00:00:00.000Z",
                 "proof": "c2ln"

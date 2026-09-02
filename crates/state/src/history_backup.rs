@@ -265,7 +265,7 @@ fn archive_authorization_tuple(
     ArchiveAuthorizationTuple {
         recovery_key_id: archive.recovery_key_id.clone(),
         key_agreement_ref: archive.key_agreement_ref.clone(),
-        holder_principal_id: archive.holder_principal_id.clone(),
+        controller_id: archive.controller_id.clone(),
         holder_id: archive.holder_id.clone(),
         holder_signing_ref: archive.holder_signing_ref.clone(),
         accepted_key_evidence_ref: archive.accepted_key_evidence_ref.clone(),

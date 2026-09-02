@@ -94,7 +94,7 @@ mod tests {
             organization_policy_ref: None,
             authorization: RealmOrganizationAuthorization {
                 issuer_id: org_actor(),
-                issuer_role: RealmOrganizationIssuerRole::OrganizationPrincipalId,
+                issuer_role: RealmOrganizationIssuerRole::Organization,
                 verification_method: arkret_wire::DidUrl::new(
                     "did:webvh:example.test:orgs:org1#k1",
                 )

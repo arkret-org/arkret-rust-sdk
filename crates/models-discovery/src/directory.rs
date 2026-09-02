@@ -12,9 +12,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::HandleClaim;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    AccountId, ActorId, Audience, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile,
-    EventId, Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result,
-    SchemaId, SealBasis, ServiceOperationId, WireError, proof_kind,
+    AccountId, ActorId, AuditReasonText, BlobRef, DidCoreId, DidUrl, EncryptionProfile, EventId,
+    Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId, RealmId, Result, SchemaId,
+    SealBasis, ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_principal_id: Option<DidCoreId>,
+    pub organization_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -93,7 +93,7 @@ pub struct RealmPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_principal_id: Option<DidCoreId>,
+    pub organization_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub join_rule: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -305,6 +305,23 @@ pub enum TargetKind {
     Message,
 }
 
+/// Closed detached-JWS proof leaf used by Directory requester operations.
+/// The target Directory is a single canonical `did_core_id`, so the wire name
+/// is the identifier-bearing `audience_id`, not the generic proof vocabulary's
+/// scalar-or-array `audience` member.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DirectoryRequestProof {
+    pub kind: String,
+    pub verification_method: DidUrl,
+    pub payload_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub audience_id: DidCoreId,
+    pub jws: String,
+}
+
 /// R3.3 (AKP-0011) — request body for `ak.find.directory.read.resolve_target.v1`.
 ///
 /// `address` is a client-agnostic shareable object address in either the
@@ -327,7 +344,7 @@ pub struct DirectoryResolveTargetRequestBody {
     )]
     pub claim_presentations: Vec<DirectoryRestrictedClaimPresentation>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
+    pub proofs: Vec<DirectoryRequestProof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
 }
@@ -341,7 +358,7 @@ impl DirectoryResolveTargetRequestBody {
         directory_payload_digest(&self.unsigned_payload()?)
     }
 
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_TARGET_V1,
@@ -410,7 +427,7 @@ pub struct DirectoryOrganizationSearchOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationPreview {
-    pub organization_principal_id: DidCoreId,
+    pub organization_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -445,11 +462,11 @@ pub struct OrganizationPreview {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryResolveOrganizationRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_principal_id: Option<DidCoreId>,
+    pub organization_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
+    pub proofs: Vec<DirectoryRequestProof>,
 }
 
 impl DirectoryResolveOrganizationRequestBody {
@@ -465,7 +482,7 @@ impl DirectoryResolveOrganizationRequestBody {
     /// `issuer` and the signer identity is borne only by `verification_method`.
     /// Its resolution target is already fully covered by `payload_digest`, so no
     /// extra target member is added (`discovery-directory.md` §9.0.1).
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_ORGANIZATION_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_ORGANIZATION_V1,
@@ -495,7 +512,7 @@ pub struct DirectorySearchActorsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_principal_id: Option<DidCoreId>,
+    pub organization_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -521,7 +538,7 @@ pub struct ActorPreview {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_principal_id: Option<DidCoreId>,
+    pub organization_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -642,7 +659,7 @@ pub struct DirectoryResolveHandleRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
+    pub proofs: Vec<DirectoryRequestProof>,
 }
 
 impl DirectoryResolveHandleRequestBody {
@@ -654,7 +671,7 @@ impl DirectoryResolveHandleRequestBody {
         directory_payload_digest(&self.unsigned_payload()?)
     }
 
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_HANDLE_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_HANDLE_V1,
@@ -682,7 +699,7 @@ pub struct DirectoryResolveAgentSelectorRequestBody {
     pub realm_id: Option<RealmId>,
     pub requester_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
+    pub proofs: Vec<DirectoryRequestProof>,
 }
 
 impl DirectoryResolveAgentSelectorRequestBody {
@@ -694,7 +711,7 @@ impl DirectoryResolveAgentSelectorRequestBody {
         directory_payload_digest(&self.unsigned_payload()?)
     }
 
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_RESOLVE_AGENT_SELECTOR_V1,
@@ -776,7 +793,7 @@ pub struct DirectoryListHandlesForSubjectRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
+    pub proofs: Vec<DirectoryRequestProof>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -796,7 +813,7 @@ impl DirectoryListHandlesForSubjectRequestBody {
         directory_payload_digest(&self.unsigned_payload()?)
     }
 
-    pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+    pub fn proof_binding_bytes(&self, proof: &DirectoryRequestProof) -> Result<Vec<u8>> {
         directory_proof_binding_bytes(
             ProofContextId::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1,
             ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
@@ -842,7 +859,7 @@ fn directory_required_issuer(requester: Option<&DidCoreId>) -> Result<Value> {
 /// (`discovery-directory.md` §9.0.1).
 ///
 /// `context` is the request family's own registered context, so a signature
-/// valid for one family can never be accepted by another. `audience` is
+/// valid for one family can never be accepted by another. `audience_id` is
 /// mandatory and MUST be the target Directory `service_id` published by
 /// `ak.find.directory.read.describe.v1`, in single-valued `did_core_id` form;
 /// `domain` and `proof_purpose` MUST be absent — `governance_authorization`
@@ -853,17 +870,16 @@ fn directory_proof_binding_bytes(
     issuer: Option<Value>,
     targets: Vec<(&'static str, Value)>,
     payload_digest: &Hash,
-    proof: &PayloadProof,
+    proof: &DirectoryRequestProof,
 ) -> Result<Vec<u8>> {
-    proof.validate_production()?;
-    if proof.proof_purpose.is_some() {
+    if proof.kind != proof_kind::DETACHED_JWS {
         return Err(WireError::Protocol(
-            "directory requester proof must not carry proof_purpose".to_owned(),
+            "directory requester proof kind must be detached_jws".to_owned(),
         ));
     }
-    if proof.domain.is_some() {
+    if proof.jws.is_empty() {
         return Err(WireError::Protocol(
-            "directory requester proof must not carry domain".to_owned(),
+            "directory requester proof jws must not be empty".to_owned(),
         ));
     }
     if &proof.payload_digest != payload_digest {
@@ -871,27 +887,6 @@ fn directory_proof_binding_bytes(
             "directory requester proof payload_digest mismatch".to_owned(),
         ));
     }
-    let audience = proof.audience.as_ref().ok_or_else(|| {
-        WireError::Protocol("directory requester proof requires audience".to_owned())
-    })?;
-    let Audience::Single(audience_value) = audience else {
-        return Err(WireError::Protocol(
-            "directory requester proof audience must be the single target Directory service DID"
-                .to_owned(),
-        ));
-    };
-    // Section 9.0.1 pins the target Directory service DID to the `service_id`
-    // published by `ak.find.directory.read.describe.v1`, which is a `did_core_id`.
-    // The full `did:<method>:<msi>` form is not an accepted alternative: it
-    // would produce different signed bytes and the mismatch is swallowed by the
-    // section 9.2 indistinguishable rejection, so it fails closed here instead.
-    DidCoreId::new(audience_value.as_str()).map_err(|_| {
-        WireError::Protocol(
-            "directory requester proof audience must be the target Directory service_id in \
-             did_core_id form"
-                .to_owned(),
-        )
-    })?;
     let mut binding = serde_json::Map::new();
     binding.insert("context".to_owned(), Value::String(context.to_owned()));
     binding.insert(
@@ -918,7 +913,10 @@ fn directory_proof_binding_bytes(
             proof.created_at,
         )),
     );
-    binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+    binding.insert(
+        "audience_id".to_owned(),
+        serde_json::to_value(&proof.audience_id)?,
+    );
     Ok(arkret_canonical::canonical::canonical_json_bytes(
         &Value::Object(binding),
     )?)
@@ -946,7 +944,7 @@ pub struct DirectoryPushRegisterResourceFilter {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DirectoryPushRegisterRequestBody {
-    pub subscriber_principal_id: DidCoreId,
+    pub subscriber_id: DidCoreId,
     pub resource_filter: DirectoryPushRegisterResourceFilter,
     pub webhook_url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1010,7 +1008,7 @@ pub enum DirectoryGovernanceProofPurpose {
 /// directory withdrawal). Mirrors
 /// `service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof`: the
 /// generic non-Event detached-JWS proof leaf with the family's three choices
-/// closed — `proof_purpose` MUST be `governance_authorization`, `audience`
+/// closed — `proof_purpose` MUST be `governance_authorization`, `audience_id`
 /// MUST be the target Directory `service_id` as a single `did_core_id`, and
 /// `domain` MUST be absent. `deny_unknown_fields` rejects any undeclared
 /// member outright; the remaining semantic checks run in
@@ -1028,7 +1026,7 @@ pub struct DirectoryGovernanceProof {
     pub proof_purpose: DirectoryGovernanceProofPurpose,
     /// Target Directory `service_id` in `did_core_id` form. Typed `DidCoreId`
     /// so the DID, DID-URL and array shapes fail closed at
-    /// deserialization (§8.7.1 audience shape paragraph).
+    /// deserialization (§8.7.1 audience_id shape paragraph).
     pub audience_id: DidCoreId,
     pub jws: String,
 }
@@ -1396,10 +1394,11 @@ mod agent_selector_outcome_tests {
 
 #[cfg(test)]
 mod directory_requester_proof_binding_tests {
-    use arkret_wire::{Audience, DidCoreId, DidUrl, Hash, PayloadProof};
+    use arkret_wire::{DidCoreId, DidUrl, Hash};
     use chrono::Utc;
+    use serde_json::json;
 
-    use super::DirectoryResolveTargetRequestBody;
+    use super::{DirectoryRequestProof, DirectoryResolveTargetRequestBody};
 
     fn body() -> DirectoryResolveTargetRequestBody {
         DirectoryResolveTargetRequestBody {
@@ -1412,50 +1411,42 @@ mod directory_requester_proof_binding_tests {
         }
     }
 
-    fn proof(audience: Audience, payload_digest: Hash) -> PayloadProof {
-        PayloadProof {
+    fn proof(audience_id: &str, payload_digest: Hash) -> DirectoryRequestProof {
+        DirectoryRequestProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:web:alice.example#key-1").unwrap(),
             payload_digest,
             created_at: Utc::now(),
-            domain: None,
-            audience: Some(audience),
-            proof_purpose: None,
+            audience_id: DidCoreId::new(audience_id).unwrap(),
             jws: "aaa.bbb.ccc".to_owned(),
         }
     }
 
-    /// `discovery-directory.md` §9.0.1 pins the binding `audience` to the target
+    /// `discovery-directory.md` §9.0.1 pins the binding `audience_id` to the target
     /// Directory `service_id` published by `ak.find.directory.read.describe.v1`,
     /// which is a `did_core_id`. A full `did:<method>:<msi>` audience is not an
     /// accepted alternative shape: it would only surface as a signature
     /// mismatch that §9.2 collapses into an indistinguishable rejection, so the
     /// binding helper refuses to produce transcript bytes for it.
     #[test]
-    fn audience_must_be_the_directory_service_id_in_core_form() {
+    fn audience_id_is_the_only_closed_directory_service_identifier_shape() {
         let body = body();
         let digest = body.payload_digest().unwrap();
 
-        let core = proof(
-            Audience::Single("ak:did_core:web:directory.example".to_owned()),
-            digest.clone(),
-        );
+        let core = proof("ak:did_core:web:directory.example", digest.clone());
         body.proof_binding_bytes(&core)
-            .expect("a did_core_id audience is the pinned form");
+            .expect("a did_core_id audience_id is the pinned form");
 
-        let full = proof(
-            Audience::Single("did:web:directory.example".to_owned()),
-            digest.clone(),
-        );
-        body.proof_binding_bytes(&full)
-            .expect_err("the DID form MUST NOT be accepted as a second shape");
-
-        let multiple = proof(
-            Audience::Multiple(vec!["ak:did_core:web:directory.example".to_owned()]),
-            digest,
-        );
-        body.proof_binding_bytes(&multiple)
-            .expect_err("audience MUST be single valued");
+        let legacy = json!({
+            "kind": "detached_jws",
+            "verification_method": "did:web:alice.example#key-1",
+            "payload_digest": digest,
+            "created_at": "2026-09-02T00:00:00.000Z",
+            "audience": "ak:did_core:web:directory.example",
+            "jws": "aaa.bbb.ccc"
+        });
+        serde_json::from_value::<DirectoryRequestProof>(legacy)
+            .expect_err("bare audience is not a compatibility alias");
     }
 }
 

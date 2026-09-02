@@ -370,7 +370,8 @@ pub use arkret_wire::plaintext::PlaintextDataClassKind;
 pub use arkret_wire::primitives::*;
 pub use arkret_wire::problem_details::*;
 pub use arkret_wire::receive_policy::{
-    InviteReceiveAction, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
+    EffectiveNewSourceQuota, InviteReceiveAction, NewSourceQuotaConstraints,
+    NewSourceQuotaOverride, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use arkret_wire::seal::{
     MultiSigKind, MultiSignature, NotarySig, Seal, SealKind, SealSignature, compute_seal_id,
