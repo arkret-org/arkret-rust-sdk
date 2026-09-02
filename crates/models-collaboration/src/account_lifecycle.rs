@@ -435,15 +435,7 @@ impl AccountStatusRecord {
     }
 
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("AccountStatusRecord serializes as an object")
-            .remove("account_status_record_id");
-        value
-            .as_object_mut()
-            .expect("AccountStatusRecord serializes as an object")
-            .remove("proof");
+        let value = canonical::unsigned_value(self, &["account_status_record_id", "proof"])?;
         Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
     }
 
@@ -652,11 +644,7 @@ impl UnsignedAccountStatusReceipt {
 
 impl AccountStatusReceipt {
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("AccountStatusReceipt serializes as an object")
-            .remove("proof");
+        let value = canonical::unsigned_value(self, &["proof"])?;
         Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
     }
 

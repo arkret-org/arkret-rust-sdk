@@ -95,10 +95,7 @@ impl MemberIdentity {
     /// `proof` field excluded. The signature in `proof` MUST cover the
     /// same canonical bytes.
     pub fn canonical_payload_bytes(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        if let Some(obj) = value.as_object_mut() {
-            obj.remove("proof");
-        }
+        let value = canonical::unsigned_value(self, &["proof"])?;
         Ok(canonical::canonical_json_value_bytes(&value)?)
     }
 }

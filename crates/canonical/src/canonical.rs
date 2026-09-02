@@ -288,6 +288,31 @@ pub fn canonical_json_string<T: Serialize>(value: &T) -> Result<String> {
         .map_err(|err| Error::Protocol(format!("canonical JSON produced invalid UTF-8: {err}")))
 }
 
+/// Serialize `value` and drop the named top-level members.
+///
+/// Every detached-proof family signs its object with the proof member absent,
+/// so producer and verifier must strip exactly the same members before they
+/// canonicalize. Routing all of them through one primitive keeps "which member
+/// carries the signature" a single greppable list per type instead of an
+/// open-coded `as_object_mut` chain repeated at each call site, and turns the
+/// "payload is not an object" case into an error rather than a panic.
+///
+/// Members that are absent are ignored: `skip_serializing_if` families legally
+/// omit an empty proof array, and an unsigned draft has no proof member at all.
+/// Callers that require the member to be present must check that themselves,
+/// because "this object was never signed" is a family-specific protocol fault
+/// with a family-specific reason string.
+pub fn unsigned_value<T: Serialize + ?Sized>(value: &T, drop_members: &[&str]) -> Result<Value> {
+    let mut unsigned = serde_json::to_value(value)?;
+    let object = unsigned.as_object_mut().ok_or_else(|| {
+        Error::Protocol("a signed payload must serialize as a JSON object".to_owned())
+    })?;
+    for member in drop_members {
+        object.remove(*member);
+    }
+    Ok(unsigned)
+}
+
 /// Returns `true` if `s` is already in Unicode NFC (Normalization Form C).
 ///
 /// `encoding.md` §2.1: every wire string MUST be NFC *before* it is written to
@@ -1077,6 +1102,38 @@ mod tests {
             sha256_digest(actual.as_bytes()),
             "sha256:43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
         );
+    }
+
+    #[test]
+    fn unsigned_value_drops_only_the_named_members() {
+        let signed = json!({
+            "actor_id": "ak:did_core:web:alice.example",
+            "proof": { "jws": "..." },
+            "proofs": [{ "jws": "..." }],
+            "seq": 7,
+        });
+
+        let unsigned = unsigned_value(&signed, &["proof", "proofs"]).unwrap();
+        assert_eq!(
+            unsigned,
+            json!({ "actor_id": "ak:did_core:web:alice.example", "seq": 7 })
+        );
+
+        // An absent member is not an error: an unsigned draft and a family that
+        // omits an empty proof array both reach the same signing input as the
+        // signed object with its proof stripped.
+        assert_eq!(
+            unsigned_value(&unsigned, &["proof", "proofs"]).unwrap(),
+            unsigned
+        );
+    }
+
+    #[test]
+    fn unsigned_value_rejects_a_non_object_payload() {
+        assert!(matches!(
+            unsigned_value(&json!([1, 2, 3]), &["proof"]),
+            Err(Error::Protocol(_))
+        ));
     }
 
     #[test]

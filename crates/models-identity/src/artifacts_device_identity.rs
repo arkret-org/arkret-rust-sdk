@@ -46,11 +46,7 @@ impl IdentityReceipt {
     pub const SCHEMA: &'static str = SchemaId::IDENTITY_RECEIPT_V1;
     /// `sha256(canonical_json(receipt with signature omitted))`.
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("IdentityReceipt serializes to an object")
-            .remove("signature");
+        let value = canonical::unsigned_value(self, &["signature"])?;
         let bytes = canonical::canonical_json_value_bytes(&value)?;
         Ok(Hash::new(canonical::sha256_digest(&bytes))?)
     }
@@ -179,11 +175,7 @@ impl DidWebvhWitnessReceipt {
         ProofContextId::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1;
 
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("DidWebvhWitnessReceipt serializes to an object")
-            .remove("signature");
+        let value = canonical::unsigned_value(self, &["signature"])?;
         Ok(Hash::new(canonical::sha256_digest(
             canonical::canonical_json_value_bytes(&value)?,
         ))?)

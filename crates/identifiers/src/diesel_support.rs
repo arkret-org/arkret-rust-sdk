@@ -1,5 +1,15 @@
-//! Optional PostgreSQL `text` persistence for identifier newtypes whose
-//! canonical database representation is text.
+//! Optional PostgreSQL persistence shared by every crate that binds a
+//! validated Arkret newtype to a Postgres column.
+//!
+//! Diesel's `ToSql` / `FromSql` impls must live in the crate that owns the
+//! type, so the identifier impls here and the `arkret-wire` impls for
+//! `AccountId` / `ActorId` / `OpaqueLocalId` cannot be collapsed into a single
+//! module — the orphan rule forbids it. What *is* shared is the boilerplate,
+//! and it lives here: [`diesel_foreign_sql_proxy!`](crate::diesel_foreign_sql_proxy)
+//! and [`impl_text_identifier_sql!`](crate::impl_text_identifier_sql) are
+//! exported at the crate root and generate it for both crates, so the
+//! `foreign_derive` proxy pattern — and its unavoidable dead-code exemption —
+//! is written exactly once.
 
 use std::error::Error;
 use std::fmt;
@@ -11,17 +21,67 @@ use diesel::sql_types::Text;
 
 use super::{CellRef, DidCoreId, Hash, WebOrigin};
 
-#[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
-#[diesel(foreign_derive)]
-#[diesel(sql_type = Text)]
-#[allow(dead_code)]
-struct CellRefDieselProxy(CellRef);
+/// Emit diesel's `AsExpression` / `FromSqlRow` impls for a type whose
+/// definition cannot carry the derives directly.
+///
+/// Identifier kinds produced by `declare_special_form_id_kinds!` share one
+/// generated definition, so attaching `#[diesel(sql_type = ...)]` there would
+/// silently give a Postgres mapping to every kind in the group. Diesel's
+/// `foreign_derive` escape hatch instead reads the field type off a local proxy
+/// struct that is never constructed — hence the dead-code exemption, which
+/// belongs here once rather than at each call site.
+#[macro_export]
+macro_rules! diesel_foreign_sql_proxy {
+    ($proxy:ident, $identifier:ty, $sql_type:ty) => {
+        #[derive(::diesel::expression::AsExpression, ::diesel::deserialize::FromSqlRow)]
+        #[diesel(foreign_derive)]
+        #[diesel(sql_type = $sql_type)]
+        #[allow(dead_code)]
+        struct $proxy($identifier);
+    };
+}
 
-#[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
-#[diesel(foreign_derive)]
-#[diesel(sql_type = Text)]
-#[allow(dead_code)]
-struct HashDieselProxy(Hash);
+/// Bind a validated text-backed newtype to a PostgreSQL `text` column.
+///
+/// Writes emit the already canonical string; reads pass back through the
+/// type's own `new` constructor, so a malformed stored value is rejected by the
+/// same authority that validates the wire form. The rejection carries only the
+/// type name: echoing the offending column contents into an error string would
+/// leak database rows into logs.
+///
+/// This emits only the `ToSql` / `FromSql` pair. A type whose own definition
+/// cannot carry `AsExpression` / `FromSqlRow` needs
+/// [`diesel_foreign_sql_proxy!`](crate::diesel_foreign_sql_proxy) alongside it.
+#[macro_export]
+macro_rules! impl_text_identifier_sql {
+    ($identifier:ty, $kind:literal) => {
+        impl ::diesel::serialize::ToSql<::diesel::sql_types::Text, ::diesel::pg::Pg>
+            for $identifier
+        {
+            fn to_sql<'b>(
+                &'b self,
+                out: &mut ::diesel::serialize::Output<'b, '_, ::diesel::pg::Pg>,
+            ) -> ::diesel::serialize::Result {
+                <str as ::diesel::serialize::ToSql<
+                                                            ::diesel::sql_types::Text,
+                                                            ::diesel::pg::Pg,
+                                                        >>::to_sql(self.as_str(), out)
+            }
+        }
+
+        impl ::diesel::deserialize::FromSql<::diesel::sql_types::Text, ::diesel::pg::Pg>
+            for $identifier
+        {
+            fn from_sql(value: ::diesel::pg::PgValue<'_>) -> ::diesel::deserialize::Result<Self> {
+                let value = <String as ::diesel::deserialize::FromSql<
+                    ::diesel::sql_types::Text,
+                    ::diesel::pg::Pg,
+                >>::from_sql(value)?;
+                $crate::__parse_text_identifier(value, <$identifier>::new, $kind)
+            }
+        }
+    };
+}
 
 impl ToSql<Text, Pg> for DidCoreId {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
@@ -51,7 +111,10 @@ impl fmt::Display for InvalidDatabaseIdentifier {
 
 impl Error for InvalidDatabaseIdentifier {}
 
-fn parse_text_identifier<T, E>(
+/// Macro support: re-exported at the crate root as `__parse_text_identifier`
+/// only so [`impl_text_identifier_sql!`](crate::impl_text_identifier_sql)
+/// expands in other crates. Not part of the stable surface.
+pub fn parse_text_identifier<T, E>(
     value: String,
     parse: impl FnOnce(String) -> Result<T, E>,
     kind: &'static str,
@@ -60,26 +123,15 @@ fn parse_text_identifier<T, E>(
         .map_err(|_| -> Box<dyn Error + Send + Sync> { Box::new(InvalidDatabaseIdentifier(kind)) })
 }
 
-macro_rules! impl_text_identifier_sql {
-    ($identifier:ty, $kind:literal) => {
-        impl ToSql<Text, Pg> for $identifier {
-            fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
-                <str as ToSql<Text, Pg>>::to_sql(self.as_str(), out)
-            }
-        }
+// `CellRef` and `Hash` come out of the shared special-form / id_type
+// definitions, so they take their diesel expression impls through a proxy.
+// `DidCoreId` and `WebOrigin` carry the derives on their own definitions.
+crate::diesel_foreign_sql_proxy!(CellRefDieselProxy, CellRef, ::diesel::sql_types::Text);
+crate::diesel_foreign_sql_proxy!(HashDieselProxy, Hash, ::diesel::sql_types::Text);
 
-        impl FromSql<Text, Pg> for $identifier {
-            fn from_sql(value: PgValue<'_>) -> deserialize::Result<Self> {
-                let value = <String as FromSql<Text, Pg>>::from_sql(value)?;
-                parse_text_identifier(value, <$identifier>::new, $kind)
-            }
-        }
-    };
-}
-
-impl_text_identifier_sql!(CellRef, "CellRef");
-impl_text_identifier_sql!(Hash, "Hash");
-impl_text_identifier_sql!(WebOrigin, "WebOrigin");
+crate::impl_text_identifier_sql!(CellRef, "CellRef");
+crate::impl_text_identifier_sql!(Hash, "Hash");
+crate::impl_text_identifier_sql!(WebOrigin, "WebOrigin");
 
 #[cfg(test)]
 mod tests {

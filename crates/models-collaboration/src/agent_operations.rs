@@ -259,11 +259,7 @@ pub struct AgentRequestedScopeDisclosure {
 impl AgentRequestedScopeDisclosure {
     pub const SCHEMA: SchemaId = SchemaId::AgentRequestedScopeDisclosureV1;
     pub fn canonical_bytes_without_proofs(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("AgentRequestedScopeDisclosure serializes as an object")
-            .remove("proofs");
+        let value = canonical::unsigned_value(self, &["proofs"])?;
         Ok(canonical::canonical_json_bytes(&value)?)
     }
 

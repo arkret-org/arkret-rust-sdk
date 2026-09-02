@@ -1625,23 +1625,13 @@ impl MimiUpdateConsentRequestBody {
 /// `proofs` member is removed outright — never set to `null` — and every
 /// optional field that is actually present is retained (`mimi-interop.md` §5.1).
 fn mimi_unsigned_body_without_proofs<T: Serialize>(body: &T) -> Result<Value> {
-    let mut value = serde_json::to_value(body)?;
-    mimi_body_object_mut(&mut value)?.remove("proofs");
-    Ok(value)
+    Ok(canonical::unsigned_value(body, &["proofs"])?)
 }
 
 /// Same rule for the two families whose detached proof is carried by a single
 /// top-level `signature` member.
 fn mimi_unsigned_body_without_signature<T: Serialize>(body: &T) -> Result<Value> {
-    let mut value = serde_json::to_value(body)?;
-    mimi_body_object_mut(&mut value)?.remove("signature");
-    Ok(value)
-}
-
-fn mimi_body_object_mut(value: &mut Value) -> Result<&mut serde_json::Map<String, Value>> {
-    value.as_object_mut().ok_or_else(|| {
-        WireError::Protocol("MIMI operation body must serialize as an object".to_owned())
-    })
+    Ok(canonical::unsigned_value(body, &["signature"])?)
 }
 
 fn mimi_payload_digest(unsigned_body: &Value) -> Result<Hash> {
@@ -1684,30 +1674,15 @@ fn mimi_proof_binding_bytes(
         .audience
         .as_ref()
         .ok_or_else(|| WireError::Protocol("MIMI operation proof requires audience".to_owned()))?;
-    let mut binding = serde_json::Map::new();
-    binding.insert("context".to_owned(), Value::String(context.to_owned()));
-    binding.insert(
-        "payload_digest".to_owned(),
-        serde_json::to_value(payload_digest)?,
-    );
-    if let Some(issuer) = issuer {
-        binding.insert("issuer".to_owned(), issuer);
-    }
-    binding.insert(
-        "operation_id".to_owned(),
-        Value::String(operation_id.to_owned()),
-    );
-    for (name, value) in targets {
-        binding.insert(name.to_owned(), value);
-    }
-    binding.insert(
-        "verification_method".to_owned(),
-        serde_json::to_value(&proof.verification_method)?,
-    );
-    binding.insert(
-        "created_at".to_owned(),
-        Value::String(canonical::format_timestamp_canonical(proof.created_at)),
-    );
+    let mut binding = arkret_wire::service_operation_proof_binding_prefix(
+        context,
+        operation_id,
+        issuer,
+        targets,
+        payload_digest,
+        &proof.verification_method,
+        proof.created_at,
+    )?;
     binding.insert("domain".to_owned(), Value::String(domain.clone()));
     binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
     canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)

@@ -1307,11 +1307,7 @@ impl AccountRegistrationControlProof {
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
         self.validate_shape()?;
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("proof serializes as object")
-            .remove("signature");
+        let value = canonical::unsigned_value(self, &["signature"])?;
         let mut bytes = ACCOUNT_REGISTRATION_CONTROL_PROOF_DOMAIN
             .as_bytes()
             .to_vec();

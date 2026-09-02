@@ -14,7 +14,9 @@ version.workspace = true
 [features]
 default = []
 # PostgreSQL persistence for validated identifiers and structured identities.
-diesel = ["dep:diesel"]
+# Forwards to arkret-identifiers so the shared boilerplate macros and the
+# identifier column mappings they generate are always compiled together.
+diesel = ["dep:diesel", "arkret-identifiers/diesel"]
 # Raw Event fixture constructors for tests and dedicated conformance crates.
 # Production consumers must author standard Events through arkret-event-draft.
 test-support = []

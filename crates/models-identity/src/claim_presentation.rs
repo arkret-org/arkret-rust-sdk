@@ -105,11 +105,7 @@ pub struct AgentSelectorClaim {
 impl AgentSelectorClaim {
     /// Canonical claim bytes covered by selector payload proofs.
     pub fn canonical_payload_without_proofs(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("AgentSelectorClaim serializes as an object")
-            .remove("proofs");
+        let value = canonical::unsigned_value(self, &["proofs"])?;
         Ok(canonical::canonical_json_value_bytes(&value)?)
     }
 

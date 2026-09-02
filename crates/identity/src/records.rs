@@ -112,11 +112,7 @@ impl DidRegistryReceipt {
 
     /// `canonical_digest(receipt without signature)`.
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("DidRegistryReceipt serializes to an object")
-            .remove("signature");
+        let value = arkret_canonical::canonical::unsigned_value(self, &["signature"])?;
         let bytes = arkret_canonical::canonical::canonical_json_bytes(&value)?;
         Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
             &bytes,

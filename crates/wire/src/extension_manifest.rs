@@ -333,11 +333,7 @@ impl ExtensionManifest {
     /// (`extension-manifest.md` §1). The digest never recursively contains
     /// itself or the proofs that cover it.
     pub fn expected_manifest_digest(&self) -> Result<Hash> {
-        let mut json = serde_json::to_value(self)?;
-        if let Value::Object(map) = &mut json {
-            map.remove("manifest_digest");
-            map.remove("proofs");
-        }
+        let json = crate::canonical::unsigned_value(self, &["manifest_digest", "proofs"])?;
         Ok(Hash::new(crate::canonical::canonical_sha256(&json)?)?)
     }
 

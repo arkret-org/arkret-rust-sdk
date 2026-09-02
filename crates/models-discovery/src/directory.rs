@@ -829,14 +829,10 @@ impl DirectoryListHandlesForSubjectRequestBody {
 /// removed outright — never set to `null` — and every optional field that is
 /// actually present is retained (`discovery-directory.md` §9.0.1).
 fn directory_unsigned_request<T: Serialize>(request: &T) -> Result<Value> {
-    let mut value = serde_json::to_value(request)?;
-    value
-        .as_object_mut()
-        .ok_or_else(|| {
-            WireError::Protocol("directory request body must serialize as an object".to_owned())
-        })?
-        .remove("proofs");
-    Ok(value)
+    Ok(arkret_canonical::canonical::unsigned_value(
+        request,
+        &["proofs"],
+    )?)
 }
 
 fn directory_payload_digest(unsigned_request: &Value) -> Result<Hash> {
@@ -887,32 +883,15 @@ fn directory_proof_binding_bytes(
             "directory requester proof payload_digest mismatch".to_owned(),
         ));
     }
-    let mut binding = serde_json::Map::new();
-    binding.insert("context".to_owned(), Value::String(context.to_owned()));
-    binding.insert(
-        "payload_digest".to_owned(),
-        serde_json::to_value(payload_digest)?,
-    );
-    if let Some(issuer) = issuer {
-        binding.insert("issuer".to_owned(), issuer);
-    }
-    binding.insert(
-        "operation_id".to_owned(),
-        Value::String(operation_id.to_owned()),
-    );
-    for (name, value) in targets {
-        binding.insert(name.to_owned(), value);
-    }
-    binding.insert(
-        "verification_method".to_owned(),
-        serde_json::to_value(&proof.verification_method)?,
-    );
-    binding.insert(
-        "created_at".to_owned(),
-        Value::String(arkret_canonical::canonical::format_timestamp_canonical(
-            proof.created_at,
-        )),
-    );
+    let mut binding = arkret_wire::service_operation_proof_binding_prefix(
+        context,
+        operation_id,
+        issuer,
+        targets,
+        payload_digest,
+        &proof.verification_method,
+        proof.created_at,
+    )?;
     binding.insert(
         "audience_id".to_owned(),
         serde_json::to_value(&proof.audience_id)?,
@@ -1114,16 +1093,10 @@ impl DirectoryGovernanceProof {
 /// field that is actually present is retained (`discovery-directory.md`
 /// §8.7.1).
 fn directory_governance_unsigned_request<T: Serialize>(request: &T) -> Result<Value> {
-    let mut value = serde_json::to_value(request)?;
-    value
-        .as_object_mut()
-        .ok_or_else(|| {
-            WireError::Protocol(
-                "directory governance request body must serialize as an object".to_owned(),
-            )
-        })?
-        .remove("governance_proof");
-    Ok(value)
+    Ok(arkret_canonical::canonical::unsigned_value(
+        request,
+        &["governance_proof"],
+    )?)
 }
 
 /// `ak.find.directory.command.withdraw.v1` request. Mirrors

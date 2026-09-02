@@ -1,7 +1,12 @@
-//! Optional PostgreSQL persistence for validated identifiers and identities.
+//! Optional PostgreSQL persistence for the structured identities this crate
+//! owns.
+//!
+//! Diesel's `ToSql` / `FromSql` impls must be written in the crate that defines
+//! the type, so these cannot move into `arkret-identifiers` alongside the
+//! identifier mappings. The boilerplate is shared instead: the proxy and
+//! text-column macros come from `arkret_identifiers`, which is why
+//! `OpaqueLocalId` needs no hand-written impls here.
 
-use std::error::Error;
-use std::fmt;
 use std::io::Write;
 
 use diesel::deserialize::{self, FromSql};
@@ -11,17 +16,16 @@ use diesel::sql_types::{Jsonb, Text};
 
 use crate::{AccountId, ActorId, OpaqueLocalId};
 
-#[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
-#[diesel(foreign_derive)]
-#[diesel(sql_type = Text)]
-#[allow(dead_code)]
-struct AccountIdDieselProxy(AccountId);
-
-#[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
-#[diesel(foreign_derive)]
-#[diesel(sql_type = Jsonb)]
-#[allow(dead_code)]
-struct ActorIdDieselProxy(ActorId);
+arkret_identifiers::diesel_foreign_sql_proxy!(
+    AccountIdDieselProxy,
+    AccountId,
+    ::diesel::sql_types::Text
+);
+arkret_identifiers::diesel_foreign_sql_proxy!(
+    ActorIdDieselProxy,
+    ActorId,
+    ::diesel::sql_types::Jsonb
+);
 
 impl ToSql<Text, Pg> for AccountId {
     fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
@@ -59,36 +63,12 @@ fn parse_actor_json(value: serde_json::Value) -> deserialize::Result<ActorId> {
     serde_json::from_value(value).map_err(|_| "database JSONB is not a valid ActorId".into())
 }
 
-#[derive(diesel::expression::AsExpression, diesel::deserialize::FromSqlRow)]
-#[diesel(foreign_derive)]
-#[diesel(sql_type = Text)]
-#[allow(dead_code)]
-struct OpaqueLocalIdDieselProxy(OpaqueLocalId);
-
-impl ToSql<Text, Pg> for OpaqueLocalId {
-    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
-        <str as ToSql<Text, Pg>>::to_sql(self.as_str(), out)
-    }
-}
-
-impl FromSql<Text, Pg> for OpaqueLocalId {
-    fn from_sql(value: PgValue<'_>) -> deserialize::Result<Self> {
-        let value = <String as FromSql<Text, Pg>>::from_sql(value)?;
-        OpaqueLocalId::new(value)
-            .map_err(|_| -> Box<dyn Error + Send + Sync> { Box::new(InvalidDatabaseOpaqueLocalId) })
-    }
-}
-
-#[derive(Debug)]
-struct InvalidDatabaseOpaqueLocalId;
-
-impl fmt::Display for InvalidDatabaseOpaqueLocalId {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str("database text is not a valid OpaqueLocalId")
-    }
-}
-
-impl Error for InvalidDatabaseOpaqueLocalId {}
+arkret_identifiers::diesel_foreign_sql_proxy!(
+    OpaqueLocalIdDieselProxy,
+    OpaqueLocalId,
+    ::diesel::sql_types::Text
+);
+arkret_identifiers::impl_text_identifier_sql!(OpaqueLocalId, "OpaqueLocalId");
 
 #[cfg(test)]
 mod tests {

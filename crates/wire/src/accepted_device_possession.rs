@@ -247,11 +247,7 @@ impl AcceptedDevicePossessionProof {
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("accepted-device proof serializes as an object")
-            .remove("signature");
+        let value = canonical::unsigned_value(self, &["signature"])?;
         accepted_device_possession_signing_bytes(&value)
     }
 

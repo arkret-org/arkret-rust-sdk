@@ -256,11 +256,7 @@ impl PrincipalLocator {
     pub const SCHEMA: &'static str = SchemaId::PRINCIPAL_LOCATOR_V1;
 
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut unsigned = serde_json::to_value(self)?;
-        unsigned
-            .as_object_mut()
-            .expect("locator is an object")
-            .remove("proofs");
+        let unsigned = arkret_canonical::unsigned_value(self, &["proofs"])?;
         Hash::new(arkret_canonical::canonical_sha256(&unsigned)?).map_err(Into::into)
     }
 

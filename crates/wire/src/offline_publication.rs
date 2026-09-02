@@ -308,10 +308,7 @@ pub struct IngressReceipt {
 }
 
 fn digest_without_proofs<T: Serialize>(value: &T) -> Result<Hash> {
-    let mut json = serde_json::to_value(value)?;
-    if let Value::Object(map) = &mut json {
-        map.remove("proofs");
-    }
+    let json = canonical::unsigned_value(value, &["proofs"])?;
     Ok(Hash::new(canonical::canonical_sha256(&json)?)?)
 }
 

@@ -150,11 +150,7 @@ impl EventBatchReceipt {
     }
 
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("EventBatchReceipt serializes as an object")
-            .remove("proofs");
+        let value = canonical::unsigned_value(self, &["proofs"])?;
         Ok(Hash::new(canonical::canonical_sha256(&value)?)?)
     }
 

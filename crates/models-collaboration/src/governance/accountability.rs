@@ -146,11 +146,7 @@ impl AccountabilityGrantPayload {
     }
 
     pub fn canonical_payload_without_proof(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("AccountabilityGrantPayload serializes as an object")
-            .remove("proof");
+        let value = canonical::unsigned_value(self, &["proof"])?;
         Ok(canonical::canonical_json_bytes(&value)?)
     }
 

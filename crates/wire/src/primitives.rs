@@ -1266,6 +1266,57 @@ impl UnsignedPayloadProof {
     }
 }
 
+/// Shared leading members of a service-operation requester-proof binding
+/// object.
+///
+/// `discovery-directory.md` §9.0.1 and `mimi-interop.md` §5.1 register the same
+/// opening sequence: the family's own `context`, the unsigned `payload_digest`,
+/// the originator `issuer` when the family's wire shape defines one, the
+/// `operation_id`, the family's verbatim target members in
+/// `proof-context-registry.json` `binding_fields` order, and then the signer's
+/// `verification_method` and `created_at`.
+///
+/// The two families diverge only in the trailer — MIMI appends `domain` plus
+/// `audience`, the Directory read surface appends `audience_id` — so this
+/// returns the partially built map for the caller to close out rather than the
+/// canonical bytes. Keeping the shared opening in one place stops the two
+/// registered orders from drifting apart in independent edits.
+pub fn service_operation_proof_binding_prefix(
+    context: &str,
+    operation_id: &str,
+    issuer: Option<Value>,
+    targets: Vec<(&'static str, Value)>,
+    payload_digest: &Hash,
+    verification_method: &DidUrl,
+    created_at: DateTime<Utc>,
+) -> Result<serde_json::Map<String, Value>> {
+    let mut binding = serde_json::Map::new();
+    binding.insert("context".to_owned(), Value::String(context.to_owned()));
+    binding.insert(
+        "payload_digest".to_owned(),
+        serde_json::to_value(payload_digest)?,
+    );
+    if let Some(issuer) = issuer {
+        binding.insert("issuer".to_owned(), issuer);
+    }
+    binding.insert(
+        "operation_id".to_owned(),
+        Value::String(operation_id.to_owned()),
+    );
+    for (name, value) in targets {
+        binding.insert(name.to_owned(), value);
+    }
+    binding.insert(
+        "verification_method".to_owned(),
+        serde_json::to_value(verification_method)?,
+    );
+    binding.insert(
+        "created_at".to_owned(),
+        Value::String(canonical::format_timestamp_canonical(created_at)),
+    );
+    Ok(binding)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

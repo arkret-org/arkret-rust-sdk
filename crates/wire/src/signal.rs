@@ -380,10 +380,7 @@ impl SignalEnvelope {
     /// Because `proof` is the only removal, the digest commits to the
     /// ciphertext and to `aad_digest` as well as to the header.
     pub fn envelope_digest(&self) -> Result<Hash> {
-        let mut json = serde_json::to_value(self)?;
-        if let Value::Object(map) = &mut json {
-            map.remove("proof");
-        }
+        let json = canonical::unsigned_value(self, &["proof"])?;
         Ok(Hash::new(canonical::canonical_sha256(&json)?)?)
     }
 

@@ -9,7 +9,6 @@ use std::collections::BTreeSet;
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::notary::NotaryValue;
@@ -426,10 +425,7 @@ fn digest_without_field<T: Serialize>(value: &T, field: &str) -> Result<Hash> {
 }
 
 fn canonical_bytes_without_field<T: Serialize>(value: &T, field: &str) -> Result<Vec<u8>> {
-    let mut json = serde_json::to_value(value)?;
-    if let Value::Object(map) = &mut json {
-        map.remove(field);
-    }
+    let json = canonical::unsigned_value(value, &[field])?;
     Ok(canonical::canonical_json_bytes(&json)?)
 }
 

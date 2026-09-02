@@ -242,11 +242,7 @@ pub struct AgentSessionGrantProof {
 
 impl AgentSessionGrantProof {
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("session grant proof serializes as an object")
-            .remove("signature");
+        let value = canonical::unsigned_value(self, &["signature"])?;
         session_grant_proof_signing_bytes(&value)
     }
 }
@@ -598,11 +594,7 @@ impl AgentSessionRefreshProof {
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("agent refresh proof serializes as an object")
-            .remove("signature");
+        let value = canonical::unsigned_value(self, &["signature"])?;
         canonical::canonical_json_bytes(&value).map_err(Into::into)
     }
 }

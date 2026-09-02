@@ -104,13 +104,7 @@ pub struct ErasureReceiptAcceptance {
 
 impl ErasureReceiptAcceptance {
     pub fn signing_input_bytes(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .ok_or_else(|| {
-                WireError::Protocol("erasure receipt acceptance must be an object".to_owned())
-            })?
-            .remove("proof");
+        let value = canonical::unsigned_value(self, &["proof"])?;
         let bytes = canonical::canonical_json_bytes(&value)?;
         let mut preimage =
             Vec::with_capacity(ERASURE_RECEIPT_ACCEPTANCE_DOMAIN.len() + bytes.len());
@@ -362,11 +356,7 @@ impl ErasureReceipt {
     /// excluded so proof payload digests cannot recursively depend on their
     /// own signatures.
     pub fn canonical_proof_input(&self) -> Result<Vec<u8>> {
-        let mut value = serde_json::to_value(self)?;
-        let object = value.as_object_mut().ok_or_else(|| {
-            WireError::Protocol("erasure receipt must serialize as an object".to_owned())
-        })?;
-        object.remove("proofs");
+        let value = canonical::unsigned_value(self, &["proofs"])?;
         Ok(canonical::canonical_json_bytes(&value)?)
     }
 

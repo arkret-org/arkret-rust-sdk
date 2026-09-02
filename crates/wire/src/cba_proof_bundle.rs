@@ -63,10 +63,7 @@ impl AvailabilityReceipt {
     }
 
     pub fn canonical_signature_payload_bytes(&self) -> Result<Vec<u8>> {
-        let mut json = serde_json::to_value(self)?;
-        if let Value::Object(map) = &mut json {
-            map.remove("signature");
-        }
+        let json = canonical::unsigned_value(self, &["signature"])?;
         canonical::canonical_json_bytes(&json).map_err(Into::into)
     }
 

@@ -319,11 +319,7 @@ impl OperationEnvelope {
     }
 
     pub fn digest_payload(&self) -> Result<Value> {
-        let mut value = serde_json::to_value(self)?;
-        if let Value::Object(map) = &mut value {
-            map.remove("proofs");
-        }
-        Ok(value)
+        Ok(canonical::unsigned_value(self, &["proofs"])?)
     }
 
     pub fn operation_digest(&self) -> Result<String> {

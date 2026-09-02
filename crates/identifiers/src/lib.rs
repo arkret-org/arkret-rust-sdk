@@ -842,6 +842,14 @@ impl<'de> Deserialize<'de> for WebOrigin {
 #[cfg(feature = "diesel")]
 mod diesel_support;
 
+/// Macro support for [`impl_text_identifier_sql!`]. The module itself stays
+/// private: `arkret-wire` glob-re-exports this crate and declares its own
+/// `diesel_support`, so a public module of that name would shadow the
+/// re-export.
+#[cfg(feature = "diesel")]
+#[doc(hidden)]
+pub use diesel_support::parse_text_identifier as __parse_text_identifier;
+
 impl DidCoreId {
     /// Borrow this already-normalized identity core.
     ///

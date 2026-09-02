@@ -596,11 +596,7 @@ impl DeviceRevocationGateDecisionReceipt {
             self.action_class,
             self.accepted_device_possession_proof_digest.as_ref(),
         )?;
-        let mut value = serde_json::to_value(self)?;
-        value
-            .as_object_mut()
-            .expect("device revocation receipt serializes as an object")
-            .remove("proof");
+        let value = canonical::unsigned_value(self, &["proof"])?;
         Ok(Hash::new(canonical::canonical_sha256(&value)?)?)
     }
 
