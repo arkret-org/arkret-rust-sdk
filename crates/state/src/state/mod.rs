@@ -15,17 +15,11 @@
 //! `arkret-rust-sdk/docs/move-anchor-runtime.md`. Wire / protocol rules
 //! live in `arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md`
 //! §5-§6.
-pub mod range_completeness;
 pub mod seal;
 pub mod state_root;
 pub mod store;
 pub mod verify;
 
-pub use range_completeness::{
-    RangeCompletenessError, VerifiedRangeCompleteness, full_realm_range_events,
-    full_realm_range_frontiers, range_completeness_actor_seq_ranges,
-    range_completeness_root_with_suite, verify_full_realm_range_completeness_with_suite,
-};
 pub use seal::{
     EffectiveSealView, EventDigestSetInclusionProof, ListedControlEvent, PreparedSealEffect,
     SealBasisVerificationContext, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,

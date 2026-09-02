@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-02.1;
-//! sha256=2a4d10051f9c097beda21013ba3a028ce0fe0eefcf9789c61cf926bd3dea4376 Entries: registered=233
+//! Input: registry/operation-registry.json; version=2026-09-02.3;
+//! sha256=f9433f7f19b65fdfee8521e6d4ba591e07d983f8cfd26da57efd59e5031b8a85 Entries: registered=233
 
 use serde::{Deserialize, Serialize};
 
@@ -3805,7 +3805,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryPostRequestBody",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/EventsQueryOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerEventsQueryOutcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

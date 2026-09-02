@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-02.6;
-//! sha256=2a6f69a9d8e7c29e270ad8f7ef6f511a916d4bdda304f0f829cf6641eed51daf
-//! Entries: operation_bundles=35 features=22
+//! Input: registry/contract-registry.json; version=2026-09-02.7;
+//! sha256=ffce4449733a989288f4255d08a51a4ba06a5be2af9eedabfff5ca42aa7b519b
+//! Entries: operation_bundles=35 features=21
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -1350,20 +1350,6 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         semantic_guarantees: &[
             "The deployment supports the explicitly relaxed E2EE policy branch defined by the normative encryption contract.",
         ],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
-        feature_id: "ak.feature.events_query_range_completeness.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/sync/service-http-binding.md#335-range-completeness-optional-feature",
-        service_kinds: &[],
-        required_operation_pairs: &[OperationBindingPair {
-            operation_id: ServiceOperationId::SelfEventsReadScanV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[],
         conflicts: &[],
     },
     FeatureDescriptor {

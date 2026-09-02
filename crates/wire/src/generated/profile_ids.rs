@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-01.1;
-//! sha256=c184e66c30f215f5c075813b2edec17d4dd84a2d8661d01c10bc4447d4c0c1d3 Entries: profile_ids=97
+//! Input: profiles/conformance-profiles.json; version=2026-09-02.2;
+//! sha256=0768f379dbbab742819095b56a31078b337142e7c214530cafdc7e79e991d8a3 Entries: profile_ids=96
 
 use serde::{Deserialize, Serialize};
 
@@ -49,7 +49,6 @@ pub enum ProfileId {
     EnterpriseClientV1,
     EphemeralPairwisePrincipalV1,
     FederationHighAssuranceV1,
-    FederationRbsrNegentropyV1,
     FederationMinimalV1,
     FileTransferV1,
     FrankingV1,
@@ -188,7 +187,6 @@ impl ProfileId {
         Self::EnterpriseClientV1,
         Self::EphemeralPairwisePrincipalV1,
         Self::FederationHighAssuranceV1,
-        Self::FederationRbsrNegentropyV1,
         Self::FederationMinimalV1,
         Self::FileTransferV1,
         Self::FrankingV1,
@@ -298,8 +296,6 @@ impl ProfileId {
         "ak.profile.ephemeral_pairwise_principal.v1";
     pub const FEDERATION_HIGH_ASSURANCE_V1: &'static str =
         "ak.profile.federation.high_assurance.v1";
-    pub const FEDERATION_RBSR_NEGENTROPY_V1: &'static str =
-        "ak.profile.federation.rbsr.negentropy.v1";
     pub const FEDERATION_MINIMAL_V1: &'static str = "ak.profile.federation_minimal.v1";
     pub const FILE_TRANSFER_V1: &'static str = "ak.profile.file_transfer.v1";
     pub const FRANKING_V1: &'static str = "ak.profile.franking.v1";
@@ -413,7 +409,6 @@ impl ProfileId {
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
             Self::EphemeralPairwisePrincipalV1 => Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1,
             Self::FederationHighAssuranceV1 => Self::FEDERATION_HIGH_ASSURANCE_V1,
-            Self::FederationRbsrNegentropyV1 => Self::FEDERATION_RBSR_NEGENTROPY_V1,
             Self::FederationMinimalV1 => Self::FEDERATION_MINIMAL_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
             Self::FrankingV1 => Self::FRANKING_V1,
@@ -517,7 +512,6 @@ impl ProfileId {
             Self::EnterpriseClientV1 => ProfileRole::Client,
             Self::EphemeralPairwisePrincipalV1 => ProfileRole::Admin,
             Self::FederationHighAssuranceV1 => ProfileRole::Server,
-            Self::FederationRbsrNegentropyV1 => ProfileRole::Server,
             Self::FederationMinimalV1 => ProfileRole::Server,
             Self::FileTransferV1 => ProfileRole::Client,
             Self::FrankingV1 => ProfileRole::Server,
@@ -628,7 +622,6 @@ impl ProfileId {
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
             Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1 => Some(Self::EphemeralPairwisePrincipalV1),
             Self::FEDERATION_HIGH_ASSURANCE_V1 => Some(Self::FederationHighAssuranceV1),
-            Self::FEDERATION_RBSR_NEGENTROPY_V1 => Some(Self::FederationRbsrNegentropyV1),
             Self::FEDERATION_MINIMAL_V1 => Some(Self::FederationMinimalV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
             Self::FRANKING_V1 => Some(Self::FrankingV1),

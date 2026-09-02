@@ -931,7 +931,7 @@ where
                 "frontier branch state_root is not signed by its target Seal",
             );
         }
-        verify_frontier_range_completeness(branch)?;
+        verify_frontier_span_coverage(branch)?;
         for entry in &branch.cells {
             verify_frontier_entry(
                 entry,
@@ -2624,7 +2624,7 @@ fn registered_frontier_family(family: &str) -> bool {
         .is_ok()
 }
 
-fn verify_frontier_range_completeness(
+fn verify_frontier_span_coverage(
     branch: &MlsGovernanceFrontierBranchProjection,
 ) -> arkret_wire::Result<()> {
     let mut coverage = BTreeMap::<&CellRef, usize>::new();

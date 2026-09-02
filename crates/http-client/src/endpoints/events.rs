@@ -23,9 +23,9 @@ use arkret_models_collaboration::governance_dependencies::{
 };
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome,
-    EventsQueryOutcome, EventsRangeCompleteness, EventsResolveOutcome, EventsResolveRequestBody,
-    EventsSubmitOutcome, EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList,
-    SealResolveOutcome, SelfSealResolveRequestBody,
+    EventsQueryOutcome, EventsResolveOutcome, EventsResolveRequestBody, EventsSubmitOutcome,
+    EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList, SealResolveOutcome,
+    SelfSealResolveRequestBody,
 };
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
@@ -649,7 +649,6 @@ impl Client {
         after: Option<&str>,
         order: Option<&str>,
         limit: Option<u32>,
-        include_completeness: Option<bool>,
     ) -> Result<EventsQueryOutcome> {
         let request = EventsQueryPostRequestBody {
             realm_ids: vec![RealmId::new(realm_id)?],
@@ -659,7 +658,6 @@ impl Client {
             order: order.map(ToOwned::to_owned),
             limit,
             filters: None,
-            include_completeness,
         };
         self.events_read(&request).await
     }
@@ -670,7 +668,6 @@ impl Client {
         self.events_read_all_pages_inner(
             vec![RealmId::new(realm_id)?],
             Vec::new(),
-            false,
             format!("realm {realm_id}"),
         )
         .await
@@ -689,27 +686,7 @@ impl Client {
         self.events_read_all_pages_inner(
             Vec::new(),
             vec![actor_id.clone()],
-            false,
             format!("actor {actor_id}"),
-        )
-        .await
-    }
-
-    /// Walk every page and request range-completeness evidence for each page.
-    ///
-    /// Inline attestations and references are unioned by id across pages. An
-    /// absent `range_completeness` response remains absence, rather than an
-    /// error, because feature negotiation decides whether the service supports
-    /// this optional query extension.
-    pub async fn events_read_all_pages_with_completeness(
-        &self,
-        realm_id: &str,
-    ) -> Result<EventsQueryOutcome> {
-        self.events_read_all_pages_inner(
-            vec![RealmId::new(realm_id)?],
-            Vec::new(),
-            true,
-            format!("realm {realm_id}"),
         )
         .await
     }
@@ -718,7 +695,6 @@ impl Client {
         &self,
         realms: Vec<RealmId>,
         actors: Vec<ActorId>,
-        include_completeness: bool,
         selector_label: String,
     ) -> Result<EventsQueryOutcome> {
         let mut combined = self
@@ -730,10 +706,8 @@ impl Client {
                 order: None,
                 limit: None,
                 filters: None,
-                include_completeness: include_completeness.then_some(true),
             })
             .await?;
-        let mut completeness = combined.range_completeness.take();
         let mut pages = 1usize;
         let mut last_cursor: Option<String> = None;
         while combined.has_more {
@@ -767,17 +741,14 @@ impl Client {
                     order: None,
                     limit: None,
                     filters: None,
-                    include_completeness: include_completeness.then_some(true),
                 })
                 .await?;
             combined.events.extend(page.events);
             combined.has_more = page.has_more;
             combined.prev_cursor = page.prev_cursor;
-            merge_range_completeness(&mut completeness, page.range_completeness)?;
             last_cursor = Some(previous);
             pages += 1;
         }
-        combined.range_completeness = completeness;
         Ok(combined)
     }
 
@@ -1039,47 +1010,6 @@ mod initial_submission_tests {
             "managed genesis must select an explicit controller receipt signer"
         );
     }
-}
-
-fn merge_range_completeness(
-    combined: &mut Option<EventsRangeCompleteness>,
-    page: Option<EventsRangeCompleteness>,
-) -> Result<()> {
-    let Some(page) = page else {
-        return Ok(());
-    };
-    let combined = combined.get_or_insert_with(|| EventsRangeCompleteness {
-        attestation_refs: Vec::new(),
-        attestations: Vec::new(),
-    });
-    for reference in page.attestation_refs {
-        if !combined.attestation_refs.contains(&reference) {
-            combined.attestation_refs.push(reference);
-        }
-    }
-    for attestation in page.attestations {
-        if let Some(existing) = combined
-            .attestations
-            .iter()
-            .find(|candidate| candidate.event_id == attestation.event_id)
-        {
-            if existing != &attestation {
-                return Err(Error::Protocol(format!(
-                    "duplicate_conflict: range-completeness Event {} changed across query pages",
-                    attestation.event_id
-                )));
-            }
-        } else {
-            combined.attestations.push(attestation);
-        }
-    }
-    combined
-        .attestation_refs
-        .sort_by(|left, right| left.as_str().cmp(right.as_str()));
-    combined
-        .attestations
-        .sort_by(|left, right| left.event_id.as_str().cmp(right.event_id.as_str()));
-    Ok(())
 }
 
 #[cfg(test)]

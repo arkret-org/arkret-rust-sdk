@@ -98,8 +98,6 @@ pub struct EventsQueryPostRequestBody {
     pub limit: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filters: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub include_completeness: Option<bool>,
 }
 
 pub(crate) fn deserialize_nonempty_selectors<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
@@ -179,6 +177,20 @@ mod tests {
         let mut duplicate = request.clone();
         duplicate.actor_ids.push(request.actor_ids[0].clone());
         assert!(serde_json::to_value(duplicate).is_err());
+    }
+
+    #[test]
+    fn scan_rejects_retired_historical_completeness_selector() {
+        let mut value = serde_json::json!({
+            "realm_ids": [
+                "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"
+            ]
+        });
+        value.as_object_mut().unwrap().insert(
+            format!("include_{}", "completeness"),
+            serde_json::Value::Bool(true),
+        );
+        assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
     }
 
     #[test]

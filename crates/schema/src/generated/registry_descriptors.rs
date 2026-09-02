@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-02.2;
-//! sha256=65eb83e635c0d8fd19a2350a31d580d9d1c7dbc3c6f8ee3beab27fbcd316b299 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-02.3;
+//! sha256=6120135c1203863aa53048fd640ddd5f03605ec8ac57496954bd6df686b16b4a Input: registry/
 //! capability-action-registry.json; version=2026-09-02.1;
 //! sha256=82c127fea3bcdc062655f070dd19ef4b6a4c70a9b36eaa8af59f2458ba5dbba6 Input: registry/
-//! schema-registry.json; version=2026-09-02.3;
-//! sha256=350036870f5349e85b537360486a3d1e90055d4aa2da691ce85023fd2b5fc11f Input: registry/
+//! schema-registry.json; version=2026-09-02.4;
+//! sha256=840db0330011453722306d033c3731765b76fb23a91c8a3fad28b7c3282f162e Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
 //! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=60,
-//! special_forms=14, actions=164, schemas=201, account_data_patterns=24
+//! special_forms=14, actions=164, schemas=200, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3648,10 +3648,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::QUERY_V1,
         file: "schemas/query.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::RANGE_COMPLETENESS_ATTESTATION_V1,
-        file: "schemas/range-completeness-attestation.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::READ_CURSOR_V1,

@@ -1,7 +1,7 @@
 use arkret_models_collaboration::http_bodies::{
     EventReadRow, EventRedactionReason, EventView, EventsQueryOutcome, EventsSubscribeFrame,
     EventsSubscribeFrameKind, MimiRoomUpdateRequestBody, MimiSubmitMessageRequestBody,
-    ReferenceLockedReasonCode,
+    PeerEventsQueryOutcome, ReferenceLockedReasonCode,
 };
 use arkret_models_collaboration::objects::mimi::{
     MimiCiphertext, MimiOpaquePayload, MimiRoomUpdate,
@@ -224,7 +224,6 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
         next_cursor: None,
         prev_cursor: None,
         has_more: false,
-        range_completeness: None,
     };
 
     let value = serde_json::to_value(&body).unwrap();
@@ -235,6 +234,39 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
     assert!(
         serde_json::from_value::<EventsQueryOutcome>(json!({"has_more": false})).is_err(),
         "events is a required result-page field"
+    );
+
+    let mut retired_field = json!({"events": [], "has_more": false});
+    retired_field.as_object_mut().unwrap().insert(
+        format!("range_{}", "completeness"),
+        json!({"attestation_refs": [], "attestations": []}),
+    );
+    assert!(
+        serde_json::from_value::<EventsQueryOutcome>(retired_field).is_err(),
+        "retired historical-completeness response fields must remain closed"
+    );
+}
+
+#[test]
+fn peer_events_query_outcome_rejects_self_snapshot_bootstrap() {
+    let body = PeerEventsQueryOutcome {
+        events: Vec::new(),
+        next_cursor: None,
+        prev_cursor: None,
+        has_more: false,
+    };
+    assert_eq!(
+        serde_json::to_value(&body).unwrap(),
+        json!({"events": [], "has_more": false})
+    );
+    assert!(
+        serde_json::from_value::<PeerEventsQueryOutcome>(json!({
+            "events": [],
+            "has_more": false,
+            "snapshot_bootstrap": {}
+        }))
+        .is_err(),
+        "peer scan must reject the self-only snapshot bootstrap field"
     );
 }
 

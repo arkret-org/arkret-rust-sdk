@@ -1129,7 +1129,6 @@ mod events_submit_tests {
                 Some("ak:cursor:newer"),
                 Some("descending"),
                 Some(20),
-                None,
             )
             .await
             .unwrap();
@@ -1183,43 +1182,6 @@ mod events_submit_tests {
         assert_eq!(parsed["include_payload"], true);
         assert!(parsed.get("event_digests").is_none());
         assert!(parsed.get("history_traversal_access").is_none());
-    }
-
-    #[tokio::test]
-    async fn events_query_outcome_uses_standard_shape_and_completeness_query() {
-        let canned =
-            r#"{"events":[],"has_more":false,"range_completeness":{"attestation_refs":[]}}"#;
-        let (client, capture) = spawn_capture_server(canned).await;
-
-        let response = client
-            .events_read_outcome(
-                "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
-                None,
-                Some("ak:cursor:newer"),
-                Some("ascending"),
-                Some(50),
-                Some(true),
-            )
-            .await
-            .unwrap();
-        assert!(response.events.is_empty());
-        assert!(!response.has_more);
-        assert_eq!(
-            response
-                .range_completeness
-                .as_ref()
-                .map(|completeness| completeness.attestation_refs.len()),
-            Some(0)
-        );
-
-        let raw = capture.await.unwrap();
-        let (request_line, _headers, body) = split_request(&raw);
-        assert!(request_line.starts_with("QUERY /_arkret/self/events "));
-        let parsed: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(parsed["after"], "ak:cursor:newer");
-        assert_eq!(parsed["order"], "ascending");
-        assert_eq!(parsed["limit"], 50);
-        assert_eq!(parsed["include_completeness"], true);
     }
 
     #[tokio::test]

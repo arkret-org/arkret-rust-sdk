@@ -1,12 +1,9 @@
 //! Machine gate: a hand-written request/response DTO's field set MUST equal the
 //! property set its spec `$defs` entry declares.
 //!
-//! Why this exists: `EventsQueryPostRequestBody` once shipped without
-//! `include_completeness` while both the schema and the GET query binding
-//! declared it, so the typed POST body could not express a request the GET
-//! client could. The schema release gate stayed green throughout, because
-//! nothing compared the two field sets — the spec's claim that the GET and POST
-//! forms are `binding_variant_of` each other lived only in prose.
+//! Why this exists: a request DTO once shipped without a schema-declared field,
+//! so the typed POST body could not express the full binding. The schema release
+//! gate stayed green because nothing compared the two field sets.
 //!
 //! The comparison is exact in both directions:
 //!
@@ -97,8 +94,7 @@ fn events_query_post_request_body_matches_its_schema_definition() {
         "after": sample_cursor(),
         "order": "descending",
         "limit": 50,
-        "filters": { "kind": "ak.message.create" },
-        "include_completeness": true
+        "filters": { "kind": "ak.message.create" }
     }))
     .expect("every schema-declared field is accepted by the typed POST body");
 
@@ -172,7 +168,7 @@ fn the_gate_detects_a_dto_missing_a_declared_field() {
     });
     let missing: Vec<&String> = declared.difference(&carried).collect();
     assert!(
-        missing.contains(&&"include_completeness".to_owned()),
+        missing.contains(&&"actor_ids".to_owned()),
         "the coverage comparison must notice a dropped field, got {missing:?}"
     );
 }
@@ -227,9 +223,9 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "applies_to": ["seal_include"]
             },
             "audit_policy": {
-                "range_completeness_witness_ids": ["ak:did_core:web:witness.example"],
-                "witnessed_min_attestations": 1,
-                "witness_independence": "distinct_did"
+                "seal_transparency_auditor_ids": ["ak:did_core:web:witness.example"],
+                "seal_transparency_min_attestations": 1,
+                "seal_transparency_auditor_independence": "distinct_did"
             },
             "revocation_freshness_window_ms": 60000,
             "recovery_witness_freshness_window_ms": 60000,

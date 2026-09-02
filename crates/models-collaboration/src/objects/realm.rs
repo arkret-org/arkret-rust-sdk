@@ -231,7 +231,7 @@ impl RealmAvailabilityPolicy {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AuditWitnessIndependence {
+pub enum SealTransparencyAuditorIndependence {
     DistinctDid,
     DistinctControllingOrganization,
 }
@@ -239,9 +239,9 @@ pub enum AuditWitnessIndependence {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuditPolicy {
-    pub range_completeness_witness_ids: Vec<DidCoreId>,
-    pub witnessed_min_attestations: u8,
-    pub witness_independence: AuditWitnessIndependence,
+    pub seal_transparency_auditor_ids: Vec<DidCoreId>,
+    pub seal_transparency_min_attestations: u8,
+    pub seal_transparency_auditor_independence: SealTransparencyAuditorIndependence,
 }
 
 fn default_max_delegation_lifetime_ms() -> u64 {
@@ -377,19 +377,20 @@ impl Realm {
             policy.validate()?;
         }
         if let Some(policy) = &self.audit_policy {
-            let witness_count = policy.range_completeness_witness_ids.len();
-            if !(1..=64).contains(&witness_count)
-                || !(1..=16).contains(&policy.witnessed_min_attestations)
-                || usize::from(policy.witnessed_min_attestations) > witness_count
+            let auditor_count = policy.seal_transparency_auditor_ids.len();
+            if !(1..=64).contains(&auditor_count)
+                || !(1..=16).contains(&policy.seal_transparency_min_attestations)
+                || usize::from(policy.seal_transparency_min_attestations) > auditor_count
                 || policy
-                    .range_completeness_witness_ids
+                    .seal_transparency_auditor_ids
                     .iter()
                     .collect::<std::collections::BTreeSet<_>>()
                     .len()
-                    != witness_count
+                    != auditor_count
             {
                 return Err(WireError::Protocol(
-                    "Realm audit_policy violates its bounded witness contract".to_owned(),
+                    "Realm audit_policy violates its bounded seal-transparency auditor contract"
+                        .to_owned(),
                 ));
             }
         }

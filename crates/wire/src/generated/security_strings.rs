@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-02.4;
-//! sha256=8c520326769f5a17b61eb6007f4ca1f420d5bd207e77a69c9c085591571d0c53 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-02.5;
+//! sha256=b723d80073b7dc2903e42bd21221aa073255e91a3b00e6a307b0e1d4a70e6bd3 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -16,7 +16,7 @@
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=80, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=79, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -89,7 +89,6 @@ pub enum ProofContextId {
     PeerSealFrontierProofV1,
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
-    RangeCompletenessAttestationProofV1,
     RealmJoinCandidateProofV1,
     ReceiptProofV1,
     RegistrationDidEvidenceControlProofV1,
@@ -173,7 +172,6 @@ impl ProofContextId {
         Self::PeerSealFrontierProofV1,
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
-        Self::RangeCompletenessAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
         Self::ReceiptProofV1,
         Self::RegistrationDidEvidenceControlProofV1,
@@ -302,8 +300,6 @@ impl ProofContextId {
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal_locator_proof.v1";
     pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.principal_resolution_projection_attestation_proof.v1";
-    pub const RANGE_COMPLETENESS_ATTESTATION_PROOF_V1: &'static str =
-        "ak.range_completeness_attestation_proof.v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm_join_candidate_proof.v1";
     pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt_proof.v1";
     pub const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1: &'static str =
@@ -440,9 +436,6 @@ impl ProofContextId {
             Self::PrincipalLocatorProofV1 => Self::PRINCIPAL_LOCATOR_PROOF_V1,
             Self::PrincipalResolutionProjectionAttestationProofV1 => {
                 Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1
-            }
-            Self::RangeCompletenessAttestationProofV1 => {
-                Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1
             }
             Self::RealmJoinCandidateProofV1 => Self::REALM_JOIN_CANDIDATE_PROOF_V1,
             Self::ReceiptProofV1 => Self::RECEIPT_PROOF_V1,
@@ -607,9 +600,6 @@ impl ProofContextId {
             Self::PRINCIPAL_LOCATOR_PROOF_V1 => Some(Self::PrincipalLocatorProofV1),
             Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1 => {
                 Some(Self::PrincipalResolutionProjectionAttestationProofV1)
-            }
-            Self::RANGE_COMPLETENESS_ATTESTATION_PROOF_V1 => {
-                Some(Self::RangeCompletenessAttestationProofV1)
             }
             Self::REALM_JOIN_CANDIDATE_PROOF_V1 => Some(Self::RealmJoinCandidateProofV1),
             Self::RECEIPT_PROOF_V1 => Some(Self::ReceiptProofV1),
@@ -2185,22 +2175,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/identity-resolution.schema.json#/$defs/principal_resolution_projection_attestation",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::RangeCompletenessAttestationProofV1,
-        context: "ak.range_completeness_attestation_proof.v1",
-        object_family: "range_completeness_attestation",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer",
-            "scope",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/range-completeness-attestation.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::RealmJoinCandidateProofV1,

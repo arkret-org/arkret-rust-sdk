@@ -676,18 +676,6 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::RangeCompletenessAttestationEventRangeFromFrontier",
-      "schema": "range-completeness-attestation.schema.json#/properties/event_range/properties/from_frontier",
-      "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::RangeCompletenessAttestationEventRangeToFrontier",
-      "schema": "range-completeness-attestation.schema.json#/properties/event_range/properties/to_frontier",
-      "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
-    },
-    {
       "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotFrontierValue",
       "schema": "snapshot.schema.json#/properties/frontier",
       "comparison": "rust_fields_subset",

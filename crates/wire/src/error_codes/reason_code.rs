@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-01.2;
-//! sha256=6e49184ea59315d356e39b66043897bf5f95b196f2f83d613c352f72b73dc197
-//! Entries: reason_codes=458
+//! Input: registry/error-code-registry.json; version=2026-09-02.3;
+//! sha256=d5029db42475e03b5adbbd9669669f24c475006aaddf50483cf0a62abe799551
+//! Entries: reason_codes=456
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -314,8 +314,6 @@ pub enum ReasonCode {
     Quarantined,
     QueueFull,
     QuorumUnreachable,
-    RangeCompletenessActorSeqGap,
-    RangeCompletenessRootMismatch,
     RateLimited,
     ReactionScopeMismatch,
     ReactionTargetUnsupported,
@@ -846,8 +844,6 @@ impl ReasonCode {
     pub const QUARANTINED: &'static str = "quarantined";
     pub const QUEUE_FULL: &'static str = "queue_full";
     pub const QUORUM_UNREACHABLE: &'static str = "quorum_unreachable";
-    pub const RANGE_COMPLETENESS_ACTOR_SEQ_GAP: &'static str = "range_completeness_actor_seq_gap";
-    pub const RANGE_COMPLETENESS_ROOT_MISMATCH: &'static str = "range_completeness_root_mismatch";
     pub const RATE_LIMITED: &'static str = "rate_limited";
     pub const REACTION_SCOPE_MISMATCH: &'static str = "reaction_scope_mismatch";
     pub const REACTION_TARGET_UNSUPPORTED: &'static str = "reaction_target_unsupported";
@@ -1387,8 +1383,6 @@ impl ReasonCode {
             Self::Quarantined => Self::QUARANTINED,
             Self::QueueFull => Self::QUEUE_FULL,
             Self::QuorumUnreachable => Self::QUORUM_UNREACHABLE,
-            Self::RangeCompletenessActorSeqGap => Self::RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
-            Self::RangeCompletenessRootMismatch => Self::RANGE_COMPLETENESS_ROOT_MISMATCH,
             Self::RateLimited => Self::RATE_LIMITED,
             Self::ReactionScopeMismatch => Self::REACTION_SCOPE_MISMATCH,
             Self::ReactionTargetUnsupported => Self::REACTION_TARGET_UNSUPPORTED,
@@ -1929,8 +1923,6 @@ impl ReasonCode {
             Self::QUARANTINED => Self::Quarantined,
             Self::QUEUE_FULL => Self::QueueFull,
             Self::QUORUM_UNREACHABLE => Self::QuorumUnreachable,
-            Self::RANGE_COMPLETENESS_ACTOR_SEQ_GAP => Self::RangeCompletenessActorSeqGap,
-            Self::RANGE_COMPLETENESS_ROOT_MISMATCH => Self::RangeCompletenessRootMismatch,
             Self::RATE_LIMITED => Self::RateLimited,
             Self::REACTION_SCOPE_MISMATCH => Self::ReactionScopeMismatch,
             Self::REACTION_TARGET_UNSUPPORTED => Self::ReactionTargetUnsupported,
@@ -3707,16 +3699,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A threshold-governed control proposal can no longer collect the required independent acknowledgements before its deadline. The receiver MUST fail closed with reason_code=quorum_unreachable rather than guessing authority.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RANGE_COMPLETENESS_ACTOR_SEQ_GAP,
-        applies_to: &["audit_decision", "state_resolution"],
-        description: "Verifier's local actor view contains a per-actor seq gap inside an interval that a ak.attestation.range_completeness attestation (payload schema ak.schema.range_completeness_attestation.v1) declared complete. Most likely indicator of silent fork or partial replication divergence beyond the attestation's stated scope. See zh/sync/operations-sync.md §6.4.4 step 6.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RANGE_COMPLETENESS_ROOT_MISMATCH,
-        applies_to: &["audit_decision", "state_resolution"],
-        description: "A ak.attestation.range_completeness attestation's root (payload schema ak.schema.range_completeness_attestation.v1) does not match the locally-recomputed Merkle root over the scope's reducer-input events. Indicates either silent omission by the issuer or scope/canonicalization drift. See zh/sync/operations-sync.md §6.4.4 step 4.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::RATE_LIMITED,
         applies_to: &["push_notify_outcome"],
         description: "Per-device rejection reason in ak.edge.push.command.notify.v1: gateway-side admission limiting refused durable takeover of this route. One of exactly two caller-retryable notify reasons; it MAY carry retry_after_ms. A route the gateway already accepted is retried by the gateway and never surfaces this reason. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/discovery/push-notifications.md §5.2.",
@@ -4468,6 +4450,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::WITNESS_DISAGREEMENT,
         applies_to: &["state_resolution", "federation_transaction"],
-        description: "Confirmed fork/witness evidence: two byte-distinct canonical Event preimages pass structure, suite and proof prerequisites and independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); a validated per-actor sibling set exceeds the registered single-bucket or per-position limit; a profile declares the observed sibling combination non-joinable; or witnesses required to sign the same complete (realm_id, from_frontier, to_frontier, actor_seq_ranges, root, count) attestation payload return inconsistent values. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Different valid event_id values at the same (realm_id, actor_id, actor_seq) are not by themselves disagreement: event-and-patch.md §2.6 permits a bounded legal sibling set, which peers MUST reconcile by validated set union. Raw frontier_root / heads / range-root differences across different replication, disclosure, or attestation scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay, an aligned same-scope quorum, or operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
+        description: "Confirmed fork evidence: two byte-distinct canonical Event preimages pass structure, suite and proof prerequisites and independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); a validated per-actor sibling set exceeds the registered single-bucket or per-position limit; or a profile declares the observed sibling combination non-joinable. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Different valid event_id values at the same (realm_id, actor_id, actor_seq) are not by themselves disagreement: event-and-patch.md §2.6 permits a bounded legal sibling set, which peers MUST reconcile by validated set union. Raw frontier_root / heads differences across different replication or disclosure scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay plus an accepted operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
     },
 ];

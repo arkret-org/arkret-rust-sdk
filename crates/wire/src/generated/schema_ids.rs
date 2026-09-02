@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-02.3;
-//! sha256=350036870f5349e85b537360486a3d1e90055d4aa2da691ce85023fd2b5fc11f Entries: schema_ids=201,
-//! active=201
+//! Input: registry/schema-registry.json; version=2026-09-02.4;
+//! sha256=840db0330011453722306d033c3731765b76fb23a91c8a3fad28b7c3282f162e Entries: schema_ids=200,
+//! active=200
 
 use serde::{Deserialize, Serialize};
 
@@ -152,7 +152,6 @@ pub enum SchemaId {
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
-    RangeCompletenessAttestationV1,
     ReadCursorV1,
     ReadCursorOperationsV1,
     ReadReceiptV1,
@@ -357,7 +356,6 @@ impl SchemaId {
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
-        Self::RangeCompletenessAttestationV1,
         Self::ReadCursorV1,
         Self::ReadCursorOperationsV1,
         Self::ReadReceiptV1,
@@ -562,7 +560,6 @@ impl SchemaId {
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
-        Self::RangeCompletenessAttestationV1,
         Self::ReadCursorV1,
         Self::ReadCursorOperationsV1,
         Self::ReadReceiptV1,
@@ -1019,8 +1016,6 @@ impl SchemaId {
     /// SortSpec / RelationQuery components $ref this file so there is a single source of truth.
     /// Human-readable semantics: zh/conformance/query-schema.md.
     pub const QUERY_V1: &'static str = "ak.schema.query.v1";
-    pub const RANGE_COMPLETENESS_ATTESTATION_V1: &'static str =
-        "ak.schema.range_completeness_attestation.v1";
     pub const READ_CURSOR_V1: &'static str = "ak.schema.read_cursor.v1";
     /// Closed request/response DTO bundle for self-surface read cursor operations
     /// (ak.self.read_cursor.*); see zh/discovery/read-receipts.md.
@@ -1338,7 +1333,6 @@ impl SchemaId {
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
-            Self::RangeCompletenessAttestationV1 => Self::RANGE_COMPLETENESS_ATTESTATION_V1,
             Self::ReadCursorV1 => Self::READ_CURSOR_V1,
             Self::ReadCursorOperationsV1 => Self::READ_CURSOR_OPERATIONS_V1,
             Self::ReadReceiptV1 => Self::READ_RECEIPT_V1,
@@ -1586,9 +1580,6 @@ impl SchemaId {
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
-            Self::RangeCompletenessAttestationV1 => {
-                "schemas/range-completeness-attestation.schema.json"
-            }
             Self::ReadCursorV1 => "schemas/read-cursor.schema.json",
             Self::ReadCursorOperationsV1 => "schemas/read-cursor-operations.schema.json",
             Self::ReadReceiptV1 => "schemas/read-receipt.schema.json",
@@ -1834,7 +1825,6 @@ impl SchemaId {
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),
-            Self::RANGE_COMPLETENESS_ATTESTATION_V1 => Some(Self::RangeCompletenessAttestationV1),
             Self::READ_CURSOR_V1 => Some(Self::ReadCursorV1),
             Self::READ_CURSOR_OPERATIONS_V1 => Some(Self::ReadCursorOperationsV1),
             Self::READ_RECEIPT_V1 => Some(Self::ReadReceiptV1),

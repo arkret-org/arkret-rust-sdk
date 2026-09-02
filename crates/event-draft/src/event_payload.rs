@@ -43,7 +43,6 @@ use arkret_models_collaboration::objects::productivity::{
 };
 use arkret_models_collaboration::objects::read_receipts::ReadCursor;
 use arkret_models_collaboration::sidecar_operations::SidecarContextAttachPayload;
-use arkret_models_collaboration::sync_frames::snapshot::RangeCompletenessAttestation;
 use arkret_models_crypto::MlsCommitPayload;
 use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::device_push_route::DevicePushRoutePayload;
@@ -357,7 +356,6 @@ event_payload_accessors! {
     event_spec::AuditSessionClose => (as_audit_session_close, AuditSessionClosePayload),
     event_spec::AuditRywReceipt => (as_audit_ryw_receipt, AuditPayload),
     event_spec::AuditErasureReceipt => (as_audit_erasure_receipt, ErasureReceipt),
-    event_spec::AttestationRangeCompleteness => (as_range_completeness_attestation, RangeCompletenessAttestation),
     event_spec::SelfModerationReport => (as_self_moderation_report, ModerationReportPayload),
     event_spec::ModerationFrankingProof => (as_moderation_franking_proof, FrankingProof),
     event_spec::ModerationDecision => (as_moderation_decision, ModerationDecisionPayload),

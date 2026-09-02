@@ -92,8 +92,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AppletDiscovery
         | EventKind::AppletManagedActorProvision
         | EventKind::AppletRegistration => EventProductClass::Applet,
-        EventKind::AttestationRangeCompleteness
-        | EventKind::AuditAccessed
+        EventKind::AuditAccessed
         | EventKind::AuditAppletBindingCreate
         | EventKind::AuditAppletBindingState
         | EventKind::AuditErasureReceipt

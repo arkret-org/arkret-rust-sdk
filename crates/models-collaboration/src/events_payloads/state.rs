@@ -1681,7 +1681,9 @@ impl ForkResolutionPayload {
             (
                 ForkResolutionSubject::EventIdCollision { .. },
                 ForkResolutionConflictEvidence::FullHashCollision { variants },
-                ForkResolutionVerdict::CollisionWinner { winner_preimage, .. },
+                ForkResolutionVerdict::CollisionWinner {
+                    winner_preimage, ..
+                },
             ) => {
                 if !variants
                     .iter()
@@ -1735,9 +1737,7 @@ impl ForkResolutionConflictEvidence {
                     );
                 }
                 if variants[0].identity() == variants[1].identity() {
-                    return schema_violation(
-                        "fork resolution collision variants must be distinct",
-                    );
+                    return schema_violation("fork resolution collision variants must be distinct");
                 }
                 Ok(())
             }
@@ -1858,9 +1858,7 @@ impl ForkResolutionRecord {
             .iter()
             .any(|reference| reference.role == "state_witness")
         {
-            return schema_violation(
-                "fork resolution must not carry a state_witness reference",
-            );
+            return schema_violation("fork resolution must not carry a state_witness reference");
         }
         Ok(Self {
             realm_id: event.realm_id.clone(),
