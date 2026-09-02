@@ -242,6 +242,68 @@ impl NotaryValue {
         validate_descriptor_set(primary, recovery)
     }
 
+    /// Whether this signer set is the registered recovery set rather than the
+    /// primary one.
+    ///
+    /// The two are not interchangeable: a recovery descriptor only becomes
+    /// usable under the closed exceptions in
+    /// `event-auth-state-resolution.md` section 6.3 step 2b.
+    #[must_use]
+    pub fn signers_are_recovery_set(&self, present_signers: &BTreeSet<DidUrl>) -> bool {
+        let recovery = match self {
+            Self::SingleSigner {
+                signer,
+                recovery_signers,
+                ..
+            }
+            | Self::Mixed {
+                signer,
+                recovery_signers,
+                ..
+            } => {
+                if present_signers.len() == 1
+                    && present_signers.contains(&signer.verification_method)
+                {
+                    return false;
+                }
+                recovery_signers
+            }
+            Self::Threshold { .. } | Self::OpenSet { .. } => return false,
+        };
+        !recovery.is_empty()
+            && present_signers.len() == recovery.len()
+            && present_signers.iter().all(|method| {
+                recovery
+                    .iter()
+                    .any(|member| &member.verification_method == method)
+            })
+    }
+
+    /// Whether a Seal signed by `present_signers` may cover exactly these
+    /// `delta[]` Event kinds.
+    ///
+    /// A recovery-signed Seal that adjudicates a fork must adjudicate nothing
+    /// else. Letting a recovery signer attach an ordinary membership,
+    /// capability or policy Move to the same Seal would turn the narrow
+    /// fork-resolution exception into a general signing authority
+    /// (`event-auth-state-resolution.md` section 6.3 step 2b).
+    #[must_use]
+    pub fn authorizes_seal_delta(
+        &self,
+        present_signers: &BTreeSet<DidUrl>,
+        delta_kinds: &[crate::EventKind],
+    ) -> bool {
+        if !self.signers_are_recovery_set(present_signers) {
+            return true;
+        }
+        !delta_kinds
+            .iter()
+            .any(|kind| *kind == crate::EventKind::ForkResolution)
+            || delta_kinds
+                .iter()
+                .all(|kind| *kind == crate::EventKind::ForkResolution)
+    }
+
     pub fn proposal_quorum_met(&self, present_signers: &BTreeSet<DidUrl>) -> bool {
         match self {
             Self::SingleSigner { signer, .. } => {
@@ -350,6 +412,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::EventKind;
 
     fn signer() -> NotarySignerDescriptor {
         serde_json::from_value(json!({
@@ -364,6 +427,61 @@ mod tests {
             "frozen_public_key_digest": "sha256:a6022dfca46e307e79cf859f5c23fbc6487277471d0d5c21bbd5b92286c80c83"
         }))
         .unwrap()
+    }
+
+    fn recovery_signer() -> NotarySignerDescriptor {
+        serde_json::from_value(json!({
+            "actor_id": {
+                "kind": "service",
+                "service_id": "ak:did_core:web:recovery.example"
+            },
+            "verification_method": "did:web:recovery.example#recovery-key-1",
+            "key_kind": "ed25519_raw32",
+            "jose_algorithm": "Ed25519",
+            "frozen_public_key_b64u": "MOoNKcCXaSPUUFBH8CxrFcYcMDLTQmpsL6BBpjqTIWs",
+            "frozen_public_key_digest": "sha256:2d2e5b0dbb56dcbc75ad6dfef26eb0d75f8b48c34c8fdb6dbba8bce6f5f7b7d7"
+        }))
+        .unwrap()
+    }
+
+    fn mixed_notary() -> NotaryValue {
+        NotaryValue::Mixed {
+            signer: signer(),
+            recovery_signers: vec![recovery_signer()],
+            controller_organization_id: None,
+            recovery_controller_organization_ids: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn a_recovery_signed_fork_resolution_seal_may_cover_nothing_else() {
+        let notary = mixed_notary();
+        let primary = BTreeSet::from([signer().verification_method]);
+        let recovery = BTreeSet::from([recovery_signer().verification_method]);
+        assert!(!notary.signers_are_recovery_set(&primary));
+        assert!(notary.signers_are_recovery_set(&recovery));
+
+        // The narrow section 6.3.2 exception is per Seal: a recovery signer that
+        // could attach an ordinary Move to a fork-resolution Seal would hold a
+        // general signing authority, not a recovery one.
+        assert!(notary.authorizes_seal_delta(
+            &recovery,
+            &[EventKind::ForkResolution, EventKind::ForkResolution]
+        ));
+        assert!(!notary.authorizes_seal_delta(
+            &recovery,
+            &[EventKind::ForkResolution, EventKind::MemberState]
+        ));
+
+        // Section 9.5 cell recovery keeps its own recovery Seal; the rule closes
+        // fork-resolution Seals, it does not forbid every recovery Seal.
+        assert!(notary.authorizes_seal_delta(&recovery, &[EventKind::ConflictRecovery]));
+
+        // The primary descriptor is untouched by this rule.
+        assert!(notary.authorizes_seal_delta(
+            &primary,
+            &[EventKind::ForkResolution, EventKind::MemberState]
+        ));
     }
 
     #[test]
