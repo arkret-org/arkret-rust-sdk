@@ -1,7 +1,7 @@
 //! Arkret v1 collaboration domain models.
 //!
 //! Trunk crate of the model family: governance, collaboration objects,
-//! event payloads, and sync/federation frames, organized as semantic
+//! event payloads, and sync frames, organized as semantic
 //! module directories. Phase 1A seeded the governance module with the
 //! receive-policy, audit, and plaintext-classification wire shapes;
 //! phase 1B-c2 lands the governance domain (realm governance, circle,
@@ -18,7 +18,6 @@ pub mod direct_conversation_ops;
 pub mod event_query;
 pub mod event_sync;
 pub mod events_payloads;
-pub mod federation;
 pub mod governance;
 pub mod governance_dependencies;
 pub mod governance_payloads;

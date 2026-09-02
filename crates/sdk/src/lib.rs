@@ -138,7 +138,6 @@ pub use arkret_models_collaboration::events_payloads::device_identity::*;
 pub use arkret_models_collaboration::events_payloads::event_wire::*;
 pub use arkret_models_collaboration::events_payloads::mention::*;
 pub use arkret_models_collaboration::events_payloads::*;
-pub use arkret_models_collaboration::federation::wire_dtos::*;
 pub use arkret_models_collaboration::governance::accountability::{
     ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload, AccountabilityGrantStatus,
     AccountabilityScope, AccountabilityScopeKind,
@@ -218,7 +217,7 @@ pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceValidator,
 };
 pub use arkret_models_collaboration::{
-    contact_operations, direct_conversation_ops, federation, governance_dependencies, history_key,
+    contact_operations, direct_conversation_ops, governance_dependencies, history_key,
     sidecar_operations,
 };
 pub use arkret_models_crypto::artifacts_keys::*;
