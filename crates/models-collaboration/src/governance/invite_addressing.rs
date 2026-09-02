@@ -645,6 +645,14 @@ pub struct InviteReceivePolicy {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_claim_behavior: Option<InviteReceiveAction>,
     pub unknown_invites: UnknownInviteAction,
+    /// Holder-selected consent gate profile (`consent-model.md` §6.1). Omitted
+    /// on the wire means `default`; the canonical serialization omits the
+    /// default so existing policies keep their bytes.
+    #[serde(
+        default,
+        skip_serializing_if = "arkret_wire::ConsentProfile::is_default"
+    )]
+    pub consent_profile: arkret_wire::ConsentProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub new_source_quota: Option<arkret_wire::NewSourceQuotaOverride>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -686,6 +694,7 @@ impl InviteReceivePolicy {
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: Some(InviteReceiveAction::Quarantine),
             unknown_invites: UnknownInviteAction::Drop,
+            consent_profile: arkret_wire::ConsentProfile::Default,
             new_source_quota: None,
             allowed_handle_domains: Vec::new(),
             denied_handle_domains: Vec::new(),
@@ -979,6 +988,38 @@ mod tests {
     }
 
     #[test]
+    fn invite_receive_policy_consent_profile_defaults_and_roundtrips() {
+        // consent-model.md §6.1: the profile carrier is
+        // `invite_receive_policy.consent_profile`; omitted means `default` and
+        // the default is not serialized so existing policy bytes are stable.
+        let policy = InviteReceivePolicy::spec_default(AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        assert_eq!(policy.consent_profile, arkret_wire::ConsentProfile::Default);
+        let value = serde_json::to_value(&policy).expect("serialize policy");
+        assert!(value.get("consent_profile").is_none());
+
+        let mut explicit = value.clone();
+        explicit["consent_profile"] = serde_json::json!("require_explicit_consent");
+        let parsed: InviteReceivePolicy =
+            serde_json::from_value(explicit).expect("registered profile parses");
+        assert_eq!(
+            parsed.consent_profile,
+            arkret_wire::ConsentProfile::RequireExplicitConsent
+        );
+        assert!(parsed.consent_profile.requires_explicit_consent());
+        assert_eq!(
+            serde_json::to_value(&parsed).unwrap()["consent_profile"],
+            "require_explicit_consent"
+        );
+
+        let mut unregistered = value;
+        unregistered["consent_profile"] = serde_json::json!("strict");
+        assert!(serde_json::from_value::<InviteReceivePolicy>(unregistered).is_err());
+    }
+
+    #[test]
     fn invite_receive_policy_skips_empty_disclosure_fields() {
         let policy = InviteReceivePolicy {
             schema: SchemaId::INVITE_RECEIVE_POLICY_V1.to_owned(),
@@ -990,6 +1031,7 @@ mod tests {
             explicit_address_behavior: InviteReceiveAction::Quarantine,
             handle_claim_behavior: None,
             unknown_invites: UnknownInviteAction::Drop,
+            consent_profile: arkret_wire::ConsentProfile::Default,
             new_source_quota: None,
             allowed_handle_domains: Vec::new(),
             denied_handle_domains: Vec::new(),

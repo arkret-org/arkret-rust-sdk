@@ -900,9 +900,11 @@ mod tests {
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             account_subject: hash('b'),
             account_handoff_grant_digest: hash('c'),
+            // Must bind the same account as `request()`: the holder's Station
+            // is `ps.example`; `service.example` is only the proof audience.
             account_id: AccountId::new(
                 DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-                DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             ),
             device_id: DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap(),
             audience_id: DidCoreId::new("ak:did_core:web:service.example").unwrap(),

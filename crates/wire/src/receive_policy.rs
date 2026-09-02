@@ -19,6 +19,35 @@ pub enum UnknownInviteAction {
     Quarantine,
 }
 
+/// Holder-selected invite consent gate profile
+/// (`consent-model.md` §6.1, carried by `invite_receive_policy.consent_profile`).
+///
+/// The profile is subject-private: it is never advertised through
+/// `ServiceDescribe` and must not be observable by requesters or peer Stations.
+/// Under `RequireExplicitConsent` only verified `consent_grant` introduction
+/// evidence may notify the holder; every other delivery is silently dropped on
+/// the holder Station inside the opaque `deferred` equivalence class.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ConsentProfile {
+    #[default]
+    Default,
+    RequireExplicitConsent,
+}
+
+impl ConsentProfile {
+    #[must_use]
+    pub fn is_default(&self) -> bool {
+        matches!(self, Self::Default)
+    }
+
+    #[must_use]
+    pub fn requires_explicit_consent(&self) -> bool {
+        matches!(self, Self::RequireExplicitConsent)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReceivePolicySurface {

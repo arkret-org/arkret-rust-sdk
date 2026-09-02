@@ -453,7 +453,7 @@ fn project_registered_operation_writes_with_pre_state(
         }
         // `event-and-patch.md` §2.4.2: the one registered write whose target is
         // not statically addressable. A conflict recovery names one cell of an
-        // arbitrary family, so the target is the signed `payload.target_cell`
+        // arbitrary family, so the target is the signed `payload.target_cell_id`
         // and the projection is a reset rather than a lattice op. The grammar is
         // closed to `ak.conflict.recovery`; anything else declaring it is
         // a registry error, not a shape to interpret.
@@ -679,7 +679,7 @@ fn dot_for(event: &ProjectedEventInput, write_index: usize) -> String {
 
 /// Resolve the recovery target from the signed payload.
 ///
-/// The source is pinned to `payload.target_cell` rather than read from the
+/// The source is pinned to `payload.target_cell_id` rather than read from the
 /// registry rule, so a registry that named some other field cannot silently
 /// redirect which cell a recovery may reset.
 fn conflict_recovery_cell(
@@ -691,18 +691,18 @@ fn conflict_recovery_cell(
         || cell_ref_rule
             .field(EventCellRuleKey::Field)
             .and_then(EventCellRule::as_str)
-            != Some("payload.target_cell")
+            != Some("payload.target_cell_id")
     {
         return Err(effect_set_error(
             kind,
-            "conflict recovery cell_ref must be {kind: cell_ref, field: payload.target_cell}",
+            "conflict recovery cell_ref must be {kind: cell_ref, field: payload.target_cell_id}",
         ));
     }
     let raw = event
         .payload
-        .get("target_cell")
+        .get("target_cell_id")
         .and_then(Value::as_str)
-        .ok_or_else(|| effect_set_error(kind, "payload.target_cell must be a cell id string"))?;
+        .ok_or_else(|| effect_set_error(kind, "payload.target_cell_id must be a cell id string"))?;
     CellRef::new(raw.to_owned()).map_err(|error| EventCellContractError::InvalidCell {
         kind: kind.to_owned(),
         message: error.to_string(),
@@ -2090,7 +2090,7 @@ mod tests {
     }
 
     /// `event-auth-state-resolution.md` §9.5 recovery, built as a Control Move.
-    fn conflict_recovery_event(target_cell: &str, resolved: Value) -> Event {
+    fn conflict_recovery_event(target_cell_id: &str, resolved: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AbTm4abxkmMcE7rkV-Wz8Uk_vFh-cUlesAd-EsJX395Y",
             "kind": "ak.conflict.recovery",
@@ -2113,7 +2113,7 @@ mod tests {
                 {"role": "state_witness", "critical": true,
                  "id": "ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
             ],
-            "payload": {"target_cell": target_cell, "resolved_value": resolved},
+            "payload": {"target_cell_id": target_cell_id, "resolved_value": resolved},
             "proofs": []
         }))
         .expect("conflict recovery fixture must deserialize")
@@ -2159,11 +2159,24 @@ mod tests {
     fn conflict_recovery_without_a_target_cell_fails_closed() {
         let mut event =
             conflict_recovery_event("ak:cell:ak.component.realm.policy.v1:null", json!(1));
-        event.payload.remove("target_cell");
+        event.payload.remove("target_cell_id");
         let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
             .expect_err("a recovery with no target must not project a write");
         assert!(
-            error.to_string().contains("target_cell"),
+            error.to_string().contains("target_cell_id"),
+            "unexpected error: {error}"
+        );
+
+        // The retired `target_cell` alias is not a fallback: the registered
+        // field is `target_cell_id` only (event-auth-state-resolution.md §9.5).
+        event.payload.insert(
+            "target_cell".to_owned(),
+            json!("ak:cell:ak.component.realm.policy.v1:null"),
+        );
+        let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
+            .expect_err("the retired target_cell alias must not select a recovery target");
+        assert!(
+            error.to_string().contains("target_cell_id"),
             "unexpected error: {error}"
         );
     }
