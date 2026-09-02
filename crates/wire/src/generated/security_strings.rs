@@ -1,21 +1,21 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-01.2;
-//! sha256=1831060c84e3acb95429815585fd1b8fd571cae83cac9ce6cc07b6a940df1919 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-02.2;
+//! sha256=4cb8d3edfee846702d1b4a860dc330ec1152f36f65d52eae9b6a0074120b1347 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
-//! sha256=d75d7fd0feb27c7a29db2255ce503f6137f31a9102086cb05be4b84ce03f297b Input: registry/
+//! sha256=c88f2aa7afc985d1d64456ae262ea75f6e6a33342bee1d1cb97501396ea414c0 Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
-//! hpke-suite-registry.json; version=2026-08-29.1;
-//! sha256=462598a10f2780e1f6ddbddb819767b86a61a4200ada93a5e940ef41aae4db8f Input: registry/
+//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
+//! hpke-suite-registry.json; version=2026-09-02.1;
+//! sha256=f7d265a1c415ee7ca0f86c248ba1a650742e7223336abd7a0f1d15b9bf4900af Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
-//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
+//! sha256=51518dc2ea4b9fa6f4c491b24558c0663f172157e955bc7ae75d78559158fcb0 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
 //! Entries: proof_contexts=79, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=33, aead_profiles=2
 
@@ -1438,7 +1438,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
             "created_at",
             "proof_purpose",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/DirectoryGovernanceProof",
     },
@@ -1454,7 +1454,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "account_id",
             "verification_method",
             "created_at",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body",
     },
@@ -1471,7 +1471,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "agent_slug",
             "verification_method",
             "created_at",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_agent_selector_request_body",
     },
@@ -1487,7 +1487,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "handle",
             "verification_method",
             "created_at",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_handle_request_body",
     },
@@ -1501,7 +1501,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "operation_id",
             "verification_method",
             "created_at",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_organization_request_body",
     },
@@ -1517,7 +1517,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "address",
             "verification_method",
             "created_at",
-            "audience",
+            "audience_id",
         ],
         schema_ref: "schemas/directory-operations.schema.json#/$defs/directory_resolve_target_request_body",
     },

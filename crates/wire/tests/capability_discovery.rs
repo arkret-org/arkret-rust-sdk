@@ -71,6 +71,28 @@ fn station_current_signer_evidence_bundle_closes_both_query_hops() {
 }
 
 #[test]
+fn station_device_pairing_handoff_bundle_closes_all_three_open_operations() {
+    let bundle =
+        operation_bundle_descriptor("ak.operation_bundle.station.device_pairing_handoff.v1")
+            .expect("Station device-pairing handoff bundle must be registered");
+
+    assert_eq!(bundle.service_kind, ServiceKind::Station);
+    assert_eq!(bundle.members.len(), 3);
+    assert!(bundle.contains(
+        ServiceOperationId::OpenDevicePairingCommandStageV1,
+        BindingKind::HttpJson,
+    ));
+    assert!(bundle.contains(
+        ServiceOperationId::OpenDevicePairingReadResolveV1,
+        BindingKind::HttpJson,
+    ));
+    assert!(bundle.contains(
+        ServiceOperationId::OpenDevicePairingReadStatusV1,
+        BindingKind::HttpJson,
+    ));
+}
+
+#[test]
 fn station_history_key_recovery_bundle_closes_feature_requirements() {
     let bundle = operation_bundle_descriptor("ak.operation_bundle.station.history_key_recovery.v1")
         .expect("Station history-key recovery bundle must be registered");

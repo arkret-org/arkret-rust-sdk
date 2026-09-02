@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-01.4;
-//! sha256=10e5621bc3b5856fe96bacb27dd0fc1e189da92947a0d337d206a9173a7668f6
-//! Entries: operation_bundles=34 features=22
+//! Input: registry/contract-registry.json; version=2026-09-02.3;
+//! sha256=729a6ddae109c6995d20a8b143f827d2d314e467edfcdd06dd4cf121ff9b4a26
+//! Entries: operation_bundles=35 features=22
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -576,6 +576,24 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
         }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.device_pairing_handoff.v1",
+        service_kind: ServiceKind::Station,
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenDevicePairingCommandStageV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenDevicePairingReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenDevicePairingReadStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.history_key_recovery.v1",

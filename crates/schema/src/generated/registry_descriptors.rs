@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-08-30.2;
 //! sha256=5027ff6fedbe92ee1b1475278352416fbcee183acf7ce9e61124d1a156106ab3 Input: registry/
-//! capability-action-registry.json; version=2026-09-01.4;
-//! sha256=b7270454dddbd0c94faa6f09bb41949b248766cd11f0f160d64e9b4ceaa29b63 Input: registry/
+//! capability-action-registry.json; version=2026-09-02.1;
+//! sha256=82c127fea3bcdc062655f070dd19ef4b6a4c70a9b36eaa8af59f2458ba5dbba6 Input: registry/
 //! schema-registry.json; version=2026-09-01.1;
 //! sha256=c9867f3896c5875e9b169354d77e26ed98b33567e06393654a28e12c1d435c95 Input: registry/
 //! account-data-key-registry.json; version=2026-08-30.1;
