@@ -19,6 +19,7 @@ use arkret_models_identity::service_identity::{
 use arkret_wire::{Did, DidCoreId, ServiceKind, project_did_to_core_id};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::{IdentityError, Result};
 
@@ -123,8 +124,23 @@ impl StoredDidCoreIdentity {
 pub struct DidCoreIdentityBundle {
     pub schema: String,
     pub identity: StoredDidCoreIdentity,
-    pub webvh_history_entries: Vec<ServiceWebvhInceptionOperation>,
+    /// Receipts for this DID, oldest first, ending with the one
+    /// [`Self::identity`] carries.
+    ///
+    /// A restore replays the log from its inception, and the inception commit
+    /// is checked against the receipt issued for it, so the chain has to keep
+    /// the earlier receipts rather than only the current one.
     pub receipt_chains: Vec<ServiceRegistrationReceipt>,
+    /// The complete method-native log, oldest entry first.
+    ///
+    /// Typed as raw entries because only the first one is an inception: a
+    /// service DID advances by successor entries, and
+    /// `ServiceWebvhInceptionOperation` rejects anything whose `versionId` is
+    /// not `1-`. `service-identity-bundle.schema.json` always described this
+    /// field as an array of log entries; carrying only the inception was an
+    /// implementation limit, and it left a rotated DID with no representable
+    /// bundle at all.
+    pub webvh_history_entries: Vec<Value>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub exported_at: DateTime<Utc>,
 }
@@ -143,28 +159,102 @@ impl DidCoreIdentityBundle {
         }
         self.identity.validate()?;
         let key = &self.identity.identity.registration_key;
-        self.webvh_history_entries
-            .first()
-            .expect("checked non-empty")
-            .validate_for(key)?;
-        if self
-            .webvh_history_entries
-            .first()
-            .expect("checked non-empty")
-            .state
-            .id
-            != self.identity.identity.did
-        {
+        let did = &self.identity.identity.did;
+
+        let inception: ServiceWebvhInceptionOperation = serde_json::from_value(
+            self.webvh_history_entries
+                .first()
+                .expect("checked non-empty")
+                .clone(),
+        )
+        .map_err(|error| {
+            IdentityError::Protocol(format!("identity bundle inception is malformed: {error}"))
+        })?;
+        inception.validate_for(key)?;
+        if inception.state.id != *did {
             return Err(IdentityError::Protocol(
                 "identity bundle history belongs to a different service DID".to_owned(),
             ));
         }
-        for receipt in &self.receipt_chains {
+
+        // The hash chain, pre-rotation commitments and entry proofs are the
+        // restoring deployment's job: it re-verifies every entry before
+        // replaying it, with the same checks it applies to a log submitted by
+        // anyone else. What is enforced here is the binding this type owns -
+        // that the log, the identity and the receipts describe one DID at one
+        // version - which is the part a consumer cannot re-derive.
+        // Bind the log to the identity it ships with. Without this a bundle
+        // could carry a current identity beside a log that no longer heads it -
+        // exactly the shape a rotation produced before the log was carried in
+        // full - and the mismatch would only surface during recovery.
+        let head = self
+            .webvh_history_entries
+            .last()
+            .expect("checked non-empty");
+        let head_version_id = head
+            .get("versionId")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                IdentityError::Protocol("identity bundle history head has no versionId".to_owned())
+            })?;
+        if head_version_id != self.identity.identity.version_id {
+            return Err(IdentityError::Protocol(
+                "identity bundle history head does not match the bundled identity version"
+                    .to_owned(),
+            ));
+        }
+        if head.get("state") != Some(&serde_json::to_value(&self.identity.did_document)?) {
+            return Err(IdentityError::Protocol(
+                "identity bundle history head does not match the bundled DID document".to_owned(),
+            ));
+        }
+        if self.receipt_chains.len() != self.webvh_history_entries.len() {
+            return Err(IdentityError::Protocol(
+                "identity bundle must carry exactly one receipt for every WebVH entry".to_owned(),
+            ));
+        }
+        if self
+            .receipt_chains
+            .last()
+            .is_none_or(|receipt| receipt.version_id != self.identity.identity.version_id)
+        {
+            return Err(IdentityError::Protocol(
+                "identity bundle receipt chain does not end at the bundled identity version"
+                    .to_owned(),
+            ));
+        }
+        for (entry, receipt) in self.webvh_history_entries.iter().zip(&self.receipt_chains) {
             receipt.validate_for(
                 key,
                 &self.identity.identity.service_id,
                 &self.identity.identity.did,
             )?;
+            let version_id = entry
+                .get("versionId")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    IdentityError::Protocol(
+                        "identity bundle WebVH entry has no versionId".to_owned(),
+                    )
+                })?;
+            let update_key = entry
+                .pointer("/parameters/updateKeys/0")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    IdentityError::Protocol(
+                        "identity bundle WebVH entry has no active update key".to_owned(),
+                    )
+                })?;
+            let event_digest = arkret_canonical::canonical_sha256(entry)?;
+            let control_key_digest = arkret_canonical::sha256_digest(update_key.as_bytes());
+            if receipt.version_id != version_id
+                || receipt.log_head_digest != event_digest
+                || receipt.control_key_digest != control_key_digest
+            {
+                return Err(IdentityError::Protocol(
+                    "identity bundle receipt does not bind its WebVH entry".to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -735,7 +825,7 @@ mod tests {
             schema: DidCoreIdentityBundle::SCHEMA.to_owned(),
             receipt_chains: vec![stored.registration_receipt.clone()],
             identity: stored,
-            webvh_history_entries: vec![operation],
+            webvh_history_entries: vec![serde_json::to_value(&operation).unwrap()],
             exported_at: "2026-07-15T00:00:02.000Z".parse().unwrap(),
         };
         let backend = KeyStoreIdentityBundleBackend::new(
