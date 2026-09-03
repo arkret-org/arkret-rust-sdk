@@ -163,14 +163,21 @@ fn ak_sdk_024_public_api_inventory_is_complete_and_every_typed_carrier_is_gated(
     let mut actual = Vec::new();
     for source in sources {
         let text = fs::read_to_string(&source).unwrap().replace("\r\n", "\n");
-        if text.contains("pub protocol_version: String") {
+        if text.contains("pub protocol_version: String")
+            || text.contains("pub protocol_version: ServiceProtocolVersion")
+        {
             let relative = source
                 .strip_prefix(&workspace)
                 .unwrap()
                 .to_string_lossy()
                 .replace('\\', "/");
+            let string_gate = text.contains(
+                "#[serde(deserialize_with = \"arkret_wire::deserialize_protocol_version\")]\n    pub protocol_version: String",
+            );
+            let closed_enum_gate = text.contains("pub protocol_version: ServiceProtocolVersion")
+                && text.contains("impl<'de> Deserialize<'de> for ServiceProtocolVersion");
             assert!(
-                text.contains("#[serde(deserialize_with = \"arkret_wire::deserialize_protocol_version\")]\n    pub protocol_version: String"),
+                string_gate || closed_enum_gate,
                 "public typed protocol_version carrier bypasses bootstrap gate: {relative}"
             );
             actual.push(relative);

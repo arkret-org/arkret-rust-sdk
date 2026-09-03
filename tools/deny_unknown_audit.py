@@ -13,9 +13,10 @@ Enforces the unknown-field strictness policy (see arkret-work
      (the closed object would silently re-open).
 
 The forward half of gate 2 ("every `additionalProperties: false` object has a
-Rust owner that denies") is covered by the field-level owner inventory in
-`wire_value_audit.py`; this tool validates the reverse: that every existing
-`deny_unknown_fields` sits on a genuinely closed boundary.
+Rust owner that denies") is enforced for the mapped `models-discovery` surface
+by the spec-struct drift gate invoked in `--check` mode. This tool also validates
+the reverse: every existing `deny_unknown_fields` sits on a genuinely closed
+boundary.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from collections import Counter
 from dataclasses import dataclass
@@ -343,11 +345,31 @@ def main() -> int:
     payload = report(sites, resolver, allowlist)
     rendered = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     if args.write_report:
-        args.write_report.write_text(rendered, encoding="utf-8")
+        with args.write_report.open("w", encoding="utf-8", newline="\n") as report_file:
+            report_file.write(rendered)
     else:
         print(rendered, end="")
     if args.check:
         errors = validate(payload, allowlist)
+        forward_gate = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "tools" / "spec-struct-proto" / "run_feasibility.py"),
+                "--crate",
+                "models-discovery",
+                "--check",
+            ],
+            cwd=ROOT,
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        if forward_gate.returncode != 0:
+            errors.append(
+                "closed-schema forward deny/shape gate failed:\n"
+                + forward_gate.stdout
+                + forward_gate.stderr
+            )
         if args.inventory.exists() and args.source_root.resolve() == ROOT.resolve():
             tracked = json.loads(args.inventory.read_text(encoding="utf-8"))
             if tracked != payload:

@@ -7,8 +7,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    BindingKind, DeviceId, DidCoreId, ErrorCode, OperationId, PROTOCOL_VERSION, RealmId, Result,
-    ServiceKind, ServiceOperationId, WireError,
+    BindingKind, DeviceId, DidCoreId, OperationId, RealmId, Result, ServiceKind,
+    ServiceOperationId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -182,16 +182,6 @@ impl ServiceRequirements {
     }
 
     pub fn verify(&self, description: &ServiceDescribe) -> Result<()> {
-        if description.protocol_version != PROTOCOL_VERSION {
-            return Err(WireError::ProtocolCode {
-                code: ErrorCode::UnsupportedProtocolVersion,
-                message: format!(
-                    "service protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
-                    description.protocol_version
-                ),
-            });
-        }
-
         if let Some(service_kind) = &self.service_kind
             && description.service_kind != *service_kind
         {
@@ -260,7 +250,7 @@ mod tests {
             },
             trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
-            protocol_version: "1.0".to_owned(),
+            protocol_version: crate::service_description::ServiceProtocolVersion::V1,
             supported_profiles: vec![],
             profile_bindings: Default::default(),
             supported_features: vec![],
@@ -325,16 +315,6 @@ mod tests {
             .verify(&description)
             .unwrap();
 
-        let mut incompatible = description.clone();
-        incompatible.protocol_version = "2.0".to_owned();
-        let error = ServiceRequirements::new()
-            .verify(&incompatible)
-            .expect_err("an unsupported protocol family must fail closed");
-        assert_eq!(
-            error.error_code(),
-            Some(ErrorCode::UnsupportedProtocolVersion)
-        );
-
         let mut incompatible_json = serde_json::to_value(description).unwrap();
         incompatible_json["protocol_version"] = serde_json::json!("2.0");
         let error = serde_json::from_value::<ServiceDescribe>(incompatible_json)
@@ -342,7 +322,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains(ErrorCode::UNSUPPORTED_PROTOCOL_VERSION)
+                .contains(arkret_wire::ErrorCode::UNSUPPORTED_PROTOCOL_VERSION)
         );
     }
 

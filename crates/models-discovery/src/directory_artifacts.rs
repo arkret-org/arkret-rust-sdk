@@ -12,19 +12,29 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct ObjectPreview {
     pub object_id: ObjectPreviewId,
-    pub object_kind: String,
+    pub object_kind: ObjectPreviewKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_refs: Vec<EventId>,
     pub policy_revision: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stale: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub divergent: Option<bool>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObjectPreviewKind {
+    Strand,
+    Message,
+    Event,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -12,7 +12,7 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::HandleClaim;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    AccountId, ActorId, AuditReasonText, BlobRef, DidCoreId, DidUrl, DomainSeparationId,
+    AccountId, ActorId, AppletId, AuditReasonText, BlobRef, DidCoreId, DidUrl, DomainSeparationId,
     EncryptionProfile, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId,
     RealmId, Result, SchemaId, SealBasis, ServiceOperationId, WireError, proof_kind,
 };
@@ -24,6 +24,7 @@ use crate::directory_artifacts::ObjectPreview;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectorySearchRealmsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -49,6 +50,7 @@ pub struct DirectorySearchRealmsRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryRealmSearchOutcome {
     #[serde(default)]
     pub realms: Vec<RealmPreview>,
@@ -84,6 +86,7 @@ pub enum RealmMemberCountBucket {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmPreview {
     pub realm_id: RealmId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -118,7 +121,7 @@ pub struct RealmPreview {
     /// synthesized id would be worse than absence, since it looks verifiable and
     /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
+    pub source_refs: Vec<EventId>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale: Option<bool>,
@@ -178,7 +181,7 @@ pub struct RealmJoinCandidate {
     pub service_kind: RealmJoinCandidateServiceKind,
     pub role: RealmJoinCandidateRole,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
+    pub endpoint_url: Option<String>,
     pub operations: Vec<String>,
     pub join_methods: Vec<RealmJoinMethod>,
     /// Effective accepted Realm profile at `as_of`. Pre-join clients use this
@@ -252,6 +255,7 @@ impl RealmJoinCandidate {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryResolveRealmRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
@@ -275,6 +279,7 @@ pub struct DirectoryResolveRealmRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryRealmResolutionOutcome {
     pub realm_preview: RealmPreview,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -313,13 +318,20 @@ pub enum TargetKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryRequestProof {
-    pub kind: String,
+    pub kind: DirectoryRequestProofKind,
     pub verification_method: DidUrl,
     pub payload_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub audience_id: DidCoreId,
     pub jws: String,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryRequestProofKind {
+    DetachedJws,
 }
 
 /// R3.3 (AKP-0011) — request body for `ak.find.directory.read.resolve_target.v1`.
@@ -331,6 +343,7 @@ pub struct DirectoryRequestProof {
 /// the resolved object via `object_address::verify_token_target`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryResolveTargetRequestBody {
     pub address: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -379,6 +392,7 @@ impl DirectoryResolveTargetRequestBody {
 /// because its shape varies by `target_kind`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryTargetResolutionOutcome {
     pub target_kind: TargetKind,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -394,7 +408,7 @@ pub struct DirectoryTargetResolutionOutcome {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
+    pub source_refs: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub join_candidates: Vec<RealmJoinCandidate>,
     pub policy_revision: NonEmptyString,
@@ -402,6 +416,7 @@ pub struct DirectoryTargetResolutionOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectorySearchOrganizationsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -415,6 +430,7 @@ pub struct DirectorySearchOrganizationsRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryOrganizationSearchOutcome {
     #[serde(default)]
     pub organizations: Vec<OrganizationPreview>,
@@ -450,7 +466,7 @@ pub struct OrganizationPreview {
     /// synthesized id would be worse than absence, since it looks verifiable and
     /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
+    pub source_refs: Vec<EventId>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale: Option<bool>,
@@ -460,6 +476,7 @@ pub struct OrganizationPreview {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryResolveOrganizationRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<DidCoreId>,
@@ -496,16 +513,18 @@ impl DirectoryResolveOrganizationRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryOrganizationResolutionOutcome {
     pub organization_preview: OrganizationPreview,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did_document_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub endorsements: Vec<Value>,
+    pub endorsements: Vec<BTreeMap<String, Value>>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectorySearchActorsRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
@@ -521,6 +540,7 @@ pub struct DirectorySearchActorsRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryActorSearchOutcome {
     #[serde(default)]
     pub actors: Vec<ActorPreview>,
@@ -531,6 +551,7 @@ pub struct DirectoryActorSearchOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ActorPreview {
     pub actor_id: ActorId,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -605,6 +626,7 @@ impl std::str::FromStr for DirectoryIntent {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectorySearchUsersRequestBody {
     pub query: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -630,10 +652,11 @@ pub enum UserSearchMembership {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryResolveHandleRequestBody {
     pub handle: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expected_principal_id: Option<DidCoreId>,
+    pub expected_account_id: Option<AccountId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proof_challenge: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -686,6 +709,7 @@ impl DirectoryResolveHandleRequestBody {
 /// Request body for `ak.find.directory.read.resolve_agent_selector.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryResolveAgentSelectorRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub controller_handle: Handle,
@@ -732,15 +756,15 @@ impl DirectoryResolveAgentSelectorRequestBody {
 /// Response body for `ak.find.directory.read.resolve_agent_selector.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
     pub controller_subject_id: DidCoreId,
     pub subject_id: DidCoreId,
     pub agent_slug: String,
-    pub verified: bool,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub selector_claim: AgentSelectorClaim,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
+    pub source_refs: Vec<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -749,11 +773,6 @@ pub struct DirectoryAgentSelectorResolutionOutcome {
 
 impl DirectoryAgentSelectorResolutionOutcome {
     pub fn validate(&self) -> Result<()> {
-        if !self.verified {
-            return Err(WireError::Protocol(
-                "directory_agent_selector_resolution_outcome.verified must be true".to_owned(),
-            ));
-        }
         validate_agent_slug(&self.agent_slug)?;
         self.selector_claim.validate()?;
         if self.selector_claim.controller_subject_id != self.controller_subject_id {
@@ -781,13 +800,14 @@ impl DirectoryAgentSelectorResolutionOutcome {
 /// context → current visible handle claims (inverse of `resolve_handle`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryListHandlesForSubjectRequestBody {
     /// Exact account reverse-lookup key. NOT a bare principal DID.
     pub account_id: AccountId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub realm_id: Option<RealmId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub intent: Option<String>,
+    pub intent: Option<DirectoryIntent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requester_id: Option<DidCoreId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -868,11 +888,7 @@ fn directory_proof_binding_bytes(
     payload_digest: &Hash,
     proof: &DirectoryRequestProof,
 ) -> Result<Vec<u8>> {
-    if proof.kind != proof_kind::DETACHED_JWS {
-        return Err(WireError::Protocol(
-            "directory requester proof kind must be detached_jws".to_owned(),
-        ));
-    }
+    debug_assert_eq!(proof.kind, DirectoryRequestProofKind::DetachedJws);
     if proof.jws.is_empty() {
         return Err(WireError::Protocol(
             "directory requester proof jws must not be empty".to_owned(),
@@ -914,6 +930,7 @@ pub enum DirectoryPushResourceKind {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryPushRegisterResourceFilter {
     pub resource_kinds: Vec<DirectoryPushResourceKind>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -922,6 +939,7 @@ pub struct DirectoryPushRegisterResourceFilter {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryPushRegisterRequestBody {
     pub subscriber_id: DidCoreId,
     pub resource_filter: DirectoryPushRegisterResourceFilter,
@@ -938,6 +956,7 @@ pub struct DirectoryPushRegisterRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryPushRegisterOutcome {
     pub subscription_id: crate::SubscriptionId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -961,6 +980,7 @@ pub struct DirectoryAnnounceRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryAnnounceOutcome {
     pub announce_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1105,7 +1125,8 @@ fn directory_governance_unsigned_request<T: Serialize>(request: &T) -> Result<Va
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryWithdrawRequestBody {
-    pub resource_id: String,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub resource_id: DirectoryWithdrawResourceId,
     pub governance_proof: DirectoryGovernanceProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
@@ -1113,6 +1134,32 @@ pub struct DirectoryWithdrawRequestBody {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub effective_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum DirectoryWithdrawResourceId {
+    Realm(RealmId),
+    Applet(AppletId),
+    ServiceOrPrincipal(DidCoreId),
+    Handle(Handle),
+}
+
+impl DirectoryWithdrawResourceId {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Realm(value) => value.as_str(),
+            Self::Applet(value) => value.as_str(),
+            Self::ServiceOrPrincipal(value) => value.as_str(),
+            Self::Handle(value) => value.canonical(),
+        }
+    }
+}
+
+impl fmt::Display for DirectoryWithdrawResourceId {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
 }
 
 impl DirectoryWithdrawRequestBody {
@@ -1127,7 +1174,7 @@ impl DirectoryWithdrawRequestBody {
     pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
         self.governance_proof.binding_bytes(
             ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
-            &self.resource_id,
+            self.resource_id.as_str(),
             &self.payload_digest()?,
         )
     }
@@ -1135,6 +1182,7 @@ impl DirectoryWithdrawRequestBody {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryWithdrawOutcome {
     pub withdrawal_ref: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1146,6 +1194,7 @@ pub struct DirectoryWithdrawOutcome {
 /// Directory-local user-search result.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct UserSearchOutcome {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub handle: Option<String>,
@@ -1165,6 +1214,7 @@ pub struct UserSearchOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryUserSearchOutcome {
     #[serde(default)]
     pub users: Vec<UserSearchOutcome>,
@@ -1175,6 +1225,7 @@ pub struct DirectoryUserSearchOutcome {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectoryHandleResolutionOutcome {
     pub account_id: AccountId,
     pub handle: String,
@@ -1187,7 +1238,7 @@ pub struct DirectoryHandleResolutionOutcome {
     )]
     pub claims: Option<Vec<HandleClaim>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<String>,
+    pub source_refs: Vec<EventId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -1200,6 +1251,7 @@ pub struct DirectoryHandleResolutionOutcome {
 /// [`Self::validate`] to enforce.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DirectorySubjectHandleList {
     pub account_id: AccountId,
     #[serde(default)]
@@ -1356,7 +1408,6 @@ mod agent_selector_outcome_tests {
             controller_subject_id: selector_claim.controller_subject_id.clone(),
             subject_id: selector_claim.subject_id.clone(),
             agent_slug: selector_claim.agent_slug.clone(),
-            verified: true,
             selector_claim,
             source_refs: Vec::new(),
             expires_at: None,
@@ -1386,7 +1437,7 @@ mod directory_requester_proof_binding_tests {
 
     fn proof(audience_id: &str, payload_digest: Hash) -> DirectoryRequestProof {
         DirectoryRequestProof {
-            kind: "detached_jws".to_owned(),
+            kind: super::DirectoryRequestProofKind::DetachedJws,
             verification_method: DidUrl::new("did:web:alice.example#key-1").unwrap(),
             payload_digest,
             created_at: Utc::now(),
@@ -1425,12 +1476,13 @@ mod directory_requester_proof_binding_tests {
 
 #[cfg(test)]
 mod directory_governance_proof_tests {
-    use arkret_wire::{AuditReasonText, DidCoreId, DidUrl, Hash, ServiceOperationId};
+    use arkret_wire::{AuditReasonText, DidCoreId, DidUrl, Hash, RealmId, ServiceOperationId};
     use chrono::{TimeZone, Utc};
     use serde_json::{Value, json};
 
     use super::{
         DirectoryGovernanceProof, DirectoryGovernanceProofPurpose, DirectoryWithdrawRequestBody,
+        DirectoryWithdrawResourceId,
     };
 
     const DIRECTORY_SERVICE_ID: &str = "ak:did_core:web:directory.example";
@@ -1451,7 +1503,7 @@ mod directory_governance_proof_tests {
 
     fn withdraw_body() -> DirectoryWithdrawRequestBody {
         let mut body = DirectoryWithdrawRequestBody {
-            resource_id: RESOURCE_ID.to_owned(),
+            resource_id: DirectoryWithdrawResourceId::Realm(RealmId::new(RESOURCE_ID).unwrap()),
             governance_proof: proof(Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap()),
             reason: Some(AuditReasonText::new("offline").unwrap()),
             effective_at: None,

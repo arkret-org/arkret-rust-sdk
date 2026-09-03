@@ -256,6 +256,10 @@ impl TransportBinding {
 pub enum InviteIntroductionKind {
     LocatorRef,
     ConsentGrant,
+    SharedRealm,
+    HandleClaim,
+    SameStation,
+    ExplicitAddress,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -285,23 +289,9 @@ pub enum PrivateContactDiscoveryProfile {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum PrivateContactDiscoveryOprfMode {
-    #[serde(rename = "VOPRF")]
-    Voprf,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrivateContactDiscoveryCiphersuite {
     #[serde(rename = "ristretto255-SHA512")]
     Ristretto255Sha512,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PrivateContactDiscoveryProofShape {
-    SingleBatchedDleq,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -313,19 +303,11 @@ pub enum PrivateContactDiscoveryHandoffStubsMode {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AntiEnumerationDelayDistribution {
-    Uniform,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AntiEnumerationDelay {
     pub minimum_ms: u32,
     pub jitter_ms: u32,
-    pub distribution: AntiEnumerationDelayDistribution,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -333,15 +315,10 @@ pub struct AntiEnumerationDelay {
 #[serde(deny_unknown_fields)]
 pub struct PrivateContactDiscovery {
     pub profile: PrivateContactDiscoveryProfile,
-    pub oprf_mode: PrivateContactDiscoveryOprfMode,
-    pub ciphersuite: PrivateContactDiscoveryCiphersuite,
     pub public_key: String,
     pub key_epoch: u64,
     pub batch_item_count: u16,
-    pub derived_prefix_bytes: u8,
-    pub proof_shape: PrivateContactDiscoveryProofShape,
     pub handoff_stubs_mode: PrivateContactDiscoveryHandoffStubsMode,
-    pub response_size_buckets_bytes: [u32; 4],
     pub blind_response_bucket_bytes: u32,
     pub match_response_bucket_bytes: u32,
     pub batch_completion_ttl_seconds: u32,
@@ -350,8 +327,46 @@ pub struct PrivateContactDiscovery {
     pub anti_enumeration_delay: AntiEnumerationDelay,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum ServiceProtocolVersion {
+    #[serde(rename = "1.0")]
+    V1,
+}
+
+impl ServiceProtocolVersion {
+    pub const fn as_str(self) -> &'static str {
+        PROTOCOL_VERSION
+    }
+}
+
+impl fmt::Display for ServiceProtocolVersion {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ServiceProtocolVersion {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        if value == PROTOCOL_VERSION {
+            Ok(Self::V1)
+        } else {
+            Err(serde::de::Error::custom(format!(
+                "unsupported_protocol_version: {value}"
+            )))
+        }
+    }
+}
+
 impl PrivateContactDiscovery {
     pub const RESPONSE_SIZE_BUCKETS_BYTES: [u32; 4] = [4096, 16384, 65536, 262144];
+    pub const CIPHERSUITE: PrivateContactDiscoveryCiphersuite =
+        PrivateContactDiscoveryCiphersuite::Ristretto255Sha512;
+    pub const DERIVED_PREFIX_BYTES: u8 = 16;
 
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -368,15 +383,10 @@ impl PrivateContactDiscovery {
     ) -> Self {
         Self {
             profile: PrivateContactDiscoveryProfile::V1,
-            oprf_mode: PrivateContactDiscoveryOprfMode::Voprf,
-            ciphersuite: PrivateContactDiscoveryCiphersuite::Ristretto255Sha512,
             public_key: public_key.into(),
             key_epoch,
             batch_item_count,
-            derived_prefix_bytes: 16,
-            proof_shape: PrivateContactDiscoveryProofShape::SingleBatchedDleq,
             handoff_stubs_mode,
-            response_size_buckets_bytes: Self::RESPONSE_SIZE_BUCKETS_BYTES,
             blind_response_bucket_bytes,
             match_response_bucket_bytes,
             batch_completion_ttl_seconds,
@@ -398,8 +408,6 @@ impl PrivateContactDiscovery {
             || public_key_point
                 .is_none_or(|point| point == curve25519_dalek::RistrettoPoint::identity())
             || !(1..=1024).contains(&self.batch_item_count)
-            || self.derived_prefix_bytes != 16
-            || self.response_size_buckets_bytes != Self::RESPONSE_SIZE_BUCKETS_BYTES
             || !Self::RESPONSE_SIZE_BUCKETS_BYTES.contains(&self.blind_response_bucket_bytes)
             || !Self::RESPONSE_SIZE_BUCKETS_BYTES.contains(&self.match_response_bucket_bytes)
             || !(60..=86_400).contains(&self.batch_completion_ttl_seconds)
@@ -428,8 +436,7 @@ pub struct ServiceDescribe {
     /// expected deployment scope.
     pub trust_domain: TrustDomainId,
     pub service_kind: ServiceKind,
-    #[serde(deserialize_with = "arkret_wire::deserialize_protocol_version")]
-    pub protocol_version: String,
+    pub protocol_version: ServiceProtocolVersion,
     /// Profiles the service
     /// declares conformance to. Empty array is valid; missing is not.
     pub supported_profiles: Vec<String>,
@@ -585,7 +592,7 @@ impl ServiceDescribe {
             },
             trust_domain,
             service_kind,
-            protocol_version: PROTOCOL_VERSION.to_owned(),
+            protocol_version: ServiceProtocolVersion::V1,
             supported_profiles: Vec::new(),
             profile_bindings: BTreeMap::new(),
             supported_operation_bundles,
@@ -627,15 +634,7 @@ impl ServiceDescribe {
     /// - `verified_profiles` MUST be empty when `development_mode = true`.
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
-        if self.protocol_version != PROTOCOL_VERSION {
-            return Err(WireError::ProtocolCode {
-                code: ErrorCode::UnsupportedProtocolVersion,
-                message: format!(
-                    "ServiceDescribe protocol_version {} does not match Arkret {PROTOCOL_VERSION}",
-                    self.protocol_version
-                ),
-            });
-        }
+        debug_assert_eq!(self.protocol_version, ServiceProtocolVersion::V1);
         if project_did_to_core_id(&self.service_resolution.did)? != self.service_id
             || self.service_resolution.method_history_head.is_empty()
             || self.service_resolution.version_id.is_empty()
@@ -1163,7 +1162,7 @@ mod tests {
             },
             trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
             service_kind: ServiceKind::DirectoryService,
-            protocol_version: PROTOCOL_VERSION.to_owned(),
+            protocol_version: ServiceProtocolVersion::V1,
             supported_profiles: vec![],
             profile_bindings: BTreeMap::new(),
             supported_operation_bundles: vec![
@@ -1288,7 +1287,6 @@ mod tests {
             AntiEnumerationDelay {
                 minimum_ms: 20,
                 jitter_ms: 50,
-                distribution: AntiEnumerationDelayDistribution::Uniform,
             },
         );
 
@@ -1322,7 +1320,6 @@ mod tests {
             AntiEnumerationDelay {
                 minimum_ms: 20,
                 jitter_ms: 50,
-                distribution: AntiEnumerationDelayDistribution::Uniform,
             },
         );
 
@@ -1455,7 +1452,7 @@ pub struct BottomDiagnostic {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_view: Option<BottomDiagnosticSealView>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub head_ids: Vec<Value>,
+    pub heads: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<BottomDetails>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1465,6 +1462,7 @@ pub struct BottomDiagnostic {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EgressNetworkPolicy {
     pub version: u32,
     pub private_network_default: EgressPrivateNetworkDefault,
@@ -1535,6 +1533,7 @@ impl EgressProtectedPurpose {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EgressPrivateException {
     pub purpose: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]

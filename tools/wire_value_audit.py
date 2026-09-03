@@ -1299,7 +1299,8 @@ def seed_open_allowlist(
             "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary.",
         }
     payload = {"entries": [merged[key] for key in sorted(merged)]}
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="\n") as output:
+        output.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     return merged
 
 
@@ -1458,9 +1459,8 @@ def refresh_allowlist(
         if entry.get("spec_pointer") and entry.get("schema_shape") != "unknown":
             merged[key]["spec_pointer"] = entry["spec_pointer"]
     payload = {"entries": [merged[key] for key in sorted(merged)]}
-    path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    with path.open("w", encoding="utf-8", newline="\n") as output:
+        output.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     return merged
 
 
@@ -1488,13 +1488,12 @@ def main() -> int:
     if args.refresh_inventory:
         allowlist = refresh_allowlist(args.allowlist, payload, allowlist)
         payload = report(fields, dynamic_findings, resolver, allowlist, repositories)
-        args.inventory.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        with args.inventory.open("w", encoding="utf-8", newline="\n") as inventory_file:
+            inventory_file.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     rendered = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
     if args.write_report:
-        args.write_report.write_text(rendered, encoding="utf-8")
+        with args.write_report.open("w", encoding="utf-8", newline="\n") as report_file:
+            report_file.write(rendered)
     else:
         print(rendered, end="")
     if args.check:

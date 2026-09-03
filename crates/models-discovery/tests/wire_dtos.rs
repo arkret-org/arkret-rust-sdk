@@ -309,7 +309,6 @@ fn private_contact_discovery_verifies_rfc9497_batch_dleq_vector() {
         arkret_models_discovery::AntiEnumerationDelay {
             minimum_ms: 100,
             jitter_ms: 50,
-            distribution: arkret_models_discovery::AntiEnumerationDelayDistribution::Uniform,
         },
     );
     let request: DirectoryPrivateContactDiscoveryRequestBody =

@@ -230,6 +230,19 @@ pub enum PsiClassBProblemType {
     PsiQuotaExhausted,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PsiPaddedProblemTitle {
+    #[serde(rename = "Psi quota exhausted")]
+    PsiQuotaExhausted,
+    #[serde(rename = "Policy denied")]
+    PolicyDenied,
+    #[serde(rename = "Duplicate conflict")]
+    DuplicateConflict,
+    #[serde(rename = "Psi batch unavailable")]
+    PsiBatchUnavailable,
+}
+
 impl PsiClassBProblemType {
     pub const fn status(self) -> u16 {
         match self {
@@ -246,6 +259,15 @@ impl PsiClassBProblemType {
             Self::DuplicateConflict => "Duplicate conflict",
             Self::PsiBatchUnavailable => "Psi batch unavailable",
             Self::PsiQuotaExhausted => "Psi quota exhausted",
+        }
+    }
+
+    pub const fn title(self) -> PsiPaddedProblemTitle {
+        match self {
+            Self::PolicyDenied => PsiPaddedProblemTitle::PolicyDenied,
+            Self::DuplicateConflict => PsiPaddedProblemTitle::DuplicateConflict,
+            Self::PsiBatchUnavailable => PsiPaddedProblemTitle::PsiBatchUnavailable,
+            Self::PsiQuotaExhausted => PsiPaddedProblemTitle::PsiQuotaExhausted,
         }
     }
 
@@ -266,7 +288,7 @@ impl PsiClassBProblemType {
 pub struct PsiPaddedProblem {
     #[serde(rename = "type")]
     pub problem_type: PsiClassBProblemType,
-    pub title: String,
+    pub title: PsiPaddedProblemTitle,
     pub status: u16,
     pub detail: String,
     pub instance: String,
@@ -284,7 +306,7 @@ impl PsiPaddedProblem {
     ) -> Result<Self> {
         let problem = Self {
             problem_type,
-            title: problem_type.canonical_title().to_owned(),
+            title: problem_type.title(),
             status: problem_type.status(),
             detail: detail.into(),
             instance: instance.into(),
@@ -296,7 +318,7 @@ impl PsiPaddedProblem {
 
     pub fn validate(&self) -> Result<()> {
         if self.status != self.problem_type.status()
-            || self.title != self.problem_type.canonical_title()
+            || self.title != self.problem_type.title()
             || self.detail.is_empty()
             || self.detail.chars().count() > Self::DETAIL_MAX_CHARS
             || !is_uri_reference(&self.instance)
@@ -436,7 +458,7 @@ impl<'de> Deserialize<'de> for PsiPaddedProblem {
         struct RawPsiPaddedProblem {
             #[serde(rename = "type")]
             problem_type: PsiClassBProblemType,
-            title: String,
+            title: PsiPaddedProblemTitle,
             status: u16,
             detail: String,
             instance: String,
@@ -646,7 +668,8 @@ impl DirectoryPrivateContactDiscoveryRequestBody {
             || self.item_count() != usize::from(configuration.batch_item_count)
             || matches!(
                 self,
-                Self::Blind { ciphersuite, .. } if *ciphersuite != configuration.ciphersuite
+                Self::Blind { ciphersuite, .. }
+                    if *ciphersuite != PrivateContactDiscovery::CIPHERSUITE
             )
         {
             return Err(WireError::Protocol(
@@ -765,10 +788,10 @@ impl DirectoryPrivateContactDiscoveryOutcome {
             ) => {
                 let shape_matches = *profile == configuration.profile
                     && batch_id == request_batch_id
-                    && *ciphersuite == configuration.ciphersuite
+                    && *ciphersuite == PrivateContactDiscovery::CIPHERSUITE
                     && *key_epoch == configuration.key_epoch
                     && evaluated_elements.len() == blinded_elements.len()
-                    && *derived_prefix_bytes == configuration.derived_prefix_bytes;
+                    && *derived_prefix_bytes == PrivateContactDiscovery::DERIVED_PREFIX_BYTES;
                 if shape_matches {
                     verify_batched_voprf_proof(
                         blinded_elements,
@@ -995,7 +1018,7 @@ mod private_contact_discovery_tests {
     use serde_json::json;
 
     use super::*;
-    use crate::service_description::{AntiEnumerationDelay, AntiEnumerationDelayDistribution};
+    use crate::service_description::AntiEnumerationDelay;
 
     const VALID_POINT: &str = "hj8zDMGhJZ7VpZmKI6z9N_tDUaeTpbPAkLZC3cQ5uUU";
 
@@ -1013,7 +1036,6 @@ mod private_contact_discovery_tests {
             AntiEnumerationDelay {
                 minimum_ms: 100,
                 jitter_ms: 50,
-                distribution: AntiEnumerationDelayDistribution::Uniform,
             },
         )
     }
