@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 641,
+    "total": 642,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -72,24 +72,24 @@
     },
     "by_category": {
       "closed_dispatch": 2,
-      "json_authoring": 103,
+      "json_authoring": 104,
       "json_path_mutation": 80,
       "paired_api": 17,
       "public_value_field": 439
     },
     "by_classification": {
-      "closed_discriminated": 24,
+      "closed_discriminated": 25,
       "independent": 16,
       "internal_or_fixture": 2,
       "open_json": 117,
       "polymorphic_boundary": 482
     },
     "by_lifecycle": {
-      "pending_migration": 24,
+      "pending_migration": 25,
       "retained_boundary": 617
     },
     "by_decision": {
-      "closed": 24,
+      "closed": 25,
       "independent": 16,
       "open": 117,
       "raw": 484
@@ -101,7 +101,7 @@
       "coauth": 41,
       "floria": 12,
       "garth": 1,
-      "inkson": 45,
+      "inkson": 46,
       "sodmin": 1,
       "soland": 241,
       "teabay": 5
@@ -111,7 +111,7 @@
       "open_json": 4,
       "open_json_container": 25,
       "open_map": 89,
-      "unknown": 514
+      "unknown": 515
     }
   },
   "entries": [
@@ -6570,7 +6570,7 @@
       "crate": "inkson",
       "file": "inkson/src/file_transfer.rs",
       "path": "inkson/src/file_transfer.rs",
-      "line": 72,
+      "line": 73,
       "owner": "FileTransferUploadResult",
       "owner_repository": "inkson",
       "symbol": "FileTransferUploadResult.server_response",
@@ -7922,7 +7922,7 @@
       "crate": null,
       "file": "inkson/src/views/chat/composer.rs",
       "path": "inkson/src/views/chat/composer.rs",
-      "line": 2289,
+      "line": 2316,
       "owner": "ChatComposer",
       "owner_repository": "inkson",
       "symbol": "ChatComposer",
@@ -7974,7 +7974,7 @@
       "crate": null,
       "file": "inkson/src/views/chat/mod.rs",
       "path": "inkson/src/views/chat/mod.rs",
-      "line": 2440,
+      "line": 2441,
       "owner": "ChatPanel",
       "owner_repository": "inkson",
       "symbol": "ChatPanel",
@@ -8096,6 +8096,32 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "kind=\"message\" is a local search-result category, not an Arkret EventKind; content is presentation data and no field selects an Event payload schema.",
       "evidence": "json!({ \"realm_id\": realm_id, \"kind\": \"message\", \"surface\": \"message\", \"event_id\": event_ref, \"message_id\": event_ref, \"actor_id\": event.sender, \"content\": { \"body\": body }, \"index_profile\": arkret_sdk::ProfileId::SEARCH_CLIENT_INDEX_V1, \"index_source\": \"local_decrypted_client..."
+    },
+    {
+      "finding": "json_authoring:inkson/src/views/kanban/card_detail.rs::dispatch_calendar_rsvp:80c6b2e6b68a68ef",
+      "category": "json_authoring",
+      "rust_field": null,
+      "crate": null,
+      "file": "inkson/src/views/kanban/card_detail.rs",
+      "path": "inkson/src/views/kanban/card_detail.rs",
+      "line": 794,
+      "owner": "dispatch_calendar_rsvp",
+      "owner_repository": "inkson",
+      "symbol": "dispatch_calendar_rsvp",
+      "field": "body",
+      "discriminator": "kind",
+      "data_field": "body",
+      "rust_type": null,
+      "spec_pointer": null,
+      "schema_shape": "unknown",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing.",
+      "evidence": "serde_json::json!({ \"kind\": kind, \"operation_id\": accepted_event_id, \"event_id\": response.event_id, \"local_operation_idempotency_alias\": operation_id, \"actor_id\": actor_id, \"created_at\": arkret_sdk::canonical::format_timestamp_canonical( crate::clock::now_utc() ), \"write_state..."
     },
     {
       "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:6c78ef1661ad1c6f",
