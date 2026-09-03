@@ -9,7 +9,6 @@ use curve25519_dalek::traits::Identity;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

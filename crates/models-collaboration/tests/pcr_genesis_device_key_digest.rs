@@ -63,10 +63,10 @@ fn the_descriptor_wire_form_carries_neither_digest() {
 fn a_descriptor_carrying_either_digest_is_rejected() {
     for mirror in ["device_key_digest", "hpke_key_digest"] {
         let mut encoded = serde_json::to_value(descriptor()).unwrap();
-        encoded
-            .as_object_mut()
-            .unwrap()
-            .insert(mirror.to_owned(), serde_json::json!(format!("sha256:{}", "0".repeat(64))));
+        encoded.as_object_mut().unwrap().insert(
+            mirror.to_owned(),
+            serde_json::json!(format!("sha256:{}", "0".repeat(64))),
+        );
         assert!(
             serde_json::from_value::<FoundingDeviceDescriptor>(encoded).is_err(),
             "{mirror} must not deserialize into the descriptor"

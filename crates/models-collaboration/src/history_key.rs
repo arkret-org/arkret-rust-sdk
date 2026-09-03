@@ -3075,8 +3075,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
             created_at: DateTime<Utc>,
         }
         Ok(canonical::canonical_json_bytes(&Transcript {
-            context:
-                ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
+            context: ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
             payload_digest: self.canonical_payload_digest()?,
             archive_replica_digest: &self.archive_replica_digest,
             holder_id: &self.holder_id,
