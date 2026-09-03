@@ -16,9 +16,8 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::event_envelope::EventRef;
 use arkret_wire::{
-    ActorId, CapabilityId, DidCoreId, ErrorCode, Hash, RealmId, ReasonCode, Result, WireError,
+    ActorId, DidCoreId, ErrorCode, GrantId, Hash, RealmId, ReasonCode, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -28,6 +27,7 @@ use crate::events_payloads::{
     RealmOrganizationControlScope, RealmOrganizationIssuerRole, RealmOrganizationRelationship,
     RealmOrganizationStatus,
 };
+use crate::governance::grant_constraint::CapabilityGrant;
 use crate::objects::realm_alias::RealmAlias;
 
 pub const REALM_EFFECTIVE_MODERATION_POLICY_FIELD_ORGANIZATION_POLICY_LAYERS: &str =
@@ -546,31 +546,17 @@ impl RealmInheritancePolicy {
 
 /// Typed payload for the `ak.capability.derived` event.
 ///
-/// Cell family: `ak.component.capability.derived.v1` (cas-register keyed
-/// by `capability_id`). Records a capability that was derived from
-/// composing a parent Realm grant (`source_grant_ref`) with a child
-/// Realm's inheritance declaration (`source_realm_inheritance_policy_ref`).
-///
-/// The full derive evaluation (verify the source grant, replay the
-/// inheritance policy, project the resulting bundle) lives in the
-/// reducer's audit pipeline. At schema level the soland reducer accepts
-/// the payload + projects the cell so downstream consumers can introspect it.
+/// Cell family: `ak.component.capability.derived.v1` (OR-set keyed by
+/// `grant_id`). The complete projected grant preserves its exact issuer and
+/// subject identities and names its source grant through
+/// `grant.issuer_authority_refs`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CapabilityDerived {
-    pub capability_id: CapabilityId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub source_grant_ref: EventRef,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub source_realm_inheritance_policy_ref: EventRef,
-    /// Causal frontier (free-form string per spec event-kind-registry)
-    /// that the derived capability is sealed against. Reducer treats
-    /// this opaquely.
-    pub causal_frontier: String,
-    /// Optional declarative shape of the derived capability bundle.
-    /// Reducer projects it through but doesn't introspect.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bundle: Option<Value>,
+    pub grant: CapabilityGrant,
+    pub grant_id: GrantId,
 }
 
 /// One projected `ak.realm.organization` relationship row surfaced by
@@ -909,23 +895,31 @@ mod tests {
 
     #[test]
     fn capability_derived_serde_roundtrip() {
-        let cap = CapabilityDerived {
-            capability_id: CapabilityId::new("ak:capability:01904100-0000-7000-8000-bbbbbbbbbbbb")
-                .unwrap(),
-            source_grant_ref: EventRef::new(
-                "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM".to_owned(),
-                "authorized_by".to_owned(),
-            ),
-            source_realm_inheritance_policy_ref: EventRef::new(
-                "ak:event:ARle858WIq1Q6tyqPUeacCaK06rWbVcvzG37T12U0-yi".to_owned(),
-                "inherits_from".to_owned(),
-            ),
-            causal_frontier: "ak:frontier:02000000".to_owned(),
-            bundle: Some(serde_json::json!({"capabilities": ["read", "write"]})),
-        };
-        let v = serde_json::to_value(&cap).unwrap();
-        let back: CapabilityDerived = serde_json::from_value(v).unwrap();
-        assert_eq!(back, cap);
+        let value = serde_json::json!({
+            "grant": {
+                "id": "ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
+                "schema": "ak.schema.capability.v1",
+                "realm_id": "ak:realm:AUIDHR-4MyDvxQx3OgxqW_dIB1bGA6V3G5iIYL3wd8A9",
+                "issuer_id": {
+                    "kind": "service",
+                    "service_id": "ak:did_core:web:reducer.example"
+                },
+                "subject": {
+                    "kind": "service",
+                    "service_id": "ak:did_core:web:subject.example"
+                },
+                "actions": ["ak.event.read"],
+                "resources": [{"kind": "realm"}],
+                "issuer_authority_refs": [{
+                    "kind": "grant",
+                    "grant_id": "ak:grant:ARle858WIq1Q6tyqPUeacCaK06rWbVcvzG37T12U0-yi"
+                }],
+                "issued_at": "2026-09-03T00:00:00.000Z"
+            },
+            "grant_id": "ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM"
+        });
+        let decoded: CapabilityDerived = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(decoded).unwrap(), value);
     }
 
     #[test]

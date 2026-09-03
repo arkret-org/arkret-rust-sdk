@@ -1026,6 +1026,7 @@ pub struct MlsWelcomeProjectionBinding {
 /// is emitted by the serializer and cannot diverge from the typed payload.
 #[derive(Clone, Debug)]
 pub struct MlsWelcomeProjectedDeviceMessage {
+    pub sender_account_id: AccountId,
     pub sender_device_id: String,
     pub expires_at: DateTime<Utc>,
     pub content: crate::events_payloads::MlsWelcomePayload,
@@ -1040,6 +1041,7 @@ impl Serialize for MlsWelcomeProjectedDeviceMessage {
         #[derive(Serialize)]
         struct Wire<'a> {
             kind: EventKind,
+            sender_account_id: &'a AccountId,
             sender_device_id: &'a str,
             #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
             expires_at: DateTime<Utc>,
@@ -1048,6 +1050,7 @@ impl Serialize for MlsWelcomeProjectedDeviceMessage {
         }
         Wire {
             kind: EventKind::MlsWelcome,
+            sender_account_id: &self.sender_account_id,
             sender_device_id: &self.sender_device_id,
             expires_at: self.expires_at.to_owned(),
             content: &self.content,

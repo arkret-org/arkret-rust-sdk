@@ -1452,6 +1452,16 @@ fn member_derivation(
                 .map_err(|error| projection_error(kind, &error.to_string()))?;
             Ok(Some(Value::String(digest.to_string())))
         }
+        "mls_commit_transition_digest" => {
+            let encoded = event
+                .payload
+                .get("commit_bytes_b64")
+                .and_then(Value::as_str)
+                .ok_or_else(|| projection_error(kind, "payload.commit_bytes_b64 is missing"))?;
+            let bytes = arkret_canonical::base64url_decode(encoded)
+                .map_err(|error| projection_error(kind, &error.to_string()))?;
+            Ok(Some(Value::String(arkret_canonical::sha256_digest(bytes))))
+        }
         _ => Err(projection_error(
             kind,
             &format!("unsupported value projection derivation {derivation}"),
