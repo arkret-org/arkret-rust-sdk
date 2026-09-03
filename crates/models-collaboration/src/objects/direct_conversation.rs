@@ -225,10 +225,7 @@ pub fn direct_conversation_main_strand_create_payload(
     strand.state = Some(ObjectState::Active);
     strand.stage = Some(ObjectStage::InProgress);
     strand.created_at = created_at;
-    StrandCreatePayload {
-        object: strand,
-        initial_relations: None,
-    }
+    StrandCreatePayload { object: strand }
 }
 
 /// Which participant of a pair is allowed to author the Direct Conversation founding unit.

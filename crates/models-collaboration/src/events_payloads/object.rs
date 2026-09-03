@@ -30,22 +30,17 @@ impl_protocol_create_object!(ActorProfile, Circle, Morph, Realm, Space);
 /// Generic create-event payload used by Realm / Space / Strand / Morph creates.
 ///
 /// The concrete object type is schema-specific, but the event payload envelope
-/// is shared: `{ "object": ... }` plus optional initial relations. `T` is
+/// is shared: the closed `{ "object": ... }` envelope. `T` is
 /// bounded by [`ProtocolCreateObject`], so the envelope cannot be used to smuggle
 /// an untyped object through an otherwise typed-looking call site.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ObjectCreatePayload<T: ProtocolCreateObject> {
     pub object: T,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub initial_relations: Vec<BTreeMap<String, Value>>,
 }
 
 impl<T: ProtocolCreateObject> ObjectCreatePayload<T> {
     pub fn new(object: T) -> Self {
-        Self {
-            object,
-            initial_relations: Vec::new(),
-        }
+        Self { object }
     }
 
     pub fn to_value(&self) -> Result<Value> {

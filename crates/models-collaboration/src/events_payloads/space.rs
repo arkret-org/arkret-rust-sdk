@@ -8,16 +8,11 @@ use crate::internal_prelude::*;
 #[serde(deny_unknown_fields)]
 pub struct SpaceCreatePayload {
     pub object: Space,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
 }
 
 impl SpaceCreatePayload {
     pub fn new(object: Space) -> Self {
-        Self {
-            object,
-            initial_relations: None,
-        }
+        Self { object }
     }
 
     /// Serialize the create payload, first re-checking the Space invariants

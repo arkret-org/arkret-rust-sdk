@@ -1,7 +1,9 @@
 //! `ak.self.account.stream.subscribe.v1` NDJSON frame family and validated
 //! batch results.
 
+use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::SchemaId;
+use chrono::{DateTime, Utc};
 
 use crate::internal_prelude::*;
 
@@ -19,7 +21,7 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_lists: Option<AccountSubscribeDeviceListChanges>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub account_data: Option<EventContainer>,
+    pub account_data: Option<AccountDataContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -114,6 +116,9 @@ impl AccountSubscribeFrame {
         if let Some(to_device) = &self.to_device {
             to_device.validate()?;
         }
+        if let Some(account_data) = &self.account_data {
+            account_data.validate()?;
+        }
         if let Some(bundle) = &self.agent_signer_evidence_bundle
             && (bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
                 || bundle.evidence_items.len() > 256)
@@ -189,6 +194,84 @@ impl AccountSubscribeFrame {
     pub fn is_catchup_complete(&self) -> bool {
         matches!(self.kind, AccountSubscribeFrameKind::CatchupComplete)
     }
+}
+
+/// Account-scoped private state carried by an account-subscribe delta.
+///
+/// Holder-authored events and Station-CAS registers have distinct authority
+/// and therefore remain separate typed branches.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountDataContainer {
+    #[serde(default)]
+    pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub station_cas: Option<StationCasAccountDataContainer>,
+}
+
+impl AccountDataContainer {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(station_cas) = &self.station_cas {
+            station_cas.validate()?;
+        }
+        Ok(())
+    }
+}
+
+/// Cursor-covered Station-authored Account Data register projection.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StationCasAccountDataContainer {
+    pub complete: bool,
+    #[serde(default)]
+    pub upserts: Vec<AccountDataRow>,
+    #[serde(default)]
+    pub removals: Vec<StationCasAccountDataRemoval>,
+}
+
+impl StationCasAccountDataContainer {
+    pub fn validate(&self) -> Result<()> {
+        if self.complete && !self.removals.is_empty() {
+            return Err(WireError::Protocol(
+                "complete station_cas baseline must not contain removals".to_owned(),
+            ));
+        }
+
+        let mut keys = std::collections::BTreeSet::new();
+        for upsert in &self.upserts {
+            if upsert.account_data_key.is_empty()
+                || upsert.revision == 0
+                || !keys.insert(upsert.account_data_key.as_str())
+            {
+                return Err(WireError::Protocol(
+                    "station_cas upserts must have unique non-empty keys and positive revisions"
+                        .to_owned(),
+                ));
+            }
+        }
+        for removal in &self.removals {
+            if removal.account_data_key.is_empty()
+                || removal.revision == 0
+                || !keys.insert(removal.account_data_key.as_str())
+            {
+                return Err(WireError::Protocol(
+                    "station_cas changes must have unique non-empty keys and positive revisions"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Explicit deletion of one Station-CAS Account Data register.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StationCasAccountDataRemoval {
+    pub account_data_key: String,
+    pub revision: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub updated_at: DateTime<Utc>,
 }
 
 #[cfg(test)]
@@ -285,6 +368,23 @@ mod account_subscribe_frame_tests {
 
         let missing_data = r#"{"cursor":"ak:cursor:account-4","kind":"delta","notifications":{"items":[{"id":"ak:notification:01964137-0000-7000-8000-000000000003","action":"upsert"}]}}"#;
         assert!(AccountSubscribeFrame::from_ndjson_line(missing_data).is_err());
+    }
+
+    #[test]
+    fn account_subscribe_delta_accepts_complete_station_cas_baseline() {
+        let line = r#"{"account_data":{"events":[],"station_cas":{"complete":true,"removals":[],"upserts":[{"account_data_key":"ak.account.invite_delivery","content":{"schema":"ak.schema.invite_delivery.v1"},"revision":2,"updated_at":"2026-09-03T12:00:00.000Z"}]}},"cursor":"ak:cursor:account-data-1","kind":"delta"}"#;
+        let frame = AccountSubscribeFrame::from_ndjson_line(line)
+            .unwrap()
+            .unwrap();
+        let station_cas = frame.account_data.unwrap().station_cas.unwrap();
+        assert!(station_cas.complete);
+        assert_eq!(station_cas.upserts.len(), 1);
+    }
+
+    #[test]
+    fn account_subscribe_delta_rejects_removal_in_complete_station_cas_baseline() {
+        let line = r#"{"account_data":{"events":[],"station_cas":{"complete":true,"removals":[{"account_data_key":"ak.account.invite_delivery","revision":3,"updated_at":"2026-09-03T12:00:00.000Z"}],"upserts":[]}},"cursor":"ak:cursor:account-data-2","kind":"delta"}"#;
+        assert!(AccountSubscribeFrame::from_ndjson_line(line).is_err());
     }
 
     #[test]

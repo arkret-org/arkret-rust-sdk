@@ -305,7 +305,18 @@ def mask_cfg_test_items(source: str, masked: str) -> tuple[str, str]:
     for match in reversed(sorted(test_attributes, key=lambda item: item.start())):
         opening = masked.find("{", match.end())
         semicolon = masked.find(";", match.end())
-        if opening == -1 or (semicolon != -1 and semicolon < opening):
+        comma = masked.find(",", match.end())
+        field_prefix = masked[match.end() : comma] if comma != -1 else ""
+        is_struct_field = (
+            comma != -1
+            and ":" in field_prefix
+            and not re.search(r"\b(?:fn|const|static|type|impl|mod)\b", field_prefix)
+            and (opening == -1 or comma < opening)
+            and (semicolon == -1 or comma < semicolon)
+        )
+        if is_struct_field:
+            end = comma + 1
+        elif opening == -1 or (semicolon != -1 and semicolon < opening):
             end = semicolon + 1 if semicolon != -1 else match.end()
         else:
             try:

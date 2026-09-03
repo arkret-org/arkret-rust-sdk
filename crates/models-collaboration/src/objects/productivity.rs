@@ -1414,7 +1414,7 @@ pub struct ContactRemark {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified_handle_at_save: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub global_display_name_at_save: Option<String>,
+    pub confirmed_display_name: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub saved_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1439,7 +1439,7 @@ impl ContactRemark {
             tags: Vec::new(),
             pinned: false,
             verified_handle_at_save: None,
-            global_display_name_at_save: None,
+            confirmed_display_name: None,
             saved_at,
             updated_at: None,
         }
@@ -1464,11 +1464,47 @@ impl ContactRemark {
         next
     }
 
+    /// Initializes the identity-confirmation baseline without inventing a
+    /// holder-authored petname. The caller must already have verified the
+    /// exact signed PCR profile Event and its accepted Seal.
+    pub fn new_with_confirmed_display_name(
+        principal_id: DidCoreId,
+        confirmed_display_name: impl Into<String>,
+        saved_at: DateTime<Utc>,
+    ) -> Self {
+        let mut remark = Self::new(principal_id, "", saved_at);
+        remark.confirmed_display_name = Some(confirmed_display_name.into());
+        remark
+    }
+
+    /// Refreshes only the evidence-backed identity-confirmation baseline and
+    /// preserves every holder-authored remark field for whole-value CAS.
+    pub fn with_confirmed_display_name_preserving_fields(
+        principal_id: DidCoreId,
+        existing: Option<&Self>,
+        confirmed_display_name: impl Into<String>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
+        let mut next = existing
+            .cloned()
+            .unwrap_or_else(|| Self::new(principal_id.clone(), "", updated_at));
+        next.version = 1;
+        next.subject = ContactRemarkSubject {
+            kind: "human".to_owned(),
+            principal_id,
+        };
+        next.confirmed_display_name = Some(confirmed_display_name.into());
+        next.updated_at = Some(updated_at);
+        next
+    }
+
     pub fn is_empty(&self) -> bool {
         self.petname.trim().is_empty()
             && self.note.trim().is_empty()
             && self.tags.is_empty()
             && !self.pinned
+            && self.verified_handle_at_save.is_none()
+            && self.confirmed_display_name.is_none()
     }
 
     pub fn display_name<'a>(&'a self, fallback: &'a str) -> &'a str {
@@ -1503,8 +1539,8 @@ impl ContactRemark {
         if !self.petname.is_empty() {
             arkret_wire::validate_single_line_display_text(&self.petname, 128)?;
         }
-        if let Some(display_name) = self.global_display_name_at_save.as_deref() {
-            arkret_wire::validate_single_line_display_text(display_name, 512)?;
+        if let Some(display_name) = self.confirmed_display_name.as_deref() {
+            arkret_wire::validate_single_line_display_text(display_name, 128)?;
         }
         if self.note.chars().count() > 4_096 {
             return Err(WireError::Protocol(
@@ -1597,10 +1633,8 @@ pub enum AccountBlocklistSurface {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AccountBlocklistDidTargetKind {
+pub enum AccountBlocklistActorTargetKind {
     Actor,
-    Service,
-    Organization,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1625,8 +1659,8 @@ pub enum AccountBlocklistAppletTargetKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountBlocklistDidTarget {
-    pub kind: AccountBlocklistDidTargetKind,
+pub struct AccountBlocklistActorTarget {
+    pub kind: AccountBlocklistActorTargetKind,
     pub actor_id: ActorId,
 }
 
@@ -1661,7 +1695,7 @@ pub struct AccountBlocklistValueTarget {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum AccountBlocklistTarget {
-    Did(AccountBlocklistDidTarget),
+    Actor(AccountBlocklistActorTarget),
     DeviceId(AccountBlocklistDeviceIdTarget),
     DeviceVerificationMethod(AccountBlocklistDeviceVerificationMethodTarget),
     Applet(AccountBlocklistAppletTarget),
@@ -2355,7 +2389,7 @@ mod tests {
         );
 
         let mut remark = ContactRemark::new(principal_id, "Alice from Ops", test_time(0));
-        remark.global_display_name_at_save = Some("Alice Zhang".to_owned());
+        remark.confirmed_display_name = Some("Alice Zhang".to_owned());
         remark
             .validate_for_account_data_key(&namespace_key, &key)
             .unwrap();
@@ -2369,6 +2403,49 @@ mod tests {
         );
         assert!(
             validate_private_account_data_key("ak.contacts.actor.did:web:alice.example").is_err()
+        );
+    }
+
+    #[test]
+    fn contact_confirmation_does_not_invent_or_replace_petname() {
+        let namespace_key: Vec<u8> = (0u8..=31).collect();
+        let principal_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let key = contact_remark_account_data_key(&namespace_key, &principal_id).unwrap();
+        let initial = ContactRemark::new_with_confirmed_display_name(
+            principal_id.clone(),
+            "Alice Zhang",
+            test_time(0),
+        );
+        assert!(initial.petname.is_empty());
+        assert_eq!(
+            initial.confirmed_display_name.as_deref(),
+            Some("Alice Zhang")
+        );
+        assert!(!initial.is_empty());
+        initial
+            .validate_for_account_data_key(&namespace_key, &key)
+            .unwrap();
+
+        let mut named = initial.clone();
+        named.petname = "Alice from Ops".to_owned();
+        let confirmed = ContactRemark::with_confirmed_display_name_preserving_fields(
+            principal_id,
+            Some(&named),
+            "Alice Zhou",
+            test_time(1),
+        );
+        assert_eq!(confirmed.petname, "Alice from Ops");
+        assert_eq!(
+            confirmed.confirmed_display_name.as_deref(),
+            Some("Alice Zhou")
+        );
+
+        let mut too_long = confirmed;
+        too_long.confirmed_display_name = Some("a".repeat(129));
+        assert!(
+            too_long
+                .validate_for_account_data_key(&namespace_key, &key)
+                .is_err()
         );
     }
 
@@ -2430,6 +2507,24 @@ mod tests {
             }]
         }));
         assert!(wrong_ref.is_err());
+
+        for removed_kind in ["service", "organization"] {
+            let removed_identity_target =
+                serde_json::from_value::<AccountBlocklistPayload>(json!({
+                    "version": 1,
+                    "entries": [{
+                        "target": {
+                            "kind": removed_kind,
+                            "actor_id": {"kind": "service", "service_id":
+                                "ak:did_core:webvh:z6mkfixtureblockedexample"}
+                        },
+                        "mode": "block",
+                        "applies_to": ["messages"],
+                        "created_at": "2026-06-06T10:00:00.000Z"
+                    }]
+                }));
+            assert!(removed_identity_target.is_err());
+        }
 
         let overlap: AccountBlocklistPayload = serde_json::from_value(json!({
             "version": 1,

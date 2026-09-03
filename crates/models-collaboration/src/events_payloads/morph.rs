@@ -1,7 +1,5 @@
 //! Morph event payloads.
 
-use std::collections::BTreeMap;
-
 use arkret_wire::{Hash, MorphId, Patch, Result, WireError};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -60,8 +58,6 @@ fn validate_morph_update_patch(patch: &Patch) -> Result<()> {
 #[serde(deny_unknown_fields)]
 pub struct MorphCreatePayload {
     pub object: Morph,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub initial_relations: Option<Vec<BTreeMap<String, Value>>>,
 }
 
 /// Counterpart for

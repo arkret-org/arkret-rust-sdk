@@ -196,7 +196,7 @@ pub struct AccountDataDeleteRequestBody {
     pub set_event: arkret_wire::EventInitialSubmission,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataRow {

@@ -9210,12 +9210,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/objects/productivity.rs::AccountBlocklistDidTarget",
+      "rust_type": "crates/models-collaboration/src/objects/productivity.rs::AccountBlocklistActorTarget",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/objects/productivity.rs",
       "line": 1630,
       "kind": "struct",
-      "value_kind": "AccountBlocklistDidTarget",
+      "value_kind": "AccountBlocklistActorTarget",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",

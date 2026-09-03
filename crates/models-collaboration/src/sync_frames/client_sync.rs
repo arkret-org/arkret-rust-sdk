@@ -547,6 +547,10 @@ pub struct SyncUpdates {
     pub device_lists: AccountSubscribeDeviceListChanges,
     /// Account data
     pub account_data: Vec<Event>,
+    /// Cursor-covered Station-CAS Account Data baseline/deltas.
+    #[serde(default)]
+    pub station_cas_account_data:
+        Vec<crate::sync_frames::account_subscribe::StationCasAccountDataContainer>,
     /// Notification deltas
     pub notifications: Vec<NotificationDelta>,
     /// Independently verifiable Agent signer evidence delivered by
