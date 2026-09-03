@@ -992,6 +992,7 @@ fn validate_principal_rotation_history<'a>(
     let mut activated_roots = BTreeSet::new();
     let mut previous_version_id: Option<&str> = None;
     let mut previous_next_hash: Option<String> = None;
+    let mut previous_version_time: Option<DateTime<Utc>> = None;
     let mut effective_portable = false;
     let mut previous_state_id: Option<&str> = None;
 
@@ -1018,6 +1019,25 @@ fn validate_principal_rotation_history<'a>(
                     "principal history entry {sequence} is missing parameters"
                 ))
             })?;
+        let version_time = entry
+            .get("versionTime")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} is missing versionTime"
+                ))
+            })?
+            .parse::<DateTime<Utc>>()
+            .map_err(|_| {
+                WebvhInceptionError::InvalidProof(format!(
+                    "principal history entry {sequence} has an invalid versionTime"
+                ))
+            })?;
+        if previous_version_time.is_some_and(|previous| version_time <= previous) {
+            return Err(WebvhInceptionError::HistoryFork(format!(
+                "principal history entry {sequence} versionTime is not strictly increasing"
+            )));
+        }
         arkret_wire::validate_did_webvh_v1_parameter_names(parameters.keys().map(String::as_str))
             .map_err(|error| WebvhInceptionError::InvalidProof(error.to_string()))?;
         if parameters.get("method").and_then(Value::as_str) != Some(WEBVH_METHOD_VERSION)
@@ -1133,6 +1153,7 @@ fn validate_principal_rotation_history<'a>(
         }
         verify_constructed_webvh_proof(entry).map_err(WebvhInceptionError::InvalidProof)?;
         previous_version_id = Some(version_id);
+        previous_version_time = Some(version_time);
         previous_state_id = Some(state_id);
         effective_portable = successor_effective_portable;
     }
@@ -1374,6 +1395,19 @@ fn prepare_principal_rotation_inner(
     let version_time = input
         .version_time
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let previous_version_time = previous_entry
+        .get("versionTime")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<DateTime<Utc>>().ok())
+        .expect("validated history head has a versionTime");
+    let canonical_version_time = version_time
+        .parse::<DateTime<Utc>>()
+        .expect("canonical RFC3339 timestamp parses");
+    if canonical_version_time <= previous_version_time {
+        return Err(WebvhInceptionError::InvalidProof(
+            "principal rotation versionTime must be later than the previous entry".to_owned(),
+        ));
+    }
     let mut log_entry = json!({
         "versionId": previous_version_id,
         "versionTime": version_time,
@@ -1575,6 +1609,19 @@ pub fn prepare_service_rotation(
     let version_time = input
         .version_time
         .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let previous_version_time = previous_entry
+        .get("versionTime")
+        .and_then(Value::as_str)
+        .and_then(|value| value.parse::<DateTime<Utc>>().ok())
+        .expect("validated history head has a versionTime");
+    let canonical_version_time = version_time
+        .parse::<DateTime<Utc>>()
+        .expect("canonical RFC3339 timestamp parses");
+    if canonical_version_time <= previous_version_time {
+        return Err(WebvhInceptionError::InvalidProof(
+            "service rotation versionTime must be later than the previous entry".to_owned(),
+        ));
+    }
     let mut log_entry = json!({
         "versionId": previous_version_id,
         "versionTime": version_time,
@@ -2917,6 +2964,9 @@ mod historical_verification_tests {
         assert!(
             error.to_string().contains("versionId hash is invalid")
                 || error.to_string().contains("fork or reorder")
+                || error
+                    .to_string()
+                    .contains("versionTime is not strictly increasing")
         );
     }
 

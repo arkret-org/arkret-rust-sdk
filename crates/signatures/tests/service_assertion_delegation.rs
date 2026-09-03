@@ -100,6 +100,7 @@ fn delegated_assertion_key_is_bound_by_the_station_inception_proof() {
 /// the fact instead of forcing the deployment to re-provision its identity.
 #[test]
 fn a_delegated_assertion_key_can_be_added_after_inception() {
+    let inception_time = chrono::Utc::now();
     let endpoint = url::Url::parse("https://station.example/").unwrap();
     let registration = ServiceRegistrationKey::new(
         ServiceKind::Station,
@@ -112,7 +113,7 @@ fn a_delegated_assertion_key_can_be_added_after_inception() {
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time: chrono::Utc::now(),
+            version_time: inception_time,
             did_key_fragment: Some("notary-key"),
         },
         &[7; 32],
@@ -160,7 +161,7 @@ fn a_delegated_assertion_key_can_be_added_after_inception() {
         // sign the successor.
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &third_update_key,
-        version_time: chrono::Utc::now(),
+        version_time: inception_time + chrono::Duration::seconds(1),
     })
     .unwrap();
 
@@ -206,6 +207,7 @@ fn a_delegated_assertion_key_can_be_added_after_inception() {
 /// the Provider to reject it after publication.
 #[test]
 fn service_rotation_refuses_a_broken_pre_rotation_chain() {
+    let inception_time = chrono::Utc::now();
     let endpoint = url::Url::parse("https://station.example/").unwrap();
     let registration = ServiceRegistrationKey::new(
         ServiceKind::Station,
@@ -218,7 +220,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
             provider_endpoint: &endpoint,
             registration_key: &registration,
             also_known_as: &[],
-            version_time: chrono::Utc::now(),
+            version_time: inception_time,
             did_key_fragment: Some("notary-key"),
         },
         &[11; 32],
@@ -237,7 +239,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
         state: &state,
         current_update_seed: &[13; 32],
         next_update_public_key_multibase: &fresh_key,
-        version_time: chrono::Utc::now(),
+        version_time: inception_time + chrono::Duration::seconds(1),
     })
     .err()
     .expect("an unannounced update key must not produce an entry");
@@ -260,7 +262,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
         state: &state,
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &inception_update_key,
-        version_time: chrono::Utc::now(),
+        version_time: inception_time + chrono::Duration::seconds(1),
     })
     .err()
     .expect("a spent update key must not be re-announced");
@@ -268,4 +270,43 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
         format!("{error}").contains("already activated"),
         "unexpected error: {error}"
     );
+}
+
+#[test]
+fn service_rotation_requires_a_strictly_later_version_time() {
+    let endpoint = url::Url::parse("https://station.example/").unwrap();
+    let registration = ServiceRegistrationKey::new(
+        ServiceKind::Station,
+        CanonicalServiceUrl::canonicalize(endpoint.as_str()).unwrap(),
+    )
+    .unwrap();
+    let version_time = chrono::Utc::now();
+    let inception = prepare_service_registration_inception_with_assertion_keys(
+        &mut ChaCha20Rng::from_seed([15; 32]),
+        &ServiceRegistrationInceptionInput {
+            provider_endpoint: &endpoint,
+            registration_key: &registration,
+            also_known_as: &[],
+            version_time,
+            did_key_fragment: Some("notary-key"),
+        },
+        &[16; 32],
+        &[],
+    )
+    .unwrap();
+    let next_key = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+        SigningKey::from_bytes(&[17; 32]).verifying_key().as_bytes(),
+    );
+
+    let error = prepare_service_rotation(&ServiceRotationInput {
+        did: &inception.did,
+        previous_entries: &[inception.log_entry.clone()],
+        state: &inception.log_entry["state"],
+        current_update_seed: &inception.next_update_key_seed,
+        next_update_public_key_multibase: &next_key,
+        version_time,
+    })
+    .err()
+    .expect("equal versionTime must be rejected");
+    assert!(format!("{error}").contains("later than the previous entry"));
 }
