@@ -256,8 +256,6 @@ pub struct CircleView {
     pub durability_policy: Option<DurabilityPolicy>,
     pub state: CircleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub member_count: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewer_membership: Option<CircleMembership>,
     #[serde(default)]
     pub member_ids: Vec<ActorId>,
