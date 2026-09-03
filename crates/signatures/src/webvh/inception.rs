@@ -1434,6 +1434,203 @@ fn prepare_principal_rotation_inner(
     })
 }
 
+/// Inputs for one service-DID successor entry.
+///
+/// A service publishes its own `did:webvh` log, so every document change after
+/// inception - authorizing a deployment assertion key, retiring one, moving an
+/// endpoint - is a successor entry signed by the update key the previous entry
+/// pre-committed to.
+pub struct ServiceRotationInput<'a> {
+    /// The service DID being advanced. Its SCID is fixed by the log.
+    pub did: &'a str,
+    /// The complete preceding log, oldest entry first. The whole chain is
+    /// re-validated, so a caller cannot advance a log it has only partly seen.
+    pub previous_entries: &'a [Value],
+    /// The DID document this successor publishes. Callers derive it from the
+    /// current document; nothing here invents document content.
+    pub state: &'a Value,
+    /// Seed of the update key this entry is signed with. `identity-did.md`
+    /// §3.7 I-4 requires it to be the key the previous entry pre-committed.
+    pub current_update_seed: &'a [u8; SECRET_KEY_LENGTH],
+    /// Public half of the update key the *next* successor must present. The
+    /// service generates it before this entry is published and must persist it:
+    /// losing it forecloses every later change to this DID.
+    pub next_update_public_key_multibase: &'a str,
+    pub version_time: DateTime<Utc>,
+}
+
+/// One prepared service successor entry, ready to publish.
+pub struct PreparedServiceRotation {
+    pub did: String,
+    pub version_time: String,
+    pub previous_version_id: String,
+    pub version_id: String,
+    pub log_entry: Value,
+    pub submit_body: DidOperationSubmitRequestBody,
+    pub current_update_public_key_multibase: String,
+    pub current_update_verification_method: String,
+    pub next_update_public_key_multibase: String,
+    pub next_update_key_hash: String,
+}
+
+/// Build one service-DID successor after validating the complete preceding log.
+///
+/// The service, not its Provider, controls its own DID: `identity-did.md` §3.7
+/// makes inception, rotation, endpoint update and registration-key migration
+/// all signed by update keys the service holds, and a Provider that hosts the
+/// log must never possess them. This builder is the rotation half of that rule;
+/// `prepare_service_registration_inception*` is the inception half.
+///
+/// Two invariants come straight from §3.7 I-4 and are enforced here rather than
+/// deferred to the Provider: the entry is signed by exactly the key the previous
+/// entry pre-committed, and the key it pre-commits for its own successor has
+/// never been an active update key in this log. A Provider re-checks the first
+/// on receipt, but a builder able to emit an entry that fails either would be
+/// producing material that only fails after publication.
+pub fn prepare_service_rotation(
+    input: &ServiceRotationInput<'_>,
+) -> Result<PreparedServiceRotation, WebvhInceptionError> {
+    let did = Did::new(input.did.to_owned())
+        .map_err(|error| WebvhInceptionError::InvalidDid(error.to_string()))?;
+    if did.method() != "webvh" {
+        return Err(WebvhInceptionError::InvalidDid(
+            "service rotation requires did:webvh".to_owned(),
+        ));
+    }
+    let (previous_entry, activated_update_keys, _) =
+        validate_principal_rotation_history(input.did, input.previous_entries)?;
+    let previous_version_id = previous_entry
+        .get("versionId")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous service entry is missing versionId".to_owned(),
+            )
+        })?;
+    let (previous_sequence, _) = previous_version_id.split_once('-').ok_or_else(|| {
+        WebvhInceptionError::InvalidProof(
+            "previous service entry has malformed versionId".to_owned(),
+        )
+    })?;
+    let sequence = previous_sequence
+        .parse::<u64>()
+        .ok()
+        .filter(|value| {
+            *value > 0 && !(previous_sequence.len() > 1 && previous_sequence.starts_with('0'))
+        })
+        .and_then(|value| value.checked_add(1))
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous service entry sequence cannot advance".to_owned(),
+            )
+        })?;
+    let parameters = previous_entry
+        .get("parameters")
+        .and_then(Value::as_object)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous service entry is missing parameters".to_owned(),
+            )
+        })?;
+    let scid = parameters
+        .get("scid")
+        .and_then(Value::as_str)
+        .filter(|value| input.did.split(':').nth(2) == Some(*value))
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous service entry SCID does not match DID".to_owned(),
+            )
+        })?;
+    let current_signing = SigningKey::from_bytes(input.current_update_seed);
+    let current_update_public_key_multibase =
+        encode_ed25519_pubkey_multibase(&current_signing.verifying_key().to_bytes());
+    if current_update_public_key_multibase == input.next_update_public_key_multibase {
+        return Err(WebvhInceptionError::InvalidProof(
+            "current and next service update keys must be distinct".to_owned(),
+        ));
+    }
+    if activated_update_keys.contains(input.next_update_public_key_multibase) {
+        return Err(WebvhInceptionError::InvalidProof(
+            "next service update key was already activated and cannot be reused".to_owned(),
+        ));
+    }
+    let current_commitment = webvh_next_key_hash(&current_update_public_key_multibase)?;
+    let previous_next_hashes = parameters
+        .get("nextKeyHashes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            WebvhInceptionError::InvalidProof(
+                "previous service entry is missing nextKeyHashes".to_owned(),
+            )
+        })?;
+    if previous_next_hashes.len() != 1
+        || previous_next_hashes[0].as_str() != Some(current_commitment.as_str())
+    {
+        return Err(WebvhInceptionError::InvalidProof(
+            "current service update key was not uniquely precommitted by the previous entry"
+                .to_owned(),
+        ));
+    }
+    let next_update_key_hash = webvh_next_key_hash(input.next_update_public_key_multibase)?;
+    let version_time = input
+        .version_time
+        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let mut log_entry = json!({
+        "versionId": previous_version_id,
+        "versionTime": version_time,
+        "parameters": {
+            "scid": scid,
+            "method": WEBVH_METHOD_VERSION,
+            "updateKeys": [current_update_public_key_multibase],
+            "nextKeyHashes": [next_update_key_hash],
+        },
+        "state": input.state,
+    });
+    let version_hash = sha256_multihash_base58btc(&canonical_bytes(&strip_for_hash(
+        &log_entry,
+        previous_version_id,
+    ))?);
+    let version_id = format!("{sequence}-{version_hash}");
+    if let Value::Object(properties) = &mut log_entry {
+        properties.insert("versionId".to_owned(), Value::String(version_id.clone()));
+    }
+    let current_update_verification_method =
+        did_key_verification_method(&current_update_public_key_multibase);
+    let proof = build_proof(
+        &log_entry,
+        &current_signing,
+        &current_update_public_key_multibase,
+    )?;
+    if let Value::Object(properties) = &mut log_entry {
+        properties.insert("proof".to_owned(), Value::Array(vec![proof]));
+    }
+    verify_constructed_webvh_proof(&log_entry).map_err(WebvhInceptionError::InvalidProof)?;
+    let previous_event_digest = Hash::new(
+        arkret_canonical::canonical::canonical_sha256(previous_entry)
+            .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?,
+    )
+    .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
+    let submit_body = did_submit_body(
+        input.did,
+        sequence,
+        Some(previous_event_digest),
+        log_entry.clone(),
+    )?;
+
+    Ok(PreparedServiceRotation {
+        did: input.did.to_owned(),
+        version_time,
+        previous_version_id: previous_version_id.to_owned(),
+        version_id,
+        log_entry,
+        submit_body,
+        current_update_public_key_multibase,
+        current_update_verification_method,
+        next_update_public_key_multibase: input.next_update_public_key_multibase.to_owned(),
+        next_update_key_hash,
+    })
+}
+
 /// Build a controller-signed n+1 successor that moves a portable WebVH DID to
 /// a new host/path without changing its SCID (and therefore without changing
 /// its Arkret core id).

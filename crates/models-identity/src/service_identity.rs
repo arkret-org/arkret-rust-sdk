@@ -22,6 +22,18 @@ pub const SERVICE_REGISTRATION_ENSURE_PATH: &str =
     "/_arkret/root/identity/service-registrations:ensure";
 pub const SERVICE_REGISTRATION_GET_PATH: &str = "/_arkret/root/identity/service-registrations";
 
+/// Verification-method fragment under which a Station's own DID document
+/// authorizes its Account Authority to sign as the Station.
+///
+/// An Account Authority holds no service DID of its own: it signs S2S calls and
+/// the proofs it issues (PCR genesis relay, controller-gate attestations, handle
+/// claims) as `{station_did}#<this fragment>`, and the verifier resolves that
+/// exact method out of the Station's DID document. The Station publishes the
+/// method at inception or by a later rotation; the Account Authority names it
+/// on every proof. Both sides spell it from here so the two cannot drift - a
+/// proof naming any other fragment is simply unresolvable at the verifier.
+pub const ACCOUNT_AUTHORITY_ASSERTION_METHOD_FRAGMENT: &str = "account-authority";
+
 /// Canonical public base URL used as one half of a service registration key.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
