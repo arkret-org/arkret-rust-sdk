@@ -333,7 +333,21 @@ impl Patch {
         // it to choose the safety policy would let a caller borrow another
         // kind's carve-outs. The object kind is proven one layer up, from the
         // payload's typed target, so this hop stays on the superset.
-        validate_patch_semantic_safety(self, PatchTargetKind::Unverified)?;
+        self.apply_with_target(prestate, PatchTargetKind::Unverified)
+    }
+
+    /// Apply a patch after the caller has bound it to the typed target carried
+    /// by the validated operation payload.
+    ///
+    /// Object-specific exceptions are safe only on this path. In particular,
+    /// a Strand may update `schema_refs` to atomically activate a registered
+    /// profile, while the same path remains create-locked for a Morph.
+    pub fn apply_for_typed_target(&self, prestate: &Value, target_ref: &str) -> Result<Value> {
+        self.apply_with_target(prestate, PatchTargetKind::from_typed_target(target_ref))
+    }
+
+    fn apply_with_target(&self, prestate: &Value, target: PatchTargetKind<'_>) -> Result<Value> {
+        validate_patch_semantic_safety(self, target)?;
 
         let mut parsed: Vec<(&str, Vec<String>, &PatchOp)> = Vec::with_capacity(self.entries.len());
         for (path, op) in &self.entries {
@@ -1170,6 +1184,35 @@ mod tests {
             .unwrap_err();
 
         assert!(err.to_string().contains("not a JSON object"));
+    }
+
+    #[test]
+    fn typed_strand_application_allows_profile_schema_activation() {
+        let patch = patch_of(&[
+            (
+                "schema_refs",
+                PatchOp::set(json!(["ak.schema.calendar_event.v1"])),
+            ),
+            (
+                "metadata.fields.calendar",
+                PatchOp::set(json!({"status": "confirmed"})),
+            ),
+        ]);
+        let prestate = json!({"metadata": {"fields": {}}});
+
+        assert!(patch.apply(&prestate).is_err());
+        assert_eq!(
+            patch
+                .apply_for_typed_target(
+                    &prestate,
+                    "ak:strand:AU5DHBAGpYtmqCmUCrwMu2Tclj6LWbwoSjogDjJMHyNA",
+                )
+                .unwrap(),
+            json!({
+                "metadata": {"fields": {"calendar": {"status": "confirmed"}}},
+                "schema_refs": ["ak.schema.calendar_event.v1"],
+            })
+        );
     }
 
     #[test]

@@ -24,6 +24,7 @@ use serde_json::Value;
 
 use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
+use crate::self_principal_seal::validate_self_principal_linear_history;
 use crate::{
     AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority, AgentProvisionIntentOptions,
     DID_INCEPTION_REF_ROLE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL,
@@ -183,6 +184,23 @@ fn bootstrap_unit() -> (Event, Event) {
         &DidUrl::new(format!("{}#{}", principal_did, founding_device_id())).unwrap(),
     );
     (create, authorize)
+}
+
+#[test]
+fn self_principal_linear_control_history_allows_actor_sequence_gaps() {
+    let (create, mut authorize) = bootstrap_unit();
+    authorize.actor_seq = 3;
+
+    validate_self_principal_linear_history(&[create, authorize]).unwrap();
+}
+
+#[test]
+fn self_principal_linear_control_history_rejects_data_events() {
+    let (create, mut authorize) = bootstrap_unit();
+    authorize.kind = EventKind::AccountDataSet;
+
+    let error = validate_self_principal_linear_history(&[create, authorize]).unwrap_err();
+    assert!(error.to_string().contains("one actor"));
 }
 
 fn input() -> SelfPrincipalPcrCreateInput {

@@ -289,6 +289,11 @@ pub fn build_self_principal_event_seal<S: PayloadSigner + ?Sized>(
             "self principal Seal Events must share one Realm and actor".to_owned(),
         ));
     }
+    if events.iter().any(|event| !event.kind.is_control_plane()) {
+        return Err(WireError::Protocol(
+            "self principal Seal history must contain only Control Moves".to_owned(),
+        ));
+    }
     if events
         .iter()
         .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
@@ -423,15 +428,7 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
     }
     let prior = &events[..events.len() - 1];
     let first = &events[0];
-    if events.iter().enumerate().any(|(index, event)| {
-        event.realm_id != first.realm_id
-            || event.actor_id != first.actor_id
-            || event.actor_seq != index as u64
-    }) {
-        return Err(WireError::Protocol(
-            "self principal linear history must have one actor and contiguous actor_seq".to_owned(),
-        ));
-    }
+    validate_self_principal_linear_history(events)?;
     let prior_with_digests = prior
         .iter()
         .map(|event| {
@@ -465,6 +462,30 @@ pub fn build_self_principal_linear_successor_seal<S: PayloadSigner + ?Sized>(
     }
 
     build_self_principal_event_seal(events, predecessor, availability, hlc, signer, project)
+}
+
+pub(crate) fn validate_self_principal_linear_history(events: &[Event]) -> Result<()> {
+    let Some(first) = events.first() else {
+        return Err(WireError::Protocol(
+            "self principal linear history is empty".to_owned(),
+        ));
+    };
+    if first.actor_seq != 0
+        || events.iter().any(|event| {
+            event.realm_id != first.realm_id
+                || event.actor_id != first.actor_id
+                || !event.kind.is_control_plane()
+        })
+        || events
+            .windows(2)
+            .any(|pair| pair[0].actor_seq >= pair[1].actor_seq)
+    {
+        return Err(WireError::Protocol(
+            "self principal linear control history must have one actor and strictly increasing actor_seq"
+                .to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_successor_availability(

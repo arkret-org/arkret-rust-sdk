@@ -4,7 +4,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
-use arkret_state::{CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root};
+use arkret_state::{
+    CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, join_cell_seal_batches,
+    resolve_projected_write,
+};
 use arkret_wire::{
     CellRef, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
     WireError,
@@ -163,9 +166,30 @@ pub(crate) fn state_root_from_projection(
     digest_suite: arkret_canonical::DigestSuite,
     project: CellWriteProjector<'_>,
 ) -> Result<Hash> {
-    let mut ops_by_cell = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
+    let registry = arkret_lattice_registry::build_sdk_cell_registry();
+    let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
+    let mut joined = BTreeMap::<CellRef, CellState>::new();
     for (event, move_id) in covered {
-        let effects = direct_projection(event, project)?;
+        let frozen_pre_state = joined.clone();
+        let projected = project(event).map_err(|error| {
+            WireError::Protocol(format!(
+                "bootstrap cell write projection failed for {}: {error}",
+                event.kind.as_str()
+            ))
+        })?;
+        let mut effects = Vec::new();
+        for write in &projected {
+            effects.extend(
+                resolve_projected_write(write, realm_id, &frozen_pre_state, &registry).map_err(
+                    |error| {
+                        WireError::Protocol(format!(
+                            "self principal frozen-pre-state projection failed for {}: {error}",
+                            event.kind.as_str()
+                        ))
+                    },
+                )?,
+            );
+        }
         // One Event may project at most one ordered-log entry into one cell;
         // Event identity is the grow-only set key.
         if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
@@ -174,8 +198,9 @@ pub(crate) fn state_root_from_projection(
                 conflict.cell, conflict.issuer_seq
             )));
         }
+        let mut event_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
         for effect in &effects {
-            ops_by_cell
+            event_ops
                 .entry(effect.cell_id.clone())
                 .or_default()
                 .push(IssuedOp {
@@ -184,32 +209,33 @@ pub(crate) fn state_root_from_projection(
                     op: SealedOp::from_projection(move_id.clone(), effect),
                 });
         }
-    }
+        for (cell, issued) in event_ops {
+            if let Ok(binding) = registry.resolve(realm_id, &cell)
+                && binding.lattice.kind() == LatticeKind::OrderedLog
+            {
+                let report = OrderedLog.join_with_issuer_report(&issued);
+                if !report.identity_collisions.is_empty() {
+                    return Err(WireError::Protocol(format!(
+                        "bootstrap cell {cell} contains an Event identity collision"
+                    )));
+                }
+            }
+            batches_by_cell.entry(cell).or_default().push(issued);
+        }
 
-    let registry = arkret_lattice_registry::build_sdk_cell_registry();
-    let mut joined = BTreeMap::new();
-    for (cell, issued) in ops_by_cell {
-        // No pre-sort: every lattice join is commutative, and ordering by the
-        // typed `move_id` string would imply a tie-break `encoding.md` 4.2
-        // forbids (the suite prefix would outrank the digest content).
-        let binding = registry
-            .resolve(realm_id, &cell)
-            .map_err(|error| WireError::Protocol(format!("bootstrap cell registry: {error}")))?;
-        if binding.lattice.kind() == LatticeKind::OrderedLog {
-            let report = OrderedLog.join_with_issuer_report(&issued);
-            if !report.identity_collisions.is_empty() {
+        joined.clear();
+        for (cell, batches) in &batches_by_cell {
+            let binding = registry.resolve(realm_id, cell).map_err(|error| {
+                WireError::Protocol(format!("bootstrap cell registry: {error}"))
+            })?;
+            let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
+            if matches!(state, CellState::Bottom(_)) {
                 return Err(WireError::Protocol(format!(
-                    "bootstrap cell {cell} contains an Event identity collision"
+                    "bootstrap cell {cell} resolved to Bottom"
                 )));
             }
+            joined.insert(cell.clone(), state);
         }
-        let state = arkret_state::join_cell(binding.lattice.as_ref(), &cell, &issued);
-        if matches!(state, CellState::Bottom(_)) {
-            return Err(WireError::Protocol(format!(
-                "bootstrap cell {cell} resolved to Bottom"
-            )));
-        }
-        joined.insert(cell, state);
     }
     compute_state_root(&joined, digest_suite)
         .map_err(|error| WireError::Protocol(format!("bootstrap state root: {error}")))
