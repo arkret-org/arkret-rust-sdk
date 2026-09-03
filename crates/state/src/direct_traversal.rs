@@ -608,7 +608,7 @@ pub fn discover_direct_cut(
 /// The cut's Seals and Events are deliberately absent: they were streamed
 /// through the reducer and are recoverable from the caller's own object store.
 /// What survives is the replayed state at the pinned target, which is what
-/// winning MLS transition, join/incarnation, RRK tuple and current history
+/// winning MLS transition, join/incarnation, RHRK tuple and current history
 /// access are all derived from.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VerifiedDirectTraversalCut {
@@ -655,7 +655,7 @@ impl ReplayEventLookup for DeltaEventLookup<'_> {
 ///
 /// `on_replayed_seal` sees every accepted Seal together with its exact resolved
 /// delta Events, so a caller can project the bounded slice it needs (winning MLS
-/// transitions, membership incarnations, the RRK tuple) without this function
+/// transitions, membership incarnations, the RHRK tuple) without this function
 /// accumulating the whole cut.
 #[allow(clippy::too_many_arguments)]
 pub fn verify_direct_traversal_cut_with_registry<

@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AuditReasonText, Did, DidCoreId, DidUrl, EventInitialSubmission, IdempotencyKey, SchemaId,
-    project_did_to_core_id,
+    AccountDataKey, AccountId, AuditReasonText, Did, DidCoreId, DidUrl, EventInitialSubmission,
+    IdempotencyKey, SchemaId, project_did_to_core_id,
 };
 
 use crate::agent_signer_evidence::AgentSigningKeyBinding;
@@ -210,7 +210,7 @@ impl AgentRuntimeKeyPossessionProof {
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_pairing_request_binding_digest(
     operation_id: &str,
-    controller_id: &DidCoreId,
+    controller_principal_id: &DidCoreId,
     agent_id: &DidCoreId,
     pairing_request_id: &OpaqueLocalId,
     pairing_code: &str,
@@ -222,7 +222,7 @@ pub fn agent_key_pairing_request_binding_digest(
     let value = serde_json::json!({
         "kind": AGENT_KEY_PAIRING_REQUEST_BINDING_KIND,
         "operation_id": operation_id,
-        "controller_id": controller_id,
+        "controller_principal_id": controller_principal_id,
         "agent_id": agent_id,
         "pairing_request_id": pairing_request_id,
         "pairing_code": pairing_code,
@@ -244,7 +244,7 @@ pub struct AgentRequestedScopeDisclosure {
     pub schema: SchemaId,
     pub request_id: RequestId,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub controller_principal_id: DidCoreId,
     pub requested_scope: AgentKeyScope,
     pub verifier_id: DidCoreId,
     pub audience: NonEmptyString,
@@ -281,7 +281,7 @@ impl AgentRequestedScopeDisclosure {
             "context": ProofContextId::AGENT_REQUESTED_SCOPE_DISCLOSURE_PROOF_V1,
             "payload_digest": payload_digest,
             "agent_id": self.agent_id,
-            "controller_id": self.controller_id,
+            "controller_principal_id": self.controller_principal_id,
             "verifier_id": self.verifier_id,
             "audience": self.audience,
             "challenge": self.challenge,
@@ -1005,7 +1005,7 @@ pub struct AgentSidecarParticipantAuthorityTranscript {
     pub domain: &'static str,
     pub sidecar_id: SidecarId,
     pub realm_id: RealmId,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub desired_agent_ids: Vec<DidCoreId>,
 }
 
@@ -1013,13 +1013,13 @@ impl AgentSidecarParticipantAuthorityTranscript {
     pub fn new(
         sidecar_id: SidecarId,
         realm_id: RealmId,
-        controller_id: DidCoreId,
+        controller_account_id: AccountId,
         desired_agent_ids: &[DidCoreId],
     ) -> Result<Self> {
         if !sorted_unique_agent_ids(desired_agent_ids)
             || desired_agent_ids
                 .iter()
-                .any(|agent_id| agent_id.as_core_id() == controller_id.as_core_id())
+                .any(|agent_id| agent_id == &controller_account_id.principal_id)
         {
             return Err(WireError::Protocol(
                 "Sidecar participant authority requires sorted unique desired Agent ids with the controller excluded"
@@ -1030,7 +1030,7 @@ impl AgentSidecarParticipantAuthorityTranscript {
             domain: AGENT_SIDECAR_PARTICIPANT_AUTHORITY_DOMAIN,
             sidecar_id,
             realm_id,
-            controller_id,
+            controller_account_id,
             desired_agent_ids: desired_agent_ids.to_vec(),
         })
     }
@@ -1043,13 +1043,13 @@ impl AgentSidecarParticipantAuthorityTranscript {
 pub fn agent_sidecar_participant_authority_digest(
     sidecar_id: SidecarId,
     realm_id: RealmId,
-    controller_id: DidCoreId,
+    controller_account_id: AccountId,
     desired_agent_ids: &[DidCoreId],
 ) -> Result<Hash> {
     AgentSidecarParticipantAuthorityTranscript::new(
         sidecar_id,
         realm_id,
-        controller_id,
+        controller_account_id,
         desired_agent_ids,
     )?
     .digest()
@@ -1105,7 +1105,7 @@ pub struct AgentSidecar {
     pub id: SidecarId,
     pub schema: AgentSidecarSchema,
     pub realm_id: RealmId,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub encryption_profile: AgentSidecarEncryptionProfile,
     pub state: AgentSidecarState,
     #[serde(
@@ -1170,7 +1170,7 @@ impl AgentSidecarView {
         let expected_digest = agent_sidecar_participant_authority_digest(
             self.sidecar.id.clone(),
             self.sidecar.realm_id.clone(),
-            self.sidecar.controller_id.clone(),
+            self.sidecar.controller_account_id.clone(),
             &self.desired_agent_ids,
         )?;
         if self.mls_context.participant_authority_digest != expected_digest {
@@ -1232,7 +1232,7 @@ pub enum AgentSidecarViewStateSchema {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarViewState {
     pub schema: AgentSidecarViewStateSchema,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub sidecar_id: SidecarId,
     pub context_ref: AgentSidecarStrandContextRef,
     pub display_mode: AgentSidecarDisplayMode,
@@ -1244,16 +1244,46 @@ pub struct AgentSidecarViewState {
     pub origin_device_id: DeviceId,
 }
 
+fn derive_sidecar_controller_account_key(
+    account_data_namespace_key: &[u8],
+    controller_account_id: &AccountId,
+) -> Result<String> {
+    crate::objects::productivity::derive_account_data_key(
+        account_data_namespace_key,
+        controller_account_id,
+    )
+}
+
+pub fn agent_sidecar_view_state_account_data_key(
+    account_data_namespace_key: &[u8],
+    controller_account_id: &AccountId,
+    realm_id: &RealmId,
+    strand_id: &StrandId,
+) -> Result<String> {
+    let controller_account_key =
+        derive_sidecar_controller_account_key(account_data_namespace_key, controller_account_id)?;
+    Ok(format!(
+        "{prefix}:{controller_account_key}:{realm_id}:{strand_id}",
+        prefix = AccountDataKey::AGENT_SIDECAR_VIEW_STATE_V1,
+    ))
+}
+
 impl AgentSidecarViewState {
-    pub fn account_data_key(&self) -> String {
-        format!(
-            "ak.agent.sidecar_view_state.v1:{}:{}:{}",
-            self.controller_id, self.context_ref.realm_id, self.context_ref.strand_id
+    pub fn account_data_key(&self, account_data_namespace_key: &[u8]) -> Result<String> {
+        agent_sidecar_view_state_account_data_key(
+            account_data_namespace_key,
+            &self.controller_account_id,
+            &self.context_ref.realm_id,
+            &self.context_ref.strand_id,
         )
     }
 
-    pub fn validate_account_data_key(&self, account_data_key: &str) -> Result<()> {
-        if account_data_key == self.account_data_key() {
+    pub fn validate_account_data_key(
+        &self,
+        account_data_namespace_key: &[u8],
+        account_data_key: &str,
+    ) -> Result<()> {
+        if account_data_key == self.account_data_key(account_data_namespace_key)? {
             Ok(())
         } else {
             Err(WireError::Protocol(
@@ -1868,7 +1898,7 @@ pub enum AgentSidecarExchangeProjectionSchema {
 #[serde(deny_unknown_fields)]
 pub struct AgentSidecarExchangeProjection {
     pub schema: AgentSidecarExchangeProjectionSchema,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub sidecar_id: SidecarId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
@@ -2009,7 +2039,7 @@ impl AgentSidecarExchangeProjection {
 #[derive(Serialize)]
 struct AgentRequestedScopeCommitment<'a> {
     agent_id: &'a str,
-    controller_id: &'a str,
+    controller_principal_id: &'a str,
     kind: &'static str,
     requested_scope: &'a AgentKeyScope,
 }
@@ -2018,13 +2048,13 @@ struct AgentRequestedScopeCommitment<'a> {
 /// Agent DID `ArkretPrincipalControlRealm` service entry.
 pub fn agent_requested_scope_digest(
     agent_id: &DidCoreId,
-    controller_id: &DidCoreId,
+    controller_principal_id: &DidCoreId,
     requested_scope: &AgentKeyScope,
 ) -> Result<Hash> {
     Hash::new(canonical::canonical_sha256(
         &AgentRequestedScopeCommitment {
             agent_id: agent_id.as_str(),
-            controller_id: controller_id.as_str(),
+            controller_principal_id: controller_principal_id.as_str(),
             kind: "ak.agent.requested_scope_commitment.v1",
             requested_scope,
         },
@@ -2038,7 +2068,7 @@ pub fn agent_requested_scope_digest(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct KeyState {
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     /// Immutable global Agent ceiling captured by provisioning.
@@ -2139,10 +2169,13 @@ mod tests {
     }
 
     #[test]
-    fn key_state_uses_stable_core_actor_ids() {
+    fn key_state_uses_exact_controller_account_id() {
         let value = serde_json::json!({
             "agent_id": "ak:did_core:webvh:z6mkagent",
-            "controller_id": "ak:did_core:webvh:z6mkcontroller",
+            "controller_account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkcontroller",
+                "station_id": "ak:did_core:web:station.example"
+            },
             "principal_control_realm_id": "ak:realm:AUf0Zz23_ZBqZYNvzHTY6qhhx-2YyO94WTorNCFnnvvN",
             "controller_authorization_ref": "did:webvh:z6mkcontroller:controller.example#authorize-1",
             "requested_scope": {"actions": [], "resources": []},
@@ -2151,7 +2184,7 @@ mod tests {
         let parsed: KeyState = serde_json::from_value(value.clone()).expect("core ids parse");
         assert_eq!(parsed.agent_id.as_str(), "ak:did_core:webvh:z6mkagent");
         assert_eq!(
-            parsed.controller_id.as_str(),
+            parsed.controller_account_id.principal_id.as_str(),
             "ak:did_core:webvh:z6mkcontroller"
         );
 
@@ -2193,7 +2226,7 @@ mod tests {
             "schema": "ak.schema.agent_requested_scope_disclosure.v1",
             "request_id": "ak:request:01970000-0000-7000-8000-000000000021",
             "agent_id": "ak:did_core:webvh:z6mkfixture",
-            "controller_id": "ak:did_core:webvh:z6mkfixture",
+            "controller_principal_id": "ak:did_core:webvh:z6mkfixture",
             "requested_scope": {
                 "actions": ["ak.message.create"],
                 "resources": []
@@ -2249,29 +2282,54 @@ mod tests {
         let digest = agent_sidecar_participant_authority_digest(
             SidecarId::new("ak:sidecar:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr").unwrap(),
             RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
             std::slice::from_ref(&agent),
         )
         .unwrap();
         assert_eq!(
             digest.as_str(),
-            "sha256:3f24bade45fa7360336368ad15bff69e5279070c12448440451007e3fd14c78f"
+            "sha256:342a341594df92e32f5ca673f895b56a4b84806cd24f844e80e280ff47a2557b"
         );
     }
 
     #[test]
     fn sidecar_participant_authority_rejects_controller_in_agent_set() {
-        let controller = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
-        let controller_as_agent = controller.clone();
+        let controller_principal = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
+        let controller_as_agent = controller_principal.clone();
         assert!(
             agent_sidecar_participant_authority_digest(
                 SidecarId::new("ak:sidecar:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr").unwrap(),
                 RealmId::new("ak:realm:AbXK2aG2XS8Rx4qSoMG86HcFoZFxVGzkCdy-43-p20aY").unwrap(),
-                controller,
+                AccountId::new(
+                    controller_principal,
+                    DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+                ),
                 &[controller_as_agent],
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn sidecar_controller_account_key_separates_stations() {
+        let namespace_key: Vec<u8> = (0_u8..=31).collect();
+        let principal_id = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap();
+        let first = AccountId::new(
+            principal_id.clone(),
+            DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
+        );
+        let second = AccountId::new(
+            principal_id,
+            DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
+        );
+        let first_key = derive_sidecar_controller_account_key(&namespace_key, &first).unwrap();
+        let second_key = derive_sidecar_controller_account_key(&namespace_key, &second).unwrap();
+        assert_eq!(first_key, "4GohMVqVM-eKvjcpZgGxGKfZ0kTMha8PFde8ba7pFI0");
+        assert!(!first_key.contains('='));
+        assert_ne!(first_key, second_key);
     }
 
     #[test]
@@ -2322,7 +2380,10 @@ mod tests {
             schema: AgentSidecarSchema::V1,
             realm_id: RealmId::new("ak:realm:AapALysveT_m0ubp6kTGkXSK9371_ilR-kAJwNFmxyjr")
                 .unwrap(),
-            controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            controller_account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
             encryption_profile: AgentSidecarEncryptionProfile::MlsRfc9420,
             state: AgentSidecarState::Active,
             state_changed_at: Some(timestamp),
@@ -2373,7 +2434,10 @@ mod tests {
     fn fixture_exchange_projection() -> AgentSidecarExchangeProjection {
         AgentSidecarExchangeProjection {
             schema: AgentSidecarExchangeProjectionSchema::V1,
-            controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+            controller_account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
             sidecar_id: SidecarId::new("ak:sidecar:ATxk9k3t-DqTNiiB9n8GoSjjar3vZJvO3Dtpd1SzdHZF")
                 .unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
@@ -2646,7 +2710,7 @@ mod tests {
     #[test]
     fn requested_scope_commitment_is_domain_separated_and_stable() {
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkagent").unwrap();
-        let controller_id = DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap();
+        let controller_principal_id = DidCoreId::new("ak:did_core:webvh:z6mkcontroller").unwrap();
         let requested_scope: AgentKeyScope = serde_json::from_value(serde_json::json!({
             "actions": [
                 "ak.event.read",
@@ -2661,21 +2725,24 @@ mod tests {
         }))
         .unwrap();
         let digest =
-            agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope).unwrap();
+            agent_requested_scope_digest(&agent_id, &controller_principal_id, &requested_scope)
+                .unwrap();
 
         assert_eq!(
             digest.as_str(),
-            "sha256:c9aeb7698bf2ba946fd9b83e60eb6e792d29fa48a7a78922016aca0a9e747bec"
+            "sha256:cc903ad89c0e9978e90abb28354f7fff3a41c407fd06668916cdb656a875dacd"
         );
         assert_eq!(
             digest,
-            agent_requested_scope_digest(&agent_id, &controller_id, &requested_scope,).unwrap()
+            agent_requested_scope_digest(&agent_id, &controller_principal_id, &requested_scope,)
+                .unwrap()
         );
 
         let mut narrower_scope = requested_scope;
         narrower_scope.actions.pop();
         let tightened =
-            agent_requested_scope_digest(&agent_id, &controller_id, &narrower_scope).unwrap();
+            agent_requested_scope_digest(&agent_id, &controller_principal_id, &narrower_scope)
+                .unwrap();
         assert_ne!(digest, tightened);
     }
 }

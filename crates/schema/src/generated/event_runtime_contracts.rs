@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-02.8;
-//! sha256=4b9ae8f4b010335fbbfe8c86eb8567d012f57b5456145e4ff85fc905032f8f67 Input: registry/
-//! id-kind-registry.json; version=2026-09-02.4;
-//! sha256=48a70d02bae777d98f46cbdbadc6380d8263776e428dedd31fc29a1e7c8727f1
+//! Input: registry/event-kind-registry.json; version=2026-09-04.1;
+//! sha256=bef84fabbf67b5a84cd6d407839d7ca3cc6040a0185f58bd0dbc71cc898bb3e9 Input: registry/
+//! id-kind-registry.json; version=2026-09-04.1;
+//! sha256=73c9e3cce7bce9633e22d78abb39d6074c272e1c6355999e418cc7351a254a1b
 //! Entries: active_events=170, pre_state_requirements=2
 
 use arkret_wire::{CellFamilyId, event_kind_str};

@@ -23,7 +23,7 @@ pub enum InheritancePolicyStatus {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmOwnerTransferPatch {
-    pub controller_id: ActorId,
+    pub controller_actor_id: ActorId,
 }
 
 /// Counterpart for

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-02.4;
-//! sha256=4d3398ed019427fb1ae49fde439c1fbb8f36ced4f76523a889d0c1949b50674b
+//! Input: registry/error-code-registry.json; version=2026-09-04.1;
+//! sha256=ffd15c0651555d650e3bc1fa41db0ec73d9a17c67e972b0aee50a6c0091cb74c
 //! Entries: reason_codes=452
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2816,7 +2816,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DURABILITY_SCHEME_INCOMPATIBLE,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle write declares durability_policy.mode != none on a Realm whose content_scheme is not mls_exporter_aead_v1. mls_rfc9420 Realms have no deliverable history_secret, so Realm Recovery Key (RRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.8.",
+        description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle write declares durability_policy.mode != none on a Realm whose content_scheme is not mls_exporter_aead_v1. mls_rfc9420 Realms have no deliverable history_secret, so Realm History Recovery Key (RHRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.8.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
@@ -3700,12 +3700,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_CONTROLLER_MISMATCH,
         applies_to: &["event_envelope", "state_resolution", "auth_decision"],
-        description: "An Event presented ak:cell:ak.component.realm.authority_root.v1:null as its authorization_ref but the cell's current controller_id is not the authorizing principal, or the epoch / authority_generation bound at issuance no longer matches the cell in that basis. Includes replaying a staged genesis-batch root proof outside its atomic bootstrap unit. See zh/authz/capabilities.md section 3.2.",
+        description: "An Event presented ak:cell:ak.component.realm.authority_root.v1:null as its authorization_ref but the cell's current controller_actor_id is not the authorizing ActorId, or the epoch / authority_generation bound at issuance no longer matches the cell in that basis. Includes replaying a staged genesis-batch root proof outside its atomic bootstrap unit. See zh/authz/capabilities.md section 3.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_CONFLICT,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, or members beyond the closed three-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
+        description: "The authority-root cell value was author-supplied or otherwise diverges from the registered value_projection: controller_actor_id not equal to the create envelope actor_id, a non-zero controller_epoch or authority_generation at genesis, or members beyond the closed three-field shape. Reducer MUST reject the whole unit. See zh/models/realm-and-space.md section 2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_AUTHORITY_ROOT_MISSING,

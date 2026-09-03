@@ -168,9 +168,9 @@ pub struct ResponseSenderOriginRef {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RrkArchiveQuotaDomain {
-    pub controller_id: DidCoreId,
-    pub holder_id: DidCoreId,
+pub struct RhrkArchiveQuotaDomain {
+    pub method_controller_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub recovery_key_id: String,
     pub accepted_key_evidence_ref: EventId,
 }
@@ -178,7 +178,7 @@ pub struct RrkArchiveQuotaDomain {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RrkArchiveOriginRef {
+pub struct RhrkArchiveOriginRef {
     pub container_event_ref: EventId,
     pub archive_digest: Hash,
 }
@@ -203,7 +203,7 @@ pub struct PortableBackupOriginRef {
 #[serde(rename_all = "snake_case")]
 pub enum HistoryCandidateOriginDomain {
     ResponseSender,
-    RrkArchive,
+    RhrkArchive,
     PortableBackup,
 }
 
@@ -218,10 +218,10 @@ pub enum HistoryCandidateOriginAttribution {
         #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
         first_observed_at: DateTime<Utc>,
     },
-    RrkArchive {
+    RhrkArchive {
         material_key: HistoryCandidateMaterialKey,
-        origin_quota_domain: RrkArchiveQuotaDomain,
-        origin_ref: RrkArchiveOriginRef,
+        origin_quota_domain: RhrkArchiveQuotaDomain,
+        origin_ref: RhrkArchiveOriginRef,
         #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
         first_observed_at: DateTime<Utc>,
     },
@@ -241,7 +241,7 @@ impl HistoryCandidateOriginAttribution {
     pub fn material_key(&self) -> &HistoryCandidateMaterialKey {
         match self {
             Self::ResponseSender { material_key, .. }
-            | Self::RrkArchive { material_key, .. }
+            | Self::RhrkArchive { material_key, .. }
             | Self::PortableBackup { material_key, .. } => material_key,
         }
     }
@@ -250,7 +250,7 @@ impl HistoryCandidateOriginAttribution {
     pub fn origin_domain(&self) -> HistoryCandidateOriginDomain {
         match self {
             Self::ResponseSender { .. } => HistoryCandidateOriginDomain::ResponseSender,
-            Self::RrkArchive { .. } => HistoryCandidateOriginDomain::RrkArchive,
+            Self::RhrkArchive { .. } => HistoryCandidateOriginDomain::RhrkArchive,
             Self::PortableBackup { .. } => HistoryCandidateOriginDomain::PortableBackup,
         }
     }
@@ -264,7 +264,7 @@ impl HistoryCandidateOriginAttribution {
                 origin_quota_domain,
                 ..
             } => canonical::canonical_json_bytes(origin_quota_domain)?,
-            Self::RrkArchive {
+            Self::RhrkArchive {
                 origin_quota_domain,
                 ..
             } => canonical::canonical_json_bytes(origin_quota_domain)?,
@@ -280,7 +280,7 @@ impl HistoryCandidateOriginAttribution {
     pub fn origin_ref_bytes(&self) -> Result<Vec<u8>> {
         Ok(match self {
             Self::ResponseSender { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
-            Self::RrkArchive { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
+            Self::RhrkArchive { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
             Self::PortableBackup { origin_ref, .. } => canonical::canonical_json_bytes(origin_ref)?,
         })
     }
@@ -290,7 +290,7 @@ impl HistoryCandidateOriginAttribution {
             Self::ResponseSender {
                 first_observed_at, ..
             }
-            | Self::RrkArchive {
+            | Self::RhrkArchive {
                 first_observed_at, ..
             }
             | Self::PortableBackup {
@@ -354,7 +354,7 @@ impl HistoryCandidateOriginAttribution {
                 validate_sender_domain(&origin_quota_domain.source_sender_domain)?;
                 material_key
             }
-            Self::RrkArchive {
+            Self::RhrkArchive {
                 material_key,
                 origin_quota_domain,
                 ..
@@ -560,8 +560,8 @@ impl OrganizationRecoveryArchivePlaintext {
 pub struct ArchiveAuthorizationTuple {
     pub recovery_key_id: String,
     pub key_agreement_ref: DidUrl,
-    pub controller_id: DidCoreId,
-    pub holder_id: DidCoreId,
+    pub method_controller_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub holder_signing_ref: DidUrl,
     pub accepted_key_evidence_ref: EventId,
     pub holder_trusted_basis: SealBasis,
@@ -767,8 +767,9 @@ impl HistoryGovernanceTraversalRetention {
             || intent_container_event_ref != container_event_ref
             || archive_authorization_tuple.recovery_key_id != archive.recovery_key_id
             || archive_authorization_tuple.key_agreement_ref != archive.key_agreement_ref
-            || archive_authorization_tuple.controller_id != archive.controller_id
-            || archive_authorization_tuple.holder_id != archive.holder_id
+            || archive_authorization_tuple.method_controller_principal_id
+                != archive.method_controller_principal_id
+            || archive_authorization_tuple.holder_service_id != archive.holder_service_id
             || archive_authorization_tuple.holder_signing_ref != archive.holder_signing_ref
             || archive_authorization_tuple.accepted_key_evidence_ref
                 != archive.accepted_key_evidence_ref
@@ -1203,8 +1204,8 @@ pub enum HistoryKeyRequestReplicaDestinationAuthorization {
         membership_digest: Hash,
     },
     OrganizationRecoveryHolder {
-        controller_id: DidCoreId,
-        holder_id: DidCoreId,
+        method_controller_principal_id: DidCoreId,
+        holder_service_id: DidCoreId,
         archive_tuple_digest: Hash,
     },
 }
@@ -1238,10 +1239,10 @@ impl HistoryKeyRequestReplica {
             ));
         }
         if let HistoryKeyRequestReplicaDestinationAuthorization::OrganizationRecoveryHolder {
-            holder_id,
+            holder_service_id,
             ..
         } = &self.destination_authorization
-            && holder_id != &self.destination_id
+            && holder_service_id != &self.destination_id
         {
             return Err(WireError::Protocol(
                 "history request replica destination holder service mismatch".to_owned(),
@@ -1279,9 +1280,9 @@ pub enum SourceKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RrkHolderAuthorityObservation {
-    pub controller_id: DidCoreId,
-    pub holder_id: DidCoreId,
+pub struct RhrkHolderAuthorityObservation {
+    pub method_controller_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub current_holder_signing_ref: DidUrl,
     pub accepted_key_evidence_ref: EventId,
     pub archive_authorization_tuple_digest: Hash,
@@ -1292,7 +1293,7 @@ pub struct RrkHolderAuthorityObservation {
     pub expires_at: DateTime<Utc>,
 }
 
-impl RrkHolderAuthorityObservation {
+impl RhrkHolderAuthorityObservation {
     pub fn validate(&self) -> Result<()> {
         self.holder_trusted_basis.validate_protocol_bounds()?;
         require_sha256(
@@ -1301,7 +1302,7 @@ impl RrkHolderAuthorityObservation {
         )?;
         if self.observed_at > self.expires_at {
             return Err(WireError::Protocol(
-                "RRK holder authority observation has an invalid validity window".to_owned(),
+                "RHRK holder authority observation has an invalid validity window".to_owned(),
             ));
         }
         Ok(())
@@ -1309,13 +1310,13 @@ impl RrkHolderAuthorityObservation {
 
     pub fn validate_for_archive_tuple(&self, tuple: &ArchiveAuthorizationTuple) -> Result<()> {
         self.validate()?;
-        if self.controller_id != tuple.controller_id
-            || self.holder_id != tuple.holder_id
+        if self.method_controller_principal_id != tuple.method_controller_principal_id
+            || self.holder_service_id != tuple.holder_service_id
             || self.archive_authorization_tuple_digest
                 != tuple.archive_authorization_tuple_digest()?
         {
             return Err(WireError::Protocol(
-                "RRK holder authority observation does not match its archive tuple".to_owned(),
+                "RHRK holder authority observation does not match its archive tuple".to_owned(),
             ));
         }
         Ok(())
@@ -1323,7 +1324,7 @@ impl RrkHolderAuthorityObservation {
 
     pub fn canonical_digest(&self) -> Result<Hash> {
         self.validate()?;
-        full_object_digest(self, "ak.rrk-holder-authority-observation-v1")
+        full_object_digest(self, "ak.rhrk-holder-authority-observation-v1")
     }
 }
 
@@ -1337,7 +1338,7 @@ pub enum SourceAuthorityLocator {
         membership_digest: Hash,
     },
     OrganizationRecoveryHolder {
-        authority_observation: RrkHolderAuthorityObservation,
+        authority_observation: RhrkHolderAuthorityObservation,
     },
 }
 
@@ -1396,8 +1397,8 @@ impl SourceRelayAttestation {
                 SourceAuthorityLocator::OrganizationRecoveryHolder {
                     authority_observation,
                 },
-            ) if authority_observation.holder_id == self.source_id
-                && authority_observation.controller_id
+            ) if authority_observation.holder_service_id == self.source_id
+                && authority_observation.method_controller_principal_id
                     == *self.source_actor_id.signing_principal_id()
                 && authority_observation.current_holder_signing_ref
                     == self.service_proof.verification_method
@@ -2276,8 +2277,8 @@ impl OrganizationRecoveryArchiveSetMember {
         let tuple = ArchiveAuthorizationTuple {
             recovery_key_id: archive.recovery_key_id.clone(),
             key_agreement_ref: archive.key_agreement_ref.clone(),
-            controller_id: archive.controller_id.clone(),
-            holder_id: archive.holder_id.clone(),
+            method_controller_principal_id: archive.method_controller_principal_id.clone(),
+            holder_service_id: archive.holder_service_id.clone(),
             holder_signing_ref: archive.holder_signing_ref.clone(),
             accepted_key_evidence_ref: archive.accepted_key_evidence_ref.clone(),
             holder_trusted_basis: archive.holder_trusted_basis.clone(),
@@ -2917,7 +2918,7 @@ pub struct OrganizationRecoveryArchiveReplica {
     pub container_event_ref: EventId,
     pub history_traversal_retention: HistoryGovernanceTraversalRetention,
     pub source_id: DidCoreId,
-    pub holder_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub replicated_at: DateTime<Utc>,
     pub service_proof: PayloadProof,
@@ -2928,7 +2929,7 @@ impl OrganizationRecoveryArchiveReplica {
         self.archive.validate()?;
         self.history_traversal_retention
             .validate_for_archive(&self.archive, &self.container_event_ref)?;
-        if self.holder_id != self.archive.holder_id {
+        if self.holder_service_id != self.archive.holder_service_id {
             return Err(WireError::Protocol(
                 "archive replica holder service mismatch".to_owned(),
             ));
@@ -2944,7 +2945,7 @@ impl OrganizationRecoveryArchiveReplica {
             container_event_ref: &'a EventId,
             history_traversal_retention: &'a HistoryGovernanceTraversalRetention,
             source_id: &'a DidCoreId,
-            holder_id: &'a DidCoreId,
+            holder_service_id: &'a DidCoreId,
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             replicated_at: DateTime<Utc>,
         }
@@ -2954,7 +2955,7 @@ impl OrganizationRecoveryArchiveReplica {
             container_event_ref: &self.container_event_ref,
             history_traversal_retention: &self.history_traversal_retention,
             source_id: &self.source_id,
-            holder_id: &self.holder_id,
+            holder_service_id: &self.holder_service_id,
             replicated_at: self.replicated_at,
         })?)?)
     }
@@ -2969,7 +2970,7 @@ impl OrganizationRecoveryArchiveReplica {
             container_event_ref: &'a EventId,
             history_traversal_retention: &'a HistoryGovernanceTraversalRetention,
             source_id: &'a DidCoreId,
-            holder_id: &'a DidCoreId,
+            holder_service_id: &'a DidCoreId,
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             replicated_at: DateTime<Utc>,
             verification_method: &'a DidUrl,
@@ -2984,7 +2985,7 @@ impl OrganizationRecoveryArchiveReplica {
             container_event_ref: &self.container_event_ref,
             history_traversal_retention: &self.history_traversal_retention,
             source_id: &self.source_id,
-            holder_id: &self.holder_id,
+            holder_service_id: &self.holder_service_id,
             replicated_at: self.replicated_at,
             verification_method: &self.service_proof.verification_method,
             created_at: self.service_proof.created_at,
@@ -3031,7 +3032,7 @@ impl OrganizationRecoveryArchiveReplica {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryArchiveReplicaOutcome {
     pub archive_replica_digest: Hash,
-    pub holder_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub archive_sequence: u64,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -3047,14 +3048,14 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
         #[derive(Serialize)]
         struct Payload<'a> {
             archive_replica_digest: &'a Hash,
-            holder_id: &'a DidCoreId,
+            holder_service_id: &'a DidCoreId,
             archive_sequence: u64,
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             accepted_at: DateTime<Utc>,
         }
         Ok(Hash::new(canonical::canonical_sha256(&Payload {
             archive_replica_digest: &self.archive_replica_digest,
-            holder_id: &self.holder_id,
+            holder_service_id: &self.holder_service_id,
             archive_sequence: self.archive_sequence,
             accepted_at: self.accepted_at,
         })?)?)
@@ -3066,7 +3067,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
             context: &'static str,
             payload_digest: Hash,
             archive_replica_digest: &'a Hash,
-            holder_id: &'a DidCoreId,
+            holder_service_id: &'a DidCoreId,
             archive_sequence: u64,
             #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
             accepted_at: DateTime<Utc>,
@@ -3078,7 +3079,7 @@ impl OrganizationRecoveryArchiveReplicaOutcome {
             context: ProofContextId::ORGANIZATION_RECOVERY_ARCHIVE_REPLICA_RECEIPT_PROOF_V1,
             payload_digest: self.canonical_payload_digest()?,
             archive_replica_digest: &self.archive_replica_digest,
-            holder_id: &self.holder_id,
+            holder_service_id: &self.holder_service_id,
             archive_sequence: self.archive_sequence,
             accepted_at: self.accepted_at,
             verification_method: &self.service_proof.verification_method,

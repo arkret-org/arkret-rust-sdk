@@ -354,7 +354,7 @@ impl fmt::Display for ContentSchemeParseError {
 
 impl std::error::Error for ContentSchemeParseError {}
 
-/// Realm Recovery Key (RRK) persistence policy, frozen together with
+/// Realm History Recovery Key (RHRK) persistence policy, frozen together with
 /// [`ContentScheme`] by the accepted MLS group Genesis.
 ///
 /// `models/realm-and-space.md` section 2.3.1 makes this a required closed

@@ -31,7 +31,7 @@ const AGENT_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite = arkret_canonical::
 #[derive(Clone, Debug)]
 pub struct AgentPcrCreatePayloadInput {
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub controller_principal_id: DidCoreId,
     pub notary: NotaryValue,
     /// Exact, already accepted method-native inception position. The Agent
     /// PCR commits this immutable pre-binding head; the Realm service entry is
@@ -101,7 +101,7 @@ fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &ActorId) ->
 pub struct AgentPcrControlMaterial {
     pub realm_id: RealmId,
     pub agent_id: ActorId,
-    pub controller_id: ActorId,
+    pub controller_actor_id: ActorId,
     pub authorization_ref: AuthorizationRef,
     /// The founding notary profile, exactly as the accepted create declared it.
     pub notary: NotaryValue,
@@ -165,7 +165,7 @@ pub fn materialize_agent_pcr_control(
             "Agent PCR create must not carry semantic references".to_owned(),
         ));
     }
-    let controller_id = create.executed_by.clone().ok_or_else(|| {
+    let controller_actor_id = create.executed_by.clone().ok_or_else(|| {
         WireError::Protocol("Agent PCR create Event omits executed_by".to_owned())
     })?;
     let authorization_ref = create.authorization_ref.clone().ok_or_else(|| {
@@ -196,7 +196,7 @@ pub fn materialize_agent_pcr_control(
     if included.iter().any(|event| {
         event.realm_id != create.realm_id
             || event.actor_id != create.actor_id
-            || event.executed_by.as_ref() != Some(&controller_id)
+            || event.executed_by.as_ref() != Some(&controller_actor_id)
             || event.authorization_ref.as_deref() != Some(authorization_ref.as_str())
     }) {
         return Err(WireError::Protocol(
@@ -291,7 +291,7 @@ pub fn materialize_agent_pcr_control(
     Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
-        controller_id,
+        controller_actor_id,
         authorization_ref,
         notary: notary_value,
         covered_event_digests: covered.into_iter().collect(),
@@ -412,7 +412,7 @@ fn apply_agent_batch(
 pub struct AgentPcrGenesisAuthority {
     realm_id: RealmId,
     agent_id: ActorId,
-    controller_id: ActorId,
+    controller_actor_id: ActorId,
     authorization_ref: AuthorizationRef,
     notary: NotaryValue,
     authority_set_ref: Hash,
@@ -436,7 +436,7 @@ impl AgentPcrGenesisAuthority {
         Ok(Self {
             realm_id: material.realm_id,
             agent_id: material.agent_id,
-            controller_id: material.controller_id,
+            controller_actor_id: material.controller_actor_id,
             authorization_ref: material.authorization_ref,
             notary: material.notary,
             authority_set_ref,
@@ -463,8 +463,8 @@ impl AgentPcrGenesisAuthority {
 
     /// The delegated controller whose device key signs receipts under this
     /// authority.
-    pub fn controller_id(&self) -> &ActorId {
-        &self.controller_id
+    pub fn controller_actor_id(&self) -> &ActorId {
+        &self.controller_actor_id
     }
 
     pub fn authorization_ref(&self) -> &str {
@@ -493,7 +493,7 @@ pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
 ) -> Result<Seal> {
     let material = materialize_agent_pcr_control(events, project)?;
     if project_did_to_core_id(signer.signer_did())?
-        != *material.controller_id.signing_principal_id()
+        != *material.controller_actor_id.signing_principal_id()
     {
         return Err(WireError::Protocol(
             "Agent PCR Seal signer must be the delegated controller".to_owned(),

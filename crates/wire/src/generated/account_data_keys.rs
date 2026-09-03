@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-08-30.1;
-//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1
+//! Input: registry/account-data-key-registry.json; version=2026-09-04.1;
+//! sha256=139f604d85d369692af2f182245bf93d5b705a30bb864bf4002145f70c6580b2
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -91,10 +91,14 @@ impl AccountDataKey {
     /// event referencing only an opaque digest. See private-objects.md §4.1. Key pattern:
     /// `ak.agent.draft.v1:<agent_id>:<draft_id>`.
     pub const AGENT_DRAFT_V1: &'static str = "ak.agent.draft.v1";
-    /// Controller-private per-context Sidecar hosted-view state. Synchronizes display_mode
-    /// (context_merged or sidecar_only), pin/collapse state, and HLC without changing either
-    /// Strand, Track, access, read, watch, notification, or search state. Key pattern:
-    /// `ak.agent.sidecar_view_state.v1:<controller_id>:<target_realm_id>:<target_strand_id>`.
+    /// Controller-private per-context Sidecar hosted-view state. controller_account_key is
+    /// derive_account_data_key(RFC8785_JCS(controller_account_id)) from models/account-data.md
+    /// section 2; the structured AccountId is never inserted directly into the colon-delimited key.
+    /// Synchronizes display_mode (context_merged or sidecar_only), pin/collapse state, and HLC
+    /// without changing either Strand, Track, access, read, watch, notification, or search state.
+    /// Key pattern:
+    /// `ak.agent.sidecar_view_state.v1:<controller_account_key>:<target_realm_id>:
+    /// <target_strand_id>`.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.agent.sidecar_view_state.v1";
     /// Private client UI state such as sidebar, recent realms (canonical key recent_realms),
     /// language, and layout preferences. Key pattern: `ak.client.ui_state`.
@@ -102,8 +106,10 @@ impl AccountDataKey {
     /// Principal-private custom emoji and sticker collection metadata.
     /// Key pattern: `ak.collections.stickers`.
     pub const COLLECTIONS_STICKERS: &'static str = "ak.collections.stickers";
-    /// Principal-private global petname, global display-name snapshot, note, tag, and pin metadata
-    /// for one accepted human Contact peer.principal_id. principal_key is
+    /// Principal-private holder-authored petname, explicitly confirmed PCR display-name baseline,
+    /// note, tag, and pin metadata for one accepted human Contact peer.principal_id. Contact
+    /// acceptance may initialize confirmed_display_name only from profile evidence displayed during
+    /// acceptance and never auto-creates petname. principal_key is
     /// base64url(HMAC-SHA256(account_data_namespace_key, RFC8785_JCS(["ak.contacts.actor",
     /// peer.principal_id]))). Key pattern: `ak.contacts.actor.<principal_key>`.
     pub const CONTACTS_ACTOR: &'static str = "ak.contacts.actor";

@@ -1950,12 +1950,21 @@ pub fn file_transfer_account_data_key(namespace_key: &[u8], transfer_id: &str) -
     ))
 }
 
-pub fn target_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
-    validate_object_ref_string("target_ref", target_ref)?;
+/// Derive one opaque Account Data key segment from an RFC 8785 canonical
+/// value using the account's namespace key.
+pub fn derive_account_data_key<T: Serialize + ?Sized>(
+    namespace_key: &[u8],
+    value: &T,
+) -> Result<String> {
     Ok(base64url_encode(hmac_sha256(
         namespace_key,
-        &canonical::canonical_json_bytes(&target_ref)?,
+        &canonical::canonical_json_bytes(value)?,
     )))
+}
+
+pub fn target_key(namespace_key: &[u8], target_ref: &str) -> Result<String> {
+    validate_object_ref_string("target_ref", target_ref)?;
+    derive_account_data_key(namespace_key, target_ref)
 }
 
 pub fn collection_key(namespace_key: &[u8], collection_title: &str) -> Result<String> {
@@ -1990,10 +1999,7 @@ pub fn realm_key(namespace_key: &[u8], realm_id: &str) -> Result<String> {
             "realm_key input must be ak:realm typed id".to_owned(),
         ));
     }
-    Ok(base64url_encode(hmac_sha256(
-        namespace_key,
-        &canonical::canonical_json_bytes(&realm_id)?,
-    )))
+    derive_account_data_key(namespace_key, realm_id)
 }
 
 pub fn validate_private_account_data_key(key: &str) -> Result<()> {

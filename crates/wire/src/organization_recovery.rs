@@ -1,4 +1,4 @@
-//! Realm-authority organization recovery key (RRK) wire objects.
+//! Realm-authority organization recovery key (RHRK) wire objects.
 //!
 //! The archive is referenced from two independent contracts and therefore
 //! lives on the shared wire boundary rather than inside either consumer: the
@@ -39,8 +39,8 @@ pub struct OrganizationRecoveryArchive {
     pub epoch: u64,
     pub transition_digest: Hash,
     pub recovery_key_id: String,
-    pub controller_id: DidCoreId,
-    pub holder_id: DidCoreId,
+    pub method_controller_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub key_agreement_ref: DidUrl,
     pub holder_signing_ref: DidUrl,
     pub hpke_suite: OrganizationRecoveryHpkeSuite,
@@ -70,8 +70,8 @@ pub struct OrganizationRecoveryArchiveSealContext {
     pub epoch: u64,
     pub transition_digest: Hash,
     pub recovery_key_id: String,
-    pub controller_id: DidCoreId,
-    pub holder_id: DidCoreId,
+    pub method_controller_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub key_agreement_ref: DidUrl,
     pub holder_signing_ref: DidUrl,
     pub hpke_suite: OrganizationRecoveryHpkeSuite,
@@ -140,8 +140,8 @@ impl OrganizationRecoveryArchive {
             epoch: self.epoch,
             transition_digest: self.transition_digest.clone(),
             recovery_key_id: self.recovery_key_id.clone(),
-            controller_id: self.controller_id.clone(),
-            holder_id: self.holder_id.clone(),
+            method_controller_principal_id: self.method_controller_principal_id.clone(),
+            holder_service_id: self.holder_service_id.clone(),
             key_agreement_ref: self.key_agreement_ref.clone(),
             holder_signing_ref: self.holder_signing_ref.clone(),
             hpke_suite: self.hpke_suite,

@@ -170,7 +170,7 @@ pub enum SealAvailabilityReplayAuthority {
     /// genesis create's admitted `station_id`.
     Predecessor {
         policy: RealmAvailabilityPolicy,
-        eligible_holder_ids: BTreeSet<DidCoreId>,
+        eligible_holder_service_ids: BTreeSet<DidCoreId>,
     },
 }
 
@@ -2239,7 +2239,7 @@ fn seal_dependency_replay_context(
         } else {
             SealAvailabilityReplayAuthority::Predecessor {
                 policy: availability_policy.unwrap_or_default(),
-                eligible_holder_ids: BTreeSet::new(),
+                eligible_holder_service_ids: BTreeSet::new(),
             }
         },
     };
@@ -2327,13 +2327,13 @@ fn add_pcr_holder_from_verified_create_anchor(
             ))
         })?;
     let SealAvailabilityReplayAuthority::Predecessor {
-        eligible_holder_ids,
+        eligible_holder_service_ids,
         ..
     } = &mut context.availability_authority
     else {
         return frontier_rejected("genesis replay cannot acquire PCR availability holder");
     };
-    eligible_holder_ids.insert(create.actor_id.route_service_id().clone());
+    eligible_holder_service_ids.insert(create.actor_id.route_service_id().clone());
     Ok(true)
 }
 
@@ -2390,7 +2390,7 @@ fn add_joined_holder_from_event(
         return Ok(());
     }
     let SealAvailabilityReplayAuthority::Predecessor {
-        eligible_holder_ids,
+        eligible_holder_service_ids,
         ..
     } = &mut context.availability_authority
     else {
@@ -2398,7 +2398,7 @@ fn add_joined_holder_from_event(
             "genesis replay cannot acquire predecessor availability holders".to_owned(),
         ));
     };
-    eligible_holder_ids.insert(payload.member_id.route_service_id().clone());
+    eligible_holder_service_ids.insert(payload.member_id.route_service_id().clone());
     Ok(())
 }
 
@@ -2856,8 +2856,8 @@ fn project_frontier_value(
                 &[
                     "recovery_key_id",
                     "key_agreement_ref",
-                    "controller_id",
-                    "holder_id",
+                    "method_controller_principal_id",
+                    "holder_service_id",
                     "holder_signing_ref",
                     "hpke_suite",
                     "frozen_public_key_b64u",

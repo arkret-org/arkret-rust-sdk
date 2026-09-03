@@ -354,7 +354,7 @@ pub struct AgentEvidenceStateVerificationContext<'a> {
     /// the signing principal DID.
     pub signer_actor_id: &'a ActorId,
     pub agent_key_id: &'a NonEmptyString,
-    pub controller_id: &'a DidCoreId,
+    pub controller_principal_id: &'a DidCoreId,
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
     pub authorize_signing_key_binding_digest: &'a Hash,
@@ -369,7 +369,7 @@ pub struct AgentEvidenceStateVerificationContext<'a> {
 pub struct AgentEvidenceCommonContext<'a> {
     pub signer_id: &'a DidCoreId,
     pub agent_key_id: &'a NonEmptyString,
-    pub controller_id: &'a DidCoreId,
+    pub controller_principal_id: &'a DidCoreId,
     pub verification_method: &'a DidUrl,
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
@@ -624,7 +624,7 @@ pub fn build_agent_signing_key_binding(
     agent_key_authorize_event_id: EventId,
     issued_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
-    controller_id: DidCoreId,
+    controller_principal_id: DidCoreId,
     controller_verification_method: DidUrl,
     controller_signing_key: &SigningKey,
 ) -> Result<AgentSigningKeyBinding, AgentEvidenceRejectedReason> {
@@ -648,7 +648,7 @@ pub fn build_agent_signing_key_binding(
         &runtime_public_key,
         issued_at,
         expires_at,
-        controller_id,
+        controller_principal_id,
     )?;
     let binding = materialize_agent_signing_key_binding(
         core,
@@ -676,7 +676,7 @@ pub fn prepare_agent_signing_key_binding_core(
     runtime_public_key: &arkret_models_collaboration::governance::agent_artifacts::PublicKey,
     issued_at: DateTime<Utc>,
     expires_at: Option<DateTime<Utc>>,
-    controller_id: DidCoreId,
+    controller_principal_id: DidCoreId,
 ) -> Result<AgentSigningKeyBindingCore, AgentEvidenceRejectedReason> {
     let validated = validate_agent_runtime_public_key(runtime_public_key, &verification_method)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
@@ -700,7 +700,7 @@ pub fn prepare_agent_signing_key_binding_core(
         public_key_digest: validated.authorization_digest,
         issued_at,
         expires_at,
-        controller_id,
+        controller_principal_id,
     })
 }
 
@@ -713,7 +713,8 @@ pub fn materialize_agent_signing_key_binding(
 ) -> Result<AgentSigningKeyBindingToSign, AgentEvidenceRejectedReason> {
     if core.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
         || did_url_controller_core_id(&core.verification_method)? != core.agent_id
-        || did_url_controller_core_id(&controller_verification_method)? != core.controller_id
+        || did_url_controller_core_id(&controller_verification_method)?
+            != core.controller_principal_id
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
@@ -802,7 +803,7 @@ pub fn verify_agent_signing_key_binding(
     binding: &AgentSigningKeyBinding,
     expected_agent_id: &DidCoreId,
     expected_agent_key_id: &NonEmptyString,
-    expected_controller_id: &DidCoreId,
+    expected_controller_principal_id: &DidCoreId,
     expected_verification_method: &DidUrl,
     expected_authorize_event_id: &EventId,
     expected_public_key_digest: &Hash,
@@ -810,16 +811,16 @@ pub fn verify_agent_signing_key_binding(
     controller_public_key: &PublicKeyMaterial,
 ) -> Result<[u8; 32], AgentEvidenceRejectedReason> {
     let method_agent_id = did_url_controller_core_id(&binding.verification_method)?;
-    let proof_controller_id =
+    let proof_controller_principal_id =
         did_url_controller_core_id(&binding.controller_proof.verification_method)?;
     if binding.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
         || &binding.agent_id != expected_agent_id
         || &binding.agent_key_id != expected_agent_key_id
-        || &binding.controller_id != expected_controller_id
+        || &binding.controller_principal_id != expected_controller_principal_id
         || &binding.verification_method != expected_verification_method
         || &binding.agent_key_authorize_event_id != expected_authorize_event_id
         || method_agent_id != binding.agent_id
-        || proof_controller_id != binding.controller_id
+        || proof_controller_principal_id != binding.controller_principal_id
         || binding.controller_proof.kind.as_str() != DETACHED_JWS_KIND
         || binding.public_key.kty.as_str() != "OKP"
         || binding.public_key.algorithm.as_str() != "Ed25519"
@@ -1091,7 +1092,7 @@ fn validate_common_evidence(
         binding,
         context.signer_id,
         context.agent_key_id,
-        context.controller_id,
+        context.controller_principal_id,
         context.verification_method,
         context.agent_key_authorize_event_id,
         context.authorize_public_key_digest,
@@ -1119,7 +1120,7 @@ fn validate_common_evidence(
         || lifecycle.status != AgentLifecycleStatus::Active
         || lifecycle.cell_value != AgentLifecycleStatus::Active
         || gate.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
-        || gate.principal_id.as_str() != context.controller_id.as_str()
+        || gate.principal_id.as_str() != context.controller_principal_id.as_str()
         || gate.authority_id != *context.expected_account_authority_id
         || gate.verification_method != *context.expected_account_authority_verification_method
         || gate.eligibility != ControllerAccountEligibility::Active
@@ -1300,7 +1301,13 @@ fn validate_state_witnesses(
         && lifecycle.component.as_str() == AGENT_STATUS_COMPONENT
         && lifecycle.agent_id == *context.signer_id
         && lifecycle.accepted_status_event.actor_id == *context.signer_actor_id
-        && lifecycle.controller_id == *context.controller_id
+        && lifecycle
+            .accepted_status_event
+            .executed_by
+            .as_ref()
+            .is_some_and(|controller_actor_id| {
+                controller_actor_id.signing_principal_id() == context.controller_principal_id
+            })
         && lifecycle.seal.id == lifecycle.seal_id
         && lifecycle.seal.state_root == lifecycle.state_root
         && lifecycle.seal.realm_id == snapshot.core.principal_control_realm_id

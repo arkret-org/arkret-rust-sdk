@@ -495,7 +495,7 @@ fn agent_pcr_create() -> Event {
     let payload = build_agent_pcr_create_payload(AgentPcrCreatePayloadInput {
         agent_id: agent.clone(),
         initial_resolution: fixture_resolution(agent_did.clone()),
-        controller_id: controller.clone(),
+        controller_principal_id: controller.clone(),
         notary: fixture_notary(&agent, &agent_did, "root"),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -528,7 +528,7 @@ fn agent_pcr_payload_is_built_from_the_public_realm_type() {
     let payload = build_agent_pcr_create_payload(AgentPcrCreatePayloadInput {
         agent_id: project_did_to_core_id(&did).unwrap(),
         initial_resolution: fixture_resolution(did.clone()),
-        controller_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
+        controller_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturecontroller").unwrap(),
         notary: fixture_notary(&project_did_to_core_id(&did).unwrap(), &did, "root"),
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
@@ -616,7 +616,7 @@ fn agent_genesis_authority_covers_the_whole_founding_notary() {
 
     assert_eq!(authority.agent_id(), &create.actor_id);
     assert_eq!(
-        authority.controller_id(),
+        authority.controller_actor_id(),
         create.executed_by.as_ref().unwrap()
     );
     assert_eq!(

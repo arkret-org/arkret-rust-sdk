@@ -496,8 +496,8 @@ fn values_are_unique<T: Ord>(values: &[T]) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryKeyTuple {
     pub recovery_key_id: String,
-    pub controller_id: DidCoreId,
-    pub holder_id: DidCoreId,
+    pub method_controller_principal_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     pub key_agreement_ref: DidUrl,
     pub holder_signing_ref: DidUrl,
     pub hpke_suite: OrganizationRecoveryHpkeSuite,
@@ -789,7 +789,7 @@ impl IdentityDisclosureAudience {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosurePolicyDocument {
-    pub holder_id: DidCoreId,
+    pub holder_principal_id: DidCoreId,
     pub audience: IdentityDisclosureAudience,
     pub allowed_claims: Vec<IdentityDisclosurePolicyClaim>,
     pub denied_fields: Vec<NonEmptyString>,
@@ -892,7 +892,7 @@ impl IdentityDisclosureReceiptDocument {
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityDisclosureReceiptStatePayload {
-    pub holder_id: DidCoreId,
+    pub holder_principal_id: DidCoreId,
     pub value: IdentityDisclosureReceiptDocument,
 }
 
@@ -910,12 +910,12 @@ impl<'de> Deserialize<'de> for IdentityDisclosureReceiptStatePayload {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Wire {
-            holder_id: DidCoreId,
+            holder_principal_id: DidCoreId,
             value: IdentityDisclosureReceiptDocument,
         }
         let wire = Wire::deserialize(deserializer)?;
         let payload = Self {
-            holder_id: wire.holder_id,
+            holder_principal_id: wire.holder_principal_id,
             value: wire.value,
         };
         payload.validate().map_err(serde::de::Error::custom)?;

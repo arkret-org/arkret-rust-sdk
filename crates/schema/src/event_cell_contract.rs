@@ -2390,7 +2390,7 @@ mod tests {
             ),
             (
                 "ak.identity.disclosure_receipt",
-                json!({"holder_id": "ak:did_core:webvh:z6mkfixture"}),
+                json!({"holder_principal_id": "ak:did_core:webvh:z6mkfixture"}),
                 "ak:did_core:webvh:z6mkfixture",
             ),
             (
@@ -3055,7 +3055,7 @@ mod tests {
                 write(
                     arkret_wire::REALM_AUTHORITY_ROOT_CELL,
                     set_op(json!({
-                        "controller_id": {"kind": "account", "account_id": {
+                        "controller_actor_id": {"kind": "account", "account_id": {
                             "principal_id": "ak:did_core:webvh:z6mkfixture",
                             "station_id": "ak:did_core:web:principal.example"
                         }},

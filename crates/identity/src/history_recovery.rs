@@ -1,4 +1,4 @@
-//! Realm Recovery Key (RRK) DID method resolution for offline recovery
+//! Realm History Recovery Key (RHRK) DID method resolution for offline recovery
 //! recipients
 //! (`crypto-media/encryption-and-audit.md` §2.10.8, `identity/identity-did.md`
 //! §8.3, `models/realm-and-space.md` §2.3.1).
@@ -14,7 +14,7 @@ use arkret_wire::{DidCoreId, DidUrl};
 use serde_json::Value;
 
 /// X25519 public-key multicodec prefix (`0xec 0x01` unsigned-varint), the wire
-/// form a `Multikey` `publicKeyMultibase` RRK key uses for HPKE key agreement.
+/// form a `Multikey` `publicKeyMultibase` RHRK key uses for HPKE key agreement.
 const MULTICODEC_X25519_PUB: u64 = 0xec;
 
 /// Fail-closed outcome of [`resolve_realm_history_recovery_key`].
@@ -47,20 +47,20 @@ fn unverified(detail: impl Into<String>) -> RealmHistoryRecoveryKeyError {
     RealmHistoryRecoveryKeyError::Unverified(detail.into())
 }
 
-/// A verified RRK public key resolved from a recipient's DID Document.
+/// A verified RHRK public key resolved from a recipient's DID Document.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolvedRealmHistoryRecoveryKey {
     /// The recipient stable id (`durability_policy.recovery_recipients[].recipient_id`).
     pub recipient_id: String,
-    /// The principal controlling the accepted RRK key-agreement method.
+    /// The principal controlling the accepted RHRK key-agreement method.
     pub principal_id: DidCoreId,
-    /// The exact verification method id frozen by the accepted RRK tuple.
+    /// The exact verification method id frozen by the accepted RHRK tuple.
     pub verification_method: DidUrl,
     /// Decoded raw 32-byte X25519 HPKE public key the provider seals to.
     pub hpke_public_key: [u8; 32],
 }
 
-/// Resolve and verify the offline RRK HPKE public key for `recipient` from its
+/// Resolve and verify the offline RHRK HPKE public key for `recipient` from its
 /// principal's `did_document` (the raw W3C DID Document JSON, e.g. the
 /// raw DID Document value or a freshly resolved document).
 ///
@@ -77,7 +77,7 @@ pub struct ResolvedRealmHistoryRecoveryKey {
 ///
 /// Any miss returns [`RealmHistoryRecoveryKeyError::Unverified`]
 /// (`durability_recovery_recipient_unverified`); the function MUST NOT fall back
-/// to any other key. Point-in-time resolution (validating the RRK active at a
+/// to any other key. Point-in-time resolution (validating the RHRK active at a
 /// historical seal Event's accepted-at) is the caller's responsibility — pass
 /// the DID Document resolved as of that instant.
 pub fn resolve_realm_history_recovery_key(
@@ -112,7 +112,7 @@ pub fn resolve_realm_history_recovery_key(
         .any(|reference| reference.as_str() == Some(verification_method));
     if !in_key_agreement {
         return Err(unverified(format!(
-            "RRK verification method {} is not referenced by keyAgreement",
+            "RHRK verification method {} is not referenced by keyAgreement",
             verification_method
         )));
     }
@@ -128,25 +128,25 @@ pub fn resolve_realm_history_recovery_key(
         .filter(|method| method.get("id").and_then(Value::as_str) == Some(verification_method));
     let method = methods.next().ok_or_else(|| {
         unverified(format!(
-            "RRK verification method {} not present in verificationMethod",
+            "RHRK verification method {} not present in verificationMethod",
             verification_method
         ))
     })?;
     if methods.next().is_some() {
         return Err(unverified(format!(
-            "RRK verification method {} is not unique in verificationMethod",
+            "RHRK verification method {} is not unique in verificationMethod",
             verification_method
         )));
     }
     if method.get("controller").and_then(Value::as_str) != Some(principal_id.as_str()) {
         return Err(unverified(format!(
-            "RRK verification method {} is not controlled by {}",
+            "RHRK verification method {} is not controlled by {}",
             verification_method, principal_id
         )));
     }
     if method.get("type").and_then(Value::as_str) != Some("Multikey") {
         return Err(unverified(format!(
-            "RRK verification method {} is not a Multikey",
+            "RHRK verification method {} is not a Multikey",
             verification_method
         )));
     }
@@ -155,7 +155,7 @@ pub fn resolve_realm_history_recovery_key(
         .and_then(Value::as_str)
         .ok_or_else(|| {
             unverified(format!(
-                "RRK verification method {} has no publicKeyMultibase",
+                "RHRK verification method {} has no publicKeyMultibase",
                 verification_method
             ))
         })?;
@@ -172,21 +172,21 @@ pub fn resolve_realm_history_recovery_key(
 }
 
 /// Decode a `z<base58btc(0xec01 || key)>` multibase string into the raw 32-byte
-/// X25519 public key, fail-closed to the RRK reason code on any malformation.
+/// X25519 public key, fail-closed to the RHRK reason code on any malformation.
 fn decode_x25519_multibase(multibase: &str) -> Result<[u8; 32], RealmHistoryRecoveryKeyError> {
     let decoded = decode_multibase_base58btc(multibase)
-        .map_err(|err| unverified(format!("RRK publicKeyMultibase decode failed: {err}")))?;
+        .map_err(|err| unverified(format!("RHRK publicKeyMultibase decode failed: {err}")))?;
     let (code, header_len) = decode_multicodec_varint(&decoded)
-        .ok_or_else(|| unverified("RRK publicKeyMultibase has a truncated multicodec header"))?;
+        .ok_or_else(|| unverified("RHRK publicKeyMultibase has a truncated multicodec header"))?;
     if code != MULTICODEC_X25519_PUB {
         return Err(unverified(format!(
-            "RRK publicKeyMultibase multicodec is 0x{code:x}, expected x25519-pub (0xec)"
+            "RHRK publicKeyMultibase multicodec is 0x{code:x}, expected x25519-pub (0xec)"
         )));
     }
     let key = &decoded[header_len..];
     key.try_into().map_err(|_| {
         unverified(format!(
-            "RRK X25519 public key must be 32 bytes, got {}",
+            "RHRK X25519 public key must be 32 bytes, got {}",
             key.len()
         ))
     })
@@ -206,7 +206,7 @@ mod tests {
 
     fn recipient() -> TestRecipient {
         TestRecipient {
-            recipient_id: "acme-org-rrk-1".to_owned(),
+            recipient_id: "acme-org-rhrk-1".to_owned(),
             principal_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             verification_method: DidUrl::new(
                 "did:webvh:z6mkfixture:acme.example#realm-history-recovery-1",
@@ -251,34 +251,34 @@ mod tests {
     }
 
     #[test]
-    fn resolves_tuple_frozen_rrk_method_to_hpke_pubkey() {
+    fn resolves_tuple_frozen_rhrk_method_to_hpke_pubkey() {
         let recipient = recipient();
-        let rrk_pub = [5u8; 32];
-        let document = did_document(&recipient, &rrk_pub);
+        let rhrk_pub = [5u8; 32];
+        let document = did_document(&recipient, &rhrk_pub);
 
         let resolved = resolve(&recipient, &document).unwrap();
-        assert_eq!(resolved.hpke_public_key, rrk_pub);
-        assert_eq!(resolved.recipient_id, "acme-org-rrk-1");
+        assert_eq!(resolved.hpke_public_key, rhrk_pub);
+        assert_eq!(resolved.recipient_id, "acme-org-rhrk-1");
         assert_eq!(resolved.verification_method, recipient.verification_method);
     }
 
     #[test]
     fn service_designation_is_not_required() {
         let recipient = recipient();
-        let rrk_pub = [5u8; 32];
-        let mut document = did_document(&recipient, &rrk_pub);
+        let rhrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rhrk_pub);
         document["service"] = serde_json::json!([{"type": "UnrelatedService"}]);
         assert_eq!(
             resolve(&recipient, &document).unwrap().hpke_public_key,
-            rrk_pub
+            rhrk_pub
         );
     }
 
     #[test]
     fn rejects_vm_not_in_key_agreement() {
         let recipient = recipient();
-        let rrk_pub = [5u8; 32];
-        let mut document = did_document(&recipient, &rrk_pub);
+        let rhrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rhrk_pub);
         document["keyAgreement"] = serde_json::json!([]);
 
         let err = resolve(&recipient, &document).unwrap_err();
@@ -327,8 +327,8 @@ mod tests {
     #[test]
     fn rejects_document_for_wrong_principal() {
         let recipient = recipient();
-        let rrk_pub = [5u8; 32];
-        let mut document = did_document(&recipient, &rrk_pub);
+        let rhrk_pub = [5u8; 32];
+        let mut document = did_document(&recipient, &rhrk_pub);
         document["id"] = serde_json::json!("did:webvh:z6mkfixture:evil.example");
 
         let err = resolve(&recipient, &document).unwrap_err();
@@ -336,14 +336,19 @@ mod tests {
     }
 
     #[test]
-    fn shared_rrk_fixture_runs_through_the_production_resolver() {
+    fn shared_rhrk_fixture_runs_through_the_production_resolver() {
         let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/history-key-recovery-fixture.json",
         )
         .unwrap();
-        let kat = &fixture["rrk_registration_rotation_kat"];
+        let kat = &fixture["rhrk_registration_rotation_kat"];
         let key_tuple = &kat["events"]["register"]["payload"]["new_key_tuple"];
-        let principal_id = DidCoreId::new(key_tuple["controller_id"].as_str().unwrap()).unwrap();
+        let principal_id = DidCoreId::new(
+            key_tuple["method_controller_principal_id"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
         let verification_method =
             DidUrl::new(key_tuple["key_agreement_ref"].as_str().unwrap()).unwrap();
         let document = &kat["did_documents"]["register"];
@@ -389,10 +394,10 @@ mod tests {
         .next()
         .unwrap();
         let ProjectedOp::Direct(register_op) = register_write.op else {
-            panic!("RRK register must project a direct CAS set");
+            panic!("RHRK register must project a direct CAS set");
         };
         let ProjectedOp::Direct(rotate_op) = rotate_write.op else {
-            panic!("RRK rotate must project a direct CAS set");
+            panic!("RHRK rotate must project a direct CAS set");
         };
         assert_eq!(
             rotate_op.from.as_ref(),
@@ -441,7 +446,7 @@ mod tests {
         .next()
         .unwrap();
         let ProjectedOp::Direct(stale_op) = stale_write.op else {
-            panic!("RRK mutation must remain a direct CAS set");
+            panic!("RHRK mutation must remain a direct CAS set");
         };
         assert!(stale_op.from.is_none());
         assert!(matches!(

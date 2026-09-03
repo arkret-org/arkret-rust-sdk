@@ -888,12 +888,22 @@ pub enum RecoveryShareCommitmentAlgorithm {
     ShareHashBlake3,
 }
 
+/// Closed recovery-share holder category. The wire representation is flattened
+/// into the containing share and permits exactly one branch-specific id.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "holder_kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum RecoveryShareHolder {
+    PersonalPrincipal { holder_principal_id: DidCoreId },
+    CustodialService { holder_service_id: DidCoreId },
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize)]
 pub struct Share {
     pub share_id: String,
-    pub holder_id: DidCoreId,
+    #[serde(flatten)]
+    pub holder: RecoveryShareHolder,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -907,6 +917,79 @@ pub struct Share {
     pub revoked_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revocation_reason_code: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RecoveryShareHolderKind {
+    PersonalPrincipal,
+    CustodialService,
+}
+
+fn recovery_share_holder_from_parts(
+    holder_kind: RecoveryShareHolderKind,
+    holder_principal_id: Option<DidCoreId>,
+    holder_service_id: Option<DidCoreId>,
+) -> std::result::Result<RecoveryShareHolder, String> {
+    match (holder_kind, holder_principal_id, holder_service_id) {
+        (RecoveryShareHolderKind::PersonalPrincipal, Some(holder_principal_id), None) => {
+            Ok(RecoveryShareHolder::PersonalPrincipal {
+                holder_principal_id,
+            })
+        }
+        (RecoveryShareHolderKind::CustodialService, None, Some(holder_service_id)) => {
+            Ok(RecoveryShareHolder::CustodialService { holder_service_id })
+        }
+        _ => Err(
+            "recovery share holder must contain exactly the id selected by holder_kind".to_owned(),
+        ),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShareWire {
+    share_id: String,
+    holder_kind: RecoveryShareHolderKind,
+    holder_principal_id: Option<DidCoreId>,
+    holder_service_id: Option<DidCoreId>,
+    transport: String,
+    share_commitment: ShareShareCommitment,
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    not_before: Option<DateTime<Utc>>,
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    expires_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    revoked_at: Option<DateTime<Utc>>,
+    revocation_reason_code: Option<String>,
+}
+
+impl<'de> Deserialize<'de> for Share {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ShareWire::deserialize(deserializer)?;
+        let holder = recovery_share_holder_from_parts(
+            wire.holder_kind,
+            wire.holder_principal_id,
+            wire.holder_service_id,
+        )
+        .map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            share_id: wire.share_id,
+            holder,
+            transport: wire.transport,
+            share_commitment: wire.share_commitment,
+            not_before: wire.not_before,
+            expires_at: wire.expires_at,
+            revoked_at: wire.revoked_at,
+            revocation_reason_code: wire.revocation_reason_code,
+        })
+    }
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/challenge`.
@@ -1890,15 +1973,51 @@ pub enum SessionState {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/threshold_recovery_proof`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ThresholdRecoveryProofShareReleasesItem {
     pub share_id: NonEmptyString,
-    pub holder_id: DidCoreId,
+    #[serde(flatten)]
+    pub holder: RecoveryShareHolder,
     pub transcript_digest: Hash,
     pub verification_method: DidUrl,
     pub signature_algorithm: NonEmptyString,
     pub signature: Base64UrlString,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ThresholdRecoveryProofShareReleasesItemWire {
+    share_id: NonEmptyString,
+    holder_kind: RecoveryShareHolderKind,
+    holder_principal_id: Option<DidCoreId>,
+    holder_service_id: Option<DidCoreId>,
+    transcript_digest: Hash,
+    verification_method: DidUrl,
+    signature_algorithm: NonEmptyString,
+    signature: Base64UrlString,
+}
+
+impl<'de> Deserialize<'de> for ThresholdRecoveryProofShareReleasesItem {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ThresholdRecoveryProofShareReleasesItemWire::deserialize(deserializer)?;
+        let holder = recovery_share_holder_from_parts(
+            wire.holder_kind,
+            wire.holder_principal_id,
+            wire.holder_service_id,
+        )
+        .map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            share_id: wire.share_id,
+            holder,
+            transcript_digest: wire.transcript_digest,
+            verification_method: wire.verification_method,
+            signature_algorithm: wire.signature_algorithm,
+            signature: wire.signature,
+        })
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1920,14 +2039,48 @@ pub struct ThresholdRecoveryProof {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ThresholdRecoveryProofShareReleaseBody {
     pub share_id: NonEmptyString,
-    pub holder_id: DidCoreId,
+    #[serde(flatten)]
+    pub holder: RecoveryShareHolder,
     pub transcript_digest: Hash,
     pub verification_method: DidUrl,
     pub signature_algorithm: RecoveryFactorSignatureAlgorithm,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ThresholdRecoveryProofShareReleaseBodyWire {
+    share_id: NonEmptyString,
+    holder_kind: RecoveryShareHolderKind,
+    holder_principal_id: Option<DidCoreId>,
+    holder_service_id: Option<DidCoreId>,
+    transcript_digest: Hash,
+    verification_method: DidUrl,
+    signature_algorithm: RecoveryFactorSignatureAlgorithm,
+}
+
+impl<'de> Deserialize<'de> for ThresholdRecoveryProofShareReleaseBody {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = ThresholdRecoveryProofShareReleaseBodyWire::deserialize(deserializer)?;
+        let holder = recovery_share_holder_from_parts(
+            wire.holder_kind,
+            wire.holder_principal_id,
+            wire.holder_service_id,
+        )
+        .map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            share_id: wire.share_id,
+            holder,
+            transcript_digest: wire.transcript_digest,
+            verification_method: wire.verification_method,
+            signature_algorithm: wire.signature_algorithm,
+        })
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1953,7 +2106,7 @@ impl ThresholdRecoveryProof {
                 .map(|release| {
                     Ok(ThresholdRecoveryProofShareReleaseBody {
                         share_id: release.share_id.clone(),
-                        holder_id: release.holder_id.clone(),
+                        holder: release.holder.clone(),
                         transcript_digest: release.transcript_digest.clone(),
                         verification_method: release.verification_method.clone(),
                         signature_algorithm: RecoveryFactorSignatureAlgorithm::try_from(
@@ -2121,6 +2274,45 @@ mod untagged_contract_tests {
         ] {
             assert!(serde_json::from_value::<RecoverySessionProof>(value).is_err());
         }
+    }
+
+    #[test]
+    fn recovery_share_holder_union_is_closed_without_hardware_branch() {
+        let personal = serde_json::json!({
+            "share_id": "share-a",
+            "holder_kind": "personal_principal",
+            "holder_principal_id": "ak:did_core:webvh:z6mkpersonal",
+            "transport": "offline_qr",
+            "share_commitment": {
+                "algorithm": "share-hash-sha256",
+                "commitment_b64u": "AA"
+            }
+        });
+        let custodial = serde_json::json!({
+            "share_id": "share-b",
+            "holder_kind": "custodial_service",
+            "holder_service_id": "ak:did_core:web:custodian.example",
+            "transport": "hpke_x25519",
+            "share_commitment": {
+                "algorithm": "share-hash-sha256",
+                "commitment_b64u": "AA"
+            }
+        });
+        assert!(serde_json::from_value::<Share>(personal.clone()).is_ok());
+        assert!(serde_json::from_value::<Share>(custodial).is_ok());
+
+        let mut hardware = personal.clone();
+        hardware["holder_kind"] = serde_json::json!("hardware_module");
+        hardware["holder_hardware_module_id"] = serde_json::json!("ak:did_core:key:z6Mkhardware");
+        hardware
+            .as_object_mut()
+            .unwrap()
+            .remove("holder_principal_id");
+        assert!(serde_json::from_value::<Share>(hardware).is_err());
+
+        let mut ambiguous = personal;
+        ambiguous["holder_service_id"] = serde_json::json!("ak:did_core:web:custodian.example");
+        assert!(serde_json::from_value::<Share>(ambiguous).is_err());
     }
 
     #[test]

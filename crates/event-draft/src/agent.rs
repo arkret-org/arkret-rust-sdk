@@ -88,11 +88,7 @@ pub fn build_agent_pause_intent(
     reason: Option<arkret_wire::AuditReasonText>,
     status_changed_at: DateTime<Utc>,
 ) -> Result<EventIntent> {
-    let agent_id = agent_actor_id.signing_principal_id().clone();
-    let controller_id = controller_actor_id.signing_principal_id().clone();
     let payload = AgentPausePayload {
-        agent_id,
-        controller_id,
         transition: "pause".to_owned(),
         previous_status: "active".to_owned(),
         status_changed_at,
@@ -116,11 +112,7 @@ pub fn build_agent_resume_intent(
     controller_authorization_ref: DidUrl,
     status_changed_at: DateTime<Utc>,
 ) -> Result<EventIntent> {
-    let agent_id = agent_actor_id.signing_principal_id().clone();
-    let controller_id = controller_actor_id.signing_principal_id().clone();
     let payload = AgentResumePayload {
-        agent_id,
-        controller_id,
         transition: "resume".to_owned(),
         previous_status: "paused".to_owned(),
         status_changed_at,
@@ -148,8 +140,6 @@ pub fn build_agent_deactivate_intent(
     reason: Option<arkret_wire::AuditReasonText>,
     status_changed_at: DateTime<Utc>,
 ) -> Result<EventIntent> {
-    let agent_id = agent_actor_id.signing_principal_id().clone();
-    let controller_id = controller_actor_id.signing_principal_id().clone();
     let previous_status = match previous_status {
         AgentLifecycleState::Active => "active",
         AgentLifecycleState::Paused => "paused",
@@ -160,8 +150,6 @@ pub fn build_agent_deactivate_intent(
         }
     };
     let payload = AgentDeactivatePayload {
-        agent_id,
-        controller_id,
         transition: "deactivate".to_owned(),
         previous_status: previous_status.to_owned(),
         status_changed_at,
@@ -267,7 +255,7 @@ mod tests {
     fn key_authorize_payload(
         agent_id: DidCoreId,
         agent_did: &Did,
-        controller_id: DidCoreId,
+        controller_principal_id: DidCoreId,
     ) -> AgentKeyAuthorizePayload {
         AgentKeyAuthorizePayload {
             agent_id,
@@ -275,7 +263,7 @@ mod tests {
             verification_method: DidUrl::new(format!("{agent_did}#runtime-key-1")).unwrap(),
             public_key_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             signing_key_binding_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
-            accountable_principal_id: controller_id.clone(),
+            accountable_principal_id: controller_principal_id.clone(),
             agent_key_scope: AgentKeyScope {
                 actions: vec!["ak.message.create".to_owned()],
                 resources: vec![],
@@ -291,7 +279,7 @@ mod tests {
                 ),
                 request_canonical_digest: None,
                 pairing_request_id: None,
-                approved_by: Some(controller_id),
+                approved_by: Some(controller_principal_id),
             },
             supersedes: vec![],
             revocation_check_ref: None,
@@ -303,14 +291,17 @@ mod tests {
     fn key_authorize_event_binds_controller_execution() {
         let agent_id = core_id("agent");
         let agent_did = did("agent");
-        let controller_id = core_id("controller");
-        let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
+        let controller_principal_id = core_id("controller");
         let event = authored(
             build_agent_key_authorize_intent(
-                &key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id),
+                &key_authorize_payload(
+                    agent_id.clone(),
+                    &agent_did,
+                    controller_principal_id.clone(),
+                ),
                 scope(),
                 ActorId::service(agent_id.clone()),
-                ActorId::service(controller_id.clone()),
+                ActorId::service(controller_principal_id.clone()),
                 DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -320,7 +311,10 @@ mod tests {
 
         assert_eq!(event.kind, EventKind::AgentKeyAuthorize);
         assert_eq!(event.actor_id, ActorId::service(agent_id));
-        assert_eq!(event.executed_by, Some(ActorId::service(controller_id)));
+        assert_eq!(
+            event.executed_by,
+            Some(ActorId::service(controller_principal_id))
+        );
         assert_eq!(event.payload["key_id"], "runtime-key-1");
     }
 
@@ -334,14 +328,17 @@ mod tests {
     fn key_authorize_projects_atomic_replacement_pair() {
         let agent_id = core_id("agent");
         let agent_did = did("agent");
-        let controller_id = core_id("controller");
-        let controller_principal_id = DidCoreId::new(controller_id.as_str()).unwrap();
+        let controller_principal_id = core_id("controller");
         let event = authored(
             build_agent_key_authorize_intent(
-                &key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id),
+                &key_authorize_payload(
+                    agent_id.clone(),
+                    &agent_did,
+                    controller_principal_id.clone(),
+                ),
                 scope(),
                 ActorId::service(agent_id.clone()),
-                ActorId::service(controller_id),
+                ActorId::service(controller_principal_id),
                 DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -376,13 +373,13 @@ mod tests {
     #[test]
     fn key_revoke_projects_remove_and_revocation_fact() {
         let agent_id = core_id("agent");
-        let controller_id = core_id("controller");
+        let controller_principal_id = core_id("controller");
         let event = authored(
             build_agent_key_revoke_intent(
                 &AgentKeyRevokePayload {
                     agent_id: agent_id.clone(),
                     key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
-                    revoked_by: controller_id.clone(),
+                    revoked_by: controller_principal_id.clone(),
                     revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
                     reason: Some(
                         arkret_wire::AuditReasonText::new("controller_deactivated").unwrap(),
@@ -390,7 +387,7 @@ mod tests {
                 },
                 scope(),
                 ActorId::service(agent_id.clone()),
-                ActorId::service(controller_id),
+                ActorId::service(controller_principal_id),
                 DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -430,7 +427,7 @@ mod tests {
         let agent_did = did("agent");
         let agent_actor_id =
             ActorId::account(AccountId::new(agent_id.clone(), core_id("agent-station")));
-        let controller_id = core_id("controller");
+        let controller_principal_id = core_id("controller");
         let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
         let authorization_ref = DidUrl::new(format!("{agent_did}#managed-controller")).unwrap();
 
@@ -439,7 +436,7 @@ mod tests {
         let pause = authored(
             build_agent_pause_intent(
                 agent_actor_id.clone(),
-                ActorId::service(controller_id.clone()),
+                ActorId::service(controller_principal_id.clone()),
                 scope(),
                 authorization_ref.clone(),
                 Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
@@ -466,7 +463,7 @@ mod tests {
         let resume = authored(
             build_agent_resume_intent(
                 agent_actor_id,
-                ActorId::service(controller_id),
+                ActorId::service(controller_principal_id),
                 scope(),
                 authorization_ref,
                 changed_at,

@@ -676,7 +676,7 @@ mod tests {
         event.payload = serde_json::from_value(json!({
             "policy_id": "ak:policy:a1cb0019-0000-7000-8000-000000000000",
             "value": {
-                "holder_id": "ak:did_core:webvh:z6mkfixtureholder",
+                "holder_principal_id": "ak:did_core:webvh:z6mkfixtureholder",
                 "audience": {
                     "represented_organization_id": "ak:did_core:webvh:z6mkfixtureorganization",
                     "verifier_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
@@ -692,7 +692,7 @@ mod tests {
 
         event.kind = EventKind::IdentityDisclosureReceipt;
         event.payload = serde_json::from_value(json!({
-            "holder_id": "ak:did_core:key:z6Mkgpairwise",
+            "holder_principal_id": "ak:did_core:key:z6Mkgpairwise",
             "value": {
                 "receipt_id": "ak:receipt:a1cb0019-0000-7000-8000-000000000000",
                 "request_id": "ak:request:d8764019-0000-7000-8000-000000000000",

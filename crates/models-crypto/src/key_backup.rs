@@ -20,7 +20,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
 use crate::artifacts_keys::{
-    KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryPolicyRef, ShareShareCommitment,
+    KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryPolicyRef, RecoveryShareHolder,
+    ShareShareCommitment,
 };
 
 fn is_false(value: &bool) -> bool {
@@ -2395,7 +2396,8 @@ pub struct RecoveryResharePolicy {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryShare {
     pub share_id: String,
-    pub holder_id: DidCoreId,
+    #[serde(flatten)]
+    pub holder: RecoveryShareHolder,
     pub transport: String,
     pub share_commitment: ShareShareCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -138,8 +138,8 @@ impl OrganizationRecoveryArchiveGcLedger {
         receipt.validate()?;
         let replica_digest = replica.archive_replica_digest()?;
         if receipt.archive_replica_digest != replica_digest
-            || receipt.holder_id != replica.holder_id
-            || replica.holder_id != replica.archive.holder_id
+            || receipt.holder_service_id != replica.holder_service_id
+            || replica.holder_service_id != replica.archive.holder_service_id
             || self.coverage_coordinate != Self::new(replica)?.coverage_coordinate
         {
             return Err(WireError::Protocol(
@@ -265,8 +265,8 @@ fn archive_authorization_tuple(
     ArchiveAuthorizationTuple {
         recovery_key_id: archive.recovery_key_id.clone(),
         key_agreement_ref: archive.key_agreement_ref.clone(),
-        controller_id: archive.controller_id.clone(),
-        holder_id: archive.holder_id.clone(),
+        method_controller_principal_id: archive.method_controller_principal_id.clone(),
+        holder_service_id: archive.holder_service_id.clone(),
         holder_signing_ref: archive.holder_signing_ref.clone(),
         accepted_key_evidence_ref: archive.accepted_key_evidence_ref.clone(),
         holder_trusted_basis: archive.holder_trusted_basis.clone(),
@@ -582,7 +582,7 @@ mod tests {
     }
 
     #[test]
-    fn rrk_archive_fixture_executes_the_durable_before_gc_barrier() {
+    fn rhrk_archive_fixture_executes_the_durable_before_gc_barrier() {
         let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/history-key-recovery-fixture.json",
         )

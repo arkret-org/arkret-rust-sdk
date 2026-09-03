@@ -1155,11 +1155,11 @@
     },
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::ShareShareCommitment",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['algorithm', 'commitment_b64u'], Spec-only=['expires_at', 'holder_id', 'not_before', 'revocation_reason_code', 'revoked_at', 'share_commitment', 'share_id', 'transport']."
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['algorithm', 'commitment_b64u'], Spec-only=['expires_at', 'holder_kind', 'holder_principal_id?', 'holder_service_id?', 'not_before', 'revocation_reason_code', 'revoked_at', 'share_commitment', 'share_id', 'transport']."
     },
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::ThresholdRecoveryProofShareReleasesItem",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['holder_id', 'share_id', 'signature', 'signature_algorithm', 'transcript_digest', 'verification_method'], Spec-only=['challenge', 'kind', 'share_releases', 'threshold']."
+      "reason": "Documented counterpart is not field-set exact; Rust-only=['holder_kind', 'holder_principal_id?', 'holder_service_id?', 'share_id', 'signature', 'signature_algorithm', 'transcript_digest', 'verification_method'], Spec-only=['challenge', 'kind', 'share_releases', 'threshold']."
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryTrustedService",

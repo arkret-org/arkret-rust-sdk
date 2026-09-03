@@ -1,15 +1,15 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-02.7;
-//! sha256=bf7cb2da4de92d46e80ab3eebd895b4239e0913172f129af2d6d929f03f32fd7 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-04.1;
+//! sha256=85d2ce949c5b05059e737e1d4810695eed72cdcf35c44122e0996d4e5d216a96 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
 //! sha256=d75d7fd0feb27c7a29db2255ce503f6137f31a9102086cb05be4b84ce03f297b Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
-//! hpke-suite-registry.json; version=2026-09-02.1;
-//! sha256=f7d265a1c415ee7ca0f86c248ba1a650742e7223336abd7a0f1d15b9bf4900af Input: registry/
+//! hpke-suite-registry.json; version=2026-09-04.1;
+//! sha256=6004d5a3705dcc498a5ded6766ddf15b338f58db6b6e0e007f61a960b50d6bb5 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
@@ -1142,7 +1142,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         consumer_operation: None,
         binding_fields: &[
             "payload_digest",
-            "controller_id",
+            "controller_principal_id",
             "agent_id",
             "verification_method",
             "created_at",
@@ -1235,7 +1235,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "applet_id",
-            "controller_id",
+            "controller_principal_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1300,7 +1300,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "realm_id",
             "event_id",
             "bytes_digest",
-            "holder_id",
+            "holder_service_id",
             "retention_expires_at",
             "holder_signer_evidence_ref",
             "verification_method",
@@ -1958,7 +1958,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "container_event_ref",
             "history_traversal_retention",
             "source_id",
-            "holder_id",
+            "holder_service_id",
             "replicated_at",
             "verification_method",
             "created_at",
@@ -1973,7 +1973,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "archive_replica_digest",
-            "holder_id",
+            "holder_service_id",
             "archive_sequence",
             "accepted_at",
             "verification_method",

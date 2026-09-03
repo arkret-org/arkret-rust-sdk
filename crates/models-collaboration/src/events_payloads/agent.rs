@@ -2,7 +2,7 @@
 
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
-use arkret_wire::{AuditReasonText, DidCoreId};
+use arkret_wire::{AccountId, AuditReasonText, DidCoreId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ pub enum AgentProvisionAccountabilityScope {
 pub struct AgentProvisionPayload {
     pub schema: AgentProvisionSchema,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub controller_principal_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub agent_slug: String,
@@ -133,7 +133,6 @@ pub struct AgentActionApprovePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_id: Option<String>,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub approved_payload_digest: Hash,
@@ -157,7 +156,6 @@ pub struct AgentActionRejectPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_id: Option<String>,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<AuditReasonText>,
     #[serde(with = "canonical_timestamp")]
@@ -173,7 +171,7 @@ pub struct AgentActionRequestPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_id: Option<String>,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub request_canonical_digest: Hash,
@@ -204,8 +202,6 @@ pub struct AgentActionTarget {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentDeactivatePayload {
-    pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -221,7 +217,7 @@ pub struct AgentDeactivatePayload {
 pub struct AgentDraftProposePayload {
     pub draft_id: String,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
+    pub controller_account_id: AccountId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub content_digest: Hash,
@@ -483,8 +479,6 @@ pub struct AgentKeyRevokePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentPausePayload {
-    pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]
@@ -498,8 +492,6 @@ pub struct AgentPausePayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentResumePayload {
-    pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
     pub transition: String,
     pub previous_status: String,
     #[serde(with = "canonical_timestamp")]

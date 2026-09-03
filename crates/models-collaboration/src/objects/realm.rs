@@ -93,7 +93,7 @@ pub struct Realm {
     /// Optional deployment-capped Agent participation policy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
-    /// Realm Recovery Key (RRK) durability policy (realm-and-space.md §2.3.1,
+    /// Realm History Recovery Key (RHRK) durability policy (realm-and-space.md §2.3.1,
     /// encryption-and-audit.md §2.10.8). Declares whether an organization
     /// recovery key can recover Realm history after all member devices are lost
     /// or all members leave. Confidentiality-axis durability, orthogonal to

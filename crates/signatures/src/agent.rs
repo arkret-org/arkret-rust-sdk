@@ -777,7 +777,7 @@ mod tests {
         let agent_actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let controller_did = Did::new("did:webvh:z6mkfixture:controller.example").unwrap();
         let controller_actor_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let controller_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
+        let controller_principal_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let pairing_request_id = "agent_pairing_request:01970000-0000-7000-8000-000000000021";
         let issued_at = Utc.with_ymd_and_hms(2026, 7, 17, 0, 0, 0).unwrap();
@@ -790,7 +790,7 @@ mod tests {
             schema: SchemaId::AgentRequestedScopeDisclosureV1,
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000021").unwrap(),
             agent_id: agent_actor_id.clone(),
-            controller_id: controller_id.clone(),
+            controller_principal_id: controller_principal_id.clone(),
             requested_scope: requested_scope.clone(),
             verifier_id: service_id.clone(),
             audience: NonEmptyString::new(
@@ -853,7 +853,7 @@ mod tests {
             verification_method: verification_method.clone(),
             public_key_digest: binding_core.public_key_digest,
             signing_key_binding_digest: binding_core_digest,
-            accountable_principal_id: controller_id,
+            accountable_principal_id: controller_principal_id,
             agent_key_scope: requested_scope,
             audience: vec!["https://arkret.example".to_owned()],
             issued_at,

@@ -32,7 +32,7 @@ pub struct AgentProvisionIntentOptions {
 /// standard submit pipeline.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_provision_intent(
-    controller_id: &DidCoreId,
+    controller_principal_id: &DidCoreId,
     controller_realm_id: &RealmId,
     agent_id: &DidCoreId,
     principal_control_realm_id: &RealmId,
@@ -47,7 +47,7 @@ pub fn build_agent_provision_intent(
     let payload = AgentProvisionPayload {
         schema: AgentProvisionSchema::V1,
         agent_id: agent_id.clone(),
-        controller_id: controller_id.clone(),
+        controller_principal_id: controller_principal_id.clone(),
         principal_control_realm_id: principal_control_realm_id.clone(),
         controller_authorization_ref: controller_authorization_ref.clone(),
         agent_slug: agent_slug.to_owned(),
@@ -58,8 +58,10 @@ pub fn build_agent_provision_intent(
         created_at,
     };
     payload.validate()?;
-    let controller_account_id =
-        AccountId::new(controller_id.clone(), options.controller_station_id);
+    let controller_account_id = AccountId::new(
+        controller_principal_id.clone(),
+        options.controller_station_id,
+    );
     let mut draft = TypedEventDraft::<event_spec::AgentProvision>::new(
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),

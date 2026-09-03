@@ -773,7 +773,7 @@ pub struct PrincipalInceptionInput<'a> {
 pub struct AgentInceptionInput<'a> {
     pub principal_endpoint: &'a Url,
     pub local_id: &'a str,
-    pub controller_id: &'a DidCoreId,
+    pub controller_principal_id: &'a DidCoreId,
     pub version_time: DateTime<Utc>,
     pub root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
@@ -788,7 +788,7 @@ pub struct AgentBindingUpdateInput<'a> {
     pub version_time: DateTime<Utc>,
     pub current_root_seed: &'a [u8; SECRET_KEY_LENGTH],
     pub next_root_public_key_multibase: &'a str,
-    pub controller_id: &'a DidCoreId,
+    pub controller_principal_id: &'a DidCoreId,
     pub principal_control_realm_id: &'a arkret_wire::RealmId,
     pub requested_scope_digest: &'a Hash,
 }
@@ -850,7 +850,7 @@ pub fn prepare_agent_inception(
         None,
         false,
         |did, service_endpoint| {
-            agent_document_value(did, service_endpoint, input.controller_id, None)
+            agent_document_value(did, service_endpoint, input.controller_principal_id, None)
         },
         validate_agent_did_document_profile,
     )
@@ -1247,7 +1247,7 @@ pub fn prepare_agent_binding_update(
         || inception_state
             .pointer("/service/1/serviceEndpoint/controller_did")
             .and_then(Value::as_str)
-            != Some(input.controller_id.as_str())
+            != Some(input.controller_principal_id.as_str())
     {
         return Err(WebvhInceptionError::InvalidProof(
             "Agent inception does not contain the expected controller-only delegation".to_owned(),
@@ -1262,10 +1262,10 @@ pub fn prepare_agent_binding_update(
     let state = agent_document_value(
         input.did,
         service_endpoint,
-        input.controller_id,
+        input.controller_principal_id,
         Some(AgentPcrBinding {
             realm_id: input.principal_control_realm_id,
-            controller_id: input.controller_id,
+            controller_principal_id: input.controller_principal_id,
             requested_scope_digest: input.requested_scope_digest,
         }),
     )?;
@@ -2260,14 +2260,14 @@ fn principal_document_value(
 
 struct AgentPcrBinding<'a> {
     realm_id: &'a arkret_wire::RealmId,
-    controller_id: &'a DidCoreId,
+    controller_principal_id: &'a DidCoreId,
     requested_scope_digest: &'a Hash,
 }
 
 fn agent_document_value(
     did: &str,
     service_endpoint: &str,
-    controller_id: &DidCoreId,
+    controller_principal_id: &DidCoreId,
     pcr_binding: Option<AgentPcrBinding<'_>>,
 ) -> Result<Value, WebvhInceptionError> {
     let authorization_ref = format!("{did}#managed-controller");
@@ -2281,7 +2281,7 @@ fn agent_document_value(
             "id": authorization_ref,
             "type": "ArkretManagedPrincipalController",
             "serviceEndpoint": {
-                "controller_did": controller_id,
+                "controller_did": controller_principal_id,
                 "purposes": [
                     "agent_control_authoring",
                     "principal_control_realm_bootstrap",
@@ -2291,7 +2291,7 @@ fn agent_document_value(
         }),
     ];
     if let Some(binding) = pcr_binding {
-        if binding.controller_id != controller_id {
+        if binding.controller_principal_id != controller_principal_id {
             return Err(WebvhInceptionError::InvalidProof(
                 "Agent PCR binding controller does not match inception delegation".to_owned(),
             ));
@@ -2301,7 +2301,7 @@ fn agent_document_value(
             "type": "ArkretPrincipalControlRealm",
             "serviceEndpoint": {
                 "realm_id": binding.realm_id,
-                "controller_did": controller_id,
+                "controller_did": controller_principal_id,
                 "authorization_ref": format!("{did}#managed-controller"),
                 "requested_scope_digest": binding.requested_scope_digest,
             },
@@ -2993,7 +2993,7 @@ mod historical_verification_tests {
     #[test]
     fn agent_inception_precedes_and_does_not_depend_on_pcr_binding() {
         let endpoint = Url::parse("https://agents.example/").unwrap();
-        let controller_id = DidCoreId::new("ak:did_core:web:controller.example").unwrap();
+        let controller_principal_id = DidCoreId::new("ak:did_core:web:controller.example").unwrap();
         let root_seed = [0x61; SECRET_KEY_LENGTH];
         let next_seed = [0x62; SECRET_KEY_LENGTH];
         let future_seed = [0x63; SECRET_KEY_LENGTH];
@@ -3011,7 +3011,7 @@ mod historical_verification_tests {
         let inception = prepare_agent_inception(&AgentInceptionInput {
             principal_endpoint: &endpoint,
             local_id: "agent-01",
-            controller_id: &controller_id,
+            controller_principal_id: &controller_principal_id,
             version_time: inception_time,
             root_seed: &root_seed,
             next_root_public_key_multibase: &next_public,
@@ -3037,7 +3037,7 @@ mod historical_verification_tests {
             version_time: inception_time + Duration::seconds(1),
             current_root_seed: &next_seed,
             next_root_public_key_multibase: &future_public,
-            controller_id: &controller_id,
+            controller_principal_id: &controller_principal_id,
             principal_control_realm_id: &realm_id,
             requested_scope_digest: &scope_digest,
         })

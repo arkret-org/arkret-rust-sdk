@@ -69,7 +69,7 @@ pub const REALM_REDUCER_PROFILE_CELL: &str = "ak:cell:ak.component.realm.reducer
 /// Canonical per-Realm authority root, written by `ak.realm.create` and the
 /// only cell that carries Realm owner authority
 /// (`models/realm-and-space.md` section 2.5). `(realm_id, this cell)` is the
-/// Realm's lifetime authority identity; the value's `controller_id` is only who
+/// Realm's lifetime authority identity; the value's `controller_actor_id` is only who
 /// holds it right now. It doubles as the closed `authorization_ref` constant an
 /// Event uses to claim that authority, so it is spelled once here rather than
 /// re-derived per consumer.

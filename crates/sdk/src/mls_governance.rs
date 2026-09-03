@@ -344,7 +344,7 @@ pub fn build_agent_signer_resolution_evidence(
     }
     if authority_evidence.signer_id() != &snapshot.core.authority_id
         || authority_evidence.verification_method() != &snapshot.lease.verification_method
-        || controller_evidence.signer_id() != &binding.controller_id
+        || controller_evidence.signer_id() != &binding.controller_principal_id
         || controller_evidence.verification_method()
             != &binding.controller_proof.verification_method
         || account_authority_evidence.signer_id() != &gate.authority_id
@@ -438,7 +438,7 @@ where
     let controller_evidence = bound_evidence_by_ref(
         dependencies,
         controller_signer_evidence_ref,
-        &binding.controller_id,
+        &binding.controller_principal_id,
         &binding.controller_proof.verification_method,
     )?;
     let controller_public_key =
@@ -492,7 +492,7 @@ where
             signer_id,
             signer_actor_id: &event.actor_id,
             agent_key_id: &binding.agent_key_id,
-            controller_id: &binding.controller_id,
+            controller_principal_id: &binding.controller_principal_id,
             agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
             authorize_public_key_digest: &public_key_digest,
             authorize_signing_key_binding_digest: &binding_digest,
@@ -531,7 +531,7 @@ where
             common: arkret_signatures::agent_evidence::AgentEvidenceCommonContext {
                 signer_id,
                 agent_key_id: &binding.agent_key_id,
-                controller_id: &binding.controller_id,
+                controller_principal_id: &binding.controller_principal_id,
                 verification_method,
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
@@ -634,7 +634,7 @@ where
     let controller_evidence = bound_evidence_by_ref(
         dependencies,
         controller_signer_evidence_ref,
-        &binding.controller_id,
+        &binding.controller_principal_id,
         &binding.controller_proof.verification_method,
     )?;
     let account_authority_evidence = bound_evidence_by_ref(
@@ -693,7 +693,7 @@ where
             signer_id,
             signer_actor_id: &source.source_actor_id,
             agent_key_id: &binding.agent_key_id,
-            controller_id: &binding.controller_id,
+            controller_principal_id: &binding.controller_principal_id,
             agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
             authorize_public_key_digest: &public_key_digest,
             authorize_signing_key_binding_digest: &binding_digest,
@@ -714,7 +714,7 @@ where
             common: arkret_signatures::agent_evidence::AgentEvidenceCommonContext {
                 signer_id,
                 agent_key_id: &binding.agent_key_id,
-                controller_id: &binding.controller_id,
+                controller_principal_id: &binding.controller_principal_id,
                 verification_method,
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
@@ -929,7 +929,7 @@ pub fn verify_seal_availability_dependencies_default(
 ) -> Result<(), WireError> {
     let SealAvailabilityReplayAuthority::Predecessor {
         policy: availability_policy,
-        eligible_holder_ids,
+        eligible_holder_service_ids,
     } = &replay_context.availability_authority
     else {
         return verify_genesis_availability_commitment(
@@ -1015,7 +1015,7 @@ pub fn verify_seal_availability_dependencies_default(
                 .holder_signer_evidence_ref
                 .content_digest()?,
         )?;
-        if evidence.signer_id() != &availability_receipt.holder_id
+        if evidence.signer_id() != &availability_receipt.holder_service_id
             || evidence.verification_method() != &availability_receipt.signature.verification_method
             || evidence.evidence_ref()? != availability_receipt.holder_signer_evidence_ref
         {
@@ -1051,8 +1051,8 @@ pub fn verify_seal_availability_dependencies_default(
         .unwrap_or(86_400_000);
     let mut holders_by_event = BTreeMap::<_, BTreeSet<_>>::new();
     for (_, receipt) in &receipts {
-        let holder_id = &receipt.holder_id;
-        if !eligible_holder_ids.contains(holder_id) {
+        let holder_service_id = &receipt.holder_service_id;
+        if !eligible_holder_service_ids.contains(holder_service_id) {
             return Err(WireError::Protocol(
                 "availability receipt holder has no accepted predecessor role".to_owned(),
             ));
@@ -1071,7 +1071,7 @@ pub fn verify_seal_availability_dependencies_default(
         if !holders_by_event
             .entry(receipt.event_id.clone())
             .or_default()
-            .insert(holder_id.clone())
+            .insert(holder_service_id.clone())
         {
             return Err(WireError::Protocol(
                 "availability receipt holder is duplicated for one Event".to_owned(),

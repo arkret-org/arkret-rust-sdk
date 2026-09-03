@@ -57,7 +57,7 @@ pub struct AgentSigningKeyBindingCore {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub expires_at: Option<DateTime<Utc>>,
-    pub controller_id: DidCoreId,
+    pub controller_principal_id: DidCoreId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -88,7 +88,7 @@ struct AgentSigningKeyBindingWire {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     expires_at: Option<DateTime<Utc>>,
-    controller_id: DidCoreId,
+    controller_principal_id: DidCoreId,
     agent_key_authorize_event_id: EventId,
     controller_proof: AgentControllerProof,
 }
@@ -109,7 +109,7 @@ impl<'de> Deserialize<'de> for AgentSigningKeyBinding {
                 public_key_digest: wire.public_key_digest,
                 issued_at: wire.issued_at,
                 expires_at: wire.expires_at,
-                controller_id: wire.controller_id,
+                controller_principal_id: wire.controller_principal_id,
             },
             agent_key_authorize_event_id: wire.agent_key_authorize_event_id,
             controller_proof: wire.controller_proof,
@@ -243,7 +243,6 @@ pub enum AgentLifecycleProvenance {
 pub struct AgentLifecycleWitness {
     pub component: NonEmptyString,
     pub agent_id: DidCoreId,
-    pub controller_id: DidCoreId,
     pub status: AgentLifecycleStatus,
     pub provenance: AgentLifecycleProvenance,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]

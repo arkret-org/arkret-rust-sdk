@@ -1,13 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-02.4;
-//! sha256=48a70d02bae777d98f46cbdbadc6380d8263776e428dedd31fc29a1e7c8727f1 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-04.1;
+//! sha256=73c9e3cce7bce9633e22d78abb39d6074c272e1c6355999e418cc7351a254a1b Input: registry/
 //! capability-action-registry.json; version=2026-09-02.8;
 //! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
 //! schema-registry.json; version=2026-09-02.5;
 //! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Input: registry/
-//! account-data-key-registry.json; version=2026-08-30.1;
-//! sha256=e46f0f04e0b29e29d8be37fb74e237eb76eba99e3f4259a24672bf0f57bfffd1 Entries: id_kinds=59,
+//! account-data-key-registry.json; version=2026-09-04.1;
+//! sha256=139f604d85d369692af2f182245bf93d5b705a30bb864bf4002145f70c6580b2 Entries: id_kinds=59,
 //! special_forms=14, actions=162, schemas=199, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
@@ -3892,7 +3892,7 @@ pub const REGISTERED_ACCOUNT_DATA_PATTERNS: &[AccountDataPatternDescriptor] = &[
         deletion_mode: "physical_delete",
     },
     AccountDataPatternDescriptor {
-        key_pattern: "ak.agent.sidecar_view_state.v1:<controller_id>:<target_realm_id>:<target_strand_id>",
+        key_pattern: "ak.agent.sidecar_view_state.v1:<controller_account_key>:<target_realm_id>:<target_strand_id>",
         scope: "controller_private_preference",
         storage: "encrypted_account_data",
         plaintext_schema: Some("ak.schema.agent_sidecar_view_state.v1"),

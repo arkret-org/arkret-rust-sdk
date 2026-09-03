@@ -2,18 +2,18 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-03.1;
-//! sha256=3c21fdccfe5c1353f760206fc258d03345ff9b84e11e35b80514d792ee928eca Input: registry/
-//! operation-registry.json; version=2026-09-03.1;
-//! sha256=39b9deb0afe863ba642bd09d534707589a50e6a363d721a29a255fe5c8437b42 Input: registry/
-//! event-kind-registry.json; version=2026-09-02.8;
-//! sha256=4b9ae8f4b010335fbbfe8c86eb8567d012f57b5456145e4ff85fc905032f8f67 Input: registry/
+//! contract-registry.json; version=2026-09-04.1;
+//! sha256=465e0357ac288ddc215e2ba3dc32cb406abe8d8e384256d5fb8dc2081e26d8c3 Input: registry/
+//! operation-registry.json; version=2026-09-04.1;
+//! sha256=46cfb1ac18a39c69080d06b67722b0e11380faf74854cf2792923ec8e25faa66 Input: registry/
+//! event-kind-registry.json; version=2026-09-04.1;
+//! sha256=bef84fabbf67b5a84cd6d407839d7ca3cc6040a0185f58bd0dbc71cc898bb3e9 Input: registry/
 //! schema-registry.json; version=2026-09-02.5;
 //! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Input: registry/
-//! id-kind-registry.json; version=2026-09-02.4;
-//! sha256=48a70d02bae777d98f46cbdbadc6380d8263776e428dedd31fc29a1e7c8727f1
+//! id-kind-registry.json; version=2026-09-04.1;
+//! sha256=73c9e3cce7bce9633e22d78abb39d6074c272e1c6355999e418cc7351a254a1b
 //! Input: deployment-probes.json; version=2026-06-19;
-//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
+//! sha256=320013ec6aaad936b9d203e60b4a79ac04e3916d495ee9bea6af889c78d1e781
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
 //! operation_surface_groups=31
 
@@ -774,8 +774,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-02.8";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-04.1";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-02.5";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-03.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-02.4";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-04.1";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-04.1";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

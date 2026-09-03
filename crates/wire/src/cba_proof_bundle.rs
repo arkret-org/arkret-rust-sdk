@@ -41,7 +41,7 @@ pub struct AvailabilityReceipt {
     pub realm_id: RealmId,
     pub event_id: EventId,
     pub bytes_digest: Hash,
-    pub holder_id: DidCoreId,
+    pub holder_service_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub retention_expires_at: DateTime<Utc>,
     pub holder_signer_evidence_ref: SignerEvidenceRef,

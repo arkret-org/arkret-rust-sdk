@@ -765,8 +765,8 @@ mod organization_recovery_archive_tests {
             epoch: 7,
             transition_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             recovery_key_id: "ak:recovery_key:01964137-0000-7000-8000-000000000001".to_owned(),
-            controller_id: DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap(),
-            holder_id: DidCoreId::new("ak:did_core:webvh:z6mkservice").unwrap(),
+            method_controller_principal_id: DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap(),
+            holder_service_id: DidCoreId::new("ak:did_core:webvh:z6mkservice").unwrap(),
             key_agreement_ref: DidUrl::new("did:webvh:z6mkholder#recovery-kem").unwrap(),
             holder_signing_ref: DidUrl::new("did:webvh:z6mkholder#recovery-sign").unwrap(),
             hpke_suite: OrganizationRecoveryHpkeSuite::Value,
@@ -796,7 +796,7 @@ mod organization_recovery_archive_tests {
                 row["profile_id"].as_str()
                     == Some(OrganizationRecoveryArchiveSealContext::PROFILE_ID)
             })
-            .expect("the RRK archive surface profile must be registered");
+            .expect("the RHRK archive surface profile must be registered");
         assert_eq!(
             profile["suite_id"].as_str(),
             Some(OrganizationRecoveryArchiveSealContext::SUITE_ID)
@@ -830,6 +830,6 @@ mod organization_recovery_archive_tests {
         let mut expected = registered.clone();
         declared.sort_unstable();
         expected.sort_unstable();
-        assert_eq!(declared, expected, "RRK archive HPKE context drifted");
+        assert_eq!(declared, expected, "RHRK archive HPKE context drifted");
     }
 }

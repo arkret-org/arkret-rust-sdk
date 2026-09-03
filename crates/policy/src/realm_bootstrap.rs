@@ -48,16 +48,16 @@ pub fn is_realm_bootstrap_followup_kind(kind: &EventKind) -> bool {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmAuthorityRootValue {
-    pub controller_id: ActorId,
+    pub controller_actor_id: ActorId,
     pub controller_epoch: u64,
     pub authority_generation: u64,
 }
 
 impl RealmAuthorityRootValue {
     /// Derive the genesis value from an accepted `ak.realm.create` payload.
-    pub fn genesis(controller_id: ActorId) -> Self {
+    pub fn genesis(controller_actor_id: ActorId) -> Self {
         Self {
-            controller_id,
+            controller_actor_id,
             controller_epoch: 0,
             authority_generation: 0,
         }
@@ -65,7 +65,7 @@ impl RealmAuthorityRootValue {
 
     /// True when this value is a well-formed genesis root for `created_by`.
     pub fn is_genesis_for(&self, created_by: &ActorId) -> bool {
-        &self.controller_id == created_by
+        &self.controller_actor_id == created_by
             && self.controller_epoch == 0
             && self.authority_generation == 0
     }
@@ -599,7 +599,7 @@ mod tests {
         let transfer: RealmOwnerTransferPayload = serde_json::from_value(json!({
             "realm_id": REALM,
             "expected_state_digest": expected,
-            "patch": {"controller_id": successor},
+            "patch": {"controller_actor_id": successor},
             "successor_acceptance": "detached-successor-proof"
         }))
         .unwrap();

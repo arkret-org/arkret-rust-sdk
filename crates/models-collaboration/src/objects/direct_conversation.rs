@@ -253,7 +253,7 @@ pub enum DirectConversationFoundingAuthority {
     Glare { first_request_issuer: ActorId },
     /// controller-to-own-Agent conversations have no Contact round at all. The founder is fixed to
     /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
-    ControllerOwnedAgent { controller_id: ActorId },
+    ControllerOwnedAgent { controller_actor_id: ActorId },
 }
 
 /// Derive the sole principal allowed to author the founding unit for `participants`.
@@ -294,8 +294,10 @@ pub fn direct_conversation_founder(
                 ))
             }
         }
-        DirectConversationFoundingAuthority::ControllerOwnedAgent { controller_id } => {
-            let controller_actor = controller_id.clone();
+        DirectConversationFoundingAuthority::ControllerOwnedAgent {
+            controller_actor_id,
+        } => {
+            let controller_actor = controller_actor_id.clone();
             if controller_actor == left || controller_actor == right {
                 Ok(controller_actor)
             } else {
@@ -541,7 +543,7 @@ mod tests {
         let controller_actor = actor("did:webvh:z6mkexamplealice:alice.example");
         let agent = actor("did:webvh:z6mkexampleagent:alice-agent.example");
         let authority = DirectConversationFoundingAuthority::ControllerOwnedAgent {
-            controller_id: controller,
+            controller_actor_id: controller,
         };
         // Fixed regardless of DID ordering, so an Agent runtime key never needs founding scope.
         assert_eq!(
