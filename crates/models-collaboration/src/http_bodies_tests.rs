@@ -554,8 +554,10 @@ mod device_pairing_tests {
             },
             display_name: None,
             device_metadata: None,
-            device_pairing_request_id: None,
-            challenge_transcript: None,
+            device_pairing_request_id: DevicePairingRequestId::new(
+                "device_pairing_request:01964137-1000-7000-8000-000000000001".to_owned(),
+            )
+            .unwrap(),
         };
         (attestation, request)
     }

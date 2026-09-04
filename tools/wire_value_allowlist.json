@@ -1991,18 +1991,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.device_metadata",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "device-message.schema.json#/$defs/key_verification_content/properties/device_metadata",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/properties/device_metadata"
-    },
-    {
       "finding": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.extra",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -2874,17 +2862,6 @@
     },
     {
       "finding": "inkson/src/file_transfer.rs::FileTransferUploadResult.server_response",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "inkson/src/identity/device_pairing.rs::PendingPairingRequest.request_payload",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

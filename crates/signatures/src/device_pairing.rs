@@ -5,8 +5,7 @@ use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
 use arkret_models_collaboration::http_bodies::{
     DevicePairingBootstrap, DevicePairingChallengeProof, DevicePairingChallengeTranscriptKind,
     DevicePairingCode, DevicePairingNonce, DevicePairingRequestId, DevicePairingStageOutcome,
-    DevicePairingTargetAttestation, DevicePairingToDeviceChallengeTranscript,
-    UnsignedDevicePairingTargetAttestation,
+    DevicePairingTargetAttestation, UnsignedDevicePairingTargetAttestation,
 };
 use arkret_wire::{Base64UrlString, DeviceId, Hash, NonEmptyString};
 use base64::Engine as _;
@@ -16,7 +15,6 @@ use ed25519_dalek::Signer as _;
 use serde::Serialize;
 
 const SERVER_TRANSCRIPT: &str = "ak.device-pairing.challenge.v1";
-const TO_DEVICE_TRANSCRIPT: &str = "ak.device-pairing.challenge.to_device.v1";
 
 #[derive(Clone, Debug)]
 pub struct ServerDevicePairingChallenge {
@@ -136,17 +134,6 @@ struct ServerTranscriptBody<'a> {
     server_nonce: &'a str,
 }
 
-#[derive(Serialize)]
-struct ToDeviceTranscriptBody<'a> {
-    #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
-    expires_at: DateTime<Utc>,
-    gate_audience_uri: &'a str,
-    new_device_pubkey_digest: &'a str,
-    pairing_code: &'a str,
-    request_canonical_digest: &'a str,
-    transaction_id: &'a str,
-}
-
 pub fn server_device_pairing_transcript(
     public_key: &PublicKey,
     challenge: &ServerDevicePairingChallenge,
@@ -218,97 +205,6 @@ pub fn verify_server_device_pairing_challenge(
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&public_key_array)
         .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
     let (bytes, digest) = server_device_pairing_transcript(public_key, challenge)?;
-    if digest != proof.transcript_digest {
-        return Err(DevicePairingProofError::DigestMismatch);
-    }
-    let signature = URL_SAFE_NO_PAD
-        .decode(proof.signature.as_str())
-        .map_err(|_| DevicePairingProofError::MalformedSignature)?;
-    let signature = ed25519_dalek::Signature::from_slice(&signature)
-        .map_err(|_| DevicePairingProofError::MalformedSignature)?;
-    verifying_key
-        .verify_strict(&bytes, &signature)
-        .map_err(|_| DevicePairingProofError::SignatureInvalid)
-}
-
-pub fn to_device_pairing_transcript(
-    public_key: &PublicKey,
-    pairing_code: &DevicePairingCode,
-    gate_audience_uri: &str,
-    challenge: &DevicePairingToDeviceChallengeTranscript,
-) -> Result<(Vec<u8>, Hash), DevicePairingProofError> {
-    let public_key_digest = arkret_canonical::canonical_sha256(public_key)?;
-    let body = ToDeviceTranscriptBody {
-        expires_at: challenge.expires_at,
-        gate_audience_uri,
-        new_device_pubkey_digest: &public_key_digest,
-        pairing_code: pairing_code.as_str(),
-        request_canonical_digest: challenge.request_canonical_digest.as_str(),
-        transaction_id: challenge.transaction_id.as_str(),
-    };
-    let mut bytes = format!("{TO_DEVICE_TRANSCRIPT}\n").into_bytes();
-    bytes.extend(arkret_canonical::canonical_json_bytes(&body)?);
-    let digest = Hash::new(format!("sha256:{}", arkret_canonical::sha256_hex(&bytes)))
-        .map_err(arkret_wire::WireError::from)?;
-    Ok((bytes, digest))
-}
-
-pub fn sign_to_device_pairing_challenge(
-    public_key: &PublicKey,
-    pairing_code: &DevicePairingCode,
-    gate_audience_uri: &str,
-    challenge: &DevicePairingToDeviceChallengeTranscript,
-    signing_key: &ed25519_dalek::SigningKey,
-) -> Result<DevicePairingChallengeProof, DevicePairingProofError> {
-    validate_public_key(public_key, signing_key.verifying_key().as_bytes())?;
-    let (bytes, transcript_digest) =
-        to_device_pairing_transcript(public_key, pairing_code, gate_audience_uri, challenge)?;
-    let kid = DeviceId::new(public_key.kid.as_str().to_owned())
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    Ok(DevicePairingChallengeProof {
-        transcript: DevicePairingChallengeTranscriptKind::ToDevice,
-        kid,
-        signature_algorithm: NonEmptyString::new(public_key.algorithm.as_str().to_owned())
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
-        transcript_digest,
-        signature: Base64UrlString::new(
-            URL_SAFE_NO_PAD.encode(signing_key.sign(&bytes).to_bytes()),
-        )
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
-    })
-}
-
-pub fn verify_to_device_pairing_challenge(
-    public_key: &PublicKey,
-    pairing_code: &DevicePairingCode,
-    gate_audience_uri: &str,
-    challenge: &DevicePairingToDeviceChallengeTranscript,
-    proof: &DevicePairingChallengeProof,
-    verification_time: DateTime<Utc>,
-) -> Result<(), DevicePairingProofError> {
-    if challenge.expires_at <= verification_time {
-        return Err(DevicePairingProofError::Expired);
-    }
-    if proof.transcript != DevicePairingChallengeTranscriptKind::ToDevice {
-        return Err(DevicePairingProofError::TranscriptMismatch);
-    }
-    if proof.kid.as_str() != public_key.kid.as_str() {
-        return Err(DevicePairingProofError::VerificationMethodMismatch);
-    }
-    if proof.signature_algorithm.as_str() != public_key.algorithm.as_str() {
-        return Err(DevicePairingProofError::AlgorithmMismatch);
-    }
-    let public_key_bytes = URL_SAFE_NO_PAD
-        .decode(public_key.key.as_str())
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    let public_key_array: [u8; 32] = public_key_bytes
-        .try_into()
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    validate_public_key(public_key, &public_key_array)?;
-    let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&public_key_array)
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    let (bytes, digest) =
-        to_device_pairing_transcript(public_key, pairing_code, gate_audience_uri, challenge)?;
     if digest != proof.transcript_digest {
         return Err(DevicePairingProofError::DigestMismatch);
     }

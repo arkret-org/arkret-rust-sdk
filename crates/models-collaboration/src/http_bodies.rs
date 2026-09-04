@@ -2601,15 +2601,12 @@ impl From<DevicePairingNonce> for String {
 pub enum DevicePairingChallengeTranscriptKind {
     #[serde(rename = "ak.device-pairing.challenge.v1")]
     ServerMediated,
-    #[serde(rename = "ak.device-pairing.challenge.to_device.v1")]
-    ToDevice,
 }
 
 impl DevicePairingChallengeTranscriptKind {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ServerMediated => "ak.device-pairing.challenge.v1",
-            Self::ToDevice => "ak.device-pairing.challenge.to_device.v1",
         }
     }
 }
@@ -2630,16 +2627,6 @@ pub struct DevicePairingChallengeProof {
     pub signature_algorithm: NonEmptyString,
     pub transcript_digest: Hash,
     pub signature: Base64UrlString,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DevicePairingToDeviceChallengeTranscript {
-    pub transaction_id: NonEmptyString,
-    pub request_canonical_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
 }
 
 /// The only target-device authority for accepted-device pairing key material.
@@ -2837,16 +2824,9 @@ pub struct AccountDevicePairRequestBody {
     pub display_name: Option<NonEmptyString>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_metadata: Option<DeviceMetadata>,
-    /// When the approving device recovered this pairing via the server-mediated
-    /// short-link (`ak.open.device_pairing.read.resolve.v1`), it echoes the staged
-    /// `device_pairing_request_id` here so the server can flip that staged row to
-    /// `authorized` (carrying `device_id` + `authorized_event_ref`) for the new
-    /// device's status poll to observe. Omitted for direct QR/paste pairing that
-    /// never staged server-side.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_pairing_request_id: Option<DevicePairingRequestId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge_transcript: Option<DevicePairingToDeviceChallengeTranscript>,
+    /// Required staged short-link request. The server atomically consumes this
+    /// pending record when the authorize Event is durably accepted.
+    pub device_pairing_request_id: DevicePairingRequestId,
 }
 
 impl AccountDevicePairRequestBody {

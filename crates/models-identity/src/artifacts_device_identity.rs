@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    Audience, Base64UrlString, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, Hash,
-    NonEmptyString, PayloadProof, ProofContextId, ProtocolKind, ReceiptId, Result, SchemaId,
-    TrustDomainId, WireError, canonical, project_did_to_core_id,
+    Audience, DeviceId, DeviceMessageTransactionId, Did, DidCoreId, DidUrl, Hash, NonEmptyString,
+    PayloadProof, ProofContextId, ProtocolKind, ReceiptId, Result, SchemaId, TrustDomainId,
+    WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -490,20 +490,6 @@ mod tests {
 // ── Device-message / key-verification counterparts ───────────────────────
 // The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/device-message.schema.json#/$defs/key_verification_content/
-/// properties/new_device_pubkey`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KeyVerificationContentNewDevicePubkey {
-    pub kty: NonEmptyString,
-    pub kid: DeviceId,
-    pub algorithm: NonEmptyString,
-    pub key: Base64UrlString,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_digest: Option<Hash>,
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyVerificationContent {
     /// `device-message.schema.json` constrains this to
@@ -524,18 +510,6 @@ pub struct KeyVerificationContent {
     pub expires_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purpose: Option<KeyVerificationPurpose>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairing_code: Option<KeyVerificationPairingCode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub new_device_pubkey: Option<KeyVerificationContentNewDevicePubkey>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge_signature: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub gate_audience_uri: Option<NonEmptyString>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_canonical_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub device_metadata: Option<BTreeMap<String, Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_agreement_protocols: Option<StringList>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -579,12 +553,6 @@ impl KeyVerificationContent {
             timestamp: None,
             expires_at: None,
             purpose: None,
-            pairing_code: None,
-            new_device_pubkey: None,
-            challenge_signature: None,
-            gate_audience_uri: None,
-            request_canonical_digest: None,
-            device_metadata: None,
             key_agreement_protocols: None,
             hashes: None,
             message_authentication_codes: None,
@@ -606,7 +574,6 @@ impl KeyVerificationContent {
 #[serde(rename_all = "snake_case")]
 pub enum KeyVerificationPurpose {
     DeviceKeyVerification,
-    SamePrincipalDeviceAuthorization,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -706,45 +673,6 @@ impl<'de> Deserialize<'de> for ProtocolKindList {
     }
 }
 
-macro_rules! bounded_key_verification_string {
-    ($name:ident, $maximum:expr, $error:literal) => {
-        #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-        #[serde(transparent)]
-        pub struct $name(NonEmptyString);
-
-        impl $name {
-            pub fn new(value: impl Into<String>) -> Result<Self> {
-                let value = NonEmptyString::new(value)
-                    .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
-                if value.chars().count() > $maximum {
-                    return Err(WireError::Protocol($error.to_owned()));
-                }
-                Ok(Self(value))
-            }
-
-            pub fn as_str(&self) -> &str {
-                self.0.as_str()
-            }
-        }
-
-        impl<'de> Deserialize<'de> for $name {
-            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-            where
-                D: serde::Deserializer<'de>,
-            {
-                let value = String::deserialize(deserializer)?;
-                Self::new(value).map_err(serde::de::Error::custom)
-            }
-        }
-    };
-}
-
-bounded_key_verification_string!(
-    KeyVerificationPairingCode,
-    128,
-    "key verification pairing code exceeds 128 characters"
-);
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(transparent)]
 pub struct KeyVerificationCancellationReason(String);
@@ -791,18 +719,7 @@ mod key_verification_tests {
             "transaction_id": "01904100-0000-7000-8000-000000000001",
             "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "methods": ["ak.key.verification.sas_v1"],
-            "pairing_code": "482 913",
-            // Canonical PublicKey spelling: `{kty, kid, algorithm, key}`. The
-            // `{kid, alg, public_key}` shape is explicitly non-canonical wire
-            // and is asserted below to be rejected.
-            "new_device_pubkey": {
-                "kty": "OKP",
-                "kid": "ak:device:01904100-0000-7000-8000-000000000002",
-                "algorithm": "Ed25519",
-                "key": "ZGV2aWNlLWtleQ"
-            },
             "mac": {"ed25519:key": "c2ln"},
-            "device_metadata": {"display_name": "Laptop"},
             "vendor_extension": {"opaque": true}
         });
         assert!(serde_json::from_value::<KeyVerificationContent>(valid.clone()).is_ok());
@@ -824,24 +741,9 @@ mod key_verification_tests {
         empty_mac["mac"] = json!({"ed25519:key": ""});
         assert!(serde_json::from_value::<KeyVerificationContent>(empty_mac).is_err());
 
-        let mut long_pairing_code = valid.clone();
-        long_pairing_code["pairing_code"] = json!("x".repeat(129));
-        assert!(serde_json::from_value::<KeyVerificationContent>(long_pairing_code).is_err());
-
         let mut long_reason = valid.clone();
         long_reason["reason"] = json!("x".repeat(257));
         assert!(serde_json::from_value::<KeyVerificationContent>(long_reason).is_err());
-
-        let mut legacy_pubkey_spelling = valid.clone();
-        legacy_pubkey_spelling["new_device_pubkey"] = json!({
-            "kid": "ak:device:01904100-0000-7000-8000-000000000002",
-            "alg": "Ed25519",
-            "public_key": "ZGV2aWNlLWtleQ"
-        });
-        assert!(
-            serde_json::from_value::<KeyVerificationContent>(legacy_pubkey_spelling).is_err(),
-            "the {{kid, alg, public_key}} spelling is not canonical wire"
-        );
 
         // The prefixed `ak:transaction:` form is not merely unusual here, it is
         // unrepresentable: `:` is outside the schema charset.

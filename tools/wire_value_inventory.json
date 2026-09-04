@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 642,
+    "total": 640,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -51,12 +51,12 @@
       "floria": 4,
       "http": 18,
       "identity": 6,
-      "inkson": 18,
+      "inkson": 17,
       "lattice-registry": 3,
       "models-collaboration": 100,
       "models-crypto": 1,
       "models-discovery": 10,
-      "models-identity": 16,
+      "models-identity": 15,
       "models-integration": 7,
       "runtime": 3,
       "schema": 2,
@@ -75,33 +75,33 @@
       "json_authoring": 104,
       "json_path_mutation": 80,
       "paired_api": 17,
-      "public_value_field": 439
+      "public_value_field": 437
     },
     "by_classification": {
       "closed_discriminated": 25,
       "independent": 16,
       "internal_or_fixture": 2,
-      "open_json": 117,
-      "polymorphic_boundary": 482
+      "open_json": 116,
+      "polymorphic_boundary": 481
     },
     "by_lifecycle": {
       "pending_migration": 25,
-      "retained_boundary": 617
+      "retained_boundary": 615
     },
     "by_decision": {
       "closed": 25,
       "independent": 16,
-      "open": 117,
-      "raw": 484
+      "open": 116,
+      "raw": 483
     },
     "by_owner_repository": {
-      "arkret-rust-sdk": 289,
+      "arkret-rust-sdk": 288,
       "bridges": 3,
       "chime": 3,
       "coauth": 41,
       "floria": 12,
       "garth": 1,
-      "inkson": 46,
+      "inkson": 45,
       "sodmin": 1,
       "soland": 241,
       "teabay": 5
@@ -110,8 +110,8 @@
       "closed": 9,
       "open_json": 4,
       "open_json_container": 25,
-      "open_map": 89,
-      "unknown": 515
+      "open_map": 88,
+      "unknown": 514
     }
   },
   "entries": [
@@ -2722,7 +2722,7 @@
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/http_bodies.rs",
       "path": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 2906,
+      "line": 2886,
       "owner": "AccountDevicePairOutcome",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "AccountDevicePairOutcome.key_backup_hint",
@@ -4536,39 +4536,13 @@
       "evidence": "public Value field"
     },
     {
-      "finding": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.device_metadata",
-      "category": "public_value_field",
-      "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.device_metadata",
-      "crate": "models-identity",
-      "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "path": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 536,
-      "owner": "KeyVerificationContent",
-      "owner_repository": "arkret-rust-sdk",
-      "symbol": "KeyVerificationContent.device_metadata",
-      "field": "device_metadata",
-      "discriminator": null,
-      "data_field": "device_metadata",
-      "rust_type": "Option<BTreeMap<String, Value>>",
-      "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/properties/device_metadata",
-      "schema_shape": "open_map",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "device-message.schema.json#/$defs/key_verification_content/properties/device_metadata",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "evidence": "public Option<BTreeMap<String, Value>> field"
-    },
-    {
       "finding": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.extra",
       "category": "public_value_field",
       "rust_field": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.extra",
       "crate": "models-identity",
       "file": "crates/models-identity/src/artifacts_device_identity.rs",
       "path": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 562,
+      "line": 536,
       "owner": "KeyVerificationContent",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "KeyVerificationContent.extra",
@@ -4594,7 +4568,7 @@
       "crate": "models-identity",
       "file": "crates/models-identity/src/artifacts_device_identity.rs",
       "path": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 556,
+      "line": 530,
       "owner": "KeyVerificationContent",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "KeyVerificationContent.signatures",
@@ -6590,32 +6564,6 @@
       "evidence": "public Value field"
     },
     {
-      "finding": "inkson/src/identity/device_pairing.rs::PendingPairingRequest.request_payload",
-      "category": "public_value_field",
-      "rust_field": "inkson/src/identity/device_pairing.rs::PendingPairingRequest.request_payload",
-      "crate": "inkson",
-      "file": "inkson/src/identity/device_pairing.rs",
-      "path": "inkson/src/identity/device_pairing.rs",
-      "line": 89,
-      "owner": "PendingPairingRequest",
-      "owner_repository": "inkson",
-      "symbol": "PendingPairingRequest.request_payload",
-      "field": "request_payload",
-      "discriminator": null,
-      "data_field": "request_payload",
-      "rust_type": "Value",
-      "spec_pointer": null,
-      "schema_shape": "unknown",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public Value field"
-    },
-    {
       "finding": "inkson/src/media/rtc.rs::MediaGovernanceEvidence.media_service_payload",
       "category": "public_value_field",
       "rust_field": "inkson/src/media/rtc.rs::MediaGovernanceEvidence.media_service_payload",
@@ -7766,7 +7714,7 @@
       "crate": null,
       "file": "crates/state/src/mls_governance_proof.rs",
       "path": "crates/state/src/mls_governance_proof.rs",
-      "line": 1355,
+      "line": 1389,
       "owner": "canonical_state_leaf_preimage",
       "owner_repository": "arkret-rust-sdk",
       "symbol": "canonical_state_leaf_preimage",
@@ -10860,7 +10808,7 @@
       "crate": null,
       "file": "inkson/src/state/to_device_raw.rs",
       "path": "inkson/src/state/to_device_raw.rs",
-      "line": 762,
+      "line": 732,
       "owner": "update_operation_write_state_payload",
       "owner_repository": "inkson",
       "symbol": "update_operation_write_state_payload",
@@ -10886,7 +10834,7 @@
       "crate": null,
       "file": "inkson/src/state/to_device_raw.rs",
       "path": "inkson/src/state/to_device_raw.rs",
-      "line": 759,
+      "line": 729,
       "owner": "update_operation_write_state_payload",
       "owner_repository": "inkson",
       "symbol": "update_operation_write_state_payload",
@@ -10912,7 +10860,7 @@
       "crate": null,
       "file": "inkson/src/state/to_device_raw.rs",
       "path": "inkson/src/state/to_device_raw.rs",
-      "line": 693,
+      "line": 663,
       "owner": "update_raw_operation_body",
       "owner_repository": "inkson",
       "symbol": "update_raw_operation_body",
