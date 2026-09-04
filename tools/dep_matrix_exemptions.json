@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "generated_for": "work/active/2026-09-04-1552-cross-repo-dependency-and-test-kit-convergence.md",
+  "note": "Every entry must name an owner and an expiry condition that some other party can observe. A permanent exemption is not allowed: if a split cannot expire, the correct outcome is a code change, not an entry here. `majors` lists the compatibility buckets observed inside the core protocol repositories; a NEW major outside this list re-opens the finding.",
+  "families": {
+    "openmls-0.9-rustcrypto-generation": {
+      "summary": "openmls 0.9 ships openmls_rust_crypto 0.6 / openmls_basic_credential 0.6 / hpke-rs-rust-crypto 0.7, all still on the RustCrypto 0.10/0.12 generation and on dalek 2.x. Every SDK consumer that enables MLS inherits the old line beside the SDK's own 0.11/3.x line.",
+      "owner": "arkret-rust-sdk",
+      "expires_when": "openmls publishes a release whose openmls_rust_crypto and openmls_basic_credential depend on digest 0.11 / sha2 0.11 / aes-gcm 0.11 / hkdf 0.13 and ed25519-dalek 3.",
+      "verify": "python arkret-work/tools/dep_matrix.py --why ed25519-dalek  (the 2.x column must lose its openmls_* dependents)"
+    },
+    "coauth-jose-pkcs8-generation": {
+      "summary": "coauth-keystore is a multi-algorithm PKCS#8 keystore whose PrivateKey enum requires one shared pkcs8 type across RSA / P-256 / P-384 / P-521 / K-256 / Ed25519. rsa 0.9, p384 0.13, p521 0.13 and k256 0.13 have no release on the pkcs8 0.11 / elliptic-curve 0.14 / signature 3.0 generation, so the whole der/spki/const-oid/sec1/ecdsa/generic-array family and everything feature-coupled to it stays a generation behind.",
+      "owner": "coauth",
+      "expires_when": "rsa, p384, p521 and k256 all publish releases on elliptic-curve 0.14 / pkcs8 0.11 / signature 3.0. p256 0.14.0 already exists, so the generation has started.",
+      "verify": "python arkret-work/tools/dep_matrix.py --why elliptic-curve  (coauth must resolve 0.14 only)",
+      "correction": "The in-repo rationale at coauth/Cargo.toml around generic-array claims the blocker is that sha2 0.11 / digest 0.11 / aead 0.6 are pre-release. That was true in 2026-05 and is no longer true: ten of twelve repositories already resolve sha2 0.11.0 and digest 0.11.3. The real remaining blocker is the RSA/P-384/P-521/K-256 arms of the keystore. The comment must be corrected when this entry is next reviewed."
+    },
+    "salvo-0.96-cookie-0.18": {
+      "summary": "salvo 0.96 (pinned =0.96.0 in six repositories) depends on cookie 0.18, which still uses aes-gcm 0.10, sha2 0.10, hkdf 0.12, hmac 0.12, rand 0.8 and base64 0.22.",
+      "owner": "soland",
+      "expires_when": "salvo publishes a release on cookie 0.19 or later, or drops the cookie dependency from the feature set the servers enable.",
+      "verify": "python arkret-work/tools/dep_matrix.py --why aes-gcm  (cookie must disappear from the 0.10 column)"
+    },
+    "dioxus-0.7.10-fullstack": {
+      "summary": "dioxus is pinned exactly at =0.7.10 in inkson, coauth, teabay and sodmin. dioxus-fullstack 0.7.10 pulls reqwest 0.12, gloo-net 0.6, gloo-utils 0.2 and base64 0.22; dioxus-web pulls gloo-timers 0.3; dioxus-desktop pulls rand 0.9 and (through tao/wry) windows 0.61.",
+      "owner": "inkson",
+      "expires_when": "dioxus publishes a release whose dioxus-fullstack depends on reqwest 0.13 and gloo-net 0.7, and the exact pin is moved to it in all four consumers at once.",
+      "verify": "python arkret-work/tools/dep_matrix.py --why reqwest  (dioxus-fullstack must disappear from the 0.12 column)"
+    },
+    "wasm-getrandom-feature-alias": {
+      "summary": "arkret-rust-sdk and inkson deliberately declare a second getrandom line under the alias getrandom_02 so the wasm32 `js` backend can be enabled on the 0.2 copy that ring / rand_core 0.6 / redox_users drag in. This is an intentional feature-unification alias, not an accidental duplicate, and the manifests say so.",
+      "owner": "arkret-rust-sdk",
+      "expires_when": "no dependency in any core repository resolves getrandom 0.2 any more; at that point the getrandom_02 alias must be deleted rather than kept.",
+      "verify": "python arkret-work/tools/dep_matrix.py --why getrandom"
+    },
+    "legacy-phf-rand-0.7": {
+      "summary": "phf_generator 0.8 (reached through the dioxus desktop tree) is the only consumer of rand 0.7 / rand_core 0.5 / getrandom 0.1 anywhere in the workspace. It is a build-time string-hash generator with no cryptographic role.",
+      "owner": "inkson",
+      "expires_when": "the dependency chain reaching phf_generator 0.8 upgrades to phf 0.11 or later.",
+      "verify": "python arkret-work/tools/dep_matrix.py --why rand  (the 0.7 column must be empty)"
+    }
+  },
+  "exemptions": [
+    {
+      "crate": "ed25519-dalek",
+      "majors": ["2", "3"],
+      "families": ["openmls-0.9-rustcrypto-generation", "coauth-jose-pkcs8-generation"],
+      "owner": "coauth",
+      "reason": "3.0.0 is the protocol line everywhere. 2.2.0 survives for two reasons: openmls_basic_credential / openmls_rust_crypto pin it, and coauth declares it a second time under the alias ed25519-dalek-3 so that coauth-jose, coauth-keystore and coauth-storage-postgres can keep using dalek 2's pkcs8 feature while the SDK boundary uses dalek 3. coauth-backend and coauth-storage-postgres link both copies and bridge them through raw 32-byte round trips.",
+      "expires_when": "both families expire. The coauth half is the one that can move first.",
+      "risk": "The bridge is byte-for-byte safe today because Ed25519 raw keys are version-independent, but two SigningKey types in one crate is a standing hazard: any future code path that hands a dalek-2 key to a dalek-3 verifier fails to compile, and any path that skips the round trip silently uses the wrong RNG generation.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "x25519-dalek",
+      "majors": ["2", "3"],
+      "families": ["openmls-0.9-rustcrypto-generation"],
+      "owner": "arkret-rust-sdk",
+      "reason": "arkret-crypto, hpke 0.14 and x-wing use 3.0.0. hpke-rs-rust-crypto 0.7 (the openmls provider) is the sole consumer of 2.0.1.",
+      "expires_when": "family openmls-0.9-rustcrypto-generation expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "sha2",
+      "majors": ["0.10", "0.11"],
+      "families": ["openmls-0.9-rustcrypto-generation", "coauth-jose-pkcs8-generation", "salvo-0.96-cookie-0.18"],
+      "owner": "coauth",
+      "reason": "0.11.0 is declared by ten of eleven core repositories. coauth is the only repository that declares 0.10.9, with the `oid` feature, because its PKCS#8 keystore needs the OID associations from the elliptic-curve 0.13 generation. The remaining 0.10 consumers everywhere else are cookie 0.18, ed25519-dalek 2.2.0, p256/p384 0.13 and voprf.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires for the declaration; the transitive copies expire with the openmls and salvo families.",
+      "risk": "Digest crates are the one place where a version split is not merely cosmetic: an event digest computed with a mismatched Sha256 impl would be silently wrong. Both lines produce identical bytes, so the exposure is compile-time trait mismatch rather than wrong output - but that must be re-verified, not assumed, before any bump.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "digest",
+      "majors": ["0.10", "0.11"],
+      "families": ["coauth-jose-pkcs8-generation", "openmls-0.9-rustcrypto-generation"],
+      "owner": "coauth",
+      "reason": "coauth is the only core repository that declares digest at all (0.10.7). Everywhere else both majors are transitive, following whichever sha2/hmac/ecdsa generation pulled them.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "hmac",
+      "majors": ["0.12", "0.13"],
+      "families": ["coauth-jose-pkcs8-generation", "salvo-0.96-cookie-0.18"],
+      "owner": "coauth",
+      "reason": "Eight core repositories declare 0.13.0; coauth declares 0.12.1 because rfc6979 0.4 / hkdf 0.12 / cookie 0.18 in its graph require it.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "hkdf",
+      "majors": ["0.12", "0.13"],
+      "families": ["coauth-jose-pkcs8-generation", "openmls-0.9-rustcrypto-generation"],
+      "owner": "arkret-rust-sdk",
+      "reason": "Five core repositories declare 0.13.0. 0.12.4 exists only transitively, through elliptic-curve 0.13 and cookie 0.18.",
+      "expires_when": "both families expire.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "aes-gcm",
+      "majors": ["0.10", "0.11"],
+      "families": ["openmls-0.9-rustcrypto-generation", "salvo-0.96-cookie-0.18"],
+      "owner": "arkret-rust-sdk",
+      "reason": "Every core repository that declares aes-gcm declares 0.11.1. 0.10.3 arrives only through cookie 0.18, hpke-rs-rust-crypto 0.7 and openmls_rust_crypto 0.6.",
+      "expires_when": "both families expire.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "chacha20poly1305",
+      "majors": ["0.10", "0.11"],
+      "families": ["openmls-0.9-rustcrypto-generation", "coauth-jose-pkcs8-generation"],
+      "owner": "coauth",
+      "reason": "Seven core repositories declare 0.11.0. coauth declares 0.10.1 for coauth-keystore's at-rest Encrypter. The manifest comment ties this to generic-array 0.14, which is the coauth JOSE family.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires. This one may be separable earlier than the rest of the family - the Encrypter only needs KeyInit and AeadInPlace, not pkcs8 - and should be re-checked first at the next review.",
+      "risk": "coauth-keystore encrypts stored private keys with this AEAD. A bump changes no ciphertext format, but it does change the generic-array generation that the key type comes from, so the migration must be verified against existing encrypted rows rather than only against unit tests.",
+      "review_after": "2026-10-15"
+    },
+    {
+      "crate": "p256",
+      "majors": ["0.13", "0.14"],
+      "families": ["coauth-jose-pkcs8-generation", "openmls-0.9-rustcrypto-generation"],
+      "owner": "coauth",
+      "reason": "arkret-signatures and floria declare 0.14.0. coauth declares 0.13.2 because it must share one elliptic-curve generation with p384, p521 and k256, none of which have a 0.14 release. openmls_basic_credential and hpke-rs-rust-crypto also pin 0.13.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "argon2",
+      "majors": ["0.5", "0.6"],
+      "families": ["coauth-jose-pkcs8-generation"],
+      "owner": "coauth",
+      "reason": "arkret-rust-sdk and cotest declare 0.6.0. coauth declares 0.5.3 because password-hash 0.5 is shared with pkcs5 0.7 / scrypt 0.11 / pbkdf2 0.12, which the pkcs8 `encryption` feature requires.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires.",
+      "risk": "argon2 is coauth's password hashing primitive. A major bump must be validated against stored PHC strings, not only against fresh hashes.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "sha1",
+      "majors": ["0.10", "0.11"],
+      "families": ["coauth-jose-pkcs8-generation"],
+      "owner": "coauth",
+      "reason": "bridges declares 0.11; coauth declares 0.10.6, following the digest 0.10 generation its JOSE stack is pinned to.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "rand",
+      "majors": ["0.7", "0.8", "0.9", "0.10"],
+      "families": ["coauth-jose-pkcs8-generation", "salvo-0.96-cookie-0.18", "dioxus-0.7.10-fullstack", "legacy-phf-rand-0.7"],
+      "owner": "coauth",
+      "reason": "soland, floria and teabay declare 0.10.2. coauth declares 0.8.5 because ed25519-dalek 2's `rand_core` feature and its key-generation calls are on the rand_core 0.6 generation. teabay additionally declares a second line under the alias rand_09. 0.9 arrives through proptest, sentry, tungstenite and opentelemetry_sdk; 0.7 only through phf_generator 0.8.",
+      "expires_when": "the coauth half expires with family coauth-jose-pkcs8-generation; teabay's rand_09 alias must be removed when its consumer moves to 0.10; the 0.9 tier expires as proptest / sentry / opentelemetry release on rand 0.10.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "rand_core",
+      "majors": ["0.5", "0.6", "0.9", "0.10"],
+      "families": ["coauth-jose-pkcs8-generation", "openmls-0.9-rustcrypto-generation", "legacy-phf-rand-0.7"],
+      "owner": "coauth",
+      "reason": "Four core repositories declare 0.10.1. coauth declares 0.6.4 alongside 0.10.1 (aliased rand_core_10) for the same dalek-2 reason as rand.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires; the 0.5 tier expires with legacy-phf-rand-0.7.",
+      "risk": "rand_core is the RNG trait boundary. Two generations in one crate means a key-generation call can compile against the wrong CryptoRng without any diagnostic; every coauth key-generation site must be re-read when the alias is removed, not just recompiled.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "rand_chacha",
+      "majors": ["0.2", "0.3", "0.9", "0.10"],
+      "families": ["coauth-jose-pkcs8-generation"],
+      "owner": "coauth",
+      "reason": "SDK, soland and cotest declare 0.10.0. coauth declares both 0.3.1 and 0.10.0 (aliased rand_chacha_10) because its deterministic test and audit RNGs are typed against rand_core 0.6.",
+      "expires_when": "family coauth-jose-pkcs8-generation expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "getrandom",
+      "majors": ["0.1", "0.2", "0.3", "0.4"],
+      "families": ["wasm-getrandom-feature-alias", "openmls-0.9-rustcrypto-generation", "legacy-phf-rand-0.7"],
+      "owner": "arkret-rust-sdk",
+      "reason": "0.4.3 is the declared line everywhere. 0.2 is declared a second time on purpose (getrandom_02) so the wasm32 `js` backend can be turned on for the copy ring / rand_core 0.6 / redox_users pull in. 0.3 is the openmls-owned line. 0.1 reaches only cotest and inkson through phf_generator 0.8.",
+      "expires_when": "all three families expire; the getrandom_02 alias must be deleted at that point, not carried forward.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "base64",
+      "majors": ["0.21", "0.22", "0.23"],
+      "families": ["dioxus-0.7.10-fullstack", "salvo-0.96-cookie-0.18"],
+      "owner": "arkret-rust-sdk",
+      "reason": "All ten declaring core repositories agree on 0.23.1; there is no first-party disagreement. 0.22.1 arrives through reqwest, hyper-util, headers, cookie, postgres-protocol and dioxus-fullstack. 0.21.7 reaches only coauth, through webauthn-rs 0.5 / base64urlsafedata 0.5.",
+      "expires_when": "the 0.22 tier expires as hyper-util / headers / cookie move to 0.23; the 0.21 tier expires when webauthn-rs releases on base64 0.22 or later.",
+      "review_after": "2027-03-01"
+    },
+    {
+      "crate": "reqwest",
+      "majors": ["0.12", "0.13"],
+      "families": ["dioxus-0.7.10-fullstack"],
+      "owner": "inkson",
+      "reason": "Ten core repositories declare 0.13.4 and there is no first-party disagreement. 0.12.28 exists only because dioxus-fullstack 0.7.10 depends on it (and, in bridges, because serenity 0.12 and teloxide-core 0.13 do).",
+      "expires_when": "family dioxus-0.7.10-fullstack expires; the bridges half expires when serenity and teloxide release on reqwest 0.13.",
+      "risk": "Two reqwest generations mean two TLS backends can be linked at once. The egress policy in arkret-egress-reqwest only wraps the 0.13 line, so any code path that reaches the 0.12 client bypasses it. Today no first-party code holds a 0.12 client, and that must stay true.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "gloo-net",
+      "majors": ["0.6", "0.7"],
+      "families": ["dioxus-0.7.10-fullstack"],
+      "owner": "sodmin",
+      "reason": "sodmin and teabay's admin UI declare 0.7.0. 0.6.0 comes only from dioxus-fullstack 0.7.10.",
+      "expires_when": "family dioxus-0.7.10-fullstack expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "gloo-utils",
+      "majors": ["0.2", "0.3"],
+      "families": ["dioxus-0.7.10-fullstack"],
+      "owner": "sodmin",
+      "reason": "Transitive only: gloo-net 0.7 brings 0.3, gloo-net 0.6 (from dioxus-fullstack) brings 0.2.",
+      "expires_when": "family dioxus-0.7.10-fullstack expires.",
+      "review_after": "2026-12-01"
+    },
+    {
+      "crate": "gloo-timers",
+      "majors": ["0.3", "0.4"],
+      "families": ["dioxus-0.7.10-fullstack"],
+      "owner": "garth",
+      "reason": "Five core repositories declare 0.4. 0.3 comes from dioxus-web 0.7.10, dioxus-sdk-time and backon.",
+      "expires_when": "family dioxus-0.7.10-fullstack expires.",
+      "review_after": "2026-12-01"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+name: compatibility train
+
+# Manual orchestration entry point for tools/compatibility_train.py.
+#
+# The per-repository `compatibility.yml` gate can only verify one exact
+# candidate set; it cannot advance six independent Git repositories together.
+# That is what the train does: it stages a ref per repository, dispatches the
+# exact gate, then promotes every `main` in `train.merge_order` only after the
+# gate run succeeded and its resolved manifest matches the staged candidates.
+#
+# Both phases are dry runs unless `execute` is true, so a dispatch without the
+# flag is a preflight that writes evidence and changes nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: stage the candidate refs, or promote an already verified stage
+        required: true
+        type: choice
+        options: [stage, promote]
+        default: stage
+      run_id:
+        description: train run identifier; becomes compatibility/<train-id>/<run-id>
+        required: true
+        type: string
+      execute:
+        description: perform the writes instead of only running the preflight
+        required: false
+        type: boolean
+        default: false
+      gate_workflow_run_id:
+        description: promote only - the successful exact-gate run to verify
+        required: false
+        type: string
+      stage_workflow_run_id:
+        description: promote only - the train run whose staged evidence is promoted
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: compatibility-train-${{ inputs.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  train:
+    name: compatibility train / ${{ inputs.phase }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.CI_REPO_TOKEN }}
+    steps:
+      - name: Require a cross-repository credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "CI_REPO_TOKEN is not configured for this repository." >&2
+            echo "The train reads and advances refs in every repository named by" >&2
+            echo "compatibility/manifest.json, which the default github.token cannot do." >&2
+            echo "Configure a minimum-privilege cross-repository App token or PAT with" >&2
+            echo "contents:write on the manifest repositories and dispatch again." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Verify the train executor before using it
+        run: python tools/test_compatibility_train.py
+
+      - name: Download staged evidence
+        if: inputs.phase == 'promote'
+        uses: actions/download-artifact@v4
+        with:
+          name: compatibility-train-stage-${{ inputs.run_id }}
+          path: train-evidence
+          run-id: ${{ inputs.stage_workflow_run_id }}
+          github-token: ${{ secrets.CI_REPO_TOKEN }}
+
+      - name: Stage the candidate refs
+        if: inputs.phase == 'stage'
+        run: >-
+          python tools/compatibility_train.py stage
+          --manifest compatibility/manifest.json
+          --run-id "${{ inputs.run_id }}"
+          --evidence train-evidence/stage.json
+          ${{ inputs.execute && '--execute' || '' }}
+
+      - name: Promote the verified train
+        if: inputs.phase == 'promote'
+        run: >-
+          python tools/compatibility_train.py promote
+          --manifest compatibility/manifest.json
+          --evidence train-evidence/stage.json
+          --workflow-run-id "${{ inputs.gate_workflow_run_id }}"
+          --output train-evidence/promotion.json
+          ${{ inputs.execute && '--execute' || '' }}
+
+      - name: Preserve train evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-train-${{ inputs.phase }}-${{ inputs.run_id }}
+          path: train-evidence/
+          if-no-files-found: error
+          retention-days: 90

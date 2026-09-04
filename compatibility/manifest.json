@@ -119,6 +119,75 @@
       "command": ["python", "tools/schema_struct_gate.py", "--spec-root", "../arkret-spec/spec/v1/artifacts/schemas"]
     },
     {
+      "id": "sdk.wire-type-ownership",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": { "kind": "type", "name": "wire DTO ownership across consumers" },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/wire_type_ownership_audit.py",
+        "--workspace-root",
+        "..",
+        "--require-repository",
+        "inkson",
+        "--require-repository",
+        "garth",
+        "--require-repository",
+        "soland",
+        "--require-repository",
+        "coauth"
+      ]
+    },
+    {
+      "id": "sdk.wire-type-ownership-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": { "kind": "type", "name": "wire DTO ownership audit itself" },
+      "working_directory": "arkret-rust-sdk",
+      "command": ["python", "tools/test_wire_type_ownership_audit.py"]
+    },
+    {
+      "id": "sdk.dependency-matrix",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": { "kind": "type", "name": "cross-repository Cargo major versions" },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/dep_matrix.py",
+        "--workspace-root",
+        "..",
+        "--format",
+        "text",
+        "--fail-on-divergence",
+        "--require-repository",
+        "arkret-rust-sdk",
+        "--require-repository",
+        "soland",
+        "--require-repository",
+        "coauth",
+        "--require-repository",
+        "garth",
+        "--require-repository",
+        "inkson",
+        "--require-repository",
+        "cotest",
+        "--require-repository",
+        "floria",
+        "--require-repository",
+        "chime"
+      ]
+    },
+    {
+      "id": "sdk.dependency-matrix-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": { "kind": "type", "name": "cross-repository dependency matrix generator itself" },
+      "working_directory": "arkret-rust-sdk",
+      "command": ["python", "tools/test_dep_matrix.py"]
+    },
+    {
       "id": "sdk.compile",
       "repository": "arkret-rust-sdk",
       "category": "compile",
