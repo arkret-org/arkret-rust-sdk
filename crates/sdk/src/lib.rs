@@ -248,9 +248,10 @@ pub use arkret_models_discovery::directory_artifacts::*;
 pub use arkret_models_discovery::http_bodies::*;
 pub use arkret_models_discovery::ops;
 pub use arkret_models_discovery::presence::{
-    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, PresencePreference, PresenceStatus, PresenceValidationError,
-    PresenceVisibility, PresenceVisibilityPreference, STATUS_MESSAGE_MAX_CODE_POINTS,
-    aggregate_presence_states, validate_last_active_at, validate_status_message,
+    LAST_ACTIVE_BUCKET_FLOOR_SECONDS, ManualPresenceState, PresencePreference, PresenceStatus,
+    PresenceValidationError, PresenceVisibility, PresenceVisibilityPreference,
+    STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states, validate_last_active_at,
+    validate_status_message,
 };
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{

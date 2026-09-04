@@ -43,6 +43,42 @@ pub enum PresenceStatus {
     Offline,
 }
 
+/// Manual state accepted by the principal-private
+/// `ak.presence.preference` account-data payload (§3.6).
+///
+/// `offline` is intentionally absent: stopping broadcasts and TTL expiry
+/// express offline state. This enum is the exact counterpart of the
+/// `manual_state` closed set in
+/// `spec/v1/artifacts/schemas/presence-preference.schema.json`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ManualPresenceState {
+    Online,
+    Idle,
+    Dnd,
+}
+
+impl ManualPresenceState {
+    pub fn as_wire(self) -> &'static str {
+        match self {
+            Self::Online => "online",
+            Self::Idle => "idle",
+            Self::Dnd => "dnd",
+        }
+    }
+}
+
+impl From<ManualPresenceState> for PresenceStatus {
+    fn from(value: ManualPresenceState) -> Self {
+        match value {
+            ManualPresenceState::Online => Self::Online,
+            ManualPresenceState::Idle => Self::Idle,
+            ManualPresenceState::Dnd => Self::Dnd,
+        }
+    }
+}
+
 /// Sender-side visibility policy stored in the principal-private
 /// `ak.presence.visibility` account-data payload (§3.4).
 ///
@@ -84,8 +120,11 @@ impl PresenceVisibility {
 }
 
 /// Canonical `ak.presence.visibility` account-data payload (§3.4).
+///
+/// Counterpart for `spec/v1/artifacts/schemas/presence-visibility.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct PresenceVisibilityPreference {
     pub presence_visibility: PresenceVisibility,
 }
@@ -163,8 +202,6 @@ pub enum PresenceValidationError {
     StatusMessageNotNfc,
     #[error("status_message contains a forbidden control character")]
     StatusMessageControlChar,
-    #[error("manual_state cannot be `offline`")]
-    ManualStateOffline,
 }
 
 /// Validate a `last_active_at` wire value (§3.3).
@@ -267,15 +304,18 @@ pub fn validate_status_message(value: &str) -> Result<(), PresenceValidationErro
 /// send side — every device of the principal reads the same account
 /// data and pins its broadcast `state` to `manual_state` while the
 /// preference is active.
+///
+/// Counterpart for `spec/v1/artifacts/schemas/presence-preference.schema.json`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PresencePreference {
     /// Pinned manual state: `online`, `idle` or `dnd`. `offline` is
     /// expressed by ceasing broadcasts / TTL expiry and is not a
     /// pinnable value; "invisible" is `ak.presence.visibility =
     /// "nobody"`, not a state.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manual_state: Option<PresenceStatus>,
+    pub manual_state: Option<ManualPresenceState>,
     /// Transient status-message override used as the broadcast
     /// `status_message` source while active. Same constraints as the
     /// wire field.
@@ -295,13 +335,10 @@ impl PresencePreference {
         self.manual_state.is_none() && self.status_message.is_none()
     }
 
-    /// Structural validation (§3.6): `manual_state` must not be
-    /// `offline` and any `status_message` must satisfy the shared
-    /// wire constraints.
+    /// Semantic validation (§3.6): any `status_message` must satisfy the
+    /// shared wire constraints. The typed `manual_state` field enforces its
+    /// closed set during deserialization.
     pub fn validate(&self) -> Result<(), PresenceValidationError> {
-        if self.manual_state == Some(PresenceStatus::Offline) {
-            return Err(PresenceValidationError::ManualStateOffline);
-        }
         if let Some(message) = self.status_message.as_deref() {
             validate_status_message(message)?;
         }
@@ -321,7 +358,7 @@ impl PresencePreference {
     /// The manual state to pin broadcasts to at `now`, if any.
     pub fn effective_manual_state(&self, now: DateTime<Utc>) -> Option<PresenceStatus> {
         if self.is_active(now) {
-            self.manual_state
+            self.manual_state.map(Into::into)
         } else {
             None
         }
@@ -383,6 +420,13 @@ mod tests {
         assert_eq!(
             serde_json::to_value(payload).unwrap(),
             serde_json::json!({"presence_visibility": "contacts_only"})
+        );
+        assert!(
+            serde_json::from_value::<PresenceVisibilityPreference>(serde_json::json!({
+                "presence_visibility": "public",
+                "unexpected": true
+            }))
+            .is_err()
         );
     }
 
@@ -515,21 +559,30 @@ mod tests {
     }
 
     #[test]
-    fn preference_rejects_manual_offline() {
-        let preference = PresencePreference {
-            manual_state: Some(PresenceStatus::Offline),
-            ..Default::default()
-        };
-        assert_eq!(
-            preference.validate(),
-            Err(PresenceValidationError::ManualStateOffline)
+    fn preference_wire_rejects_manual_offline() {
+        assert!(
+            serde_json::from_value::<PresencePreference>(serde_json::json!({
+                "manual_state": "offline"
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn preference_rejects_unknown_fields() {
+        assert!(
+            serde_json::from_value::<PresencePreference>(serde_json::json!({
+                "manual_state": "dnd",
+                "unexpected": true
+            }))
+            .is_err()
         );
     }
 
     #[test]
     fn preference_expires_at_clears_at() {
         let preference = PresencePreference {
-            manual_state: Some(PresenceStatus::Dnd),
+            manual_state: Some(ManualPresenceState::Dnd),
             status_message: Some("开会中".to_owned()),
             clears_at: Some("2026-07-03T12:00:00.000Z".parse().unwrap()),
         };
@@ -547,7 +600,7 @@ mod tests {
     #[test]
     fn preference_round_trips_through_account_data_json() {
         let preference = PresencePreference {
-            manual_state: Some(PresenceStatus::Dnd),
+            manual_state: Some(ManualPresenceState::Dnd),
             status_message: Some("开会中，稍后回复".to_owned()),
             clears_at: Some("2026-07-03T12:00:00.000Z".parse().unwrap()),
         };

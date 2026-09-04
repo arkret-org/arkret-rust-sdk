@@ -1,13 +1,13 @@
 {
   "summary": {
-    "total": 1412,
+    "total": 1414,
     "by_classification": {
       "A": 8,
-      "B": 791,
+      "B": 793,
       "needs_review": 613
     },
     "by_openness": {
-      "closed": 799,
+      "closed": 801,
       "unresolved": 605,
       "unspecified": 8
     },
@@ -18,7 +18,7 @@
       "mls": 4,
       "models-collaboration": 807,
       "models-crypto": 127,
-      "models-discovery": 51,
+      "models-discovery": 53,
       "models-identity": 153,
       "models-integration": 77,
       "policy": 4,
@@ -13013,6 +13013,32 @@
       "kind": "enum",
       "value_kind": "DirectoryPrivateContactDiscoveryOutcome",
       "spec_pointer": "directory-operations.schema.json#/$defs/directory_private_contact_discovery_outcome",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-discovery/src/presence.rs::PresenceVisibilityPreference",
+      "crate": "models-discovery",
+      "file": "crates/models-discovery/src/presence.rs",
+      "line": 127,
+      "kind": "struct",
+      "value_kind": "PresenceVisibilityPreference",
+      "spec_pointer": "presence-visibility.schema.json",
+      "schema_openness": "closed",
+      "classification": "B",
+      "cfg_gated": false,
+      "flatten_extra": false
+    },
+    {
+      "rust_type": "crates/models-discovery/src/presence.rs::PresencePreference",
+      "crate": "models-discovery",
+      "file": "crates/models-discovery/src/presence.rs",
+      "line": 311,
+      "kind": "struct",
+      "value_kind": "PresencePreference",
+      "spec_pointer": "presence-preference.schema.json",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,
