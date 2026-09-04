@@ -874,15 +874,17 @@ fn build_key_backup_envelope_in_series(
 
 /// Build a successor envelope in an existing key-backup series.
 ///
-/// The successor inherits actor/device/class from `predecessor`, increments
-/// `series_seq`, and binds the predecessor by both `backup_id` and
-/// canonical predecessor-envelope digest. The SDK constructs the successor
-/// keybag only after the final series/supersedes_id/frontier metadata is fixed, so
-/// encryption can never bind genesis metadata and mutate it afterward.
+/// The successor inherits actor/class/series from `predecessor`, binds the
+/// current producing device, increments `series_seq`, and binds the
+/// predecessor by both `backup_id` and canonical predecessor-envelope digest.
+/// The SDK constructs the successor keybag only after the final
+/// device/series/supersedes/frontier metadata is fixed, so encryption can never
+/// bind predecessor metadata and mutate it afterward.
 #[allow(clippy::too_many_arguments)]
 pub fn build_key_backup_successor_envelope(
     backup_id: BackupId,
     predecessor: &KeyBackup,
+    device_id: Option<DeviceId>,
     backup_version: &str,
     kek: &VaultKek,
     items: Vec<SecretStorageItem>,
@@ -918,7 +920,7 @@ pub fn build_key_backup_successor_envelope(
     build_key_backup_envelope_in_series(
         backup_id,
         predecessor.actor_id.clone(),
-        predecessor.device_id.clone(),
+        device_id,
         predecessor.backup_kind,
         backup_version,
         &predecessor.domain_separation.subdomain,

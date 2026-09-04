@@ -61,10 +61,7 @@ pub async fn current_authorization_incarnation_from_verified_checkpoint(
     })?;
     let authority_audits =
         arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
-    let realm_cell = CellRef::new(arkret_wire::cell::subject_cell(
-        arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-        &target.canonical_key()?,
-    ))?;
+    let realm_cell = realm_membership_cell(target)?;
     let realm_membership_incarnation_ref =
         arkret_state::mls_governance_proof::winning_membership_join_event_from_verified_checkpoint(
             checkpoint,
@@ -101,6 +98,16 @@ pub async fn current_authorization_incarnation_from_verified_checkpoint(
             )
             .await?,
     })
+}
+
+fn realm_membership_cell(target: &arkret_wire::ActorId) -> Result<CellRef, WireError> {
+    let subject = arkret_wire::cell::composite_subject(&[serde_json::Value::String(
+        target.canonical_key()?,
+    )])?;
+    Ok(CellRef::new(arkret_wire::cell::subject_cell(
+        arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+        &subject,
+    ))?)
 }
 
 /// The only Agent historical-evidence checks that cannot be derived
@@ -1743,6 +1750,25 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn realm_membership_lookup_uses_registered_composite_subject() {
+        let actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ));
+        let subject = arkret_wire::cell::composite_subject(&[serde_json::Value::String(
+            actor.canonical_key().unwrap(),
+        )])
+        .unwrap();
+        let expected = CellRef::new(arkret_wire::cell::subject_cell(
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+            &subject,
+        ))
+        .unwrap();
+
+        assert_eq!(realm_membership_cell(&actor).unwrap(), expected);
+    }
 
     #[test]
     fn collision_variant_record_proof_context_kat_verifies() {
