@@ -402,7 +402,9 @@ def write_github_outputs(document: dict[str, Any], output_path: Path) -> None:
     for repository, entry in document["repositories"].items():
         key = repository.replace("-", "_")
         lines.append(f"{key}={entry['commit']}")
-    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    output_path.write_text(
+        "\n".join(lines) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def run_checks(
@@ -534,7 +536,9 @@ def main(argv: list[str] | None = None) -> int:
             resolved = resolve_manifest(document, parse_candidates(arguments.candidate))
             arguments.output.parent.mkdir(parents=True, exist_ok=True)
             arguments.output.write_text(
-                json.dumps(resolved, indent=2, sort_keys=False) + "\n", encoding="utf-8"
+                json.dumps(resolved, indent=2, sort_keys=False) + "\n",
+                encoding="utf-8",
+                newline="\n",
             )
             if arguments.github_output:
                 write_github_outputs(resolved, arguments.github_output)
@@ -545,7 +549,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             arguments.output.parent.mkdir(parents=True, exist_ok=True)
             arguments.output.write_text(
-                json.dumps(snapshot, indent=2, sort_keys=False) + "\n", encoding="utf-8"
+                json.dumps(snapshot, indent=2, sort_keys=False) + "\n",
+                encoding="utf-8",
+                newline="\n",
             )
             print(f"compatibility manifest snapshot written to {arguments.output}")
         elif arguments.command == "run":

@@ -345,7 +345,9 @@ def promote(
 
 def write_document(path: Path, document: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(document, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
