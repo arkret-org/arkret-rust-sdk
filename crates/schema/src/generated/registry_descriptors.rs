@@ -6,8 +6,8 @@
 //! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
 //! schema-registry.json; version=2026-09-02.5;
 //! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Input: registry/
-//! account-data-key-registry.json; version=2026-09-04.1;
-//! sha256=139f604d85d369692af2f182245bf93d5b705a30bb864bf4002145f70c6580b2 Entries: id_kinds=59,
+//! account-data-key-registry.json; version=2026-09-04.2;
+//! sha256=6d72d6ce1a9a4c9afc81138fcda51475e437cc61ebc5ecdfe9b0f00c0abe2743 Entries: id_kinds=59,
 //! special_forms=14, actions=162, schemas=199, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};

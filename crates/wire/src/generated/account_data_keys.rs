@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-04.1;
-//! sha256=139f604d85d369692af2f182245bf93d5b705a30bb864bf4002145f70c6580b2
+//! Input: registry/account-data-key-registry.json; version=2026-09-04.2;
+//! sha256=6d72d6ce1a9a4c9afc81138fcda51475e437cc61ebc5ecdfe9b0f00c0abe2743
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -131,15 +131,17 @@ impl AccountDataKey {
     /// binds notification_id, state, HLC and device tie-break material; read/unread remains derived
     /// from the read cursor. Key pattern: `ak.notifications.inbox.<notification_id>`.
     pub const NOTIFICATIONS_INBOX: &'static str = "ak.notifications.inbox";
-    /// Principal-private manual presence preference: pinned manual_state (online/idle/dnd),
-    /// temporary status_message override, and clears_at expiry. Enforced client-side at send time
-    /// across all of the principal's devices; services MUST NOT require plaintext or a projection
-    /// of this key and MUST NOT treat it as a policy projection surface. Key pattern:
+    /// Principal-private manual presence preference whose decrypted plaintext validates as the
+    /// closed presence-preference schema: pinned manual_state (online/idle/dnd), temporary
+    /// status_message override, and clears_at expiry. Enforced client-side at send time across all
+    /// of the principal's devices; services MUST NOT require plaintext or a projection of this key
+    /// and MUST NOT treat it as a policy projection surface. Key pattern:
     /// `ak.presence.preference`.
     pub const PRESENCE_PREFERENCE: &'static str = "ak.presence.preference";
-    /// Principal-private sender-side presence visibility policy. Station sync surfaces MUST NOT
-    /// project or read presence_visibility; encrypted Signal fanout is selected by the sender
-    /// according to profiles-presence.md section 3.4. Key pattern: `ak.presence.visibility`.
+    /// Principal-private sender-side presence visibility policy. Decrypted plaintext validates as
+    /// the closed presence-visibility schema. Station sync surfaces MUST NOT project or read
+    /// presence_visibility; encrypted Signal fanout is selected by the sender according to
+    /// profiles-presence.md section 3.4. Key pattern: `ak.presence.visibility`.
     pub const PRESENCE_VISIBILITY: &'static str = "ak.presence.visibility";
     /// Principal-private notification and push rule configuration.
     /// Key pattern: `ak.push_rules`.

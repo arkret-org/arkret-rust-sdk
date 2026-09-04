@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: schemas/device-message.schema.json; version=unversioned;
-//! sha256=f078cda0288244fbefb94eb3eeea3e574345f90fb5473d89f3ab605a35c2f15c
+//! sha256=ea8c75923b4fb8b678dfeecaefae00755a164b61aff437c535f9b1b3681795a1
 //! Entries: actor_private_update_kinds=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-04.1;
-//! sha256=ffd15c0651555d650e3bc1fa41db0ec73d9a17c67e972b0aee50a6c0091cb74c
-//! Entries: reason_codes=452
+//! Input: registry/error-code-registry.json; version=2026-09-04.2;
+//! sha256=359c654e8f9de2352ad56d298a64f44d567c5d186498e805fd1f366622107973
+//! Entries: reason_codes=451
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -203,7 +203,6 @@ pub enum ReasonCode {
     InvalidCursor,
     InvalidEncoding,
     InvalidMembershipTransition,
-    InvalidTaskFsmTransition,
     InvalidatedByRateLimit,
     InviteAlreadyTerminal,
     InviteEventActorMismatch,
@@ -716,7 +715,6 @@ impl ReasonCode {
     pub const INVALID_CURSOR: &'static str = "invalid_cursor";
     pub const INVALID_ENCODING: &'static str = "invalid_encoding";
     pub const INVALID_MEMBERSHIP_TRANSITION: &'static str = "invalid_membership_transition";
-    pub const INVALID_TASK_FSM_TRANSITION: &'static str = "invalid_task_fsm_transition";
     pub const INVALIDATED_BY_RATE_LIMIT: &'static str = "invalidated_by_rate_limit";
     pub const INVITE_ALREADY_TERMINAL: &'static str = "invite_already_terminal";
     pub const INVITE_EVENT_ACTOR_MISMATCH: &'static str = "invite_event_actor_mismatch";
@@ -1252,7 +1250,6 @@ impl ReasonCode {
             Self::InvalidCursor => Self::INVALID_CURSOR,
             Self::InvalidEncoding => Self::INVALID_ENCODING,
             Self::InvalidMembershipTransition => Self::INVALID_MEMBERSHIP_TRANSITION,
-            Self::InvalidTaskFsmTransition => Self::INVALID_TASK_FSM_TRANSITION,
             Self::InvalidatedByRateLimit => Self::INVALIDATED_BY_RATE_LIMIT,
             Self::InviteAlreadyTerminal => Self::INVITE_ALREADY_TERMINAL,
             Self::InviteEventActorMismatch => Self::INVITE_EVENT_ACTOR_MISMATCH,
@@ -1788,7 +1785,6 @@ impl ReasonCode {
             Self::INVALID_CURSOR => Self::InvalidCursor,
             Self::INVALID_ENCODING => Self::InvalidEncoding,
             Self::INVALID_MEMBERSHIP_TRANSITION => Self::InvalidMembershipTransition,
-            Self::INVALID_TASK_FSM_TRANSITION => Self::InvalidTaskFsmTransition,
             Self::INVALIDATED_BY_RATE_LIMIT => Self::InvalidatedByRateLimit,
             Self::INVITE_ALREADY_TERMINAL => Self::InviteAlreadyTerminal,
             Self::INVITE_EVENT_ACTOR_MISMATCH => Self::InviteEventActorMismatch,
@@ -3121,11 +3117,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::INVALID_MEMBERSHIP_TRANSITION,
         applies_to: &["authz", "state_resolution"],
         description: "A ak.member.state Move requests a membership FSM transition that is not listed as legal for the member's current state. Reducers MUST reject the Move with failed_precondition. See zh/models/realm-and-space.md §2.7.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INVALID_TASK_FSM_TRANSITION,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "A transition effect on a profile-declared task/workflow fsm lattice cell declared a from -> to pair that is not a legal transition of that profile-declared state machine, or whose from does not match the cell's current state. v1 core defines no task object; the task/workflow FSM is declared by a Realm profile (e.g. a Jira-style issue-workflow profile) and evaluated by the generic fsm lattice type. The reducer MUST reject the Move instead of coercing the state machine. See zh/authz/event-auth-state-resolution.md §9.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INVALIDATED_BY_RATE_LIMIT,
