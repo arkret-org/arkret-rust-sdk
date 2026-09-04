@@ -681,12 +681,14 @@ dependencies = [
  "arkret-schema",
  "arkret-schema-conformance",
  "arkret-wire",
+ "async-trait",
  "chrono",
  "hex",
  "salvo-oapi",
  "serde",
  "serde_json",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

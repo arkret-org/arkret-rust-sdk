@@ -16,6 +16,7 @@ pub mod memory;
 
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy};
+use async_trait::async_trait;
 use thiserror::Error;
 
 use crate::lattice::ordered_log::IssuedOp;
@@ -299,6 +300,7 @@ pub struct ControlSealScheduleStats {
 /// A Control Move is an [`Event`] carrying `seal_basis`
 /// (`event-auth-state-resolution.md` §5); there is no separate Move object,
 /// so this store holds Events and keys them by [`control_event_digest`].
+#[async_trait]
 pub trait ControlEventStore: Send + Sync {
     /// Stash a control-plane Event that passed local format / proof
     /// pre-check, together with its durable ingress classification.
@@ -310,7 +312,7 @@ pub trait ControlEventStore: Send + Sync {
     /// The class and its payload are inseparable: `AckRequired` carries the
     /// canonical Control Proposal Ack and `AcklessSelfPrincipal` carries no
     /// Ack, so an Ack-required Move without its Ack cannot be written.
-    fn put_pending_with_ingress(
+    async fn put_pending_with_ingress(
         &self,
         event: &Event,
         ingress: &ControlProposalIngress,
@@ -319,12 +321,12 @@ pub trait ControlEventStore: Send + Sync {
 
     /// Promote a previously-pending Event to sealed under `seal`.
     /// Re-anchoring the same Event under the same Seal id is idempotent.
-    fn mark_sealed(&self, event_digest: &Hash, seal: &Seal) -> StoreResult<()>;
+    async fn mark_sealed(&self, event_digest: &Hash, seal: &Seal) -> StoreResult<()>;
 
-    fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
+    async fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
 
     /// Trusted digest suite frozen atomically with the accepted Control Event.
-    fn digest_suite(
+    async fn digest_suite(
         &self,
         event_digest: &Hash,
     ) -> StoreResult<Option<arkret_canonical::DigestSuite>>;
@@ -337,29 +339,32 @@ pub trait ControlEventStore: Send + Sync {
     /// the same question but is unbounded in the Realm's history.
     /// Default implementation reports the backend as unmigrated, matching
     /// [`SealStore::successors`].
-    fn covering_seals(&self, _event_digest: &Hash) -> StoreResult<Vec<SealId>> {
+    async fn covering_seals(&self, _event_digest: &Hash) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
             "ControlEventStore::covering_seals not implemented for this backend".to_owned(),
         ))
     }
 
-    fn control_proposal_ack(&self, event_digest: &Hash) -> StoreResult<Option<ControlProposalAck>>;
+    async fn control_proposal_ack(
+        &self,
+        event_digest: &Hash,
+    ) -> StoreResult<Option<ControlProposalAck>>;
 
     /// Read one proposal/Ack/decision/Seal row-set from a single backend
     /// snapshot. Unknown digests return `None`; no terminal state is removed.
-    fn control_proposal_snapshot(
+    async fn control_proposal_snapshot(
         &self,
         event_digest: &Hash,
     ) -> StoreResult<Option<ControlProposalSnapshot>>;
 
-    fn record_proposal_decision(
+    async fn record_proposal_decision(
         &self,
         event_digest: &Hash,
         decision: &ControlProposalDecision,
         policy: ControlProposalDecisionPolicy,
     ) -> StoreResult<()>;
 
-    fn list_pending_records(
+    async fn list_pending_records(
         &self,
         realm_id: &RealmId,
         limit: usize,
@@ -367,7 +372,7 @@ pub trait ControlEventStore: Send + Sync {
 
     /// Atomically claim due Realm schedule rows in fair due-time order.
     /// Callers MUST pass no more than their currently free execution slots.
-    fn claim_due_control_seal_realms(
+    async fn claim_due_control_seal_realms(
         &self,
         holder: &str,
         now_ms: i64,
@@ -377,7 +382,7 @@ pub trait ControlEventStore: Send + Sync {
 
     /// Complete one fenced attempt. A matching fence with a newer generation
     /// releases the claim without applying the stale outcome or its backoff.
-    fn complete_control_seal_attempt(
+    async fn complete_control_seal_attempt(
         &self,
         claim: &ControlSealScheduleClaim,
         outcome: &ControlSealAttemptOutcome,
@@ -386,7 +391,7 @@ pub trait ControlEventStore: Send + Sync {
 
     /// Run one bounded page of the always-on repair scan over authoritative
     /// pending Event state.
-    fn repair_control_seal_schedule(
+    async fn repair_control_seal_schedule(
         &self,
         now_ms: i64,
         limit: usize,
@@ -394,10 +399,13 @@ pub trait ControlEventStore: Send + Sync {
 
     /// Return a bounded aggregate snapshot for scrape-time scheduling gauges.
     /// Implementations must not enumerate Realm identifiers in the result.
-    fn control_seal_schedule_stats(&self, now_ms: i64) -> StoreResult<ControlSealScheduleStats>;
+    async fn control_seal_schedule_stats(
+        &self,
+        now_ms: i64,
+    ) -> StoreResult<ControlSealScheduleStats>;
 
     /// Pending control-plane Event list for the notary worker, oldest first.
-    fn list_pending_for_notary(
+    async fn list_pending_for_notary(
         &self,
         realm_id: &RealmId,
         cursor: Option<&Hash>,
@@ -405,14 +413,14 @@ pub trait ControlEventStore: Send + Sync {
     ) -> StoreResult<Vec<Event>>;
 
     /// Sealed control-plane Event list for federation backfill / audit replay.
-    fn list_sealed(
+    async fn list_sealed(
         &self,
         realm_id: &RealmId,
         cursor: Option<&Hash>,
         limit: usize,
     ) -> StoreResult<Vec<SealedControlEventRecord>>;
 
-    fn list_retained_faults(
+    async fn list_retained_faults(
         &self,
         realm_id: &RealmId,
         limit: usize,
@@ -420,6 +428,7 @@ pub trait ControlEventStore: Send + Sync {
 }
 
 /// Seal DAG.
+#[async_trait]
 pub trait SealStore: Send + Sync {
     /// Acquire a bounded, fenced signing lease for one `(Realm, signer slot)`.
     ///
@@ -427,7 +436,7 @@ pub trait SealStore: Send + Sync {
     /// Realm-wide slot. `open_set` uses the signer DID as the slot so distinct
     /// authorized signers can create concurrent leaves without racing
     /// themselves across replicas.
-    fn try_claim_signing_lease(
+    async fn try_claim_signing_lease(
         &self,
         realm_id: &RealmId,
         signer_slot: &str,
@@ -436,7 +445,7 @@ pub trait SealStore: Send + Sync {
         until_ms: i64,
     ) -> StoreResult<Option<u64>>;
 
-    fn release_signing_lease(
+    async fn release_signing_lease(
         &self,
         realm_id: &RealmId,
         signer_slot: &str,
@@ -444,7 +453,11 @@ pub trait SealStore: Send + Sync {
         fence: u64,
     ) -> StoreResult<bool>;
 
-    fn put(&self, seal: &Seal, digest_suite: arkret_canonical::DigestSuite) -> StoreResult<()>;
+    async fn put(
+        &self,
+        seal: &Seal,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<()>;
 
     /// Atomically insert `seal` only when the Realm's current leaf set is
     /// exactly `expected_leaves`.
@@ -458,33 +471,34 @@ pub trait SealStore: Send + Sync {
     ///
     /// Returns `true` when the Seal was inserted and `false` when the expected
     /// frontier was stale. A `false` result MUST leave the store unchanged.
-    fn put_if_frontier(
+    async fn put_if_frontier(
         &self,
         seal: &Seal,
         expected_leaves: &[SealId],
         digest_suite: arkret_canonical::DigestSuite,
     ) -> StoreResult<bool>;
 
-    fn get(&self, id: &SealId) -> StoreResult<Option<Seal>>;
+    async fn get(&self, id: &SealId) -> StoreResult<Option<Seal>>;
 
     /// Trusted digest suite frozen atomically with the accepted Seal.
-    fn digest_suite(&self, id: &SealId) -> StoreResult<Option<arkret_canonical::DigestSuite>>;
+    async fn digest_suite(&self, id: &SealId)
+    -> StoreResult<Option<arkret_canonical::DigestSuite>>;
 
     /// Current leaf set for a Realm (Seals with no successor).
-    fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>>;
+    async fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>>;
 
     /// Whether all `refs` have been seen by this store.
-    fn predecessors_known(&self, refs: &[SealId]) -> StoreResult<bool>;
+    async fn predecessors_known(&self, refs: &[SealId]) -> StoreResult<bool>;
 
     /// The Realm's genesis Seal, if any. Each Realm has at most one.
-    fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
+    async fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
 
     /// Direct successors of `seal_id` — every Seal `S` for which
     /// `S.predecessor_refs.contains(seal_id)`. This is a read-only DAG query;
     /// callers MUST NOT rewrite signed predecessor references or delete an
     /// object while any successor, frontier, or retention pin still names it.
     /// Default implementation returns `StoreError::Backend("unsupported")`.
-    fn successors(&self, _realm_id: &RealmId, _seal_id: &SealId) -> StoreResult<Vec<SealId>> {
+    async fn successors(&self, _realm_id: &RealmId, _seal_id: &SealId) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
             "SealStore::successors not implemented for this backend".to_owned(),
         ))
@@ -492,10 +506,11 @@ pub trait SealStore: Send + Sync {
 }
 
 /// Per-cell sealed op log + per-view effective-state cache.
+#[async_trait]
 pub trait CellStore: Send + Sync {
     /// All cells with at least one effect in this Realm. Used for
     /// `state_root` enumeration.
-    fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>>;
+    async fn list_cells(&self, realm_id: &RealmId) -> StoreResult<Vec<CellRef>>;
 
     /// All sealed ops applying to this cell, in deterministic order.
     ///
@@ -504,8 +519,11 @@ pub trait CellStore: Send + Sync {
     /// A store that dropped it would force every join back onto a synthetic
     /// issuer, merging distinct actors into one sub-chain and writing that
     /// synthetic DID into the `state_root` leaf.
-    fn sealed_ops_for_cell(&self, realm_id: &RealmId, cell: &CellRef)
-    -> StoreResult<Vec<IssuedOp>>;
+    async fn sealed_ops_for_cell(
+        &self,
+        realm_id: &RealmId,
+        cell: &CellRef,
+    ) -> StoreResult<Vec<IssuedOp>>;
 
     /// Sealed operations grouped by the Seal batch that accepted them, in
     /// Seal acceptance order.
@@ -513,21 +531,21 @@ pub trait CellStore: Send + Sync {
     /// The batch boundary is consensus-significant for registers: writes in
     /// one Seal share the frozen predecessor view and are concurrent siblings,
     /// while a write in a successor Seal causally replaces the prior head.
-    fn sealed_op_batches_for_cell(
+    async fn sealed_op_batches_for_cell(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
     ) -> StoreResult<Vec<(SealId, Vec<IssuedOp>)>>;
 
     /// Cached effective state. `None` means the runtime must recompute.
-    fn cached_state(
+    async fn cached_state(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
     ) -> StoreResult<Option<CellState>>;
 
-    fn put_cached_state(
+    async fn put_cached_state(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
@@ -537,7 +555,7 @@ pub trait CellStore: Send + Sync {
 
     /// `apply_seal` write-back: extend the per-cell op log atomically
     /// with one Seal's worth of effects.
-    fn append_sealed_effects(
+    async fn append_sealed_effects(
         &self,
         realm_id: &RealmId,
         seal: &SealId,
@@ -546,7 +564,7 @@ pub trait CellStore: Send + Sync {
 
     /// Roll back a previously-`append_sealed_effects` call when publishing the
     /// accepting Seal fails after candidate-state validation.
-    fn rollback_seal(&self, realm_id: &RealmId, seal: &SealId) -> StoreResult<()>;
+    async fn rollback_seal(&self, realm_id: &RealmId, seal: &SealId) -> StoreResult<()>;
 }
 
 /// Resolved Lattice binding for a cell: the Lattice impl + the cell's

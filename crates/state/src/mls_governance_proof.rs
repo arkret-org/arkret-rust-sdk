@@ -25,6 +25,7 @@ use arkret_wire::{
     NotarySig, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis,
     SealId, SealSignature, WireError,
 };
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
@@ -128,12 +129,14 @@ impl Eq for MlsGovernanceVerificationCheckpoint {}
 /// resolves every older covered Event from the reducer's Control Event store.
 /// A fully materialized `BTreeMap<Hash, Event>` also implements this trait so
 /// the near-current frontier surface keeps its existing shape.
-pub trait ReplayEventLookup {
-    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>>;
+#[async_trait]
+pub trait ReplayEventLookup: Send + Sync {
+    async fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>>;
 }
 
+#[async_trait]
 impl ReplayEventLookup for BTreeMap<Hash, Event> {
-    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
+    async fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
         Ok(self.get(digest).cloned())
     }
 }
@@ -148,10 +151,12 @@ impl<'a> ControlEventReplayLookup<'a> {
     }
 }
 
+#[async_trait]
 impl ReplayEventLookup for ControlEventReplayLookup<'_> {
-    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
+    async fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
         self.store
             .get(digest)
+            .await
             .map_err(|error| WireError::Protocol(format!("Control Event lookup failed: {error}")))
     }
 }
@@ -232,7 +237,7 @@ impl MlsGovernanceVerificationCheckpoint {
 /// Materialize one registered reducer cell from an already verified complete
 /// checkpoint. The replay is isolated and uses the same projector and lattice
 /// registry as proof verification; a missing or Bottom target is rejected.
-pub fn materialize_registered_cell_value_from_verified_checkpoint<ProjectWrites>(
+pub async fn materialize_registered_cell_value_from_verified_checkpoint<ProjectWrites>(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     cell: &CellRef,
     registry: &dyn CellRegistry,
@@ -248,12 +253,13 @@ where
         registry,
         project_writes,
     )
+    .await
 }
 
 /// Read a registered cell at an explicitly named accepted cut of a trusted
 /// checkpoint. The caller cannot manufacture authority by naming an unknown
 /// Seal; the reducer resolves the basis against the fully replayed checkpoint.
-pub fn materialize_registered_cell_value_at_basis_from_verified_checkpoint<ProjectWrites>(
+pub async fn materialize_registered_cell_value_at_basis_from_verified_checkpoint<ProjectWrites>(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     basis: &SealBasis,
     cell: &CellRef,
@@ -269,7 +275,8 @@ where
         std::slice::from_ref(cell),
         registry,
         project_writes,
-    )?;
+    )
+    .await?;
     match values.remove(cell) {
         Some(value) => Ok(value),
         None => frontier_rejected("verified checkpoint target cell is missing"),
@@ -282,7 +289,7 @@ where
 /// query over many capability-grant cells cannot amplify one Signal into one
 /// complete governance replay per grant. Missing cells are omitted; any
 /// requested Bottom cell rejects the batch.
-pub fn materialize_registered_cell_values_at_basis_from_verified_checkpoint<ProjectWrites>(
+pub async fn materialize_registered_cell_values_at_basis_from_verified_checkpoint<ProjectWrites>(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     basis: &SealBasis,
     cells: &[CellRef],
@@ -314,7 +321,8 @@ where
         |_, _, _| Ok(()),
         |_, _, _, _| Ok(()),
         project_writes,
-    )?;
+    )
+    .await?;
     let state = effective_state_at(
         &basis.leaves,
         &checkpoint.realm_id,
@@ -322,6 +330,7 @@ where
         &cell_store,
         registry,
     )
+    .await
     .map_err(replay_reject_error)?;
     let mut values = BTreeMap::new();
     for cell in cells {
@@ -345,7 +354,7 @@ where
 /// a retained `join` Event by timestamp or list order, so leave/rejoin and
 /// concurrent histories cannot silently bind an MLS Add to a stale
 /// authorization incarnation.
-pub fn winning_membership_join_event_from_verified_checkpoint<ProjectWrites>(
+pub async fn winning_membership_join_event_from_verified_checkpoint<ProjectWrites>(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     cell: &CellRef,
     registry: &dyn CellRegistry,
@@ -375,7 +384,8 @@ where
         |_, _, _| Ok(()),
         |_, _, _, _| Ok(()),
         project_writes,
-    )?;
+    )
+    .await?;
     let state = effective_state_at(
         &checkpoint.basis.leaves,
         &checkpoint.realm_id,
@@ -383,12 +393,14 @@ where
         &cell_store,
         registry,
     )
+    .await
     .map_err(replay_reject_error)?;
     if !matches!(state.get(cell), Some(CellState::Value(value)) if value.as_str() == Some("join")) {
         return frontier_rejected("authorization membership cell is not effectively joined");
     }
     let issued = cell_store
         .sealed_ops_for_cell(&checkpoint.realm_id, cell)
+        .await
         .map_err(replay_store_error)?;
     let winning_digest = winning_membership_join(&issued)?;
     for event in &checkpoint.accepted_events {
@@ -402,7 +414,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_checkpoint_with_registry<
+pub async fn verify_mls_governance_checkpoint_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -437,6 +449,7 @@ where
         verify_seal_dependencies,
         project_writes,
     )
+    .await
     .map(|(checkpoint, _)| checkpoint)
 }
 
@@ -444,7 +457,7 @@ where
 /// suite from isolated reducer replay. Callers do not provide, infer, or trust
 /// a target suite before the Seal DAG has been verified.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_closure_with_registry<
+pub async fn verify_mls_governance_closure_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -496,8 +509,10 @@ where
         verify_event_proofs,
         verify_seal_dependencies,
         project_writes,
-    )?;
-    let event_digest_suites = event_digest_suites_for_verified_replay(&verified, &live_suites)?;
+    )
+    .await?;
+    let event_digest_suites =
+        event_digest_suites_for_verified_replay(&verified, &live_suites).await?;
     Ok((verified, event_digest_suites))
 }
 
@@ -505,7 +520,7 @@ where
 /// ancestor basis from the replayed digest-suite state. The suite is never
 /// inferred from a Seal id or digest prefix.
 #[allow(clippy::too_many_arguments)]
-pub fn verified_live_digest_suite_at_basis_with_registry<
+pub async fn verified_live_digest_suite_at_basis_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -545,13 +560,15 @@ where
         verify_event_proofs,
         verify_seal_dependencies,
         project_writes,
-    )?;
+    )
+    .await?;
     let requested_suite = live_digest_suite_at_basis(requested_basis, &live_suites)?;
-    let event_digest_suites = event_digest_suites_for_verified_replay(&verified, &live_suites)?;
+    let event_digest_suites =
+        event_digest_suites_for_verified_replay(&verified, &live_suites).await?;
     Ok((verified, requested_suite, event_digest_suites))
 }
 
-fn event_digest_suites_for_verified_replay(
+async fn event_digest_suites_for_verified_replay(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     live_suites: &BTreeMap<SealId, DigestSuite>,
 ) -> arkret_wire::Result<BTreeMap<Hash, DigestSuite>> {
@@ -561,7 +578,7 @@ fn event_digest_suites_for_verified_replay(
         .collect::<BTreeMap<_, _>>();
     let mut suites = BTreeMap::new();
     for seal in &checkpoint.accepted_seals {
-        let digest_suites = digest_suites_for_replay_seal(seal, &events, live_suites)?;
+        let digest_suites = digest_suites_for_replay_seal(seal, &events, live_suites).await?;
         for digest in &seal.delta {
             let event = events.get(digest).ok_or_else(|| {
                 WireError::Protocol("verified replay Event is unresolved".to_owned())
@@ -586,7 +603,7 @@ fn event_digest_suites_for_verified_replay(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn replay_and_verify_checkpoint_with_registry<
+async fn replay_and_verify_checkpoint_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -625,10 +642,11 @@ where
         verify_seal_dependencies,
         project_writes,
     )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
-fn replay_and_verify_checkpoint_material_with_registry<
+async fn replay_and_verify_checkpoint_material_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -681,9 +699,11 @@ where
         verify_seal_dependencies,
         project_writes,
         &mut live_suites,
-    )?;
+    )
+    .await?;
     let leaves = seal_store
         .list_leaves(&candidate.realm_id)
+        .await
         .map_err(replay_store_error)?;
     if canonical_seal_set(&leaves) != canonical_seal_set(&candidate.basis.leaves) {
         return frontier_rejected("verified checkpoint replay does not end at its pinned basis");
@@ -713,7 +733,7 @@ where
 /// The returned checkpoint contains the complete verified base and cut
 /// closure and is pinned to `target_basis`.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_cut_with_registry<
+pub async fn verify_mls_governance_cut_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -789,7 +809,8 @@ where
         verify_event_proofs,
         verify_seal_dependencies,
         project_writes,
-    )?;
+    )
+    .await?;
     Ok(MlsGovernanceVerificationCheckpoint {
         realm_id: base_checkpoint.realm_id.clone(),
         basis: target_basis.clone(),
@@ -822,7 +843,7 @@ struct SecurityFrontierDigestInput<'a> {
 /// algorithm-specific signature math against the descriptor supplied by this
 /// function.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_frontier_with_registry<
+pub async fn verify_mls_governance_frontier_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -911,7 +932,8 @@ where
             verify_event_proofs,
             verify_seal_dependencies,
             project_writes,
-        )?;
+        )
+        .await?;
     let (canonical_leaves, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
     let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
     for branch in &bundle.frontier_projection.branches {
@@ -941,7 +963,8 @@ where
                 &cell_store,
                 registry,
                 branch_digest_suite,
-            )?;
+            )
+            .await?;
         }
         for boundary in branch.range_witnesses.iter().flat_map(|range| {
             range
@@ -958,7 +981,8 @@ where
                 &cell_store,
                 registry,
                 branch_digest_suite,
-            )?;
+            )
+            .await?;
         }
         verify_branch_entry_closure(
             branch,
@@ -970,7 +994,8 @@ where
             &leaf_actors,
             &leaf_credentials,
             group_genesis_binding,
-        )?;
+        )
+        .await?;
     }
 
     let target_state = effective_state_at(
@@ -980,6 +1005,7 @@ where
         &cell_store,
         registry,
     )
+    .await
     .map_err(replay_reject_error)?;
     let mut projected_entries = Vec::new();
     for (cell, state) in target_state {
@@ -1069,7 +1095,7 @@ where
 /// Materialize the exact near-current proof page from a previously verified
 /// complete target checkpoint. The checkpoint is replayed into isolated
 /// stores; no live state is mutated.
-pub fn materialize_mls_governance_frontier_from_verified_checkpoint<ProjectWrites>(
+pub async fn materialize_mls_governance_frontier_from_verified_checkpoint<ProjectWrites>(
     request: &MlsGovernanceProofRequestBody,
     target_checkpoint: &MlsGovernanceVerificationCheckpoint,
     group_genesis_binding: &MlsGroupGenesisBinding,
@@ -1121,7 +1147,8 @@ where
         |_, _, _, _| Ok(()),
         project_writes,
         &mut live_suites,
-    )?;
+    )
+    .await?;
     if live_digest_suite_at_basis(&target_checkpoint.basis, &live_suites)?
         != target_checkpoint.live_digest_suite
     {
@@ -1173,6 +1200,7 @@ where
             &cell_store,
             registry,
         )
+        .await
         .map_err(replay_reject_error)?;
         let ordered_values = state
             .iter()
@@ -1211,11 +1239,11 @@ where
                 &events,
                 &mut event_ids,
                 branch_digest_suite,
-            )?;
-            let left = index
-                .checked_sub(1)
-                .map(|boundary_index| {
-                    let (boundary_cell, boundary_value) = &ordered_values[boundary_index];
+            )
+            .await?;
+            let left = if let Some(boundary_index) = index.checked_sub(1) {
+                let (boundary_cell, boundary_value) = &ordered_values[boundary_index];
+                Some(
                     materialize_frontier_entry(
                         boundary_cell,
                         &FrontierValueState {
@@ -1229,11 +1257,14 @@ where
                         &mut event_ids,
                         branch_digest_suite,
                     )
-                })
-                .transpose()?;
-            let right = ordered_values
-                .get(index + 1)
-                .map(|(boundary_cell, boundary_value)| {
+                    .await?,
+                )
+            } else {
+                None
+            };
+            let right = if let Some((boundary_cell, boundary_value)) = ordered_values.get(index + 1)
+            {
+                Some(
                     materialize_frontier_entry(
                         boundary_cell,
                         &FrontierValueState {
@@ -1247,8 +1278,11 @@ where
                         &mut event_ids,
                         branch_digest_suite,
                     )
-                })
-                .transpose()?;
+                    .await?,
+                )
+            } else {
+                None
+            };
             let leaf_index = entry.inclusion_witness.leaf_index;
             let leaf_count = entry.inclusion_witness.leaf_count;
             ranges.push(MlsGovernanceFrontierRangeWitness {
@@ -1360,7 +1394,7 @@ fn canonical_state_leaf_preimage(cell: &CellRef, value: &Value) -> arkret_wire::
 }
 
 #[allow(clippy::too_many_arguments)]
-fn materialize_frontier_entry(
+async fn materialize_frontier_entry(
     cell: &CellRef,
     cell_state: &FrontierValueState<'_>,
     seal: &Seal,
@@ -1375,9 +1409,11 @@ fn materialize_frontier_entry(
     let proof = crate::state_inclusion_proof(state, cell, digest_suite)?;
     let preimage = canonical_state_leaf_preimage(cell, value)?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
+        .await
         .map_err(replay_reject_error)?;
     let provenance_digests = cell_store
         .sealed_ops_for_cell(&seal.realm_id, cell)
+        .await
         .map_err(replay_store_error)?
         .into_iter()
         .filter(|issued| covered.contains(&issued.op.move_id))
@@ -1619,7 +1655,7 @@ type ReplayedGovernanceCut = (
 );
 
 #[allow(clippy::too_many_arguments)]
-fn replay_checkpoint_and_cut<
+async fn replay_checkpoint_and_cut<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -1668,10 +1704,11 @@ where
         verify_seal_dependencies,
         project_writes,
     )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
-fn replay_checkpoint_and_cut_to_basis<
+async fn replay_checkpoint_and_cut_to_basis<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -1740,9 +1777,11 @@ where
         verify_seal_dependencies,
         project_writes,
         &mut live_suites,
-    )?;
+    )
+    .await?;
     let base_leaves = seal_store
         .list_leaves(expected_realm)
+        .await
         .map_err(replay_store_error)?;
     if canonical_seal_set(&base_leaves) != canonical_seal_set(&checkpoint.basis.leaves) {
         return frontier_rejected("replayed checkpoint leaf set does not equal its pinned basis");
@@ -1756,7 +1795,7 @@ where
 
     let mut new_seals = Vec::new();
     for seal in resolved_seals {
-        match seal_store.get(&seal.id).map_err(replay_store_error)? {
+        match seal_store.get(&seal.id).await.map_err(replay_store_error)? {
             Some(previous) if previous != *seal => {
                 return frontier_rejected("proof Seal conflicts with the retained checkpoint");
             }
@@ -1777,9 +1816,11 @@ where
         verify_seal_dependencies,
         project_writes,
         &mut live_suites,
-    )?;
+    )
+    .await?;
     let target_leaves = seal_store
         .list_leaves(expected_realm)
+        .await
         .map_err(replay_store_error)?;
     if canonical_seal_set(&target_leaves) != canonical_seal_set(&target_basis.leaves) {
         return frontier_rejected("replayed target leaf set does not equal the query target basis");
@@ -1797,7 +1838,12 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn replay_seal_set<VerifySealSignature, VerifyEventProofs, VerifySealDependencies, ProjectWrites>(
+async fn replay_seal_set<
+    VerifySealSignature,
+    VerifyEventProofs,
+    VerifySealDependencies,
+    ProjectWrites,
+>(
     seals: &[Seal],
     all_events: &dyn ReplayEventLookup,
     event_store: &MemoryControlEventStore,
@@ -1835,16 +1881,16 @@ where
     }
     let mut ordered = Vec::with_capacity(seals.len());
     while !pending.is_empty() {
-        let ready = pending
-            .iter()
-            .filter_map(|(id, seal)| {
-                seal_store
-                    .predecessors_known(&seal.predecessor_refs)
-                    .ok()
-                    .filter(|known| *known)
-                    .map(|_| id.clone())
-            })
-            .collect::<Vec<_>>();
+        let mut ready = Vec::new();
+        for (id, seal) in &pending {
+            if seal_store
+                .predecessors_known(&seal.predecessor_refs)
+                .await
+                .unwrap_or(false)
+            {
+                ready.push(id.clone());
+            }
+        }
         if ready.is_empty() {
             return frontier_rejected("replay Seal set has a missing predecessor or cycle");
         }
@@ -1865,7 +1911,8 @@ where
                 verify_seal_dependencies,
                 project_writes,
                 live_suites,
-            )?;
+            )
+            .await?;
             ordered.push(seal);
         }
     }
@@ -1878,7 +1925,7 @@ where
 /// is only one implementation of notary selection, delta admission, root
 /// recomputation and Bottom/recovery.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn replay_one_seal<
+pub(crate) async fn replay_one_seal<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -1911,9 +1958,9 @@ where
         + Copy,
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
-    let digest_suites = digest_suites_for_replay_seal(seal, all_events, live_suites)?;
+    let digest_suites = digest_suites_for_replay_seal(seal, all_events, live_suites).await?;
     for digest in &seal.delta {
-        let event = all_events.event(digest)?.ok_or_else(|| {
+        let event = all_events.event(digest).await?.ok_or_else(|| {
             WireError::Protocol("replay Seal delta Event is unresolved".to_owned())
         })?;
         let event_digest_suite = if seal.predecessor_refs.is_empty()
@@ -1933,7 +1980,7 @@ where
         }
     }
     let (notary, predecessor_state) =
-        predecessor_notary_and_state(seal, all_events, seal_store, cell_store, registry)?;
+        predecessor_notary_and_state(seal, all_events, seal_store, cell_store, registry).await?;
     verify_notary_authority(
         seal,
         &notary,
@@ -1947,7 +1994,8 @@ where
         seal_store,
         cell_store,
         digest_suites,
-    )?;
+    )
+    .await?;
     verify_seal_dependencies(seal, &notary, &dependency_context, dependencies)?;
 
     apply_replayed_seal_in_context(
@@ -1968,32 +2016,32 @@ where
             EventSubmitContext::Standard
         },
     )
+    .await
     .map_err(replay_reject_error)?;
     let mut covered = union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
+        .await
         .map_err(replay_reject_error)?;
     covered.extend(seal.delta.iter().cloned());
-    let covered_events = covered
-        .iter()
-        .map(|digest| {
-            let event = event_store
-                .get(digest)
-                .map_err(replay_store_error)?
-                .ok_or_else(|| {
-                    WireError::Protocol(
-                        "Seal completeness Event is absent from the replay closure".to_owned(),
-                    )
-                })?;
-            let event_digest_suite = event_store
-                .digest_suite(digest)
-                .map_err(replay_store_error)?
-                .ok_or_else(|| {
-                    WireError::Protocol(
-                        "Seal completeness Event has no frozen digest suite".to_owned(),
-                    )
-                })?;
-            Ok((event, event_digest_suite))
-        })
-        .collect::<arkret_wire::Result<Vec<_>>>()?;
+    let mut covered_events = Vec::with_capacity(covered.len());
+    for digest in &covered {
+        let event = event_store
+            .get(digest)
+            .await
+            .map_err(replay_store_error)?
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "Seal completeness Event is absent from the replay closure".to_owned(),
+                )
+            })?;
+        let event_digest_suite = event_store
+            .digest_suite(digest)
+            .await
+            .map_err(replay_store_error)?
+            .ok_or_else(|| {
+                WireError::Protocol("Seal completeness Event has no frozen digest suite".to_owned())
+            })?;
+        covered_events.push((event, event_digest_suite));
+    }
     let completeness =
         control_event_completeness_root(&covered_events, &covered, digest_suites.seal_digest_suite)
             .map_err(replay_reject_error)?;
@@ -2004,7 +2052,7 @@ where
     Ok(())
 }
 
-fn digest_suites_for_replay_seal(
+async fn digest_suites_for_replay_seal(
     seal: &Seal,
     all_events: &dyn ReplayEventLookup,
     live_suites: &BTreeMap<SealId, DigestSuite>,
@@ -2012,7 +2060,7 @@ fn digest_suites_for_replay_seal(
     if seal.predecessor_refs.is_empty() {
         let mut declared = None;
         for digest in &seal.delta {
-            let event = all_events.event(digest)?.ok_or_else(|| {
+            let event = all_events.event(digest).await?.ok_or_else(|| {
                 WireError::Protocol("genesis Seal delta Event is unresolved".to_owned())
             })?;
             if event.kind != arkret_wire::EventKind::RealmCreate {
@@ -2052,7 +2100,7 @@ fn digest_suites_for_replay_seal(
     let from = predecessor_suite.expect("non-genesis Seal has at least one predecessor");
     let mut transitions = Vec::new();
     for digest in &seal.delta {
-        if let Some(event) = all_events.event(digest)?
+        if let Some(event) = all_events.event(digest).await?
             && event.kind == arkret_wire::EventKind::RealmDigestSuiteTransition
         {
             transitions.push(event);
@@ -2111,7 +2159,7 @@ pub(crate) fn live_digest_suite_at_basis(
     joined.ok_or_else(|| WireError::Protocol("basis contains no leaves".to_owned()))
 }
 
-fn predecessor_notary_and_state(
+async fn predecessor_notary_and_state(
     seal: &Seal,
     all_events: &dyn ReplayEventLookup,
     seal_store: &MemorySealStore,
@@ -2121,7 +2169,7 @@ fn predecessor_notary_and_state(
     if seal.predecessor_refs.is_empty() {
         let mut create_notary = None;
         for digest in &seal.delta {
-            let Some(event) = all_events.event(digest)? else {
+            let Some(event) = all_events.event(digest).await? else {
                 continue;
             };
             if event.kind.as_str() == arkret_wire::event_kind_str::REALM_CREATE {
@@ -2152,6 +2200,7 @@ fn predecessor_notary_and_state(
         cell_store,
         registry,
     )
+    .await
     .map_err(replay_reject_error)?;
     let mut notary = None;
     for (cell, value) in &state {
@@ -2172,7 +2221,7 @@ fn predecessor_notary_and_state(
         .ok_or_else(|| WireError::Protocol("predecessor view has no notary state".to_owned()))
 }
 
-pub fn derive_seal_dependency_replay_context(
+pub async fn derive_seal_dependency_replay_context(
     seal: &Seal,
     predecessor_state: &BTreeMap<CellRef, CellState>,
     all_events: &dyn ReplayEventLookup,
@@ -2188,9 +2237,10 @@ pub fn derive_seal_dependency_replay_context(
         cell_store,
         digest_suites,
     )
+    .await
 }
 
-fn seal_dependency_replay_context(
+async fn seal_dependency_replay_context(
     seal: &Seal,
     predecessor_state: &BTreeMap<CellRef, CellState>,
     all_events: &dyn ReplayEventLookup,
@@ -2215,24 +2265,23 @@ fn seal_dependency_replay_context(
             return frontier_rejected("predecessor view has multiple Realm policy bundle cells");
         }
     }
+    let mut event_digest_suites = BTreeMap::new();
+    for digest in &seal.delta {
+        let event = all_events
+            .event(digest)
+            .await?
+            .ok_or_else(|| WireError::Protocol("Seal dependency Event is unresolved".to_owned()))?;
+        let suite = if seal.predecessor_refs.is_empty()
+            && event.kind == arkret_wire::EventKind::RealmCreate
+        {
+            DigestSuite::Sha256
+        } else {
+            digest_suites.event_digest_suite
+        };
+        event_digest_suites.insert(digest.clone(), suite);
+    }
     let mut context = SealDependencyReplayContext {
-        event_digest_suites: seal
-            .delta
-            .iter()
-            .map(|digest| {
-                let event = all_events.event(digest)?.ok_or_else(|| {
-                    WireError::Protocol("Seal dependency Event is unresolved".to_owned())
-                })?;
-                let suite = if seal.predecessor_refs.is_empty()
-                    && event.kind == arkret_wire::EventKind::RealmCreate
-                {
-                    DigestSuite::Sha256
-                } else {
-                    digest_suites.event_digest_suite
-                };
-                Ok((digest.clone(), suite))
-            })
-            .collect::<arkret_wire::Result<_>>()?,
+        event_digest_suites,
         seal_digest_suite: digest_suites.seal_digest_suite,
         availability_authority: if seal.predecessor_refs.is_empty() {
             SealAvailabilityReplayAuthority::Genesis
@@ -2244,9 +2293,11 @@ fn seal_dependency_replay_context(
         },
     };
     if !seal.predecessor_refs.is_empty()
-        && !add_pcr_holder_from_verified_create_anchor(seal, all_events, seal_store, &mut context)?
+        && !add_pcr_holder_from_verified_create_anchor(seal, all_events, seal_store, &mut context)
+            .await?
     {
         let covered = union_predecessor_covered_events(&seal.predecessor_refs, seal_store)
+            .await
             .map_err(replay_reject_error)?;
         for (cell, state) in predecessor_state {
             let cell_id = CellId::from_ref(cell)?;
@@ -2257,12 +2308,13 @@ fn seal_dependency_replay_context(
             }
             let covered_ops = cell_store
                 .sealed_ops_for_cell(&seal.realm_id, cell)
+                .await
                 .map_err(replay_store_error)?
                 .into_iter()
                 .filter(|issued| covered.contains(&issued.op.move_id))
                 .collect::<Vec<_>>();
             let winning_join = winning_membership_join(&covered_ops)?;
-            let event = all_events.event(&winning_join)?.ok_or_else(|| {
+            let event = all_events.event(&winning_join).await?.ok_or_else(|| {
                 WireError::Protocol("winning membership Event is unresolved".to_owned())
             })?;
             add_joined_holder_from_event(&event, &mut context)?;
@@ -2271,7 +2323,7 @@ fn seal_dependency_replay_context(
     Ok(context)
 }
 
-fn add_pcr_holder_from_verified_create_anchor(
+async fn add_pcr_holder_from_verified_create_anchor(
     seal: &Seal,
     all_events: &dyn ReplayEventLookup,
     seal_store: &dyn SealStore,
@@ -2279,12 +2331,14 @@ fn add_pcr_holder_from_verified_create_anchor(
 ) -> arkret_wire::Result<bool> {
     let genesis_id = seal_store
         .genesis(&seal.realm_id)
+        .await
         .map_err(replay_store_error)?
         .ok_or_else(|| {
             WireError::Protocol("predecessor closure has no Realm genesis Seal".to_owned())
         })?;
     let genesis = seal_store
         .get(&genesis_id)
+        .await
         .map_err(replay_store_error)?
         .ok_or_else(|| {
             WireError::Protocol("indexed Realm genesis Seal is unresolved".to_owned())
@@ -2294,7 +2348,7 @@ fn add_pcr_holder_from_verified_create_anchor(
     }
     let mut create = None;
     for digest in &genesis.delta {
-        let event = all_events.event(digest)?.ok_or_else(|| {
+        let event = all_events.event(digest).await?.ok_or_else(|| {
             WireError::Protocol("genesis create-anchor Event is unresolved".to_owned())
         })?;
         if event.kind != arkret_wire::EventKind::RealmCreate {
@@ -2452,7 +2506,7 @@ fn replay_reject_error(error: crate::SealReject) -> WireError {
     WireError::Protocol(format!("MLS governance replay rejected: {error}"))
 }
 
-fn verify_frontier_entry(
+async fn verify_frontier_entry(
     entry: &MlsGovernanceFrontierCellEntry,
     seals: &BTreeMap<SealId, &Seal>,
     events: &BTreeMap<EventId, &Event>,
@@ -2530,6 +2584,7 @@ fn verify_frontier_entry(
         cell_store,
         registry,
     )
+    .await
     .map_err(replay_reject_error)?;
     let Some(CellState::Value(reduced)) = root_state.get(&entry.cell_id) else {
         return frontier_rejected("replayed root has no concrete value for the frontier cell");
@@ -2542,9 +2597,11 @@ fn verify_frontier_entry(
 
     let covered =
         union_predecessor_covered_events(std::slice::from_ref(&witness.root_seal_ref), seal_store)
+            .await
             .map_err(replay_reject_error)?;
     let replayed_provenance = cell_store
         .sealed_ops_for_cell(&seal.realm_id, &entry.cell_id)
+        .await
         .map_err(replay_store_error)?
         .into_iter()
         .filter(|issued| covered.contains(&issued.op.move_id))
@@ -2563,7 +2620,7 @@ fn verify_frontier_entry(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn verify_branch_entry_closure(
+async fn verify_branch_entry_closure(
     branch: &MlsGovernanceFrontierBranchProjection,
     realm_id: &RealmId,
     seal_store: &MemorySealStore,
@@ -2581,6 +2638,7 @@ fn verify_branch_entry_closure(
         cell_store,
         registry,
     )
+    .await
     .map_err(replay_reject_error)?;
     let mut expected = BTreeSet::new();
     for (cell, state) in state {
@@ -3042,8 +3100,8 @@ fn anchor_rejected<E: From<WireError>>(message: &str) -> E {
 mod tests {
     use super::*;
 
-    #[test]
-    fn security_frontier_leaf_set_preserves_same_principal_at_distinct_stations() {
+    #[tokio::test]
+    async fn security_frontier_leaf_set_preserves_same_principal_at_distinct_stations() {
         let principal = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
         let actor = |station: &str| {
             ActorId::account(arkret_wire::AccountId::new(
@@ -3071,8 +3129,8 @@ mod tests {
         assert_eq!(actors.len(), 2);
     }
 
-    #[test]
-    fn security_frontier_leaf_rejects_legacy_principal_only_shape() {
+    #[tokio::test]
+    async fn security_frontier_leaf_rejects_legacy_principal_only_shape() {
         assert!(
             serde_json::from_value::<MlsSecurityFrontierLeaf>(json!({
                 "leaf_index": 0,
@@ -3083,8 +3141,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn circle_frontier_selects_realm_members_by_registry_subject_encoding() {
+    #[tokio::test]
+    async fn circle_frontier_selects_realm_members_by_registry_subject_encoding() {
         let actor = ActorId::account(arkret_wire::AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
@@ -3141,8 +3199,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn materializer_state_leaf_preimage_matches_state_root_contract() {
+    #[tokio::test]
+    async fn materializer_state_leaf_preimage_matches_state_root_contract() {
         let cell =
             CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
                 .unwrap();

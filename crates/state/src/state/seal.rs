@@ -185,7 +185,7 @@ impl From<super::store::StoreError> for SealReject {
 // Four independent stores plus two caller-supplied verification closures; a
 // bundling struct would only move the same arity behind a constructor.
 #[allow(clippy::too_many_arguments)]
-pub fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
+pub async fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -212,8 +212,9 @@ where
         project_writes,
         context,
         SealEventProofRegime::ProducerSubmission,
-    )?;
-    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared)
+    )
+    .await?;
+    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared).await
 }
 
 /// Verify an incoming producer-submission Seal without mutating its stores.
@@ -222,7 +223,7 @@ where
 /// receivers whose acceptance transaction also persists typed dependency
 /// evidence or other receiver-owned indexes.
 #[allow(clippy::too_many_arguments)]
-pub fn prepare_seal_in_context<VerifyProofs, ProjectWrites>(
+pub async fn prepare_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -250,13 +251,14 @@ where
         context,
         SealEventProofRegime::ProducerSubmission,
     )
+    .await
 }
 
 /// Apply a Seal whose delta is loaded from the durable accepted-event lane.
 /// Each Event must carry the closed Producer + StationAdmission proof
 /// set; producer-submission Seals continue to use [`apply_seal_in_context`].
 #[allow(clippy::too_many_arguments)]
-pub fn apply_accepted_seal_in_context<VerifyProofs, ProjectWrites>(
+pub async fn apply_accepted_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -283,8 +285,9 @@ where
         project_writes,
         context,
         SealEventProofRegime::FederationAccepted,
-    )?;
-    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared)
+    )
+    .await?;
+    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared).await
 }
 
 /// Apply a retained Seal whose Events may use either the historical
@@ -292,7 +295,7 @@ where
 /// The selected structural contract is derived from each exact Event proof
 /// set; all remaining CBA, reducer, recovery, and state-root checks are shared.
 #[allow(clippy::too_many_arguments)]
-pub fn apply_replayed_seal_in_context<VerifyProofs, ProjectWrites>(
+pub async fn apply_replayed_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -319,8 +322,9 @@ where
         project_writes,
         context,
         SealEventProofRegime::RetainedReplay,
-    )?;
-    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared)
+    )
+    .await?;
+    commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared).await
 }
 
 #[derive(Clone, Copy)]
@@ -331,7 +335,7 @@ enum SealEventProofRegime {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn prepare_seal_with_proof_set<VerifyProofs, ProjectWrites>(
+async fn prepare_seal_with_proof_set<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -357,7 +361,7 @@ where
         .map_err(|e| SealReject::Structural(format!("id: {e}")))?;
     seal.validate_structural()
         .map_err(|e| SealReject::Structural(e.to_string()))?;
-    if !seals.predecessors_known(&seal.predecessor_refs)? {
+    if !seals.predecessors_known(&seal.predecessor_refs).await? {
         return Err(SealReject::UnknownPredecessor);
     }
     if seal.predecessor_refs.is_empty() && seal.delta.is_empty() {
@@ -366,7 +370,7 @@ where
         ));
     }
 
-    let pred_covered = union_predecessor_covered_events(&seal.predecessor_refs, seals)?;
+    let pred_covered = union_predecessor_covered_events(&seal.predecessor_refs, seals).await?;
     if seal.delta.iter().any(|m| pred_covered.contains(m)) {
         return Err(SealReject::DeltaAlreadyCovered);
     }
@@ -395,13 +399,14 @@ where
     // exception: realm-and-space.md §2.5 requires ak.realm.create's registered
     // writes to be staged before its bootstrap follow-ups are evaluated.
     let pre_state =
-        effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)?;
-    let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals)?;
+        effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry).await?;
+    let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals).await?;
 
     let mut new_events: Vec<(Hash, Event)> = Vec::with_capacity(seal.delta.len());
     for digest in &seal.delta {
         let event = events
-            .get(digest)?
+            .get(digest)
+            .await?
             .ok_or_else(|| SealReject::MissingControlEvent {
                 event_digest: digest.as_str().to_owned(),
             })?;
@@ -432,11 +437,12 @@ where
     let mut covered_events = Vec::with_capacity(covered.len());
     for digest in &covered {
         let event = events
-            .get(digest)?
+            .get(digest)
+            .await?
             .ok_or_else(|| SealReject::MissingControlEvent {
                 event_digest: digest.as_str().to_owned(),
             })?;
-        let event_digest_suite = events.digest_suite(digest)?.ok_or_else(|| {
+        let event_digest_suite = events.digest_suite(digest).await?.ok_or_else(|| {
             SealReject::Structural(format!("Control Event {digest} has no frozen digest suite"))
         })?;
         covered_events.push((event, event_digest_suite));
@@ -472,7 +478,8 @@ where
                     registry,
                     digest_suite: event_digest_suite,
                 },
-            )?;
+            )
+            .await?;
         }
         let verification = match proof_regime {
             SealEventProofRegime::FederationAccepted => verify_accepted_control_move_in_context(
@@ -537,6 +544,7 @@ where
                     registry,
                     event_digest_suite,
                 )
+                .await
                 .map_err(|reject| SealReject::ControlMoveRejected {
                     event_digest: digest.as_str().to_owned(),
                     reason: reject.to_string(),
@@ -592,7 +600,8 @@ where
         cells,
         registry,
         &new_ops,
-    )?;
+    )
+    .await?;
     let post_live_suite = live_digest_suite_from_state(&post_state)?;
     if post_live_suite != digest_suites.seal_digest_suite {
         return Err(SealReject::Structural(
@@ -619,7 +628,7 @@ where
     })
 }
 
-fn commit_prepared_seal(
+async fn commit_prepared_seal(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -627,13 +636,15 @@ fn commit_prepared_seal(
     digest_suites: SealDigestSuites,
     prepared: PreparedSealEffect,
 ) -> Result<SealEffect, SealReject> {
-    cells.append_sealed_effects(&seal.realm_id, &seal.id, &prepared.new_ops)?;
-    if let Err(error) = seals.put(seal, digest_suites.seal_digest_suite) {
-        let _ = cells.rollback_seal(&seal.realm_id, &seal.id);
+    cells
+        .append_sealed_effects(&seal.realm_id, &seal.id, &prepared.new_ops)
+        .await?;
+    if let Err(error) = seals.put(seal, digest_suites.seal_digest_suite).await {
+        let _ = cells.rollback_seal(&seal.realm_id, &seal.id).await;
         return Err(error.into());
     }
     for digest in &prepared.effect.accepted_event_digests {
-        events.mark_sealed(digest, seal)?;
+        events.mark_sealed(digest, seal).await?;
     }
     Ok(prepared.effect)
 }
@@ -864,7 +875,7 @@ const MAX_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS: i64 = 604_800_000;
 /// that require accepted Seal and cell history: witness reconstruction,
 /// pre-conflict ancestry, capability inclusion, freshness, and revoke lag.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_recovery_witness(
+pub async fn verify_recovery_witness(
     event: &Event,
     effects: &[crate::ProjectionEffect],
     realm_id: &RealmId,
@@ -918,6 +929,7 @@ pub fn verify_recovery_witness(
         }
         let witness = seals
             .get(&witness_id)
+            .await
             .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
             .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         if &witness.realm_id != realm_id {
@@ -926,9 +938,11 @@ pub fn verify_recovery_witness(
 
         let witness_covered =
             union_predecessor_covered_events(std::slice::from_ref(&witness_id), seals)
+                .await
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         let witness_state =
             effective_state_for_covered_events(&witness_covered, realm_id, cells, registry)
+                .await
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         let witness_digest_suite = digest_suite_from_trusted_hash(&witness.state_root)
             .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
@@ -950,19 +964,20 @@ pub fn verify_recovery_witness(
         }
 
         for move_id in &bottom.move_ids {
-            let conflict_seal = predecessor_closure
-                .iter()
-                .filter_map(|seal_id| {
-                    seals
-                        .get(seal_id)
-                        .ok()
-                        .flatten()
-                        .filter(|seal| seal.delta.contains(move_id))
-                })
-                .next()
+            let mut conflict_seal = None;
+            for seal_id in predecessor_closure {
+                if let Ok(Some(seal)) = seals.get(seal_id).await
+                    && seal.delta.contains(move_id)
+                {
+                    conflict_seal = Some(seal);
+                    break;
+                }
+            }
+            let conflict_seal = conflict_seal
                 .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
             let conflict_closure =
                 predecessor_seal_closure(std::slice::from_ref(&conflict_seal.id), seals)
+                    .await
                     .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
             if witness_id == conflict_seal.id || !conflict_closure.contains(&witness_id) {
                 return Err(reject(
@@ -978,12 +993,14 @@ pub fn verify_recovery_witness(
         let mut latest_basis_time: Option<chrono::DateTime<chrono::Utc>> = None;
         for leaf in &basis.leaves {
             let leaf_closure = predecessor_seal_closure(std::slice::from_ref(leaf), seals)
+                .await
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
             if !leaf_closure.contains(&witness_id) {
                 return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
             }
             let leaf_time = seals
                 .get(leaf)
+                .await
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
                 .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
                 .sealed_at;
@@ -1038,7 +1055,7 @@ fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>
 /// This is split out of `verify_control_move` because it is the only part
 /// of §5.1 that needs the Seal DAG; the rest is a pure function of the Event
 /// and the frozen pre-state.
-pub fn verify_seal_basis(
+pub async fn verify_seal_basis(
     event_digest: &Hash,
     event: &Event,
     verification: SealBasisVerificationContext<'_>,
@@ -1072,7 +1089,8 @@ pub fn verify_seal_basis(
         cells,
         registry,
         digest_suite,
-    )?;
+    )
+    .await?;
     Ok(())
 }
 
@@ -1082,7 +1100,7 @@ pub fn verify_seal_basis(
 /// `seal_basis` leaf to exactly this set — never to the receiver's own global
 /// accepted-Seal set, which would make acceptance depend on leaf arrival
 /// order.
-pub fn predecessor_seal_closure(
+pub async fn predecessor_seal_closure(
     predecessor_refs: &[SealId],
     seals: &dyn SealStore,
 ) -> Result<BTreeSet<SealId>, SealReject> {
@@ -1093,14 +1111,15 @@ pub fn predecessor_seal_closure(
             continue;
         }
         let seal = seals
-            .get(&id)?
+            .get(&id)
+            .await?
             .ok_or_else(|| SealReject::Store(format!("predecessor {id} not in store")))?;
         queue.extend(seal.predecessor_refs);
     }
     Ok(out)
 }
 
-pub fn effective_seal_view(
+pub async fn effective_seal_view(
     leaves: &[SealId],
     realm_id: &RealmId,
     seals: &dyn SealStore,
@@ -1110,11 +1129,11 @@ pub fn effective_seal_view(
 ) -> Result<EffectiveSealView, SealReject> {
     let mut sorted = leaves.to_vec();
     sorted.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-    let union_proof = leaf_union_proof(&sorted, seals)?;
+    let union_proof = leaf_union_proof(&sorted, seals).await?;
     let covered = union_covered_from_proof(&union_proof);
     let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
     let control_event_set_root = control_event_set_root(&covered, digest_suite)?;
-    let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry)?;
+    let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry).await?;
     let state_root = compute_state_root(&post_state, digest_suite)
         .map_err(|e| SealReject::Store(format!("state_root: {e}")))?;
     let view_hash = joined_control_view_hash(
@@ -1151,47 +1170,47 @@ pub struct SealLeafUnionProof {
     pub control_event_set_root: Hash,
 }
 
-pub fn union_predecessor_covered_events(
+pub async fn union_predecessor_covered_events(
     predecessor_refs: &[SealId],
     seals: &dyn SealStore,
 ) -> Result<BTreeSet<Hash>, SealReject> {
     let mut out = BTreeSet::new();
     for predecessor in predecessor_refs {
-        collect_covered_events(predecessor, seals, &mut out)?;
+        collect_covered_events(predecessor, seals, &mut out).await?;
     }
     Ok(out)
 }
 
-pub fn leaf_union_proof(
+pub async fn leaf_union_proof(
     leaves: &[SealId],
     seals: &dyn SealStore,
 ) -> Result<Vec<SealLeafUnionProof>, SealReject> {
     let mut sorted = leaves.to_vec();
     sorted.sort_by(|a, b| a.as_str().cmp(b.as_str()));
-    sorted
-        .into_iter()
-        .map(|leaf| {
-            let mut covered = BTreeSet::new();
-            collect_covered_events(&leaf, seals, &mut covered)?;
-            let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
-            let leaf_seal = seals
-                .get(&leaf)?
-                .ok_or_else(|| SealReject::Store(format!("predecessor {leaf} not in store")))?;
-            let digest_suite = digest_suite_from_trusted_hash(&leaf_seal.control_event_set_root)?;
-            let control_event_set_root = control_event_set_root(&covered, digest_suite)?;
-            if control_event_set_root != leaf_seal.control_event_set_root {
-                return Err(SealReject::ControlEventSetRootMismatch {
-                    declared: leaf_seal.control_event_set_root.as_str().to_owned(),
-                    recomputed: control_event_set_root.as_str().to_owned(),
-                });
-            }
-            Ok(SealLeafUnionProof {
-                leaf,
-                covered_event_digests,
-                control_event_set_root,
-            })
-        })
-        .collect()
+    let mut proof = Vec::with_capacity(sorted.len());
+    for leaf in sorted {
+        let mut covered = BTreeSet::new();
+        collect_covered_events(&leaf, seals, &mut covered).await?;
+        let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
+        let leaf_seal = seals
+            .get(&leaf)
+            .await?
+            .ok_or_else(|| SealReject::Store(format!("predecessor {leaf} not in store")))?;
+        let digest_suite = digest_suite_from_trusted_hash(&leaf_seal.control_event_set_root)?;
+        let control_event_set_root = control_event_set_root(&covered, digest_suite)?;
+        if control_event_set_root != leaf_seal.control_event_set_root {
+            return Err(SealReject::ControlEventSetRootMismatch {
+                declared: leaf_seal.control_event_set_root.as_str().to_owned(),
+                recomputed: control_event_set_root.as_str().to_owned(),
+            });
+        }
+        proof.push(SealLeafUnionProof {
+            leaf,
+            covered_event_digests,
+            control_event_set_root,
+        });
+    }
+    Ok(proof)
 }
 
 fn union_covered_from_proof(proof: &[SealLeafUnionProof]) -> BTreeSet<Hash> {
@@ -1201,22 +1220,28 @@ fn union_covered_from_proof(proof: &[SealLeafUnionProof]) -> BTreeSet<Hash> {
         .collect()
 }
 
-fn collect_covered_events(
+async fn collect_covered_events(
     seal_id: &SealId,
     seals: &dyn SealStore,
     out: &mut BTreeSet<Hash>,
 ) -> Result<(), SealReject> {
-    let seal = seals
-        .get(seal_id)?
-        .ok_or_else(|| SealReject::Store(format!("predecessor {seal_id} not in store")))?;
-    if !seal.covered_event_digests.is_empty() {
-        out.extend(seal.covered_event_digests);
-        return Ok(());
+    let mut pending = vec![seal_id.clone()];
+    let mut visited = BTreeSet::new();
+    while let Some(id) = pending.pop() {
+        if !visited.insert(id.clone()) {
+            continue;
+        }
+        let seal = seals
+            .get(&id)
+            .await?
+            .ok_or_else(|| SealReject::Store(format!("predecessor {id} not in store")))?;
+        if !seal.covered_event_digests.is_empty() {
+            out.extend(seal.covered_event_digests);
+            continue;
+        }
+        pending.extend(seal.predecessor_refs);
+        out.extend(seal.delta);
     }
-    for predecessor in &seal.predecessor_refs {
-        collect_covered_events(predecessor, seals, out)?;
-    }
-    out.extend(seal.delta);
     Ok(())
 }
 
@@ -1445,27 +1470,28 @@ fn digest_suite_from_trusted_hash(
         .map_err(|error| SealReject::Structural(format!("invalid trusted digest suite: {error}")))
 }
 
-pub fn effective_state_at(
+pub async fn effective_state_at(
     leaves: &[SealId],
     realm_id: &RealmId,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
-    let covered = union_predecessor_covered_events(leaves, seals)?;
-    effective_state_for_covered_events(&covered, realm_id, cells, registry)
+    let covered = union_predecessor_covered_events(leaves, seals).await?;
+    effective_state_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
-fn effective_state_for_covered_events(
+async fn effective_state_for_covered_events(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
     let mut out = BTreeMap::new();
-    for cell in cells.list_cells(realm_id)? {
+    for cell in cells.list_cells(realm_id).await? {
         let batches: Vec<(SealId, Vec<IssuedOp>)> = cells
-            .sealed_op_batches_for_cell(realm_id, &cell)?
+            .sealed_op_batches_for_cell(realm_id, &cell)
+            .await?
             .into_iter()
             .filter_map(|(seal, ops)| {
                 let covered_ops = ops
@@ -1494,7 +1520,7 @@ fn effective_state_for_covered_events(
 /// Resolve a candidate post-state without requiring its cell ops to be
 /// visible through the durable [`CellStore`] before the accepting Seal is
 /// committed.
-fn effective_state_for_covered_events_with_new_ops(
+async fn effective_state_for_covered_events_with_new_ops(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
@@ -1502,7 +1528,8 @@ fn effective_state_for_covered_events_with_new_ops(
     new_ops: &[(CellRef, IssuedOp)],
 ) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
     let mut cells_to_resolve = cells
-        .list_cells(realm_id)?
+        .list_cells(realm_id)
+        .await?
         .into_iter()
         .collect::<BTreeSet<_>>();
     cells_to_resolve.extend(new_ops.iter().map(|(cell, _)| cell.clone()));
@@ -1510,7 +1537,8 @@ fn effective_state_for_covered_events_with_new_ops(
     let mut out = BTreeMap::new();
     for cell in cells_to_resolve {
         let mut batches = cells
-            .sealed_op_batches_for_cell(realm_id, &cell)?
+            .sealed_op_batches_for_cell(realm_id, &cell)
+            .await?
             .into_iter()
             .filter_map(|(_, ops)| {
                 let covered_ops = ops

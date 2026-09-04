@@ -267,8 +267,8 @@ fn checkpoint() -> (MlsGovernanceVerificationCheckpoint, SealBasis, CellRef) {
     (checkpoint, historical, membership_cell)
 }
 
-#[test]
-fn registered_cell_reads_historical_join_and_current_leave_from_one_checkpoint() {
+#[tokio::test]
+async fn registered_cell_reads_historical_join_and_current_leave_from_one_checkpoint() {
     let (checkpoint, historical, cell) = checkpoint();
     let registry = registry();
     assert_eq!(
@@ -279,6 +279,7 @@ fn registered_cell_reads_historical_join_and_current_leave_from_one_checkpoint()
             &registry,
             projection,
         )
+        .await
         .unwrap(),
         json!("join"),
     );
@@ -290,6 +291,7 @@ fn registered_cell_reads_historical_join_and_current_leave_from_one_checkpoint()
             &registry,
             projection,
         )
+        .await
         .unwrap(),
         json!("leave"),
     );
@@ -300,13 +302,14 @@ fn registered_cell_reads_historical_join_and_current_leave_from_one_checkpoint()
             &registry,
             projection,
         )
+        .await
         .unwrap(),
         json!("leave"),
     );
 }
 
-#[test]
-fn registered_cell_rejects_unknown_seal_even_beside_an_accepted_leaf() {
+#[tokio::test]
+async fn registered_cell_rejects_unknown_seal_even_beside_an_accepted_leaf() {
     let (checkpoint, historical, cell) = checkpoint();
     let unknown = SealId::new(format!("ak:seal:sha256:{}", "ff".repeat(32))).unwrap();
     for leaves in [
@@ -320,13 +323,14 @@ fn registered_cell_rejects_unknown_seal_even_beside_an_accepted_leaf() {
             &registry(),
             projection,
         )
+        .await
         .unwrap_err();
         assert!(error.to_string().contains("unverified Seal"), "{error}");
     }
 }
 
-#[test]
-fn registered_cell_does_not_substitute_another_accounts_membership() {
+#[tokio::test]
+async fn registered_cell_does_not_substitute_another_accounts_membership() {
     let (checkpoint, historical, _) = checkpoint();
     let other = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
         DidCoreId::new("ak:did_core:web:replay-kat.example").unwrap(),
@@ -345,6 +349,7 @@ fn registered_cell_does_not_substitute_another_accounts_membership() {
         &registry(),
         projection,
     )
+    .await
     .unwrap_err();
     assert!(
         error.to_string().contains("target cell is missing"),

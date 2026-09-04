@@ -45,6 +45,7 @@ use arkret_wire::{
     ActorId, CellRef, EventId, Hash, MlsGroupId, NotarySignerDescriptor, NotaryValue,
     ProjectedCellWrite, RealmId, Seal, SealBasis, SealId, SealSignature, WireError, event_kind_str,
 };
+use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::lattice::CellState;
@@ -189,6 +190,8 @@ pub trait DirectTraversalJournal {
 
     fn topological_len(&self) -> arkret_wire::Result<u64>;
 
+    fn topological_at(&self, index: u64) -> arkret_wire::Result<Option<SealId>>;
+
     /// Stream the topological log oldest first.
     fn for_each_topological(
         &self,
@@ -286,6 +289,12 @@ impl DirectTraversalJournal for BoundedDirectTraversalJournal {
 
     fn topological_len(&self) -> arkret_wire::Result<u64> {
         Ok(self.topological.len() as u64)
+    }
+
+    fn topological_at(&self, index: u64) -> arkret_wire::Result<Option<SealId>> {
+        let index = usize::try_from(index)
+            .map_err(|_| traversal_error(DirectTraversalError::BoundsExceeded))?;
+        Ok(self.topological.get(index).cloned())
     }
 
     fn for_each_topological(
@@ -635,13 +644,15 @@ struct DeltaEventLookup<'a> {
 pub type DirectTraversalSealObserver<'a> =
     dyn FnMut(&Seal, &BTreeMap<Hash, Event>) -> arkret_wire::Result<()> + 'a;
 
+#[async_trait]
 impl ReplayEventLookup for DeltaEventLookup<'_> {
-    fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
+    async fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
         if let Some(event) = self.delta.get(digest) {
             return Ok(Some(event.clone()));
         }
         self.store
             .get(digest)
+            .await
             .map_err(|error| WireError::Protocol(error.to_string()))
     }
 }
@@ -658,7 +669,7 @@ impl ReplayEventLookup for DeltaEventLookup<'_> {
 /// transitions, membership incarnations, the RHRK tuple) without this function
 /// accumulating the whole cut.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_direct_traversal_cut_with_registry<
+pub async fn verify_direct_traversal_cut_with_registry<
     VerifySealSignature,
     VerifyEventProofs,
     VerifySealDependencies,
@@ -707,11 +718,11 @@ where
     let mut live_suites = BTreeMap::new();
     let mut replayed = 0_u64;
 
-    journal.for_each_topological(&mut |seal_ref| {
+    while let Some(seal_ref) = journal.topological_at(replayed)? {
         let seal = source
-            .seal(seal_ref)?
+            .seal(&seal_ref)?
             .ok_or_else(|| traversal_error(DirectTraversalError::DependencyMissing))?;
-        if seal.id != *seal_ref {
+        if seal.id != seal_ref {
             return Err(WireError::Protocol(
                 "direct traversal Seal does not match the requested seal_ref".to_owned(),
             ));
@@ -763,11 +774,11 @@ where
             verify_seal_dependencies,
             project_writes,
             &mut live_suites,
-        )?;
+        )
+        .await?;
         on_replayed_seal(&seal, &delta)?;
         replayed = replayed.saturating_add(1);
-        Ok(())
-    })?;
+    }
 
     if replayed != discovery.visited_seal_count {
         return Err(WireError::Protocol(
@@ -776,6 +787,7 @@ where
     }
     let leaves = seal_store
         .list_leaves(&request.realm_id)
+        .await
         .map_err(|error| WireError::Protocol(error.to_string()))?;
     if leaves.iter().cloned().collect::<BTreeSet<_>>()
         != request
@@ -796,6 +808,7 @@ where
         &cell_store,
         registry,
     )
+    .await
     .map_err(|error| WireError::Protocol(error.to_string()))?;
 
     Ok(VerifiedDirectTraversalCut {
@@ -1080,8 +1093,8 @@ mod tests {
         (outcome, journal)
     }
 
-    #[test]
-    fn closed_cut_emits_a_base_first_topological_order() {
+    #[tokio::test]
+    async fn closed_cut_emits_a_base_first_topological_order() {
         let cut = FixtureShapedCut::new();
         let (outcome, journal) = discover(&cut.request(), cut.descriptors());
         assert_eq!(
@@ -1111,8 +1124,8 @@ mod tests {
         assert!(position(&cut.mid_right) < position(&cut.target_right));
     }
 
-    #[test]
-    fn a_hidden_predecessor_fails_closed() {
+    #[tokio::test]
+    async fn a_hidden_predecessor_fails_closed() {
         let cut = FixtureShapedCut::new();
         let mut descriptors = cut.descriptors();
         descriptors.retain(|item| item.seal_ref != cut.mid_left);
@@ -1127,8 +1140,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn an_undominated_trusted_current_leaf_fails_closed() {
+    #[tokio::test]
+    async fn an_undominated_trusted_current_leaf_fails_closed() {
         let cut = FixtureShapedCut::new();
         let mut request = cut.request();
         request.trusted_current_basis = basis(&[&seal_id("ee")]);
@@ -1139,8 +1152,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_branch_that_stops_before_the_base_fails_closed() {
+    #[tokio::test]
+    async fn a_branch_that_stops_before_the_base_fails_closed() {
         let cut = FixtureShapedCut::new();
         let mut descriptors = cut.descriptors();
         descriptors.retain(|item| item.seal_ref != cut.mid_left);
@@ -1159,8 +1172,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn an_unconsumed_base_leaf_fails_closed() {
+    #[tokio::test]
+    async fn an_unconsumed_base_leaf_fails_closed() {
         let cut = FixtureShapedCut::new();
         let mut request = cut.request();
         request.trusted_history_base_basis =
@@ -1172,8 +1185,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_surplus_descriptor_fails_closed() {
+    #[tokio::test]
+    async fn a_surplus_descriptor_fails_closed() {
         let cut = FixtureShapedCut::new();
         let mut descriptors = cut.descriptors();
         descriptors.push(descriptor(&seal_id("ee"), &[]));
@@ -1184,8 +1197,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_duplicate_descriptor_is_refused_by_the_source() {
+    #[tokio::test]
+    async fn a_duplicate_descriptor_is_refused_by_the_source() {
         let cut = FixtureShapedCut::new();
         let mut descriptors = cut.descriptors();
         descriptors.push(descriptor(&cut.base_left, &[]));
@@ -1197,8 +1210,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn ambiguous_event_variants_are_refused_before_replay_material_exists() {
+    #[tokio::test]
+    async fn ambiguous_event_variants_are_refused_before_replay_material_exists() {
         let claimed = Hash::new(format!("sha256:{}", "a7".repeat(32))).expect("claimed digest");
         let variant_a = event(
             arkret_wire::EventKind::PolicySet.as_str(),
@@ -1242,8 +1255,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn an_over_budget_cut_is_refused_before_the_first_journal_row() {
+    #[tokio::test]
+    async fn an_over_budget_cut_is_refused_before_the_first_journal_row() {
         let cut = FixtureShapedCut::new();
         let mut journal = BoundedDirectTraversalJournal::default();
         let outcome = discover_direct_cut(&cut.request(), &OverBudgetSource, &mut journal)
@@ -1390,8 +1403,8 @@ mod tests {
     const ADD_REF: &str = "ak:event:AbNAprqpf8plo9xcY8bDOmf3mEUhUCZbN63erkPaxN_8";
     const COMMIT_REF: &str = "ak:event:ARrXzX07X_prHPMAeOGPMrI4_sUFneJW2aYSvHN_-9aQ";
 
-    #[test]
-    fn join_epoch_is_the_winning_commit_that_consumes_the_exact_add() {
+    #[tokio::test]
+    async fn join_epoch_is_the_winning_commit_that_consumes_the_exact_add() {
         let incarnation = EventId::new(INCARNATION_REF).expect("incarnation ref");
         let genesis_ref = EventId::new(GENESIS_REF).expect("genesis ref");
         let founder = DidCoreId::new("ak:did_core:key:z6MkfixtureFounder").expect("founder");
@@ -1411,8 +1424,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_genesis_initial_leaf_joins_at_epoch_zero() {
+    #[tokio::test]
+    async fn a_genesis_initial_leaf_joins_at_epoch_zero() {
         let incarnation = EventId::new(INCARNATION_REF).expect("incarnation ref");
         let retained = vec![
             membership_join(INCARNATION_REF),
@@ -1424,8 +1437,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_non_founding_actor_without_an_add_lineage_fails_closed() {
+    #[tokio::test]
+    async fn a_non_founding_actor_without_an_add_lineage_fails_closed() {
         let incarnation = EventId::new(INCARNATION_REF).expect("incarnation ref");
         let founder = DidCoreId::new("ak:did_core:key:z6MkfixtureFounder").expect("founder");
         let retained = vec![
@@ -1440,8 +1453,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn an_unproven_incarnation_fails_closed() {
+    #[tokio::test]
+    async fn an_unproven_incarnation_fails_closed() {
         let incarnation = EventId::new(INCARNATION_REF).expect("incarnation ref");
         let retained = vec![genesis(GENESIS_REF, &actor())];
         let error = derive_history_join_epoch(&retained, &subject(&incarnation))

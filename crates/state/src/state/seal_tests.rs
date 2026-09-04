@@ -13,6 +13,7 @@ fn issued(op: SealedOp) -> IssuedOp {
 
 use arkret_wire::ProducerEventProof;
 use arkret_wire::event_envelope::{EventRef, ScopeRef};
+use async_trait::async_trait;
 use chrono::{TimeZone, Utc};
 use serde_json::json;
 
@@ -41,12 +42,13 @@ struct SealGatedCellStore {
     inner: MemoryCellStore,
 }
 
+#[async_trait]
 impl CellStore for SealGatedCellStore {
-    fn list_cells(&self, _realm_id: &RealmId) -> crate::state::StoreResult<Vec<CellRef>> {
+    async fn list_cells(&self, _realm_id: &RealmId) -> crate::state::StoreResult<Vec<CellRef>> {
         Ok(Vec::new())
     }
 
-    fn sealed_ops_for_cell(
+    async fn sealed_ops_for_cell(
         &self,
         _realm_id: &RealmId,
         _cell: &CellRef,
@@ -54,7 +56,7 @@ impl CellStore for SealGatedCellStore {
         Ok(Vec::new())
     }
 
-    fn sealed_op_batches_for_cell(
+    async fn sealed_op_batches_for_cell(
         &self,
         _realm_id: &RealmId,
         _cell: &CellRef,
@@ -62,16 +64,16 @@ impl CellStore for SealGatedCellStore {
         Ok(Vec::new())
     }
 
-    fn cached_state(
+    async fn cached_state(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
     ) -> crate::state::StoreResult<Option<CellState>> {
-        self.inner.cached_state(realm_id, cell, view_hash)
+        self.inner.cached_state(realm_id, cell, view_hash).await
     }
 
-    fn put_cached_state(
+    async fn put_cached_state(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
@@ -80,24 +82,31 @@ impl CellStore for SealGatedCellStore {
     ) -> crate::state::StoreResult<()> {
         self.inner
             .put_cached_state(realm_id, cell, view_hash, state)
+            .await
     }
 
-    fn append_sealed_effects(
+    async fn append_sealed_effects(
         &self,
         realm_id: &RealmId,
         seal: &SealId,
         new_ops: &[(CellRef, IssuedOp)],
     ) -> crate::state::StoreResult<()> {
-        self.inner.append_sealed_effects(realm_id, seal, new_ops)
+        self.inner
+            .append_sealed_effects(realm_id, seal, new_ops)
+            .await
     }
 
-    fn rollback_seal(&self, realm_id: &RealmId, seal: &SealId) -> crate::state::StoreResult<()> {
-        self.inner.rollback_seal(realm_id, seal)
+    async fn rollback_seal(
+        &self,
+        realm_id: &RealmId,
+        seal: &SealId,
+    ) -> crate::state::StoreResult<()> {
+        self.inner.rollback_seal(realm_id, seal).await
     }
 }
 
-#[test]
-fn live_digest_suite_uses_genesis_until_a_transition_cell_exists() {
+#[tokio::test]
+async fn live_digest_suite_uses_genesis_until_a_transition_cell_exists() {
     let genesis_cell = CellRef::new(arkret_wire::null_subject_cell(
         arkret_wire::CellFamilyId::REALM_GENESIS_V1,
     ))
@@ -123,8 +132,8 @@ fn live_digest_suite_uses_genesis_until_a_transition_cell_exists() {
     );
 }
 
-#[test]
-fn live_digest_suite_fails_closed_without_transition_or_genesis_state() {
+#[tokio::test]
+async fn live_digest_suite_fails_closed_without_transition_or_genesis_state() {
     let error = live_digest_suite_from_state(&BTreeMap::new()).unwrap_err();
     assert!(
         error
@@ -153,18 +162,18 @@ fn control_event_completeness_root(
     super::control_event_completeness_root(&events, covered, SUITE)
 }
 
-fn effective_seal_view(
+async fn effective_seal_view(
     leaves: &[SealId],
     realm_id: &RealmId,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<EffectiveSealView, SealReject> {
-    super::effective_seal_view(leaves, realm_id, seals, cells, registry, SUITE)
+    super::effective_seal_view(leaves, realm_id, seals, cells, registry, SUITE).await
 }
 
 #[allow(clippy::too_many_arguments)]
-fn verify_recovery_witness(
+async fn verify_recovery_witness(
     event: &Event,
     effects: &[crate::ProjectionEffect],
     realm_id: &RealmId,
@@ -185,9 +194,10 @@ fn verify_recovery_witness(
         registry,
         SUITE,
     )
+    .await
 }
 
-fn apply_seal<VerifyProofs, ProjectWrites>(
+async fn apply_seal<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -211,10 +221,11 @@ where
         |event, _| project_writes(event),
         EventSubmitContext::Standard,
     )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
-fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
+async fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
@@ -239,6 +250,7 @@ where
         |event, _| project_writes(event),
         context,
     )
+    .await
 }
 
 fn ackless_ingress() -> ControlProposalIngress {
@@ -438,8 +450,8 @@ fn materialized_seal(id: SealId, covered: Vec<Hash>) -> Seal {
     seal
 }
 
-#[test]
-fn control_event_set_root_uses_seal_merkle_domain_separation() {
+#[tokio::test]
+async fn control_event_set_root_uses_seal_merkle_domain_separation() {
     let mut one = BTreeSet::new();
     one.insert(move_id(0x11));
     let mut leaf_input = vec![0x00];
@@ -463,8 +475,8 @@ fn control_event_set_root_uses_seal_merkle_domain_separation() {
     );
 }
 
-#[test]
-fn event_digest_set_inclusion_proof_covers_every_leaf_and_rejects_tampering() {
+#[tokio::test]
+async fn event_digest_set_inclusion_proof_covers_every_leaf_and_rejects_tampering() {
     let digests = [move_id(0x11), move_id(0x22), move_id(0x33)]
         .into_iter()
         .collect::<BTreeSet<_>>();
@@ -514,8 +526,8 @@ fn completeness_event(
     .unwrap()
 }
 
-#[test]
-fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
+#[tokio::test]
+async fn completeness_root_is_actor_sequence_enveloped_and_requires_exact_coverage() {
     let alice = completeness_event(
         "ak:event:AR-4MwpAcHt7pmjO-Cab9s-33ymPZefvcpl666_jGxiY",
         "ak:did_core:webvh:z6mkfixturealice",
@@ -547,8 +559,8 @@ fn listed(actor_id: &str, actor_seq: u64, byte: u8) -> ListedControlEvent {
     }
 }
 
-#[test]
-fn genesis_vector_recomputes_independent_seal_roots() {
+#[tokio::test]
+async fn genesis_vector_recomputes_independent_seal_roots() {
     let events = [
         listed("ak:did_core:webvh:z6mkfixturealice", 1, 0x11),
         listed("ak:did_core:webvh:z6mkfixturealice", 2, 0x22),
@@ -562,8 +574,8 @@ fn genesis_vector_recomputes_independent_seal_roots() {
     assert_ne!(control, completeness);
 }
 
-#[test]
-fn predecessor_vector_recomputes_roots_over_the_cumulative_closure() {
+#[tokio::test]
+async fn predecessor_vector_recomputes_roots_over_the_cumulative_closure() {
     let predecessor = listed("ak:did_core:webvh:z6mkfixturealice", 7, 0x11);
     let successor = listed("ak:did_core:webvh:z6mkfixturealice", 9, 0x22);
     let cumulative = [predecessor.clone(), successor.clone()];
@@ -583,8 +595,8 @@ fn predecessor_vector_recomputes_roots_over_the_cumulative_closure() {
     );
 }
 
-#[test]
-fn multi_actor_vector_recomputes_one_completeness_leaf_per_actor() {
+#[tokio::test]
+async fn multi_actor_vector_recomputes_one_completeness_leaf_per_actor() {
     let events = [
         listed("ak:did_core:webvh:z6mkfixturealice", 7, 0x11),
         listed("ak:did_core:webvh:z6mkfixturebob", 3, 0x22),
@@ -602,8 +614,8 @@ fn multi_actor_vector_recomputes_one_completeness_leaf_per_actor() {
     );
 }
 
-#[test]
-fn effective_state_at_filters_ops_by_seal_coverage() {
+#[tokio::test]
+async fn effective_state_at_filters_ops_by_seal_coverage() {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::default();
@@ -623,6 +635,7 @@ fn effective_state_at_filters_ops_by_seal_coverage() {
                 issued(SealedOp::new(move_a, add_op("a", "visible-at-a"))),
             )],
         )
+        .await
         .unwrap();
     cells
         .append_sealed_effects(
@@ -633,9 +646,10 @@ fn effective_state_at_filters_ops_by_seal_coverage() {
                 issued(SealedOp::new(move_b, add_op("b", "visible-at-b"))),
             )],
         )
+        .await
         .unwrap();
-    seals.put(&seal_a, SUITE).unwrap();
-    seals.put(&seal_b, SUITE).unwrap();
+    seals.put(&seal_a, SUITE).await.unwrap();
+    seals.put(&seal_b, SUITE).await.unwrap();
 
     let state_a = effective_state_at(
         std::slice::from_ref(&seal_a.id),
@@ -644,6 +658,7 @@ fn effective_state_at_filters_ops_by_seal_coverage() {
         &cells,
         &registry,
     )
+    .await
     .unwrap();
     let value_a = state_a
         .get(&cell)
@@ -661,6 +676,7 @@ fn effective_state_at_filters_ops_by_seal_coverage() {
         &cells,
         &registry,
     )
+    .await
     .unwrap();
     let value_b = state_b
         .get(&cell)
@@ -672,8 +688,8 @@ fn effective_state_at_filters_ops_by_seal_coverage() {
     );
 }
 
-#[test]
-fn effective_seal_view_is_leaf_order_independent() {
+#[tokio::test]
+async fn effective_seal_view_is_leaf_order_independent() {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::default();
@@ -682,8 +698,8 @@ fn effective_seal_view_is_leaf_order_independent() {
     let move_b = move_id(0xbb);
     let seal_a = materialized_seal(seal_id(0xa1), vec![move_a.clone()]);
     let seal_b = materialized_seal(seal_id(0xb1), vec![move_b.clone()]);
-    seals.put(&seal_b, SUITE).unwrap();
-    seals.put(&seal_a, SUITE).unwrap();
+    seals.put(&seal_b, SUITE).await.unwrap();
+    seals.put(&seal_a, SUITE).await.unwrap();
 
     let first = effective_seal_view(
         &[seal_b.id.clone(), seal_a.id.clone()],
@@ -692,6 +708,7 @@ fn effective_seal_view_is_leaf_order_independent() {
         &cells,
         &registry,
     )
+    .await
     .unwrap();
     let second = effective_seal_view(
         &[seal_a.id.clone(), seal_b.id.clone()],
@@ -700,6 +717,7 @@ fn effective_seal_view_is_leaf_order_independent() {
         &cells,
         &registry,
     )
+    .await
     .unwrap();
 
     let mut expected_predecessors = vec![seal_a.id, seal_b.id];
@@ -718,8 +736,8 @@ fn effective_seal_view_is_leaf_order_independent() {
 /// serves `SealEffect::accepted_event_digests` straight out of the reducer
 /// hands a client the reverse of what `Seal.delta` says. Three clients
 /// compared exactly that with `!=` against a `seal.delta` clone.
-#[test]
-fn wire_accepted_digests_are_ascending_not_apply_order() {
+#[tokio::test]
+async fn wire_accepted_digests_are_ascending_not_apply_order() {
     let basis = SealBasis {
         leaves: vec![seal_id(0x11)],
     };
@@ -750,8 +768,8 @@ fn wire_accepted_digests_are_ascending_not_apply_order() {
     assert_ne!(effect.wire_accepted_event_digests(), apply_order);
 }
 
-#[test]
-fn deterministic_order_respects_causality_then_digest_desc() {
+#[tokio::test]
+async fn deterministic_order_respects_causality_then_digest_desc() {
     // Digests are content-derived, so the fixture picks the causal edge and
     // then asserts against the digests the Events actually hash to.
     let basis = SealBasis {
@@ -786,8 +804,8 @@ fn deterministic_order_respects_causality_then_digest_desc() {
     assert_eq!(ids[1], independent_second);
 }
 
-#[test]
-fn deterministic_order_is_input_permutation_independent() {
+#[tokio::test]
+async fn deterministic_order_is_input_permutation_independent() {
     let basis = SealBasis {
         leaves: vec![seal_id(0x11)],
     };
@@ -916,8 +934,8 @@ fn bootstrap_member_transition_write(event: &Event) -> Result<Vec<ProjectedCellW
     Ok(writes)
 }
 
-#[test]
-fn apply_seal_rejects_an_empty_first_root() {
+#[tokio::test]
+async fn apply_seal_rejects_an_empty_first_root() {
     let seal = signed_seal(
         Vec::new(),
         Vec::new(),
@@ -938,6 +956,7 @@ fn apply_seal_rejects_an_empty_first_root() {
         ok_proofs,
         join_transition_write,
     )
+    .await
     .unwrap_err();
     assert!(
         error
@@ -946,8 +965,8 @@ fn apply_seal_rejects_an_empty_first_root() {
     );
 }
 
-#[test]
-fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
+#[tokio::test]
+async fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
     let events = MemoryControlEventStore::default();
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
@@ -956,6 +975,7 @@ fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
     let post_state = state_with_digest_suite([]);
     let seal = signed_seal_with_coverage(
@@ -975,6 +995,7 @@ fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
         ok_proofs,
         genesis_digest_suite_write,
     )
+    .await
     .unwrap_err();
     assert!(matches!(
         standard_error,
@@ -991,13 +1012,14 @@ fn first_anchor_unit_can_apply_basisless_events_only_in_explicit_context() {
         genesis_digest_suite_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap();
     assert_eq!(effect.accepted_event_digests, vec![digest]);
     assert_eq!(effect.post_state_root, seal.state_root);
 }
 
-#[test]
-fn prepared_seal_transition_is_store_immutable_until_commit() {
+#[tokio::test]
+async fn prepared_seal_transition_is_store_immutable_until_commit() {
     let events = MemoryControlEventStore::default();
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
@@ -1006,6 +1028,7 @@ fn prepared_seal_transition_is_store_immutable_until_commit() {
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
     let seal = signed_seal_with_coverage(
         Vec::new(),
@@ -1026,6 +1049,7 @@ fn prepared_seal_transition_is_store_immutable_until_commit() {
         |event, _| genesis_digest_suite_write(event),
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap();
 
     assert_eq!(prepared.effect.accepted_event_digests, vec![digest.clone()]);
@@ -1033,8 +1057,8 @@ fn prepared_seal_transition_is_store_immutable_until_commit() {
         prepared.covered_event_digests,
         [digest.clone()].into_iter().collect()
     );
-    assert!(seals.get(&seal.id).unwrap().is_none());
-    assert!(cells.list_cells(&seal.realm_id).unwrap().is_empty());
+    assert!(seals.get(&seal.id).await.unwrap().is_none());
+    assert!(cells.list_cells(&seal.realm_id).await.unwrap().is_empty());
 
     let committed = apply_seal_in_context(
         &seal,
@@ -1046,12 +1070,13 @@ fn prepared_seal_transition_is_store_immutable_until_commit() {
         genesis_digest_suite_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap();
     assert_eq!(committed.accepted_event_digests, vec![digest]);
 }
 
-#[test]
-fn seal_rejects_each_independently_recomputed_root_mismatch() {
+#[tokio::test]
+async fn seal_rejects_each_independently_recomputed_root_mismatch() {
     let event = genesis_create();
     let digest = control_event_digest(&event, SUITE).unwrap();
     let post_state = state_with_digest_suite([]);
@@ -1075,6 +1100,7 @@ fn seal_rejects_each_independently_recomputed_root_mismatch() {
         let events = MemoryControlEventStore::default();
         events
             .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+            .await
             .unwrap();
         let error = apply_seal_in_context(
             &seal,
@@ -1086,6 +1112,7 @@ fn seal_rejects_each_independently_recomputed_root_mismatch() {
             genesis_digest_suite_write,
             EventSubmitContext::AnchorUnit,
         )
+        .await
         .unwrap_err();
         match expected_variant {
             "control" => assert!(matches!(
@@ -1100,8 +1127,8 @@ fn seal_rejects_each_independently_recomputed_root_mismatch() {
     }
 }
 
-#[test]
-fn apply_seal_validates_candidate_state_before_durable_visibility() {
+#[tokio::test]
+async fn apply_seal_validates_candidate_state_before_durable_visibility() {
     let events = MemoryControlEventStore::default();
     let seals = MemorySealStore::default();
     let cells = SealGatedCellStore::default();
@@ -1110,6 +1137,7 @@ fn apply_seal_validates_candidate_state_before_durable_visibility() {
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
     let post_state = state_with_digest_suite([]);
     let seal = signed_seal_with_coverage(
@@ -1130,6 +1158,7 @@ fn apply_seal_validates_candidate_state_before_durable_visibility() {
         genesis_digest_suite_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap();
 
     assert_eq!(effect.accepted_event_digests, vec![digest.clone()]);
@@ -1137,13 +1166,14 @@ fn apply_seal_validates_candidate_state_before_durable_visibility() {
     let stored = cells
         .inner
         .sealed_ops_for_cell(&realm(), &digest_suite_cell())
+        .await
         .unwrap();
     assert_eq!(stored.len(), 1);
     assert_eq!(stored[0].op.move_id, digest);
 }
 
-#[test]
-fn rejected_anchor_state_root_never_publishes_candidate_cell_ops() {
+#[tokio::test]
+async fn rejected_anchor_state_root_never_publishes_candidate_cell_ops() {
     let events = MemoryControlEventStore::default();
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
@@ -1152,6 +1182,7 @@ fn rejected_anchor_state_root_never_publishes_candidate_cell_ops() {
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
     let declared_post_state = state_with_digest_suite([(
         capability_cell(),
@@ -1175,15 +1206,16 @@ fn rejected_anchor_state_root_never_publishes_candidate_cell_ops() {
         genesis_digest_suite_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap_err();
 
     assert!(matches!(error, SealReject::StateRootMismatch { .. }));
-    assert!(cells.list_cells(&realm()).unwrap().is_empty());
-    assert!(seals.get(&seal.id).unwrap().is_none());
+    assert!(cells.list_cells(&realm()).await.unwrap().is_empty());
+    assert!(seals.get(&seal.id).await.unwrap().is_none());
 }
 
-#[test]
-fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
+#[tokio::test]
+async fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
     let events = MemoryControlEventStore::default();
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
@@ -1201,6 +1233,7 @@ fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
     let create_digest = control_event_digest(&create, SUITE).unwrap();
     events
         .put_pending_with_ingress(&create, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
 
     let mut binding = control_move(
@@ -1229,6 +1262,7 @@ fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
     let binding_digest = control_event_digest(&binding, SUITE).unwrap();
     events
         .put_pending_with_ingress(&binding, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
 
     let post_state = state_with_digest_suite([(member_cell(), CellState::Value(json!("join")))]);
@@ -1255,6 +1289,7 @@ fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
         bootstrap_member_transition_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap();
     // Acceptance order stays causal (create, then the binding that depends
     // on it) regardless of how `Seal.delta` sorts.
@@ -1265,8 +1300,8 @@ fn anchor_unit_stages_create_projection_before_creator_binding_transition() {
     assert_eq!(effect.post_state_root, seal.state_root);
 }
 
-#[test]
-fn anchor_unit_context_rejects_a_nonempty_predecessor_view() {
+#[tokio::test]
+async fn anchor_unit_context_rejects_a_nonempty_predecessor_view() {
     let seal = signed_seal(
         vec![seal_id(0x01)],
         Vec::new(),
@@ -1284,13 +1319,14 @@ fn anchor_unit_context_rejects_a_nonempty_predecessor_view() {
         join_transition_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap_err();
     assert!(error.to_string().contains("only valid for the first Seal"));
 }
 
 /// Install a fully replayable Genesis Seal and return the basis a
 /// successor Control Move must declare.
-fn install_genesis(
+async fn install_genesis(
     events: &MemoryControlEventStore,
     seals: &MemorySealStore,
     cells: &MemoryCellStore,
@@ -1300,6 +1336,7 @@ fn install_genesis(
     let anchor = control_event_digest(&create, SUITE).unwrap();
     events
         .put_pending_with_ingress(&create, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
     let post_state = state_with_digest_suite([]);
     let genesis = signed_seal_with_coverage(
@@ -1319,6 +1356,7 @@ fn install_genesis(
         genesis_digest_suite_write,
         EventSubmitContext::AnchorUnit,
     )
+    .await
     .unwrap();
     let basis = SealBasis {
         leaves: vec![genesis.id.clone()],
@@ -1326,13 +1364,13 @@ fn install_genesis(
     (genesis, basis, create, anchor)
 }
 
-#[test]
-fn apply_seal_applies_only_projector_derived_writes() {
+#[tokio::test]
+async fn apply_seal_applies_only_projector_derived_writes() {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let events = MemoryControlEventStore::default();
     let registry = MemoryCellRegistry::default();
-    let (genesis, basis, create, _) = install_genesis(&events, &seals, &cells, &registry);
+    let (genesis, basis, create, _) = install_genesis(&events, &seals, &cells, &registry).await;
 
     // The Event names no cell and no lattice op anywhere: the projector is
     // the sole source of the `invited -> join` write applied below.
@@ -1340,6 +1378,7 @@ fn apply_seal_applies_only_projector_derived_writes() {
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
 
     let post_state = state_with_digest_suite([(member_cell(), CellState::Value(json!("join")))]);
@@ -1360,28 +1399,33 @@ fn apply_seal_applies_only_projector_derived_writes() {
         ok_proofs,
         join_transition_write,
     )
+    .await
     .unwrap();
     assert_eq!(effect.accepted_event_digests, vec![digest.clone()]);
     assert_eq!(effect.post_state_root, seal.state_root);
 
-    let ops = cells.sealed_ops_for_cell(&realm(), &member_cell()).unwrap();
+    let ops = cells
+        .sealed_ops_for_cell(&realm(), &member_cell())
+        .await
+        .unwrap();
     assert_eq!(ops.len(), 1);
     assert_eq!(ops[0].op.move_id, digest);
     assert_eq!(ops[0].issuer_id, event.actor_id);
-    assert_eq!(events.covering_seals(&digest).unwrap(), vec![seal.id]);
+    assert_eq!(events.covering_seals(&digest).await.unwrap(), vec![seal.id]);
 }
 
-#[test]
-fn apply_seal_rejects_a_projection_the_receiver_cannot_evaluate() {
+#[tokio::test]
+async fn apply_seal_rejects_a_projection_the_receiver_cannot_evaluate() {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let events = MemoryControlEventStore::default();
     let registry = MemoryCellRegistry::default();
-    let (genesis, basis, create, _) = install_genesis(&events, &seals, &cells, &registry);
+    let (genesis, basis, create, _) = install_genesis(&events, &seals, &cells, &registry).await;
     let event = control_move(1, basis, Vec::new(), Vec::new());
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
 
     let seal = signed_seal_with_coverage(
@@ -1401,17 +1445,18 @@ fn apply_seal_rejects_a_projection_the_receiver_cannot_evaluate() {
         ok_proofs,
         |_: &Event| Err("registry declares no contract for this kind".to_owned()),
     )
+    .await
     .unwrap_err();
     assert!(matches!(error, SealReject::ControlMoveRejected { .. }));
 }
 
-#[test]
-fn seal_basis_leaf_outside_the_predecessor_closure_rejects() {
+#[tokio::test]
+async fn seal_basis_leaf_outside_the_predecessor_closure_rejects() {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let events = MemoryControlEventStore::default();
     let registry = MemoryCellRegistry::default();
-    let (genesis, mut basis, create, _) = install_genesis(&events, &seals, &cells, &registry);
+    let (genesis, mut basis, create, _) = install_genesis(&events, &seals, &cells, &registry).await;
     // A concurrent Seal the receiving Seal does not descend from. Admitting
     // it would make acceptance depend on which leaves this receiver happens
     // to hold (§6.3 concurrent-leaf rule).
@@ -1420,6 +1465,7 @@ fn seal_basis_leaf_outside_the_predecessor_closure_rejects() {
     let digest = control_event_digest(&event, SUITE).unwrap();
     events
         .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
+        .await
         .unwrap();
 
     let seal = signed_seal_with_coverage(
@@ -1439,12 +1485,13 @@ fn seal_basis_leaf_outside_the_predecessor_closure_rejects() {
         ok_proofs,
         join_transition_write,
     )
+    .await
     .unwrap_err();
     assert!(matches!(error, SealReject::SealBasisOutsideClosure { .. }));
 }
 
-#[test]
-fn predecessor_seal_closure_is_transitive() {
+#[tokio::test]
+async fn predecessor_seal_closure_is_transitive() {
     let seals = MemorySealStore::default();
     let empty_control_root = control_event_set_root(&BTreeSet::new()).unwrap();
     let empty_state_root = compute_state_root(&BTreeMap::new()).unwrap();
@@ -1462,15 +1509,17 @@ fn predecessor_seal_closure_is_transitive() {
         empty_state_root,
         2,
     );
-    seals.put(&genesis, SUITE).unwrap();
-    seals.put(&middle, SUITE).unwrap();
+    seals.put(&genesis, SUITE).await.unwrap();
+    seals.put(&middle, SUITE).await.unwrap();
 
-    let closure = predecessor_seal_closure(std::slice::from_ref(&middle.id), &seals).unwrap();
+    let closure = predecessor_seal_closure(std::slice::from_ref(&middle.id), &seals)
+        .await
+        .unwrap();
     assert_eq!(closure, BTreeSet::from([genesis.id, middle.id]));
 }
 
-#[test]
-fn effective_state_preserves_cross_seal_fsm_order() {
+#[tokio::test]
+async fn effective_state_preserves_cross_seal_fsm_order() {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::default();
@@ -1506,8 +1555,9 @@ fn effective_state_preserves_cross_seal_fsm_order() {
                 ),
             ],
         )
+        .await
         .unwrap();
-    seals.put(&seal, SUITE).unwrap();
+    seals.put(&seal, SUITE).await.unwrap();
 
     let state = effective_state_at(
         std::slice::from_ref(&seal.id),
@@ -1516,12 +1566,13 @@ fn effective_state_preserves_cross_seal_fsm_order() {
         &cells,
         &registry,
     )
+    .await
     .unwrap();
     assert_eq!(state.get(&cell), Some(&CellState::Value(json!("ban"))));
 }
 
-#[test]
-fn mv_register_seal_batches_distinguish_successors_from_siblings() {
+#[tokio::test]
+async fn mv_register_seal_batches_distinguish_successors_from_siblings() {
     let cell = CellRef::new(
         "ak:cell:ak.component.profile.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
     )
@@ -1557,8 +1608,8 @@ fn mv_register_seal_batches_distinguish_successors_from_siblings() {
 
 /// A `cas_register` cell is joined over its whole covered history, so the
 /// predecessors its chain walk binds to are still in the input.
-#[test]
-fn cas_register_seal_batches_join_the_whole_history() {
+#[tokio::test]
+async fn cas_register_seal_batches_join_the_whole_history() {
     let cell = CellRef::new(
         "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
     )
@@ -1606,7 +1657,7 @@ struct RecoveryWitnessFixture {
     conflict_a_id: SealId,
 }
 
-fn recovery_witness_fixture() -> RecoveryWitnessFixture {
+async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::default();
@@ -1667,8 +1718,9 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
                 ),
             ],
         )
+        .await
         .unwrap();
-    seals.put(&witness, SUITE).unwrap();
+    seals.put(&witness, SUITE).await.unwrap();
 
     let mut conflict_a = materialized_seal(
         conflict_a_id(),
@@ -1683,7 +1735,7 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     conflict_a.state_root = witness.state_root.clone();
     conflict_a.sealed_at += chrono::Duration::seconds(1);
     conflict_a.id = conflict_a.derive_id(SUITE).unwrap();
-    seals.put(&conflict_a, SUITE).unwrap();
+    seals.put(&conflict_a, SUITE).await.unwrap();
     let mut conflict_b = materialized_seal(
         seal_id(0x52),
         vec![target_move, grant_move, conflict_b_move.clone()],
@@ -1693,7 +1745,7 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     conflict_b.state_root = witness.state_root;
     conflict_b.sealed_at += chrono::Duration::seconds(1);
     conflict_b.id = conflict_b.derive_id(SUITE).unwrap();
-    seals.put(&conflict_b, SUITE).unwrap();
+    seals.put(&conflict_b, SUITE).await.unwrap();
 
     let mut event = control_move(
         9,
@@ -1729,7 +1781,9 @@ fn recovery_witness_fixture() -> RecoveryWitnessFixture {
         ),
     ]);
     let predecessor_closure =
-        predecessor_seal_closure(&[conflict_a.id.clone(), conflict_b.id.clone()], &seals).unwrap();
+        predecessor_seal_closure(&[conflict_a.id.clone(), conflict_b.id.clone()], &seals)
+            .await
+            .unwrap();
 
     RecoveryWitnessFixture {
         event,
@@ -1747,9 +1801,9 @@ fn conflict_a_id() -> SealId {
     seal_id(0x51)
 }
 
-#[test]
-fn conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
-    let fixture = recovery_witness_fixture();
+#[tokio::test]
+async fn conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
+    let fixture = recovery_witness_fixture().await;
     verify_recovery_witness(
         &fixture.event,
         &fixture.effects,
@@ -1760,12 +1814,13 @@ fn conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
         &fixture.cells,
         &fixture.registry,
     )
+    .await
     .unwrap();
 }
 
-#[test]
-fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
-    let mut post_conflict = recovery_witness_fixture();
+#[tokio::test]
+async fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
+    let mut post_conflict = recovery_witness_fixture().await;
     post_conflict
         .event
         .refs
@@ -1783,6 +1838,7 @@ fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
         &post_conflict.cells,
         &post_conflict.registry,
     )
+    .await
     .unwrap_err();
     assert!(matches!(
         error,
@@ -1790,7 +1846,7 @@ fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
             if reason == arkret_wire::ReasonCode::RECOVERY_WITNESS_POST_CONFLICT
     ));
 
-    let mut revoked = recovery_witness_fixture();
+    let mut revoked = recovery_witness_fixture().await;
     revoked.pre_state.remove(&capability_cell());
     let error = verify_recovery_witness(
         &revoked.event,
@@ -1802,6 +1858,7 @@ fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
         &revoked.cells,
         &revoked.registry,
     )
+    .await
     .unwrap_err();
     assert!(matches!(
         error,
@@ -1810,8 +1867,8 @@ fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
     ));
 }
 
-#[test]
-fn recovery_freshness_uses_the_realm_default_and_seven_day_ceiling() {
+#[tokio::test]
+async fn recovery_freshness_uses_the_realm_default_and_seven_day_ceiling() {
     assert_eq!(
         recovery_witness_freshness_window_ms(&BTreeMap::new()),
         DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS
@@ -1839,8 +1896,8 @@ fn recovery_freshness_uses_the_realm_default_and_seven_day_ceiling() {
 /// The op-level assertion stayed green while the cell never recovered, so
 /// `bottom=reject` cells were permanently dead and the only escape §9.5
 /// defines did not exist.
-#[test]
-fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
+#[tokio::test]
+async fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
     let cell = CellRef::new(
         "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
     )
