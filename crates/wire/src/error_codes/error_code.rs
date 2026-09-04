@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-04.2;
-//! sha256=359c654e8f9de2352ad56d298a64f44d567c5d186498e805fd1f366622107973 Entries: error_codes=283
+//! Input: registry/error-code-registry.json; version=2026-09-04.4;
+//! sha256=cc22918dce115e3a81805b42010b8a775fe4c45e6955a4def591deafc10471ec Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -306,7 +306,6 @@ pub enum ErrorCode {
     UnsupportedJoinRule,
     UnsupportedLatticeType,
     UnsupportedMediaPolicy,
-    UnsupportedOperationBinding,
     UnsupportedOperationVersion,
     UnsupportedOrganizationRegistrationScope,
     UnsupportedProfile,
@@ -605,7 +604,6 @@ impl ErrorCode {
         Self::UnsupportedJoinRule,
         Self::UnsupportedLatticeType,
         Self::UnsupportedMediaPolicy,
-        Self::UnsupportedOperationBinding,
         Self::UnsupportedOperationVersion,
         Self::UnsupportedOrganizationRegistrationScope,
         Self::UnsupportedProfile,
@@ -922,7 +920,6 @@ impl ErrorCode {
     pub const UNSUPPORTED_JOIN_RULE: &'static str = "unsupported_join_rule";
     pub const UNSUPPORTED_LATTICE_TYPE: &'static str = "unsupported_lattice_type";
     pub const UNSUPPORTED_MEDIA_POLICY: &'static str = "unsupported_media_policy";
-    pub const UNSUPPORTED_OPERATION_BINDING: &'static str = "unsupported_operation_binding";
     pub const UNSUPPORTED_OPERATION_VERSION: &'static str = "unsupported_operation_version";
     pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str =
         "unsupported_organization_registration_scope";
@@ -1227,7 +1224,6 @@ impl ErrorCode {
             Self::UnsupportedJoinRule => "unsupported_join_rule",
             Self::UnsupportedLatticeType => "unsupported_lattice_type",
             Self::UnsupportedMediaPolicy => "unsupported_media_policy",
-            Self::UnsupportedOperationBinding => "unsupported_operation_binding",
             Self::UnsupportedOperationVersion => "unsupported_operation_version",
             Self::UnsupportedOrganizationRegistrationScope => {
                 "unsupported_organization_registration_scope"
@@ -1555,7 +1551,6 @@ impl ErrorCode {
             "unsupported_join_rule" => Some(Self::UnsupportedJoinRule),
             "unsupported_lattice_type" => Some(Self::UnsupportedLatticeType),
             "unsupported_media_policy" => Some(Self::UnsupportedMediaPolicy),
-            "unsupported_operation_binding" => Some(Self::UnsupportedOperationBinding),
             "unsupported_operation_version" => Some(Self::UnsupportedOperationVersion),
             "unsupported_organization_registration_scope" => {
                 Some(Self::UnsupportedOrganizationRegistrationScope)
@@ -4335,16 +4330,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The requested media, call, recording, or SFU policy is not supported by the service or negotiated media profile.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::UnsupportedOperationBinding,
-        type_uri: "https://arkret.org/problems/unsupported_operation_binding",
-        title: "Unsupported operation binding",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The caller and role-scoped ServiceDescribe have no exact operation carrier/schema intersection. This disables only the selected operation and MUST NOT be translated to an authorization, account, Realm, or service-wide failure. Dual-registered as a top-level service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedOperationVersion,

@@ -1,14 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-04.2;
-//! sha256=359c654e8f9de2352ad56d298a64f44d567c5d186498e805fd1f366622107973
-//! Entries: reason_codes=451
+//! Input: registry/error-code-registry.json; version=2026-09-04.4;
+//! sha256=cc22918dce115e3a81805b42010b8a775fe4c45e6955a4def591deafc10471ec
+//! Entries: reason_codes=426
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ReasonCode {
-    AbuseCluster,
     AbuseNetwork,
     AbuseReview,
     AccountBindingPrincipalMismatch,
@@ -44,12 +43,6 @@ pub enum ReasonCode {
     ApprovalRequired,
     AttestationMissing,
     AudienceMismatch,
-    AuditAgentAttestationMismatch,
-    AuditAgentDestructionNotPairedWithRemove,
-    AuditAgentDestructionProofNotEnclaveSigned,
-    AuditAgentEpochRangeIncomplete,
-    AuditAgentKeyDestructionAttestationMissing,
-    AuditAgentRemoveRequiresPairedDestructionAttestation,
     AuditCapabilityIncomplete,
     AuditPurposeMismatch,
     AuditReceiptInvalidated,
@@ -62,7 +55,6 @@ pub enum ReasonCode {
     AuditReleaseNoticeMissing,
     AuditReleaseRetroactiveScopeForbidden,
     AuditReleaseScopeMismatch,
-    AuthIncomplete,
     AuthorityCycle,
     AuthorityExpiryWidening,
     AuthorityRegrantDenied,
@@ -81,7 +73,6 @@ pub enum ReasonCode {
     CallStateTerminal,
     CallStateTransitionInvalid,
     CallSummaryInvalid,
-    CardinalityViolation,
     CausalRefsTooLarge,
     CborBoundsInvalid,
     CborNotDeterministic,
@@ -99,19 +90,16 @@ pub enum ReasonCode {
     CircleShortNameTaken,
     ClaimGenerationMismatch,
     ClaimInvalid,
-    ClaimRateLimited,
     ConsentRevoked,
     ConsentWithdrawn,
     ContentEncryptionFloorDowngrade,
     ContentEncryptionFloorViolation,
     ControlProposalDecisionOverdue,
-    CounterBoundExceeded,
     CoveredSetMismatch,
     CreatedAtBeforeBasisSeal,
     CreatedAtBeforeCausalPredecessor,
     CrossDomainReplayRejected,
     CrossRealmStructuralRelation,
-    CrossSpaceStructuralRelation,
     CursorExpired,
     CursorIntegrityInvalid,
     CursorRevoked,
@@ -158,7 +146,6 @@ pub enum ReasonCode {
     ErasureRequestAlreadyPending,
     EventIdDigestMismatch,
     EvidenceRecipientMismatch,
-    ExecutedByMissing,
     ExpiredInviteToken,
     ExternalRateLimited,
     FederationAuthorityMismatch,
@@ -168,7 +155,6 @@ pub enum ReasonCode {
     ForensicAttributionMismatch,
     FoundingDeviceCommitmentMismatch,
     GateCheckFailed,
-    GenesisCreatedAtTooOld,
     GenesisSealInvalid,
     GovernanceBindingMismatch,
     GrantExceedsIssuerAuthority,
@@ -209,10 +195,8 @@ pub enum ReasonCode {
     InviteEventUnaccepted,
     InviteKindRequiresRevoke,
     InviteOobEntropyTooLow,
-    JoinAuthorisationInvalid,
     JoinPolicyDuplicateGateId,
     JoinRulePolicyMismatch,
-    JoinRuleTightened,
     KeyBackupWireSchemaRequired,
     KeypackageClaimRateLimited,
     KeypackageExpired,
@@ -223,7 +207,6 @@ pub enum ReasonCode {
     LastResortRotationRequired,
     LateRecoveryRejectedMembership,
     LegalHoldActive,
-    LiteProfileWritesDisallowedEventKind,
     MediaNegotiationTimeout,
     MediaPlaintextServiceNotAuthorised,
     MediaPlaintextWarningRequired,
@@ -252,16 +235,12 @@ pub enum ReasonCode {
     MlsContentSchemeImmutable,
     MlsGenesisAlreadyExists,
     MlsGovernanceBindingStale,
-    ModerationControlLifted,
-    ModerationControlPending,
     ModerationControlSplit,
     ModerationStateConflict,
     MorphAlreadyTerminal,
     MorphNotActive,
     MorphNotArchived,
-    NamingConventionViolation,
     NoStrandTrackMessageGrant,
-    NotProvisioned,
     Nsfw,
     ObjectIdNotEventDerived,
     Ok,
@@ -343,7 +322,6 @@ pub enum ReasonCode {
     RecoveryProofKindUnknown,
     RecoveryRequired,
     RecoverySessionChallengeMismatch,
-    RecoverySessionTerminal,
     RecoveryTargetNotInBottom,
     RecoveryWitnessInvalid,
     RecoveryWitnessMissing,
@@ -360,14 +338,12 @@ pub enum ReasonCode {
     RelaxedWindowExceedsCeiling,
     ResolutionHistoryAncestorUnknown,
     RevocationFreshnessUnknown,
-    RevokeOrderUnknownRequiresBackfillOrReview,
     RevokeUndoInvalidSignature,
     RiskPolicy,
     RsvpBasisNotCausal,
     RsvpOccurrenceNotCanonical,
     RuntimeKeyMissing,
     ScheduleFrontierTooLarge,
-    ScopeExpansionForbidden,
     ScopeIncomparable,
     ScopeRebindForbidden,
     ScopeRefMismatch,
@@ -438,7 +414,6 @@ pub enum ReasonCode {
     UnsupportedEventKind,
     UnsupportedFeature,
     UnsupportedHpkeSuite,
-    UnsupportedOperationBinding,
     UnsupportedProfile,
     UnsupportedProtocolVersion,
     UnsupportedSignatureAlg,
@@ -470,7 +445,6 @@ pub struct ReasonCodeDescriptor {
 }
 
 impl ReasonCode {
-    pub const ABUSE_CLUSTER: &'static str = "abuse_cluster";
     pub const ABUSE_NETWORK: &'static str = "abuse_network";
     pub const ABUSE_REVIEW: &'static str = "abuse_review";
     pub const ACCOUNT_BINDING_PRINCIPAL_MISMATCH: &'static str =
@@ -515,17 +489,6 @@ impl ReasonCode {
     pub const APPROVAL_REQUIRED: &'static str = "approval_required";
     pub const ATTESTATION_MISSING: &'static str = "attestation_missing";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
-    pub const AUDIT_AGENT_ATTESTATION_MISMATCH: &'static str = "audit_agent_attestation_mismatch";
-    pub const AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE: &'static str =
-        "audit_agent_destruction_not_paired_with_remove";
-    pub const AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED: &'static str =
-        "audit_agent_destruction_proof_not_enclave_signed";
-    pub const AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE: &'static str =
-        "audit_agent_epoch_range_incomplete";
-    pub const AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING: &'static str =
-        "audit_agent_key_destruction_attestation_missing";
-    pub const AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION: &'static str =
-        "audit_agent_remove_requires_paired_destruction_attestation";
     pub const AUDIT_CAPABILITY_INCOMPLETE: &'static str = "audit_capability_incomplete";
     pub const AUDIT_PURPOSE_MISMATCH: &'static str = "audit_purpose_mismatch";
     pub const AUDIT_RECEIPT_INVALIDATED: &'static str = "audit_receipt_invalidated";
@@ -541,7 +504,6 @@ impl ReasonCode {
     pub const AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN: &'static str =
         "audit_release_retroactive_scope_forbidden";
     pub const AUDIT_RELEASE_SCOPE_MISMATCH: &'static str = "audit_release_scope_mismatch";
-    pub const AUTH_INCOMPLETE: &'static str = "auth_incomplete";
     pub const AUTHORITY_CYCLE: &'static str = "authority_cycle";
     pub const AUTHORITY_EXPIRY_WIDENING: &'static str = "authority_expiry_widening";
     pub const AUTHORITY_REGRANT_DENIED: &'static str = "authority_regrant_denied";
@@ -561,7 +523,6 @@ impl ReasonCode {
     pub const CALL_STATE_TERMINAL: &'static str = "call_state_terminal";
     pub const CALL_STATE_TRANSITION_INVALID: &'static str = "call_state_transition_invalid";
     pub const CALL_SUMMARY_INVALID: &'static str = "call_summary_invalid";
-    pub const CARDINALITY_VIOLATION: &'static str = "cardinality_violation";
     pub const CAUSAL_REFS_TOO_LARGE: &'static str = "causal_refs_too_large";
     pub const CBOR_BOUNDS_INVALID: &'static str = "cbor_bounds_invalid";
     pub const CBOR_NOT_DETERMINISTIC: &'static str = "cbor_not_deterministic";
@@ -581,7 +542,6 @@ impl ReasonCode {
     pub const CIRCLE_SHORT_NAME_TAKEN: &'static str = "circle_short_name_taken";
     pub const CLAIM_GENERATION_MISMATCH: &'static str = "claim_generation_mismatch";
     pub const CLAIM_INVALID: &'static str = "claim_invalid";
-    pub const CLAIM_RATE_LIMITED: &'static str = "claim_rate_limited";
     pub const CONSENT_REVOKED: &'static str = "consent_revoked";
     pub const CONSENT_WITHDRAWN: &'static str = "consent_withdrawn";
     pub const CONTENT_ENCRYPTION_FLOOR_DOWNGRADE: &'static str =
@@ -589,14 +549,12 @@ impl ReasonCode {
     pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str =
         "content_encryption_floor_violation";
     pub const CONTROL_PROPOSAL_DECISION_OVERDUE: &'static str = "control_proposal_decision_overdue";
-    pub const COUNTER_BOUND_EXCEEDED: &'static str = "counter_bound_exceeded";
     pub const COVERED_SET_MISMATCH: &'static str = "covered_set_mismatch";
     pub const CREATED_AT_BEFORE_BASIS_SEAL: &'static str = "created_at_before_basis_seal";
     pub const CREATED_AT_BEFORE_CAUSAL_PREDECESSOR: &'static str =
         "created_at_before_causal_predecessor";
     pub const CROSS_DOMAIN_REPLAY_REJECTED: &'static str = "cross_domain_replay_rejected";
     pub const CROSS_REALM_STRUCTURAL_RELATION: &'static str = "cross_realm_structural_relation";
-    pub const CROSS_SPACE_STRUCTURAL_RELATION: &'static str = "cross_space_structural_relation";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
     pub const CURSOR_INTEGRITY_INVALID: &'static str = "cursor_integrity_invalid";
     pub const CURSOR_REVOKED: &'static str = "cursor_revoked";
@@ -663,7 +621,6 @@ impl ReasonCode {
     pub const ERASURE_REQUEST_ALREADY_PENDING: &'static str = "erasure_request_already_pending";
     pub const EVENT_ID_DIGEST_MISMATCH: &'static str = "event_id_digest_mismatch";
     pub const EVIDENCE_RECIPIENT_MISMATCH: &'static str = "evidence_recipient_mismatch";
-    pub const EXECUTED_BY_MISSING: &'static str = "executed_by_missing";
     pub const EXPIRED_INVITE_TOKEN: &'static str = "expired_invite_token";
     pub const EXTERNAL_RATE_LIMITED: &'static str = "external_rate_limited";
     pub const FEDERATION_AUTHORITY_MISMATCH: &'static str = "federation_authority_mismatch";
@@ -674,7 +631,6 @@ impl ReasonCode {
     pub const FOUNDING_DEVICE_COMMITMENT_MISMATCH: &'static str =
         "founding_device_commitment_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
-    pub const GENESIS_CREATED_AT_TOO_OLD: &'static str = "genesis_created_at_too_old";
     pub const GENESIS_SEAL_INVALID: &'static str = "genesis_seal_invalid";
     pub const GOVERNANCE_BINDING_MISMATCH: &'static str = "governance_binding_mismatch";
     pub const GRANT_EXCEEDS_ISSUER_AUTHORITY: &'static str = "grant_exceeds_issuer_authority";
@@ -721,10 +677,8 @@ impl ReasonCode {
     pub const INVITE_EVENT_UNACCEPTED: &'static str = "invite_event_unaccepted";
     pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
-    pub const JOIN_AUTHORISATION_INVALID: &'static str = "join_authorisation_invalid";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
     pub const JOIN_RULE_POLICY_MISMATCH: &'static str = "join_rule_policy_mismatch";
-    pub const JOIN_RULE_TIGHTENED: &'static str = "join_rule_tightened";
     pub const KEY_BACKUP_WIRE_SCHEMA_REQUIRED: &'static str = "key_backup_wire_schema_required";
     pub const KEYPACKAGE_CLAIM_RATE_LIMITED: &'static str = "keypackage_claim_rate_limited";
     pub const KEYPACKAGE_EXPIRED: &'static str = "keypackage_expired";
@@ -737,8 +691,6 @@ impl ReasonCode {
     pub const LAST_RESORT_ROTATION_REQUIRED: &'static str = "last_resort_rotation_required";
     pub const LATE_RECOVERY_REJECTED_MEMBERSHIP: &'static str = "late_recovery_rejected_membership";
     pub const LEGAL_HOLD_ACTIVE: &'static str = "legal_hold_active";
-    pub const LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND: &'static str =
-        "lite_profile_writes_disallowed_event_kind";
     pub const MEDIA_NEGOTIATION_TIMEOUT: &'static str = "media_negotiation_timeout";
     pub const MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &'static str =
         "media_plaintext_service_not_authorised";
@@ -774,16 +726,12 @@ impl ReasonCode {
     pub const MLS_CONTENT_SCHEME_IMMUTABLE: &'static str = "mls_content_scheme_immutable";
     pub const MLS_GENESIS_ALREADY_EXISTS: &'static str = "mls_genesis_already_exists";
     pub const MLS_GOVERNANCE_BINDING_STALE: &'static str = "mls_governance_binding_stale";
-    pub const MODERATION_CONTROL_LIFTED: &'static str = "moderation_control_lifted";
-    pub const MODERATION_CONTROL_PENDING: &'static str = "moderation_control_pending";
     pub const MODERATION_CONTROL_SPLIT: &'static str = "moderation_control_split";
     pub const MODERATION_STATE_CONFLICT: &'static str = "moderation_state_conflict";
     pub const MORPH_ALREADY_TERMINAL: &'static str = "morph_already_terminal";
     pub const MORPH_NOT_ACTIVE: &'static str = "morph_not_active";
     pub const MORPH_NOT_ARCHIVED: &'static str = "morph_not_archived";
-    pub const NAMING_CONVENTION_VIOLATION: &'static str = "naming_convention_violation";
     pub const NO_STRAND_TRACK_MESSAGE_GRANT: &'static str = "no_strand_track_message_grant";
-    pub const NOT_PROVISIONED: &'static str = "not_provisioned";
     pub const NSFW: &'static str = "nsfw";
     pub const OBJECT_ID_NOT_EVENT_DERIVED: &'static str = "object_id_not_event_derived";
     pub const OK: &'static str = "ok";
@@ -877,7 +825,6 @@ impl ReasonCode {
     pub const RECOVERY_REQUIRED: &'static str = "recovery_required";
     pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
         "recovery_session_challenge_mismatch";
-    pub const RECOVERY_SESSION_TERMINAL: &'static str = "recovery_session_terminal";
     pub const RECOVERY_TARGET_NOT_IN_BOTTOM: &'static str = "recovery_target_not_in_bottom";
     pub const RECOVERY_WITNESS_INVALID: &'static str = "recovery_witness_invalid";
     pub const RECOVERY_WITNESS_MISSING: &'static str = "recovery_witness_missing";
@@ -896,15 +843,12 @@ impl ReasonCode {
     pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
         "resolution_history_ancestor_unknown";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
-    pub const REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW: &'static str =
-        "revoke_order_unknown_requires_backfill_or_review";
     pub const REVOKE_UNDO_INVALID_SIGNATURE: &'static str = "revoke_undo_invalid_signature";
     pub const RISK_POLICY: &'static str = "risk_policy";
     pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
     pub const RUNTIME_KEY_MISSING: &'static str = "runtime_key_missing";
     pub const SCHEDULE_FRONTIER_TOO_LARGE: &'static str = "schedule_frontier_too_large";
-    pub const SCOPE_EXPANSION_FORBIDDEN: &'static str = "scope_expansion_forbidden";
     pub const SCOPE_INCOMPARABLE: &'static str = "scope_incomparable";
     pub const SCOPE_REBIND_FORBIDDEN: &'static str = "scope_rebind_forbidden";
     pub const SCOPE_REF_MISMATCH: &'static str = "scope_ref_mismatch";
@@ -981,7 +925,6 @@ impl ReasonCode {
     pub const UNSUPPORTED_EVENT_KIND: &'static str = "unsupported_event_kind";
     pub const UNSUPPORTED_FEATURE: &'static str = "unsupported_feature";
     pub const UNSUPPORTED_HPKE_SUITE: &'static str = "unsupported_hpke_suite";
-    pub const UNSUPPORTED_OPERATION_BINDING: &'static str = "unsupported_operation_binding";
     pub const UNSUPPORTED_PROFILE: &'static str = "unsupported_profile";
     pub const UNSUPPORTED_PROTOCOL_VERSION: &'static str = "unsupported_protocol_version";
     pub const UNSUPPORTED_SIGNATURE_ALG: &'static str = "unsupported_signature_alg";
@@ -1007,7 +950,6 @@ impl ReasonCode {
 
     pub fn as_str(&self) -> &str {
         match self {
-            Self::AbuseCluster => Self::ABUSE_CLUSTER,
             Self::AbuseNetwork => Self::ABUSE_NETWORK,
             Self::AbuseReview => Self::ABUSE_REVIEW,
             Self::AccountBindingPrincipalMismatch => Self::ACCOUNT_BINDING_PRINCIPAL_MISMATCH,
@@ -1053,20 +995,6 @@ impl ReasonCode {
             Self::ApprovalRequired => Self::APPROVAL_REQUIRED,
             Self::AttestationMissing => Self::ATTESTATION_MISSING,
             Self::AudienceMismatch => Self::AUDIENCE_MISMATCH,
-            Self::AuditAgentAttestationMismatch => Self::AUDIT_AGENT_ATTESTATION_MISMATCH,
-            Self::AuditAgentDestructionNotPairedWithRemove => {
-                Self::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE
-            }
-            Self::AuditAgentDestructionProofNotEnclaveSigned => {
-                Self::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED
-            }
-            Self::AuditAgentEpochRangeIncomplete => Self::AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE,
-            Self::AuditAgentKeyDestructionAttestationMissing => {
-                Self::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING
-            }
-            Self::AuditAgentRemoveRequiresPairedDestructionAttestation => {
-                Self::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION
-            }
             Self::AuditCapabilityIncomplete => Self::AUDIT_CAPABILITY_INCOMPLETE,
             Self::AuditPurposeMismatch => Self::AUDIT_PURPOSE_MISMATCH,
             Self::AuditReceiptInvalidated => Self::AUDIT_RECEIPT_INVALIDATED,
@@ -1081,7 +1009,6 @@ impl ReasonCode {
                 Self::AUDIT_RELEASE_RETROACTIVE_SCOPE_FORBIDDEN
             }
             Self::AuditReleaseScopeMismatch => Self::AUDIT_RELEASE_SCOPE_MISMATCH,
-            Self::AuthIncomplete => Self::AUTH_INCOMPLETE,
             Self::AuthorityCycle => Self::AUTHORITY_CYCLE,
             Self::AuthorityExpiryWidening => Self::AUTHORITY_EXPIRY_WIDENING,
             Self::AuthorityRegrantDenied => Self::AUTHORITY_REGRANT_DENIED,
@@ -1100,7 +1027,6 @@ impl ReasonCode {
             Self::CallStateTerminal => Self::CALL_STATE_TERMINAL,
             Self::CallStateTransitionInvalid => Self::CALL_STATE_TRANSITION_INVALID,
             Self::CallSummaryInvalid => Self::CALL_SUMMARY_INVALID,
-            Self::CardinalityViolation => Self::CARDINALITY_VIOLATION,
             Self::CausalRefsTooLarge => Self::CAUSAL_REFS_TOO_LARGE,
             Self::CborBoundsInvalid => Self::CBOR_BOUNDS_INVALID,
             Self::CborNotDeterministic => Self::CBOR_NOT_DETERMINISTIC,
@@ -1118,19 +1044,16 @@ impl ReasonCode {
             Self::CircleShortNameTaken => Self::CIRCLE_SHORT_NAME_TAKEN,
             Self::ClaimGenerationMismatch => Self::CLAIM_GENERATION_MISMATCH,
             Self::ClaimInvalid => Self::CLAIM_INVALID,
-            Self::ClaimRateLimited => Self::CLAIM_RATE_LIMITED,
             Self::ConsentRevoked => Self::CONSENT_REVOKED,
             Self::ConsentWithdrawn => Self::CONSENT_WITHDRAWN,
             Self::ContentEncryptionFloorDowngrade => Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE,
             Self::ContentEncryptionFloorViolation => Self::CONTENT_ENCRYPTION_FLOOR_VIOLATION,
             Self::ControlProposalDecisionOverdue => Self::CONTROL_PROPOSAL_DECISION_OVERDUE,
-            Self::CounterBoundExceeded => Self::COUNTER_BOUND_EXCEEDED,
             Self::CoveredSetMismatch => Self::COVERED_SET_MISMATCH,
             Self::CreatedAtBeforeBasisSeal => Self::CREATED_AT_BEFORE_BASIS_SEAL,
             Self::CreatedAtBeforeCausalPredecessor => Self::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR,
             Self::CrossDomainReplayRejected => Self::CROSS_DOMAIN_REPLAY_REJECTED,
             Self::CrossRealmStructuralRelation => Self::CROSS_REALM_STRUCTURAL_RELATION,
-            Self::CrossSpaceStructuralRelation => Self::CROSS_SPACE_STRUCTURAL_RELATION,
             Self::CursorExpired => Self::CURSOR_EXPIRED,
             Self::CursorIntegrityInvalid => Self::CURSOR_INTEGRITY_INVALID,
             Self::CursorRevoked => Self::CURSOR_REVOKED,
@@ -1201,7 +1124,6 @@ impl ReasonCode {
             Self::ErasureRequestAlreadyPending => Self::ERASURE_REQUEST_ALREADY_PENDING,
             Self::EventIdDigestMismatch => Self::EVENT_ID_DIGEST_MISMATCH,
             Self::EvidenceRecipientMismatch => Self::EVIDENCE_RECIPIENT_MISMATCH,
-            Self::ExecutedByMissing => Self::EXECUTED_BY_MISSING,
             Self::ExpiredInviteToken => Self::EXPIRED_INVITE_TOKEN,
             Self::ExternalRateLimited => Self::EXTERNAL_RATE_LIMITED,
             Self::FederationAuthorityMismatch => Self::FEDERATION_AUTHORITY_MISMATCH,
@@ -1211,7 +1133,6 @@ impl ReasonCode {
             Self::ForensicAttributionMismatch => Self::FORENSIC_ATTRIBUTION_MISMATCH,
             Self::FoundingDeviceCommitmentMismatch => Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
             Self::GateCheckFailed => Self::GATE_CHECK_FAILED,
-            Self::GenesisCreatedAtTooOld => Self::GENESIS_CREATED_AT_TOO_OLD,
             Self::GenesisSealInvalid => Self::GENESIS_SEAL_INVALID,
             Self::GovernanceBindingMismatch => Self::GOVERNANCE_BINDING_MISMATCH,
             Self::GrantExceedsIssuerAuthority => Self::GRANT_EXCEEDS_ISSUER_AUTHORITY,
@@ -1256,10 +1177,8 @@ impl ReasonCode {
             Self::InviteEventUnaccepted => Self::INVITE_EVENT_UNACCEPTED,
             Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
             Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
-            Self::JoinAuthorisationInvalid => Self::JOIN_AUTHORISATION_INVALID,
             Self::JoinPolicyDuplicateGateId => Self::JOIN_POLICY_DUPLICATE_GATE_ID,
             Self::JoinRulePolicyMismatch => Self::JOIN_RULE_POLICY_MISMATCH,
-            Self::JoinRuleTightened => Self::JOIN_RULE_TIGHTENED,
             Self::KeyBackupWireSchemaRequired => Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
             Self::KeypackageClaimRateLimited => Self::KEYPACKAGE_CLAIM_RATE_LIMITED,
             Self::KeypackageExpired => Self::KEYPACKAGE_EXPIRED,
@@ -1270,9 +1189,6 @@ impl ReasonCode {
             Self::LastResortRotationRequired => Self::LAST_RESORT_ROTATION_REQUIRED,
             Self::LateRecoveryRejectedMembership => Self::LATE_RECOVERY_REJECTED_MEMBERSHIP,
             Self::LegalHoldActive => Self::LEGAL_HOLD_ACTIVE,
-            Self::LiteProfileWritesDisallowedEventKind => {
-                Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND
-            }
             Self::MediaNegotiationTimeout => Self::MEDIA_NEGOTIATION_TIMEOUT,
             Self::MediaPlaintextServiceNotAuthorised => {
                 Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED
@@ -1309,16 +1225,12 @@ impl ReasonCode {
             Self::MlsContentSchemeImmutable => Self::MLS_CONTENT_SCHEME_IMMUTABLE,
             Self::MlsGenesisAlreadyExists => Self::MLS_GENESIS_ALREADY_EXISTS,
             Self::MlsGovernanceBindingStale => Self::MLS_GOVERNANCE_BINDING_STALE,
-            Self::ModerationControlLifted => Self::MODERATION_CONTROL_LIFTED,
-            Self::ModerationControlPending => Self::MODERATION_CONTROL_PENDING,
             Self::ModerationControlSplit => Self::MODERATION_CONTROL_SPLIT,
             Self::ModerationStateConflict => Self::MODERATION_STATE_CONFLICT,
             Self::MorphAlreadyTerminal => Self::MORPH_ALREADY_TERMINAL,
             Self::MorphNotActive => Self::MORPH_NOT_ACTIVE,
             Self::MorphNotArchived => Self::MORPH_NOT_ARCHIVED,
-            Self::NamingConventionViolation => Self::NAMING_CONVENTION_VIOLATION,
             Self::NoStrandTrackMessageGrant => Self::NO_STRAND_TRACK_MESSAGE_GRANT,
-            Self::NotProvisioned => Self::NOT_PROVISIONED,
             Self::Nsfw => Self::NSFW,
             Self::ObjectIdNotEventDerived => Self::OBJECT_ID_NOT_EVENT_DERIVED,
             Self::Ok => Self::OK,
@@ -1406,7 +1318,6 @@ impl ReasonCode {
             Self::RecoveryProofKindUnknown => Self::RECOVERY_PROOF_KIND_UNKNOWN,
             Self::RecoveryRequired => Self::RECOVERY_REQUIRED,
             Self::RecoverySessionChallengeMismatch => Self::RECOVERY_SESSION_CHALLENGE_MISMATCH,
-            Self::RecoverySessionTerminal => Self::RECOVERY_SESSION_TERMINAL,
             Self::RecoveryTargetNotInBottom => Self::RECOVERY_TARGET_NOT_IN_BOTTOM,
             Self::RecoveryWitnessInvalid => Self::RECOVERY_WITNESS_INVALID,
             Self::RecoveryWitnessMissing => Self::RECOVERY_WITNESS_MISSING,
@@ -1423,16 +1334,12 @@ impl ReasonCode {
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
-            Self::RevokeOrderUnknownRequiresBackfillOrReview => {
-                Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW
-            }
             Self::RevokeUndoInvalidSignature => Self::REVOKE_UNDO_INVALID_SIGNATURE,
             Self::RiskPolicy => Self::RISK_POLICY,
             Self::RsvpBasisNotCausal => Self::RSVP_BASIS_NOT_CAUSAL,
             Self::RsvpOccurrenceNotCanonical => Self::RSVP_OCCURRENCE_NOT_CANONICAL,
             Self::RuntimeKeyMissing => Self::RUNTIME_KEY_MISSING,
             Self::ScheduleFrontierTooLarge => Self::SCHEDULE_FRONTIER_TOO_LARGE,
-            Self::ScopeExpansionForbidden => Self::SCOPE_EXPANSION_FORBIDDEN,
             Self::ScopeIncomparable => Self::SCOPE_INCOMPARABLE,
             Self::ScopeRebindForbidden => Self::SCOPE_REBIND_FORBIDDEN,
             Self::ScopeRefMismatch => Self::SCOPE_REF_MISMATCH,
@@ -1511,7 +1418,6 @@ impl ReasonCode {
             Self::UnsupportedEventKind => Self::UNSUPPORTED_EVENT_KIND,
             Self::UnsupportedFeature => Self::UNSUPPORTED_FEATURE,
             Self::UnsupportedHpkeSuite => Self::UNSUPPORTED_HPKE_SUITE,
-            Self::UnsupportedOperationBinding => Self::UNSUPPORTED_OPERATION_BINDING,
             Self::UnsupportedProfile => Self::UNSUPPORTED_PROFILE,
             Self::UnsupportedProtocolVersion => Self::UNSUPPORTED_PROTOCOL_VERSION,
             Self::UnsupportedSignatureAlg => Self::UNSUPPORTED_SIGNATURE_ALG,
@@ -1542,7 +1448,6 @@ impl ReasonCode {
 
     pub fn from_wire(value: &str) -> Self {
         match value {
-            Self::ABUSE_CLUSTER => Self::AbuseCluster,
             Self::ABUSE_NETWORK => Self::AbuseNetwork,
             Self::ABUSE_REVIEW => Self::AbuseReview,
             Self::ACCOUNT_BINDING_PRINCIPAL_MISMATCH => Self::AccountBindingPrincipalMismatch,
@@ -1588,20 +1493,6 @@ impl ReasonCode {
             Self::APPROVAL_REQUIRED => Self::ApprovalRequired,
             Self::ATTESTATION_MISSING => Self::AttestationMissing,
             Self::AUDIENCE_MISMATCH => Self::AudienceMismatch,
-            Self::AUDIT_AGENT_ATTESTATION_MISMATCH => Self::AuditAgentAttestationMismatch,
-            Self::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE => {
-                Self::AuditAgentDestructionNotPairedWithRemove
-            }
-            Self::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED => {
-                Self::AuditAgentDestructionProofNotEnclaveSigned
-            }
-            Self::AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE => Self::AuditAgentEpochRangeIncomplete,
-            Self::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING => {
-                Self::AuditAgentKeyDestructionAttestationMissing
-            }
-            Self::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION => {
-                Self::AuditAgentRemoveRequiresPairedDestructionAttestation
-            }
             Self::AUDIT_CAPABILITY_INCOMPLETE => Self::AuditCapabilityIncomplete,
             Self::AUDIT_PURPOSE_MISMATCH => Self::AuditPurposeMismatch,
             Self::AUDIT_RECEIPT_INVALIDATED => Self::AuditReceiptInvalidated,
@@ -1616,7 +1507,6 @@ impl ReasonCode {
                 Self::AuditReleaseRetroactiveScopeForbidden
             }
             Self::AUDIT_RELEASE_SCOPE_MISMATCH => Self::AuditReleaseScopeMismatch,
-            Self::AUTH_INCOMPLETE => Self::AuthIncomplete,
             Self::AUTHORITY_CYCLE => Self::AuthorityCycle,
             Self::AUTHORITY_EXPIRY_WIDENING => Self::AuthorityExpiryWidening,
             Self::AUTHORITY_REGRANT_DENIED => Self::AuthorityRegrantDenied,
@@ -1635,7 +1525,6 @@ impl ReasonCode {
             Self::CALL_STATE_TERMINAL => Self::CallStateTerminal,
             Self::CALL_STATE_TRANSITION_INVALID => Self::CallStateTransitionInvalid,
             Self::CALL_SUMMARY_INVALID => Self::CallSummaryInvalid,
-            Self::CARDINALITY_VIOLATION => Self::CardinalityViolation,
             Self::CAUSAL_REFS_TOO_LARGE => Self::CausalRefsTooLarge,
             Self::CBOR_BOUNDS_INVALID => Self::CborBoundsInvalid,
             Self::CBOR_NOT_DETERMINISTIC => Self::CborNotDeterministic,
@@ -1653,19 +1542,16 @@ impl ReasonCode {
             Self::CIRCLE_SHORT_NAME_TAKEN => Self::CircleShortNameTaken,
             Self::CLAIM_GENERATION_MISMATCH => Self::ClaimGenerationMismatch,
             Self::CLAIM_INVALID => Self::ClaimInvalid,
-            Self::CLAIM_RATE_LIMITED => Self::ClaimRateLimited,
             Self::CONSENT_REVOKED => Self::ConsentRevoked,
             Self::CONSENT_WITHDRAWN => Self::ConsentWithdrawn,
             Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE => Self::ContentEncryptionFloorDowngrade,
             Self::CONTENT_ENCRYPTION_FLOOR_VIOLATION => Self::ContentEncryptionFloorViolation,
             Self::CONTROL_PROPOSAL_DECISION_OVERDUE => Self::ControlProposalDecisionOverdue,
-            Self::COUNTER_BOUND_EXCEEDED => Self::CounterBoundExceeded,
             Self::COVERED_SET_MISMATCH => Self::CoveredSetMismatch,
             Self::CREATED_AT_BEFORE_BASIS_SEAL => Self::CreatedAtBeforeBasisSeal,
             Self::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR => Self::CreatedAtBeforeCausalPredecessor,
             Self::CROSS_DOMAIN_REPLAY_REJECTED => Self::CrossDomainReplayRejected,
             Self::CROSS_REALM_STRUCTURAL_RELATION => Self::CrossRealmStructuralRelation,
-            Self::CROSS_SPACE_STRUCTURAL_RELATION => Self::CrossSpaceStructuralRelation,
             Self::CURSOR_EXPIRED => Self::CursorExpired,
             Self::CURSOR_INTEGRITY_INVALID => Self::CursorIntegrityInvalid,
             Self::CURSOR_REVOKED => Self::CursorRevoked,
@@ -1736,7 +1622,6 @@ impl ReasonCode {
             Self::ERASURE_REQUEST_ALREADY_PENDING => Self::ErasureRequestAlreadyPending,
             Self::EVENT_ID_DIGEST_MISMATCH => Self::EventIdDigestMismatch,
             Self::EVIDENCE_RECIPIENT_MISMATCH => Self::EvidenceRecipientMismatch,
-            Self::EXECUTED_BY_MISSING => Self::ExecutedByMissing,
             Self::EXPIRED_INVITE_TOKEN => Self::ExpiredInviteToken,
             Self::EXTERNAL_RATE_LIMITED => Self::ExternalRateLimited,
             Self::FEDERATION_AUTHORITY_MISMATCH => Self::FederationAuthorityMismatch,
@@ -1746,7 +1631,6 @@ impl ReasonCode {
             Self::FORENSIC_ATTRIBUTION_MISMATCH => Self::ForensicAttributionMismatch,
             Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH => Self::FoundingDeviceCommitmentMismatch,
             Self::GATE_CHECK_FAILED => Self::GateCheckFailed,
-            Self::GENESIS_CREATED_AT_TOO_OLD => Self::GenesisCreatedAtTooOld,
             Self::GENESIS_SEAL_INVALID => Self::GenesisSealInvalid,
             Self::GOVERNANCE_BINDING_MISMATCH => Self::GovernanceBindingMismatch,
             Self::GRANT_EXCEEDS_ISSUER_AUTHORITY => Self::GrantExceedsIssuerAuthority,
@@ -1791,10 +1675,8 @@ impl ReasonCode {
             Self::INVITE_EVENT_UNACCEPTED => Self::InviteEventUnaccepted,
             Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
             Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
-            Self::JOIN_AUTHORISATION_INVALID => Self::JoinAuthorisationInvalid,
             Self::JOIN_POLICY_DUPLICATE_GATE_ID => Self::JoinPolicyDuplicateGateId,
             Self::JOIN_RULE_POLICY_MISMATCH => Self::JoinRulePolicyMismatch,
-            Self::JOIN_RULE_TIGHTENED => Self::JoinRuleTightened,
             Self::KEY_BACKUP_WIRE_SCHEMA_REQUIRED => Self::KeyBackupWireSchemaRequired,
             Self::KEYPACKAGE_CLAIM_RATE_LIMITED => Self::KeypackageClaimRateLimited,
             Self::KEYPACKAGE_EXPIRED => Self::KeypackageExpired,
@@ -1805,9 +1687,6 @@ impl ReasonCode {
             Self::LAST_RESORT_ROTATION_REQUIRED => Self::LastResortRotationRequired,
             Self::LATE_RECOVERY_REJECTED_MEMBERSHIP => Self::LateRecoveryRejectedMembership,
             Self::LEGAL_HOLD_ACTIVE => Self::LegalHoldActive,
-            Self::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND => {
-                Self::LiteProfileWritesDisallowedEventKind
-            }
             Self::MEDIA_NEGOTIATION_TIMEOUT => Self::MediaNegotiationTimeout,
             Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED => {
                 Self::MediaPlaintextServiceNotAuthorised
@@ -1844,16 +1723,12 @@ impl ReasonCode {
             Self::MLS_CONTENT_SCHEME_IMMUTABLE => Self::MlsContentSchemeImmutable,
             Self::MLS_GENESIS_ALREADY_EXISTS => Self::MlsGenesisAlreadyExists,
             Self::MLS_GOVERNANCE_BINDING_STALE => Self::MlsGovernanceBindingStale,
-            Self::MODERATION_CONTROL_LIFTED => Self::ModerationControlLifted,
-            Self::MODERATION_CONTROL_PENDING => Self::ModerationControlPending,
             Self::MODERATION_CONTROL_SPLIT => Self::ModerationControlSplit,
             Self::MODERATION_STATE_CONFLICT => Self::ModerationStateConflict,
             Self::MORPH_ALREADY_TERMINAL => Self::MorphAlreadyTerminal,
             Self::MORPH_NOT_ACTIVE => Self::MorphNotActive,
             Self::MORPH_NOT_ARCHIVED => Self::MorphNotArchived,
-            Self::NAMING_CONVENTION_VIOLATION => Self::NamingConventionViolation,
             Self::NO_STRAND_TRACK_MESSAGE_GRANT => Self::NoStrandTrackMessageGrant,
-            Self::NOT_PROVISIONED => Self::NotProvisioned,
             Self::NSFW => Self::Nsfw,
             Self::OBJECT_ID_NOT_EVENT_DERIVED => Self::ObjectIdNotEventDerived,
             Self::OK => Self::Ok,
@@ -1941,7 +1816,6 @@ impl ReasonCode {
             Self::RECOVERY_PROOF_KIND_UNKNOWN => Self::RecoveryProofKindUnknown,
             Self::RECOVERY_REQUIRED => Self::RecoveryRequired,
             Self::RECOVERY_SESSION_CHALLENGE_MISMATCH => Self::RecoverySessionChallengeMismatch,
-            Self::RECOVERY_SESSION_TERMINAL => Self::RecoverySessionTerminal,
             Self::RECOVERY_TARGET_NOT_IN_BOTTOM => Self::RecoveryTargetNotInBottom,
             Self::RECOVERY_WITNESS_INVALID => Self::RecoveryWitnessInvalid,
             Self::RECOVERY_WITNESS_MISSING => Self::RecoveryWitnessMissing,
@@ -1958,16 +1832,12 @@ impl ReasonCode {
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
-            Self::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW => {
-                Self::RevokeOrderUnknownRequiresBackfillOrReview
-            }
             Self::REVOKE_UNDO_INVALID_SIGNATURE => Self::RevokeUndoInvalidSignature,
             Self::RISK_POLICY => Self::RiskPolicy,
             Self::RSVP_BASIS_NOT_CAUSAL => Self::RsvpBasisNotCausal,
             Self::RSVP_OCCURRENCE_NOT_CANONICAL => Self::RsvpOccurrenceNotCanonical,
             Self::RUNTIME_KEY_MISSING => Self::RuntimeKeyMissing,
             Self::SCHEDULE_FRONTIER_TOO_LARGE => Self::ScheduleFrontierTooLarge,
-            Self::SCOPE_EXPANSION_FORBIDDEN => Self::ScopeExpansionForbidden,
             Self::SCOPE_INCOMPARABLE => Self::ScopeIncomparable,
             Self::SCOPE_REBIND_FORBIDDEN => Self::ScopeRebindForbidden,
             Self::SCOPE_REF_MISMATCH => Self::ScopeRefMismatch,
@@ -2046,7 +1916,6 @@ impl ReasonCode {
             Self::UNSUPPORTED_EVENT_KIND => Self::UnsupportedEventKind,
             Self::UNSUPPORTED_FEATURE => Self::UnsupportedFeature,
             Self::UNSUPPORTED_HPKE_SUITE => Self::UnsupportedHpkeSuite,
-            Self::UNSUPPORTED_OPERATION_BINDING => Self::UnsupportedOperationBinding,
             Self::UNSUPPORTED_PROFILE => Self::UnsupportedProfile,
             Self::UNSUPPORTED_PROTOCOL_VERSION => Self::UnsupportedProtocolVersion,
             Self::UNSUPPORTED_SIGNATURE_ALG => Self::UnsupportedSignatureAlg,
@@ -2073,6 +1942,13 @@ impl ReasonCode {
             Self::WITNESS_DISAGREEMENT => Self::WitnessDisagreement,
             _ => Self::Unknown(value.to_owned()),
         }
+    }
+
+    /// Whether `value` is a reason code registered in
+    /// `registry/error-code-registry.json` (as opposed to merely well-formed,
+    /// which [`Self::is_valid_wire`] checks).
+    pub fn is_registered(value: &str) -> bool {
+        !matches!(Self::from_wire(value), Self::Unknown(_))
     }
 
     pub fn is_valid_wire(value: &str) -> bool {
@@ -2135,11 +2011,6 @@ impl salvo_oapi::ComposeSchema for ReasonCode {
 }
 
 pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
-    ReasonCodeDescriptor {
-        code: ReasonCode::ABUSE_CLUSTER,
-        applies_to: &["moderation_decision"],
-        description: "Multiple reports clustered together for triage; not finalized.",
-    },
     ReasonCodeDescriptor {
         code: ReasonCode::ABUSE_NETWORK,
         applies_to: &["moderation_decision"],
@@ -2316,36 +2187,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A proof, token, Auth Server verification result, invite claim, KeyPackage claim, or signed handoff was presented to a Realm / service / audience different from the one bound into the signed material. Receivers MUST reject rather than reinterpret the audience. See zh/conformance/conformance-vectors.md.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::AUDIT_AGENT_ATTESTATION_MISMATCH,
-        applies_to: &["event_envelope", "audit_decision"],
-        description: "Audit Agent attestation evidence does not match the expected binding: realm_id, service_id, audit_actor_id, measurement, audit_purpose, policy digest, validity, or operator DID diverge from the registered audit binding. Join and release paths MUST fail closed. See zh/crypto-media/audited-e2ee.md §6 and artifacts/schemas/audit-release-attestation.schema.json.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AUDIT_AGENT_DESTRUCTION_NOT_PAIRED_WITH_REMOVE,
-        applies_to: &["event_envelope", "audit_decision"],
-        description: "A key-destruction attestation for an Audit Agent was submitted standalone, without the paired remove (membership end) it must accompany. Destruction evidence MUST be bound to the corresponding remove; receivers MUST reject the unpaired attestation. See zh/crypto-media/audited-e2ee.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AUDIT_AGENT_DESTRUCTION_PROOF_NOT_ENCLAVE_SIGNED,
-        applies_to: &["event_envelope", "audit_decision"],
-        description: "The key-destruction proof for an Audit Agent was not signed by the attested enclave (TEE / HSM) key bound in the agent's attestation evidence. Software- or operator-signed destruction claims MUST be rejected under attested_hardware profiles. See zh/crypto-media/audited-e2ee.md §2 and artifacts/schemas/audit-release-attestation.schema.json.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AUDIT_AGENT_EPOCH_RANGE_INCOMPLETE,
-        applies_to: &["event_envelope", "audit_decision"],
-        description: "The epoch range covered by an Audit Agent key-destruction attestation does not cover every sealed epoch the agent had access to. Gaps MUST cause rejection of the attestation (and any paired remove) instead of partial acceptance. See zh/crypto-media/audited-e2ee.md.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AUDIT_AGENT_KEY_DESTRUCTION_ATTESTATION_MISSING,
-        applies_to: &["event_envelope", "audit_decision"],
-        description: "An Audit Agent lifecycle transition that ends its access to sealed epoch key material lacks the required key-destruction attestation for the epoch secrets the agent held. Receivers MUST fail closed rather than treat missing destruction evidence as destroyed. See zh/crypto-media/audited-e2ee.md and artifacts/schemas/audit-release-attestation.schema.json.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AUDIT_AGENT_REMOVE_REQUIRES_PAIRED_DESTRUCTION_ATTESTATION,
-        applies_to: &["event_envelope", "audit_decision"],
-        description: "A remove ending an Audit Agent's membership in an audited group / Realm was submitted without the paired key-destruction attestation covering the epoch secrets the agent held. The remove MUST be rejected until the paired destruction attestation is presented. See zh/crypto-media/audited-e2ee.md.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::AUDIT_CAPABILITY_INCOMPLETE,
         applies_to: &["auth_decision"],
         description: "Reading the full per-Strand watch state (including `muted` entries) requires both `ak.realm.notification.audit` and `ak.audit.accessed` capabilities; one was missing. See zh/models/strand-and-message.md §8.5.",
@@ -2404,11 +2245,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AUDIT_RELEASE_SCOPE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision"],
         description: "The audit request / authorization / notice / release effective_scope does not match the active binding or attempts to cover a Circle without a Circle-scoped binding.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::AUTH_INCOMPLETE,
-        applies_to: &["auth_decision"],
-        description: "Required refs[role=authorized_by] are not yet accepted at the local frontier; the event MUST be parked until the missing refs converge.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUTHORITY_CYCLE,
@@ -2501,11 +2337,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A `ak.call.summary` event was rejected because its `final_state` is not a terminal call state, the referenced `call_id` has no terminal `ak.call.state` head, or a divergent summary already exists for the call (the summary cell is write-once). Reducer MUST `failed_precondition`. See zh/crypto-media/call-state.md §7.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::CARDINALITY_VIOLATION,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "An event violates a declared relation / cell cardinality constraint.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::CAUSAL_REFS_TOO_LARGE,
         applies_to: &["schema_validation", "event_envelope"],
         description: "Event Envelope causal_refs exceeds the v1 maximum of 128 entries or contains duplicates. Receiver MUST reject with schema_violation and MUST NOT truncate the causal frontier. See zh/conformance/scalability-constraints.md.",
@@ -2528,7 +2359,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_EXPIRED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A challenge proof was submitted whose issuance is older than `max_proof_age`. The reducer MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must obtain a fresh challenge_id. See zh/governance/join-policy.md §11.",
+        description: "A challenge proof was submitted whose issuance is older than `max_proof_age`. The reducer MUST reject with failed_precondition and MUST NOT auto-renew; the applicant must obtain a fresh challenge_id. See zh/governance/join-policy.md §3.1 and §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_FAILED,
@@ -2538,7 +2369,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_PROOF_INVALID,
         applies_to: &["auth_decision", "service_call"],
-        description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` fails verification (signature / freshness / verifier domain).",
+        description: "A runtime challenge proof attached to `ak.member.state{join}.gate_proofs[]` fails verification (signature / freshness / verifier domain). Freshness here is the replay/binding freshness carried by the proof itself; a proof issued beyond max_proof_age is challenge_expired instead, and the two reasons are mutually exclusive. See zh/governance/join-policy.md §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CIRCLE_ALREADY_TERMINAL,
@@ -2591,11 +2422,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A claim, attestation, or invite / binding proof submitted for membership or invitation admission is malformed, unverifiable, or fails policy checks.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::CLAIM_RATE_LIMITED,
-        applies_to: &["service_call", "auth_decision"],
-        description: "Per-(requester, target, intended_realm_id) KeyPackage / one-time-key claim rate limit hit; caller MUST back off before retrying. Distinct from the global `rate_limited` HTTP code because the limit is keyed on the (target, intended use) tuple, not the caller alone.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::CONSENT_REVOKED,
         applies_to: &["auth_decision"],
         description: "Authorization outcome when a cached consent decision is re-evaluated and the underlying consent has been revoked; the stale cache entry MUST NOT authorize the action. See zh/conformance/conformance-vectors.md §9 (ak.vector.consent.cache_invalidation.v1).",
@@ -2621,11 +2447,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A receipted Control Move proposal reached its signed decision_due_at without include, signed-reject, or a valid bounded signed-defer, or exhausted its immutable absolute_due_at / maximum defer count without include or signed-reject. This is a governance health and censorship-evidence fault, not an acceptance or Seal-finality result: a later cryptographically valid Seal remains acceptable and the fault stays auditable. See zh/authz/event-auth-state-resolution.md section 7.2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::COUNTER_BOUND_EXCEEDED,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "A counter-lattice inc / dec op would move the cell's cumulative value past `parameters.max` (or below `parameters.min`) declared in the cell schema. The op MUST be rejected at validate_op / verify_move time with top-level `failed_precondition` carrying this reason_code; it never enters the join. See zh/authz/event-auth-state-resolution.md §9.3.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::COVERED_SET_MISMATCH,
         applies_to: &["event_auth_state", "state_resolution"],
         description: "A compaction Seal's covered set does not match the deterministic control view of the interval it claims to compact. Mismatched coverage MUST reject; only full-coverage compaction within seal_compaction_max_interval_ms enables bootstrap. See authz/event-auth-state-resolution.md and fixtures/cba-lattice-fixture.json.",
@@ -2649,11 +2470,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::CROSS_REALM_STRUCTURAL_RELATION,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A structural `contains` Relation was submitted that would cross Realm boundaries. Structural containment (Board → List → Strand / Space hierarchy) MUST stay within a single Realm; cross-Realm links use the dedicated `ak.relation.*` non-structural kinds. See zh/models/relation.md §4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::CROSS_SPACE_STRUCTURAL_RELATION,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "A structural containment write would span incompatible Space container hierarchies - e.g. adding a Strand positioned under one Board to a List belonging to a different Board / Space tree. Structural containment MUST stay within a single container hierarchy; the reducer MUST reject failed_precondition. (Crossing a Realm boundary uses the more specific cross_realm_structural_relation.) See zh/models/relation.md §4.4 and zh/models/realm-and-space.md §3.6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CURSOR_EXPIRED,
@@ -2717,7 +2533,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH,
         applies_to: &["auth_decision", "state_resolution"],
-        description: "A non-bootstrap ak.device.authorize event was submitted outside the principal's bound principal_control Realm, or the Realm purpose/profile/created_by does not match the device owner and issuer principal. Reducer MUST fail closed. See zh/identity/key-management.md §5.0.3.",
+        description: "A non-bootstrap ak.device.authorize event was submitted outside the principal's bound principal_control Realm, or the Realm purpose/profile/created_by does not match the device owner and issuer principal. Reducer MUST fail closed. See zh/identity/key-management.md §4.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_GENERATION_FENCED,
@@ -2812,7 +2628,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DURABILITY_SCHEME_INCOMPATIBLE,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a ak.realm.policy_bundle write declares durability_policy.mode != none on a Realm whose content_scheme is not mls_exporter_aead_v1. mls_rfc9420 Realms have no deliverable history_secret, so Realm History Recovery Key (RHRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.8.",
+        description: "Sub-reason for failed_precondition when a create-time binding (ak.realm.create or ak.circle.create) declares durability_policy.mode != none on a scope whose content_scheme is not mls_exporter_aead_v1, or when an ak.mls.commit governance_binding drifts the create-fixed durability_policy onto such a scope. mls_rfc9420 scopes have no deliverable history_secret, so Realm History Recovery Key (RHRK) durability is structurally unavailable. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
@@ -2842,7 +2658,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::EGRESS_POLICY_DENIED,
         applies_to: &["authz", "federation_transaction", "service_call"],
-        description: "An outbound Applet, MIMI, or federation transfer would emit plaintext or derived content without the egress grant, data-class allowance, or destination policy required for that transfer. The sender MUST reject the transfer before releasing content.",
+        description: "An outbound Applet, MIMI, or federation transfer would emit plaintext or derived content without the egress grant, data-class allowance, or destination policy required for that transfer. It also covers SSRF address-class denial: a server-side fetch whose resolved target (after redirect / Alt-Svc) hits a forbidden address class such as cloud metadata, internal, or loopback is rejected with this reason, for example MIMI proxy_download. The sender MUST reject the transfer before releasing content. See zh/sync/api-conventions.md §11.2 and zh/extensions/mimi-interop.md §11.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::EPOCH_UPDATE_REQUIRED,
@@ -2890,11 +2706,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A moderation evidence package's encrypted_to recipient does not match the declared recipient_public_key_ref binding. The submission MUST reject. See governance/content-moderation.md.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::EXECUTED_BY_MISSING,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "An Event whose envelope signature was produced by an applet / delegated agent key but whose `actor_id` points to a different (native) principal DID is missing the mandatory `executed_by` / `authorization_ref` / `applet_id` fields. Reducer MUST schema_violation per zh/extensions/applet-integration.md §11.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::EXPIRED_INVITE_TOKEN,
         applies_to: &["state_resolution"],
         description: "Invite token's expires_at has passed when claim is attempted. Internal-only reason code; the wire response MUST be the unified non-enumerable `not_found` per zh/sync/third-party-invites.md §6.1.",
@@ -2938,11 +2749,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::GATE_CHECK_FAILED,
         applies_to: &["auth_decision", "state_resolution"],
         description: "External applicant-facing generic join gate failure. Wire response MUST NOT reveal whether a claim was absent, revoked, issuer-unreachable, parent-membership-missing, or challenge-invalid; detailed diagnostics are audit/reviewer-only. See zh/governance/join-policy.md §5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::GENESIS_CREATED_AT_TOO_OLD,
-        applies_to: &["event_envelope"],
-        description: "Sub-reason for schema_violation when ak.realm.create is submitted through the self events surface with a created_at older than the deployment genesis submit window. The self surface never accepts federation peer wire, so a locally authored Realm genesis is always being created now; this bound does not and cannot apply to backfill.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GENESIS_SEAL_INVALID,
@@ -3149,11 +2955,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An out-of-band invite code was rejected because its entropy is below the required floor. See zh/conformance/conformance-vectors.md §9 (ak.vector.invite.oob_code_entropy.v1).",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::JOIN_AUTHORISATION_INVALID,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `ak.member.state{membership=join}` event's `join_authorisation` proof (the equivalent of Matrix `join_authorised_via_users_server`) does not verify against the cited reviewer's capability state at the citing frontier. See zh/governance/join-policy.md §6.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::JOIN_POLICY_DUPLICATE_GATE_ID,
         applies_to: &["schema_validation", "state_resolution"],
         description: "Sub-reason for a schema_violation on ak.realm.join_policy where gates[] contains duplicate gate_id values. gate_id MUST be stable and unique within the policy so that audit refs in ak.member.state{gate_proofs[gate_id=…]} are unambiguous. Wire response uses code=schema_violation with reason_code=join_policy_duplicate_gate_id. See zh/governance/join-policy.md §3.1.",
@@ -3161,12 +2962,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::JOIN_RULE_POLICY_MISMATCH,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "Realm `ak.realm.join_rule` and `ak.realm.policy_bundle` declare conflicting join modes (e.g., `restricted` with no gate configuration, or `knock_restricted` with all-auto gates degrading to `restricted`). See zh/governance/join-policy.md §4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::JOIN_RULE_TIGHTENED,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "An in-flight pending member application (knock / awaiting_review / changes_requested) was terminated to a terminal leave because the Realm `default_join_rule` was tightened to `closed` or `invite`, which no longer accepts the knock / application path. Does not count toward cooldown. Applications already accepted with a committed ak.invite.create are unaffected. See zh/governance/join-policy.md §4.",
+        description: "Realm `ak.realm.join_rule` and `ak.realm.policy_bundle` declare conflicting join modes (e.g., `restricted` with no gate configuration, or `knock_restricted` with all-auto gates degrading to `restricted`). See zh/governance/join-policy.md §2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::KEY_BACKUP_WIRE_SCHEMA_REQUIRED,
@@ -3219,11 +3015,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Requested operation targets a blob / object currently under legal hold. ak.self.blob.command.presign.v1 / ak.blob.delete / redaction-equivalent operations MUST be rejected with this code; legal hold takes precedence over capability and TTL. See zh/crypto-media/media-and-blob.md §5.4.4.1.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::LITE_PROFILE_WRITES_DISALLOWED_EVENT_KIND,
-        applies_to: &["event_envelope", "policy_decision"],
-        description: "A writer operating under a lite / reduced-surface conformance profile submitted an event kind outside the write surface its declared profile covers. Undeclared profile surface MUST be rejected (unsupported_feature / policy-denied semantics), not silently accepted. See zh/conformance/conformance-profiles.md.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::MEDIA_NEGOTIATION_TIMEOUT,
         applies_to: &["event_envelope", "state_resolution"],
         description: "Call connection or capture media negotiation exceeded the registered timeout.",
@@ -3261,12 +3052,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A ak.member.identity.update replaces[] entry references an event whose payload.identity_payload carrier digest does not equal the declared payload_digest, or references an event under a different (realm_id, actor_id, segment). The replacement edge is invalid; receivers MUST NOT remove the referenced event from the effective set on its basis. See zh/sync/client-sync.md §8.1.",
+        description: "A ak.member.identity.update replaces[] entry references an event whose payload.identity_payload carrier digest does not equal the declared payload_digest, or references an event under a different (realm_id, member_id, segment). The replacement edge is invalid; receivers MUST NOT remove the referenced event from the effective set on its basis. See zh/sync/client-sync.md §8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_STATE_MISMATCH,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The optional expected_state_digest optimistic-concurrency guard on ak.member.identity.update does not equal the current effective-set digest for the same (realm_id, actor_id, segment). The server / reducer MUST reject or quarantine the event instead of applying it as a valid replacement. See zh/sync/client-sync.md §8.1.",
+        description: "The optional expected_state_digest optimistic-concurrency guard on ak.member.identity.update does not equal the current effective-set digest for the same (realm_id, member_id, segment). The server / reducer MUST reject or quarantine the event instead of applying it as a valid replacement. See zh/sync/client-sync.md §8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_UNKNOWN_SEGMENT,
@@ -3351,7 +3142,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_CONTENT_SCHEME_IMMUTABLE,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "A policy or group-state transition attempted to change content_scheme after the ordinary Realm/Circle/Sidecar MLS group Genesis. The group scheme is immutable in v1; reducer and receiver MUST reject without creating an implicit second group. See zh/crypto-media/encryption-and-audit.md section 2.10.6.",
+        description: "A policy or group-state transition attempted to change content_scheme after the ordinary Realm/Circle/Sidecar MLS group Genesis. The group scheme is immutable in v1; reducer and receiver MUST reject without creating an implicit second group. See zh/models/realm-and-space.md §2.3.1 and zh/crypto-media/encryption-and-audit.md §2.10.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GENESIS_ALREADY_EXISTS,
@@ -3362,16 +3153,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,
         applies_to: &["state_resolution", "auth_decision"],
         description: "Current MLS epoch's security_frontier_digest does not cover key-access policy components the client wants to act on (for example media_service_decrypts and plaintext_visible_services for a decrypting media service). Receivers MUST refuse to act until a fresh Commit covers the rederived frontier. See zh/crypto-media/media-service-binding.md §8.2 and zh/crypto-media/encryption-and-audit.md §2.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MODERATION_CONTROL_LIFTED,
-        applies_to: &["client_sync", "policy_decision"],
-        description: "An sealed moderation quarantine or fast-path quarantine was lifted, and clients viewing the Realm should surface that affected content became visible again.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::MODERATION_CONTROL_PENDING,
-        applies_to: &["client_sync", "policy_decision"],
-        description: "A fast-path moderation quarantine signal was recorded but its sealed Control Move has not yet arrived; clients MAY temporarily hide the target and MUST switch display once the sealed decision lands.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_SPLIT,
@@ -3399,19 +3180,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "`ak.morph.restore` rejected because the target Morph is not in `archived` state.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::NAMING_CONVENTION_VIOLATION,
-        applies_to: &["event_envelope"],
-        description: "A registry entry (event_kind / schema_id / typed-id) violates the canonical naming convention (e.g. embedding a `.v<n>` version suffix in the kind name instead of carrying the version via `requirements.features`). Surface as lint output, not as a wire-time reject.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::NO_STRAND_TRACK_MESSAGE_GRANT,
         applies_to: &["auth_decision"],
         description: "No active capability grant authorises ak.message.create on the targeted Strand track for the actor.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::NOT_PROVISIONED,
-        applies_to: &["service_call"],
-        description: "The requested principal / service / Realm is recognised by the registry but no provisioning exists at this endpoint — caller should bootstrap or pick another host. See zh/sync/service-http-binding.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::NSFW,
@@ -3646,7 +3417,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::QUEUE_FULL,
         applies_to: &["batch_item"],
-        description: "Per-event rejection reason in an Applet edge transaction response (rejected[].reason_code) when the receiving applet's inbound processing queue is saturated (backpressure). The push sender MAY re-deliver the rejected events later under the same idempotency identity. See zh/extensions/applet-integration.md §7.3.",
+        description: "Per-event rejection reason in an Applet edge transaction response (rejected[].reason_code) when the receiving side's inbound processing queue is saturated (backpressure) -- the Applet for node-to-Applet pushes, the Arkret edge for Applet-to-node pushes. The push sender MAY re-deliver the rejected events later under the same idempotency identity. See zh/extensions/applet-integration.md §7.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::QUORUM_UNREACHABLE,
@@ -3824,11 +3595,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A recovery proof echoes a challenge value that does not exactly match the server-issued challenge for the referenced recovery_session_id. Servers MUST reject the proof before completing device recovery. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_SESSION_TERMINAL,
-        applies_to: &["device_recovery", "service_call"],
-        description: "A recovery-session submit_proof or a new RecoveryTransaction binding targeted a recovery session that is already in a terminal state (`completed` / `rejected` / `expired`). Terminal recovery sessions are immutable; servers MUST reject with top-level `failed_precondition` carrying this reason_code. Recovery sessions have no public complete operation. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
         applies_to: &["state_resolution", "auth_decision"],
         description: "An ak.conflict.recovery reset named a target_cell that is not in ⊥. The reset replaces a cell rather than joining into it, so allowing it on a live cell would make recovery a general overwrite channel that bypasses every lattice and every precondition. This is the converse of cell_in_bottom_state, which rejects an ordinary write against a cell that is in ⊥. See zh/authz/event-auth-state-resolution.md §9.5.",
@@ -3913,11 +3679,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Revocation / grant freshness cannot be established for a high-risk, cross-domain, or delegated action. Receiver MUST fail closed and return freshness diagnostics instead of treating missing revoke evidence as allow.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::REVOKE_ORDER_UNKNOWN_REQUIRES_BACKFILL_OR_REVIEW,
-        applies_to: &["state_resolution"],
-        description: "Concurrent grant/revoke ordering cannot be deterministically resolved with currently available history; recipient SHOULD backfill or escalate to manual review rather than picking a winner.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::REVOKE_UNDO_INVALID_SIGNATURE,
         applies_to: &["authz", "auth_decision"],
         description: "A capability revoke-undo (rollback) references a revoke whose signature does not verify. The undo MUST fail closed and the original revoke stays in effect. See authz/capabilities.md and fixtures/capability-fixture.json.",
@@ -3946,11 +3707,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SCHEDULE_FRONTIER_TOO_LARGE,
         applies_to: &["event_envelope", "schema_validation"],
         description: "The observed Calendar schedule revision frontier exceeds the 128-entry bound shared with causal_refs, so entry.schedule_basis_refs cannot express it. The producer MUST converge the schedule before responding and MUST NOT truncate the basis. See zh/conformance/scalability-constraints.md. It is raised by the authoring client when the observed frontier itself exceeds the bound; a wire Event that actually carries more than 128 refs is instead rejected by schema maxItems as schema_violation.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SCOPE_EXPANSION_FORBIDDEN,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A grant or delegation attempted to widen a child's actions[] or resources[] beyond its parent. v1 does not permit scope expansion: capabilities.md 10.1's narrowing invariant is unconditional and there is no wire switch that relaxes it. Reducers MUST reject with schema_violation.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SCOPE_INCOMPARABLE,
@@ -4301,11 +4057,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::UNSUPPORTED_HPKE_SUITE,
         applies_to: &["service_call", "auth_decision"],
         description: "HPKE suite id on an application-layer sealed surface (key-backup recipient_method=recovery_public_key, ak.secret.send, member-application encryption_envelope, file-transfer key_envelope) is not an active row in artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. Dual-registered as a reason_code and a top-level service code (see codes[]). See zh/identity/key-management.md §7.5.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::UNSUPPORTED_OPERATION_BINDING,
-        applies_to: &["feature_discovery", "service_call"],
-        description: "No exact operation/carrier/schema row is shared by the caller and the role-scoped ServiceDescribe. The failure is operation-local and is never an authorization or Realm-state decision. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_PROFILE,

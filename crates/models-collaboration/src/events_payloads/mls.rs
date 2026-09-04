@@ -1282,6 +1282,9 @@ pub fn validate_mls_welcome_claim_envelope(
     let claim_capabilities = arkret_canonical::canonical_json_bytes(&claim.capabilities)
         .map_err(|_| ReasonCode::KEYPACKAGE_WELCOME_ENVELOPE_MISMATCH)?;
     let claim_capabilities_digest = arkret_canonical::sha256_digest(&claim_capabilities);
+    if welcome.claim_ref.capabilities_digest.as_str() != claim_capabilities_digest {
+        return Err(ReasonCode::WELCOME_CAPABILITY_MISMATCH);
+    }
     if welcome.keypackage_ref != claim.keypackage_ref
         || welcome.claim_id.as_str() != claim.claim_id
         || welcome.claim_ref.claim_id.as_str() != claim.claim_id
@@ -1289,7 +1292,6 @@ pub fn validate_mls_welcome_claim_envelope(
         || published.keypackage_ref != claim.keypackage_ref
         || welcome.claim_ref.keypackage_digest.as_str() != claim_keypackage_digest
         || published.keypackage_digest.as_str() != claim_keypackage_digest
-        || welcome.claim_ref.capabilities_digest.as_str() != claim_capabilities_digest
         || welcome.claim_ref.trust_binding.device_authorize_event_id()
             != claim
                 .device_authorize_event_id

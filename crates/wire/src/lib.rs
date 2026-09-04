@@ -49,6 +49,7 @@ pub mod event_receipt;
 pub mod event_submission;
 pub mod events;
 pub mod extension_manifest;
+pub mod forbidden_wire;
 pub mod generated;
 pub mod history_secret;
 pub mod history_store;

@@ -78,7 +78,10 @@ pub fn reducer_managed_patch_reason(object_kind: &str, path: &str) -> Option<&'s
 
 /// Whether a registered path bans `candidate`: the path itself and every dotted
 /// descendant of it fall together (`event-and-patch.md` section 4.2.5).
-fn patch_path_covers(registered: &str, candidate: &str) -> bool {
+///
+/// Shared with consumers of the forbidden-wire-fields projection
+/// (`crate::forbidden_wire`) so every matcher applies the same cover rule.
+pub fn patch_path_covers(registered: &str, candidate: &str) -> bool {
     candidate == registered
         || (candidate.len() > registered.len()
             && candidate.starts_with(registered)
