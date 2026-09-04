@@ -966,13 +966,23 @@ where
             )
             .await?;
         }
-        for boundary in branch.range_witnesses.iter().flat_map(|range| {
-            range
-                .left_boundary
-                .entry
-                .iter()
-                .chain(range.right_boundary.entry.iter())
-        }) {
+        // Own the optional boundary entries before crossing an await. Keeping
+        // `Option::iter`'s borrowed iterator alive in the async state machine
+        // makes the verification future lifetime-specific and prevents native
+        // queue drivers from requiring it to be `Send`.
+        let boundary_entries = branch
+            .range_witnesses
+            .iter()
+            .flat_map(|range| {
+                range
+                    .left_boundary
+                    .entry
+                    .iter()
+                    .chain(range.right_boundary.entry.iter())
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        for boundary in &boundary_entries {
             verify_frontier_entry(
                 boundary,
                 &seals,
