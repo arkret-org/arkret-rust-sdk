@@ -896,7 +896,7 @@ pub struct VerifiedHistoryEpochSuite {
 
 /// Extract the exact registered MLS suite and `KDF.Nh` for every requested
 /// epoch from a fully verified governance checkpoint.
-pub fn winning_history_epoch_suites_from_verified_checkpoint(
+pub async fn winning_history_epoch_suites_from_verified_checkpoint(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     effective_scope: &HistoryEffectiveScope,
     mls_group_id: &str,
@@ -928,7 +928,8 @@ pub fn winning_history_epoch_suites_from_verified_checkpoint(
             )
             .map_err(|error| error.to_string())
         },
-    )?;
+    )
+    .await?;
     let target_ref = target
         .get("transition_ref")
         .and_then(serde_json::Value::as_str)

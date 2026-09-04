@@ -47,7 +47,7 @@ fn project_governance_cell_writes(
 
 /// Derive the exact current membership incarnation from a fully verified
 /// reducer checkpoint for use in an MLS Add proposal.
-pub fn current_authorization_incarnation_from_verified_checkpoint(
+pub async fn current_authorization_incarnation_from_verified_checkpoint(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     target: &arkret_wire::ActorId,
     circle_id: Option<&CircleId>,
@@ -59,21 +59,20 @@ pub fn current_authorization_incarnation_from_verified_checkpoint(
     })?;
     let authority_audits =
         arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
-    let winning_join = |cell: &CellRef| {
+    let realm_cell = CellRef::new(arkret_wire::cell::subject_cell(
+        arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+        &target.canonical_key()?,
+    ))?;
+    let realm_membership_incarnation_ref =
         arkret_state::mls_governance_proof::winning_membership_join_event_from_verified_checkpoint(
             checkpoint,
-            cell,
+            &realm_cell,
             &registry,
             |event, digest_suite| {
                 project_governance_cell_writes(event, digest_suite, &authority_audits)
             },
         )
-    };
-    let realm_cell = CellRef::new(arkret_wire::cell::subject_cell(
-        arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-        &target.canonical_key()?,
-    ))?;
-    let realm_membership_incarnation_ref = winning_join(&realm_cell)?;
+        .await?;
     let Some(circle_id) = circle_id else {
         return Ok(AuthorizationIncarnation::Realm {
             realm_membership_incarnation_ref,
@@ -89,7 +88,16 @@ pub fn current_authorization_incarnation_from_verified_checkpoint(
     ))?;
     Ok(AuthorizationIncarnation::Circle {
         realm_membership_incarnation_ref,
-        circle_membership_incarnation_ref: winning_join(&circle_cell)?,
+        circle_membership_incarnation_ref:
+            arkret_state::mls_governance_proof::winning_membership_join_event_from_verified_checkpoint(
+                checkpoint,
+                &circle_cell,
+                &registry,
+                |event, digest_suite| {
+                    project_governance_cell_writes(event, digest_suite, &authority_audits)
+                },
+            )
+            .await?,
     })
 }
 
@@ -1116,7 +1124,7 @@ fn verify_genesis_availability_commitment(
 /// the Producer + StationAdmission federation regime. The SDK owns
 /// frozen-notary selection, dependency verification, availability policy,
 /// reducer projection, recovery, and final state-root/basis checks.
-pub fn verify_mls_governance_checkpoint<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_checkpoint<VerifyAgentHistoryKey>(
     candidate: &MlsGovernanceVerificationCheckpoint,
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
@@ -1160,6 +1168,7 @@ where
             project_governance_cell_writes(event, digest_suite, &authority_audits)
         },
     )
+    .await
 }
 
 /// Verify raw complete governance material and derive both the target live
@@ -1167,7 +1176,7 @@ where
 /// replay. This is the bootstrap entry point for callers that do not yet have
 /// a durable verified checkpoint.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_closure<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_closure<VerifyAgentHistoryKey>(
     realm_id: &RealmId,
     basis: &SealBasis,
     seals: &[Seal],
@@ -1222,7 +1231,8 @@ where
             |event, digest_suite| {
                 project_governance_cell_writes(event, digest_suite, &authority_audits)
             },
-        )?;
+        )
+        .await?;
     Ok(VerifiedMlsGovernanceClosure {
         checkpoint,
         event_digest_suites,
@@ -1233,7 +1243,7 @@ where
 /// complete verified checkpoint. Seal and Event closure selection, recursive
 /// signer-evidence discovery, and reducer replay remain SDK-owned; callers do
 /// not trim the checkpoint themselves.
-pub fn derive_verified_mls_governance_checkpoint_at_basis<VerifyAgentHistoryKey>(
+pub async fn derive_verified_mls_governance_checkpoint_at_basis<VerifyAgentHistoryKey>(
     existing_checkpoint: &MlsGovernanceVerificationCheckpoint,
     requested_basis: &SealBasis,
     verify_agent_history_key: VerifyAgentHistoryKey,
@@ -1286,7 +1296,8 @@ where
             |event, digest_suite| {
                 project_governance_cell_writes(event, digest_suite, &authority_audits)
             },
-        )?;
+        )
+        .await?;
     let seals_by_id = verified
         .accepted_seals
         .iter()
@@ -1353,6 +1364,7 @@ where
         },
         verify_agent_history_key,
     )
+    .await
 }
 
 fn replay_dependency_closure(
@@ -1418,7 +1430,7 @@ fn replay_dependency_closure(
 /// complete base checkpoint, then replays every-and-only cut Seal and Event
 /// objects against that state. A caller that has only a `SealBasis` cannot use
 /// this entry point.
-pub fn verify_mls_governance_cut<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_cut<VerifyAgentHistoryKey>(
     base_checkpoint: &MlsGovernanceVerificationCheckpoint,
     target_basis: &SealBasis,
     cut_seals: &[Seal],
@@ -1436,7 +1448,7 @@ where
         + Copy,
 {
     let verified_base =
-        verify_mls_governance_checkpoint(base_checkpoint, verify_agent_history_key)?;
+        verify_mls_governance_checkpoint(base_checkpoint, verify_agent_history_key).await?;
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
             "MLS governance registry construction failed: {error}"
@@ -1474,6 +1486,7 @@ where
             project_governance_cell_writes(event, digest_suite, &authority_audits)
         },
     )
+    .await
 }
 
 /// Verify a near-current MLS governance proof with the SDK's unique generated
@@ -1483,7 +1496,7 @@ where
 /// holder roles, retention, and quorum are derived from each Seal's verified
 /// predecessor state and checked entirely inside the SDK.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_mls_governance_frontier<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_frontier<VerifyAgentHistoryKey>(
     request: &MlsGovernanceProofRequestBody,
     bundle: &MlsGovernanceProofBundle,
     base_checkpoint: &MlsGovernanceVerificationCheckpoint,
@@ -1549,13 +1562,14 @@ where
             project_governance_cell_writes(event, digest_suite, &authority_audits)
         },
     )
+    .await
 }
 
 /// Build the exact bounded near-current proof page from a complete candidate
 /// target checkpoint. The SDK first verifies the whole checkpoint, then
 /// materializes per-target-Seal branches from isolated reducer stores.
 #[allow(clippy::too_many_arguments)]
-pub fn materialize_mls_governance_frontier<VerifyAgentHistoryKey>(
+pub async fn materialize_mls_governance_frontier<VerifyAgentHistoryKey>(
     request: &MlsGovernanceProofRequestBody,
     target_checkpoint: &MlsGovernanceVerificationCheckpoint,
     group_genesis_binding: &MlsGroupGenesisBinding,
@@ -1576,7 +1590,8 @@ where
             "MLS governance registry construction failed: {error}"
         ))
     })?;
-    let verified = verify_mls_governance_checkpoint(target_checkpoint, verify_agent_history_key)?;
+    let verified =
+        verify_mls_governance_checkpoint(target_checkpoint, verify_agent_history_key).await?;
     let authority_audits =
         arkret_schema::CapabilityAuthorityAuditIndex::from_events(&verified.accepted_events);
     arkret_state::mls_governance_proof::materialize_mls_governance_frontier_from_verified_checkpoint(
@@ -1589,6 +1604,7 @@ where
             project_governance_cell_writes(event, digest_suite, &authority_audits)
         },
     )
+    .await
 }
 
 /// Verify and materialize the first crash-safe checkpoint for an event-derived
@@ -1596,7 +1612,7 @@ where
 /// create Event and the complete anchor unit; all ordinary reducer and frozen
 /// notary checks are then replayed before the checkpoint is returned.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_event_derived_genesis_checkpoint<VerifyAgentHistoryKey>(
+pub async fn verify_event_derived_genesis_checkpoint<VerifyAgentHistoryKey>(
     realm_id: &RealmId,
     genesis_seal: &Seal,
     accepted_events: &[Event],
@@ -1662,6 +1678,7 @@ where
             project_governance_cell_writes(event, digest_suite, &authority_audits)
         },
     )
+    .await
 }
 
 #[cfg(test)]
