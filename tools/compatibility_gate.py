@@ -343,9 +343,18 @@ def snapshot_workspace_heads(
             capture_output=True,
             text=True,
         ).stdout.strip()
-        if dirty and not allow_dirty:
-            raise CompatibilityError(
-                f"repository {repository} is dirty; commit candidates before taking a snapshot"
+        if dirty:
+            if not allow_dirty:
+                raise CompatibilityError(
+                    f"repository {repository} is dirty; commit candidates before taking a snapshot"
+                )
+            # The pin names HEAD, so uncommitted work is simply not in the
+            # candidate set. Say so on stderr: a silently narrowed snapshot is
+            # how a pin ends up claiming a set nobody verified.
+            print(
+                f"warning: {repository} had uncommitted files at snapshot time; "
+                f"the pin {commit} does not contain them",
+                file=sys.stderr,
             )
         entry["commit"] = commit
     return snapshot
@@ -484,6 +493,15 @@ def build_parser() -> argparse.ArgumentParser:
     snapshot_parser.add_argument("--manifest", type=Path, default=default_manifest_path())
     snapshot_parser.add_argument("--workspace-root", type=Path, required=True)
     snapshot_parser.add_argument("--output", type=Path, required=True)
+    snapshot_parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help=(
+            "pin HEAD even where a checkout has uncommitted files, naming each "
+            "such repository on stderr; needed in a shared workspace where the "
+            "cleanliness of sibling checkouts is not under the caller's control"
+        ),
+    )
 
     run_parser = subparsers.add_parser("run", help="execute ordered manifest checks")
     run_parser.add_argument("--manifest", type=Path, default=default_manifest_path())
@@ -522,7 +540,9 @@ def main(argv: list[str] | None = None) -> int:
                 write_github_outputs(resolved, arguments.github_output)
             print(f"resolved compatibility manifest written to {arguments.output}")
         elif arguments.command == "snapshot":
-            snapshot = snapshot_workspace_heads(document, arguments.workspace_root)
+            snapshot = snapshot_workspace_heads(
+                document, arguments.workspace_root, arguments.allow_dirty
+            )
             arguments.output.parent.mkdir(parents=True, exist_ok=True)
             arguments.output.write_text(
                 json.dumps(snapshot, indent=2, sort_keys=False) + "\n", encoding="utf-8"

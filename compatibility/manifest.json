@@ -18,57 +18,82 @@
   "repositories": {
     "arkret-spec": {
       "repository": "arkret-org/arkret-spec",
-      "commit": "77408920758a7236011ea7f572fe61035f7ad6c2",
+      "commit": "92bc3bb35a3a9848a93ed292b8366da514543934",
       "checkout_path": "arkret-spec",
-      "roles": ["normative-artifacts", "operation-registry", "schemas"]
+      "roles": [
+        "normative-artifacts",
+        "operation-registry",
+        "schemas"
+      ]
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "96f1ce657b7d14adf19b060dd3d0719a6d181a08",
+      "commit": "d3131dfddb6d9a2d4312146739c3651ed189d9e4",
       "checkout_path": "arkret-rust-sdk",
-      "roles": ["public-models", "generated-contracts", "shared-validators"]
+      "roles": [
+        "public-models",
+        "generated-contracts",
+        "shared-validators"
+      ]
     },
     "floria": {
       "repository": "arkret-org/floria",
       "commit": "72ab0eb7989da84908fbfa16d5fc1a2d5b6b287c",
       "checkout_path": "floria",
-      "roles": ["soland-build-dependency"]
+      "roles": [
+        "soland-build-dependency"
+      ]
     },
     "soland": {
       "repository": "arkret-org/soland",
-      "commit": "bc32d54706226afcefda6d6affb58a366f5d995a",
+      "commit": "526104138d59007acf3e56457b87720bd9ec6cdd",
       "checkout_path": "soland",
-      "roles": ["protocol-producer", "server"]
+      "roles": [
+        "protocol-producer",
+        "server"
+      ]
     },
     "coauth": {
       "repository": "arkret-org/coauth",
-      "commit": "b5f4c8b09d5d1c65ae2e1e0c013db4d9d60ab0c3",
+      "commit": "1f3038a5b1b0e48775878bfc792aeee2fefa7ca3",
       "checkout_path": "coauth",
-      "roles": ["identity-producer", "authorization-producer"]
+      "roles": [
+        "identity-producer",
+        "authorization-producer"
+      ]
     },
     "garth": {
       "repository": "arkret-org/garth",
       "commit": "5419b7f0b4368410a7b776bc8389f0abffe09fed",
       "checkout_path": "garth",
-      "roles": ["runtime-consumer"]
+      "roles": [
+        "runtime-consumer"
+      ]
     },
     "chime": {
       "repository": "arkret-org/chime",
       "commit": "7bc9678bd053b5877a53713e4bef002075db4ae2",
       "checkout_path": "chime",
-      "roles": ["inkson-build-dependency"]
+      "roles": [
+        "inkson-build-dependency"
+      ]
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "d12d84475d2f2743b5aabb1688f3e60ca7d5b2ff",
+      "commit": "3ede0be4085297d1880c1cb1435054ee4e93fd3d",
       "checkout_path": "inkson",
-      "roles": ["application-consumer"]
+      "roles": [
+        "application-consumer"
+      ]
     },
     "cotest": {
       "repository": "arkret-org/cotest",
-      "commit": "03b4f0027a03536db700a7a055b2ee4f90d71567",
+      "commit": "ed8f9869c078547b007040f4020ee3381fbff9a6",
       "checkout_path": "cotest",
-      "roles": ["joint-contract-tests", "wire-type-mirror"]
+      "roles": [
+        "joint-contract-tests",
+        "wire-type-mirror"
+      ]
     }
   },
   "public_model_probes": [
@@ -114,15 +139,26 @@
       "id": "sdk.generated-contracts",
       "repository": "arkret-rust-sdk",
       "category": "static",
-      "surface": { "kind": "schema", "name": "all registered spec schemas" },
+      "surface": {
+        "kind": "schema",
+        "name": "all registered spec schemas"
+      },
       "working_directory": "arkret-rust-sdk",
-      "command": ["python", "tools/schema_struct_gate.py", "--spec-root", "../arkret-spec/spec/v1/artifacts/schemas"]
+      "command": [
+        "python",
+        "tools/schema_struct_gate.py",
+        "--spec-root",
+        "../arkret-spec/spec/v1/artifacts/schemas"
+      ]
     },
     {
       "id": "sdk.wire-type-ownership",
       "repository": "arkret-rust-sdk",
       "category": "static",
-      "surface": { "kind": "type", "name": "wire DTO ownership across consumers" },
+      "surface": {
+        "kind": "type",
+        "name": "wire DTO ownership across consumers"
+      },
       "working_directory": "arkret-rust-sdk",
       "command": [
         "python",
@@ -143,15 +179,24 @@
       "id": "sdk.wire-type-ownership-regression",
       "repository": "arkret-rust-sdk",
       "category": "static",
-      "surface": { "kind": "type", "name": "wire DTO ownership audit itself" },
+      "surface": {
+        "kind": "type",
+        "name": "wire DTO ownership audit itself"
+      },
       "working_directory": "arkret-rust-sdk",
-      "command": ["python", "tools/test_wire_type_ownership_audit.py"]
+      "command": [
+        "python",
+        "tools/test_wire_type_ownership_audit.py"
+      ]
     },
     {
       "id": "sdk.dependency-matrix",
       "repository": "arkret-rust-sdk",
       "category": "static",
-      "surface": { "kind": "type", "name": "cross-repository Cargo major versions" },
+      "surface": {
+        "kind": "type",
+        "name": "cross-repository Cargo major versions"
+      },
       "working_directory": "arkret-rust-sdk",
       "command": [
         "python",
@@ -183,79 +228,158 @@
       "id": "sdk.dependency-matrix-regression",
       "repository": "arkret-rust-sdk",
       "category": "static",
-      "surface": { "kind": "type", "name": "cross-repository dependency matrix generator itself" },
+      "surface": {
+        "kind": "type",
+        "name": "cross-repository dependency matrix generator itself"
+      },
       "working_directory": "arkret-rust-sdk",
-      "command": ["python", "tools/test_dep_matrix.py"]
+      "command": [
+        "python",
+        "tools/test_dep_matrix.py"
+      ]
     },
     {
       "id": "sdk.compile",
       "repository": "arkret-rust-sdk",
       "category": "compile",
-      "surface": { "kind": "type", "name": "arkret SDK public model surface" },
+      "surface": {
+        "kind": "type",
+        "name": "arkret SDK public model surface"
+      },
       "working_directory": "arkret-rust-sdk",
-      "command": ["cargo", "check", "--workspace", "--all-targets", "--all-features", "--locked"]
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked"
+      ]
     },
     {
       "id": "soland.compile",
       "repository": "soland",
       "category": "compile",
-      "surface": { "kind": "type", "name": "Soland SDK producer integration" },
+      "surface": {
+        "kind": "type",
+        "name": "Soland SDK producer integration"
+      },
       "working_directory": "soland",
-      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ]
     },
     {
       "id": "coauth.compile",
       "repository": "coauth",
       "category": "compile",
-      "surface": { "kind": "type", "name": "Coauth SDK producer integration" },
+      "surface": {
+        "kind": "type",
+        "name": "Coauth SDK producer integration"
+      },
       "working_directory": "coauth",
-      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ]
     },
     {
       "id": "garth.compile",
       "repository": "garth",
       "category": "compile",
-      "surface": { "kind": "type", "name": "Garth SDK consumer integration" },
+      "surface": {
+        "kind": "type",
+        "name": "Garth SDK consumer integration"
+      },
       "working_directory": "garth",
-      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ]
     },
     {
       "id": "inkson.compile",
       "repository": "inkson",
       "category": "compile",
-      "surface": { "kind": "type", "name": "Inkson SDK and Garth consumer integration" },
+      "surface": {
+        "kind": "type",
+        "name": "Inkson SDK and Garth consumer integration"
+      },
       "working_directory": "inkson",
-      "command": ["cargo", "check", "--workspace", "--all-targets", "--locked"]
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--locked"
+      ]
     },
     {
       "id": "cotest.compile",
       "repository": "cotest",
       "category": "compile",
-      "surface": { "kind": "type", "name": "Cotest Rust conformance integration" },
+      "surface": {
+        "kind": "type",
+        "name": "Cotest Rust conformance integration"
+      },
       "working_directory": "cotest",
-      "command": ["cargo", "check", "--workspace", "--all-targets", "--all-features", "--locked"]
+      "command": [
+        "cargo",
+        "check",
+        "--workspace",
+        "--all-targets",
+        "--all-features",
+        "--locked"
+      ]
     },
     {
       "id": "cotest.typecheck",
       "repository": "cotest",
       "category": "contract",
-      "surface": { "kind": "type", "name": "Cotest TypeScript wire consumers" },
+      "surface": {
+        "kind": "type",
+        "name": "Cotest TypeScript wire consumers"
+      },
       "working_directory": "cotest/e2e",
-      "command": ["npm", "run", "typecheck"]
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ]
     },
     {
       "id": "cotest.wire-types",
       "repository": "cotest",
       "category": "contract",
-      "surface": { "kind": "schema", "name": "generated Cotest wire objects" },
+      "surface": {
+        "kind": "schema",
+        "name": "generated Cotest wire objects"
+      },
       "working_directory": "cotest/e2e",
-      "command": ["npm", "run", "check:wire-types"]
+      "command": [
+        "npm",
+        "run",
+        "check:wire-types"
+      ]
     },
     {
       "id": "cotest.joint-smoke",
       "repository": "cotest",
       "category": "contract",
-      "surface": { "kind": "operation", "name": "joint identity login and recovery operations" },
+      "surface": {
+        "kind": "operation",
+        "name": "joint identity login and recovery operations"
+      },
       "working_directory": "cotest",
       "command": [
         "pwsh",
@@ -290,19 +414,39 @@
     "source_guards": [
       {
         "id": "no-consumer-local-compatibility-dto",
-        "repositories": ["soland", "coauth", "garth", "inkson", "cotest"],
+        "repositories": [
+          "soland",
+          "coauth",
+          "garth",
+          "inkson",
+          "cotest"
+        ],
         "pattern": "(?i)\\bcompat(?:ibility)?[_ -]?dto\\b"
       },
       {
         "id": "no-dual-read-fallback",
-        "repositories": ["soland", "coauth", "garth", "inkson", "cotest"],
+        "repositories": [
+          "soland",
+          "coauth",
+          "garth",
+          "inkson",
+          "cotest"
+        ],
         "pattern": "(?i)\\bdual[_ -]?read(?:ing)?\\b"
       },
       {
         "id": "no-permissive-flattened-extra",
-        "repositories": ["soland", "coauth", "garth", "inkson", "cotest"],
+        "repositories": [
+          "soland",
+          "coauth",
+          "garth",
+          "inkson",
+          "cotest"
+        ],
         "pattern": "(?is)#\\[serde\\([^]]*flatten[^]]*\\)\\]\\s*(?:pub\\s+)?(?:extra|additional|unknown)\\b",
-        "allow_paths": ["coauth/crates/backend/src/services/email_webhook.rs"]
+        "allow_paths": [
+          "coauth/crates/backend/src/services/email_webhook.rs"
+        ]
       }
     ]
   }
