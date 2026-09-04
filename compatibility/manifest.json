@@ -24,19 +24,19 @@
     },
     "arkret-rust-sdk": {
       "repository": "arkret-org/arkret-rust-sdk",
-      "commit": "fee44cdb851721b2e525bbd9d3c55aef5f67c59c",
+      "commit": "96f1ce657b7d14adf19b060dd3d0719a6d181a08",
       "checkout_path": "arkret-rust-sdk",
       "roles": ["public-models", "generated-contracts", "shared-validators"]
     },
     "floria": {
       "repository": "arkret-org/floria",
-      "commit": "52e4124beed6a6683122e109252fb4497f99507f",
+      "commit": "72ab0eb7989da84908fbfa16d5fc1a2d5b6b287c",
       "checkout_path": "floria",
       "roles": ["soland-build-dependency"]
     },
     "soland": {
       "repository": "arkret-org/soland",
-      "commit": "444e897032c3b10852d8472ef73414a7d8717569",
+      "commit": "bc32d54706226afcefda6d6affb58a366f5d995a",
       "checkout_path": "soland",
       "roles": ["protocol-producer", "server"]
     },
@@ -48,7 +48,7 @@
     },
     "garth": {
       "repository": "arkret-org/garth",
-      "commit": "cffabf2f33f0570774095093b54127f379d252ca",
+      "commit": "5419b7f0b4368410a7b776bc8389f0abffe09fed",
       "checkout_path": "garth",
       "roles": ["runtime-consumer"]
     },
@@ -60,7 +60,7 @@
     },
     "inkson": {
       "repository": "arkret-org/inkson",
-      "commit": "c4811f767e041497ed210584a1f58e907317439d",
+      "commit": "d12d84475d2f2743b5aabb1688f3e60ca7d5b2ff",
       "checkout_path": "inkson",
       "roles": ["application-consumer"]
     },
