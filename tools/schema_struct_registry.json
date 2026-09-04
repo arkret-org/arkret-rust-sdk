@@ -1074,6 +1074,10 @@
     {
       "rust_type": "crates/wire/src/seal.rs::MultiSignature",
       "schema": "seal.schema.json#/$defs/multi_signature"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_sync.rs::ActorPrivateReadCursorUpdate",
+      "schema": "device-message.schema.json#/$defs/read_cursor_update_content"
     }
   ],
   "exemptions": [

@@ -108,6 +108,7 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_history_store_limits(artifacts_dir)?,
         generate_redactable_fields(artifacts_dir)?,
         generate_reducer_managed_paths(artifacts_dir)?,
+        generate_forbidden_wire_fields(artifacts_dir)?,
     ])
 }
 
@@ -944,11 +945,19 @@ fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput>
          pub enum DidMethodEvidenceKind {\n",
     );
     for row in &rows {
-        writeln!(output, "    {},", variant(string(row, "method_evidence_kind")?, &[]))?;
+        writeln!(
+            output,
+            "    {},",
+            variant(string(row, "method_evidence_kind")?, &[])
+        )?;
     }
     output.push_str("}\n\nimpl DidMethodEvidenceKind {\n    pub const ALL: &'static [Self] = &[\n");
     for row in &rows {
-        writeln!(output, "        Self::{},", variant(string(row, "method_evidence_kind")?, &[]))?;
+        writeln!(
+            output,
+            "        Self::{},",
+            variant(string(row, "method_evidence_kind")?, &[])
+        )?;
     }
     output.push_str("    ];\n\n");
     for row in &rows {
@@ -991,7 +1000,8 @@ fn generate_did_method_adapters(artifacts_dir: &Path) -> Result<GeneratedOutput>
             rust_string(string(row, "method")?)
         )?;
     }
-    output.push_str("    } }\n\n    pub fn from_wire(value: &str) -> Option<Self> { match value {\n");
+    output
+        .push_str("    } }\n\n    pub fn from_wire(value: &str) -> Option<Self> { match value {\n");
     for row in rows {
         let kind = string(row, "method_evidence_kind")?;
         writeln!(
@@ -1277,7 +1287,7 @@ fn generate_error_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(code, &[])
         )?;
     }
-    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static ErrorCodeDescriptor { &ERROR_CODE_DESCRIPTORS[self as usize] }\n    pub fn http_status(self) -> u16 { self.descriptor().http_status }\n    pub fn type_uri(self) -> &'static str { self.descriptor().type_uri }\n    pub fn title(self) -> &'static str { self.descriptor().title }\n    pub fn http_status_in(self, context: ErrorStatusContext) -> u16 {\n        let descriptor = self.descriptor();\n        descriptor.http_status_by_context.iter().find(|(entry, _)| *entry == context).map_or(descriptor.http_status, |(_, status)| *status)\n    }\n}\n\nimpl std::fmt::Display for ErrorCode {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) }\n}\n\npub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[\n");
+    output.push_str("            _ => None,\n        }\n    }\n\n    /// Whether `value` is a top-level error code registered in\n    /// `registry/error-code-registry.json` `codes[]`. A `reason_codes[]`\n    /// member is not a top-level code: it belongs on\n    /// `error.details.reason_code`, never on the wire `error.code`.\n    pub fn is_registered(value: &str) -> bool { Self::from_wire(value).is_some() }\n\n    pub fn descriptor(self) -> &'static ErrorCodeDescriptor { &ERROR_CODE_DESCRIPTORS[self as usize] }\n    pub fn http_status(self) -> u16 { self.descriptor().http_status }\n    pub fn type_uri(self) -> &'static str { self.descriptor().type_uri }\n    pub fn title(self) -> &'static str { self.descriptor().title }\n    pub fn http_status_in(self, context: ErrorStatusContext) -> u16 {\n        let descriptor = self.descriptor();\n        descriptor.http_status_by_context.iter().find(|(entry, _)| *entry == context).map_or(descriptor.http_status, |(_, status)| *status)\n    }\n}\n\nimpl std::fmt::Display for ErrorCode {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) }\n}\n\npub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[\n");
     for row in rows {
         let by_context = row
             .get("http_status_by_context")
@@ -1366,7 +1376,7 @@ fn generate_reason_codes(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(code, &[])
         )?;
     }
-    output.push_str("            _ => Self::Unknown(value.to_owned()),\n        }\n    }\n\n    pub fn is_valid_wire(value: &str) -> bool {\n        let mut characters = value.chars();\n        matches!(characters.next(), Some('a'..='z')) && value.len() <= 64 && characters.all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_')\n    }\n\n    pub fn descriptor(&self) -> Option<&'static ReasonCodeDescriptor> {\n        REASON_CODE_DESCRIPTORS.iter().find(|row| row.code == self.as_str())\n    }\n}\n\nimpl Serialize for ReasonCode {\n    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n        if !Self::is_valid_wire(self.as_str()) { return Err(serde::ser::Error::custom(\"invalid reason code\")); }\n        serializer.serialize_str(self.as_str())\n    }\n}\n\nimpl<'de> Deserialize<'de> for ReasonCode {\n    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        let value = String::deserialize(deserializer)?;\n        if !Self::is_valid_wire(&value) { return Err(serde::de::Error::custom(\"invalid reason code\")); }\n        Ok(Self::from_wire(&value))\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ReasonCode {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).pattern(\"^[a-z][a-z0-9_]{0,63}$\").max_length(64).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ReasonCode {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[\n");
+    output.push_str("            _ => Self::Unknown(value.to_owned()),\n        }\n    }\n\n    /// Whether `value` is a reason code registered in\n    /// `registry/error-code-registry.json` (as opposed to merely well-formed,\n    /// which [`Self::is_valid_wire`] checks).\n    pub fn is_registered(value: &str) -> bool {\n        !matches!(Self::from_wire(value), Self::Unknown(_))\n    }\n\n    pub fn is_valid_wire(value: &str) -> bool {\n        let mut characters = value.chars();\n        matches!(characters.next(), Some('a'..='z')) && value.len() <= 64 && characters.all(|character| character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_')\n    }\n\n    pub fn descriptor(&self) -> Option<&'static ReasonCodeDescriptor> {\n        REASON_CODE_DESCRIPTORS.iter().find(|row| row.code == self.as_str())\n    }\n}\n\nimpl Serialize for ReasonCode {\n    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n        if !Self::is_valid_wire(self.as_str()) { return Err(serde::ser::Error::custom(\"invalid reason code\")); }\n        serializer.serialize_str(self.as_str())\n    }\n}\n\nimpl<'de> Deserialize<'de> for ReasonCode {\n    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        let value = String::deserialize(deserializer)?;\n        if !Self::is_valid_wire(&value) { return Err(serde::de::Error::custom(\"invalid reason code\")); }\n        Ok(Self::from_wire(&value))\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ToSchema for ReasonCode {\n    fn to_schema(_components: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        salvo_oapi::schema::Object::new().schema_type(salvo_oapi::schema::BasicType::String).pattern(\"^[a-z][a-z0-9_]{0,63}$\").max_length(64).into()\n    }\n}\n\n#[cfg(feature = \"openapi\")]\nimpl salvo_oapi::ComposeSchema for ReasonCode {\n    fn compose(components: &mut salvo_oapi::Components, generics: Vec<salvo_oapi::RefOr<salvo_oapi::schema::Schema>>) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {\n        let _ = generics;\n        <Self as salvo_oapi::ToSchema>::to_schema(components)\n    }\n}\n\npub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[\n");
     for row in rows {
         let applies = row
             .get("applies_to")
@@ -2117,6 +2127,36 @@ fn generate_reducer_managed_paths(artifacts_dir: &Path) -> Result<GeneratedOutpu
     })
 }
 
+fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let artifact = Artifact::load(artifacts_dir, "registry/forbidden-wire-fields.json")?;
+    let mut entries = artifact.array("entries")?;
+    entries.sort_by_key(|row| {
+        (
+            string(row, "context").unwrap().to_owned(),
+            string(row, "id").unwrap().to_owned(),
+        )
+    });
+    let mut output = header(
+        &[&artifact.source],
+        &format!("forbidden_wire_fields={}", entries.len()),
+    );
+    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireFieldDescriptor {\n    pub id: &'static str,\n    pub context: &'static str,\n    pub rejection_level: &'static str,\n}\n\n/// Canonical projection of `registry/forbidden-wire-fields.json`: field\n/// names that MUST NOT appear on the current v1 wire in the listed context.\n/// Patch-context entries carry the registry's `patch:` prefix on their id\n/// (for example `patch:stage`). Consumers query this table through\n/// `arkret_wire::forbidden_wire` and never spell their own list.\npub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[\n");
+    for row in entries {
+        writeln!(
+            output,
+            "    ForbiddenWireFieldDescriptor {{\n        id: {},\n        context: {},\n        rejection_level: {},\n    }},",
+            rust_string(string(row, "id")?),
+            rust_string(string(row, "context")?),
+            rust_string(string(row, "rejection_level")?)
+        )?;
+    }
+    output.push_str("];\n");
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/forbidden_wire_fields.rs".into(),
+        contents: output,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2128,7 +2168,7 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 22);
+        assert_eq!(outputs.len(), 24);
         for required in [
             "crates/wire/src/generated/operation_ids.rs",
             "crates/wire/src/generated/security_strings.rs",

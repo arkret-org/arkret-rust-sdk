@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-04.3;
-//! sha256=40ba0794248e768fcd6389b2a3d60220413f45b10c53cd39bcfa94eec9ac3ed2
+//! Input: registry/contract-registry.json; version=2026-09-04.6;
+//! sha256=498bc2fa5a291f4f4ed370ddc321f03a5588a0f56353a9e03bc5a2f565026310
 //! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=18
 
 use crate::contract_registry::{

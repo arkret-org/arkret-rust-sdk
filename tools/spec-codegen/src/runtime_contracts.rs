@@ -70,8 +70,7 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         }
     }
     for (name, rule) in &inputs.agent_runtime.capability_sets {
-        if rule.selection_rule
-            != "any_activation_operation_present_in_immutable_provision_actions"
+        if rule.selection_rule != "any_activation_operation_present_in_immutable_provision_actions"
         {
             bail!("capability_sets.{name} uses unsupported selection_rule");
         }

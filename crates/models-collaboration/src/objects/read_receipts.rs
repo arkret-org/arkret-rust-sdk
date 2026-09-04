@@ -5,25 +5,34 @@ use std::fmt;
 
 use arkret_wire::{
     ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId, NotificationKind,
-    NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorId, ReadCursorScope, RealmId,
+    NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorScope, RealmId,
     RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Actor-private read cursor payload of `ak.read_cursor.advance`.
+///
+/// The object carries neither a typed `id` nor an `updated_at`
+/// (private-objects.md §2.3, read-receipts.md §6.1). A cursor is never
+/// updated in place (no revision / CAS): its identity is the
+/// `(actor_id, realm_id, read_scope)` tuple, one "update" is a freshly
+/// authored advance Event, and the time of that update is that Event envelope
+/// `created_at`. There is no `read_cursor` typed id kind in the id-kind
+/// registry and no id-addressed read surface. Derived views that need a time —
+/// `ReadMarkerOutcome`,
+/// [`crate::sync_frames::account_sync::ActorPrivateReadCursorUpdate`] — take
+/// `updated_at` from the winning advance envelope, never from this payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursor {
-    pub id: ReadCursorId,
     pub schema: String,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub read_scope: ReadCursorScope,
     pub position: ReadCursorPosition,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub updated_at: DateTime<Utc>,
 }
 
 impl ReadCursor {
@@ -142,7 +151,6 @@ mod read_cursor_merge_tests {
 
     fn cursor(device_suffix: u32, event_suffix: u32, hlc: &str) -> ReadCursor {
         serde_json::from_value(json!({
-            "id": format!("ak:read_cursor:01964137-0000-7000-8000-{device_suffix:012x}"),
             "schema": "ak.schema.read_cursor.v1",
             "actor_id": {"kind": "account", "account_id": {
                 "principal_id": "ak:did_core:webvh:z6mkalice",
@@ -156,8 +164,7 @@ mod read_cursor_merge_tests {
                     &arkret_wire::Hash::new(arkret_canonical::sha256_digest(event_suffix.to_be_bytes())).unwrap()
                 ).unwrap(),
                 "hlc": hlc
-            },
-            "updated_at": "2026-07-29T00:00:00.000Z"
+            }
         }))
         .unwrap()
     }

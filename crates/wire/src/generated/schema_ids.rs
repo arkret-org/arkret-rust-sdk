@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-02.5;
-//! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Entries: schema_ids=199,
-//! active=199
+//! Input: registry/schema-registry.json; version=2026-09-04.1;
+//! sha256=eb790fbcb3ec798fc9cde370645b5df6c52a363d2ad709d88f01e83142a20611 Entries: schema_ids=200,
+//! active=200
 
 use serde::{Deserialize, Serialize};
 
@@ -153,6 +153,7 @@ pub enum SchemaId {
     QueryV1,
     ReadCursorV1,
     ReadCursorOperationsV1,
+    ReadCursorUpdateV1,
     ReadReceiptV1,
     RealmV1,
     RealmGenesisV1,
@@ -356,6 +357,7 @@ impl SchemaId {
         Self::QueryV1,
         Self::ReadCursorV1,
         Self::ReadCursorOperationsV1,
+        Self::ReadCursorUpdateV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
         Self::RealmGenesisV1,
@@ -559,6 +561,7 @@ impl SchemaId {
         Self::QueryV1,
         Self::ReadCursorV1,
         Self::ReadCursorOperationsV1,
+        Self::ReadCursorUpdateV1,
         Self::ReadReceiptV1,
         Self::RealmV1,
         Self::RealmGenesisV1,
@@ -1015,6 +1018,10 @@ impl SchemaId {
     /// Closed request/response DTO bundle for self-surface read cursor operations
     /// (ak.self.read_cursor.*); see zh/discovery/read-receipts.md.
     pub const READ_CURSOR_OPERATIONS_V1: &'static str = "ak.schema.read_cursor_operations.v1";
+    /// Closed ak.read_cursor.update sibling-device content: the derived projection of the winning
+    /// ak.read_cursor.advance for one (actor_id, realm_id, read_scope), carrying the winning
+    /// envelope created_at as updated_at. Not the ak.schema.read_cursor.v1 payload object.
+    pub const READ_CURSOR_UPDATE_V1: &'static str = "ak.schema.read_cursor_update.v1";
     /// Closed decrypted Signal payload profile for ak.receipt.read timeline read hints.
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
@@ -1329,6 +1336,7 @@ impl SchemaId {
             Self::QueryV1 => Self::QUERY_V1,
             Self::ReadCursorV1 => Self::READ_CURSOR_V1,
             Self::ReadCursorOperationsV1 => Self::READ_CURSOR_OPERATIONS_V1,
+            Self::ReadCursorUpdateV1 => Self::READ_CURSOR_UPDATE_V1,
             Self::ReadReceiptV1 => Self::READ_RECEIPT_V1,
             Self::RealmV1 => Self::REALM_V1,
             Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
@@ -1575,6 +1583,7 @@ impl SchemaId {
             Self::QueryV1 => "schemas/query.schema.json",
             Self::ReadCursorV1 => "schemas/read-cursor.schema.json",
             Self::ReadCursorOperationsV1 => "schemas/read-cursor-operations.schema.json",
+            Self::ReadCursorUpdateV1 => "schemas/device-message.schema.json",
             Self::ReadReceiptV1 => "schemas/read-receipt.schema.json",
             Self::RealmV1 => "schemas/realm.schema.json",
             Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
@@ -1819,6 +1828,7 @@ impl SchemaId {
             Self::QUERY_V1 => Some(Self::QueryV1),
             Self::READ_CURSOR_V1 => Some(Self::ReadCursorV1),
             Self::READ_CURSOR_OPERATIONS_V1 => Some(Self::ReadCursorOperationsV1),
+            Self::READ_CURSOR_UPDATE_V1 => Some(Self::ReadCursorUpdateV1),
             Self::READ_RECEIPT_V1 => Some(Self::ReadReceiptV1),
             Self::REALM_V1 => Some(Self::RealmV1),
             Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),

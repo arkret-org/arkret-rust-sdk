@@ -684,7 +684,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "message",
     "morph",
     "notification",
-    "read_cursor",
     "policy",
     "presentation",
     "receipt",
