@@ -296,9 +296,7 @@ impl NotaryValue {
         if !self.signers_are_recovery_set(present_signers) {
             return true;
         }
-        !delta_kinds
-            .iter()
-            .any(|kind| *kind == crate::EventKind::ForkResolution)
+        !delta_kinds.contains(&crate::EventKind::ForkResolution)
             || delta_kinds
                 .iter()
                 .all(|kind| *kind == crate::EventKind::ForkResolution)

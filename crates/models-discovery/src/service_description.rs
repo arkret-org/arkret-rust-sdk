@@ -351,13 +351,20 @@ impl<'de> Deserialize<'de> for ServiceProtocolVersion {
     where
         D: serde::Deserializer<'de>,
     {
+        // The bootstrap classification is normative and shared: a *non-canonical
+        // literal* (`"1.0.0"`, `"01.0"`) is `schema_violation` because the object
+        // is corrupt, while a well-formed value that simply is not `"1.0"` is
+        // `unsupported_protocol_version` because the peer generation is
+        // unsupported and its response is not a damaged v1 object
+        // (`evolution-and-compatibility.md` section 4, conformance `ak-sdk-024`).
+        // `arkret_wire` owns that split so a second carrier cannot re-derive it.
         let value = String::deserialize(deserializer)?;
-        if value == PROTOCOL_VERSION {
-            Ok(Self::V1)
-        } else {
-            Err(serde::de::Error::custom(format!(
-                "unsupported_protocol_version: {value}"
-            )))
+        match protocol_version_bootstrap_error(&value) {
+            None => Ok(Self::V1),
+            Some(code) => Err(serde::de::Error::custom(format!(
+                "{}: protocol_version {value} does not match Arkret {PROTOCOL_VERSION}",
+                code.as_str()
+            ))),
         }
     }
 }

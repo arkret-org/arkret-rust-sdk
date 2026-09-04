@@ -1,0 +1,30 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["development-tools", "testing"]
+description = "Protocol test material shared by Arkret implementations: standard subjects, pinned HLCs, deterministic identities, canonical signed Events, and negative-case builders."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "testing", "fixture", "conformance"]
+license = "Apache-2.0"
+name = "arkret-test-kit"
+publish = false
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+arkret-canonical = { workspace = true }
+arkret-event-draft = { workspace = true, features = ["test-support"] }
+arkret-identifiers = { workspace = true }
+arkret-signatures = { workspace = true, features = ["signer"] }
+arkret-wire = { workspace = true, features = ["test-support"] }
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+arkret-canonical = { workspace = true }
+arkret-signatures = { workspace = true, features = ["signer"] }
+
+[lints]
+workspace = true

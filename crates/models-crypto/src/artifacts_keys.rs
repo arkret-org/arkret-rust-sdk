@@ -1403,15 +1403,26 @@ pub struct RecoverySessionCreateRequestBody {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/
 /// recovery_session_proof_submit_outcome`.
+///
+/// A 2xx reply already means the proof verified and the session entered
+/// `verified`, so the outcome echoes neither `state` nor `verification`
+/// (`zh/sync/service-http-binding.md`,
+/// `ak.root.identity.recovery_session.command.submit_proof.v1`); a proof that
+/// does not verify is an error reply. Consumers that need the session state
+/// read it from `ak.root.identity.recovery_session.resource.get.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecoverySessionProofSubmitOutcome {
     pub recovery_session_id: RecoverySessionId,
-    pub state: SessionState,
-    pub verification: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proof_summary: Option<ProofSummary>,
+}
+
+impl RecoverySessionProofSubmitOutcome {
+    /// The session state implied by a successful submit reply. The outcome
+    /// object never carries it on the wire.
+    pub const VERIFIED_STATE: SessionState = SessionState::Verified;
 }
 
 /// Counterpart for
@@ -1970,8 +1981,9 @@ pub enum SessionState {
     Expired,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/threshold_recovery_proof`.
+/// Counterpart for one `share_releases` item of
+/// `spec/v1/artifacts/schemas/recovery-session.schema.json#/$defs/threshold_recovery_proof/
+/// properties/share_releases/items`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ThresholdRecoveryProofShareReleasesItem {

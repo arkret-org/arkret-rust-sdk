@@ -133,6 +133,21 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # The issuing-service `Cursor` mint/validate surface is a wire sync token
     # owned by arkret-wire; arkret-hlc re-exports it, hence the wire edge.
     "arkret-hlc": _WIRE,
+    # Dev-only spec drift/conformance tooling: it loads arkret-spec artifacts
+    # and decodes them through the wire vocabulary. `publish = false`, and it is
+    # excluded from `default-members`.
+    "arkret-schema-conformance": {"arkret-schema", "arkret-wire"},
+    # Dev-only shared protocol test material. It takes exactly the crates a
+    # canonical signed Event needs and nothing else: no service, product or
+    # model-composition crate, so it cannot become a second place where
+    # protocol behavior is defined. `publish = false`, excluded from
+    # `default-members`, and `tools/test_kit_production_gate.py` keeps it out of
+    # every production dependency graph.
+    "arkret-test-kit": _WIRE
+    | {
+        "arkret-event-draft",
+        "arkret-signatures",
+    },
     "arkret-event-draft": _WIRE
     | {
         "arkret-models-identity",

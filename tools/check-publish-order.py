@@ -141,6 +141,12 @@ def main(argv: list[str]) -> int:
 
     metadata = cargo_metadata()
     workspace_names = {pkg["name"] for pkg in metadata["packages"]}
+    # `publish = false` crates (dev tooling, shared test material) are never
+    # packaged, so requiring them in the release workflow would mean listing a
+    # crate the release job must then skip. cargo reports them as `publish: []`.
+    publishable = {
+        pkg["name"] for pkg in metadata["packages"] if pkg.get("publish") != []
+    }
     workspace_deps = {
         pkg["name"]: {
             dep["name"]
@@ -148,6 +154,7 @@ def main(argv: list[str]) -> int:
             if dep["kind"] != "dev" and dep["name"] in workspace_names
         }
         for pkg in metadata["packages"]
+        if pkg["name"] in publishable
     }
 
     if args.print_only:

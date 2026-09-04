@@ -313,12 +313,6 @@ impl CallRecordingStartPayload {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CallRecordingArtifactKind {
-    Recording,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum CallRecordingEncryptionAlgorithm {
     MlsExporterAeadXchacha20poly1305,
     MlsExporterAeadAes256Gcm,
@@ -400,6 +394,11 @@ pub struct CallRecordingDeletionAudit {
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/call-recording-artifact.schema.json`.
+///
+/// The schema identity `ak.schema.call_recording_artifact.v1` already fixes the
+/// recording artifact family, so the artifact carries no `artifact_kind`
+/// member (`zh/crypto-media/call-state.md`); the schema is closed and would
+/// reject one.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CallRecordingArtifact {
@@ -408,7 +407,6 @@ pub struct CallRecordingArtifact {
     pub call_id: CallId,
     pub recording_id: CallRecordingId,
     pub recording_start_event_id: EventId,
-    pub artifact_kind: CallRecordingArtifactKind,
     pub blob_ref: BlobRef,
     pub size_bytes: u64,
     pub duration_ms: u64,

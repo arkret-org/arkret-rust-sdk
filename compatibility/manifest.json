@@ -239,6 +239,46 @@
       ]
     },
     {
+      "id": "sdk.test-kit-production-boundary",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "shared test-kit reachability from production builds"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_kit_production_gate.py",
+        "--workspace-root",
+        "..",
+        "--require-repository",
+        "soland",
+        "--require-repository",
+        "coauth",
+        "--require-repository",
+        "garth",
+        "--require-repository",
+        "inkson",
+        "--require-repository",
+        "cotest"
+      ]
+    },
+    {
+      "id": "sdk.test-kit-production-boundary-regression",
+      "repository": "arkret-rust-sdk",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "shared test-kit production boundary gate itself"
+      },
+      "working_directory": "arkret-rust-sdk",
+      "command": [
+        "python",
+        "tools/test_test_kit_production_gate.py"
+      ]
+    },
+    {
       "id": "sdk.compile",
       "repository": "arkret-rust-sdk",
       "category": "compile",

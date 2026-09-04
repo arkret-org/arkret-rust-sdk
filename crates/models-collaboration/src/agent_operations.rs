@@ -1902,14 +1902,12 @@ pub struct AgentSidecarExchangeProjection {
     pub sidecar_id: SidecarId,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub exchange_id: AgentSidecarExchangeId,
-    pub origin: AgentSidecarExchangeOrigin,
     pub source_track_ref: AgentSidecarSourceTrackRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_event_id: Option<EventId>,
     pub source_hlc: Hlc,
     pub client_order_key: NonEmptyString,
     pub addressed_agent_ids: Vec<DidCoreId>,
-    pub completion_policy: AgentSidecarExchangeCompletionPolicy,
     pub coordinator_agent_id: DidCoreId,
     /// Request Event id for the initial assignment, or the accepted
     /// `reassign_coordinator` control Event id after reassignment.
@@ -1933,14 +1931,22 @@ pub struct AgentSidecarExchangeProjection {
 }
 
 impl AgentSidecarExchangeProjection {
+    /// The v1 exchange profile fixes source-track routed origin, so the cache
+    /// object does not carry `origin`; consumers inject it from the schema
+    /// identity (`zh/models/sidecar.md` §8). Omission never means the exchange
+    /// may have chosen another origin.
+    pub const ORIGIN: AgentSidecarExchangeOrigin = AgentSidecarExchangeOrigin::SourceTrackRouted;
+
+    /// The v1 exchange profile fixes coordinator completion policy, so neither
+    /// the cache object nor the request-role binding echoes
+    /// `completion_policy`; consumers inject it from the schema identity
+    /// (`zh/models/sidecar.md` §8).
+    pub const COMPLETION_POLICY: AgentSidecarExchangeCompletionPolicy =
+        AgentSidecarExchangeCompletionPolicy::Coordinator;
+
     pub fn validate(&self) -> Result<()> {
         self.source_track_ref.validate()?;
         validate_sidecar_order_key(self.client_order_key.as_str(), "client order key")?;
-        if self.origin != AgentSidecarExchangeOrigin::SourceTrackRouted {
-            return Err(WireError::Protocol(
-                "sidecar-native Events must not create source echo projections".to_owned(),
-            ));
-        }
         if self.addressed_agent_ids.is_empty()
             || self
                 .addressed_agent_ids
@@ -2441,7 +2447,6 @@ mod tests {
             sidecar_id: SidecarId::new("ak:sidecar:ATxk9k3t-DqTNiiB9n8GoSjjar3vZJvO3Dtpd1SzdHZF")
                 .unwrap(),
             exchange_id: AgentSidecarExchangeId::new("Abcdefghijklmnopqrstuv").unwrap(),
-            origin: AgentSidecarExchangeOrigin::SourceTrackRouted,
             source_track_ref: AgentSidecarSourceTrackRef {
                 realm_id: RealmId::new("ak:realm:AVYxXzYx_KzaGx7X62doksaQR0ISkneyOwwF1k6ExHKy")
                     .unwrap(),
@@ -2453,7 +2458,6 @@ mod tests {
             source_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
             client_order_key: NonEmptyString::new("device-1-1").unwrap(),
             addressed_agent_ids: vec![fixture_agent()],
-            completion_policy: AgentSidecarExchangeCompletionPolicy::Coordinator,
             coordinator_agent_id: fixture_agent(),
             coordinator_assignment_event_id: fixture_event_id(0x34),
             participating_agent_ids: vec![],
@@ -2478,9 +2482,23 @@ mod tests {
         let projection = fixture_exchange_projection();
         projection.validate().unwrap();
 
-        let mut native = projection.clone();
-        native.origin = AgentSidecarExchangeOrigin::SidecarNative;
-        assert!(native.validate().is_err());
+        assert_eq!(
+            AgentSidecarExchangeProjection::ORIGIN,
+            AgentSidecarExchangeOrigin::SourceTrackRouted
+        );
+        assert_eq!(
+            AgentSidecarExchangeProjection::COMPLETION_POLICY,
+            AgentSidecarExchangeCompletionPolicy::Coordinator
+        );
+        for member in ["origin", "completion_policy"] {
+            let mut echoed = serde_json::to_value(&projection).unwrap();
+            assert!(echoed.get(member).is_none());
+            echoed[member] = serde_json::json!("source_track_routed");
+            assert!(
+                serde_json::from_value::<AgentSidecarExchangeProjection>(echoed).is_err(),
+                "the exchange projection schema is closed and injects {member} from schema identity"
+            );
+        }
 
         let mut pending = serde_json::to_value(&projection).unwrap();
         pending["status"] = serde_json::json!("pending");
