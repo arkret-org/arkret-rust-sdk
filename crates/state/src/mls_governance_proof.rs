@@ -39,8 +39,11 @@ use crate::{
     state_value_leaf_digest, union_predecessor_covered_events, verify_state_inclusion_proof,
 };
 
+#[cfg(not(target_arch = "wasm32"))]
 pub type VerifyEventProofsFuture<'a> =
     Pin<Box<dyn Future<Output = arkret_wire::Result<()>> + Send + 'a>>;
+#[cfg(target_arch = "wasm32")]
+pub type VerifyEventProofsFuture<'a> = Pin<Box<dyn Future<Output = arkret_wire::Result<()>> + 'a>>;
 
 /// SHA-256 over RFC 8785/JCS of the exact closed frontier registry artifact.
 pub const MLS_SECURITY_FRONTIER_REGISTRY_DIGEST: &str =

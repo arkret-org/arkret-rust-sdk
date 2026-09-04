@@ -116,11 +116,27 @@ pub enum AgentHistoricalTrustRequest<'a> {
     Transparency(&'a AgentEvidenceTransparency),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub type AgentHistoricalTrustFuture<'a> =
     Pin<Box<dyn Future<Output = Result<(), WireError>> + Send + 'a>>;
+#[cfg(target_arch = "wasm32")]
+pub type AgentHistoricalTrustFuture<'a> = Pin<Box<dyn Future<Output = Result<(), WireError>> + 'a>>;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub type VerifyAgentHistoryKeyFuture<'a> =
     Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + Send + 'a>>;
+#[cfg(target_arch = "wasm32")]
+pub type VerifyAgentHistoryKeyFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + 'a>>;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub trait VerifyAgentHistoryKeySend: Send {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T: Send> VerifyAgentHistoryKeySend for T {}
+#[cfg(target_arch = "wasm32")]
+pub trait VerifyAgentHistoryKeySend {}
+#[cfg(target_arch = "wasm32")]
+impl<T> VerifyAgentHistoryKeySend for T {}
 
 /// Return the single Event digest claim carried by its proof set. This is a
 /// content-addressing coordinate only; it does not authenticate the Event or
@@ -781,7 +797,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let envelope_bytes = arkret_signatures::EventProofBuilder::new()
@@ -1145,7 +1161,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
@@ -1208,7 +1224,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
@@ -1274,7 +1290,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     requested_basis.validate_protocol_bounds()?;
@@ -1466,7 +1482,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let verified_base =
@@ -1543,7 +1559,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
@@ -1618,7 +1634,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
@@ -1663,7 +1679,7 @@ where
             &'a [GovernanceDependency],
         ) -> VerifyAgentHistoryKeyFuture<'a>
         + Clone
-        + Send
+        + VerifyAgentHistoryKeySend
         + 'static,
 {
     let create = accepted_events

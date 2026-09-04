@@ -37,8 +37,12 @@ pub enum HistorySourceProofExternalVerificationRequest<'a> {
     },
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub type HistorySourceProofVerificationFuture<'a> =
     Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + Send + 'a>>;
+#[cfg(target_arch = "wasm32")]
+pub type HistorySourceProofVerificationFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + 'a>>;
 
 /// Verify the Principal-signed IdentityLink embedded byte-exactly in a
 /// minimal-metadata signer-evidence object.
