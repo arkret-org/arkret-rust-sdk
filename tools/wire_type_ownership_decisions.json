@@ -1,0 +1,50 @@
+{
+  "forbidden": [
+    {
+      "repository": "inkson",
+      "path": "src/models.rs",
+      "pattern": "struct\\s+SnapshotBootstrapJson\\b",
+      "owner": "arkret_sdk::SnapshotBootstrap"
+    },
+    {
+      "repository": "inkson",
+      "path": "src/models.rs",
+      "pattern": "struct\\s+ResolveHandleView\\b",
+      "owner": "arkret_models_discovery::DirectoryHandleResolutionOutcome"
+    },
+    {
+      "repository": "inkson",
+      "path": "src/views/settings/devices.rs",
+      "pattern": "struct\\s+(PairingServerChallengeCarrier|ResolvedPairingApprovalPayload)\\b",
+      "owner": "arkret_sdk::DevicePairingBootstrap"
+    },
+    {
+      "repository": "garth",
+      "path": "src/history_runtime.rs",
+      "pattern": "source_actor_id\\s*:\\s*arkret_wire::DidCoreId",
+      "owner": "arkret_wire::ActorId"
+    },
+    {
+      "repository": "soland",
+      "path": "crates/http/src/routing/spaces/space.rs",
+      "pattern": "struct\\s+RealmExport(Event|Operation|Outcome)\\b",
+      "owner": "arkret_models_collaboration::governance::realm_governance::RealmExport"
+    }
+  ],
+  "classified": [
+    {
+      "repository": "inkson",
+      "path": "src/identity/device_pairing.rs",
+      "pattern": "struct\\s+ResolvedPairingApproval\\b",
+      "classification": "app_local_oob_handoff",
+      "rationale": "Carries target-local proof material and embeds the SDK-owned bootstrap without copying server fields."
+    },
+    {
+      "repository": "coauth",
+      "path": "crates/admin-types/src/integration_manifest_admin.rs",
+      "pattern": "struct\\s+IntegrationManifest",
+      "classification": "deployment_private_admin_contract",
+      "rationale": "The /_coauth administrative manifest is not an Arkret public wire surface."
+    }
+  ]
+}
