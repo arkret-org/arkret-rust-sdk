@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::future::Future;
+use std::pin::Pin;
 
 use arkret_models_collaboration::governance_dependencies::{
     GovernanceDependency, GovernanceDependencySelector, governance_attester_evidence_selectors,
@@ -113,6 +115,12 @@ pub enum AgentHistoricalTrustRequest<'a> {
     /// pinned transparency log/witness policy.
     Transparency(&'a AgentEvidenceTransparency),
 }
+
+pub type AgentHistoricalTrustFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<(), WireError>> + Send + 'a>>;
+
+pub type VerifyAgentHistoryKeyFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + Send + 'a>>;
 
 /// Return the single Event digest claim carried by its proof set. This is a
 /// content-addressing coordinate only; it does not authenticate the Event or
@@ -397,14 +405,15 @@ pub fn build_agent_signer_resolution_evidence(
 /// typed signer-evidence dependency closure. The caller supplies one narrow
 /// callback for PCR notary/lifecycle/transparency trust anchors that the
 /// portable evidence does not self-authenticate.
-pub fn verify_agent_historical_event_key<VerifyExternalTrust>(
+pub async fn verify_agent_historical_event_key<VerifyExternalTrust>(
     event: &Event,
     evidence: &AuthenticatedSignerResolutionEvidence,
     dependencies: &[GovernanceDependency],
     verify_external_trust: VerifyExternalTrust,
 ) -> Result<PublicKeyMaterial, WireError>
 where
-    VerifyExternalTrust: Fn(AgentHistoricalTrustRequest<'_>) -> Result<(), WireError> + Copy,
+    VerifyExternalTrust:
+        for<'a> Fn(AgentHistoricalTrustRequest<'a>) -> AgentHistoricalTrustFuture<'a> + Clone,
 {
     evidence.validate_attester_binding()?;
     let AuthenticatedSignerResolutionEvidence::Agent {
@@ -483,17 +492,15 @@ where
     let binding_digest =
         arkret_signatures::agent_evidence::agent_signing_key_binding_digest(binding)
             .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
-    let verify_pcr_seal = |seal: &Seal| {
-        verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).map_err(|_| {
-            arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::SigningKeyMismatch
-        })
-    };
-    let verify_lifecycle = |witness: &AgentLifecycleWitness| {
-        verify_external_trust(AgentHistoricalTrustRequest::LifecycleWitness(witness))
-            .map_err(|_| {
-                arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::AuthorizationConflicted
-            })
-    };
+    for seal in &core.seal_lineages {
+        verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).await?;
+    }
+    verify_external_trust(AgentHistoricalTrustRequest::LifecycleWitness(
+        &core.agent_lifecycle_witness,
+    ))
+    .await?;
+    let verify_pcr_seal = |_seal: &Seal| Ok(());
+    let verify_lifecycle = |_witness: &AgentLifecycleWitness| Ok(());
     let verified_state = arkret_signatures::agent_evidence::verify_agent_evidence_state(
         admission_evidence,
         &arkret_signatures::agent_evidence::AgentEvidenceStateVerificationContext {
@@ -510,7 +517,7 @@ where
     )
     .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let transparency_verified = if let Some(transparency) = transparency {
-        verify_external_trust(AgentHistoricalTrustRequest::Transparency(transparency))?;
+        verify_external_trust(AgentHistoricalTrustRequest::Transparency(transparency)).await?;
         true
     } else {
         false
@@ -583,14 +590,15 @@ where
 /// for a history response source proof and return its exact Ed25519 key.
 /// Current observation request binding uses the dedicated non-cyclic history
 /// source digest; all authority keys come from the exact dependency closure.
-pub fn verify_agent_history_source_key<VerifyExternalTrust>(
+pub async fn verify_agent_history_source_key<VerifyExternalTrust>(
     source: &HistoryKeyResponseSendRequest,
     evidence: &AuthenticatedSignerResolutionEvidence,
     dependencies: &[GovernanceDependency],
     verify_external_trust: VerifyExternalTrust,
 ) -> Result<PublicKeyMaterial, WireError>
 where
-    VerifyExternalTrust: Fn(AgentHistoricalTrustRequest<'_>) -> Result<(), WireError> + Copy,
+    VerifyExternalTrust:
+        for<'a> Fn(AgentHistoricalTrustRequest<'a>) -> AgentHistoricalTrustFuture<'a> + Clone,
 {
     source.validate()?;
     evidence.validate_attester_binding()?;
@@ -684,17 +692,15 @@ where
     let binding_digest =
         arkret_signatures::agent_evidence::agent_signing_key_binding_digest(binding)
             .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
-    let verify_pcr_seal = |seal: &Seal| {
-        verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).map_err(|_| {
-            arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::SigningKeyMismatch
-        })
-    };
-    let verify_lifecycle = |witness: &AgentLifecycleWitness| {
-        verify_external_trust(AgentHistoricalTrustRequest::LifecycleWitness(witness))
-            .map_err(|_| {
-                arkret_signatures::agent_evidence::AgentEvidenceRejectedReason::AuthorizationConflicted
-            })
-    };
+    for seal in &core.seal_lineages {
+        verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).await?;
+    }
+    verify_external_trust(AgentHistoricalTrustRequest::LifecycleWitness(
+        &core.agent_lifecycle_witness,
+    ))
+    .await?;
+    let verify_pcr_seal = |_seal: &Seal| Ok(());
+    let verify_lifecycle = |_witness: &AgentLifecycleWitness| Ok(());
     let verified_state = arkret_signatures::agent_evidence::verify_agent_evidence_state(
         admission_evidence,
         &arkret_signatures::agent_evidence::AgentEvidenceStateVerificationContext {
@@ -711,7 +717,7 @@ where
     )
     .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let transparency_verified = if let Some(transparency) = transparency {
-        verify_external_trust(AgentHistoricalTrustRequest::Transparency(transparency))?;
+        verify_external_trust(AgentHistoricalTrustRequest::Transparency(transparency)).await?;
         true
     } else {
         false
@@ -761,20 +767,22 @@ where
     }
 }
 
-fn verify_event_proofs_default<VerifyAgentHistoryKey>(
+async fn verify_event_proofs_default<VerifyAgentHistoryKey>(
     event: &Event,
     event_digest_suite: arkret_canonical::DigestSuite,
     dependencies: &[GovernanceDependency],
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<(), WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let envelope_bytes = arkret_signatures::EventProofBuilder::new()
         .envelope_bytes(event)
@@ -803,7 +811,8 @@ where
             }
             let key = match evidence {
                 AuthenticatedSignerResolutionEvidence::Agent { .. } => {
-                    verify_agent_history_key(event, event_digest_suite, evidence, dependencies)?
+                    verify_agent_history_key(event, event_digest_suite, evidence, dependencies)
+                        .await?
                 }
                 _ => authenticated_document_key(evidence, dependencies, producer.created_at)?,
             };
@@ -1129,13 +1138,15 @@ pub async fn verify_mls_governance_checkpoint<VerifyAgentHistoryKey>(
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
@@ -1154,7 +1165,12 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
+            Box::pin(verify_event_proofs_default(
+                event,
+                digest_suite,
+                dependencies,
+                verify_agent_history_key.clone(),
+            ))
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(
@@ -1185,13 +1201,15 @@ pub async fn verify_mls_governance_closure<VerifyAgentHistoryKey>(
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<VerifiedMlsGovernanceClosure, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
@@ -1213,12 +1231,12 @@ where
             &registry,
             arkret_signatures::verify_frozen_notary_signature,
             |event, digest_suite, dependencies| {
-                verify_event_proofs_default(
+                Box::pin(verify_event_proofs_default(
                     event,
                     digest_suite,
                     dependencies,
-                    verify_agent_history_key,
-                )
+                    verify_agent_history_key.clone(),
+                ))
             },
             |seal, _, replay_context, dependencies| {
                 verify_seal_availability_dependencies_default(
@@ -1249,13 +1267,15 @@ pub async fn derive_verified_mls_governance_checkpoint_at_basis<VerifyAgentHisto
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     requested_basis.validate_protocol_bounds()?;
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
@@ -1278,12 +1298,12 @@ where
             &registry,
             arkret_signatures::verify_frozen_notary_signature,
             |event, digest_suite, dependencies| {
-                verify_event_proofs_default(
+                Box::pin(verify_event_proofs_default(
                     event,
                     digest_suite,
                     dependencies,
-                    verify_agent_history_key,
-                )
+                    verify_agent_history_key.clone(),
+                ))
             },
             |seal, _, replay_context, dependencies| {
                 verify_seal_availability_dependencies_default(
@@ -1439,16 +1459,18 @@ pub async fn verify_mls_governance_cut<VerifyAgentHistoryKey>(
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let verified_base =
-        verify_mls_governance_checkpoint(base_checkpoint, verify_agent_history_key).await?;
+        verify_mls_governance_checkpoint(base_checkpoint, verify_agent_history_key.clone()).await?;
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
             "MLS governance registry construction failed: {error}"
@@ -1472,7 +1494,12 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
+            Box::pin(verify_event_proofs_default(
+                event,
+                digest_suite,
+                dependencies,
+                verify_agent_history_key.clone(),
+            ))
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(
@@ -1509,13 +1536,15 @@ pub async fn verify_mls_governance_frontier<VerifyAgentHistoryKey>(
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<VerifiedMlsGovernanceFrontier, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
@@ -1548,7 +1577,12 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
+            Box::pin(verify_event_proofs_default(
+                event,
+                digest_suite,
+                dependencies,
+                verify_agent_history_key.clone(),
+            ))
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(
@@ -1577,13 +1611,15 @@ pub async fn materialize_mls_governance_frontier<VerifyAgentHistoryKey>(
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceProofBundle, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
@@ -1620,13 +1656,15 @@ pub async fn verify_event_derived_genesis_checkpoint<VerifyAgentHistoryKey>(
     verify_agent_history_key: VerifyAgentHistoryKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: Fn(
-            &Event,
+    VerifyAgentHistoryKey: for<'a> Fn(
+            &'a Event,
             arkret_canonical::DigestSuite,
-            &AuthenticatedSignerResolutionEvidence,
-            &[GovernanceDependency],
-        ) -> Result<PublicKeyMaterial, WireError>
-        + Copy,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyAgentHistoryKeyFuture<'a>
+        + Clone
+        + Send
+        + 'static,
 {
     let create = accepted_events
         .iter()
@@ -1664,7 +1702,12 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            verify_event_proofs_default(event, digest_suite, dependencies, verify_agent_history_key)
+            Box::pin(verify_event_proofs_default(
+                event,
+                digest_suite,
+                dependencies,
+                verify_agent_history_key.clone(),
+            ))
         },
         |seal, _, replay_context, dependencies| {
             verify_seal_availability_dependencies_default(

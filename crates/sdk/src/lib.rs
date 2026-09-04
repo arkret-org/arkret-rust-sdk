@@ -396,8 +396,9 @@ pub use arkret_wire::{
     is_query_auth_parameter,
 };
 pub use history_response::{
-    HistorySourceProofExternalVerificationRequest, VerifiedHistoryChunk, VerifiedHistoryEpochSuite,
-    VerifiedHistoryManifest, VerifiedHistoryResponseRecord, registered_mls_ciphersuite_kdf_nh,
+    HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,
+    VerifiedHistoryChunk, VerifiedHistoryEpochSuite, VerifiedHistoryManifest,
+    VerifiedHistoryResponseRecord, registered_mls_ciphersuite_kdf_nh,
     verify_history_response_lost_record, verify_history_response_record,
     verify_history_source_proof, verify_minimal_metadata_history_source_local_state,
     verify_minimal_metadata_identity_link_signature,
@@ -408,8 +409,8 @@ pub use managed_actor_authoring::{
     AppletManagedActorBundleAuthoringInput, author_applet_managed_actor_bundle,
 };
 pub use mls_governance::{
-    AgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
-    build_agent_signer_resolution_evidence,
+    AgentHistoricalTrustFuture, AgentHistoricalTrustRequest, VerifiedMlsGovernanceClosure,
+    VerifyAgentHistoryKeyFuture, build_agent_signer_resolution_evidence,
     current_authorization_incarnation_from_verified_checkpoint, declared_genesis_live_digest_suite,
     derive_verified_mls_governance_checkpoint_at_basis, materialize_mls_governance_frontier,
     signed_event_digest_claim, verify_agent_historical_event_key, verify_agent_history_source_key,

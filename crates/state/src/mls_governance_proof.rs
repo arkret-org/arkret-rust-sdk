@@ -5,6 +5,8 @@
 //! the ordinary state reducer; there is no materialized proof-bundle reducer.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::pin::Pin;
 
 use arkret_canonical::DigestSuite;
 use arkret_models_collaboration::events_payloads::{
@@ -36,6 +38,9 @@ use crate::{
     apply_replayed_seal_in_context, control_event_completeness_root, effective_state_at,
     state_value_leaf_digest, union_predecessor_covered_events, verify_state_inclusion_proof,
 };
+
+pub type VerifyEventProofsFuture<'a> =
+    Pin<Box<dyn Future<Output = arkret_wire::Result<()>> + Send + 'a>>;
 
 /// SHA-256 over RFC 8785/JCS of the exact closed frontier registry artifact.
 pub const MLS_SECURITY_FRONTIER_REGISTRY_DIGEST: &str =
@@ -318,7 +323,7 @@ where
         &checkpoint.governance_dependencies,
         registry,
         |_, _, _, _| Ok(()),
-        |_, _, _| Ok(()),
+        |_, _, _| Box::pin(async { Ok(()) }),
         |_, _, _, _| Ok(()),
         project_writes,
     )
@@ -381,7 +386,7 @@ where
         &checkpoint.governance_dependencies,
         registry,
         |_, _, _, _| Ok(()),
-        |_, _, _| Ok(()),
+        |_, _, _| Box::pin(async { Ok(()) }),
         |_, _, _, _| Ok(()),
         project_writes,
     )
@@ -430,8 +435,12 @@ pub async fn verify_mls_governance_checkpoint_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -445,7 +454,7 @@ where
         candidate,
         registry,
         verify_seal_signature,
-        verify_event_proofs,
+        verify_event_proofs.clone(),
         verify_seal_dependencies,
         project_writes,
     )
@@ -480,8 +489,12 @@ pub async fn verify_mls_governance_closure_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -541,8 +554,12 @@ pub async fn verified_live_digest_suite_at_basis_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -622,8 +639,12 @@ async fn replay_and_verify_checkpoint_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -666,8 +687,12 @@ async fn replay_and_verify_checkpoint_material_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -753,8 +778,12 @@ pub async fn verify_mls_governance_cut_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -867,8 +896,12 @@ pub async fn verify_mls_governance_frontier_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -1153,7 +1186,7 @@ where
         &target_checkpoint.governance_dependencies,
         registry,
         |_, _, _, _| Ok(()),
-        |_, _, _| Ok(()),
+        |_, _, _| Box::pin(async { Ok(()) }),
         |_, _, _, _| Ok(()),
         project_writes,
         &mut live_suites,
@@ -1685,8 +1718,12 @@ async fn replay_checkpoint_and_cut<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -1740,8 +1777,12 @@ async fn replay_checkpoint_and_cut_to_basis<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -1783,7 +1824,7 @@ where
         dependencies,
         registry,
         verify_seal_signature,
-        verify_event_proofs,
+        verify_event_proofs.clone(),
         verify_seal_dependencies,
         project_writes,
         &mut live_suites,
@@ -1870,8 +1911,12 @@ async fn replay_seal_set<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -1917,7 +1962,7 @@ where
                 dependencies,
                 registry,
                 verify_seal_signature,
-                verify_event_proofs,
+                verify_event_proofs.clone(),
                 verify_seal_dependencies,
                 project_writes,
                 live_suites,
@@ -1957,8 +2002,12 @@ pub(crate) async fn replay_one_seal<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -2008,6 +2057,20 @@ where
     .await?;
     verify_seal_dependencies(seal, &notary, &dependency_context, dependencies)?;
 
+    for digest in &seal.delta {
+        let event = all_events.event(digest).await?.ok_or_else(|| {
+            WireError::Protocol("replay Seal delta Event is unresolved".to_owned())
+        })?;
+        let event_digest_suite = if seal.predecessor_refs.is_empty()
+            && event.kind == arkret_wire::EventKind::RealmCreate
+        {
+            DigestSuite::Sha256
+        } else {
+            digest_suites.event_digest_suite
+        };
+        verify_event_proofs(&event, event_digest_suite, dependencies).await?;
+    }
+
     apply_replayed_seal_in_context(
         seal,
         event_store,
@@ -2015,10 +2078,7 @@ where
         cell_store,
         registry,
         digest_suites,
-        |event, digest_suite| {
-            verify_event_proofs(event, digest_suite, dependencies)
-                .map_err(|error| error.to_string())
-        },
+        |_, _| Ok(()),
         project_writes,
         if seal.predecessor_refs.is_empty() {
             EventSubmitContext::AnchorUnit

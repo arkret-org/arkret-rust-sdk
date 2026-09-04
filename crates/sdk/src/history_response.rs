@@ -1,6 +1,8 @@
 //! High-level verification for receipt-bound history response records.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::future::Future;
+use std::pin::Pin;
 
 use arkret_models_collaboration::events_payloads::mls::MlsGenesisPayload;
 use arkret_models_collaboration::governance_dependencies::GovernanceDependency;
@@ -34,6 +36,9 @@ pub enum HistorySourceProofExternalVerificationRequest<'a> {
         verified_checkpoint: &'a MlsGovernanceVerificationCheckpoint,
     },
 }
+
+pub type HistorySourceProofVerificationFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + Send + 'a>>;
 
 /// Verify the Principal-signed IdentityLink embedded byte-exactly in a
 /// minimal-metadata signer-evidence object.
@@ -262,7 +267,7 @@ impl VerifiedHistoryResponseRecord {
 /// encrypted IdentityLink plus LeafNode check against the receiver's verified local MLS
 /// state; it cannot substitute a key outside the signed evidence.
 #[allow(clippy::too_many_arguments)]
-pub fn verify_history_response_record<VerifyExternalSourceKey>(
+pub async fn verify_history_response_record<VerifyExternalSourceKey>(
     accepted: &HistoryKeyRequestCreateOutcome,
     record: &HistoryKeyResponseRecord,
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
@@ -272,9 +277,10 @@ pub fn verify_history_response_record<VerifyExternalSourceKey>(
     verify_external_source_key: VerifyExternalSourceKey,
 ) -> Result<VerifiedHistoryResponseRecord, WireError>
 where
-    VerifyExternalSourceKey: Fn(
-        HistorySourceProofExternalVerificationRequest<'_>,
-    ) -> Result<PublicKeyMaterial, WireError>,
+    VerifyExternalSourceKey: for<'a> Fn(
+            HistorySourceProofExternalVerificationRequest<'a>,
+        ) -> HistorySourceProofVerificationFuture<'a>
+        + Clone,
 {
     accepted.validate()?;
     record.validate()?;
@@ -319,7 +325,8 @@ where
         verified_checkpoint,
         &source_signer_dependencies,
         verify_external_source_key,
-    )?;
+    )
+    .await?;
 
     let intent = member_history_intent(accepted)?;
     verify_checkpoint_binding(verified_checkpoint, intent)?;
@@ -405,16 +412,17 @@ where
 /// recursively referenced attester closure. Missing, duplicate, ambiguous, or
 /// surplus signer evidence fails closed so a service can atomically pin the
 /// same verified bytes it used for admission.
-pub fn verify_history_source_proof<VerifyExternalSourceKey>(
+pub async fn verify_history_source_proof<VerifyExternalSourceKey>(
     source: &HistoryKeyResponseSendRequest,
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     source_signer_dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
 ) -> Result<(), WireError>
 where
-    VerifyExternalSourceKey: Fn(
-        HistorySourceProofExternalVerificationRequest<'_>,
-    ) -> Result<PublicKeyMaterial, WireError>,
+    VerifyExternalSourceKey: for<'a> Fn(
+            HistorySourceProofExternalVerificationRequest<'a>,
+        ) -> HistorySourceProofVerificationFuture<'a>
+        + Clone,
 {
     source.validate()?;
     verified_checkpoint.validate_checkpoint()?;
@@ -427,7 +435,8 @@ where
         verified_checkpoint,
         source_signer_dependencies,
         verify_external_source_key,
-    )?;
+    )
+    .await?;
     arkret_signatures::verify_ed25519_detached_jws_payload_proof(
         &source.source_proof,
         &source.proof_binding_bytes()?,
@@ -436,16 +445,17 @@ where
     .map_err(|error| WireError::Protocol(format!("history source proof is invalid: {error}")))
 }
 
-fn resolve_source_proof_key<VerifyExternalSourceKey>(
+async fn resolve_source_proof_key<VerifyExternalSourceKey>(
     source: &HistoryKeyResponseSendRequest,
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
 ) -> Result<PublicKeyMaterial, WireError>
 where
-    VerifyExternalSourceKey: Fn(
-        HistorySourceProofExternalVerificationRequest<'_>,
-    ) -> Result<PublicKeyMaterial, WireError>,
+    VerifyExternalSourceKey: for<'a> Fn(
+            HistorySourceProofExternalVerificationRequest<'a>,
+        ) -> HistorySourceProofVerificationFuture<'a>
+        + Clone,
 {
     let source_signer_evidence_digest = source.source_signer_evidence_ref.content_digest()?;
     let expected_selector =
@@ -502,7 +512,8 @@ where
                             signer_evidence: evidence.as_ref(),
                             dependencies,
                         },
-                    )?;
+                    )
+                    .await?;
                     let AuthenticatedSignerResolutionEvidence::Agent {
                         agent_signer_evidence,
                         ..
@@ -560,7 +571,8 @@ where
                     signer_evidence: evidence,
                     verified_checkpoint,
                 },
-            )?;
+            )
+            .await?;
             let expected = arkret_wire::base64url::base64url_decode(
                 evidence
                     .response_signing_public_key_b64u

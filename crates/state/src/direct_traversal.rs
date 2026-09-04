@@ -689,8 +689,12 @@ pub async fn verify_direct_traversal_cut_with_registry<
 where
     VerifySealSignature: Fn(&SealSignature, &NotarySignerDescriptor, &[u8], DigestSuite) -> arkret_wire::Result<()>
         + Copy,
-    VerifyEventProofs:
-        Fn(&Event, DigestSuite, &[GovernanceDependency]) -> arkret_wire::Result<()> + Copy,
+    VerifyEventProofs: for<'a> Fn(
+            &'a Event,
+            DigestSuite,
+            &'a [GovernanceDependency],
+        ) -> crate::mls_governance_proof::VerifyEventProofsFuture<'a>
+        + Clone,
     VerifySealDependencies: Fn(
             &Seal,
             &NotaryValue,
@@ -770,7 +774,7 @@ where
             dependencies,
             registry,
             verify_seal_signature,
-            verify_event_proofs,
+            verify_event_proofs.clone(),
             verify_seal_dependencies,
             project_writes,
             &mut live_suites,
