@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-04.4;
-//! sha256=cc22918dce115e3a81805b42010b8a775fe4c45e6955a4def591deafc10471ec Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-09-05.1;
+//! sha256=4da16735865849964af38cec5746deae472336f9267006874c8fec3e0f97ddb9 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -1564,6 +1564,14 @@ impl ErrorCode {
             "verifier_unauthorized" => Some(Self::VerifierUnauthorized),
             _ => None,
         }
+    }
+
+    /// Whether `value` is a top-level error code registered in
+    /// `registry/error-code-registry.json` `codes[]`. A `reason_codes[]`
+    /// member is not a top-level code: it belongs on
+    /// `error.details.reason_code`, never on the wire `error.code`.
+    pub fn is_registered(value: &str) -> bool {
+        Self::from_wire(value).is_some()
     }
 
     pub fn descriptor(self) -> &'static ErrorCodeDescriptor {

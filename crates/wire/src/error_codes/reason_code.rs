@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-04.4;
-//! sha256=cc22918dce115e3a81805b42010b8a775fe4c45e6955a4def591deafc10471ec
-//! Entries: reason_codes=426
+//! Input: registry/error-code-registry.json; version=2026-09-05.1;
+//! sha256=4da16735865849964af38cec5746deae472336f9267006874c8fec3e0f97ddb9
+//! Entries: reason_codes=430
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -37,6 +37,9 @@ pub enum ReasonCode {
     AgentRequestedScopeCommitmentInvalid,
     AgentRuntimeRequestConflict,
     AgentSessionScopeRefreshRequired,
+    AppletManagedActorProvisionInvalid,
+    AppletManagedPcrGenesisInvalid,
+    AppletManagedPcrGenesisRequiresClosedAggregate,
     AppletNamespaceMismatch,
     ApprovalAlreadyConsumed,
     ApprovalNonceReused,
@@ -177,6 +180,7 @@ pub enum ReasonCode {
     IdentityCreationLeaseFenced,
     IdentityLinkNoLongerVisible,
     IdentityLinkPolicyTightened,
+    IdentityMethodEvidenceInvalid,
     Illegal,
     InclusionListViolation,
     InclusionProofFailed,
@@ -483,6 +487,12 @@ impl ReasonCode {
     pub const AGENT_RUNTIME_REQUEST_CONFLICT: &'static str = "agent_runtime_request_conflict";
     pub const AGENT_SESSION_SCOPE_REFRESH_REQUIRED: &'static str =
         "agent_session_scope_refresh_required";
+    pub const APPLET_MANAGED_ACTOR_PROVISION_INVALID: &'static str =
+        "applet_managed_actor_provision_invalid";
+    pub const APPLET_MANAGED_PCR_GENESIS_INVALID: &'static str =
+        "applet_managed_pcr_genesis_invalid";
+    pub const APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE: &'static str =
+        "applet_managed_pcr_genesis_requires_closed_aggregate";
     pub const APPLET_NAMESPACE_MISMATCH: &'static str = "applet_namespace_mismatch";
     pub const APPROVAL_ALREADY_CONSUMED: &'static str = "approval_already_consumed";
     pub const APPROVAL_NONCE_REUSED: &'static str = "approval_nonce_reused";
@@ -659,6 +669,7 @@ impl ReasonCode {
     pub const IDENTITY_CREATION_LEASE_FENCED: &'static str = "identity_creation_lease_fenced";
     pub const IDENTITY_LINK_NO_LONGER_VISIBLE: &'static str = "identity_link_no_longer_visible";
     pub const IDENTITY_LINK_POLICY_TIGHTENED: &'static str = "identity_link_policy_tightened";
+    pub const IDENTITY_METHOD_EVIDENCE_INVALID: &'static str = "identity_method_evidence_invalid";
     pub const ILLEGAL: &'static str = "illegal";
     pub const INCLUSION_LIST_VIOLATION: &'static str = "inclusion_list_violation";
     pub const INCLUSION_PROOF_FAILED: &'static str = "inclusion_proof_failed";
@@ -989,6 +1000,13 @@ impl ReasonCode {
             }
             Self::AgentRuntimeRequestConflict => Self::AGENT_RUNTIME_REQUEST_CONFLICT,
             Self::AgentSessionScopeRefreshRequired => Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
+            Self::AppletManagedActorProvisionInvalid => {
+                Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID
+            }
+            Self::AppletManagedPcrGenesisInvalid => Self::APPLET_MANAGED_PCR_GENESIS_INVALID,
+            Self::AppletManagedPcrGenesisRequiresClosedAggregate => {
+                Self::APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE
+            }
             Self::AppletNamespaceMismatch => Self::APPLET_NAMESPACE_MISMATCH,
             Self::ApprovalAlreadyConsumed => Self::APPROVAL_ALREADY_CONSUMED,
             Self::ApprovalNonceReused => Self::APPROVAL_NONCE_REUSED,
@@ -1159,6 +1177,7 @@ impl ReasonCode {
             Self::IdentityCreationLeaseFenced => Self::IDENTITY_CREATION_LEASE_FENCED,
             Self::IdentityLinkNoLongerVisible => Self::IDENTITY_LINK_NO_LONGER_VISIBLE,
             Self::IdentityLinkPolicyTightened => Self::IDENTITY_LINK_POLICY_TIGHTENED,
+            Self::IdentityMethodEvidenceInvalid => Self::IDENTITY_METHOD_EVIDENCE_INVALID,
             Self::Illegal => Self::ILLEGAL,
             Self::InclusionListViolation => Self::INCLUSION_LIST_VIOLATION,
             Self::InclusionProofFailed => Self::INCLUSION_PROOF_FAILED,
@@ -1487,6 +1506,13 @@ impl ReasonCode {
             }
             Self::AGENT_RUNTIME_REQUEST_CONFLICT => Self::AgentRuntimeRequestConflict,
             Self::AGENT_SESSION_SCOPE_REFRESH_REQUIRED => Self::AgentSessionScopeRefreshRequired,
+            Self::APPLET_MANAGED_ACTOR_PROVISION_INVALID => {
+                Self::AppletManagedActorProvisionInvalid
+            }
+            Self::APPLET_MANAGED_PCR_GENESIS_INVALID => Self::AppletManagedPcrGenesisInvalid,
+            Self::APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE => {
+                Self::AppletManagedPcrGenesisRequiresClosedAggregate
+            }
             Self::APPLET_NAMESPACE_MISMATCH => Self::AppletNamespaceMismatch,
             Self::APPROVAL_ALREADY_CONSUMED => Self::ApprovalAlreadyConsumed,
             Self::APPROVAL_NONCE_REUSED => Self::ApprovalNonceReused,
@@ -1657,6 +1683,7 @@ impl ReasonCode {
             Self::IDENTITY_CREATION_LEASE_FENCED => Self::IdentityCreationLeaseFenced,
             Self::IDENTITY_LINK_NO_LONGER_VISIBLE => Self::IdentityLinkNoLongerVisible,
             Self::IDENTITY_LINK_POLICY_TIGHTENED => Self::IdentityLinkPolicyTightened,
+            Self::IDENTITY_METHOD_EVIDENCE_INVALID => Self::IdentityMethodEvidenceInvalid,
             Self::ILLEGAL => Self::Illegal,
             Self::INCLUSION_LIST_VIOLATION => Self::InclusionListViolation,
             Self::INCLUSION_PROOF_FAILED => Self::InclusionProofFailed,
@@ -2155,6 +2182,21 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::AGENT_SESSION_SCOPE_REFRESH_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "The immutable provision ceiling and accepted Agent key authorization both contain every operation required by the selected runtime capability, but the requested or current session scope omits one or more. The operation fails with failed_precondition and recovery is a new session constrained by both upper ceilings. See zh/identity/key-management.md §3.6.1 and agent-runtime-scope-registry.json.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::APPLET_MANAGED_ACTOR_PROVISION_INVALID,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "An ak.applet.managed_actor.provision Event in the closed Applet managed-actor creation aggregate does not satisfy its binding rules: actor_id.account_id.station_id is not the receiving Station, the actor collides with the service or controller principal, or the provisioned actor is not the registration's declared bot_actor_id. See zh/extensions/applet-integration.md.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::APPLET_MANAGED_PCR_GENESIS_INVALID,
+        applies_to: &["pcr_genesis", "event_envelope"],
+        description: "The purpose=applet_managed_control PCR genesis Event in the Applet managed-actor creation aggregate does not cross-bind its provision Event, initial_resolution, Applet, grant and service verbatim. See zh/extensions/applet-integration.md.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::APPLET_MANAGED_PCR_GENESIS_REQUIRES_CLOSED_AGGREGATE,
+        applies_to: &["pcr_genesis", "federation_transaction"],
+        description: "A purpose=applet_managed_control PCR genesis arrived outside the closed Applet install / Ghost provisioning aggregate - an ordinary submit, a Realm bootstrap batch, or ak.peer.events.command.submit.v1. Transport and proof validity do not make it an AppletFormal admission. See zh/extensions/applet-integration.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::APPLET_NAMESPACE_MISMATCH,
@@ -2863,6 +2905,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::IDENTITY_LINK_POLICY_TIGHTENED,
         applies_to: &["identity_resolution"],
         description: "An identity-link resolution was invalidated because the governing visibility / link policy was tightened after the link was cached. See zh/conformance/conformance-vectors.md §9 (ak.vector.identity_link.policy_tightening_invalidation.v1).",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::IDENTITY_METHOD_EVIDENCE_INVALID,
+        applies_to: &["identity_resolution", "auth_decision"],
+        description: "Submitted method_history_evidence fails independent verification: broken inception/current hash chain, SCID mismatch, invalid controller proof, unmet witness threshold, or stale evidence. An Applet-managed principal MUST carry a complete webvh_log; did:web snapshots, did:key expansion and service attestation are not substitutes. See zh/extensions/applet-integration.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ILLEGAL,

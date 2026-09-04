@@ -1249,6 +1249,15 @@ impl KeyBackupEncryption {
     /// `try_from`; constructors that assemble the struct directly SHOULD call it
     /// before signing / submitting an envelope.
     pub fn validate(&self) -> Result<()> {
+        // key-management.md 7.9: an unknown, reserved or name-contradicting
+        // `aead.aead_profile` fails closed for every recipient method, before
+        // any per-method field-set rule runs.
+        if let Err(reason) = self.aead.validate_aead_profile() {
+            return Err(WireError::Protocol(format!(
+                "key backup encryption: {reason} `{}`",
+                self.aead.aead_profile.as_deref().unwrap_or_default()
+            )));
+        }
         match self.recipient_method {
             KeyBackupRecipientMethod::PassphraseKdf => {
                 // `if recipient_method==passphrase_kdf then required kdf; aead
@@ -1542,6 +1551,41 @@ pub struct KeyBackupAead {
     pub enc: Option<Base64UrlString>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
+}
+
+/// Reserved-but-unpublished AEAD profile namespace. `ak.aead.*` describes only
+/// the AEAD construction; KEM agility belongs to `encryption.hpke_suite`, so an
+/// envelope that encodes KEM semantics here fails closed even once a hybrid KEM
+/// row goes active (key-management.md 7.9).
+const RESERVED_HYBRID_KEM_AEAD_PROFILE_PREFIX: &str = "ak.aead.hybrid_kem.";
+
+impl KeyBackupAead {
+    /// Registry check for `aead_profile` (key-management.md 7.9, normative).
+    ///
+    /// An absent profile is allowed; a present one MUST name an active
+    /// `aead-profile-registry.json` row and MUST agree with `aead.name`.
+    /// Unknown, reserved-but-unpublished (`ak.aead.hybrid_kem.*`) or
+    /// name-contradicting profiles fail closed: a receiver MUST NOT infer AEAD
+    /// parameters from `aead.name` alone. The `Err` payload is the registered
+    /// reason code so callers can attach it verbatim.
+    pub fn validate_aead_profile(&self) -> std::result::Result<(), &'static str> {
+        let Some(profile) = self.aead_profile.as_deref() else {
+            return Ok(());
+        };
+        if profile.starts_with(RESERVED_HYBRID_KEM_AEAD_PROFILE_PREFIX) {
+            return Err(ReasonCode::UNSUPPORTED_AEAD_PROFILE);
+        }
+        let registered = arkret_wire::AeadProfileId::from_wire(profile)
+            .ok_or(ReasonCode::UNSUPPORTED_AEAD_PROFILE)?;
+        let pinned = match registered {
+            arkret_wire::AeadProfileId::Chacha20Poly1305V1 => KeyBackupAeadName::Chacha20Poly1305,
+            arkret_wire::AeadProfileId::Xchacha20Poly1305V1 => KeyBackupAeadName::Xchacha20Poly1305,
+        };
+        if pinned != self.name {
+            return Err(ReasonCode::UNSUPPORTED_AEAD_PROFILE);
+        }
+        Ok(())
+    }
 }
 
 /// Counterpart for the six non-history `item_kind` values shared by
@@ -3066,6 +3110,102 @@ mod closed_outcome_tests {
         let replace_error =
             serde_json::from_value::<KeysBackupsReplaceOutcome>(replace).unwrap_err();
         assert!(replace_error.to_string().contains("unknown field"));
+    }
+}
+
+#[cfg(test)]
+mod aead_profile_tests {
+    use super::*;
+
+    fn aead(name: KeyBackupAeadName, profile: Option<&str>) -> KeyBackupAead {
+        KeyBackupAead {
+            name,
+            aead_profile: profile.map(str::to_owned),
+            nonce_salt: None,
+            nonce: None,
+            enc: None,
+            extra: XExtensionMap::default(),
+        }
+    }
+
+    #[test]
+    fn absent_profile_is_allowed() {
+        assert!(
+            aead(KeyBackupAeadName::Xchacha20Poly1305, None)
+                .validate_aead_profile()
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn active_registry_profile_matching_its_name_is_allowed() {
+        assert!(
+            aead(
+                KeyBackupAeadName::Xchacha20Poly1305,
+                Some("ak.aead.xchacha20_poly1305.v1"),
+            )
+            .validate_aead_profile()
+            .is_ok()
+        );
+        assert!(
+            aead(
+                KeyBackupAeadName::Chacha20Poly1305,
+                Some("ak.aead.chacha20_poly1305.v1"),
+            )
+            .validate_aead_profile()
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn unknown_reserved_and_contradicting_profiles_fail_closed() {
+        for (name, profile) in [
+            // Unregistered profile id.
+            (
+                KeyBackupAeadName::Xchacha20Poly1305,
+                "ak.aead.unpublished_future.v1",
+            ),
+            // Reserved-but-unpublished hybrid KEM namespace.
+            (
+                KeyBackupAeadName::Xchacha20Poly1305,
+                "ak.aead.hybrid_kem.x25519_mlkem768.v1",
+            ),
+            // Registered profile that contradicts `aead.name`; the profile
+            // pins the algorithm, so the name may not be trusted instead.
+            (
+                KeyBackupAeadName::Aes256Gcm,
+                "ak.aead.xchacha20_poly1305.v1",
+            ),
+        ] {
+            assert_eq!(
+                aead(name, Some(profile)).validate_aead_profile(),
+                Err(ReasonCode::UNSUPPORTED_AEAD_PROFILE),
+                "{profile} under {name:?} must fail closed",
+            );
+        }
+    }
+
+    #[test]
+    fn encryption_validate_rejects_an_unsupported_profile() {
+        let encryption = KeyBackupEncryption {
+            recipient_method: KeyBackupRecipientMethod::SecretStorageKey,
+            recipient_key_ref: Some("ak.secret_storage.default".to_owned()),
+            aead: aead(
+                KeyBackupAeadName::Xchacha20Poly1305,
+                Some("ak.aead.hybrid_kem.x25519_mlkem768.v1"),
+            ),
+            kdf: None,
+            key_commitment: None,
+            hpke_suite: None,
+            extra: XExtensionMap::default(),
+        };
+        let error = encryption.validate().expect_err("reserved profile");
+        assert!(
+            error
+                .to_string()
+                .contains(ReasonCode::UNSUPPORTED_AEAD_PROFILE),
+            "{error}",
+        );
     }
 }
 
