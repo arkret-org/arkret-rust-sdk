@@ -945,7 +945,6 @@ declare_uuid_id_kinds! {
     PolicyId, "ak:policy:", UUID_VERSION_PRODUCER_ALLOCATED;
     PresentationId, "ak:presentation:", UUID_VERSION_PRODUCER_ALLOCATED;
     ReceiptId, "ak:receipt:", UUID_VERSION_PRODUCER_ALLOCATED;
-    ReadCursorId, "ak:read_cursor:", UUID_VERSION_PRODUCER_ALLOCATED;
     RequestId, "ak:request:", UUID_VERSION_PRODUCER_ALLOCATED;
     ScheduledSendId, "ak:scheduled_send:", UUID_VERSION_PRODUCER_ALLOCATED;
     SnapshotId, "ak:snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1690,7 +1689,6 @@ mod tests {
         assert_id!(RelationId, "ak:relation:");
         assert_id!(SidecarId, "ak:sidecar:");
         assert_id!(ReportId, "ak:report:");
-        assert_id!(ReadCursorId, "ak:read_cursor:");
         assert_id!(RequestId, "ak:request:");
         assert_id!(ScheduledSendId, "ak:scheduled_send:");
         assert_id!(SnapshotId, "ak:snapshot:");

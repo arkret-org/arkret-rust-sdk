@@ -99,7 +99,7 @@ pub use arkret_identifiers::{
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
     DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
     InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
-    MorphId, NotificationId, OperationId, PolicyId, PresentationId, ReadCursorId, RealmId,
+    MorphId, NotificationId, OperationId, PolicyId, PresentationId, RealmId,
     ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
     SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId,
     WebOrigin, new_prefixed_uuid7, project_did_to_core_id,

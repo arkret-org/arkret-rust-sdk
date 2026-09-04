@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-04.1;
-//! sha256=73c9e3cce7bce9633e22d78abb39d6074c272e1c6355999e418cc7351a254a1b Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-04.2;
+//! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4 Input: registry/
 //! capability-action-registry.json; version=2026-09-02.8;
 //! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
-//! schema-registry.json; version=2026-09-02.5;
-//! sha256=5b1c57d82cda818351f826a1e95b3eee0b6e9444f9dedd7678f75b439d323e15 Input: registry/
+//! schema-registry.json; version=2026-09-04.1;
+//! sha256=eb790fbcb3ec798fc9cde370645b5df6c52a363d2ad709d88f01e83142a20611 Input: registry/
 //! account-data-key-registry.json; version=2026-09-04.2;
-//! sha256=6d72d6ce1a9a4c9afc81138fcda51475e437cc61ebc5ecdfe9b0f00c0abe2743 Entries: id_kinds=59,
-//! special_forms=14, actions=162, schemas=199, account_data_patterns=24
+//! sha256=6d72d6ce1a9a4c9afc81138fcda51475e437cc61ebc5ecdfe9b0f00c0abe2743 Entries: id_kinds=58,
+//! special_forms=14, actions=162, schemas=200, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -279,11 +279,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "presentation",
         category: "identity",
         wire_form: "ak:presentation:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "read_cursor",
-        category: "account_private",
-        wire_form: "ak:read_cursor:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "realm",
@@ -3609,6 +3604,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::READ_CURSOR_OPERATIONS_V1,
         file: "schemas/read-cursor-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::READ_CURSOR_UPDATE_V1,
+        file: "schemas/device-message.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::READ_RECEIPT_V1,

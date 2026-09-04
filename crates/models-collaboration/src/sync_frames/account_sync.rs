@@ -772,7 +772,16 @@ pub struct ActorPrivateAccountDataUpdate {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Read-cursor delta carried inside an actor-private device update.
+/// Read-cursor delta carried inside an actor-private device update
+/// (`ak.read_cursor.update`, spec
+/// `device-message.schema.json#/$defs/read_cursor_update_content`).
+///
+/// `schema` is `ak.schema.read_cursor_update.v1`
+/// (`SchemaId::READ_CURSOR_UPDATE_V1`), NOT `ak.schema.read_cursor.v1`: this
+/// is the Station's derived projection of the advance that currently wins the
+/// causal-first merge for one `(actor_id, realm_id, read_scope)`, and its
+/// `updated_at` is that winning advance's envelope `created_at`. The payload
+/// object it derives from has neither an id nor an `updated_at`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ActorPrivateReadCursorUpdate {
