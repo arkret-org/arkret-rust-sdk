@@ -11,24 +11,24 @@ use serde::{Deserialize, Serialize};
 /// Canonical consent add-dot reference.
 ///
 /// Mirrors `event-payload.schema.json#/$defs/consent_revoke_payload`
-/// `observed_dot_ids[]`: `<canonical event ref>:<actor sequence>`.
+/// `observed_dot_ids[]`: `<canonical event ref>:<write index>`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct ConsentObservedDot(String);
 
 impl ConsentObservedDot {
     pub fn new(value: String) -> Result<Self> {
-        let (event_ref, actor_seq) = value.rsplit_once(':').ok_or_else(|| {
-            WireError::Protocol("consent observed dot must contain an actor sequence".to_owned())
+        let (event_ref, write_index) = value.rsplit_once(':').ok_or_else(|| {
+            WireError::Protocol("consent observed dot must contain a write index".to_owned())
         })?;
         EventId::new(event_ref.to_owned()).map_err(|_| {
             WireError::Protocol(
                 "consent observed dot must start with a canonical event ref".to_owned(),
             )
         })?;
-        if actor_seq.is_empty() || !actor_seq.bytes().all(|byte| byte.is_ascii_digit()) {
+        if write_index.is_empty() || !write_index.bytes().all(|byte| byte.is_ascii_digit()) {
             return Err(WireError::Protocol(
-                "consent observed dot actor sequence must contain decimal digits".to_owned(),
+                "consent observed dot write index must contain decimal digits".to_owned(),
             ));
         }
         Ok(Self(value))
