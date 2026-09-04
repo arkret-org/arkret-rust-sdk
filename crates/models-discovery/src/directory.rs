@@ -386,7 +386,7 @@ impl DirectoryResolveTargetRequestBody {
 /// R3.3 (AKP-0011) — response body for `ak.find.directory.read.resolve_target.v1`.
 ///
 /// Common §9.1 directory fields (`as_of`, `source_refs`, `join_candidates`,
-/// `policy_revision`, `stale`, `divergent`) mirror the other directory
+/// `policy_revision`) mirror the other directory
 /// responses. `object_preview` is a target-kind-dependent opaque preview
 /// (a stripped Strand / Message projection); it stays a `serde_json::Value`
 /// because its shape varies by `target_kind`.
