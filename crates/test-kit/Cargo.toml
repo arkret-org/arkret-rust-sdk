@@ -1,0 +1,23 @@
+[package]
+authors = ["Chris Young <chris@sonc.ai>"]
+categories = ["development-tools::testing"]
+description = "Arkret v1 shared conformance-test constructors: protocol-generic helpers every implementation's test suite needs, kept out of the runtime crates."
+edition = "2024"
+homepage = "https://github.com/arkret-org/arkret-rust-sdk"
+keywords = ["arkret", "testing", "conformance", "protocol"]
+license = "Apache-2.0"
+name = "arkret-test-kit"
+repository = "https://github.com/arkret-org/arkret-rust-sdk"
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

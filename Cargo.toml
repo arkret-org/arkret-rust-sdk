@@ -30,6 +30,7 @@ members = [
     "crates/server",
     "crates/signatures",
     "crates/state",
+    "crates/test-kit",
     "crates/wire",
 ]
 default-members = [
@@ -62,6 +63,7 @@ default-members = [
     "crates/server",
     "crates/signatures",
     "crates/state",
+    "crates/test-kit",
     "crates/wire",
 ]
 resolver = "3"
