@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-05.1;
-//! sha256=87a1ceb6f3810974584c317f989a27e25f87b353fbf0fb4609104edc91a0f48f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-05.6;
+//! sha256=6d13792f667cc05083e83ef0765de2a1f1aceb12102a8d9a9ada6ba5d5e79161 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -1182,7 +1182,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         binding_fields: &[
             "payload_digest",
             "controller_subject_id",
-            "subject_id",
+            "subject_account_id",
             "verification_method",
             "created_at",
             "domain?",
@@ -1940,7 +1940,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "payload_digest",
             "issuer",
             "operation_id",
-            "target",
+            "holder_account_id",
             "purpose",
             "verification_method",
             "created_at",

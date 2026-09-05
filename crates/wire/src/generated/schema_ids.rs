@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-05.3;
-//! sha256=e3859ad8293a884c664e35458287acf4b293c15e66fd54bd0194ac0e932e337e Entries: schema_ids=203,
-//! active=203
+//! Input: registry/schema-registry.json; version=2026-09-05.4;
+//! sha256=09366d4b76b0ecd8a7d041a96ef7f2bd4a1c3af84a432e43cceca302003441c9 Entries: schema_ids=204,
+//! active=204
 
 use serde::{Deserialize, Serialize};
 
@@ -73,6 +73,7 @@ pub enum SchemaId {
     CommonIdsV1,
     ConsentOperationsV1,
     ContactOperationsV1,
+    ContactRemarkV1,
     ContactScopeUpdateV1,
     ContentBlockPollV1,
     ControlProposalDecisionV1,
@@ -280,6 +281,7 @@ impl SchemaId {
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
+        Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::ControlProposalDecisionV1,
@@ -487,6 +489,7 @@ impl SchemaId {
         Self::CommonIdsV1,
         Self::ConsentOperationsV1,
         Self::ContactOperationsV1,
+        Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
         Self::ControlProposalDecisionV1,
@@ -826,6 +829,13 @@ impl SchemaId {
     /// scope replacement, tombstone, the portable Contact round evidence bundle, acceptance
     /// receipts and the peer Contact carrier, plus the contact-list projection.
     pub const CONTACT_OPERATIONS_V1: &'static str = "ak.schema.contact_operations.v1";
+    /// Closed decrypted plaintext shape of the principal-private
+    /// ak.contacts.actor.&lt;principal_key&gt; account-data value: holder-authored petname,
+    /// explicitly confirmed display-name baseline, note, tags, pin, verified handle snapshot and
+    /// timestamps for one accepted human Contact. Producers validate the final plaintext before
+    /// encrypting; consumers validate after decrypting. The Station holds no key and never
+    /// validates it.
+    pub const CONTACT_REMARK_V1: &'static str = "ak.schema.contact_remark.v1";
     /// Closed holder-signed Contact scope replacement payload, including the peer XOR, stable
     /// basis, version, predecessor and full granted-scope set.
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
@@ -1272,6 +1282,7 @@ impl SchemaId {
             Self::CommonIdsV1 => Self::COMMON_IDS_V1,
             Self::ConsentOperationsV1 => Self::CONSENT_OPERATIONS_V1,
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
+            Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
             Self::ControlProposalDecisionV1 => Self::CONTROL_PROPOSAL_DECISION_V1,
@@ -1520,6 +1531,7 @@ impl SchemaId {
             Self::CommonIdsV1 => "schemas/common-ids.schema.json",
             Self::ConsentOperationsV1 => "schemas/consent-operations.schema.json",
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
+            Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
             Self::ControlProposalDecisionV1 => "schemas/control-proposal-decision.schema.json",
@@ -1768,6 +1780,7 @@ impl SchemaId {
             Self::COMMON_IDS_V1 => Some(Self::CommonIdsV1),
             Self::CONSENT_OPERATIONS_V1 => Some(Self::ConsentOperationsV1),
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
+            Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
             Self::CONTROL_PROPOSAL_DECISION_V1 => Some(Self::ControlProposalDecisionV1),

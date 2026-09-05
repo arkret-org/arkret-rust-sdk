@@ -4,11 +4,11 @@
 //! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4 Input: registry/
 //! capability-action-registry.json; version=2026-09-02.8;
 //! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
-//! schema-registry.json; version=2026-09-05.3;
-//! sha256=e3859ad8293a884c664e35458287acf4b293c15e66fd54bd0194ac0e932e337e Input: registry/
-//! account-data-key-registry.json; version=2026-09-05.1;
-//! sha256=cd8a34c1176fd20bb8f99de0fa4162ad1e86abe899f5055296caaac5a34f43e1 Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=203, account_data_patterns=24
+//! schema-registry.json; version=2026-09-05.4;
+//! sha256=09366d4b76b0ecd8a7d041a96ef7f2bd4a1c3af84a432e43cceca302003441c9 Input: registry/
+//! account-data-key-registry.json; version=2026-09-05.2;
+//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
+//! special_forms=14, actions=162, schemas=204, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3284,6 +3284,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_OPERATIONS_V1,
         file: "schemas/contact-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTACT_REMARK_V1,
+        file: "schemas/contact-remark.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CONTACT_SCOPE_UPDATE_V1,

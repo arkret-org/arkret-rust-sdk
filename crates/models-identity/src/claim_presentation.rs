@@ -4,7 +4,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    DidCoreId, DidUrl, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError, canonical,
+    AccountId, DidCoreId, DidUrl, Hash, PayloadProof, ProofContextId, Result, SchemaId, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -74,9 +75,19 @@ fn default_agent_selector_claim_schema() -> String {
 pub struct AgentSelectorClaim {
     #[serde(default = "default_agent_selector_claim_schema")]
     pub schema: String,
+    /// Controller principal that owns the selector namespace. It names the
+    /// namespace only; it does not name the account the slug points at.
     pub controller_subject_id: DidCoreId,
     pub agent_slug: String,
-    pub subject_id: DidCoreId,
+    /// Exact Agent account the controller signed this slug onto.
+    ///
+    /// The namespace stays principal-scoped while the target is
+    /// account-scoped, and neither is derived from the other. A consumer
+    /// copies this value verbatim into the mention node: it must not be
+    /// rebuilt from a bare principal, the controller handle's Station, a DID
+    /// default Station or the resolving facade. Ruling
+    /// `review/spec-done/2026-09-05-1310`.
+    pub subject_account_id: AccountId,
     pub issuer_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vouching_id: Option<DidCoreId>,
@@ -139,8 +150,8 @@ impl AgentSelectorClaim {
                 serde_json::to_value(&self.controller_subject_id)?,
             ),
             (
-                "subject_id".to_owned(),
-                serde_json::to_value(&self.subject_id)?,
+                "subject_account_id".to_owned(),
+                serde_json::to_value(&self.subject_account_id)?,
             ),
             (
                 "agent_slug".to_owned(),
