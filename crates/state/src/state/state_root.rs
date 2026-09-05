@@ -515,6 +515,22 @@ pub fn leaf_hash(
     leaf_hash_from_state_object(cell, state_object, digest_suite)
 }
 
+/// Hash one `{"cell":…,"state":…}` leaf preimage into its Realm-suite wire form.
+///
+/// This is the single leaf definition the Seal `state_root` and the snapshot
+/// `state_digest` share (`snapshot-schema.md` §4): a control cell's snapshot
+/// leaf is byte-identical to its `state_root` leaf.
+pub fn state_leaf_hash_from_state_object(
+    cell: &CellRef,
+    state_object: serde_json::Value,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Hash, crate::WireError> {
+    hash_from_raw(
+        leaf_hash_from_state_object(cell, state_object, digest_suite)?,
+        digest_suite,
+    )
+}
+
 /// Hash one `{"cell":…,"state":…}` leaf preimage.
 ///
 /// Both leaf shapes share this tail, so the `0x00` domain separation and the

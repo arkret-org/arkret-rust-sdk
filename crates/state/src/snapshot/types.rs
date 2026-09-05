@@ -459,6 +459,11 @@ pub struct SnapshotVerificationHints {
     pub soft_failed_digest: Option<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quarantined_digest: Option<Hash>,
+    /// Digest of `erasure_stubs[]` concatenated across chunks in index order.
+    /// Present whenever any chunk carries an erasure stub: erased cells are not
+    /// `state_digest` leaves, so this is their only commitment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub erasure_stubs_digest: Option<Hash>,
 }
 
 /// One still-active `cas_register` write inside a snapshot chunk.
@@ -475,52 +480,149 @@ pub struct SnapshotCasHead {
     pub value: Value,
 }
 
-/// The `state_object` of one written `cas_register` cell (§6.2.1).
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SnapshotCasCellState {
-    pub heads: Vec<SnapshotCasHead>,
-}
-
-/// Materialized reducer output item stored inside spec snapshot chunks.
+/// The `state` of one snapshot cell item: exactly the `state_object` that
+/// `event-auth-state-resolution.md` §6.2.1 gives that cell's registered
+/// lattice.
 ///
-/// `snapshot-schema.md` §3 makes `items[]` a closed union discriminated by
-/// `kind`. The `cas_cell` branch carries neither `object` nor
-/// `source_event_id`: a `cas_register` cell's state is its head set, and a
-/// single `source_event_id` cannot express more than one active write — an
-/// implementation that picked "the last one" would be inventing a winner the
-/// lattice deliberately refuses to pick.
+/// `{"heads":[…]}` for a `cas_register` cell, `{"value":…}` for every other
+/// lattice. The two shapes are mutually exclusive and carry no other member, so
+/// a cell's snapshot state and its `state_root` leaf preimage
+/// `{"cell","state"}` are one definition, not two that can drift
+/// (`snapshot-schema.md` §3 / §4).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SnapshotMaterializedItem {
-    /// A materialized canonical object.
-    Object {
-        kind: String,
-        id: String,
-        object: Value,
-        source_event_id: EventId,
-    },
-    /// One written `cas_register` control cell.
-    CasCell {
-        cell: CellRef,
-        state: SnapshotCasCellState,
-    },
+pub enum SnapshotCellState {
+    /// Joined lattice value of a materialized non-`cas_register` cell, verbatim.
+    /// An encrypted envelope projected from an Event payload stays an
+    /// envelope: the issuer never decrypts, re-encrypts or substitutes.
+    Value(Value),
+    /// Complete active head set of a written `cas_register` cell, ordered by the
+    /// decoded 33-octet `event_id` token with identities unique. Never empty:
+    /// an unwritten cell is not a member.
+    Heads(Vec<SnapshotCasHead>),
 }
 
-/// The literal `kind` of the `cas_cell` branch (`snapshot-schema.md` §3).
-pub const SNAPSHOT_CAS_CELL_KIND: &str = "cas_cell";
-
-impl SnapshotMaterializedItem {
-    pub fn object(kind: String, id: String, object: Value, source_event_id: EventId) -> Self {
-        Self::Object {
-            kind,
-            id,
-            object,
-            source_event_id,
+impl SnapshotCellState {
+    /// The §6.2.1 `state_object` this state serializes to.
+    pub fn to_state_object(&self) -> Value {
+        match self {
+            Self::Value(value) => serde_json::json!({ "value": value }),
+            Self::Heads(heads) => serde_json::json!({ "heads": heads }),
         }
     }
+}
 
-    /// A `cas_cell` item for one written cell.
+impl Serialize for SnapshotCellState {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        self.to_state_object().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SnapshotCellState {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        use serde::de::Error as _;
+        let mut object = serde_json::Map::<String, Value>::deserialize(deserializer)?;
+        let keys = object.keys().cloned().collect::<Vec<_>>();
+        match keys.as_slice() {
+            [key] if key == "value" => {
+                Ok(Self::Value(object.remove("value").unwrap_or(Value::Null)))
+            }
+            [key] if key == "heads" => {
+                let heads = serde_json::from_value::<Vec<SnapshotCasHead>>(
+                    object.remove("heads").unwrap_or(Value::Null),
+                )
+                .map_err(D::Error::custom)?;
+                cas_heads_are_canonical(&heads).map_err(D::Error::custom)?;
+                Ok(Self::Heads(heads))
+            }
+            _ => Err(D::Error::custom(
+                "a snapshot cell state is exactly one of {\"value\":…} or {\"heads\":[…]}",
+            )),
+        }
+    }
+}
+
+/// The decoded 33-octet token of an `ak:event:` identity — the §6.2.1 sort key
+/// of a head set. Wire strings are never compared directly.
+fn event_token_bytes(event_id: &EventId) -> std::result::Result<Vec<u8>, String> {
+    let token = event_id
+        .as_str()
+        .strip_prefix("ak:event:")
+        .ok_or_else(|| format!("{event_id} is not an ak:event: identity"))?;
+    let bytes = crate::base64url::base64url_decode(token)
+        .map_err(|error| format!("{event_id} has an undecodable token: {error}"))?;
+    if bytes.len() != 33 {
+        return Err(format!("{event_id} does not decode to 33 octets"));
+    }
+    Ok(bytes)
+}
+
+/// §6.2.1: a head set is non-empty, sorted by decoded token in unsigned
+/// lexicographic ascending order, and carries each identity once.
+fn cas_heads_are_canonical(heads: &[SnapshotCasHead]) -> std::result::Result<(), String> {
+    if heads.is_empty() {
+        return Err(
+            "a cas_register snapshot item carries at least one head; an unwritten cell \
+                    is not a member"
+                .to_owned(),
+        );
+    }
+    let mut previous: Option<Vec<u8>> = None;
+    for head in heads {
+        let token = event_token_bytes(&head.event_id)?;
+        if let Some(previous) = &previous
+            && token <= *previous
+        {
+            return Err(
+                "cas_register heads must be sorted by decoded event_id token in ascending order \
+                 with unique identities"
+                    .to_owned(),
+            );
+        }
+        previous = Some(token);
+    }
+    Ok(())
+}
+
+/// The literal `kind` of every snapshot item (`snapshot-schema.md` §3).
+pub const SNAPSHOT_CELL_KIND: &str = "cell";
+
+/// One written Realm-scope reducer cell inside a snapshot chunk.
+///
+/// `snapshot-schema.md` §3 makes `items[]` a closed single-branch union:
+/// `{"kind":"cell","id":<cell wire id>,"state":<state_object>}`. There is no
+/// materialized-object branch — a snapshot ships the reducer's own state and a
+/// consumer derives display objects locally, exactly as it does from replay —
+/// and no `source_event_id`: write identities live inside the lattice state
+/// (CAS heads, or_set dots, ordered_log entries), and one identity could not
+/// name several live writes anyway.
+///
+/// Construction and deserialization both enforce the registry: the family must
+/// be one a registered `cell_writes[]` row writes, and the state shape must be
+/// the one its lattice gets — `heads` for `cas_register`, `value` otherwise.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SnapshotMaterializedItem {
+    cell: CellRef,
+    state: SnapshotCellState,
+}
+
+impl SnapshotMaterializedItem {
+    /// Build an item for one written cell, validating it against the registry.
+    pub fn new(cell: CellRef, state: SnapshotCellState) -> Result<Self> {
+        validate_snapshot_cell(&cell, &state)?;
+        Ok(Self { cell, state })
+    }
+
+    /// An item for a materialized non-`cas_register` cell.
+    pub fn value(cell: CellRef, value: Value) -> Result<Self> {
+        Self::new(cell, SnapshotCellState::Value(value))
+    }
+
+    /// An item for one written `cas_register` cell.
     ///
     /// `heads` comes from [`crate::lattice::cas_register::cas_heads`], already
     /// ordered by the decoded `event_id` token. Each head's identity is
@@ -534,12 +636,6 @@ impl SnapshotMaterializedItem {
         cell: CellRef,
         heads: &[crate::lattice::cas_register::CasHead],
     ) -> Result<Self> {
-        if heads.is_empty() {
-            return Err(WireError::Protocol(format!(
-                "cas_cell snapshot item for {cell} has no head; an unwritten cell is not a \
-                 state_root member"
-            )));
-        }
         let heads = heads
             .iter()
             .map(|head| {
@@ -550,53 +646,76 @@ impl SnapshotMaterializedItem {
                 })
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self::CasCell {
-            cell,
-            state: SnapshotCasCellState { heads },
-        })
+        Self::new(cell, SnapshotCellState::Heads(heads))
+    }
+
+    pub fn cell(&self) -> &CellRef {
+        &self.cell
+    }
+
+    pub fn state(&self) -> &SnapshotCellState {
+        &self.state
     }
 
     /// The `kind` this item sorts and deduplicates under.
-    pub fn kind(&self) -> &str {
-        match self {
-            Self::Object { kind, .. } => kind,
-            Self::CasCell { .. } => SNAPSHOT_CAS_CELL_KIND,
-        }
+    pub fn kind(&self) -> &'static str {
+        SNAPSHOT_CELL_KIND
     }
 
     /// The `id` this item sorts and deduplicates under.
     pub fn id(&self) -> &str {
-        match self {
-            Self::Object { id, .. } => id,
-            Self::CasCell { cell, .. } => cell.as_str(),
-        }
+        self.cell.as_str()
+    }
+
+    /// The §6.2.1 leaf preimage `{"cell": id, "state": state_object}` — the
+    /// same bytes the Seal `state_root` hashes for this cell.
+    pub fn leaf_preimage(&self) -> Value {
+        serde_json::json!({
+            "cell": self.cell.as_str(),
+            "state": self.state.to_state_object(),
+        })
     }
 }
 
-/// The flat wire object both branches share.
+fn validate_snapshot_cell(cell: &CellRef, state: &SnapshotCellState) -> Result<()> {
+    if !arkret_wire::is_registered_cell(cell.as_str()) {
+        return Err(WireError::Protocol(format!(
+            "{cell} is not a cell any registered reducer contract writes; it cannot be a \
+             snapshot item"
+        )));
+    }
+    let cas = arkret_wire::is_registered_cas_register_cell(cell.as_str());
+    match (cas, state) {
+        (true, SnapshotCellState::Heads(heads)) => {
+            cas_heads_are_canonical(heads).map_err(WireError::Protocol)
+        }
+        (false, SnapshotCellState::Value(_)) => Ok(()),
+        (true, SnapshotCellState::Value(_)) => Err(WireError::Protocol(format!(
+            "{cell} is a cas_register cell; its snapshot state is {{\"heads\":[…]}}, not a value"
+        ))),
+        (false, SnapshotCellState::Heads(_)) => Err(WireError::Protocol(format!(
+            "{cell} is not a cas_register cell; its snapshot state is {{\"value\":…}}, not heads"
+        ))),
+    }
+}
+
+/// The flat wire object of one item.
 ///
-/// Kept separate from the enum so the union stays closed: the conversion below
-/// names exactly which members each `kind` may carry, instead of letting an
-/// untagged match silently accept an item that mixes them.
+/// Kept separate from [`SnapshotMaterializedItem`] so the union stays closed:
+/// `kind` is checked against the single registered literal and `state` is
+/// re-validated against the registry on the way in.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawSnapshotItem {
     kind: String,
     id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    object: Option<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    source_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    state: Option<SnapshotCasCellState>,
+    state: Value,
 }
 
-/// The OpenAPI shape is the flat wire object, not a `oneOf` over the Rust
-/// variants: on the wire both branches are one object discriminated by `kind`,
-/// and the `cas_cell` branch's `id` is a cell reference rather than a separate
-/// member. Delegating to [`RawSnapshotItem`] keeps the document describing what
-/// is actually serialized.
+/// The OpenAPI shape is the flat wire object: `{kind, id, state}` with `state`
+/// being the §6.2.1 state_object. Delegating to [`RawSnapshotItem`] keeps the
+/// document describing what is actually serialized.
 #[cfg(feature = "openapi")]
 impl salvo_oapi::ToSchema for SnapshotMaterializedItem {
     fn to_schema(
@@ -611,28 +730,12 @@ impl Serialize for SnapshotMaterializedItem {
         &self,
         serializer: S,
     ) -> std::result::Result<S::Ok, S::Error> {
-        let raw = match self {
-            Self::Object {
-                kind,
-                id,
-                object,
-                source_event_id,
-            } => RawSnapshotItem {
-                kind: kind.clone(),
-                id: id.clone(),
-                object: Some(object.clone()),
-                source_event_id: Some(source_event_id.clone()),
-                state: None,
-            },
-            Self::CasCell { cell, state } => RawSnapshotItem {
-                kind: SNAPSHOT_CAS_CELL_KIND.to_owned(),
-                id: cell.as_str().to_owned(),
-                object: None,
-                source_event_id: None,
-                state: Some(state.clone()),
-            },
-        };
-        raw.serialize(serializer)
+        RawSnapshotItem {
+            kind: SNAPSHOT_CELL_KIND.to_owned(),
+            id: self.cell.as_str().to_owned(),
+            state: self.state.to_state_object(),
+        }
+        .serialize(serializer)
     }
 }
 
@@ -642,38 +745,67 @@ impl<'de> Deserialize<'de> for SnapshotMaterializedItem {
     ) -> std::result::Result<Self, D::Error> {
         use serde::de::Error as _;
         let raw = RawSnapshotItem::deserialize(deserializer)?;
-        if raw.kind == SNAPSHOT_CAS_CELL_KIND {
-            if raw.object.is_some() || raw.source_event_id.is_some() {
-                return Err(D::Error::custom(
-                    "a cas_cell snapshot item carries neither object nor source_event_id",
-                ));
-            }
-            let state = raw
-                .state
-                .ok_or_else(|| D::Error::custom("a cas_cell snapshot item requires state"))?;
-            let cell = CellRef::new(raw.id).map_err(D::Error::custom)?;
-            return Ok(Self::CasCell { cell, state });
+        if raw.kind != SNAPSHOT_CELL_KIND {
+            return Err(D::Error::custom(format!(
+                "snapshot items[] is a closed union whose only kind is \"cell\"; got {:?}",
+                raw.kind
+            )));
         }
-        if raw.state.is_some() {
-            return Err(D::Error::custom(
-                "only a cas_cell snapshot item carries state",
-            ));
-        }
-        Ok(Self::Object {
-            kind: raw.kind,
-            id: raw.id,
-            object: raw
-                .object
-                .ok_or_else(|| D::Error::custom("an object snapshot item requires object"))?,
-            source_event_id: raw.source_event_id.ok_or_else(|| {
-                D::Error::custom("an object snapshot item requires source_event_id")
-            })?,
-        })
+        let cell = CellRef::new(raw.id).map_err(D::Error::custom)?;
+        let state =
+            serde_json::from_value::<SnapshotCellState>(raw.state).map_err(D::Error::custom)?;
+        Self::new(cell, state).map_err(D::Error::custom)
     }
+}
+
+/// One row of a chunk's `conflict_records[]` (`snapshot-schema.md` §3): either
+/// a written non-`cas_register` cell whose join is `⊥` — it has no leaf, but a
+/// restoring receiver must fail closed on it rather than read it as never
+/// written — or an Event input whose admission is still undecided.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SnapshotConflictRecord {
+    BottomCell {
+        cell_ref: CellRef,
+    },
+    Event {
+        event_id: EventId,
+        actor_id: ActorId,
+        actor_seq: u64,
+    },
+}
+
+/// One non-accepted Event input inside the snapshot frontier, addressable by
+/// the `(actor_id, actor_seq)` coordinates §6 gap attribution uses.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotNonAcceptedInput {
+    pub event_id: EventId,
+    pub actor_id: ActorId,
+    pub actor_seq: u64,
+}
+
+/// One cell whose canonical value the issuer can no longer reproduce because a
+/// hard erasure removed it. It is not a `state_digest` leaf; the
+/// `ak.schema.erasure_verification_stub.v1` bound by the erasure receipt is
+/// carried instead and committed through `verification_hints.erasure_stubs_digest`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotErasureStub {
+    pub cell_ref: CellRef,
+    pub stub: Value,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// One `ak.schema.snapshot_chunk.v1` payload — the canonical JSON behind a
+/// manifest `chunks[].chunk_ref` (`snapshot-schema.md` §3). Closed on the way
+/// in: an unknown member, a legacy `type` discriminator or an item outside the
+/// single `cell` branch fails to parse.
+#[serde(deny_unknown_fields)]
 pub struct SnapshotChunkPayload {
     pub chunk_kind: String,
     pub snapshot_ref: SnapshotId,
@@ -682,11 +814,13 @@ pub struct SnapshotChunkPayload {
     #[serde(default)]
     pub items: Vec<SnapshotMaterializedItem>,
     #[serde(default)]
-    pub conflict_records: Vec<Value>,
+    pub conflict_records: Vec<SnapshotConflictRecord>,
     #[serde(default)]
-    pub soft_failed: Vec<Value>,
+    pub soft_failed: Vec<SnapshotNonAcceptedInput>,
     #[serde(default)]
-    pub quarantined: Vec<Value>,
+    pub quarantined: Vec<SnapshotNonAcceptedInput>,
+    #[serde(default)]
+    pub erasure_stubs: Vec<SnapshotErasureStub>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -761,7 +895,6 @@ pub struct SnapshotVerifyReport {
     pub item_count: usize,
     pub chunk_count: usize,
     pub state_digest: Hash,
-    pub source_event_ids: Vec<EventId>,
 }
 
 /// One byte range of a snapshot, addressable by `chunk_id`.

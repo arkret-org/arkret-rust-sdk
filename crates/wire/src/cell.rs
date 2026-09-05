@@ -81,6 +81,29 @@ pub fn is_registered_cas_register_cell(cell_ref: &str) -> bool {
     CellId::parse(cell_ref).is_ok_and(|cell| is_registered_cas_register_family(cell.component()))
 }
 
+/// Whether any registered reducer contract writes this cell family.
+///
+/// A snapshot item names a Realm reducer cell (`snapshot-schema.md` §3); a
+/// family no `cell_writes[]` row ever writes has no reducer state to carry, and
+/// actor-private `ak.private.*` families are not Realm consensus state at all.
+/// This lets a consumer that only has a `cell_id` refuse such an item without
+/// a `CellRegistry`.
+pub fn is_registered_cell_family(family: &str) -> bool {
+    crate::EVENT_KIND_DESCRIPTORS.iter().any(|descriptor| {
+        descriptor
+            .cell_writes
+            .iter()
+            .any(|write| write.cell_family.map(|declared| declared.as_str()) == Some(family))
+    })
+}
+
+/// [`is_registered_cell_family`] addressed by a full cell id.
+///
+/// An unparsable cell id answers `false`.
+pub fn is_registered_cell(cell_ref: &str) -> bool {
+    CellId::parse(cell_ref).is_ok_and(|cell| is_registered_cell_family(cell.component()))
+}
+
 /// Canonical genesis-log cell of every `ak.realm.create` (`ordered_log`).
 pub const REALM_CREATE_CELL: &str = "ak:cell:ak.component.realm.create.v1:null";
 /// Canonical minimal Realm identity/security root written by `ak.realm.create`.

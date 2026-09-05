@@ -391,18 +391,13 @@ fn snapshot_id() -> SnapshotId {
     SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
 }
 
-fn state_item(kind: &str, id: &str, source_suffix: &str) -> SnapshotMaterializedItem {
-    SnapshotMaterializedItem::object(
-        kind.to_owned(),
-        id.to_owned(),
-        serde_json::json!({
-            "id": id,
-            "kind": kind,
-            "schema": "ak.schema.test.v1"
-        }),
-        event_id(source_suffix),
-    )
+/// A materialized non-`cas_register` cell item (`snapshot-schema.md` §3).
+fn cell_item(cell: &str, value: Value) -> SnapshotMaterializedItem {
+    SnapshotMaterializedItem::value(CellRef::new(cell.to_owned()).unwrap(), value).unwrap()
 }
+
+const STRAND_LIFECYCLE_CELL: &str = "ak:cell:ak.component.strand.lifecycle.v1:ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
+const MESSAGE_REACTIONS_CELL: &str = "ak:cell:ak.component.message.reactions.v1:ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1";
 
 #[test]
 fn spec_merkle_empty_root_is_sha256_empty() {
@@ -492,16 +487,8 @@ fn event_set_commitment_sorts_entries_before_hashing() {
 #[test]
 fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
     let items = vec![
-        state_item(
-            "message",
-            "ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
-            "000000000002",
-        ),
-        state_item(
-            "strand",
-            "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "000000000001",
-        ),
+        cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived")),
+        cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
     ];
 
     let built = build_snapshot_chunks(&snapshot_id(), CORE_REDUCER_PROFILE, items, 240).unwrap();
@@ -523,22 +510,14 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
 }
 
 #[test]
-fn state_digest_rejects_duplicate_kind_id() {
-    let item = state_item(
-        "strand",
-        "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-        "000000000001",
-    );
+fn state_digest_rejects_duplicate_cell() {
+    let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"));
     let err = state_digest_from_items(&[item.clone(), item]).unwrap_err();
-    assert!(format!("{err}").contains("duplicate snapshot item key"));
+    assert!(format!("{err}").contains("duplicate snapshot item cell"));
 }
 
 fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> SnapshotManifest {
-    let item = state_item(
-        "strand",
-        "ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-        "000000000001",
-    );
+    let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"));
     let (mut manifest, ..) = manifest_for_items(vec![item]);
     manifest.authority_binding.authority_kind = SnapshotAuthorityKind::WitnessQuorum;
     manifest.verification_hints = Some(SnapshotVerificationHints {
@@ -548,6 +527,7 @@ fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> SnapshotManifest {
         conflict_records_digest: None,
         soft_failed_digest: None,
         quarantined_digest: None,
+        erasure_stubs_digest: None,
     });
     let created_at = manifest.created_at;
     manifest.authority_binding.witness_attestations = witnesses
@@ -725,19 +705,20 @@ fn slot_cell() -> CellRef {
     .unwrap()
 }
 
-/// `snapshot-schema.md` §3: the `cas_cell` branch carries `state` and neither
-/// `object` nor `source_event_id`, and its identity is the `ak:event:` spelling
-/// recovered from the op log's `event_digest`.
+/// `snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`,
+/// a CAS cell's `state` is its head set, and its identity is the `ak:event:`
+/// spelling recovered from the op log's `event_digest`.
 #[test]
 fn a_cas_cell_item_serializes_to_the_closed_branch() {
     let item =
         SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x11, Value::Null)]).unwrap();
     let wire = serde_json::to_value(&item).unwrap();
 
-    assert_eq!(wire["kind"], "cas_cell");
+    assert_eq!(wire["kind"], "cell");
     assert_eq!(wire["id"], slot_cell().as_str());
     assert!(wire.get("object").is_none());
     assert!(wire.get("source_event_id").is_none());
+    assert!(wire["state"].get("value").is_none());
     let heads = wire["state"]["heads"].as_array().unwrap();
     assert_eq!(heads.len(), 1);
     assert_eq!(heads[0]["value"], Value::Null);
@@ -745,6 +726,21 @@ fn a_cas_cell_item_serializes_to_the_closed_branch() {
         EventId::from_event_digest(&cas_head(0x11, serde_json::json!(null)).move_id).unwrap();
     assert_eq!(heads[0]["event_id"], expected_id.as_str());
 
+    assert_eq!(
+        serde_json::from_value::<SnapshotMaterializedItem>(wire).unwrap(),
+        item
+    );
+}
+
+/// A materialized non-CAS cell serializes to the same branch with a `value`
+/// state, and the two state shapes never mix.
+#[test]
+fn a_value_cell_item_serializes_to_the_closed_branch() {
+    let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived"));
+    let wire = serde_json::to_value(&item).unwrap();
+    assert_eq!(wire["kind"], "cell");
+    assert_eq!(wire["id"], STRAND_LIFECYCLE_CELL);
+    assert_eq!(wire["state"], serde_json::json!({"value": "archived"}));
     assert_eq!(
         serde_json::from_value::<SnapshotMaterializedItem>(wire).unwrap(),
         item
@@ -793,45 +789,270 @@ fn same_value_heads_keep_both_identities_in_the_leaf() {
     );
 }
 
-/// §4: the `cas_cell` leaf's inner digest is the same `{"cell","state"}`
-/// preimage §6.2.1 gives the governance `state_root` leaf, so an implementation
-/// has one canonical form for a CAS cell rather than two that can drift.
+/// §4: a snapshot leaf *is* the §6.2.1 `state_root` leaf, byte for byte — for
+/// a CAS cell and for a value cell alike — so a control cell has one canonical
+/// leaf whether it is proven through a Seal or shipped in a snapshot.
 #[test]
-fn the_cas_cell_leaf_reuses_the_state_root_preimage() {
+fn the_snapshot_leaf_is_the_state_root_leaf() {
     let heads = [cas_head(0x55, serde_json::json!("v"))];
     let item = SnapshotMaterializedItem::cas_cell(slot_cell(), &heads).unwrap();
-    let SnapshotMaterializedItem::CasCell { cell, state } = &item else {
-        panic!("built a cas_cell item");
-    };
-    let preimage = serde_json::json!({"cell": cell.as_str(), "state": state});
-    let inner =
-        crate::canonical::sha256_digest(crate::canonical::canonical_json_bytes(&preimage).unwrap());
+    let state_root_leaf = crate::state::state_root::cas_leaf_hash(
+        &slot_cell(),
+        &heads,
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
     assert_eq!(
-        snapshot_state_leaf_hash(&item).unwrap(),
-        merkle::sha256_digest(format!("cas_cell:{}:{}", cell.as_str(), inner).as_bytes()),
+        snapshot_state_leaf_hash(&item).unwrap().as_str(),
+        format!("sha256:{}", hex::encode(state_root_leaf)),
     );
+
+    let value_item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived"));
+    let value_leaf = crate::state::state_root::leaf_hash(
+        value_item.cell(),
+        &crate::lattice::CellState::Value(serde_json::json!("archived")),
+        arkret_canonical::DigestSuite::Sha256,
+    )
+    .unwrap();
+    assert_eq!(
+        snapshot_state_leaf_hash(&value_item).unwrap().as_str(),
+        format!("sha256:{}", hex::encode(value_leaf)),
+    );
+
+    // And the digest suite follows the Realm, not a hard-coded SHA-256.
+    let blake = snapshot_state_leaf_hash_with_digest_suite(
+        &value_item,
+        arkret_canonical::DigestSuite::Blake3,
+    )
+    .unwrap();
+    assert!(blake.as_str().starts_with("blake3:"));
 }
 
-/// The union is closed in both directions: an item cannot mix the branches.
+/// The union is closed: the retired `object` branch, the retired `cas_cell`
+/// literal, a state that mixes or misses both shapes, and a state shape that
+/// contradicts the cell family's registered lattice are all refused.
 #[test]
-fn a_mixed_snapshot_item_is_rejected() {
-    let object_with_state = serde_json::json!({
+fn items_outside_the_cell_branch_are_rejected() {
+    let object_branch = serde_json::json!({
         "kind": "strand",
         "id": "ak:strand:AVgnD-1YLmV6g-_RiZro8Yzmydn3Q8upFMpAgJW9bsbj",
         "object": {"id": "x"},
         "source_event_id": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-",
-        "state": {"heads": []},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(object_with_state).is_err());
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(object_branch).is_err());
 
-    let cas_with_object = serde_json::json!({
+    let cas_cell_literal = serde_json::json!({
         "kind": "cas_cell",
         "id": slot_cell().as_str(),
-        "object": {"value": null},
+        "state": {"heads": [{"event_id": event_id("a").as_str(), "value": null}]},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(cas_cell_literal).is_err());
+
+    let mixed_state = serde_json::json!({
+        "kind": "cell",
+        "id": STRAND_LIFECYCLE_CELL,
+        "state": {"value": "archived", "heads": []},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(mixed_state).is_err());
+
+    let no_state = serde_json::json!({"kind": "cell", "id": STRAND_LIFECYCLE_CELL});
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(no_state).is_err());
+
+    let value_on_cas_family = serde_json::json!({
+        "kind": "cell",
+        "id": slot_cell().as_str(),
+        "state": {"value": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-"},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(value_on_cas_family).is_err());
+
+    let heads_on_value_family = serde_json::json!({
+        "kind": "cell",
+        "id": STRAND_LIFECYCLE_CELL,
+        "state": {"heads": [{"event_id": event_id("a").as_str(), "value": "archived"}]},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(heads_on_value_family).is_err());
+
+    let empty_heads = serde_json::json!({
+        "kind": "cell",
+        "id": slot_cell().as_str(),
         "state": {"heads": []},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(cas_with_object).is_err());
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(empty_heads).is_err());
 
-    let cas_without_state = serde_json::json!({"kind": "cas_cell", "id": slot_cell().as_str()});
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(cas_without_state).is_err());
+    let unregistered_family = serde_json::json!({
+        "kind": "cell",
+        "id": "ak:cell:ak.component.nowhere.v1:null",
+        "state": {"value": 1},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(unregistered_family).is_err());
+}
+
+/// §6.2.1 orders heads by the decoded token, and a snapshot must not accept a
+/// head set in any other order: the order is part of the leaf bytes.
+#[test]
+fn unsorted_heads_are_rejected() {
+    let mut ordered = [cas_head(0x66, Value::Null), cas_head(0x77, Value::Null)];
+    let item = SnapshotMaterializedItem::cas_cell(slot_cell(), &ordered).unwrap();
+    let mut wire = serde_json::to_value(&item).unwrap();
+    wire["state"]["heads"].as_array_mut().unwrap().reverse();
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(wire).is_err());
+
+    ordered.reverse();
+    assert!(SnapshotMaterializedItem::cas_cell(slot_cell(), &ordered).is_err());
+}
+
+/// The auxiliary rows are closed objects too: an unknown member on a
+/// `conflict_records[]` row or a chunk payload fails to parse.
+#[test]
+fn auxiliary_rows_and_chunk_payloads_are_closed() {
+    let bottom = serde_json::json!({"kind": "bottom_cell", "cell_ref": STRAND_LIFECYCLE_CELL});
+    assert!(serde_json::from_value::<SnapshotConflictRecord>(bottom.clone()).is_ok());
+    let mut extra = bottom;
+    extra["note"] = serde_json::json!("x");
+    assert!(serde_json::from_value::<SnapshotConflictRecord>(extra).is_err());
+
+    let (_, payloads, _) = manifest_for_items(vec![cell_item(
+        STRAND_LIFECYCLE_CELL,
+        serde_json::json!("active"),
+    )]);
+    let mut wire = serde_json::to_value(&payloads[0]).unwrap();
+    assert_eq!(wire["chunk_kind"], "snapshot_chunk");
+    assert_eq!(wire["erasure_stubs"], serde_json::json!([]));
+    wire["type"] = serde_json::json!("snapshot_chunk");
+    assert!(serde_json::from_value::<SnapshotChunkPayload>(wire).is_err());
+}
+
+/// The consumer-side recomputation refuses to reorder: unsorted or duplicated
+/// items, a reducer profile that drifts from the manifest, or non-contiguous
+/// chunk indexes are malformed snapshots, not hints.
+#[test]
+fn chunk_payload_verification_is_strict() {
+    let items = vec![
+        cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
+        cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active")),
+    ];
+    let expected = state_digest_from_items(&items).unwrap();
+    let (_, payloads, _) = manifest_for_items(items);
+    let suite = arkret_canonical::DigestSuite::Sha256;
+    assert_eq!(
+        state_digest_from_chunk_payloads(&payloads, CORE_REDUCER_PROFILE, suite).unwrap(),
+        expected
+    );
+
+    let mut unsorted = payloads.clone();
+    unsorted[0].items.reverse();
+    assert!(state_digest_from_chunk_payloads(&unsorted, CORE_REDUCER_PROFILE, suite).is_err());
+
+    let mut duplicated = payloads.clone();
+    let duplicate = duplicated[0].items[1].clone();
+    duplicated.push(SnapshotChunkPayload {
+        index: 1,
+        items: vec![duplicate],
+        ..payloads[0].clone()
+    });
+    assert!(state_digest_from_chunk_payloads(&duplicated, CORE_REDUCER_PROFILE, suite).is_err());
+
+    assert!(state_digest_from_chunk_payloads(&payloads, "ak.reducer.other.v1", suite).is_err());
+
+    let mut skipped = payloads.clone();
+    skipped[0].index = 1;
+    assert!(state_digest_from_chunk_payloads(&skipped, CORE_REDUCER_PROFILE, suite).is_err());
+}
+
+fn spec_sync_fixture() -> Value {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../arkret-spec/spec/v1/artifacts/fixtures/sync-fixture.json");
+    let text = std::fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+    serde_json::from_str(&text).unwrap()
+}
+
+/// Replays `ak.vector.snapshot.state_digest_recompute.v1`: every accept case
+/// recomputes the fixture's `state_digest` (and auxiliary digests) from the
+/// chunk bytes alone, every reject case is refused, and every published leaf
+/// preimage / leaf pair is reproduced from the item.
+#[test]
+fn spec_snapshot_state_digest_fixture_replays() {
+    let fixture = spec_sync_fixture();
+    let block = &fixture["snapshot_state_digest"];
+    assert_eq!(
+        block["vector_id"],
+        "ak.vector.snapshot.state_digest_recompute.v1"
+    );
+    let reducer_profile = block["manifest"]["reducer_profile"].as_str().unwrap();
+    let cases = block["cases"].as_array().unwrap();
+
+    let canonical_items = cases[0]["chunks"][0]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| serde_json::from_value::<SnapshotMaterializedItem>(item.clone()).unwrap())
+        .collect::<Vec<_>>();
+    for row in block["leaves"].as_array().unwrap() {
+        let id = row["id"].as_str().unwrap();
+        let item = canonical_items
+            .iter()
+            .find(|item| item.id() == id)
+            .unwrap_or_else(|| panic!("leaf row {id} names no canonical item"));
+        let preimage = crate::canonical::canonical_json_bytes(&item.leaf_preimage()).unwrap();
+        assert_eq!(
+            String::from_utf8(preimage).unwrap(),
+            row["leaf_preimage"].as_str().unwrap(),
+            "leaf preimage of {id}"
+        );
+        assert_eq!(
+            snapshot_state_leaf_hash(item).unwrap().as_str(),
+            row["leaf"].as_str().unwrap(),
+            "leaf of {id}"
+        );
+    }
+    assert_eq!(
+        state_digest_from_items(&canonical_items).unwrap().as_str(),
+        block["state_digest"].as_str().unwrap()
+    );
+
+    let mut seen = 0usize;
+    for case in cases {
+        let name = case["name"].as_str().unwrap();
+        let suite =
+            arkret_canonical::digest_suite(case["digest_algorithm"].as_str().unwrap()).unwrap();
+        let declared = case["declared_state_digest"].as_str().unwrap();
+        let parsed = case["chunks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|chunk| serde_json::from_value::<SnapshotChunkPayload>(chunk.clone()))
+            .collect::<Result<Vec<_>, _>>();
+        let observed = match parsed {
+            Err(_) => None,
+            Ok(chunks) => match state_digest_from_chunk_payloads(&chunks, reducer_profile, suite) {
+                Ok(root) if root.as_str() == declared => Some(chunks),
+                _ => None,
+            },
+        };
+        let expected_accept = case["expected"] == "accept";
+        assert_eq!(observed.is_some(), expected_accept, "case {name}");
+        if let Some(chunks) = observed {
+            if let Some(digest) = case["expected_conflict_records_digest"].as_str() {
+                assert_eq!(
+                    snapshot_conflict_records_digest(&chunks, suite)
+                        .unwrap()
+                        .as_str(),
+                    digest,
+                    "conflict_records_digest of {name}"
+                );
+            }
+            if let Some(digest) = case["expected_erasure_stubs_digest"].as_str() {
+                assert_eq!(
+                    snapshot_erasure_stubs_digest(&chunks, suite)
+                        .unwrap()
+                        .as_str(),
+                    digest,
+                    "erasure_stubs_digest of {name}"
+                );
+            }
+        }
+        seen += 1;
+    }
+    assert!(seen >= 17, "the fixture publishes {seen} cases");
 }

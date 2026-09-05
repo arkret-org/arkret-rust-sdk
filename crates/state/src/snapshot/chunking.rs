@@ -1,10 +1,12 @@
-use serde_json::Value;
+use arkret_canonical::DigestSuite;
+use serde::Serialize;
 
 use super::constants::{DEFAULT_SNAPSHOT_CHUNK_BYTES, EMPTY_SHA256_DIGEST, SNAPSHOT_CHUNK_TYPE};
 use super::merkle::{build_levels, sha256_digest};
 use super::types::{
     BuiltSnapshotChunk, EventSetCommitment, EventSetCommitmentAlgorithm, EventSetLeaf,
-    SnapshotChunk, SnapshotChunkDescriptor, SnapshotChunkPayload, SnapshotMaterializedItem,
+    SnapshotChunk, SnapshotChunkDescriptor, SnapshotChunkPayload, SnapshotConflictRecord,
+    SnapshotErasureStub, SnapshotMaterializedItem, SnapshotNonAcceptedInput,
     SnapshotValidationCode, SnapshotValidationError,
 };
 use crate::{BlobRef, Hash, Result, SnapshotId, WireError};
@@ -60,31 +62,44 @@ pub fn snapshot_chunk_payload_bytes(payload: &SnapshotChunkPayload) -> Result<Ve
     Ok(crate::canonical::canonical_json_bytes(payload)?)
 }
 
+/// The four auxiliary lists a chunk payload carries beside `items[]`
+/// (`snapshot-schema.md` §3). None of them is a `state_digest` leaf; each is
+/// committed through its own manifest `verification_hints.*_digest`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SnapshotAuxiliaryLists {
+    pub conflict_records: Vec<SnapshotConflictRecord>,
+    pub soft_failed: Vec<SnapshotNonAcceptedInput>,
+    pub quarantined: Vec<SnapshotNonAcceptedInput>,
+    pub erasure_stubs: Vec<SnapshotErasureStub>,
+}
+
 pub fn build_snapshot_chunks(
     snapshot_ref: &SnapshotId,
     reducer_profile: &str,
     items: Vec<SnapshotMaterializedItem>,
     target_chunk_bytes: usize,
 ) -> Result<Vec<BuiltSnapshotChunk>> {
-    build_snapshot_chunks_with_nonaccepted(
+    build_snapshot_chunks_with_auxiliary_lists(
         snapshot_ref,
         reducer_profile,
         items,
         target_chunk_bytes,
-        Vec::new(),
-        Vec::new(),
-        Vec::new(),
+        SnapshotAuxiliaryLists::default(),
     )
 }
 
-pub fn build_snapshot_chunks_with_nonaccepted(
+/// Build the chunk payloads of one snapshot.
+///
+/// Items are sorted by cell id (Unicode code point order, `snapshot-schema.md`
+/// §3) and must be unique; chunk boundaries fall on whole items. The auxiliary
+/// lists ride in the first chunk — the digest rule concatenates them across
+/// chunks in index order, so where they sit does not change any commitment.
+pub fn build_snapshot_chunks_with_auxiliary_lists(
     snapshot_ref: &SnapshotId,
     reducer_profile: &str,
     mut items: Vec<SnapshotMaterializedItem>,
     target_chunk_bytes: usize,
-    conflict_records: Vec<Value>,
-    soft_failed: Vec<Value>,
-    quarantined: Vec<Value>,
+    auxiliary: SnapshotAuxiliaryLists,
 ) -> Result<Vec<BuiltSnapshotChunk>> {
     if target_chunk_bytes == 0 {
         return Err(WireError::Protocol(
@@ -94,20 +109,29 @@ pub fn build_snapshot_chunks_with_nonaccepted(
     sort_snapshot_items(&mut items);
     ensure_unique_snapshot_items(&items)?;
 
+    let payload = |index: usize,
+                   items: Vec<SnapshotMaterializedItem>,
+                   auxiliary: Option<SnapshotAuxiliaryLists>| {
+        let auxiliary = auxiliary.unwrap_or_default();
+        SnapshotChunkPayload {
+            chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
+            snapshot_ref: snapshot_ref.clone(),
+            index: index as u32,
+            reducer_profile: reducer_profile.to_owned(),
+            items,
+            conflict_records: auxiliary.conflict_records,
+            soft_failed: auxiliary.soft_failed,
+            quarantined: auxiliary.quarantined,
+            erasure_stubs: auxiliary.erasure_stubs,
+        }
+    };
+
+    let mut auxiliary = Some(auxiliary);
     let mut chunks = Vec::new();
     let mut pending = Vec::new();
     let mut pending_item_bytes = 0usize;
-    let mut empty_payload_bytes = snapshot_chunk_payload_bytes(&SnapshotChunkPayload {
-        chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
-        snapshot_ref: snapshot_ref.clone(),
-        index: 0,
-        reducer_profile: reducer_profile.to_owned(),
-        items: Vec::new(),
-        conflict_records: conflict_records.clone(),
-        soft_failed: soft_failed.clone(),
-        quarantined: quarantined.clone(),
-    })?
-    .len();
+    let mut empty_payload_bytes =
+        snapshot_chunk_payload_bytes(&payload(0, Vec::new(), auxiliary.clone()))?.len();
     for item in items {
         let item_bytes = crate::canonical::canonical_json_bytes(&item)?.len();
         let candidate_bytes = empty_payload_bytes
@@ -115,42 +139,15 @@ pub fn build_snapshot_chunks_with_nonaccepted(
             .saturating_add(item_bytes)
             .saturating_add(pending.len());
         if !pending.is_empty() && candidate_bytes > target_chunk_bytes {
-            let payload = SnapshotChunkPayload {
-                chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
-                snapshot_ref: snapshot_ref.clone(),
-                index: chunks.len() as u32,
-                reducer_profile: reducer_profile.to_owned(),
-                items: pending,
-                conflict_records: if chunks.is_empty() {
-                    conflict_records.clone()
-                } else {
-                    Vec::new()
-                },
-                soft_failed: if chunks.is_empty() {
-                    soft_failed.clone()
-                } else {
-                    Vec::new()
-                },
-                quarantined: if chunks.is_empty() {
-                    quarantined.clone()
-                } else {
-                    Vec::new()
-                },
-            };
-            chunks.push(build_chunk_descriptor(payload)?);
+            chunks.push(build_chunk_descriptor(payload(
+                chunks.len(),
+                std::mem::take(&mut pending),
+                auxiliary.take(),
+            ))?);
             pending = vec![item];
             pending_item_bytes = item_bytes;
-            empty_payload_bytes = snapshot_chunk_payload_bytes(&SnapshotChunkPayload {
-                chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
-                snapshot_ref: snapshot_ref.clone(),
-                index: chunks.len() as u32,
-                reducer_profile: reducer_profile.to_owned(),
-                items: Vec::new(),
-                conflict_records: Vec::new(),
-                soft_failed: Vec::new(),
-                quarantined: Vec::new(),
-            })?
-            .len();
+            empty_payload_bytes =
+                snapshot_chunk_payload_bytes(&payload(chunks.len(), Vec::new(), None))?.len();
         } else {
             pending_item_bytes = pending_item_bytes.saturating_add(item_bytes);
             pending.push(item);
@@ -158,69 +155,181 @@ pub fn build_snapshot_chunks_with_nonaccepted(
     }
 
     if !pending.is_empty() || chunks.is_empty() {
-        let payload = SnapshotChunkPayload {
-            chunk_kind: SNAPSHOT_CHUNK_TYPE.to_owned(),
-            snapshot_ref: snapshot_ref.clone(),
-            index: chunks.len() as u32,
-            reducer_profile: reducer_profile.to_owned(),
-            items: pending,
-            conflict_records: if chunks.is_empty() {
-                conflict_records
-            } else {
-                Vec::new()
-            },
-            soft_failed: if chunks.is_empty() {
-                soft_failed
-            } else {
-                Vec::new()
-            },
-            quarantined: if chunks.is_empty() {
-                quarantined
-            } else {
-                Vec::new()
-            },
-        };
-        chunks.push(build_chunk_descriptor(payload)?);
+        chunks.push(build_chunk_descriptor(payload(
+            chunks.len(),
+            pending,
+            auxiliary.take(),
+        ))?);
     }
 
     Ok(chunks)
 }
 
+/// `state_digest` over already-validated items under SHA-256.
+///
+/// Sorting and de-duplication are applied here because a producer's item set
+/// is unordered; a consumer verifying delivered chunks must use
+/// [`state_digest_from_chunk_payloads`], which refuses to reorder.
 pub fn state_digest_from_items(items: &[SnapshotMaterializedItem]) -> Result<Hash> {
+    state_digest_from_items_with_digest_suite(items, DigestSuite::Sha256)
+}
+
+/// [`state_digest_from_items`] under the Realm's live digest suite
+/// (`snapshot-schema.md` §4: `state_digest` and the Seal `state_root` share
+/// one suite).
+pub fn state_digest_from_items_with_digest_suite(
+    items: &[SnapshotMaterializedItem],
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
     let mut sorted = items.to_vec();
     sort_snapshot_items(&mut sorted);
     ensure_unique_snapshot_items(&sorted)?;
-    let mut leaves = Vec::with_capacity(sorted.len());
-    for item in &sorted {
-        leaves.push(snapshot_state_leaf_hash(item)?);
-    }
-    merkle_root_from_hashes(leaves)
+    state_digest_from_sorted_items(sorted.iter(), digest_suite)
 }
 
-/// The `state_digest` leaf of one snapshot item (`snapshot-schema.md` §4).
+/// The consumer-side `state_digest` recomputation of `snapshot-schema.md`
+/// §3 / §4 over delivered chunk payloads.
 ///
-/// Both branches share the `kind:id:<inner digest>` shape; they differ in what
-/// the inner digest covers. The `object` branch hashes the materialized object.
-/// The `cas_cell` branch has no object, so it hashes the same
-/// `{"cell","state"}` preimage that `event-auth-state-resolution.md` §6.2.1
-/// gives the governance `state_root` leaf — one definition of a CAS cell's
-/// canonical form, not two that can drift.
+/// It enforces what a producer's builder guarantees and a verifier must not
+/// assume: contiguous chunk indexes, the manifest's `reducer_profile` in every
+/// chunk, and items strictly ascending by cell id across the whole snapshot
+/// with no duplicate. Nothing is reordered on the consumer's behalf — an
+/// unsorted or duplicated item set is a malformed snapshot, not a hint.
+pub fn state_digest_from_chunk_payloads(
+    chunks: &[SnapshotChunkPayload],
+    expected_reducer_profile: &str,
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    if chunks.is_empty() {
+        return Err(WireError::Protocol(
+            "a snapshot carries at least one chunk payload".to_owned(),
+        ));
+    }
+    for (position, chunk) in chunks.iter().enumerate() {
+        if chunk.chunk_kind != SNAPSHOT_CHUNK_TYPE {
+            return Err(WireError::Protocol(format!(
+                "snapshot chunk {position} has chunk_kind {:?}; expected {SNAPSHOT_CHUNK_TYPE:?}",
+                chunk.chunk_kind
+            )));
+        }
+        if chunk.index as usize != position {
+            return Err(WireError::Protocol(format!(
+                "snapshot chunk at position {position} declares index {}; chunks must be \
+                 contiguous and in ascending index order",
+                chunk.index
+            )));
+        }
+        if chunk.reducer_profile != expected_reducer_profile {
+            return Err(WireError::Protocol(format!(
+                "snapshot chunk {position} carries reducer_profile {:?}; the manifest says {:?}",
+                chunk.reducer_profile, expected_reducer_profile
+            )));
+        }
+    }
+    let items = chunks.iter().flat_map(|chunk| chunk.items.iter());
+    let mut previous: Option<&SnapshotMaterializedItem> = None;
+    for item in items.clone() {
+        if let Some(previous) = previous
+            && previous.id().as_bytes() >= item.id().as_bytes()
+        {
+            return Err(WireError::Protocol(format!(
+                "snapshot items must be strictly ascending by cell id across chunks; {} is not \
+                 after {}",
+                item.id(),
+                previous.id()
+            )));
+        }
+        previous = Some(item);
+    }
+    state_digest_from_sorted_items(items, digest_suite)
+}
+
+fn state_digest_from_sorted_items<'a>(
+    items: impl Iterator<Item = &'a SnapshotMaterializedItem>,
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    let leaf_data = items
+        .map(|item| crate::canonical::canonical_json_bytes(&item.leaf_preimage()))
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    crate::state::state_root::seal_merkle_root_from_leaf_data(&leaf_data, digest_suite)
+}
+
+/// The `state_digest` leaf of one snapshot item under SHA-256
+/// (`snapshot-schema.md` §4).
 pub fn snapshot_state_leaf_hash(item: &SnapshotMaterializedItem) -> Result<Hash> {
-    let inner = match item {
-        SnapshotMaterializedItem::Object { object, .. } => {
-            crate::canonical::sha256_digest(&crate::canonical::canonical_json_bytes(object)?)
-        }
-        SnapshotMaterializedItem::CasCell { cell, state } => {
-            let preimage = serde_json::json!({
-                "cell": cell.as_str(),
-                "state": state,
-            });
-            crate::canonical::sha256_digest(&crate::canonical::canonical_json_bytes(&preimage)?)
-        }
-    };
-    Ok(sha256_digest(
-        format!("{}:{}:{}", item.kind(), item.id(), inner).as_bytes(),
-    ))
+    snapshot_state_leaf_hash_with_digest_suite(item, DigestSuite::Sha256)
+}
+
+/// The `state_digest` leaf of one snapshot item: byte-identical to the
+/// governance `state_root` leaf `H(0x00 || canonical_json({"cell","state"}))`
+/// of `event-auth-state-resolution.md` §6.2.1, so a control cell has one
+/// canonical leaf whether it is proven through a Seal or shipped in a snapshot.
+pub fn snapshot_state_leaf_hash_with_digest_suite(
+    item: &SnapshotMaterializedItem,
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    crate::state::state_root::state_leaf_hash_from_state_object(
+        item.cell(),
+        item.state().to_state_object(),
+        digest_suite,
+    )
+}
+
+/// Digest of one auxiliary list concatenated across chunks in ascending index
+/// order (`snapshot-schema.md` §3): `<suite>:hex(H(canonical_json(rows)))`.
+pub fn snapshot_auxiliary_list_digest<'a, T: Serialize + 'a>(
+    rows: impl IntoIterator<Item = &'a T>,
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    let rows = rows.into_iter().collect::<Vec<_>>();
+    let bytes = crate::canonical::canonical_json_bytes(&rows)?;
+    Hash::new(arkret_canonical::digest(digest_suite, bytes)).map_err(WireError::from)
+}
+
+/// `verification_hints.conflict_records_digest` over delivered chunks.
+pub fn snapshot_conflict_records_digest(
+    chunks: &[SnapshotChunkPayload],
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    snapshot_auxiliary_list_digest(
+        chunks
+            .iter()
+            .flat_map(|chunk| chunk.conflict_records.iter()),
+        digest_suite,
+    )
+}
+
+/// `verification_hints.soft_failed_digest` over delivered chunks.
+pub fn snapshot_soft_failed_digest(
+    chunks: &[SnapshotChunkPayload],
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    snapshot_auxiliary_list_digest(
+        chunks.iter().flat_map(|chunk| chunk.soft_failed.iter()),
+        digest_suite,
+    )
+}
+
+/// `verification_hints.quarantined_digest` over delivered chunks.
+pub fn snapshot_quarantined_digest(
+    chunks: &[SnapshotChunkPayload],
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    snapshot_auxiliary_list_digest(
+        chunks.iter().flat_map(|chunk| chunk.quarantined.iter()),
+        digest_suite,
+    )
+}
+
+/// `verification_hints.erasure_stubs_digest` over delivered chunks.
+pub fn snapshot_erasure_stubs_digest(
+    chunks: &[SnapshotChunkPayload],
+    digest_suite: DigestSuite,
+) -> Result<Hash> {
+    snapshot_auxiliary_list_digest(
+        chunks.iter().flat_map(|chunk| chunk.erasure_stubs.iter()),
+        digest_suite,
+    )
 }
 
 pub fn event_set_commitment(
@@ -297,16 +406,18 @@ pub fn verify_snapshot_chunk_bytes(
     })
 }
 
+/// `snapshot-schema.md` §3: items sort by cell id in Unicode code point order,
+/// which for UTF-8 is byte order — the same order §6.2.1 gives `state_root`
+/// leaves.
 fn sort_snapshot_items(items: &mut [SnapshotMaterializedItem]) {
-    items.sort_by(|a, b| (a.kind(), a.id()).cmp(&(b.kind(), b.id())));
+    items.sort_by(|a, b| a.id().as_bytes().cmp(b.id().as_bytes()));
 }
 
 fn ensure_unique_snapshot_items(items: &[SnapshotMaterializedItem]) -> Result<()> {
     for pair in items.windows(2) {
-        if pair[0].kind() == pair[1].kind() && pair[0].id() == pair[1].id() {
+        if pair[0].id() == pair[1].id() {
             return Err(WireError::Protocol(format!(
-                "duplicate snapshot item key ({}, {})",
-                pair[0].kind(),
+                "duplicate snapshot item cell {}",
                 pair[0].id()
             )));
         }

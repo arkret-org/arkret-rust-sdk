@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-05.4;
-//! sha256=09366d4b76b0ecd8a7d041a96ef7f2bd4a1c3af84a432e43cceca302003441c9 Entries: schema_ids=204,
-//! active=204
+//! Input: registry/schema-registry.json; version=2026-09-06.1;
+//! sha256=9f052e39da9473df79be6dd815afccb0e8814b0937c943ae2e6b236a87ea7719 Entries: schema_ids=205,
+//! active=205
 
 use serde::{Deserialize, Serialize};
 
@@ -191,6 +191,7 @@ pub enum SchemaId {
     SignalStreamFrameV1,
     SignalTypingV1,
     SnapshotV1,
+    SnapshotChunkV1,
     SpaceV1,
     StrandV1,
     StringProfilesV1,
@@ -399,6 +400,7 @@ impl SchemaId {
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
         Self::SnapshotV1,
+        Self::SnapshotChunkV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -607,6 +609,7 @@ impl SchemaId {
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
         Self::SnapshotV1,
+        Self::SnapshotChunkV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -1149,6 +1152,9 @@ impl SchemaId {
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
     pub const SNAPSHOT_V1: &'static str = "ak.schema.snapshot.v1";
+    /// Snapshot chunk payload: the Realm reducer cells behind one manifest chunks[].chunk_ref,
+    /// whose leaves are the state_root leaves of event-auth-state-resolution.md section 6.2.1
+    pub const SNAPSHOT_CHUNK_V1: &'static str = "ak.schema.snapshot_chunk.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
     /// Shared coarse JSON Schema shapes for Arkret human identifiers, IDNA domains, handles, acct
@@ -1410,6 +1416,7 @@ impl SchemaId {
             Self::SignalStreamFrameV1 => Self::SIGNAL_STREAM_FRAME_V1,
             Self::SignalTypingV1 => Self::SIGNAL_TYPING_V1,
             Self::SnapshotV1 => Self::SNAPSHOT_V1,
+            Self::SnapshotChunkV1 => Self::SNAPSHOT_CHUNK_V1,
             Self::SpaceV1 => Self::SPACE_V1,
             Self::StrandV1 => Self::STRAND_V1,
             Self::StringProfilesV1 => Self::STRING_PROFILES_V1,
@@ -1663,6 +1670,7 @@ impl SchemaId {
             Self::SignalStreamFrameV1 => "schemas/signal-stream-frame.schema.json",
             Self::SignalTypingV1 => "schemas/signal-typing.schema.json",
             Self::SnapshotV1 => "schemas/snapshot.schema.json",
+            Self::SnapshotChunkV1 => "schemas/snapshot-chunk.schema.json",
             Self::SpaceV1 => "schemas/space.schema.json",
             Self::StrandV1 => "schemas/strand.schema.json",
             Self::StringProfilesV1 => "schemas/string-profiles.schema.json",
@@ -1910,6 +1918,7 @@ impl SchemaId {
             Self::SIGNAL_STREAM_FRAME_V1 => Some(Self::SignalStreamFrameV1),
             Self::SIGNAL_TYPING_V1 => Some(Self::SignalTypingV1),
             Self::SNAPSHOT_V1 => Some(Self::SnapshotV1),
+            Self::SNAPSHOT_CHUNK_V1 => Some(Self::SnapshotChunkV1),
             Self::SPACE_V1 => Some(Self::SpaceV1),
             Self::STRAND_V1 => Some(Self::StrandV1),
             Self::STRING_PROFILES_V1 => Some(Self::StringProfilesV1),
