@@ -1,18 +1,23 @@
 //! Telling a real proof apart from a placeholder.
 //!
-//! Six places in the workspace produced a constant detached JWS
-//! (`"eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl"`, `"header..producer"`,
-//! `"test-detached-jws"`, ...) and five produced a real Ed25519 signature.
-//! Both kinds land in the same `ProducerEventProof` with the same field shape,
+//! Placeholder detached JWS values (`"eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl"`,
+//! `"header..producer"`, `"test-detached-jws"`, ...) and real Ed25519
+//! signatures land in the same `ProducerEventProof` with the same field shape,
 //! so replacing either with the other passes: a test that only ever checked
 //! shape keeps passing against a real signature, and a test that verifies
 //! signatures silently stops verifying anything when handed a placeholder.
+//! Enumerating the literals does not converge — the workspace carries well over
+//! a hundred, most of them deliberate negative cases — so the lever is the
+//! type, not a list.
 //!
 //! [`ProofFidelity`] is carried alongside every Event this crate builds so the
 //! difference is visible at the call site instead of being a property of which
-//! constructor someone happened to import.
+//! constructor someone happened to import. The placeholder JWS itself has one
+//! definition, `arkret_wire::test_support::structural_only_detached_jws`, which
+//! this signer reaches through the `PayloadSigner` boundary.
 
 use arkret_canonical::canonical;
+use arkret_wire::test_support::structural_only_detached_jws;
 use arkret_wire::{Did, DidUrl, Hash, PayloadSignature, PayloadSigner, Result};
 use chrono::Utc;
 
@@ -73,7 +78,7 @@ impl PayloadSigner for StructuralOnlyPayloadSigner {
         let payload_digest = Hash::new(canonical::sha256_digest(canonical_bytes))?;
         Ok(PayloadSignature {
             verification_method: self.verification_method.clone(),
-            jws: structural_only_jws(&payload_digest),
+            jws: structural_only_detached_jws(&payload_digest),
             payload_digest,
             created_at: Utc::now(),
         })
@@ -87,25 +92,9 @@ impl PayloadSigner for StructuralOnlyPayloadSigner {
         let payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
         Ok(PayloadSignature {
             verification_method: self.verification_method.clone(),
-            jws: structural_only_jws(&payload_digest),
+            jws: structural_only_detached_jws(&payload_digest),
             payload_digest,
             created_at: Utc::now(),
         })
     }
-}
-
-/// The detached compact JWS a placeholder signer emits.
-///
-/// `event-envelope.schema.json` pins `proof.jws` to
-/// `^[A-Za-z0-9_-]+\.(?:[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+$`, so a placeholder
-/// still owes the base64url protected header, the empty detached payload
-/// segment and a signature segment; a bare token such as `"sig"` is
-/// wire-invalid and `ProducerEventProof::validate` rejects it.
-fn structural_only_jws(payload_digest: &Hash) -> String {
-    let digest_hex = payload_digest
-        .as_str()
-        .rsplit(':')
-        .next()
-        .unwrap_or_default();
-    format!("eyJhbGciOiJFZDI1NTE5In0..{digest_hex}")
 }

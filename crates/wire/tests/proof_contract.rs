@@ -185,16 +185,18 @@ fn event_validate_proof_bindings_checks_digest_match() {
     let digest = event
         .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
+    let event_digest = Hash::new(digest).unwrap();
+    let jws = arkret_wire::test_support::structural_only_detached_jws(&event_digest);
     let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-        event_digest: Hash::new(digest).unwrap(),
+        event_digest,
         signer_resolution_evidence_ref: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
         proof_purpose: None,
-        jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
+        jws,
     };
 
     let mut signed_event = event;
@@ -221,19 +223,20 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
     )
     .unwrap();
 
+    let event_digest =
+        Hash::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")
+            .unwrap();
+    let jws = arkret_wire::test_support::structural_only_detached_jws(&event_digest);
     let bad_proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-        event_digest: Hash::new(
-            "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-        )
-        .unwrap(),
+        event_digest,
         signer_resolution_evidence_ref: None,
         created_at: Utc::now(),
         domain: None,
         audience: None,
         proof_purpose: None,
-        jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
+        jws,
     };
 
     let mut signed_event = event;
@@ -263,10 +266,12 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
     let digest = event
         .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
         .unwrap();
+    let event_digest = Hash::new(digest).unwrap();
+    let jws = arkret_wire::test_support::structural_only_detached_jws(&event_digest);
     let proof = ProducerEventProof {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-        event_digest: Hash::new(digest).unwrap(),
+        event_digest,
         signer_resolution_evidence_ref: None,
         created_at: Utc::now(),
         domain: None,
@@ -274,7 +279,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
             "did:webvh:z6mkfixture:service.example".to_owned(),
         )),
         proof_purpose: None,
-        jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
+        jws,
     };
     let mut signed_event = event;
     signed_event.proofs = vec![proof.into()];

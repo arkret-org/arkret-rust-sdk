@@ -8,18 +8,34 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 
-use crate::{AccountId, ActorId, DidCoreId, Event, EventId, Hlc, Result, ScopeRef};
+use crate::{AccountId, ActorId, DidCoreId, Event, EventId, Hash, Hlc, Result, ScopeRef};
 
-/// Structurally valid detached compact JWS for fixtures that do not verify a
-/// signature.
+/// The detached compact JWS a fixture carries when its case is the envelope
+/// shape and not that anything verified.
 ///
 /// `event-envelope.schema.json` pins `proof.jws` to
-/// `^[A-Za-z0-9_-]+\.(?:[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+$`, so a fixture
-/// placeholder still needs the base64url protected header, the empty detached
-/// payload segment, and the signature segment. Single-token placeholders such
-/// as `"sig"` are wire-invalid and are rejected by `ProducerEventProof::validate`.
+/// `^[A-Za-z0-9_-]+\.(?:[A-Za-z0-9_-]+)?\.[A-Za-z0-9_-]+$`, so a placeholder
+/// still owes the base64url protected header, the empty detached payload
+/// segment, and the signature segment. Single-token placeholders such as
+/// `"sig"` are wire-invalid and are rejected by `ProducerEventProof::validate`.
+///
+/// The signature segment is `payload_digest` itself, so the value is a function
+/// of the bytes it claims to cover: a fixture cannot pin a constant that
+/// survives an edit to those bytes, and no Ed25519 verifier can accept it.
+/// A fixture whose case *is* that a signature verified must sign with a real
+/// key. `arkret_test_kit::proof::StructuralOnlyPayloadSigner` emits this same
+/// value through the `PayloadSigner` boundary and reports it as
+/// `ProofFidelity::StructuralOnly`.
 #[doc(hidden)]
-pub const DETACHED_JWS_FIXTURE: &str = "eyJhbGciOiJFZDI1NTE5In0..c2lnbmF0dXJl";
+#[must_use]
+pub fn structural_only_detached_jws(payload_digest: &Hash) -> String {
+    let digest_hex = payload_digest
+        .as_str()
+        .rsplit(':')
+        .next()
+        .unwrap_or_default();
+    format!("eyJhbGciOiJFZDI1NTE5In0..{digest_hex}")
+}
 
 /// Envelope metadata embedded in raw projection fixture payloads.
 ///

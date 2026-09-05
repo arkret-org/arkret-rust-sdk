@@ -844,7 +844,7 @@ mod tests {
 
     use super::*;
     use crate::DidUrl;
-    use crate::test_support::DETACHED_JWS_FIXTURE;
+    use crate::test_support::structural_only_detached_jws;
 
     struct TestProofVerifier {
         calls: AtomicUsize,
@@ -865,12 +865,22 @@ mod tests {
                 verification_method,
                 "did:web:publisher.example#manifest-signing"
             );
-            assert_eq!(detached_jws, DETACHED_JWS_FIXTURE);
             let value: Value = crate::canonical::from_canonical_json_slice(signing_bytes)?;
             assert_eq!(
                 value["context"],
                 Value::String(ProofContextId::EXTENSION_MANIFEST_PROOF_V1.to_owned())
             );
+            // The manifest carries a placeholder proof: its JWS is derived from
+            // the very digest these signing bytes commit to, so this equality
+            // also proves the loader handed over the proof that belongs to this
+            // manifest rather than a neighbour's.
+            let payload_digest = Hash::new(
+                value["payload_digest"]
+                    .as_str()
+                    .expect("signing bytes carry payload_digest")
+                    .to_owned(),
+            )?;
+            assert_eq!(detached_jws, structural_only_detached_jws(&payload_digest));
             if self.reject {
                 return Err(WireError::Protocol(
                     "publisher signature verification failed".to_owned(),
@@ -941,14 +951,24 @@ mod tests {
                 domain: None,
                 audience: None,
                 proof_purpose: None,
-                jws: DETACHED_JWS_FIXTURE.to_owned(),
+                jws: String::new(),
             }],
         };
+        reseal(&mut manifest);
+        manifest
+    }
+
+    /// Recompute the manifest digest and carry it into the placeholder proof.
+    ///
+    /// The proof's JWS is derived from the digest, so any edit that changes the
+    /// manifest must go through here or the proof stops matching what it claims
+    /// to cover.
+    fn reseal(manifest: &mut ExtensionManifest) {
         manifest.manifest_digest = manifest
             .expected_manifest_digest()
             .expect("manifest digest");
         manifest.proofs[0].event_digest = manifest.manifest_digest.clone();
-        manifest
+        manifest.proofs[0].jws = structural_only_detached_jws(&manifest.manifest_digest);
     }
 
     fn add_manifest_content(catalog: &mut ExtensionManifestCatalog, manifest: &ExtensionManifest) {
@@ -1118,29 +1138,18 @@ mod tests {
             &second.manifest_id,
             second.manifest_digest.clone(),
         )];
-        first.manifest_digest = first.expected_manifest_digest().expect("first digest");
-        first.proofs[0].event_digest = first.manifest_digest.clone();
+        reseal(&mut first);
         second.dependency_refs = vec![content_ref(
             &first.manifest_id,
             first.manifest_digest.clone(),
         )];
-        second.manifest_digest = second.expected_manifest_digest().expect("second digest");
-        second.proofs[0].event_digest = second.manifest_digest.clone();
+        reseal(&mut second);
         first.dependency_refs[0].digest = second.manifest_digest.clone();
-        first.manifest_digest = first
-            .expected_manifest_digest()
-            .expect("closed first digest");
-        first.proofs[0].event_digest = first.manifest_digest.clone();
+        reseal(&mut first);
         second.dependency_refs[0].digest = first.manifest_digest.clone();
-        second.manifest_digest = second
-            .expected_manifest_digest()
-            .expect("closed second digest");
-        second.proofs[0].event_digest = second.manifest_digest.clone();
+        reseal(&mut second);
         first.dependency_refs[0].digest = second.manifest_digest.clone();
-        first.manifest_digest = first
-            .expected_manifest_digest()
-            .expect("final first digest");
-        first.proofs[0].event_digest = first.manifest_digest.clone();
+        reseal(&mut first);
 
         let mut catalog = ExtensionManifestCatalog::default();
         add_manifest_content(&mut catalog, &first);
@@ -1231,10 +1240,7 @@ mod tests {
         manifest
             .required_actions
             .push("ak.calendar.read".to_owned());
-        manifest.manifest_digest = manifest
-            .expected_manifest_digest()
-            .expect("manifest digest");
-        manifest.proofs[0].event_digest = manifest.manifest_digest.clone();
+        reseal(&mut manifest);
         let duplicate = manifest
             .validate_structural()
             .expect_err("duplicate actions must fail closed");
@@ -1242,10 +1248,7 @@ mod tests {
 
         manifest.required_actions.pop();
         manifest.payload_schema_refs[0].retrieval_url = Some("not a valid URI".to_owned());
-        manifest.manifest_digest = manifest
-            .expected_manifest_digest()
-            .expect("manifest digest");
-        manifest.proofs[0].event_digest = manifest.manifest_digest.clone();
+        reseal(&mut manifest);
         let url = manifest
             .validate_structural()
             .expect_err("non-network retrieval hints must fail closed");

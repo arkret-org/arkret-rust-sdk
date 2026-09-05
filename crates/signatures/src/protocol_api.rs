@@ -331,8 +331,9 @@ mod tests {
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single(actor("service").to_string())),
             proof_purpose: None,
-            jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
+            jws: arkret_wire::test_support::structural_only_detached_jws(&payload_digest),
         };
+        let placeholder_jws = proof.jws.clone();
         let mut context =
             ProofVerificationContext::new(ActorId::service(actor("alice")), payload_digest);
         context.domain = proof.domain.clone();
@@ -340,8 +341,7 @@ mod tests {
         context.service_id = Some(DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice").unwrap());
 
         let verified = verify_proof_with_resolver(&proof, &context, &resolver, |method, proof| {
-            Ok(method.public_key_multibase == "zKey"
-                && proof.jws == arkret_wire::test_support::DETACHED_JWS_FIXTURE)
+            Ok(method.public_key_multibase == "zKey" && proof.jws == placeholder_jws)
         })
         .unwrap();
         assert!(verified.valid);
@@ -384,7 +384,7 @@ mod tests {
                 "did:webvh:z6mkfixture:service.example".to_owned(),
             )),
             proof_purpose: None,
-            jws: arkret_wire::test_support::DETACHED_JWS_FIXTURE.to_owned(),
+            jws: arkret_wire::test_support::structural_only_detached_jws(&payload_digest),
         };
         let context =
             ProofVerificationContext::new(ActorId::service(actor("alice")), payload_digest)
