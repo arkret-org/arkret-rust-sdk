@@ -253,6 +253,7 @@ def main() -> int:
         args.json.write_text(
             json.dumps([entry.__dict__ for entry in mappings], indent=2),
             encoding="utf-8",
+            newline="\n",
         )
     return 0
 
