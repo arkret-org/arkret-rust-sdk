@@ -201,32 +201,43 @@ impl Lattice for Fsm {
                 ]));
                 return CellState::Bottom(bottom);
             };
-            if seen_transitions.get(&from_key) == Some(&to_key) {
-                continue;
-            }
-            if seen_transitions.contains_key(&from_key) {
-                let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
-                bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(bottom_details([
-                    ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", from.clone()),
-                    ("reason", json!("same_from_different_to")),
-                    ("to", to.clone()),
-                ]));
-                return CellState::Bottom(bottom);
-            }
-            // If we have a current state, the op's `from` must match it.
-            // A None current means we accept the first transition's
-            // `from` only if it matches the declared initial state (if
-            // any) or there is no initial state.
-            if let Some(ref cur) = current
-                && cur != from
-            {
+            // Whether the walk is standing where this transition starts. A
+            // `None` current is the first transition on a cell with no declared
+            // initial state, which starts wherever it says it does.
+            //
+            // Everything below hangs off this. `seen_transitions` alone cannot
+            // tell a replay from a *return*: a cell that legally came back to
+            // `from` is at the start of that transition again, and the same
+            // `(from, to)` pair is then a new occurrence rather than a repeat of
+            // the old one. Deciding by the pair alone is what made
+            // `A -> B -> A -> B` read `A`, and what made a registered self-loop
+            // turn the next legal transition into a phantom sibling conflict.
+            let at_from = current.as_ref().is_none_or(|cur| cur == from);
+            if !at_from {
+                if seen_transitions.get(&from_key) == Some(&to_key) {
+                    // Redelivery of a transition already folded in. The walk has
+                    // moved on, so applying it again would rewind the cell.
+                    continue;
+                }
+                if seen_transitions.contains_key(&from_key) {
+                    // Two transitions out of one state that the walk never
+                    // returned to: genuine concurrent siblings.
+                    let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
+                    bottom.move_ids = vec![entry.move_id.clone()];
+                    bottom.details = Some(bottom_details([
+                        ("current", current.clone().unwrap_or(Value::Null)),
+                        ("from", from.clone()),
+                        ("reason", json!("same_from_different_to")),
+                        ("to", to.clone()),
+                    ]));
+                    return CellState::Bottom(bottom);
+                }
+                let cur = current.clone().unwrap_or(Value::Null);
                 let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
                 bottom.details = Some(bottom_details([
                     ("current", cur.clone()),
-                    ("expected_from", cur.clone()),
+                    ("expected_from", cur),
                     ("from", from.clone()),
                     ("to", to.clone()),
                 ]));
@@ -398,5 +409,105 @@ mod tests {
         };
         let err = f.validate_op(&op).unwrap_err();
         assert!(format!("{err}").contains("requires field to"));
+    }
+}
+
+#[cfg(test)]
+mod causal_regression_tests {
+    use super::*;
+    use crate::lattice::SealedOp;
+
+    fn reversible() -> Fsm {
+        Fsm::new(vec![
+            (json!("active"), json!("archived")),
+            (json!("archived"), json!("active")),
+            (json!("active"), json!("active")),
+            (json!("active"), json!("tombstoned")),
+        ])
+        .with_initial(json!("active"))
+    }
+
+    fn cell_ref() -> CellRef {
+        CellRef::new("ak:cell:ak.component.strand.lifecycle.v1:ak.strand.0196".to_owned()).unwrap()
+    }
+
+    fn step(id: u8, from: Value, to: Value) -> SealedOp {
+        SealedOp::new(
+            crate::Hash::new(format!("sha256:{:064x}", id)).unwrap(),
+            LatticeOp {
+                op_type: LatticeOpType::Transition,
+                from: Some(from),
+                to: Some(to),
+                ..LatticeOp::empty()
+            },
+        )
+    }
+
+    /// A cell that legally returns to a state is at the start of that state's
+    /// transitions again.
+    ///
+    /// `active -> archived -> active -> archived` must read `archived`. Deciding
+    /// replay by the `(from, to)` pair alone folded the last step away and read
+    /// `active` — the same failure `event-auth-state-resolution.md` §9.3.1.4
+    /// names when it deletes the value-edge join for `cas_register`, reachable
+    /// here on every reversible lifecycle family.
+    #[test]
+    fn a_reentered_transition_is_a_new_occurrence_not_a_replay() {
+        let ops = vec![
+            step(1, json!("active"), json!("archived")),
+            step(2, json!("archived"), json!("active")),
+            step(3, json!("active"), json!("archived")),
+        ];
+        assert_eq!(
+            reversible().join(&cell_ref(), &ops),
+            CellState::Value(json!("archived")),
+        );
+    }
+
+    /// Redelivering a transition the walk has already moved past stays a no-op,
+    /// which is what keeps an at-least-once transport from rewinding a cell.
+    #[test]
+    fn a_redelivered_transition_is_still_idempotent() {
+        let ops = vec![
+            step(1, json!("active"), json!("archived")),
+            step(1, json!("active"), json!("archived")),
+        ];
+        assert_eq!(
+            reversible().join(&cell_ref(), &ops),
+            CellState::Value(json!("archived")),
+        );
+    }
+
+    /// A registered self-loop must not consume the state it loops on.
+    ///
+    /// `ak.component.realm.link.v1` declares `(active, active)` precisely so a
+    /// repeated declaration is legal. Recording it as "the transition out of
+    /// active" then turned the next legal `active -> tombstoned` into a phantom
+    /// `same_from_different_to` conflict.
+    #[test]
+    fn a_self_loop_does_not_poison_the_next_transition() {
+        let ops = vec![
+            step(1, json!("active"), json!("active")),
+            step(2, json!("active"), json!("tombstoned")),
+        ];
+        assert_eq!(
+            reversible().join(&cell_ref(), &ops),
+            CellState::Value(json!("tombstoned")),
+        );
+    }
+
+    /// Two transitions out of a state the walk never returned to are still
+    /// concurrent siblings, and still bottom with the kind the conformance
+    /// vector requires.
+    #[test]
+    fn concurrent_siblings_still_conflict() {
+        let ops = vec![
+            step(1, json!("active"), json!("archived")),
+            step(2, json!("active"), json!("tombstoned")),
+        ];
+        let CellState::Bottom(bottom) = reversible().join(&cell_ref(), &ops) else {
+            panic!("two transitions out of one unrevisited state must conflict");
+        };
+        assert_eq!(bottom.kind, BottomKind::Conflict);
     }
 }
