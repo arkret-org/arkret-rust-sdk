@@ -108,24 +108,6 @@ pub struct MimiDelivery {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum MimiConsentTargetKind {
-    Did,
-    MimiUri,
-    Handle,
-    ProviderUser,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct MimiConsentTarget {
-    pub kind: MimiConsentTargetKind,
-    pub id: NonEmptyString,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiConsentPurpose {
     Invite,
     DirectMessage,

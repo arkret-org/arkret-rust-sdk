@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-05.3;
-//! sha256=9f0138f858612735cc40cdaa3720bfb3fa5c95ce8afa948da95f9cbc987c1aff Entries: registered=235
+//! Input: registry/operation-registry.json; version=2026-09-05.4;
+//! sha256=459ebbed24a2358bde385fc271d3a728fd430c7d81813acd293e2f3de731ede7 Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -3411,9 +3411,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         response_schema_ref: Some(
             "schemas/mimi-operations.schema.json#/$defs/mimi_request_consent_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.consent.read.list.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

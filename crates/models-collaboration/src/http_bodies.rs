@@ -38,9 +38,9 @@ use crate::history_key::{
 };
 use crate::objects::blob::BlobUploadMetadata;
 use crate::objects::mimi::{
-    MimiCiphertext, MimiConsentPurpose, MimiConsentTarget, MimiDelivery, MimiFailure,
-    MimiGroupInfo, MimiIdentifier, MimiIdentifierMatch, MimiKeyPackage, MimiNotification,
-    MimiNotificationRouting, MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
+    MimiCiphertext, MimiConsentPurpose, MimiDelivery, MimiFailure, MimiGroupInfo, MimiIdentifier,
+    MimiIdentifierMatch, MimiKeyPackage, MimiNotification, MimiNotificationRouting,
+    MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
 use crate::sync_frames::snapshot::SnapshotBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
@@ -1694,8 +1694,18 @@ pub struct MimiSubmitMessageOutcome {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct MimiRequestConsentRequestBody {
-    pub requester_id: DidCoreId,
-    pub target: MimiConsentTarget,
+    /// Exact Actor the requester is asking as, Station and role included.
+    ///
+    /// `consent-model.md` section 6.1 compares an ordinary peer by complete
+    /// `ActorId` and forbids falling back to a bare principal, so a
+    /// correlation frozen on a principal core could never be reconciled
+    /// without one side reducing dimensions. Ruling
+    /// `review/spec-done/2026-09-05-1240`.
+    pub requester_actor_id: ActorId,
+    /// Exact Account the request is addressed to, chosen and signed by the
+    /// requester. It is not evidence that the holder exists, is visible or has
+    /// consented.
+    pub holder_account_id: AccountId,
     pub purpose: MimiConsentPurpose,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
@@ -1722,9 +1732,12 @@ impl MimiRequestConsentRequestBody {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1,
-            Some(serde_json::to_value(&self.requester_id)?),
+            Some(serde_json::to_value(&self.requester_actor_id)?),
             vec![
-                ("target", serde_json::to_value(&self.target)?),
+                (
+                    "holder_account_id",
+                    serde_json::to_value(&self.holder_account_id)?,
+                ),
                 ("purpose", serde_json::to_value(self.purpose)?),
             ],
             &self.payload_digest()?,

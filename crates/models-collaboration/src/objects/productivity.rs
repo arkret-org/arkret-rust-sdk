@@ -1544,11 +1544,47 @@ impl ContactRemark {
         }
         if self.note.chars().count() > 4_096 {
             return Err(WireError::Protocol(
-                "contact remark note exceeds 4096 characters".to_owned(),
+                "contact remark note exceeds 4096 code points".to_owned(),
             ));
+        }
+        if let Some(handle) = self.verified_handle_at_save.as_deref() {
+            arkret_wire::validate_canonical_handle(handle)?;
+        }
+        for tag in &self.tags {
+            validate_contact_remark_tag(tag)?;
         }
         Ok(())
     }
+}
+
+/// Section 3.1 tag namespace, applied as a domain rule.
+///
+/// The registered schema only sees an array of strings, so passing it is not
+/// evidence that the namespace holds: `ak.*` is reserved for the specification
+/// and a client extension MUST use a reverse-domain `<vendor>.*` prefix. An
+/// unrecognised `ak.*` tag is preserved rather than dropped, so this accepts
+/// any well-formed reserved tag. Ruling `review/spec-done/2026-09-05-1730`.
+fn validate_contact_remark_tag(tag: &str) -> Result<()> {
+    let invalid =
+        |reason: &str| WireError::Protocol(format!("contact remark tag {tag:?} {reason}"));
+    if tag.is_empty() {
+        return Err(invalid("is empty"));
+    }
+    let segments: Vec<&str> = tag.split('.').collect();
+    if segments.len() < 2 {
+        return Err(invalid(
+            "is not namespaced: use a reserved ak.* tag or a reverse-domain <vendor>.* tag",
+        ));
+    }
+    if segments.iter().any(|segment| {
+        segment.is_empty()
+            || !segment
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+    }) {
+        return Err(invalid("has an empty or non-canonical segment"));
+    }
+    Ok(())
 }
 
 pub fn contact_remark_account_data_key(
@@ -2410,6 +2446,60 @@ mod tests {
         assert!(
             validate_private_account_data_key("ak.contacts.actor.did:web:alice.example").is_err()
         );
+    }
+
+    /// Ruling `review/spec-done/2026-09-05-1730`: the registered schema pins
+    /// `verified_handle_at_save` to the canonical `<localpart>:<domain>` wire
+    /// form and the section 3.1 tag namespace is a domain rule the schema
+    /// cannot state. Both were previously unvalidated here, so a value the
+    /// section 3.6 example itself carried would have round-tripped.
+    #[test]
+    fn contact_remark_rejects_bare_domain_handle_and_unnamespaced_tags() {
+        let namespace_key: Vec<u8> = (0u8..=31).collect();
+        let principal_id = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+        let key = contact_remark_account_data_key(&namespace_key, &principal_id).unwrap();
+
+        let mut remark = ContactRemark::new(principal_id, "Alice from Ops", test_time(0));
+        remark.verified_handle_at_save = Some("alice:example.com".to_owned());
+        remark.tags = vec!["org.example.work".to_owned(), "ak.favorite".to_owned()];
+        remark
+            .validate_for_account_data_key(&namespace_key, &key)
+            .expect("canonical handle and namespaced tags are accepted");
+
+        let mut bare_domain = remark.clone();
+        bare_domain.verified_handle_at_save = Some("alice.example.com".to_owned());
+        assert!(
+            bare_domain
+                .validate_for_account_data_key(&namespace_key, &key)
+                .is_err(),
+            "a bare domain has no localpart separator and is not a canonical handle"
+        );
+
+        let mut typed_input = remark.clone();
+        typed_input.verified_handle_at_save = Some("@alice:example.com".to_owned());
+        assert!(
+            typed_input
+                .validate_for_account_data_key(&namespace_key, &key)
+                .is_err(),
+            "the typed input marker is not part of the stored wire form"
+        );
+
+        let mut bare_tag = remark.clone();
+        bare_tag.tags = vec!["work".to_owned()];
+        let error = bare_tag
+            .validate_for_account_data_key(&namespace_key, &key)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("namespaced"),
+            "expected the namespace rule to be named, got {error}"
+        );
+
+        let mut unknown_reserved = remark.clone();
+        unknown_reserved.tags = vec!["ak.future_standard_tag".to_owned()];
+        unknown_reserved
+            .validate_for_account_data_key(&namespace_key, &key)
+            .expect("an unrecognised reserved tag is preserved, not rejected");
     }
 
     #[test]

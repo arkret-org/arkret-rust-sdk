@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-05.1;
-//! sha256=cd8a34c1176fd20bb8f99de0fa4162ad1e86abe899f5055296caaac5a34f43e1
+//! Input: registry/account-data-key-registry.json; version=2026-09-05.2;
+//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -114,7 +114,8 @@ impl AccountDataKey {
     /// acceptance may initialize confirmed_display_name only from profile evidence displayed during
     /// acceptance and never auto-creates petname. principal_key is
     /// base64url(HMAC-SHA256(account_data_namespace_key, RFC8785_JCS(["ak.contacts.actor",
-    /// peer.principal_id]))). Key pattern: `ak.contacts.actor.<principal_key>`.
+    /// peer.principal_id]))). Decrypted plaintext validates as ak.schema.contact_remark.v1. Key
+    /// pattern: `ak.contacts.actor.<principal_key>`.
     pub const CONTACTS_ACTOR: &'static str = "ak.contacts.actor";
     /// Private local remark, note, tag, and pin metadata for a Realm.
     /// Key pattern: `ak.contacts.realm.<realm_id>`.

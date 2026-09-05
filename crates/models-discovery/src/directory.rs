@@ -759,7 +759,9 @@ impl DirectoryResolveAgentSelectorRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct DirectoryAgentSelectorResolutionOutcome {
     pub controller_subject_id: DidCoreId,
-    pub subject_id: DidCoreId,
+    /// Exact Agent account, a projection of the verified claim rather than a
+    /// second choice. Ruling `review/spec-done/2026-09-05-1310`.
+    pub subject_account_id: AccountId,
     pub agent_slug: String,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub selector_claim: AgentSelectorClaim,
@@ -781,9 +783,10 @@ impl DirectoryAgentSelectorResolutionOutcome {
                     .to_owned(),
             ));
         }
-        if self.selector_claim.subject_id != self.subject_id {
+        if self.selector_claim.subject_account_id != self.subject_account_id {
             return Err(WireError::Protocol(
-                "selector_claim.subject_id must match response.subject_id".to_owned(),
+                "selector_claim.subject_account_id must match response.subject_account_id"
+                    .to_owned(),
             ));
         }
         if self.selector_claim.agent_slug != self.agent_slug {
@@ -1354,7 +1357,7 @@ mod agent_selector_outcome_tests {
 
     use arkret_models_identity::claim_presentation::AgentSelectorClaim;
     use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
-    use arkret_wire::{DidCoreId, DidUrl, Hash, PayloadProof, SchemaId};
+    use arkret_wire::{AccountId, DidCoreId, DidUrl, Hash, PayloadProof, SchemaId};
     use chrono::Utc;
 
     use super::DirectoryAgentSelectorResolutionOutcome;
@@ -1371,12 +1374,19 @@ mod agent_selector_outcome_tests {
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
+    fn agent_account(station: &str) -> AccountId {
+        AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureagentexample").unwrap(),
+            DidCoreId::new(station).unwrap(),
+        )
+    }
+
     fn selector_claim() -> AgentSelectorClaim {
         AgentSelectorClaim {
             schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
             controller_subject_id: principal("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
-            subject_id: principal("did:webvh:z6mkfixture:agent.example"),
+            subject_account_id: agent_account("ak:did_core:web:acme.example"),
             issuer_id: actor("did:webvh:z6mkfixture:example.com"),
             vouching_id: Some(service("did:webvh:z6mkfixture:example.com")),
             binding_state: HandleBindingState::Verified,
@@ -1406,13 +1416,35 @@ mod agent_selector_outcome_tests {
         let selector_claim = selector_claim();
         let outcome = DirectoryAgentSelectorResolutionOutcome {
             controller_subject_id: selector_claim.controller_subject_id.clone(),
-            subject_id: selector_claim.subject_id.clone(),
+            subject_account_id: selector_claim.subject_account_id.clone(),
             agent_slug: selector_claim.agent_slug.clone(),
             selector_claim,
             source_refs: Vec::new(),
             expires_at: None,
         };
         outcome.validate().unwrap();
+    }
+
+    /// Ruling `review/spec-done/2026-09-05-1310`: the outcome is a projection
+    /// of the signed claim, so a Directory that keeps the agent principal and
+    /// swaps the Station is non-conforming. Comparing principal cores would
+    /// accept this.
+    #[test]
+    fn rejects_outcome_that_retargets_the_station() {
+        let selector_claim = selector_claim();
+        let outcome = DirectoryAgentSelectorResolutionOutcome {
+            controller_subject_id: selector_claim.controller_subject_id.clone(),
+            subject_account_id: agent_account("ak:did_core:web:other.example"),
+            agent_slug: selector_claim.agent_slug.clone(),
+            selector_claim,
+            source_refs: Vec::new(),
+            expires_at: None,
+        };
+        let error = outcome.validate().unwrap_err().to_string();
+        assert!(
+            error.contains("subject_account_id"),
+            "expected the Station mismatch to be named, got {error}"
+        );
     }
 }
 
