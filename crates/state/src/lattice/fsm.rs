@@ -76,9 +76,16 @@ pub const MEMBERSHIP_INITIAL_STATE: &str = "leave";
 /// hardcoded `"leave"`. Converging them does not make the semantics right; it
 /// makes there be one thing to correct when the algebra is adjudicated.
 ///
+/// It walks with the same three decisions [`Fsm::join`] makes, and must keep
+/// doing so. Two folds of one state machine that disagree are worse than two
+/// copies of one fold: the notary and the MLS governance proof replay would
+/// then answer differently about the same membership cell, and the disagreement
+/// would only surface on the histories the weaker one gets wrong.
+///
 /// `Err` is a history that does not fold at all: a non-transition op in a
-/// transition cell, a sibling that contradicts an earlier transition from the
-/// same state, or a `from` that does not match the state the walk is in.
+/// transition cell, one identity carrying two different effects, a sibling that
+/// contradicts an earlier transition out of a state the walk never returned to,
+/// or a `from` that does not match the state the walk is in.
 pub fn membership_transition_head_into(
     ops: &[crate::lattice::ordered_log::IssuedOp],
     target: &str,
@@ -88,7 +95,8 @@ pub fn membership_transition_head_into(
         .rposition(|issued| issued.op.recovery_reset)
         .map_or(ops, |boundary| &ops[boundary..]);
     let mut current = MEMBERSHIP_INITIAL_STATE.to_owned();
-    let mut seen = std::collections::BTreeSet::<(String, String)>::new();
+    let mut seen = std::collections::BTreeMap::<String, String>::new();
+    let mut applied = std::collections::BTreeMap::<&str, (&str, &str)>::new();
     let mut head = None;
     for issued in ops {
         let from = issued.op.op.from.as_ref().and_then(Value::as_str);
@@ -96,21 +104,32 @@ pub fn membership_transition_head_into(
         let (Some(from), Some(to)) = (from, to) else {
             return Err("membership cell contains a non-transition operation".to_owned());
         };
-        let transition = (from.to_owned(), to.to_owned());
-        if seen.contains(&transition) {
-            continue;
+        // Exact replay is deduplicated by write identity. The `(from, to)` pair
+        // cannot express it: membership is reversible, so one pair legitimately
+        // occurs more than once, and two writers legitimately converge on one
+        // pair.
+        if let Some(&(previous_from, previous_to)) = applied.get(issued.op.move_id.as_str()) {
+            if (previous_from, previous_to) == (from, to) {
+                continue;
+            }
+            return Err(
+                "one membership write identity carries two different transitions".to_owned(),
+            );
         }
-        if seen
-            .iter()
-            .any(|(seen_from, seen_to)| seen_from == from && seen_to != to)
-            || current != from
-        {
+        applied.insert(issued.op.move_id.as_str(), (from, to));
+        if current != from {
+            // Not standing where this transition starts. Either a redelivery by
+            // a second writer of a transition already folded in, a genuine
+            // sibling of one, or a transition that is simply illegal here.
+            if seen.get(from).map(String::as_str) == Some(to) {
+                continue;
+            }
             return Err(
                 "membership operation history does not resolve to the effective FSM value"
                     .to_owned(),
             );
         }
-        seen.insert(transition);
+        seen.insert(from.to_owned(), to.to_owned());
         current.clear();
         current.push_str(to);
         head = (to == target).then(|| issued.op.move_id.clone());
@@ -530,6 +549,70 @@ mod causal_regression_tests {
             reversible().join(&cell_ref(), &ops),
             CellState::Value(json!("archived")),
         );
+    }
+
+    /// The shared membership fold answers the same three questions `join` does.
+    ///
+    /// It is a separate walk because it returns the identity that entered a
+    /// target state rather than the state itself, and the notary and the MLS
+    /// governance proof replay both read it. Two folds of one state machine
+    /// that disagree are worse than two copies of one fold, and the
+    /// disagreement would only show on the histories the weaker one gets wrong
+    /// — which is exactly the ABA and self-loop shapes.
+    #[test]
+    fn the_shared_membership_fold_agrees_with_join() {
+        use crate::lattice::ordered_log::IssuedOp;
+
+        fn issued(id: u8, from: &str, to: &str) -> IssuedOp {
+            IssuedOp {
+                issuer_id: arkret_wire::ActorId::service(
+                    arkret_wire::DidCoreId::new("ak:did_core:web:fixture.example".to_owned())
+                        .unwrap(),
+                ),
+                op: step(id, json!(from), json!(to)),
+            }
+        }
+
+        // Re-entry: `leave -> join -> leave -> join` reads `join`, and the head
+        // is the *last* write into it, not the first.
+        let reentered = vec![
+            issued(1, "leave", "join"),
+            issued(2, "join", "leave"),
+            issued(3, "leave", "join"),
+        ];
+        assert_eq!(
+            membership_transition_head_into(&reentered, "join").unwrap(),
+            Some(reentered[2].op.move_id.clone()),
+        );
+
+        // Redelivery of one write stays a no-op even where its `from` matches
+        // again.
+        let mut redelivered = reentered.clone();
+        redelivered.push(reentered[0].clone());
+        assert_eq!(
+            membership_transition_head_into(&redelivered, "join").unwrap(),
+            Some(reentered[2].op.move_id.clone()),
+        );
+
+        // Two writers converging on one transition converge here too.
+        let converged = vec![issued(1, "leave", "join"), issued(2, "leave", "join")];
+        assert_eq!(
+            membership_transition_head_into(&converged, "join").unwrap(),
+            Some(converged[0].op.move_id.clone()),
+        );
+
+        // A genuine sibling out of a state the walk never returned to still
+        // fails closed.
+        let sibling = vec![issued(1, "leave", "join"), issued(2, "leave", "ban")];
+        assert!(membership_transition_head_into(&sibling, "join").is_err());
+
+        // One identity with two effects fails closed, as it does in `join`.
+        let mut forked = vec![issued(1, "leave", "join")];
+        forked.push(IssuedOp {
+            op: step(1, json!("leave"), json!("ban")),
+            ..forked[0].clone()
+        });
+        assert!(membership_transition_head_into(&forked, "join").is_err());
     }
 
     /// One identity carrying two different effects is a verification error or a
