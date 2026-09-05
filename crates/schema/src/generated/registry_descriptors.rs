@@ -4,11 +4,11 @@
 //! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4 Input: registry/
 //! capability-action-registry.json; version=2026-09-02.8;
 //! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
-//! schema-registry.json; version=2026-09-05.2;
-//! sha256=6a791a1f9bb3d7c0c3d6cc4a431716ee2dbd4d1bb4d3f6945e32adb4c9e0d6c9 Input: registry/
+//! schema-registry.json; version=2026-09-05.3;
+//! sha256=e3859ad8293a884c664e35458287acf4b293c15e66fd54bd0194ac0e932e337e Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.1;
 //! sha256=cd8a34c1176fd20bb8f99de0fa4162ad1e86abe899f5055296caaac5a34f43e1 Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=200, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=203, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3294,6 +3294,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/content-block-poll.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::CONTROL_PROPOSAL_DECISION_V1,
+        file: "schemas/control-proposal-decision.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1,
         file: "schemas/agent-signer-evidence.schema.json",
     },
@@ -3576,6 +3580,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::POLICY_V1,
         file: "schemas/policy.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PRESENCE_PREFERENCE_V1,
+        file: "schemas/presence-preference.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PRESENCE_VISIBILITY_V1,
+        file: "schemas/presence-visibility.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PRINCIPAL_LOCATOR_V1,

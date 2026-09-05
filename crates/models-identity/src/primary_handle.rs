@@ -499,6 +499,55 @@ mod tests {
         assert!(select_primary_handle(&input).is_none());
     }
 
+    /// `identity-handles.md` §3.2 compares the whole `AccountId`, and
+    /// `discovery-directory.md` forbids merging the same principal's account at
+    /// another Station. A claim bound to one Station is therefore not evidence
+    /// about the other, even though both share a `principal_id`.
+    #[test]
+    fn a_claim_at_another_station_never_wins_for_this_account() {
+        let now = Utc::now();
+        let issued = now - chrono::Duration::hours(1);
+        let expires = now + chrono::Duration::days(30);
+        let policies = vec![issuer_policy(
+            "ak:did_core:webvh:z6mkfixtureacme",
+            "acme.example",
+        )];
+
+        let bound = subject();
+        let elsewhere = AccountId::new(
+            bound.principal_id.clone(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureotherserver").unwrap(),
+        );
+        assert_eq!(bound.principal_id, elsewhere.principal_id);
+        assert_ne!(bound.station_id, elsewhere.station_id);
+
+        let snapshot = vec![verified_claim(
+            "alice:acme.example",
+            "ak:did_core:webvh:z6mkfixtureacme",
+            issued,
+            expires,
+            None,
+        )];
+        let resolution_as_of = Utc::now();
+
+        let select_for = |account_id: &AccountId| {
+            select_primary_handle(&PrimaryHandleSelectInput {
+                account_id,
+                context: None,
+                claim_set_snapshot: &snapshot,
+                handle_issuer_policies: &policies,
+                holder_primary_handle_at_as_of: None,
+                resolution_as_of,
+            })
+            .map(|c| c.claim.handle.canonical().to_owned())
+        };
+
+        // Positive control: the bound account still resolves, so a None below
+        // means the Station differed and not that the fixture is unusable.
+        assert_eq!(select_for(&bound).as_deref(), Some("alice:acme.example"));
+        assert_eq!(select_for(&elsewhere), None);
+    }
+
     #[test]
     fn audience_match_wins_over_most_recent() {
         let now = Utc::now();

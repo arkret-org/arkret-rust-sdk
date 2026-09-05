@@ -31,15 +31,18 @@ if ($duplicates.Count -ne 0) {
     throw "generation manifest declares duplicate outputs: $($duplicates.Name -join ', ')"
 }
 
-$targetRoot = $repoRoot
-$temporaryRoot = $null
-if ($Check) {
-    $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
-        'arkret-sdk-generated-' + [System.Guid]::NewGuid().ToString('N')
-    )
-    New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
-    $targetRoot = $temporaryRoot
-}
+# Both modes generate into a scratch tree first. A generator that fails part
+# way through - an artifact the Rust codegen rejects, a rustfmt error, an
+# output a generator did not write - must not leave the checkout holding some
+# refreshed files and some stale ones, because the half-refreshed tree looks
+# exactly like a deliberate partial commit and has to be unpicked by hand.
+# Nothing reaches the tracked tree until every generator, rustfmt and the
+# manifest completeness check have all succeeded.
+$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
+    'arkret-sdk-generated-' + [System.Guid]::NewGuid().ToString('N')
+)
+New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
+$targetRoot = $temporaryRoot
 
 try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
@@ -99,6 +102,21 @@ try {
             if (![System.Linq.Enumerable]::SequenceEqual($generatedBytes, $trackedBytes)) {
                 throw "generated output drift: $relative"
             }
+        }
+    }
+
+    if (!$Check) {
+        # Every declared output exists and is formatted. Copy is byte-for-byte
+        # so the LF endings the generators pin survive the move, and it happens
+        # only after the last thing that can fail has already succeeded.
+        foreach ($relative in $declaredOutputs) {
+            $generated = Join-Path $targetRoot $relative
+            $tracked = Join-Path $repoRoot $relative
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $tracked) | Out-Null
+            [System.IO.File]::WriteAllBytes(
+                $tracked,
+                [System.IO.File]::ReadAllBytes($generated)
+            )
         }
     }
 

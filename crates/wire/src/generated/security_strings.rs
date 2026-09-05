@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-04.1;
-//! sha256=85d2ce949c5b05059e737e1d4810695eed72cdcf35c44122e0996d4e5d216a96 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-05.1;
+//! sha256=87a1ceb6f3810974584c317f989a27e25f87b353fbf0fb4609104edc91a0f48f Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -16,7 +16,7 @@
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=73, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=74, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -67,6 +67,7 @@ pub enum ProofContextId {
     IdentityCreationControlProofV1,
     IdentityReceiptProofV1,
     IngressReceiptProofV1,
+    JoinGateProofV1,
     KeyBackupDeleteProofV1,
     MimiIdentifierQueryOutcomeProofV1,
     MimiIdentifierQueryRequestProofV1,
@@ -144,6 +145,7 @@ impl ProofContextId {
         Self::IdentityCreationControlProofV1,
         Self::IdentityReceiptProofV1,
         Self::IngressReceiptProofV1,
+        Self::JoinGateProofV1,
         Self::KeyBackupDeleteProofV1,
         Self::MimiIdentifierQueryOutcomeProofV1,
         Self::MimiIdentifierQueryRequestProofV1,
@@ -247,6 +249,7 @@ impl ProofContextId {
         "ak.identity_creation_control_proof.v1";
     pub const IDENTITY_RECEIPT_PROOF_V1: &'static str = "ak.identity_receipt_proof.v1";
     pub const INGRESS_RECEIPT_PROOF_V1: &'static str = "ak.ingress_receipt_proof.v1";
+    pub const JOIN_GATE_PROOF_V1: &'static str = "ak.join_gate_proof.v1";
     pub const KEY_BACKUP_DELETE_PROOF_V1: &'static str = "ak.key_backup_delete_proof.v1";
     pub const MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1: &'static str =
         "ak.mimi_identifier_query_outcome_proof.v1";
@@ -369,6 +372,7 @@ impl ProofContextId {
             Self::IdentityCreationControlProofV1 => Self::IDENTITY_CREATION_CONTROL_PROOF_V1,
             Self::IdentityReceiptProofV1 => Self::IDENTITY_RECEIPT_PROOF_V1,
             Self::IngressReceiptProofV1 => Self::INGRESS_RECEIPT_PROOF_V1,
+            Self::JoinGateProofV1 => Self::JOIN_GATE_PROOF_V1,
             Self::KeyBackupDeleteProofV1 => Self::KEY_BACKUP_DELETE_PROOF_V1,
             Self::MimiIdentifierQueryOutcomeProofV1 => Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
             Self::MimiIdentifierQueryRequestProofV1 => Self::MIMI_IDENTIFIER_QUERY_REQUEST_PROOF_V1,
@@ -509,6 +513,7 @@ impl ProofContextId {
             Self::IDENTITY_CREATION_CONTROL_PROOF_V1 => Some(Self::IdentityCreationControlProofV1),
             Self::IDENTITY_RECEIPT_PROOF_V1 => Some(Self::IdentityReceiptProofV1),
             Self::INGRESS_RECEIPT_PROOF_V1 => Some(Self::IngressReceiptProofV1),
+            Self::JOIN_GATE_PROOF_V1 => Some(Self::JoinGateProofV1),
             Self::KEY_BACKUP_DELETE_PROOF_V1 => Some(Self::KeyBackupDeleteProofV1),
             Self::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1 => {
                 Some(Self::MimiIdentifierQueryOutcomeProofV1)
@@ -1804,6 +1809,22 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/offline-publication.schema.json#/$defs/ingress_receipt",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::JoinGateProofV1,
+        context: "ak.join_gate_proof.v1",
+        object_family: "join_gate_proof",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "gate_id",
+            "realm_id",
+            "applicant_actor_id",
+            "policy_digest",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/event-payload.schema.json#/$defs/join_gate_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::KeyBackupDeleteProofV1,

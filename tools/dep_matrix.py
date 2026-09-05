@@ -635,13 +635,17 @@ def evaluate_exemptions(payload: dict, exemptions: dict, today: str) -> dict:
 
 def write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def write_csv(path: Path, crates: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
+        writer = csv.writer(handle, lineterminator="\n")
         writer.writerow(
             [
                 "crate",
@@ -917,7 +921,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.raw:
         write_json(out_dir / "dep-matrix-raw.json", raw)
     if args.format == "all":
-        (out_dir / "dep-matrix.txt").write_text(text + "\n", encoding="utf-8")
+        (out_dir / "dep-matrix.txt").write_text(
+            text + "\n", encoding="utf-8", newline="\n"
+        )
     if args.format != "text":
         print(f"\nwrote artifacts to {out_dir}", file=sys.stderr)
 

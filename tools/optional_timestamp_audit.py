@@ -226,7 +226,9 @@ def main() -> int:
         "sites": [asdict(site) for site in sites],
     }
     args.output.write_text(
-        json.dumps(inventory, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        json.dumps(inventory, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
     print(f"total sites: {len(sites)}")
     for classification, count in sorted(counts.items()):

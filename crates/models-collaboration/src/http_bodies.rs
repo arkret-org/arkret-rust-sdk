@@ -13,9 +13,9 @@ use arkret_wire::{
     AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, CbaProofBundle,
     ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, DomainSeparationId, Event,
     EventFederationSubmission, EventId, EventInitialSubmission, Hash, IngressReceipt, MlsGroupId,
-    MorphId, NonEmptyString, PayloadProof, ProofContextId, RealmId, ReasonCode, RelationId,
-    ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId, StrandId,
-    WireError, canonical,
+    MorphId, NonEmptyString, ObjectStage, PayloadProof, ProofContextId, RealmId, ReasonCode,
+    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
+    StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1152,6 +1152,19 @@ pub struct ProjectionStrandRow {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub state_changed_at: Option<DateTime<Utc>>,
+    /// Business-progression stage projected from
+    /// `ak.component.strand.stage.v1`; `None` when the Strand has never been
+    /// written by `ak.strand.stage.set`. Orthogonal to `state`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage: Option<ObjectStage>,
+    /// Reducer-derived timestamp of the most recent `stage` transition; never
+    /// present without `stage` (common-fields 5.3.1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub stage_changed_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1221,9 +1234,26 @@ pub struct ProjectionMorphRow {
     pub morph_id: MorphId,
     pub realm_id: RealmId,
     pub morph_kind: String,
-    pub state: ProjectionObjectState,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    pub state: ProjectionObjectState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub state_changed_at: Option<DateTime<Utc>>,
+    /// Business-progression stage projected from
+    /// `ak.component.morph.stage.v1`; `None` when the Morph has never been
+    /// written by `ak.morph.stage.set`. Orthogonal to `state`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage: Option<ObjectStage>,
+    /// Reducer-derived timestamp of the most recent `stage` transition; never
+    /// present without `stage` (common-fields 5.3.1).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub stage_changed_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_by: Option<ActorId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1236,10 +1266,6 @@ pub struct ProjectionMorphRow {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub updated_at: Option<DateTime<Utc>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub state_changed_at: Option<DateTime<Utc>>,
 }
 
 /// `service-operation-dtos.schema.json#/$defs/ProjectionMorphList`.

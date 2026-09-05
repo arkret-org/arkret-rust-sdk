@@ -69,13 +69,16 @@ def main() -> int:
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "mapping.json").write_text(
-        json.dumps([entry.__dict__ for entry in mappings], indent=2), encoding="utf-8"
+        json.dumps([entry.__dict__ for entry in mappings], indent=2),
+        encoding="utf-8",
+        newline="\n",
     )
     (args.out / "bindings.json").write_text(
         json.dumps(
             {"version": 1, "bindings": newtypes, "conflicts": conflicts}, indent=2
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     named_pointers = {
@@ -131,6 +134,7 @@ def main() -> int:
     (args.out / "generated.rs").write_text(
         PREAMBLE + "\n" + "\n\n".join(rendered[key] for key in sorted(rendered)) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
     differences = [
@@ -154,6 +158,7 @@ def main() -> int:
             indent=2,
         ),
         encoding="utf-8",
+        newline="\n",
     )
 
     evidence = Counter(entry.evidence for entry in mappings)

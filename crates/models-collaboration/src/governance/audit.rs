@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, DidCoreId, DidUrl, EventId, Hash, PayloadProof, ProfileId, RealmId, ReasonCode,
-    ReceiptId, Result, SchemaId, TrustDomainId, WireError,
+    ActorId, AttestationId, Base64UrlString, DidCoreId, DidUrl, EventId, Hash, NonEmptyString,
+    PayloadProof, ProfileId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, TrustDomainId,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -171,6 +172,201 @@ pub struct AuditRywReceipt {
 
 impl AuditRywReceipt {
     pub const SCHEMA: &'static str = SchemaId::AUDIT_RYW_RECEIPT_V1;
+}
+
+/// Attestation platform family (`audit-release-attestation.schema.json`).
+///
+/// `SoftwareTestOnly` exists for conformance fixtures and is rejected outright
+/// by a deployment declaring `attested_hardware`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditAttestationPlatformFamily {
+    #[serde(rename = "tee_sgx")]
+    TeeSgx,
+    #[serde(rename = "tee_tdx")]
+    TeeTdx,
+    #[serde(rename = "tee_sev_snp")]
+    TeeSevSnp,
+    #[serde(rename = "tpm_2")]
+    Tpm2,
+    #[serde(rename = "hsm_pkcs11")]
+    HsmPkcs11,
+    NitroEnclave,
+    SoftwareTestOnly,
+}
+
+impl AuditAttestationPlatformFamily {
+    /// Whether this family may back an `attested_hardware` release at all.
+    pub const fn is_hardware_backed(self) -> bool {
+        !matches!(self, Self::SoftwareTestOnly)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationPlatform {
+    pub family: AuditAttestationPlatformFamily,
+    pub vendor: NonEmptyString,
+    pub model: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub firmware_version: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationMeasurement {
+    pub code_digest: Hash,
+    pub policy_version: NonEmptyString,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report_data: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditAttestationChainFormat {
+    X509Der,
+    CoseCbor,
+    EpidQuote,
+    TdxQuote,
+    SnpReport,
+    Tpm2Quote,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationChainEntry {
+    pub format: AuditAttestationChainFormat,
+    pub bytes_b64u: Base64UrlString,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub issued_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AuditAttestationKeyAlgorithm {
+    Ed25519,
+    #[serde(rename = "ES256")]
+    Es256,
+    #[serde(rename = "ML-DSA-65")]
+    MlDsa65,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationKey {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kid: Option<String>,
+    pub algorithm: AuditAttestationKeyAlgorithm,
+    pub public_key_b64u: Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationValidity {
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub not_before: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditAttestationRevocationMethod {
+    SgxPccsCrl,
+    TdxPcsCrl,
+    Ocsp,
+    VendorSpecific,
+    NoneSupported,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationRevocation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<AuditAttestationRevocationMethod>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint_url: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub last_checked_at: Option<DateTime<Utc>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub next_check_before: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditPurpose {
+    ComplianceLawfulAccess,
+    RegulatoryRecordKeeping,
+    IncidentInvestigation,
+    InternalPolicyAudit,
+}
+
+/// `ak.schema.audit_release_attestation.v1`
+/// (`audit-release-attestation.schema.json`), carried inline on every
+/// `ak.audit.release` under an `attested_hardware` binding.
+///
+/// This is the evidence `audited-e2ee.md` §6 verifies: its trust root,
+/// validity window and measurement are checked against the binding's
+/// [`AuditAttestationPolicy`] (`audit_release_attestation_invalid`), and its
+/// identity fields against the active binding and accepted authorize
+/// (`audit_release_attestation_mismatch`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditReleaseAttestation {
+    pub attestation_id: AttestationId,
+    pub realm_id: RealmId,
+    pub audit_actor_id: ActorId,
+    pub service_id: DidCoreId,
+    pub platform: AuditAttestationPlatform,
+    pub measurement: AuditAttestationMeasurement,
+    pub attestation_chains: Vec<AuditAttestationChainEntry>,
+    pub attestation_key: AuditAttestationKey,
+    pub verification_method: DidUrl,
+    pub validity: AuditAttestationValidity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revocation: Option<AuditAttestationRevocation>,
+    pub operator_id: DidCoreId,
+    pub audit_purpose: AuditPurpose,
+    pub audit_policy_version_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl AuditReleaseAttestation {
+    pub const SCHEMA: &'static str = SchemaId::AUDIT_RELEASE_ATTESTATION_V1;
+
+    /// Longest evidence window `audited-e2ee.md` §6 allows under
+    /// `attested_hardware`; Realm policy may cap it lower but never higher.
+    pub const MAX_VALIDITY: chrono::TimeDelta = chrono::TimeDelta::days(90);
+
+    /// The chain root is the last entry: leaf, then intermediates, then the
+    /// vendor root the Realm's trust root list is compared against.
+    pub fn chain_root(&self) -> Option<&AuditAttestationChainEntry> {
+        self.attestation_chains.last()
+    }
+
+    /// `sha256` over the decoded root certificate bytes, in the digest form
+    /// `attestation_policy.trust_root_digests[]` uses.
+    pub fn chain_root_digest(&self) -> Result<Hash> {
+        let root = self.chain_root().ok_or_else(|| {
+            WireError::Protocol("attestation_chains must carry at least the root".to_owned())
+        })?;
+        let bytes = arkret_canonical::base64url_decode(root.bytes_b64u.as_str())
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+    }
 }
 
 #[cfg(test)]

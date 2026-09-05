@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::{AccountStatusRecordId, ActorId, Event, EventId, SchemaId, TrackName};
+use arkret_wire::{AccountStatusRecordId, ActorId, Event, EventId, SchemaId};
 use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;
@@ -120,7 +120,6 @@ pub struct Message {
     pub schema: String,
     pub realm_id: RealmId,
     pub strand_id: StrandId,
-    pub track_name: TrackName,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scope: Option<ScopeRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

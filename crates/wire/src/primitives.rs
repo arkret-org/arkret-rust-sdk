@@ -563,6 +563,7 @@ pub enum ObjectState {
 /// This is distinct from physical lifecycle [`ObjectState`]. The stage
 /// lattice is mutated only through the dedicated `ak.<object>.stage.set`
 /// event family; create payloads must set an initial stage.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ObjectStage {

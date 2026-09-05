@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/contract-registry.json; version=2026-09-05.3;
-//! sha256=07b0e5f62c7474205b30c04a5f68e903d89d109f1c09671343b23f220199360c
-//! Entries: operation_bundles=35 features=21
+//! sha256=effefd5395a71bfae42496e70bb19e2765b8f0a0c3c7c6041d7f82a9193c5ef2
+//! Entries: operation_bundles=36 features=21
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -1207,6 +1207,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
         ],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.station.third_party_invite_handoff.v1",
+        service_kind: ServiceKind::Station,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.tus_upload.v1",

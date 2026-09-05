@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/event-kind-registry.json; version=2026-09-05.3;
-//! sha256=620c5b5e367cdec1d7c7264febf8eda6da62259333ca5aeefdace3ffe7a4051f Input: registry/
+//! sha256=38dcd5f720611737b5c922dde6e2e96f575f5c3fc7014a6377c9ea37425a2dc7 Input: registry/
 //! id-kind-registry.json; version=2026-09-04.2;
 //! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4
 //! Entries: active_events=170, pre_state_requirements=8
@@ -27,7 +27,7 @@ pub enum EventPreStatePredicateKind {
 pub struct EventPreStateRequirementDescriptor {
     pub cell_family: CellFamilyId,
     pub subject_field: &'static str,
-    pub condition_rule: Option<EventCellRule>,
+    pub condition: Option<EventCellRule>,
     pub predicate: EventPreStatePredicateKind,
     pub stored_field: &'static str,
     pub payload_field: Option<&'static str>,
@@ -48,7 +48,7 @@ const INVITE_ACCEPT_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     &[EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: None,
+        condition: None,
         predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
         stored_field: "invitee_account_id",
         payload_field: Some("payload.invitee_account_id"),
@@ -60,7 +60,7 @@ const INVITE_CANCEL_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: None,
+        condition: None,
         predicate: EventPreStatePredicateKind::StoredFieldPresent,
         stored_field: "invitee_account_id",
         payload_field: None,
@@ -70,7 +70,7 @@ const INVITE_CANCEL_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: None,
+        condition: None,
         predicate: EventPreStatePredicateKind::StoredFieldEqualsPayload,
         stored_field: "invitee_account_id",
         payload_field: Some("payload.invitee_account_id"),
@@ -83,7 +83,7 @@ const INVITE_REVOKE_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: Some(EventCellRule::Object(&[
+        condition: Some(EventCellRule::Object(&[
             EventCellRuleField {
                 key: EventCellRuleKey::Const,
                 value: EventCellRule::String("revoked"),
@@ -106,7 +106,7 @@ const INVITE_REVOKE_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: Some(EventCellRule::Object(&[
+        condition: Some(EventCellRule::Object(&[
             EventCellRuleField {
                 key: EventCellRuleKey::Const,
                 value: EventCellRule::String("expired"),
@@ -129,7 +129,7 @@ const INVITE_REVOKE_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: Some(EventCellRule::Object(&[
+        condition: Some(EventCellRule::Object(&[
             EventCellRuleField {
                 key: EventCellRuleKey::Const,
                 value: EventCellRule::String("revoked_by_capability_loss"),
@@ -152,7 +152,7 @@ const INVITE_REVOKE_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: Some(EventCellRule::Object(&[
+        condition: Some(EventCellRule::Object(&[
             EventCellRuleField {
                 key: EventCellRuleKey::Const,
                 value: EventCellRule::String("revoked_by_inviter_left"),
@@ -175,7 +175,7 @@ const INVITE_REVOKE_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
-        condition_rule: Some(EventCellRule::Object(&[
+        condition: Some(EventCellRule::Object(&[
             EventCellRuleField {
                 key: EventCellRuleKey::Const,
                 value: EventCellRule::String("invalidated_by_rate_limit"),

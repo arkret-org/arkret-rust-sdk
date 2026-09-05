@@ -56,6 +56,10 @@ pub enum JoinPolicyPayloadGatesItem {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         auto_resolve: Option<bool>,
         required_claims: Vec<String>,
+        /// Issuer boundary of the presented claims (`join-policy.md` §3.1).
+        /// Required: a gate without one would accept a self-signed claim, so
+        /// there is no shape of this gate that omits it.
+        trusted_issuer_ids: Vec<DidCoreId>,
     },
     ChallengeResponse {
         gate_id: JoinPolicyGateId,

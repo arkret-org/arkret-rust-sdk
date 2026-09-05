@@ -340,7 +340,11 @@ def bootstrap(registry_path: Path, spec_root: Path) -> None:
                 }
             )
     document = {"version": 1, "mappings": mappings, "exemptions": exemptions}
-    registry_path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    registry_path.write_text(
+        json.dumps(document, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def main() -> int:
