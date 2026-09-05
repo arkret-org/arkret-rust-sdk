@@ -583,7 +583,7 @@ async fn genesis_vector_recomputes_independent_seal_roots() {
 async fn predecessor_vector_recomputes_roots_over_the_cumulative_closure() {
     let predecessor = listed("ak:did_core:webvh:z6mkfixturealice", 7, 0x11);
     let successor = listed("ak:did_core:webvh:z6mkfixturealice", 9, 0x22);
-    let cumulative = [predecessor.clone(), successor.clone()];
+    let cumulative = [predecessor, successor.clone()];
     let cumulative_covered = cumulative
         .iter()
         .map(|event| event.event_digest.clone())

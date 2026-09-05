@@ -1075,7 +1075,7 @@ mod tests {
                 )
                 .unwrap(),
                 claim_id: NonEmptyString::new("claim-without-keypackage-prefix").unwrap(),
-                requester_actor_id: ActorId::service(pairwise_actor_id.clone()),
+                requester_actor_id: ActorId::service(pairwise_actor_id),
                 trust_binding: MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
                     requester_pairwise_verification_method: verification_method.clone(),
                 },

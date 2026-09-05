@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::error_codes::{ErrorCode, ErrorStatusContext};
-use arkret_wire::problem_details::ErrorEnvelope;
+use arkret_wire::problem_details::Problem;
 use serde_json::Value;
 
 /// Typed rejection shared by server implementations and framework adapters.
@@ -71,14 +71,16 @@ impl ProtocolRejection {
         self.retry_after_ms
     }
 
-    pub fn into_envelope(self, request_id: impl Into<String>) -> ErrorEnvelope {
-        let mut envelope = ErrorEnvelope::new(self.code.as_str(), self.message)
-            .with_request_id(request_id)
+    /// The RFC 9457 problem this rejection renders as. The request id becomes
+    /// the problem's `instance`.
+    pub fn into_problem(self, request_id: impl Into<String>) -> Problem {
+        let mut problem = Problem::from_code(self.code.as_str(), self.message)
+            .with_instance(request_id)
             .with_retry_after_ms(self.retry_after_ms);
         for (key, value) in self.details {
-            envelope = envelope.with_detail(key, value);
+            problem = problem.with_extension(key, value);
         }
-        envelope
+        problem
     }
 }
 
@@ -109,12 +111,12 @@ mod tests {
         let envelope = ProtocolRejection::new(ErrorCode::ParamInvalid, "bad selector")
             .with_detail("reason_code", "selector_invalid")
             .with_retry_after_ms(250)
-            .into_envelope("ak:request:test");
+            .into_problem("ak:request:test");
         assert_eq!(envelope.code(), "param_invalid");
-        assert_eq!(envelope.request_id, "ak:request:test");
+        assert_eq!(envelope.instance.as_deref(), Some("ak:request:test"));
         assert_eq!(envelope.retry_after_ms(), Some(250));
         assert_eq!(
-            envelope.details().get("reason_code"),
+            envelope.extensions.get("reason_code"),
             Some(&Value::String("selector_invalid".to_owned()))
         );
     }

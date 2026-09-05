@@ -163,7 +163,7 @@ fn a_verifiable_proof_really_verifies_and_one_changed_byte_breaks_it() {
 
     // One changed byte of the covered transcript must break it. If this ever
     // stops failing, the fixture is signing something other than what it says.
-    let mut tampered = canonical_bytes.clone();
+    let mut tampered = canonical_bytes;
     let last = tampered.len() - 2;
     tampered[last] ^= 0x01;
     assert!(

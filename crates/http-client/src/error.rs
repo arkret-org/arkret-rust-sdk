@@ -20,7 +20,7 @@ pub enum Error {
     #[error("Arkret API returned {status}: {error}")]
     Api {
         status: u16,
-        error: Box<arkret_wire::ErrorEnvelope>,
+        error: Box<arkret_wire::Problem>,
     },
 
     /// Transport-stack failure (connect / TLS / timeout / body). The concrete

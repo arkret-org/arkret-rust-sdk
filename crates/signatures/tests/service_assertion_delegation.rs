@@ -155,7 +155,7 @@ fn a_delegated_assertion_key_can_be_added_after_inception() {
     );
     let rotation = prepare_service_rotation(&ServiceRotationInput {
         did: &inception.did,
-        previous_entries: &[inception.log_entry.clone()],
+        previous_entries: std::slice::from_ref(&inception.log_entry),
         state: &state,
         // The inception pre-committed this key, so it is the only one that may
         // sign the successor.
@@ -235,7 +235,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
     // Signing with a key the previous entry never pre-committed.
     let error = prepare_service_rotation(&ServiceRotationInput {
         did: &inception.did,
-        previous_entries: &[inception.log_entry.clone()],
+        previous_entries: std::slice::from_ref(&inception.log_entry),
         state: &state,
         current_update_seed: &[13; 32],
         next_update_public_key_multibase: &fresh_key,
@@ -258,7 +258,7 @@ fn service_rotation_refuses_a_broken_pre_rotation_chain() {
     );
     let error = prepare_service_rotation(&ServiceRotationInput {
         did: &inception.did,
-        previous_entries: &[inception.log_entry.clone()],
+        previous_entries: std::slice::from_ref(&inception.log_entry),
         state: &state,
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &inception_update_key,
@@ -300,7 +300,7 @@ fn service_rotation_requires_a_strictly_later_version_time() {
 
     let error = prepare_service_rotation(&ServiceRotationInput {
         did: &inception.did,
-        previous_entries: &[inception.log_entry.clone()],
+        previous_entries: std::slice::from_ref(&inception.log_entry),
         state: &inception.log_entry["state"],
         current_update_seed: &inception.next_update_key_seed,
         next_update_public_key_multibase: &next_key,

@@ -2380,7 +2380,7 @@ mod tests {
             "conflict_evidence": {
                 "kind": "full_hash_collision",
                 "variants": [
-                    record.clone(),
+                    record,
                     {"kind": "inline_canonical_bytes", "canonical_event_bytes_b64u": "Yg"}
                 ]
             },
@@ -2419,7 +2419,7 @@ mod tests {
             "conflict_evidence": {
                 "kind": "bucket_overflow",
                 "prev_frontier_digest": format!("sha256:{}", "a".repeat(64)),
-                "event_ids": ids.clone()
+                "event_ids": ids
             },
             "verdict": {"kind": "canonical_winner", "winner_event_id": ids[0].clone()}
         });
@@ -2438,7 +2438,7 @@ mod tests {
         assert!(serde_json::from_value::<ForkResolutionPayload>(outside).is_err());
 
         let mut reversed = valid.clone();
-        let mut descending = ids.clone();
+        let mut descending = ids;
         descending.reverse();
         reversed["conflict_evidence"]["event_ids"] = json!(descending);
         assert!(serde_json::from_value::<ForkResolutionPayload>(reversed).is_err());
@@ -2502,7 +2502,7 @@ mod tests {
             "conflict_evidence": {
                 "kind": "domain_non_joinable",
                 "cell_family": CellFamilyId::NOTARY_V1,
-                "event_ids": ids.clone()
+                "event_ids": ids
             },
             "verdict": {"kind": "canonical_winner", "winner_event_id": ids[0].clone()}
         });
@@ -2715,14 +2715,8 @@ mod tests {
         // Both variants recompute to one identity but hold different bytes,
         // which is the whole claim a collision resolution makes.
         let records = BTreeMap::from([
-            (
-                variant_a.collision_variant_record_id.clone(),
-                variant_a.clone(),
-            ),
-            (
-                variant_b.collision_variant_record_id.clone(),
-                variant_b.clone(),
-            ),
+            (variant_a.collision_variant_record_id.clone(), variant_a),
+            (variant_b.collision_variant_record_id.clone(), variant_b),
         ]);
         assert!(
             record

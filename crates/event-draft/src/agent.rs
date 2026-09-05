@@ -425,8 +425,7 @@ mod tests {
     fn lifecycle_events_bind_payload_and_status_transition() {
         let agent_id = core_id("agent");
         let agent_did = did("agent");
-        let agent_actor_id =
-            ActorId::account(AccountId::new(agent_id.clone(), core_id("agent-station")));
+        let agent_actor_id = ActorId::account(AccountId::new(agent_id, core_id("agent-station")));
         let controller_principal_id = core_id("controller");
         let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
         let authorization_ref = DidUrl::new(format!("{agent_did}#managed-controller")).unwrap();

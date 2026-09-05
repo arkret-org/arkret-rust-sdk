@@ -57,7 +57,6 @@ pub fn wall_hlc(at: DateTime<Utc>, logical: u16) -> Hlc {
 /// Events authored in the same millisecond still order. This returns a closure
 /// over an interior floor rather than a type so it drops straight into
 /// [`crate::signed_event::SignedEventFixtureBuilder::with_clock`].
-#[must_use]
 pub fn monotonic_floor_clock() -> impl Fn() -> DateTime<Utc> + Send + Sync + 'static {
     let floor = std::sync::Mutex::new(DateTime::<Utc>::UNIX_EPOCH);
     move || {

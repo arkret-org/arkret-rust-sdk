@@ -2495,7 +2495,7 @@ mod tests {
             "expected the namespace rule to be named, got {error}"
         );
 
-        let mut unknown_reserved = remark.clone();
+        let mut unknown_reserved = remark;
         unknown_reserved.tags = vec!["ak.future_standard_tag".to_owned()];
         unknown_reserved
             .validate_for_account_data_key(&namespace_key, &key)
@@ -2522,7 +2522,7 @@ mod tests {
             .validate_for_account_data_key(&namespace_key, &key)
             .unwrap();
 
-        let mut named = initial.clone();
+        let mut named = initial;
         named.petname = "Alice from Ops".to_owned();
         let confirmed = ContactRemark::with_confirmed_display_name_preserving_fields(
             principal_id,
@@ -2964,7 +2964,7 @@ mod tests {
             encryption: FileTransferEncryption {
                 scheme: arkret_wire::BLOB_SCHEME_WHOLE_FILE_AEAD_V1.to_owned(),
                 aead_profile: "ak.aead.xchacha20_poly1305.v1".to_owned(),
-                nonce: Some(base64url_encode(&[0u8; 24])),
+                nonce: Some(base64url_encode([0u8; 24])),
                 nonce_prefix: None,
                 segment_bytes: None,
                 aad: FileTransferAad {

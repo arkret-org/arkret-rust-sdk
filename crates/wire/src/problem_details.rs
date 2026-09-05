@@ -270,134 +270,6 @@ pub enum InviteLiveTargetOccupiedProblemError {
     InvalidDetails(#[from] serde_json::Error),
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ErrorDetail {
-    pub code: String,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub retry_after_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub details: BTreeMap<String, Value>,
-}
-
-impl ErrorDetail {
-    /// Typed registry view of the wire `code` string. `None` when the code is
-    /// not (or not yet) in the SDK's error-code registry, so callers can
-    /// `match` on [`crate::error_codes::ErrorCode`] instead of comparing strings.
-    pub fn error_code(&self) -> Option<crate::error_codes::ErrorCode> {
-        crate::error_codes::ErrorCode::from_wire(&self.code)
-    }
-
-    /// Construct the only typed `claim_required` detail shape currently
-    /// defined by the protocol.
-    pub fn claim_required_human_approval(
-        message: impl Into<String>,
-        details: AgentHumanApprovalProblem,
-    ) -> Self {
-        Self {
-            code: crate::error_codes::ErrorCode::CLAIM_REQUIRED.to_owned(),
-            message: message.into(),
-            retry_after_ms: None,
-            details: details.into_wire_details(),
-        }
-    }
-
-    /// Construct the closed `failed_precondition` detail returned when an
-    /// `ak.invite.create` hits an occupied Realm live-target slot.
-    ///
-    /// The rejection is atomic: the Event is not accepted, enters no canonical
-    /// history and derives no cell write, projection or notification.
-    pub fn invite_live_target_occupied(
-        message: impl Into<String>,
-        details: InviteLiveTargetOccupiedProblem,
-    ) -> Self {
-        Self {
-            code: crate::error_codes::ErrorCode::FAILED_PRECONDITION.to_owned(),
-            message: message.into(),
-            retry_after_ms: None,
-            details: details.into_wire_details(),
-        }
-    }
-
-    /// Decode the occupied-slot details only when the enclosing code is
-    /// `failed_precondition` and the details carry the matching reason code.
-    ///
-    /// Any other `failed_precondition` returns `Ok(None)`: the top-level code
-    /// is shared by many sub-reasons, so the reason code inside the closed
-    /// object is what selects this shape.
-    pub fn invite_live_target_occupied_details(
-        &self,
-    ) -> StdResult<Option<InviteLiveTargetOccupiedProblem>, InviteLiveTargetOccupiedProblemError>
-    {
-        if self.code != crate::error_codes::ErrorCode::FAILED_PRECONDITION {
-            return Ok(None);
-        }
-        if self.details.get("reason_code").and_then(Value::as_str)
-            != Some(crate::ReasonCode::INVITE_LIVE_TARGET_OCCUPIED)
-        {
-            return Ok(None);
-        }
-        serde_json::from_value(Value::Object(self.details.clone().into_iter().collect()))
-            .map(Some)
-            .map_err(InviteLiveTargetOccupiedProblemError::from)
-    }
-
-    /// Parse human-approval details only when the enclosing error code is
-    /// `claim_required`. Other codes return `Ok(None)` without interpreting
-    /// their open details map.
-    pub fn agent_human_approval_details(
-        &self,
-    ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
-        if self.code != crate::error_codes::ErrorCode::CLAIM_REQUIRED {
-            return Ok(None);
-        }
-        let value = Value::Object(self.details.clone().into_iter().collect());
-        serde_json::from_value(value)
-            .map(Some)
-            .map_err(AgentHumanApprovalProblemError::from)
-    }
-
-    /// Decode the closed expired-record details only for the matching
-    /// registry code. An indeterminate replay deliberately has no typed
-    /// terminal details.
-    pub fn session_grant_replay_expired_details(
-        &self,
-    ) -> StdResult<Option<SessionGrantReplayExpiredProblem>, SessionGrantReplayProblemError> {
-        if self.code != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED {
-            return Ok(None);
-        }
-        serde_json::from_value(Value::Object(self.details.clone().into_iter().collect()))
-            .map(Some)
-            .map_err(SessionGrantReplayProblemError::from)
-    }
-
-    /// Decode the closed revoked/superseded record details only for the
-    /// matching registry code.
-    pub fn session_grant_replay_terminal_details(
-        &self,
-    ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
-        if self.code != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL {
-            return Ok(None);
-        }
-        serde_json::from_value(Value::Object(self.details.clone().into_iter().collect()))
-            .map(Some)
-            .map_err(SessionGrantReplayProblemError::from)
-    }
-}
-
-/// Compatibility-facing Rust representation for Arkret HTTP failures.
-///
-/// The public fields remain available during the source migration, but its
-/// serde implementation is RFC 9457 only: no legacy `{ok,error,request_id}`
-/// JSON is accepted or emitted.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ErrorEnvelope {
-    pub ok: bool,
-    pub error: ErrorDetail,
-    pub request_id: String,
-}
-
 /// Canonical RFC 9457 Problem Details wire object.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Problem {
@@ -486,6 +358,24 @@ impl Problem {
             .unwrap_or(&self.problem_type)
     }
 
+    /// Typed registry view of the wire code, so callers can `match` on
+    /// [`crate::error_codes::ErrorCode`] instead of comparing strings.
+    /// `None` when the code is not (or not yet) in the registry.
+    #[must_use]
+    pub fn error_code(&self) -> Option<crate::error_codes::ErrorCode> {
+        crate::error_codes::ErrorCode::from_wire(self.code())
+    }
+
+    /// Override the HTTP status the registry chose for this code.
+    ///
+    /// A transport that already decided the response status uses this so the
+    /// rendered body and the response line cannot disagree.
+    #[must_use]
+    pub const fn with_status(mut self, status: u16) -> Self {
+        self.status = status;
+        self
+    }
+
     pub fn with_instance(mut self, instance: impl Into<String>) -> Self {
         self.instance = Some(instance.into());
         self
@@ -496,151 +386,151 @@ impl Problem {
         self
     }
 
-    pub fn from_error_envelope(envelope: &ErrorEnvelope, status: u16) -> Self {
-        let mut problem = Self::new(envelope.code(), status, envelope.message());
-        if envelope.request_id != "unknown" && !envelope.request_id.is_empty() {
-            problem.instance = Some(envelope.request_id.clone());
-        }
-        problem.extensions = envelope.error.details.clone();
-        if let Some(retry_after_ms) = envelope.error.retry_after_ms {
-            problem.extensions.insert(
-                "retry_after_ms".to_owned(),
-                Value::Number(retry_after_ms.into()),
-            );
-        }
-        problem
-    }
-}
-
-impl Serialize for ErrorEnvelope {
-    fn serialize<S>(&self, serializer: S) -> StdResult<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let status = self
-            .error
-            .error_code()
-            .map(crate::error_codes::ErrorCode::http_status)
-            .unwrap_or(500);
-        Problem::from_error_envelope(self, status).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for ErrorEnvelope {
-    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut problem = Problem::deserialize(deserializer)?;
-        let retry_after_ms = match problem.extensions.remove("retry_after_ms") {
-            Some(Value::Number(value)) => value.as_u64().ok_or_else(|| {
-                serde::de::Error::custom("retry_after_ms must be a non-negative integer")
-            })?,
-            Some(_) => {
-                return Err(serde::de::Error::custom(
-                    "retry_after_ms must be a non-negative integer",
-                ));
-            }
-            None => 0,
-        };
-        Ok(Self {
-            ok: false,
-            error: ErrorDetail {
-                code: problem.code().to_owned(),
-                message: problem.detail,
-                retry_after_ms: (retry_after_ms != 0).then_some(retry_after_ms),
-                details: problem.extensions,
-            },
-            request_id: problem.instance.unwrap_or_else(|| "unknown".to_owned()),
-        })
-    }
-}
-
-impl ErrorEnvelope {
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            ok: false,
-            error: ErrorDetail {
-                code: code.into(),
-                message: message.into(),
-                retry_after_ms: None,
-                details: BTreeMap::new(),
-            },
-            request_id: "unknown".to_owned(),
-        }
+    /// Build a Problem from a registered error code, taking the HTTP status
+    /// from the registry.
+    ///
+    /// This is the constructor most call sites want: they know the code and
+    /// the message, and the status is a property of the code. [`Self::new`]
+    /// stays for the caller that must override the registry's status.
+    ///
+    /// An unregistered code has no registry status; 500 is the same fallback
+    /// the compatibility envelope used before it was removed.
+    pub fn from_code(code: impl Into<String>, detail: impl Into<String>) -> Self {
+        let code = code.into();
+        let status = crate::error_codes::ErrorCode::from_wire(&code)
+            .map_or(500, crate::error_codes::ErrorCode::http_status);
+        Self::new(code, status, detail)
     }
 
-    pub fn with_request_id(mut self, request_id: impl Into<String>) -> Self {
-        self.request_id = request_id.into();
-        self
-    }
-
+    /// The `claim_required` problem carrying the closed human-approval object.
     pub fn claim_required_human_approval(
-        message: impl Into<String>,
+        detail: impl Into<String>,
         details: AgentHumanApprovalProblem,
     ) -> Self {
-        Self {
-            ok: false,
-            error: ErrorDetail::claim_required_human_approval(message, details),
-            request_id: "unknown".to_owned(),
-        }
+        Self::from_code(crate::error_codes::ErrorCode::CLAIM_REQUIRED, detail)
+            .with_extensions(details.into_wire_details())
     }
 
+    /// The closed `failed_precondition` problem returned when an
+    /// `ak.invite.create` hits an occupied Realm live-target slot.
+    ///
+    /// The rejection is atomic: the Event is not accepted, enters no canonical
+    /// history and derives no cell write, projection or notification.
+    pub fn invite_live_target_occupied(
+        detail: impl Into<String>,
+        details: InviteLiveTargetOccupiedProblem,
+    ) -> Self {
+        Self::from_code(crate::error_codes::ErrorCode::FAILED_PRECONDITION, detail)
+            .with_extensions(details.into_wire_details())
+    }
+
+    fn with_extensions(mut self, extensions: BTreeMap<String, Value>) -> Self {
+        self.extensions.extend(extensions);
+        self
+    }
+
+    /// Set (or clear) the retry hint carried as the `retry_after_ms` extension.
     pub fn with_retry_after_ms(mut self, retry_after_ms: Option<u64>) -> Self {
-        self.error.retry_after_ms = retry_after_ms;
+        match retry_after_ms {
+            Some(value) => {
+                self.extensions
+                    .insert("retry_after_ms".to_owned(), Value::Number(value.into()));
+            }
+            None => {
+                self.extensions.remove("retry_after_ms");
+            }
+        }
         self
     }
 
-    pub fn with_detail(mut self, key: impl Into<String>, value: Value) -> Self {
-        self.error.details.insert(key.into(), value);
-        self
-    }
-
-    pub fn code(&self) -> &str {
-        &self.error.code
-    }
-
-    pub fn message(&self) -> &str {
-        &self.error.message
-    }
-
+    /// The retry hint, when the peer sent one as a non-negative integer.
+    #[must_use]
     pub fn retry_after_ms(&self) -> Option<u64> {
-        self.error.retry_after_ms
+        self.extensions
+            .get("retry_after_ms")
+            .and_then(Value::as_u64)
     }
 
-    pub fn details(&self) -> &BTreeMap<String, Value> {
-        &self.error.details
-    }
-
-    pub fn agent_human_approval_details(
-        &self,
-    ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
-        self.error.agent_human_approval_details()
-    }
-
-    pub fn session_grant_replay_expired_details(
-        &self,
-    ) -> StdResult<Option<SessionGrantReplayExpiredProblem>, SessionGrantReplayProblemError> {
-        self.error.session_grant_replay_expired_details()
-    }
-
-    pub fn session_grant_replay_terminal_details(
-        &self,
-    ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
-        self.error.session_grant_replay_terminal_details()
-    }
-
+    /// Decode the occupied-slot details only when the enclosing code is
+    /// `failed_precondition` and the details carry the matching reason code.
+    ///
+    /// Any other `failed_precondition` returns `Ok(None)`: the top-level code
+    /// is shared by many sub-reasons, so the reason code inside the closed
+    /// object is what selects this shape.
     pub fn invite_live_target_occupied_details(
         &self,
     ) -> StdResult<Option<InviteLiveTargetOccupiedProblem>, InviteLiveTargetOccupiedProblemError>
     {
-        self.error.invite_live_target_occupied_details()
+        if self.code() != crate::error_codes::ErrorCode::FAILED_PRECONDITION {
+            return Ok(None);
+        }
+        if self.extensions.get("reason_code").and_then(Value::as_str)
+            != Some(crate::ReasonCode::INVITE_LIVE_TARGET_OCCUPIED)
+        {
+            return Ok(None);
+        }
+        self.decode_extensions()
+            .map(Some)
+            .map_err(InviteLiveTargetOccupiedProblemError::from)
+    }
+
+    /// Parse human-approval details only when the enclosing error code is
+    /// `claim_required`. Other codes return `Ok(None)` without interpreting
+    /// their open extensions.
+    pub fn agent_human_approval_details(
+        &self,
+    ) -> StdResult<Option<AgentHumanApprovalProblem>, AgentHumanApprovalProblemError> {
+        if self.code() != crate::error_codes::ErrorCode::CLAIM_REQUIRED {
+            return Ok(None);
+        }
+        self.decode_extensions()
+            .map(Some)
+            .map_err(AgentHumanApprovalProblemError::from)
+    }
+
+    /// Decode the closed expired-record details only for the matching registry
+    /// code. An indeterminate replay deliberately has no typed terminal
+    /// details.
+    pub fn session_grant_replay_expired_details(
+        &self,
+    ) -> StdResult<Option<SessionGrantReplayExpiredProblem>, SessionGrantReplayProblemError> {
+        if self.code() != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED {
+            return Ok(None);
+        }
+        self.decode_extensions()
+            .map(Some)
+            .map_err(SessionGrantReplayProblemError::from)
+    }
+
+    /// Decode the closed revoked/superseded record details only for the
+    /// matching registry code.
+    pub fn session_grant_replay_terminal_details(
+        &self,
+    ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
+        if self.code() != crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL {
+            return Ok(None);
+        }
+        self.decode_extensions()
+            .map(Some)
+            .map_err(SessionGrantReplayProblemError::from)
+    }
+
+    /// The extensions map as the closed object a typed decoder expects.
+    ///
+    /// `retry_after_ms` is a transport hint rather than part of any closed
+    /// details object, so it is dropped before decoding: leaving it in would
+    /// make every `deny_unknown_fields` details type fail on a problem that
+    /// merely carried a retry hint alongside them.
+    fn decode_extensions<T: serde::de::DeserializeOwned>(&self) -> serde_json::Result<T> {
+        let mut extensions = self.extensions.clone();
+        extensions.remove("retry_after_ms");
+        serde_json::from_value(Value::Object(extensions.into_iter().collect()))
     }
 }
 
-impl fmt::Display for ErrorEnvelope {
+impl fmt::Display for Problem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.error.code, self.error.message)
+        write!(f, "{}: {}", self.code(), self.detail)
     }
 }
 
@@ -651,12 +541,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn human_approval_details_are_closed_and_round_trip_through_envelope() {
+    fn human_approval_details_are_closed_and_round_trip_through_the_problem() {
         let details = AgentHumanApprovalProblem::new("approval-opaque-01").unwrap();
-        let envelope = ErrorEnvelope::claim_required_human_approval(
-            "controller approval required",
-            details.clone(),
-        );
+        let envelope =
+            Problem::claim_required_human_approval("controller approval required", details.clone());
 
         assert_eq!(
             envelope.code(),
@@ -677,7 +565,7 @@ mod tests {
                 "approval_request_id": "approval-opaque-01",
             })
         );
-        assert_eq!(envelope.message(), "controller approval required");
+        assert_eq!(envelope.detail, "controller approval required");
     }
 
     #[test]
@@ -713,17 +601,17 @@ mod tests {
 
     #[test]
     fn typed_accessor_ignores_non_claim_required_details() {
-        let envelope = ErrorEnvelope::new("failed_precondition", "different error")
-            .with_detail("reason_code", json!("human_approval_required"))
-            .with_detail("approval_request_id", json!("approval-opaque-01"));
+        let envelope = Problem::from_code("failed_precondition", "different error")
+            .with_extension("reason_code", json!("human_approval_required"))
+            .with_extension("approval_request_id", json!("approval-opaque-01"));
 
         assert_eq!(envelope.agent_human_approval_details().unwrap(), None);
     }
 
     #[test]
-    fn compatibility_envelope_serializes_to_rfc_9457_shape() {
-        let envelope = ErrorEnvelope::new("capability_denied", "session grant is revoked")
-            .with_request_id("ak:request:test")
+    fn a_problem_built_from_a_registered_code_takes_the_registry_status() {
+        let envelope = Problem::from_code("capability_denied", "session grant is revoked")
+            .with_instance("ak:request:test")
             .with_retry_after_ms(None);
 
         assert_eq!(
@@ -739,16 +627,19 @@ mod tests {
     }
 
     #[test]
-    fn compatibility_envelope_rejects_legacy_wire_and_accepts_problem_details() {
+    fn a_problem_rejects_the_legacy_envelope_wire_and_accepts_rfc_9457() {
+        // The `{ok, error, request_id}` shape has never been on the wire; the
+        // compatibility type that carried those field names in Rust is gone,
+        // and the JSON it never emitted still must not decode.
         assert!(
-            serde_json::from_value::<ErrorEnvelope>(json!({
+            serde_json::from_value::<Problem>(json!({
                 "ok": false,
                 "error": {"code": "not_found", "message": "not found"}
             }))
             .is_err()
         );
 
-        let decoded = serde_json::from_value::<ErrorEnvelope>(json!({
+        let decoded = serde_json::from_value::<Problem>(json!({
             "type": "https://arkret.org/problems/not_found",
             "title": "Not found",
             "status": 404,
@@ -758,21 +649,18 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(decoded.code(), "not_found");
-        assert_eq!(decoded.request_id, "ak:request:test");
-        assert_eq!(decoded.details()["reason_code"], "hidden");
+        assert_eq!(decoded.instance.as_deref(), Some("ak:request:test"));
+        assert_eq!(decoded.extensions["reason_code"], "hidden");
     }
 
     #[test]
     fn unknown_error_code_is_preserved() {
-        let details = ErrorDetail {
-            code: "vendor_remote_error".to_owned(),
-            message: "remote failure".to_owned(),
-            retry_after_ms: None,
-            details: Default::default(),
-        };
+        let problem = Problem::from_code("vendor_remote_error", "remote failure");
 
-        assert_eq!(details.error_code(), None);
-        assert_eq!(details.code, "vendor_remote_error");
+        // Not in the registry: no typed view, and the fallback status.
+        assert_eq!(problem.error_code(), None);
+        assert_eq!(problem.code(), "vendor_remote_error");
+        assert_eq!(problem.status, 500);
     }
 
     fn session_grant_id() -> crate::SessionGrantId {
@@ -782,12 +670,12 @@ mod tests {
 
     #[test]
     fn session_grant_replay_details_are_code_gated_and_closed() {
-        let expired = ErrorEnvelope::new(
+        let expired = Problem::from_code(
             crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_EXPIRED,
             "recorded grant expired",
         )
-        .with_detail("session_grant_id", json!(session_grant_id()))
-        .with_detail("state", json!("expired"));
+        .with_extension("session_grant_id", json!(session_grant_id()))
+        .with_extension("state", json!("expired"));
         let details = expired
             .session_grant_replay_expired_details()
             .unwrap()
@@ -799,12 +687,12 @@ mod tests {
             None
         );
 
-        let terminal = ErrorEnvelope::new(
+        let terminal = Problem::from_code(
             crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_TERMINAL,
             "recorded grant is terminal",
         )
-        .with_detail("session_grant_id", json!(session_grant_id()))
-        .with_detail("state", json!("superseded"));
+        .with_extension("session_grant_id", json!(session_grant_id()))
+        .with_extension("state", json!("superseded"));
         assert_eq!(
             terminal
                 .session_grant_replay_terminal_details()
@@ -825,12 +713,12 @@ mod tests {
 
     #[test]
     fn replay_indeterminate_never_fabricates_terminal_details() {
-        let envelope = ErrorEnvelope::new(
+        let envelope = Problem::from_code(
             crate::error_codes::ErrorCode::SESSION_GRANT_REPLAY_INDETERMINATE,
             "replay record no longer decidable",
         )
-        .with_detail("session_grant_id", json!(session_grant_id()))
-        .with_detail("state", json!("revoked"));
+        .with_extension("session_grant_id", json!(session_grant_id()))
+        .with_extension("state", json!("revoked"));
 
         assert_eq!(
             envelope.session_grant_replay_expired_details().unwrap(),

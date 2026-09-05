@@ -214,6 +214,12 @@ impl CurrentSignerEvidenceQueryRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "sender_kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// The variants are the wire shapes the schema defines, and the size gap is a
+// property of the protocol rather than of this declaration: an Agent carries a
+// resolution evidence object plus its dependencies, an account device carries a
+// projection attestation. Boxing a variant to even them out would put an
+// indirection in a type the schema defines flat, for no wire effect.
+#[allow(clippy::large_enum_variant)]
 pub enum CurrentSignerEvidenceItem {
     AccountDevice {
         account_id: AccountId,
@@ -426,14 +432,7 @@ fn validate_dependency_graph(
         })?;
         visits.insert(digest.clone(), DependencyVisit::Visiting);
         stack.push((digest, true));
-        stack.extend(
-            children
-                .iter()
-                .cloned()
-                .into_iter()
-                .rev()
-                .map(|child| (child, false)),
-        );
+        stack.extend(children.iter().cloned().rev().map(|child| (child, false)));
     }
     if visits.len() != graph.len() {
         return Err(WireError::Protocol(
@@ -623,7 +622,7 @@ mod tests {
             response: CurrentSignerEvidenceResponseCore {
                 request_id: request.request_id.clone(),
                 realm_id: request.realm_id.clone(),
-                operation_id: request.operation_id.clone(),
+                operation_id: request.operation_id,
                 request_digest: request.request_digest.clone(),
                 recipient_account_id: request.recipient_account_id.clone(),
                 challenge: request.challenge.clone(),
@@ -703,7 +702,7 @@ mod tests {
         ]);
         assert!(validate_dependency_graph(vec![root.clone()], &cycle).is_err());
 
-        let surplus = BTreeMap::from([(root.clone(), Vec::new()), (leaf.clone(), Vec::new())]);
+        let surplus = BTreeMap::from([(root.clone(), Vec::new()), (leaf, Vec::new())]);
         assert!(validate_dependency_graph(vec![root], &surplus).is_err());
 
         let too_many = (1..=65)

@@ -742,8 +742,7 @@ fn a_cas_cell_item_serializes_to_the_closed_branch() {
     assert_eq!(heads.len(), 1);
     assert_eq!(heads[0]["value"], Value::Null);
     let expected_id =
-        crate::EventId::from_event_digest(&cas_head(0x11, serde_json::json!(null)).move_id)
-            .unwrap();
+        EventId::from_event_digest(&cas_head(0x11, serde_json::json!(null)).move_id).unwrap();
     assert_eq!(heads[0]["event_id"], expected_id.as_str());
 
     assert_eq!(
@@ -805,9 +804,8 @@ fn the_cas_cell_leaf_reuses_the_state_root_preimage() {
         panic!("built a cas_cell item");
     };
     let preimage = serde_json::json!({"cell": cell.as_str(), "state": state});
-    let inner = crate::canonical::sha256_digest(
-        &crate::canonical::canonical_json_bytes(&preimage).unwrap(),
-    );
+    let inner =
+        crate::canonical::sha256_digest(crate::canonical::canonical_json_bytes(&preimage).unwrap());
     assert_eq!(
         snapshot_state_leaf_hash(&item).unwrap(),
         merkle::sha256_digest(format!("cas_cell:{}:{}", cell.as_str(), inner).as_bytes()),

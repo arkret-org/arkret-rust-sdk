@@ -1,6 +1,6 @@
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountStreamInterrupt;
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceError;
-use arkret_wire::{ErrorCode, ErrorEnvelope, ReasonCode};
+use arkret_wire::{ErrorCode, Problem, ReasonCode};
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -53,10 +53,7 @@ pub enum Error {
     Mls(String),
 
     #[error("Arkret API returned {status}: {error}")]
-    Api {
-        status: u16,
-        error: Box<ErrorEnvelope>,
-    },
+    Api { status: u16, error: Box<Problem> },
 
     #[error("account stream interrupted: {0:?}")]
     AccountStreamInterrupt(AccountStreamInterrupt),
@@ -75,7 +72,7 @@ impl Error {
         };
 
         if matches!(
-            error.error.error_code(),
+            error.error_code(),
             Some(
                 ErrorCode::CursorExpired
                     | ErrorCode::CursorIntegrityInvalid
@@ -85,12 +82,11 @@ impl Error {
         ) {
             return true;
         }
-        if error.error.error_code() != Some(ErrorCode::ParamInvalid) {
+        if error.error_code() != Some(ErrorCode::ParamInvalid) {
             return false;
         }
         error
-            .error
-            .details
+            .extensions
             .get("reason_code")
             .and_then(serde_json::Value::as_str)
             .map(ReasonCode::from_wire)

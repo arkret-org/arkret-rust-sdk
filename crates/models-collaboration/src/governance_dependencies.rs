@@ -382,18 +382,18 @@ pub fn governance_transitive_signer_evidence_selectors(
         .collect::<Vec<_>>();
     let mut selectors = governance_attester_evidence_selectors(authenticated)?;
     for dependency in dependencies {
-        match dependency {
-            GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
-                minimal_metadata_mls_leaf_signer_evidence,
-                ..
-            } => selectors.push(
+        if let GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
+            minimal_metadata_mls_leaf_signer_evidence,
+            ..
+        } = dependency
+        {
+            selectors.push(
                 GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
                     content_digest: minimal_metadata_mls_leaf_signer_evidence
                         .identity_link_signer_evidence_ref
                         .content_digest()?,
                 },
-            ),
-            _ => {}
+            )
         }
     }
     canonicalize_selectors(selectors)

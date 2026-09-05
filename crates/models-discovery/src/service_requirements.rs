@@ -1,7 +1,7 @@
 //! Service endpoint binding allowlists, describe-verification
 //! requirements, and the API-convention metadata wire shapes
 //! (rate-limit / quota / not-found privacy / trace). The server-side
-//! `ErrorEnvelope` constructors that consume these metadata shapes stay
+//! `Problem` constructors that consume these metadata shapes stay
 //! with the service runtime in the `arkret` umbrella.
 
 use std::collections::BTreeMap;

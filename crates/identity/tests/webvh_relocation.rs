@@ -162,7 +162,7 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
         enabled.log_entry.clone(),
         relocation.log_entry,
     ];
-    let target = Did::new(target_did.clone()).unwrap();
+    let target = Did::new(target_did).unwrap();
     verify_did_webvh_v1_log(&target, &accepted).unwrap();
     validate_webvh_history_at(&target, &accepted, at("2026-06-03T00:00:01Z")).unwrap();
 
@@ -171,8 +171,8 @@ fn predecessor_effective_portability_is_shared_and_survives_restart() {
     verify_did_webvh_v1_log(&target, &restarted).unwrap();
     validate_webvh_history_at(&target, &restarted, at("2026-06-03T00:00:01Z")).unwrap();
 
-    let mut same_transition_enable = enabled.log_entry.clone();
-    same_transition_enable["state"] = target_state.clone();
+    let mut same_transition_enable = enabled.log_entry;
+    same_transition_enable["state"] = target_state;
     let illegal_enable = vec![inception.log_entry.clone(), same_transition_enable];
     assert!(verify_did_webvh_v1_log(&target, &illegal_enable).is_err());
     assert!(

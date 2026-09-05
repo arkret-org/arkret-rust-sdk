@@ -3218,7 +3218,7 @@ mod tests {
                 arkret_wire::CellFamilyId::MEMBER_STATE_V1,
                 &json!("join"),
                 &scope,
-                &BTreeSet::from([actor.clone()]),
+                &BTreeSet::from([actor]),
                 &BTreeSet::new(),
                 &cell,
                 &binding,

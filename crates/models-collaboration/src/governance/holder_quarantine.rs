@@ -541,7 +541,7 @@ mod tests {
         cell.quarantine_entries = vec![first.clone(), second];
         assert!(cell.validate_holder(&account_id).is_err());
 
-        let mut widened = cell.clone();
+        let mut widened = cell;
         widened.quarantine_entries[1].surface = HolderQuarantineSurface::ConsentRequest {
             consent_scope: ConsentRequestScope::VoiceCall,
         };

@@ -222,7 +222,7 @@ impl TryFrom<u16> for WebSocketCloseCode {
 
 /// Closed transport error body carried by an `error` frame (§8).
 ///
-/// This is deliberately **not** the HTTP `ErrorEnvelope`: it has three members
+/// This is deliberately **not** the HTTP `Problem`: it has three members
 /// and its `code` must resolve to a registered [`ErrorCode`], so an unknown
 /// code fails closed at parse time.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

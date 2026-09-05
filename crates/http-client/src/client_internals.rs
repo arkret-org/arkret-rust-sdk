@@ -10,7 +10,7 @@ use arkret_signatures::http_signature::{
     format_signature_header, format_signature_input_component_list, parse_signature_input,
     sign_message,
 };
-use arkret_wire::{ErrorEnvelope, ServiceOperationId};
+use arkret_wire::{Problem, ServiceOperationId};
 use reqwest::header::{CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT};
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -600,17 +600,17 @@ pub(crate) fn validate_request_builder(builder: &RequestBuilder) -> Result<()> {
     Ok(())
 }
 
-async fn error_envelope_from_response(response: Response) -> ErrorEnvelope {
+async fn error_envelope_from_response(response: Response) -> Problem {
     let status = response.status();
     let retry_after_ms = retry_after_ms(response.headers());
     let error = match read_body_limited(response, MAX_RESPONSE_BODY_BYTES).await {
-        Ok(body) => serde_json::from_slice::<ErrorEnvelope>(&body).unwrap_or_else(|_| {
-            ErrorEnvelope::new(
+        Ok(body) => serde_json::from_slice::<Problem>(&body).unwrap_or_else(|_| {
+            Problem::from_code(
                 "internal_error",
                 format!("HTTP request failed with status {status}"),
             )
         }),
-        Err(_) => ErrorEnvelope::new(
+        Err(_) => Problem::from_code(
             "internal_error",
             format!("HTTP request failed with status {status}"),
         ),
