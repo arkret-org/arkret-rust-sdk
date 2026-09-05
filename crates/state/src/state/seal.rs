@@ -598,7 +598,10 @@ where
                 binding.lattice.kind()
             };
             let supersedes = if kind == crate::lattice::LatticeKind::CasRegister {
-                let observed = basis_heads.get(&effect.cell_id).cloned().unwrap_or_default();
+                let observed = basis_heads
+                    .get(&effect.cell_id)
+                    .cloned()
+                    .unwrap_or_default();
                 if event.seal_basis.is_some() {
                     let frozen = pre_heads.get(&effect.cell_id).cloned().unwrap_or_default();
                     // §9.3.1.3 item 3: identity-for-identity, and stale even when

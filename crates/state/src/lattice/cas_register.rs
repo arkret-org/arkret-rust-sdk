@@ -10,11 +10,10 @@
 //! Reading collapses the heads to one value (§9.3.1.2):
 //!
 //! - no heads: the cell was never written, and reads `null`;
-//! - all heads canonically equal: that value, `null` included — a *released*
-//!   cell keeps its release write's head, so it is a different protocol state
-//!   from an unwritten one even though both read `null`;
-//! - two or more distinct values: `⊥`. Dependent Moves on a `bottom=reject`
-//!   cell fail closed.
+//! - all heads canonically equal: that value, `null` included — a *released* cell keeps its release
+//!   write's head, so it is a different protocol state from an unwritten one even though both read
+//!   `null`;
+//! - two or more distinct values: `⊥`. Dependent Moves on a `bottom=reject` cell fail closed.
 //!
 //! Bottom is a function of the view, not a sticky flag (§9.1.1). Two branches
 //! that each write a successor without having seen the other converge on that
@@ -64,7 +63,7 @@ pub struct CasHead {
 /// `Err` is a fail-closed diagnostic: the same identity carrying two different
 /// canonical effects is a verification error or a §6.3.3 digest collision, and
 /// §9.3.1.1 forbids letting the lattice pick one.
-pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Bottom> {
+pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
     let mut writes: Vec<&SealedOp> = Vec::new();
     for entry in sealed_ops {
         if CasRegister.validate_op(&entry.op).is_err() {
@@ -85,7 +84,7 @@ pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Bottom> {
                 bottom
                     .head_ids
                     .push(entry.op.value.clone().unwrap_or(Value::Null));
-                return Err(bottom);
+                return Err(Box::new(bottom));
             }
             None => writes.push(entry),
         }
@@ -149,7 +148,7 @@ impl Lattice for CasRegister {
             Ok(heads) => heads,
             Err(mut bottom) => {
                 bottom.cell_ids.push(cell.clone());
-                return CellState::Bottom(bottom);
+                return CellState::Bottom(*bottom);
             }
         };
         let Some(first) = heads.first() else {
@@ -318,7 +317,7 @@ mod tests {
             after(2, b.clone(), &[1]),
             after(3, a.clone(), &[2]),
         ];
-        assert_eq!(CasRegister.join(&cell(), &aba), CellState::Value(a.clone()));
+        assert_eq!(CasRegister.join(&cell(), &aba), CellState::Value(a));
 
         let mut abab = aba;
         abab.push(after(4, b.clone(), &[3]));
@@ -333,7 +332,7 @@ mod tests {
     fn a_released_slot_reads_null_but_still_has_a_head() {
         let claim = json!("ak:event:AUC6BgHput8c8rn_dCCz43Ytxt5ZSdlxtE9subQRQcDF");
         let reclaim = json!("ak:event:AVqlgW6dOb9VNRGuL5Gff6mz-9IKoTzaekCAJaNi2z43");
-        let released = vec![first(1, claim.clone()), after(2, Value::Null, &[1])];
+        let released = vec![first(1, claim), after(2, Value::Null, &[1])];
 
         assert_eq!(
             CasRegister.join(&slot_cell(), &released),
@@ -402,7 +401,10 @@ mod tests {
         // A successor that observed both supersedes both.
         let mut complete = ops;
         complete.push(after(4, json!("B"), &[1, 2]));
-        assert_eq!(CasRegister.join(&cell(), &complete), CellState::Value(json!("B")));
+        assert_eq!(
+            CasRegister.join(&cell(), &complete),
+            CellState::Value(json!("B"))
+        );
     }
 
     /// Section 9.3.1.1: exact replay of one identity and one canonical effect is

@@ -18,8 +18,8 @@ use arkret_models_collaboration::governance::realm_governance::{
     RealmLinkTransitionOutcome, evaluate_realm_link_transition,
 };
 use arkret_schema_conformance::spec_json_artifact;
-use arkret_state::lattice::ordered_log::IssuedOp;
 use arkret_state::lattice::cas_register::cas_heads;
+use arkret_state::lattice::ordered_log::IssuedOp;
 use arkret_state::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
@@ -64,13 +64,6 @@ fn op_set(value: Value) -> LatticeOp {
         op_type: LatticeOpType::Set,
         value: Some(value),
         ..base_op()
-    }
-}
-
-fn op_supersede(value: Value, from: Value) -> LatticeOp {
-    LatticeOp {
-        from: Some(from),
-        ..op_set(value)
     }
 }
 
@@ -261,24 +254,36 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             assert_eq!(value_of(CasRegister.join(&slot_cell(), &[])), Value::Null);
             assert!(cas_heads(&[]).expect("no heads").is_empty());
         }
-        ("cas_register", "each write is identified by its EventId and supersedes exactly the heads observed in its own signed seal_basis") => {
+        (
+            "cas_register",
+            "each write is identified by its EventId and supersedes exactly the heads observed in its own signed seal_basis",
+        ) => {
             let ops = vec![
                 cas_first("a1", json!({"revision": 1})),
                 cas_after("a2", json!({"revision": 2}), &["a1"]),
                 cas_after("a3", json!({"revision": 3}), &["a2"]),
             ];
-            assert_eq!(value_of(CasRegister.join(&cref, &ops)), json!({"revision": 3}));
+            assert_eq!(
+                value_of(CasRegister.join(&cref, &ops)),
+                json!({"revision": 3})
+            );
             let heads = cas_heads(&ops).expect("one head");
             assert_eq!(heads.len(), 1);
             assert_eq!(heads[0].move_id, move_id("a3"));
         }
-        ("cas_register", "a release write is set null, keeps its own head, and stays distinguishable from an unwritten cell") => {
+        (
+            "cas_register",
+            "a release write is set null, keeps its own head, and stays distinguishable from an unwritten cell",
+        ) => {
             let claim = json!("ak:event:AUC6BgHput8c8rn_dCCz43Ytxt5ZSdlxtE9subQRQcDF");
             let released = vec![
                 cas_first("e1", claim),
                 cas_after("e2", Value::Null, &["e1"]),
             ];
-            assert_eq!(value_of(CasRegister.join(&slot_cell(), &released)), Value::Null);
+            assert_eq!(
+                value_of(CasRegister.join(&slot_cell(), &released)),
+                Value::Null
+            );
             let heads = cas_heads(&released).expect("one head");
             assert_eq!(heads.len(), 1, "the release keeps its own head");
             assert!(
@@ -306,7 +311,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             abab.push(cas_after("1d", b.clone(), &["1c"]));
             assert_eq!(value_of(CasRegister.join(&cref, &abab)), b);
         }
-        ("cas_register", "concurrent writes with different values leave two heads and a bottom=reject cell materializes failed_bottom") => {
+        (
+            "cas_register",
+            "concurrent writes with different values leave two heads and a bottom=reject cell materializes failed_bottom",
+        ) => {
             let ops = vec![
                 cas_first("b1", json!({"revision": 2})),
                 cas_first("b2", json!({"revision": 3})),
@@ -314,7 +322,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             assert!(CasRegister.join(&cref, &ops).is_bottom());
             assert_eq!(cas_heads(&ops).expect("two heads").len(), 2);
         }
-        ("cas_register", "concurrent writes with the same value keep both head identities and a successor that saw only one of them removes only that one") => {
+        (
+            "cas_register",
+            "concurrent writes with the same value keep both head identities and a successor that saw only one of them removes only that one",
+        ) => {
             let shared = json!("A");
             let concurrent = vec![
                 cas_first("2a", shared.clone()),
@@ -334,9 +345,15 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             complete.push(cas_after("2d", json!("B"), &["2a", "2b"]));
             assert_eq!(value_of(CasRegister.join(&cref, &complete)), json!("B"));
         }
-        ("cas_register", "exact replay of the same identity and canonical effect is idempotent") => {
+        (
+            "cas_register",
+            "exact replay of the same identity and canonical effect is idempotent",
+        ) => {
             let value = json!({"revision": 1});
-            let ops = vec![cas_first("d1", value.clone()), cas_first("d1", value.clone())];
+            let ops = vec![
+                cas_first("d1", value.clone()),
+                cas_first("d1", value.clone()),
+            ];
             assert_eq!(value_of(CasRegister.join(&cref, &ops)), value);
             assert_eq!(cas_heads(&ops).expect("one head").len(), 1);
 
@@ -346,7 +363,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             assert!(CasRegister.join(&cref, &collided).is_bottom());
             assert!(cas_heads(&collided).is_err());
         }
-        ("cas_register", "merging two verified (covered set, heads) states is associative, commutative, idempotent and agrees with a full causal-history oracle") => {
+        (
+            "cas_register",
+            "merging two verified (covered set, heads) states is associative, commutative, idempotent and agrees with a full causal-history oracle",
+        ) => {
             // The SDK joins over one op set rather than merging two prepared
             // states, so the property that carries over is that the join is a
             // pure function of the op *set*: order and repetition change
@@ -366,7 +386,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             assert!(forward.is_bottom(), "i2 and i3 are concurrent");
             assert_eq!(value_of(CasRegister.join(&cref, &ops[..2])), json!("b"));
         }
-        ("cas_register", "Bottom is recomputed per view, so a receiver that later observes the missing leaf converges with one that saw the full history") => {
+        (
+            "cas_register",
+            "Bottom is recomputed per view, so a receiver that later observes the missing leaf converges with one that saw the full history",
+        ) => {
             let t = json!("T");
             let diverged = vec![cas_first("4a", json!("A")), cas_first("4b", json!("B"))];
             assert!(CasRegister.join(&cref, &diverged).is_bottom());
@@ -847,7 +870,6 @@ fn lattice_round_trip_cases_execute_against_sdk_lattices() {
         executed_assertions >= 12,
         "expected the full declared assertion inventory, executed {executed_assertions}"
     );
-
 }
 
 /// Inventory gate over the dual-plane CBA scenario vectors plus the actor-chain
