@@ -2,20 +2,20 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-04.6;
-//! sha256=498bc2fa5a291f4f4ed370ddc321f03a5588a0f56353a9e03bc5a2f565026310 Input: registry/
-//! operation-registry.json; version=2026-09-04.3;
-//! sha256=6307c9d4f9ad81df72dd40eb9dc7d6e45a725df32dfb057f168b7f0e5abb4134 Input: registry/
-//! event-kind-registry.json; version=2026-09-04.4;
-//! sha256=379074e949749430cf5de556b91699114747013b467daa6e30567839e1aa4b83 Input: registry/
-//! schema-registry.json; version=2026-09-04.1;
-//! sha256=eb790fbcb3ec798fc9cde370645b5df6c52a363d2ad709d88f01e83142a20611 Input: registry/
+//! contract-registry.json; version=2026-09-05.3;
+//! sha256=ac9bf043f51e6d2da67dea09db47b2284e8b389d7af56b3ea4023359b12def62 Input: registry/
+//! operation-registry.json; version=2026-09-05.3;
+//! sha256=9f0138f858612735cc40cdaa3720bfb3fa5c95ce8afa948da95f9cbc987c1aff Input: registry/
+//! event-kind-registry.json; version=2026-09-05.3;
+//! sha256=38dcd5f720611737b5c922dde6e2e96f575f5c3fc7014a6377c9ea37425a2dc7 Input: registry/
+//! schema-registry.json; version=2026-09-05.3;
+//! sha256=e3859ad8293a884c664e35458287acf4b293c15e66fd54bd0194ac0e932e337e Input: registry/
 //! id-kind-registry.json; version=2026-09-04.2;
 //! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
-//! operation_surface_groups=31
+//! operation_surface_groups=32
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -713,6 +713,12 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         operations: &[ServiceOperationId::OpenInviteLocatorReadResolveV1],
     },
     OperationSurfaceGroupDescriptor {
+        surface: "third_party_invite_handoff",
+        surface_class: "extension",
+        profile: None,
+        operations: &[ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1],
+    },
+    OperationSurfaceGroupDescriptor {
         surface: "identity_resolution",
         surface_class: "extension",
         profile: None,
@@ -774,8 +780,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-04.4";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-04.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-04.3";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-05.3";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-05.3";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-05.3";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-04.2";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

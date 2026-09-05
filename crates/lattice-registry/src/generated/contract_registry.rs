@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-04.6;
-//! sha256=498bc2fa5a291f4f4ed370ddc321f03a5588a0f56353a9e03bc5a2f565026310
+//! Input: registry/contract-registry.json; version=2026-09-05.3;
+//! sha256=ac9bf043f51e6d2da67dea09db47b2284e8b389d7af56b3ea4023359b12def62
 //! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=18
 
 use arkret_wire::CellFamilyId;

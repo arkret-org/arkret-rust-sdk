@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-04.3;
-//! sha256=6307c9d4f9ad81df72dd40eb9dc7d6e45a725df32dfb057f168b7f0e5abb4134 Entries: registered=234
+//! Input: registry/operation-registry.json; version=2026-09-05.3;
+//! sha256=9f0138f858612735cc40cdaa3720bfb3fa5c95ce8afa948da95f9cbc987c1aff Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -72,6 +72,7 @@ pub enum ServiceOperationId {
     OpenMimiReadIdentifiersV1,
     OpenMimiReadProviderDirectoryV1,
     OpenServiceReadResolutionV1,
+    OpenThirdPartyInviteCommandPresentTokenV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
     PeerContactsCommandSubmitV1,
@@ -309,6 +310,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION_V1,
+    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
@@ -588,6 +590,7 @@ impl ServiceOperationId {
         Self::OpenMimiReadIdentifiersV1,
         Self::OpenMimiReadProviderDirectoryV1,
         Self::OpenServiceReadResolutionV1,
+        Self::OpenThirdPartyInviteCommandPresentTokenV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
         Self::PeerContactsCommandSubmitV1,
@@ -879,6 +882,8 @@ impl ServiceOperationId {
     pub const OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1: &'static str =
         "ak.open.mimi.read.provider_directory.v1";
     pub const OPEN_SERVICE_READ_RESOLUTION_V1: &'static str = "ak.open.service.read.resolution.v1";
+    pub const OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1: &'static str =
+        "ak.open.third_party_invite.command.present_token.v1";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1: &'static str =
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
@@ -1268,6 +1273,9 @@ impl ServiceOperationId {
             Self::OpenMimiReadIdentifiersV1 => Self::OPEN_MIMI_READ_IDENTIFIERS_V1,
             Self::OpenMimiReadProviderDirectoryV1 => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
             Self::OpenServiceReadResolutionV1 => Self::OPEN_SERVICE_READ_RESOLUTION_V1,
+            Self::OpenThirdPartyInviteCommandPresentTokenV1 => {
+                Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1
+            }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
             Self::PeerContactsCommandSubmitV1 => Self::PEER_CONTACTS_COMMAND_SUBMIT_V1,
@@ -1687,6 +1695,9 @@ impl ServiceOperationId {
                 Some(Self::OpenMimiReadProviderDirectoryV1)
             }
             Self::OPEN_SERVICE_READ_RESOLUTION_V1 => Some(Self::OpenServiceReadResolutionV1),
+            Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1 => {
+                Some(Self::OpenThirdPartyInviteCommandPresentTokenV1)
+            }
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1 => {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
             }
@@ -3567,6 +3578,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
+        http_method: "POST",
+        http_path: "/_arkret/open/third-party-invites/present",
+        grpc: Some("OpenThirdPartyInvite/PresentToken"),
+        mq: Some("open.third_party_invite.command.present_token"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_present_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_present_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.open.third_party_invite.command.present_token.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
+        ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerAccountStatusCommandSubmitV1,

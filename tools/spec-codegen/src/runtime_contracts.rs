@@ -177,7 +177,9 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         for requirement in &event.pre_state_requirements {
             if !matches!(
                 requirement.predicate.kind.as_str(),
-                "stored_field_present" | "stored_field_equals_payload"
+                "stored_field_present"
+                    | "stored_field_equals_payload"
+                    | "stored_field_matches_payload"
             ) {
                 bail!(
                     "{} uses unsupported pre-state predicate {}",
@@ -185,13 +187,48 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                     requirement.predicate.kind
                 );
             }
-            if requirement.predicate.kind == "stored_field_equals_payload"
-                && requirement.predicate.payload_field.is_none()
+            if matches!(
+                requirement.predicate.kind.as_str(),
+                "stored_field_equals_payload" | "stored_field_matches_payload"
+            ) && requirement.predicate.payload_field.is_none()
             {
                 bail!(
-                    "{} omits payload_field for stored_field_equals_payload",
-                    event.event_kind
+                    "{} omits payload_field for {}",
+                    event.event_kind,
+                    requirement.predicate.kind
                 );
+            }
+            // A condition the generator cannot express would silently make the
+            // requirement unconditional in the SDK while the registry says it
+            // only applies to one branch, so an unknown shape fails the build.
+            if let Some(condition) = &requirement.condition {
+                match condition.kind.as_str() {
+                    "field_present" | "field_absent" => {
+                        if condition.constant.is_some() {
+                            bail!(
+                                "{} pre-state condition {} must not declare const",
+                                event.event_kind,
+                                condition.kind
+                            );
+                        }
+                    }
+                    "field_equals" => {
+                        if !condition
+                            .constant
+                            .as_ref()
+                            .is_some_and(serde_json::Value::is_string)
+                        {
+                            bail!(
+                                "{} pre-state field_equals condition requires a string const",
+                                event.event_kind
+                            );
+                        }
+                    }
+                    other => bail!(
+                        "{} uses unsupported pre-state condition {other}",
+                        event.event_kind
+                    ),
+                }
             }
         }
     }
@@ -801,12 +838,26 @@ fn generate_event_runtime_contracts(inputs: &SpecInputs) -> String {
 pub enum EventIdSource { EventDerived }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EventPreStatePredicateKind { StoredFieldPresent, StoredFieldEqualsPayload }
+pub enum EventPreStatePredicateKind { StoredFieldPresent, StoredFieldEqualsPayload, StoredFieldMatchesPayload }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventPreStateConditionKind { FieldPresent, FieldAbsent, FieldEquals }
+
+/// Payload condition gating one requirement. `expected` is populated only for
+/// `FieldEquals`; a requirement whose condition does not hold is skipped
+/// instead of failing (`event-and-patch.md` section 2.4.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct EventPreStateConditionDescriptor {
+    pub kind: EventPreStateConditionKind,
+    pub field: &'static str,
+    pub expected: Option<&'static str>,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventPreStateRequirementDescriptor {
     pub cell_family: CellFamilyId,
     pub subject_field: &'static str,
+    pub condition: Option<EventPreStateConditionDescriptor>,
     pub predicate: EventPreStatePredicateKind,
     pub stored_field: &'static str,
     pub payload_field: Option<&'static str>,
@@ -836,9 +887,18 @@ pub struct EventRuntimeContractDescriptor {
         )
         .expect("write to String");
         for requirement in &event.pre_state_requirements {
+            let condition = match &requirement.condition {
+                None => "None".to_owned(),
+                Some(condition) => format!(
+                    "Some(EventPreStateConditionDescriptor {{ kind: EventPreStateConditionKind::{}, field: {}, expected: {} }})",
+                    variant(&condition.kind, &[]),
+                    rust_string(&condition.field),
+                    option_string(condition.constant.as_ref().and_then(serde_json::Value::as_str)),
+                ),
+            };
             writeln!(
                 output,
-                "    EventPreStateRequirementDescriptor {{ cell_family: CellFamilyId::{}, subject_field: {}, predicate: EventPreStatePredicateKind::{}, stored_field: {}, payload_field: {}, failure_code: {}, failure_reason_code: {} }},",
+                "    EventPreStateRequirementDescriptor {{ cell_family: CellFamilyId::{}, subject_field: {}, condition: {condition}, predicate: EventPreStatePredicateKind::{}, stored_field: {}, payload_field: {}, failure_code: {}, failure_reason_code: {} }},",
                 variant(&requirement.cell_family, &["ak.component."]),
                 rust_string(&requirement.subject.field),
                 variant(&requirement.predicate.kind, &[]),

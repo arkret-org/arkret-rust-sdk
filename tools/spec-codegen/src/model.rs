@@ -307,8 +307,20 @@ pub struct EventCellWrite {
 pub struct EventPreStateRequirement {
     pub cell_family: String,
     pub subject: EventPreStateSubject,
+    /// Optional payload condition drawn from the same closed grammar as
+    /// `cell_writes[].condition`. A requirement whose condition does not hold
+    /// is not evaluated at all (`event-and-patch.md` §2.4.2).
+    pub condition: Option<EventPreStateCondition>,
     pub predicate: EventPreStatePredicate,
     pub failure: EventPreStateFailure,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EventPreStateCondition {
+    pub kind: String,
+    pub field: String,
+    #[serde(rename = "const")]
+    pub constant: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]

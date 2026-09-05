@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-04.1;
-//! sha256=eb790fbcb3ec798fc9cde370645b5df6c52a363d2ad709d88f01e83142a20611 Entries: schema_ids=200,
-//! active=200
+//! Input: registry/schema-registry.json; version=2026-09-05.3;
+//! sha256=e3859ad8293a884c664e35458287acf4b293c15e66fd54bd0194ac0e932e337e Entries: schema_ids=203,
+//! active=203
 
 use serde::{Deserialize, Serialize};
 
@@ -75,6 +75,7 @@ pub enum SchemaId {
     ContactOperationsV1,
     ContactScopeUpdateV1,
     ContentBlockPollV1,
+    ControlProposalDecisionV1,
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueOutcomeV1,
     ControllerAccountGateAttestationIssueRequestV1,
@@ -108,6 +109,7 @@ pub enum SchemaId {
     HandleClaimRevocationV1,
     HighRiskAuthorityProofV1,
     HistoryKeyV1,
+    HolderQuarantineV1,
     HttpProblemDetailsV1,
     IceConfigResponseV1,
     IdentityLinkV1,
@@ -117,7 +119,6 @@ pub enum SchemaId {
     InviteV1,
     InviteDeliveryV1,
     InviteDeliveryRequestV1,
-    InviteQuarantineV1,
     InviteReceivePolicyV1,
     KeyBackupV1,
     KeyBackupActiveSeriesV1,
@@ -146,6 +147,8 @@ pub enum SchemaId {
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
+    PresencePreferenceV1,
+    PresenceVisibilityV1,
     PrincipalLocatorV1,
     PrincipalOperationsV1,
     PublicKeyV1,
@@ -279,6 +282,7 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ControlProposalDecisionV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
@@ -312,6 +316,7 @@ impl SchemaId {
         Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
         Self::HistoryKeyV1,
+        Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
@@ -321,7 +326,6 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
-        Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
@@ -350,6 +354,8 @@ impl SchemaId {
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
+        Self::PresencePreferenceV1,
+        Self::PresenceVisibilityV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
         Self::PublicKeyV1,
@@ -483,6 +489,7 @@ impl SchemaId {
         Self::ContactOperationsV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ControlProposalDecisionV1,
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
@@ -516,6 +523,7 @@ impl SchemaId {
         Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
         Self::HistoryKeyV1,
+        Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
@@ -525,7 +533,6 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
-        Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
@@ -554,6 +561,8 @@ impl SchemaId {
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
+        Self::PresencePreferenceV1,
+        Self::PresenceVisibilityV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
         Self::PublicKeyV1,
@@ -756,6 +765,11 @@ impl SchemaId {
     /// Closed declaration for Applet UI widget origin, CSP, scoped token capability scope, and
     /// consent gate.
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
+    /// Remote attestation evidence for an attested_hardware audit release service. Carried inline
+    /// as audit_release_payload.release_attestation on every ak.audit.release under a binding whose
+    /// audit_assurance_class is attested_hardware; verified at admission against the binding's
+    /// attestation_policy (audit_release_attestation_invalid) and the active binding fields
+    /// (audit_release_attestation_mismatch). See zh/crypto-media/audited-e2ee.md §6.
     pub const AUDIT_RELEASE_ATTESTATION_V1: &'static str = "ak.schema.audit_release_attestation.v1";
     pub const AUDIT_RYW_RECEIPT_V1: &'static str = "ak.schema.audit_ryw_receipt.v1";
     /// Content-addressed historical signer-resolution evidence pinned for Event, Station and
@@ -817,6 +831,10 @@ impl SchemaId {
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
+    /// Closed request/response DTO bundle for quorum-capable Control Proposal Acks and signed
+    /// reject/defer decisions (ak.self.control_proposal_decision.* operations). Deadlines provide
+    /// bounded authority decisions, never acceptance or Seal finality.
+    pub const CONTROL_PROPOSAL_DECISION_V1: &'static str = "ak.schema.control_proposal_decision.v1";
     /// Privacy-minimal Account Authority attestation of the controller principal lifecycle gate;
     /// never carries service-local account identity or a raw account cell.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
@@ -912,6 +930,10 @@ impl SchemaId {
     /// Closed private history-key request, response stream, source relay, response record,
     /// organization-recovery archive, and HPKE plaintext DTO family
     pub const HISTORY_KEY_V1: &'static str = "ak.schema.history_key.v1";
+    /// Actor-private plaintext account-data cell value of ak.account.holder_quarantine, written
+    /// only by the recipient Station CAS materializer. surface_kind discriminates invite_delivery
+    /// from consent_request. See zh/identity/consent-model.md and zh/sync/client-sync.md.
+    pub const HOLDER_QUARANTINE_V1: &'static str = "ak.schema.holder_quarantine.v1";
     /// Canonical RFC 9457 application/problem+json HTTP error response from sync/api-conventions.md
     /// section 5.
     pub const HTTP_PROBLEM_DETAILS_V1: &'static str = "ak.schema.http_problem_details.v1";
@@ -934,10 +956,6 @@ impl SchemaId {
     /// Private service-to-service invite delivery request carrying invite_address and
     /// introduction_evidence.
     pub const INVITE_DELIVERY_REQUEST_V1: &'static str = "ak.schema.invite_delivery_request.v1";
-    /// Actor-private plaintext account-data cell value of ak.account.invite_quarantine, written
-    /// only by the recipient Station CAS materializer. See zh/identity/consent-model.md and
-    /// zh/sync/client-sync.md.
-    pub const INVITE_QUARANTINE_V1: &'static str = "ak.schema.invite_quarantine.v1";
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
@@ -996,6 +1014,14 @@ impl SchemaId {
     /// Payload schemas for shared pin events.
     pub const PIN_V1: &'static str = "ak.schema.pin.v1";
     pub const POLICY_V1: &'static str = "ak.schema.policy.v1";
+    /// Closed decrypted plaintext shape of the principal-private ak.presence.preference
+    /// account-data value: pinned manual_state, temporary status_message override and clears_at
+    /// expiry, enforced client-side across the principal's devices.
+    pub const PRESENCE_PREFERENCE_V1: &'static str = "ak.schema.presence_preference.v1";
+    /// Closed decrypted plaintext shape of the principal-private ak.presence.visibility
+    /// account-data value. The sending client applies it before encrypted Signal fanout; services
+    /// MUST NOT require its plaintext or project it into server-readable policy state.
+    pub const PRESENCE_VISIBILITY_V1: &'static str = "ak.schema.presence_visibility.v1";
     /// Signed online invite locator asserting an exact AccountId for private invite delivery.
     pub const PRINCIPAL_LOCATOR_V1: &'static str = "ak.schema.principal_locator.v1";
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
@@ -1248,6 +1274,7 @@ impl SchemaId {
             Self::ContactOperationsV1 => Self::CONTACT_OPERATIONS_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
+            Self::ControlProposalDecisionV1 => Self::CONTROL_PROPOSAL_DECISION_V1,
             Self::ControllerAccountGateAttestationV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
             }
@@ -1291,6 +1318,7 @@ impl SchemaId {
             Self::HandleClaimRevocationV1 => Self::HANDLE_CLAIM_REVOCATION_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
             Self::HistoryKeyV1 => Self::HISTORY_KEY_V1,
+            Self::HolderQuarantineV1 => Self::HOLDER_QUARANTINE_V1,
             Self::HttpProblemDetailsV1 => Self::HTTP_PROBLEM_DETAILS_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
@@ -1300,7 +1328,6 @@ impl SchemaId {
             Self::InviteV1 => Self::INVITE_V1,
             Self::InviteDeliveryV1 => Self::INVITE_DELIVERY_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
-            Self::InviteQuarantineV1 => Self::INVITE_QUARANTINE_V1,
             Self::InviteReceivePolicyV1 => Self::INVITE_RECEIVE_POLICY_V1,
             Self::KeyBackupV1 => Self::KEY_BACKUP_V1,
             Self::KeyBackupActiveSeriesV1 => Self::KEY_BACKUP_ACTIVE_SERIES_V1,
@@ -1329,6 +1356,8 @@ impl SchemaId {
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
+            Self::PresencePreferenceV1 => Self::PRESENCE_PREFERENCE_V1,
+            Self::PresenceVisibilityV1 => Self::PRESENCE_VISIBILITY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
             Self::PrincipalOperationsV1 => Self::PRINCIPAL_OPERATIONS_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
@@ -1493,6 +1522,7 @@ impl SchemaId {
             Self::ContactOperationsV1 => "schemas/contact-operations.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
+            Self::ControlProposalDecisionV1 => "schemas/control-proposal-decision.schema.json",
             Self::ControllerAccountGateAttestationV1 => "schemas/agent-signer-evidence.schema.json",
             Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
                 "schemas/agent-signer-evidence-operations.schema.json"
@@ -1536,6 +1566,7 @@ impl SchemaId {
             Self::HandleClaimRevocationV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
             Self::HistoryKeyV1 => "schemas/history-key.schema.json",
+            Self::HolderQuarantineV1 => "schemas/holder-quarantine.schema.json",
             Self::HttpProblemDetailsV1 => "schemas/http-problem-details.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
             Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
@@ -1545,7 +1576,6 @@ impl SchemaId {
             Self::InviteV1 => "schemas/invite.schema.json",
             Self::InviteDeliveryV1 => "schemas/invite-delivery.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
-            Self::InviteQuarantineV1 => "schemas/invite-quarantine.schema.json",
             Self::InviteReceivePolicyV1 => "schemas/invite-receive-policy.schema.json",
             Self::KeyBackupV1 => "schemas/key-backup.schema.json",
             Self::KeyBackupActiveSeriesV1 => "schemas/key-backup-active-series.schema.json",
@@ -1576,6 +1606,8 @@ impl SchemaId {
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
+            Self::PresencePreferenceV1 => "schemas/presence-preference.schema.json",
+            Self::PresenceVisibilityV1 => "schemas/presence-visibility.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
             Self::PrincipalOperationsV1 => "schemas/principal-operations.schema.json",
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
@@ -1738,6 +1770,7 @@ impl SchemaId {
             Self::CONTACT_OPERATIONS_V1 => Some(Self::ContactOperationsV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
+            Self::CONTROL_PROPOSAL_DECISION_V1 => Some(Self::ControlProposalDecisionV1),
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
                 Some(Self::ControllerAccountGateAttestationV1)
             }
@@ -1781,6 +1814,7 @@ impl SchemaId {
             Self::HANDLE_CLAIM_REVOCATION_V1 => Some(Self::HandleClaimRevocationV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),
             Self::HISTORY_KEY_V1 => Some(Self::HistoryKeyV1),
+            Self::HOLDER_QUARANTINE_V1 => Some(Self::HolderQuarantineV1),
             Self::HTTP_PROBLEM_DETAILS_V1 => Some(Self::HttpProblemDetailsV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
             Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
@@ -1790,7 +1824,6 @@ impl SchemaId {
             Self::INVITE_V1 => Some(Self::InviteV1),
             Self::INVITE_DELIVERY_V1 => Some(Self::InviteDeliveryV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),
-            Self::INVITE_QUARANTINE_V1 => Some(Self::InviteQuarantineV1),
             Self::INVITE_RECEIVE_POLICY_V1 => Some(Self::InviteReceivePolicyV1),
             Self::KEY_BACKUP_V1 => Some(Self::KeyBackupV1),
             Self::KEY_BACKUP_ACTIVE_SERIES_V1 => Some(Self::KeyBackupActiveSeriesV1),
@@ -1821,6 +1854,8 @@ impl SchemaId {
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
+            Self::PRESENCE_PREFERENCE_V1 => Some(Self::PresencePreferenceV1),
+            Self::PRESENCE_VISIBILITY_V1 => Some(Self::PresenceVisibilityV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
             Self::PRINCIPAL_OPERATIONS_V1 => Some(Self::PrincipalOperationsV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
