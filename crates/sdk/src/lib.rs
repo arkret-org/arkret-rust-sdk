@@ -314,7 +314,7 @@ pub use arkret_schema::protocol::*;
 pub use arkret_schema::{
     EventSchemaExt, InviteLiveTargetSlot, PreparedControlMove, PreparedDataEvent,
     PreparedEventPlane, PreparedNonReducerEvent, PreparedStandardEvent, invite_live_target_cell,
-    invite_live_target_unset_value,
+    invite_live_target_free_value,
 };
 #[cfg(feature = "server")]
 pub use arkret_server as server;

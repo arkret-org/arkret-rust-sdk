@@ -122,7 +122,6 @@ foreach ($row in $artifact.event_kinds) {
     foreach ($write in $row.cell_writes) {
         Add-RuleVocabulary -Value $write.cell_ref
         Add-RuleVocabulary -Value $write.cell_subject
-        Add-RuleVocabulary -Value $write.initial_value
         Add-RuleVocabulary -Value $write.value_projection
         Add-RuleVocabulary -Value $write.effect_projection
         Add-RuleVocabulary -Value $write.condition
@@ -185,7 +184,6 @@ foreach ($k in $arr) {
                         CellSubjectRule = $write.cell_subject
                         Lattice = if ($null -eq $write.lattice) { $null } else { [string]$write.lattice }
                         Bottom = if ($null -eq $write.bottom) { $null } else { [string]$write.bottom }
-                        InitialValueRule = $write.initial_value
                         ValueProjectionRule = $write.value_projection
                         EffectProjectionRule = $write.effect_projection
                         ConditionRule = $write.condition
@@ -540,7 +538,6 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub cell_subject_rule: Option<EventCellRule>,"
 & $add "    pub lattice: Option<EventCellLattice>,"
 & $add "    pub bottom: Option<EventCellBottom>,"
-& $add "    pub initial_value_rule: Option<EventCellRule>,"
 & $add "    pub value_projection_rule: Option<EventCellRule>,"
 & $add "    pub effect_projection_rule: Option<EventCellRule>,"
 & $add "    pub condition_rule: Option<EventCellRule>,"
@@ -879,7 +876,6 @@ foreach ($e in $entries) {
             $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(EventCellBottom::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
             $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellRefRule))" }
             $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellSubjectRule))" }
-            $initialValue = if ($null -eq $write.InitialValueRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.InitialValueRule))" }
             $valueProjection = if ($null -eq $write.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ValueProjectionRule))" }
             $effectProjection = if ($null -eq $write.EffectProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.EffectProjectionRule))" }
             $condition = if ($null -eq $write.ConditionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ConditionRule))" }
@@ -890,7 +886,6 @@ foreach ($e in $entries) {
             & $add "                cell_subject_rule: $cellSubject,"
             & $add "                lattice: $cellWriteLattice,"
             & $add "                bottom: $cellWriteBottom,"
-            & $add "                initial_value_rule: $initialValue,"
             & $add "                value_projection_rule: $valueProjection,"
             & $add "                effect_projection_rule: $effectProjection,"
             & $add "                condition_rule: $condition,"

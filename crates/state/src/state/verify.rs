@@ -324,17 +324,16 @@ where
 
     // Step 4: preconditions
     for pre in &event.preconditions {
-        // An unwritten cell presents its registered `initial_value`, and `null`
-        // only when the family declares none. Hard-coding `null` here would
-        // refuse the first `ak.invite.create` in a Realm, whose slot asserts
-        // the registered free value `"__unset__"`
-        // (`governance-objects.md` section 5.3).
-        let cell_state = pre_state.get(&pre.cell_id).cloned().unwrap_or_else(|| {
-            CellState::Value(
-                arkret_wire::registered_cell_initial_value(pre.cell_id.as_str())
-                    .unwrap_or(Value::Null),
-            )
-        });
+        // An unwritten cell reads `null` protocol-wide
+        // (`event-auth-state-resolution.md` section 9.3.1.2). There is no
+        // registered `initial_value` any more: a family that needs a reusable
+        // free slot registers an explicit `set null` release write, and the
+        // Seal-admission head-identity guard — not a distinguished sentinel
+        // value — is what separates "never written" from "released".
+        let cell_state = pre_state
+            .get(&pre.cell_id)
+            .cloned()
+            .unwrap_or(CellState::Value(Value::Null));
         // bottom=reject cells fail closed.
         if let CellState::Bottom(b) = &cell_state {
             let binding = registry

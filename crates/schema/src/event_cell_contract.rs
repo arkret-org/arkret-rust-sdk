@@ -762,14 +762,19 @@ pub fn invite_live_target_cell(
     })
 }
 
-/// The registered `initial_value` of the live-target slot: the register value
-/// that means "no live directed invite for this account".
-pub fn invite_live_target_unset_value() -> Result<Value, EventCellContractError> {
-    let kind = EventKind::InviteCreate;
-    invite_live_target_write(&kind)?
-        .initial_value_rule
-        .map(EventCellRule::to_json_value)
-        .ok_or_else(|| effect_set_error(kind.as_str(), "live-target write omits initial_value"))
+/// The free value of the live-target slot: the register value that means "no
+/// live directed invite for this account".
+///
+/// It is JSON `null`, and it is not a sentinel the registry declares. Since
+/// `event-auth-state-resolution.md` section 9.3.1.2 a `cas_register` cell with
+/// no active head reads `null` protocol-wide; the registry's `initial_value` /
+/// `sentinel_writers` mechanism is gone. A released slot is *not* an unwritten
+/// slot: the release Move writes `null` explicitly and keeps its own head, so
+/// the two are the same business value but different protocol states, and the
+/// Seal-admission head-identity guard (section 9.3.1.3 item 3) is what stops an
+/// older basis from claiming a slot that was freed by a *later* release.
+pub fn invite_live_target_free_value() -> Value {
+    Value::Null
 }
 
 /// The state of one Realm live-target slot.
@@ -789,8 +794,9 @@ pub fn invite_live_target_unset_value() -> Result<Value, EventCellContractError>
 /// and the mistake only surfaces the next time somebody invites that account.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InviteLiveTargetSlot {
-    /// Free: the next `ak.invite.create` may claim it.
-    Unset,
+    /// Free: the next `ak.invite.create` may claim it. The business value is
+    /// `null` whether the slot was never written or explicitly released.
+    Free,
     /// Claimed by the directed invite this `ak.invite.create` Event created.
     HeldBy(EventId),
 }
@@ -804,13 +810,12 @@ impl InviteLiveTargetSlot {
 
     /// Read a slot out of a frozen pre-state value.
     ///
-    /// Anything that is neither the registered `initial_value` nor a valid
-    /// Event id is a corrupted register, not an empty slot: reporting it as
-    /// free would hand the next `ak.invite.create` a `head_eq` that silently
-    /// overwrites a live invite.
+    /// Anything that is neither `null` nor a valid Event id is a corrupted
+    /// register, not an empty slot: reporting it as free would hand the next
+    /// `ak.invite.create` a `head_eq` that silently overwrites a live invite.
     pub fn from_cell_value(value: &Value) -> Result<Self, EventCellContractError> {
-        if *value == invite_live_target_unset_value()? {
-            return Ok(Self::Unset);
+        if *value == invite_live_target_free_value() {
+            return Ok(Self::Free);
         }
         let occupant = value.as_str().ok_or_else(|| {
             effect_set_error(
@@ -831,7 +836,7 @@ impl InviteLiveTargetSlot {
     /// The occupying `ak.invite.create` Event id, or `None` when free.
     pub fn create_event_id(&self) -> Option<&EventId> {
         match self {
-            Self::Unset => None,
+            Self::Free => None,
             Self::HeldBy(event_id) => Some(event_id),
         }
     }
@@ -843,7 +848,7 @@ impl InviteLiveTargetSlot {
     /// later invite cannot be freed by an older Move.
     pub fn head_eq_value(&self) -> Result<Value, EventCellContractError> {
         match self {
-            Self::Unset => invite_live_target_unset_value(),
+            Self::Free => Ok(invite_live_target_free_value()),
             Self::HeldBy(event_id) => Ok(Value::String(event_id.as_str().to_owned())),
         }
     }
@@ -2696,20 +2701,20 @@ mod tests {
 
     #[test]
     fn live_target_slot_reads_only_registered_values() {
-        // The free value comes from the registry, not from a hand-written
-        // sentinel, and it round-trips: the release write sets exactly this,
-        // which is what makes the next create's `head_eq` succeed.
-        let unset = invite_live_target_unset_value().expect("registered initial value");
-        assert_eq!(unset, json!("__unset__"));
+        // The free value is JSON null, not a registry sentinel, and it
+        // round-trips: the release write sets exactly this, which is what makes
+        // the next create's `head_eq` succeed.
+        let free = invite_live_target_free_value();
+        assert_eq!(free, Value::Null);
         assert_eq!(
-            InviteLiveTargetSlot::from_cell_value(&unset).expect("free slot"),
-            InviteLiveTargetSlot::Unset
+            InviteLiveTargetSlot::from_cell_value(&free).expect("free slot"),
+            InviteLiveTargetSlot::Free
         );
         assert_eq!(
-            InviteLiveTargetSlot::Unset
+            InviteLiveTargetSlot::Free
                 .head_eq_value()
-                .expect("registered initial value"),
-            unset
+                .expect("free slot head_eq"),
+            free
         );
 
         // An `ak:invite:` value in the register is a producer that spelled the
@@ -2722,7 +2727,7 @@ mod tests {
             Err(EventCellContractError::EffectSetMismatch { .. })
         ));
         assert!(matches!(
-            InviteLiveTargetSlot::from_cell_value(&json!({"head": "__unset__"})),
+            InviteLiveTargetSlot::from_cell_value(&json!({"head": null})),
             Err(EventCellContractError::EffectSetMismatch { .. })
         ));
     }
@@ -2732,12 +2737,12 @@ mod tests {
         let invitee = live_target_invitee();
         let account: AccountId = serde_json::from_value(invitee).expect("fixture account");
         let cell = invite_live_target_cell(&account).expect("registered subject rule");
-        let precondition = InviteLiveTargetSlot::Unset
+        let precondition = InviteLiveTargetSlot::Free
             .precondition(&account)
             .expect("registered contract");
         assert_eq!(precondition.cell_id, cell);
         assert_eq!(precondition.predicate.op, PredicateOp::HeadEq);
-        assert_eq!(precondition.predicate.value, Some(json!("__unset__")));
+        assert_eq!(precondition.predicate.value, Some(Value::Null));
     }
 
     #[test]
@@ -3252,7 +3257,7 @@ mod tests {
                     to: json!("revoked"),
                 },
             ),
-            write(INVITE_LIVE_TARGET_CELL, set_op(json!("__unset__"))),
+            write(INVITE_LIVE_TARGET_CELL, set_op(Value::Null)),
         ];
         let lifecycle = CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap();
         let stored_invitee_value = json!({"invitee_account_id": {

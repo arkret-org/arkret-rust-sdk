@@ -20,7 +20,7 @@ pub use event_cell_contract::{
     EventCellContractContext, EventCellContractError, FrozenPreState, InviteLiveTargetSlot,
     batch_add_tag, derive_capability_authority_audit, derived_object_id,
     derived_object_id_for_kind, derived_object_ids, derived_object_ids_for_kind,
-    event_derived_id_kinds_for_kind, invite_live_target_cell, invite_live_target_unset_value,
+    event_derived_id_kinds_for_kind, invite_live_target_cell, invite_live_target_free_value,
     or_set_dot, project_registered_cell_writes,
     project_registered_cell_writes_with_authority_resolver,
     project_registered_cell_writes_with_pre_state,

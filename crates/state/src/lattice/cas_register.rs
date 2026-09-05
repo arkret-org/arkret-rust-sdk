@@ -1,34 +1,40 @@
 //! CAS register Lattice.
 //!
-//! Per `event-auth-state-resolution.md` §9.3.1:
-//! - `set(value)` writes the cell and carries its predecessor in `op.from`: the projector copies
-//!   the whole-value `head_eq` precondition that the Move asserted on this cell (an initial write
-//!   asserts nothing and leaves `from` absent). Reachability therefore reaches the join without the
-//!   join needing Seal-DAG input.
-//! - The join is the pure maximal-chain function: dedup by `(value, from)`, `Y.from == X.value` is
-//!   a supersession edge, and the cell settles when every maximal chain ends on the same value.
-//!   Sequential governance lifecycles (declaration -> tombstone -> declaration) settle; concurrent
-//!   siblings on one predecessor, and dangling supersessions, produce a `kind=conflict` Bottom.
+//! # Status: this join is the *superseded* v1 definition
 //!
-//! The cell's **initial state** is the one its registered contract declares
-//! (`event-and-patch.md` §2.4.2 `initial_value`), and `null` only for a family
-//! that declares none. That distinction is load-bearing here, not cosmetic: a
-//! Move asserting the initial state is opening a chain, never superseding a
-//! value some other op wrote, and no op ever produces the initial value out of
-//! thin air. Reading the initial state as a hard-coded `null` would make the
-//! very first write on every family whose contract mandates
-//! `head_eq:"<initial_value>"` a dangling supersession and strand the cell in
-//! `⊥` on its first use (`governance-objects.md` section 5.3).
+//! `event-auth-state-resolution.md` sections 9.3.1.1 to 9.3.1.4 replaced the
+//! value-edge maximal-chain join with a causal register: state is the map from
+//! the EventId of each still-active write to its canonical value, a write
+//! supersedes exactly the heads it observed in its own signed `seal_basis`, and
+//! Seal admission compares the full head-identity set `H_c(B) = H_c(P)`.
 //!
-//! Unlike `mv_register`, dependent Moves must fail closed on that Bottom because
+//! The code below still implements the deleted definition. It is kept running
+//! only so the tree stays green while the causal-heads migration lands; it is a
+//! known non-conformance, not a second permitted semantics. Two concrete
+//! consequences that this file gets **wrong** against the current spec:
+//!
+//! - `A -> B -> A` and `A -> B -> A -> B` deduplicate to the same `(value,
+//!   from)` set, so it cannot read `A` for one and `B` for the other.
+//! - `maximal_chain_terminals` enumerates chains by backtracking DFS, which is
+//!   factorial when a cell legitimately reuses one value (a claim/release slot
+//!   is exactly that shape).
+//!
+//! The migration is tracked in `arkret-work/work/active/2026-09-05-1030`; it
+//! needs `SealedOp` to carry the derived superseded-head identities, the Seal
+//! admission guard, the `{"heads":[...]}` `state_root` leaf, and the matching
+//! soland op-log encoding.
+//!
+//! # What is already migrated
+//!
+//! The **initial state is now `null` protocol-wide** (section 9.3.1.2). The
+//! registry's `initial_value` / `sentinel_writers` mechanism is deleted, and a
+//! family that needs a reusable free slot registers an explicit `set null`
+//! release write. `ak.component.invite.live_target.v1` is that shape.
+//!
+//! Unlike `mv_register`, dependent Moves must fail closed on Bottom because
 //! this Lattice serves safety-critical state (e.g.
 //! `ak.component.realm.policy.v1`, `ak.component.notary.v1`); the implicit
 //! `bottom=reject` semantics are enforced by whichever cell registry uses it.
-//!
-//! Supersession binds by **value**, the same comparison `head_eq` performs, so
-//! value reuse (ABA) is indistinguishable by design; a family that needs
-//! generations carries a monotonic component inside the value itself (e.g.
-//! `policy_bundle.policy_revision`).
 
 use serde_json::Value;
 
@@ -48,15 +54,15 @@ struct ChainOp<'a> {
 }
 
 impl ChainOp<'_> {
-    /// A chain head asserts the cell's initial state rather than a value some
-    /// other op wrote: either by carrying no predecessor at all, or by naming
-    /// the registered `initial_value` itself.
+    /// A chain head asserts the cell's initial state (`null`) rather than a
+    /// value some other op wrote: either by carrying no predecessor at all, or
+    /// by naming `null` itself.
     ///
     /// Both forms stay chain heads *and* keep their supersession edges, which is
-    /// what makes a released register reusable: `create -> release -> create`
-    /// writes `set(id_1, from=initial)`, `set(initial, from=id_1)`,
-    /// `set(id_2, from=initial)`, and the third op both opens a chain and
-    /// extends the second one, so the whole history still has a single terminal.
+    /// what makes a released register reusable under this (superseded) join:
+    /// `create -> release -> create` writes `set(id_1, from=null)`,
+    /// `set(null, from=id_1)`, `set(id_2, from=null)`, and the third op both
+    /// opens a chain and extends the second one.
     fn is_chain_head(&self, initial: &Value) -> bool {
         self.from.is_none_or(|from| from == initial)
     }
@@ -86,9 +92,9 @@ impl Lattice for CasRegister {
     }
 
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
-        // §9.3.1 settles an empty op set on the initial state, and the registry
-        // is the only place that says what that state is for this family.
-        let initial = registered_initial_value(cell);
+        // Section 9.3.1.2: an unwritten cell reads `null` protocol-wide. There
+        // is no registered per-family initial value any more.
+        let initial = Value::Null;
         let ops = self.deduplicated_ops(sealed_ops);
         if ops.is_empty() {
             return CellState::Value(initial);
@@ -201,17 +207,6 @@ fn walk_chain(ops: &[ChainOp<'_>], current: usize, used: &mut [bool], terminals:
     used[current] = false;
 }
 
-/// The initial state of one `cas_register` cell.
-///
-/// The registered contract owns this value; `null` is the answer only for a
-/// family that declares no `initial_value`. The lookup is by cell id rather
-/// than by a lattice constructor argument because the same `CasRegister` value
-/// serves every family, and a per-instance constant would let two registry rows
-/// for one family disagree without anything noticing.
-fn registered_initial_value(cell: &CellRef) -> Value {
-    arkret_wire::registered_cell_initial_value(cell.as_str()).unwrap_or(Value::Null)
-}
-
 fn conflict_bottom<'a>(cell: &CellRef, ops: impl Iterator<Item = &'a ChainOp<'a>>) -> Bottom {
     let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
     for op in ops {
@@ -235,10 +230,10 @@ mod tests {
         .unwrap()
     }
 
-    /// A cell whose registered contract declares a non-`null` initial value.
-    /// `ak.component.invite.live_target.v1` is the family that made the
-    /// difference observable: `governance-objects.md` section 5.3 requires the
-    /// claiming `ak.invite.create` to assert `head_eq:"__unset__"`.
+    /// The reusable claim/release slot family. It has no registered initial
+    /// value any more: `governance-objects.md` section 5.3 requires the
+    /// claiming `ak.invite.create` to assert `head_eq: null`, and the release
+    /// Move to `set null`.
     fn slot_cell() -> CellRef {
         CellRef::new(
             "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc"
@@ -441,26 +436,25 @@ mod tests {
         );
     }
 
-    /// A family that declares `initial_value` settles an empty op set on that
-    /// value, not on `null`. Reading it as `null` would make the claiming
-    /// `head_eq:"__unset__"` compare unequal on a slot nobody has ever touched.
+    /// Every family settles an empty op set on `null`, the slot family
+    /// included: section 9.3.1.2 removed the per-family initial value.
     #[test]
-    fn empty_join_returns_the_registered_initial_value() {
+    fn empty_join_on_the_slot_family_is_also_null() {
         assert_eq!(
             CasRegister.join(&slot_cell(), &[]),
-            CellState::Value(json!("__unset__"))
+            CellState::Value(Value::Null)
         );
     }
 
-    /// The first claim on a registered slot asserts the registered free value,
-    /// which no op ever wrote. Treating that as a dangling supersession put the
-    /// cell into `⊥` on the very first `ak.invite.create` in a Realm.
+    /// The first claim on a slot asserts `null`, which no op ever wrote.
+    /// Treating that as a dangling supersession put the cell into `⊥` on the
+    /// very first `ak.invite.create` in a Realm.
     #[test]
-    fn registered_initial_value_predecessor_opens_a_chain() {
+    fn null_predecessor_opens_a_chain_on_the_slot_family() {
         let create = json!("ak:event:AUC6BgHput8c8rn_dCCz43Ytxt5ZSdlxtE9subQRQcDF");
         let ops = vec![SealedOp::new(
             move_id(1),
-            supersede_op(create.clone(), json!("__unset__")),
+            supersede_op(create.clone(), Value::Null),
         )];
         assert_eq!(
             CasRegister.join(&slot_cell(), &ops),
@@ -469,20 +463,25 @@ mod tests {
     }
 
     /// `governance-objects.md` section 5.3: the slot is a reusable register.
-    /// The release write sets it back to the registered free value and the next
-    /// claim asserts that same value, so the whole history has to stay one
-    /// chain rather than splitting into two heads.
+    /// The release write sets `null` and the next claim asserts `null`.
+    ///
+    /// Note what this (superseded) join cannot express: after the release the
+    /// business value is `null`, exactly as it is on a slot nobody ever
+    /// claimed, and nothing here distinguishes the two. Section 9.3.1.2 makes
+    /// them different protocol states by keeping the release write's own head,
+    /// and section 9.3.1.3 item 3 is what rejects a create pinned to the
+    /// *earlier* free state. Neither is implemented yet.
     #[test]
     fn released_slot_is_reclaimable_by_a_later_write() {
         let first = json!("ak:event:AUC6BgHput8c8rn_dCCz43Ytxt5ZSdlxtE9subQRQcDF");
         let second = json!("ak:event:AVqlgW6dOb9VNRGuL5Gff6mz-9IKoTzaekCAJaNi2z43");
-        let claim = SealedOp::new(move_id(1), supersede_op(first.clone(), json!("__unset__")));
-        let release = SealedOp::new(move_id(2), supersede_op(json!("__unset__"), first));
-        let reclaim = SealedOp::new(move_id(3), supersede_op(second.clone(), json!("__unset__")));
+        let claim = SealedOp::new(move_id(1), supersede_op(first.clone(), Value::Null));
+        let release = SealedOp::new(move_id(2), supersede_op(Value::Null, first));
+        let reclaim = SealedOp::new(move_id(3), supersede_op(second.clone(), Value::Null));
 
         assert_eq!(
             CasRegister.join(&slot_cell(), &[claim.clone(), release.clone()]),
-            CellState::Value(json!("__unset__"))
+            CellState::Value(Value::Null)
         );
         assert_eq!(
             CasRegister.join(&slot_cell(), &[claim, release, reclaim]),
@@ -497,11 +496,11 @@ mod tests {
         let ops = vec![
             SealedOp::new(
                 move_id(1),
-                supersede_op(json!("ak:event:AUC6Bg"), json!("__unset__")),
+                supersede_op(json!("ak:event:AUC6Bg"), Value::Null),
             ),
             SealedOp::new(
                 move_id(2),
-                supersede_op(json!("ak:event:AVqlgW"), json!("__unset__")),
+                supersede_op(json!("ak:event:AVqlgW"), Value::Null),
             ),
         ];
         let CellState::Bottom(bottom) = CasRegister.join(&slot_cell(), &ops) else {
@@ -511,17 +510,22 @@ mod tests {
         assert_eq!(bottom.head_ids.len(), 2);
     }
 
-    /// The registered free value is not a universal escape hatch: on a family
-    /// that declares no `initial_value` it is an ordinary value, so naming one
-    /// nothing wrote is still a dangling supersession.
+    /// A leftover `"__unset__"` string is now an ordinary value on every
+    /// family, so naming one that nothing wrote is still a dangling
+    /// supersession. This locks the sentinel out after its deletion.
     #[test]
-    fn initial_value_of_another_family_is_not_a_chain_head() {
-        let ops = vec![SealedOp::new(
-            move_id(1),
-            supersede_op(json!({"policy": "open"}), json!("__unset__")),
-        )];
-        let bottom = expect_bottom(CasRegister.join(&cell(), &ops));
-        assert_eq!(bottom.head_ids, vec![json!({"policy": "open"})]);
+    fn the_old_unset_sentinel_is_not_a_chain_head_anywhere() {
+        for target in [cell(), slot_cell()] {
+            let ops = vec![SealedOp::new(
+                move_id(1),
+                supersede_op(json!({"policy": "open"}), json!("__unset__")),
+            )];
+            let CellState::Bottom(bottom) = CasRegister.join(&target, &ops) else {
+                panic!("a dangling sentinel predecessor must fail closed");
+            };
+            assert_eq!(bottom.kind, BottomKind::Conflict);
+            assert_eq!(bottom.head_ids, vec![json!({"policy": "open"})]);
+        }
     }
 
     #[test]

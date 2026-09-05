@@ -55,47 +55,6 @@ pub fn null_subject_cell(component: &str) -> String {
     subject_cell(component, NULL_SUBJECT)
 }
 
-/// The registered `initial_value` of a cell family: the head an unwritten cell
-/// of that family presents to a `head_eq` predicate.
-///
-/// A `head_eq` compares against the materialized head, and an unwritten cell's
-/// head is whatever its registered contract declares — `null` is only the
-/// default for a family that declares nothing.
-/// `ak.component.invite.live_target.v1` is the case where the difference
-/// decides correctness: its free value is the string `"__unset__"`, its release
-/// write sets exactly that, and `governance-objects.md` section 5.3 requires
-/// the next `ak.invite.create`'s `head_eq:"__unset__"` to hold on a slot that
-/// was released *and* on one that was never claimed. Reading an unwritten cell
-/// as `null` would refuse the first invite ever sent in a Realm.
-///
-/// Returns `None` when the family declares no initial value, or when two
-/// registered writes on it disagree — picking either would make the head depend
-/// on which kind the reader happened to scan first.
-pub fn registered_cell_family_initial_value(family: &str) -> Option<serde_json::Value> {
-    let mut initial: Option<serde_json::Value> = None;
-    for descriptor in crate::EVENT_KIND_DESCRIPTORS {
-        for write in descriptor.cell_writes {
-            if write.cell_family.map(|declared| declared.as_str()) != Some(family) {
-                continue;
-            }
-            let declared = write.initial_value_rule?.to_json_value();
-            match &initial {
-                None => initial = Some(declared),
-                Some(previous) if *previous == declared => {}
-                Some(_) => return None,
-            }
-        }
-    }
-    initial
-}
-
-/// [`registered_cell_family_initial_value`] addressed by a full cell id.
-pub fn registered_cell_initial_value(cell_ref: &str) -> Option<serde_json::Value> {
-    CellId::parse(cell_ref)
-        .ok()
-        .and_then(|cell| registered_cell_family_initial_value(cell.component()))
-}
-
 /// Canonical genesis-log cell of every `ak.realm.create` (`ordered_log`).
 pub const REALM_CREATE_CELL: &str = "ak:cell:ak.component.realm.create.v1:null";
 /// Canonical minimal Realm identity/security root written by `ak.realm.create`.
