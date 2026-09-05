@@ -293,6 +293,14 @@ pub struct EventKindRegistration {
     pub id_kinds: Vec<String>,
     #[serde(default)]
     pub pre_state_requirements: Vec<EventPreStateRequirement>,
+    pub cell_family: Option<String>,
+    #[serde(default)]
+    pub cell_writes: Vec<EventCellWrite>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EventCellWrite {
+    pub cell_family: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

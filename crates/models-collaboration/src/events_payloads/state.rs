@@ -2501,7 +2501,7 @@ mod tests {
             },
             "conflict_evidence": {
                 "kind": "domain_non_joinable",
-                "cell_family": "ak.component.notary.v1",
+                "cell_family": CellFamilyId::NOTARY_V1,
                 "event_ids": ids.clone()
             },
             "verdict": {"kind": "canonical_winner", "winner_event_id": ids[0].clone()}

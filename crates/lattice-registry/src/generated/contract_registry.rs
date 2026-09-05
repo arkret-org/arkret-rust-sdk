@@ -4,6 +4,8 @@
 //! sha256=498bc2fa5a291f4f4ed370ddc321f03a5588a0f56353a9e03bc5a2f565026310
 //! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=18
 
+use arkret_wire::CellFamilyId;
+
 use crate::contract_registry::{
     ActorPrivateEffectProjection, ActorPrivateMergeKind, ActorPrivateSubjectComponent,
     ActorPrivateSubjectRule, ActorPrivateTombstoneMode, GeneratedActorPrivateFamily,
@@ -147,7 +149,7 @@ pub(crate) const GENERATED_ACTOR_PRIVATE_WRITES: &[GeneratedActorPrivateWrite] =
 
 pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
     GeneratedFsmContract {
-        cell_family: "ak.component.agent.status.v1",
+        cell_family: CellFamilyId::AGENT_STATUS_V1,
         axis: "status",
         states: &["uninitialized", "active", "paused", "deactivated"],
         terminal_states: &["deactivated"],
@@ -184,7 +186,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.audit.binding_state.v1",
+        cell_family: CellFamilyId::AUDIT_BINDING_STATE_V1,
         axis: "audit",
         states: &["active", "suspended", "revoked"],
         terminal_states: &["revoked"],
@@ -217,7 +219,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.audit.session.v1",
+        cell_family: CellFamilyId::AUDIT_SESSION_V1,
         axis: "audit",
         states: &["request", "authorize", "notice", "close"],
         terminal_states: &["close"],
@@ -255,7 +257,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.call.recording.v1",
+        cell_family: CellFamilyId::CALL_RECORDING_V1,
         axis: "workflow",
         states: &["recording", "stopped", "ready", "failed"],
         terminal_states: &["ready", "failed"],
@@ -288,7 +290,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.call.state.v1",
+        cell_family: CellFamilyId::CALL_STATE_V1,
         axis: "workflow",
         states: &[
             "scheduled",
@@ -387,7 +389,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.call.transcript.v1",
+        cell_family: CellFamilyId::CALL_TRANSCRIPT_V1,
         axis: "workflow",
         states: &["transcribing", "stopped", "ready", "failed"],
         terminal_states: &["ready", "failed"],
@@ -420,7 +422,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.circle.history_access.v1",
+        cell_family: CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
         axis: "history_access",
         states: &["since_join", "all_history_for_current_members"],
         terminal_states: &["since_join"],
@@ -440,7 +442,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.circle.lifecycle.v1",
+        cell_family: CellFamilyId::CIRCLE_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived"],
         terminal_states: &[],
@@ -459,7 +461,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.circle.member.v1",
+        cell_family: CellFamilyId::CIRCLE_MEMBER_V1,
         axis: "membership",
         states: &["join", "knock", "leave", "ban"],
         terminal_states: &[],
@@ -516,7 +518,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.invite.lifecycle.v1",
+        cell_family: CellFamilyId::INVITE_LIFECYCLE_V1,
         axis: "workflow",
         states: &[
             "pending",
@@ -653,7 +655,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.member.state.v1",
+        cell_family: CellFamilyId::MEMBER_STATE_V1,
         axis: "membership",
         states: &["join", "knock", "leave", "ban"],
         terminal_states: &[],
@@ -710,7 +712,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.mls.keypackage.v1",
+        cell_family: CellFamilyId::MLS_KEYPACKAGE_V1,
         axis: "key_material",
         states: &["published", "claimed", "consumed", "revoked", "retired"],
         terminal_states: &["consumed", "revoked", "retired"],
@@ -747,7 +749,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.morph.lifecycle.v1",
+        cell_family: CellFamilyId::MORPH_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived"],
         terminal_states: &[],
@@ -766,7 +768,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.realm.history_access.v1",
+        cell_family: CellFamilyId::REALM_HISTORY_ACCESS_V1,
         axis: "history_access",
         states: &["since_join", "all_history_for_current_members"],
         terminal_states: &["since_join"],
@@ -786,7 +788,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.realm.link.v1",
+        cell_family: CellFamilyId::REALM_LINK_V1,
         axis: "relationship",
         states: &["active", "rejected", "tombstoned"],
         terminal_states: &["tombstoned"],
@@ -836,7 +838,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.relation.lifecycle.v1",
+        cell_family: CellFamilyId::RELATION_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "tombstoned"],
         terminal_states: &["tombstoned"],
@@ -849,7 +851,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         )],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.space.lifecycle.v1",
+        cell_family: CellFamilyId::SPACE_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived", "tombstoned"],
         terminal_states: &["tombstoned"],
@@ -881,7 +883,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
         ],
     },
     GeneratedFsmContract {
-        cell_family: "ak.component.strand.lifecycle.v1",
+        cell_family: CellFamilyId::STRAND_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived"],
         terminal_states: &[],

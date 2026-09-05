@@ -4,8 +4,8 @@ use std::fmt::Write as _;
 use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value};
 
-use crate::model::SpecInputs;
-use crate::render::{header, rust_string, string_slice};
+use crate::model::{EventKindRegistry, SpecInputs};
+use crate::render::{associated_name, header, rust_string, string_slice};
 use crate::runtime_contracts::GeneratedOutput;
 
 #[derive(Debug)]
@@ -31,6 +31,12 @@ pub fn generate(inputs: &SpecInputs) -> Result<GeneratedOutput> {
         .and_then(Value::as_object)
         .context("actor_private_contracts.event_writes must be an object")?;
     let fsms = resolve_fsms(registry)?;
+    let registered = registered_cell_families(&inputs.event_kinds)?;
+
+    let mut body = String::new();
+    render_actor_private_families(&mut body, families, &registered)?;
+    render_actor_private_writes(&mut body, writes, families, &registered)?;
+    render_fsms(&mut body, &fsms, &registered);
 
     let mut output = header(
         &[&inputs.contracts_source],
@@ -41,19 +47,65 @@ pub fn generate(inputs: &SpecInputs) -> Result<GeneratedOutput> {
             fsms.len()
         ),
     );
+    if body.contains(CELL_FAMILY_ID) {
+        output.push_str("use arkret_wire::CellFamilyId;\n\n");
+    }
     output.push_str(
         "use crate::contract_registry::{\n    ActorPrivateEffectProjection, ActorPrivateMergeKind,\n    ActorPrivateSubjectComponent, ActorPrivateSubjectRule, ActorPrivateTombstoneMode,\n    GeneratedActorPrivateFamily, GeneratedActorPrivateFsm, GeneratedActorPrivateWrite,\n    GeneratedFsmContract, GeneratedState,\n};\n\n",
     );
-    render_actor_private_families(&mut output, families)?;
-    render_actor_private_writes(&mut output, writes, families)?;
-    render_fsms(&mut output, &fsms);
+    output.push_str(&body);
     Ok(GeneratedOutput {
         relative_path: "crates/lattice-registry/src/generated/contract_registry.rs".into(),
         contents: output,
     })
 }
 
-fn render_actor_private_families(output: &mut String, families: &Map<String, Value>) -> Result<()> {
+const CELL_FAMILY_ID: &str = "CellFamilyId::";
+
+/// Registered `ak.component.*` families are spelled exactly once, in the
+/// `arkret_wire::CellFamilyId` constants; every consumer — this registry
+/// included — must reference those constants instead of repeating the literal,
+/// which is what `tools/lint-cell-family-literals.py` enforces. The constants
+/// are minted by `tools/generate-sdk-event-kinds.ps1` from the cell families
+/// that active event kinds write, so this reads the same registry the same way;
+/// anything else can drift and emit a constant that does not exist.
+/// Actor-private (`ak.private.*`) families never get a constant, so they stay
+/// literals.
+fn registered_cell_families(registry: &EventKindRegistry) -> Result<BTreeSet<String>> {
+    let mut registered = BTreeSet::new();
+    for event in &registry.event_kinds {
+        if event.status != "active" {
+            continue;
+        }
+        let families = event
+            .cell_family
+            .iter()
+            .chain(event.cell_writes.iter().filter_map(|write| write.cell_family.as_ref()));
+        for family in families {
+            if family.starts_with("ak.component.") {
+                registered.insert(family.clone());
+            }
+        }
+    }
+    if registered.is_empty() {
+        bail!("the event-kind registry declares no registered cell family");
+    }
+    Ok(registered)
+}
+
+fn cell_family(family: &str, registered: &BTreeSet<String>) -> String {
+    if registered.contains(family) {
+        format!("{CELL_FAMILY_ID}{}", associated_name(family, &["ak.component."]))
+    } else {
+        rust_string(family)
+    }
+}
+
+fn render_actor_private_families(
+    output: &mut String,
+    families: &Map<String, Value>,
+    registered: &BTreeSet<String>,
+) -> Result<()> {
     output.push_str(
         "pub(crate) const GENERATED_ACTOR_PRIVATE_FAMILIES: &[GeneratedActorPrivateFamily] = &[\n",
     );
@@ -82,7 +134,7 @@ fn render_actor_private_families(output: &mut String, families: &Map<String, Val
         writeln!(
             output,
             "    GeneratedActorPrivateFamily {{ cell_family: {}, merge: {merge}, tombstone: {tombstone}, bottom_reject: {}, fsm: {fsm} }},",
-            rust_string(family),
+            cell_family(family, registered),
             raw.get("bottom").and_then(Value::as_str) == Some("reject")
                 || merge.ends_with("FsmCas")
         )?;
@@ -123,6 +175,7 @@ fn render_actor_private_writes(
     output: &mut String,
     writes: &Map<String, Value>,
     families: &Map<String, Value>,
+    registered: &BTreeSet<String>,
 ) -> Result<()> {
     output.push_str(
         "pub(crate) const GENERATED_ACTOR_PRIVATE_WRITES: &[GeneratedActorPrivateWrite] = &[\n",
@@ -148,7 +201,7 @@ fn render_actor_private_writes(
             output,
             "    GeneratedActorPrivateWrite {{ event_kind: {}, cell_family: {}, cell_subject: {subject}, effect_projection: {effect} }},",
             rust_string(event_kind),
-            rust_string(family)
+            cell_family(family, registered)
         )?;
     }
     output.push_str("];\n\n");
@@ -229,7 +282,7 @@ fn render_private_effect(value: &Value, event_kind: &str) -> Result<String> {
     }
 }
 
-fn render_fsms(output: &mut String, fsms: &[ResolvedFsm]) {
+fn render_fsms(output: &mut String, fsms: &[ResolvedFsm], registered: &BTreeSet<String>) {
     output.push_str("pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[\n");
     for fsm in fsms {
         let initial = if fsm.runtime_uses_null {
@@ -255,7 +308,7 @@ fn render_fsms(output: &mut String, fsms: &[ResolvedFsm]) {
         writeln!(
             output,
             "    GeneratedFsmContract {{ cell_family: {}, axis: {}, states: {}, terminal_states: {}, initial_states: {}, allowed_transitions: {}, runtime_initial_state: {initial}, runtime_transitions: &[{runtime_transitions}] }},",
-            rust_string(&fsm.family),
+            cell_family(&fsm.family, registered),
             rust_string(&fsm.axis),
             string_slice(&fsm.states),
             string_slice(&fsm.terminal_states),
