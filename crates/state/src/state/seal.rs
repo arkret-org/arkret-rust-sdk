@@ -400,6 +400,11 @@ where
     // writes to be staged before its bootstrap follow-ups are evaluated.
     let pre_state =
         effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry).await?;
+    // The identity half of that same frozen baseline. §9.3.1.3 item 3 compares a
+    // writer's own `H_c(B)` against this `H_c(P)`, and item 4 makes the accepted
+    // write supersede exactly it.
+    let pre_heads =
+        cas_heads_for_covered_events(&pred_covered, &seal.realm_id, cells, registry, &[]).await?;
     let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals).await?;
 
     let mut new_events: Vec<(Hash, Event)> = Vec::with_capacity(seal.delta.len());
@@ -576,14 +581,55 @@ where
 
     let mut new_ops: Vec<(CellRef, IssuedOp)> = Vec::new();
     for (digest, event, effects) in &accepted {
+        // §9.3.1.3 item 1: the baseline is the Move's *own* signed `seal_basis`,
+        // not the receiving Seal's predecessor set. Anchor units have no basis
+        // to rebuild (§9.3.1.3 "two closed exceptions"), and their staged
+        // context is what admission already used.
+        let basis_heads = match event.seal_basis.as_ref() {
+            Some(basis) => {
+                effective_cas_heads_at(&basis.leaves, &seal.realm_id, seals, cells, registry)
+                    .await?
+            }
+            None => BTreeMap::new(),
+        };
         for effect in effects {
+            let kind = {
+                let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
+                binding.lattice.kind()
+            };
+            let supersedes = if kind == crate::lattice::LatticeKind::CasRegister {
+                let observed = basis_heads.get(&effect.cell_id).cloned().unwrap_or_default();
+                if event.seal_basis.is_some() {
+                    let frozen = pre_heads.get(&effect.cell_id).cloned().unwrap_or_default();
+                    // §9.3.1.3 item 3: identity-for-identity, and stale even when
+                    // both sides settle to the same business value. That equality
+                    // is the whole point — it is what a claim/release/claim slot
+                    // needs and what a whole-value compare cannot express.
+                    if !head_identities_match(&observed, &frozen) {
+                        return Err(SealReject::ControlMoveRejected {
+                            event_digest: digest.as_str().to_owned(),
+                            reason: format!(
+                                "cas_register cell {} basis heads {:?} are stale against the \
+                                 frozen predecessor heads {:?}",
+                                effect.cell_id.as_str(),
+                                observed.iter().map(Hash::as_str).collect::<Vec<_>>(),
+                                frozen.iter().map(Hash::as_str).collect::<Vec<_>>(),
+                            ),
+                        });
+                    }
+                }
+                observed
+            } else {
+                Vec::new()
+            };
             // The actor travels with the op so ordered-log slots stay keyed by
             // the real actor rather than a synthetic one (9.3.1).
             new_ops.push((
                 effect.cell_id.clone(),
                 IssuedOp {
                     issuer_id: event.actor_id.clone(),
-                    op: SealedOp::from_projection(digest.clone(), effect),
+                    op: SealedOp::from_projection(digest.clone(), effect)
+                        .with_supersedes(supersedes),
                 },
             ));
         }
@@ -1481,6 +1527,106 @@ pub async fn effective_state_at(
     effective_state_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
+/// Whether two derived head-identity sets name the same writes.
+///
+/// Order and repetition are not part of the comparison: both sides come from
+/// [`cas_heads`], which already deduplicates by identity and sorts by the
+/// decoded `event_id` token, so this is a set equality that stays correct if
+/// either producer ever changes its ordering.
+fn head_identities_match(left: &[Hash], right: &[Hash]) -> bool {
+    let left: BTreeSet<&str> = left.iter().map(Hash::as_str).collect();
+    let right: BTreeSet<&str> = right.iter().map(Hash::as_str).collect();
+    left == right
+}
+
+/// The active `cas_register` head identities of every written cell in the view
+/// those Seal leaves cover.
+///
+/// This is `H_c(V)` of `event-auth-state-resolution.md` §9.3.1.1, reduced to the
+/// identities. It is what a write's own signed `seal_basis` contributes to
+/// admission: §9.3.1.3 item 3 compares the writer's `H_c(B)` against the frozen
+/// predecessor `H_c(P)` identity-for-identity, and item 4 makes the accepted
+/// write supersede exactly that set.
+///
+/// Cells whose lattice is not `cas_register`, and cells with no head, are
+/// absent rather than present-and-empty: "no entry" and "no head" are the same
+/// statement here, and a first write on an untouched cell supersedes nothing.
+pub async fn effective_cas_heads_at(
+    leaves: &[SealId],
+    realm_id: &RealmId,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+) -> Result<BTreeMap<CellRef, Vec<Hash>>, SealReject> {
+    let covered = union_predecessor_covered_events(leaves, seals).await?;
+    cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[]).await
+}
+
+/// [`effective_cas_heads_at`] over an explicit covered set, optionally layered
+/// with ops this Seal is about to accept.
+///
+/// The candidate ops are the same ones `apply_seal` layers onto the state: a
+/// durable backend may hide a cell op until its accepting Seal exists, so the
+/// post-state has to be assembled in memory rather than re-read.
+async fn cas_heads_for_covered_events(
+    covered: &BTreeSet<Hash>,
+    realm_id: &RealmId,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    new_ops: &[(CellRef, IssuedOp)],
+) -> Result<BTreeMap<CellRef, Vec<Hash>>, SealReject> {
+    let mut targets = cells
+        .list_cells(realm_id)
+        .await?
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    targets.extend(new_ops.iter().map(|(cell, _)| cell.clone()));
+
+    let mut out = BTreeMap::new();
+    for cell in targets {
+        // `CellBinding` owns a `Box<dyn Lattice>`, which is not `Send`. Reading
+        // the kind and dropping the binding *before* the first await is what
+        // keeps this future `Send` for the axum/salvo handlers that call it.
+        let kind = {
+            let binding = registry.resolve(realm_id, &cell)?;
+            binding.lattice.kind()
+        };
+        if kind != crate::lattice::LatticeKind::CasRegister {
+            continue;
+        }
+        let mut ops: Vec<SealedOp> = cells
+            .sealed_op_batches_for_cell(realm_id, &cell)
+            .await?
+            .into_iter()
+            .flat_map(|(_, batch)| batch)
+            .filter(|issued| covered.contains(&issued.op.move_id))
+            .map(|issued| issued.op)
+            .collect();
+        ops.extend(
+            new_ops
+                .iter()
+                .filter(|(candidate, issued)| {
+                    candidate == &cell && covered.contains(&issued.op.move_id)
+                })
+                .map(|(_, issued)| issued.op.clone()),
+        );
+        if ops.is_empty() {
+            continue;
+        }
+        // A cell whose identities disagree is not a usable baseline: admission
+        // fails closed on the empty answer rather than silently proposing a
+        // guard the writer could satisfy by accident.
+        let Ok(heads) = crate::lattice::cas_register::cas_heads(&ops) else {
+            continue;
+        };
+        if heads.is_empty() {
+            continue;
+        }
+        out.insert(cell, heads.into_iter().map(|head| head.move_id).collect());
+    }
+    Ok(out)
+}
+
 async fn effective_state_for_covered_events(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
@@ -1679,7 +1825,7 @@ pub fn join_cell(
     cell: &CellRef,
     ops: &[IssuedOp],
 ) -> CellState {
-    let ops = ops_since_last_recovery_reset(ops);
+    let ops = ops_since_last_recovery_reset(lattice.kind(), ops);
     if lattice.kind() == crate::lattice::LatticeKind::OrderedLog {
         return crate::lattice::OrderedLog.join_with_issuers(cell, ops);
     }
@@ -1687,21 +1833,29 @@ pub fn join_cell(
     lattice.join(cell, &sealed)
 }
 
-/// The cell's join input after `event-auth-state-resolution.md` §9.5: the
-/// suffix beginning at the last accepted recovery reset.
+/// The cell's join input after a §9.5 conflict recovery.
 ///
-/// A reset is not a lattice op and does not join. §9.5 exists precisely because
-/// a `bottom=reject` cell in `⊥` cannot be converged by any further ordinary
-/// Move — so a reset that stayed in the join input would be joined **with** the
-/// concurrent branches that produced the `⊥` and the cell would still resolve
-/// to `⊥`. Discarding the prior ops is what "resolve the cell to the single
-/// legal value" means; it is also the only way to express "drop two concurrent
-/// branches" in a model whose join is a least upper bound.
+/// **`cas_register` never truncates.** §9.5.1 makes its recovery an ordinary
+/// identity write that supersedes exactly the divergent heads its own signed
+/// basis observed, so the reset needs no special join input: a late branch the
+/// recovery never covered stays a head and still merges, and two concurrent
+/// recoveries with different values still conflict. §9.5.1 item 5 names this
+/// `rposition` slice specifically and forbids it, because slicing the log by
+/// arrival order makes the result depend on delivery.
 ///
-/// Admission is what keeps this narrow: `resolve_projected_write` accepts a
-/// reset only against a cell already in `⊥`, and only from
-/// `ak.conflict.recovery`.
-fn ops_since_last_recovery_reset(ops: &[IssuedOp]) -> &[IssuedOp] {
+/// `fsm` still truncates here, and that is a known remaining non-conformance
+/// rather than a second permitted semantics: §9.5.1 says a state machine "MUST
+/// NOT directly apply this register's transition proof" and needs its own
+/// transition algebra before its reset can be expressed causally. Item 5 binds
+/// `fsm` too, so this slice goes away when that algebra lands; the migration is
+/// tracked in `arkret-work/work/active/2026-09-05-1030`.
+fn ops_since_last_recovery_reset(
+    kind: crate::lattice::LatticeKind,
+    ops: &[IssuedOp],
+) -> &[IssuedOp] {
+    if kind == crate::lattice::LatticeKind::CasRegister {
+        return ops;
+    }
     ops.iter()
         .rposition(|issued| issued.op.recovery_reset)
         .map_or(ops, |boundary| &ops[boundary..])
@@ -1712,26 +1866,28 @@ fn ops_since_last_recovery_reset(ops: &[IssuedOp]) -> &[IssuedOp] {
 /// `mv_register` writes in a successor Seal causally replace the previous head,
 /// and multiple writes inside one Seal share one predecessor view and therefore
 /// remain sibling heads; that lattice carries no predecessor on the op, so the
-/// Seal batch is the only causal signal it has. Every other core lattice —
-/// `cas_register` included since §9.3.1 gave its `set` ops an explicit
-/// `op.from` — consumes the full accepted history, because its join already
-/// models ordered supersession, ordered transitions or commutative
-/// accumulation. Truncating `cas_register` to the last batch would strip the
-/// predecessors its chain walk needs and turn every replacement into a dangling
-/// supersession.
+/// Seal batch is the only causal signal it has. Every other core lattice
+/// consumes the full accepted history, because its join already models causal
+/// supersession, ordered transitions or commutative accumulation.
+/// `cas_register` in particular MUST see the whole history: its heads are
+/// derived from the identities each write superseded (§9.3.1.1), so a truncated
+/// input would resurrect writes whose superseder was cut away.
 pub fn join_cell_seal_batches(
     lattice: &dyn crate::lattice::Lattice,
     cell: &CellRef,
     batches: &[Vec<IssuedOp>],
 ) -> CellState {
-    // §9.5 first: a recovery reset ends the cell's prior history, so every
-    // batch before the one carrying it stops being an input. Batches accepted
-    // *after* the reset are ordinary writes on the recovered value and stay —
-    // `join_cell` then applies the same boundary inside the surviving batches.
-    let batches = batches
-        .iter()
-        .rposition(|ops| ops.iter().any(|issued| issued.op.recovery_reset))
-        .map_or(batches, |boundary| &batches[boundary..]);
+    // A §9.5 recovery reset ends the prior history for the lattices that still
+    // express recovery by truncation. `cas_register` is not one of them: its
+    // recovery is an ordinary identity write (§9.5.1), so every batch stays.
+    let batches = if lattice.kind() == crate::lattice::LatticeKind::CasRegister {
+        batches
+    } else {
+        batches
+            .iter()
+            .rposition(|ops| ops.iter().any(|issued| issued.op.recovery_reset))
+            .map_or(batches, |boundary| &batches[boundary..])
+    };
     match lattice.kind() {
         crate::lattice::LatticeKind::MvRegister => batches
             .iter()

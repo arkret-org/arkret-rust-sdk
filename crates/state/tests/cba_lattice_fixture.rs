@@ -19,6 +19,7 @@ use arkret_models_collaboration::governance::realm_governance::{
 };
 use arkret_schema_conformance::spec_json_artifact;
 use arkret_state::lattice::ordered_log::IssuedOp;
+use arkret_state::lattice::cas_register::cas_heads;
 use arkret_state::lattice::{
     CasRegister, CellState, Counter, Fsm, Lattice, MvRegister, OrderedLog, SealedOp,
 };
@@ -71,6 +72,32 @@ fn op_supersede(value: Value, from: Value) -> LatticeOp {
         from: Some(from),
         ..op_set(value)
     }
+}
+
+/// The reusable claim/release slot family: no registered initial value since
+/// section 9.3.1.2, so an unwritten cell reads `null` here too.
+fn slot_cell() -> CellRef {
+    CellRef::new(
+        "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc"
+            .to_owned(),
+    )
+    .expect("slot cell id must be valid")
+}
+
+/// A `cas_register` write whose signed basis observed no head on this cell.
+fn cas_first(id: &str, value: Value) -> SealedOp {
+    SealedOp::new(move_id(id), op_set(value))
+}
+
+/// A `cas_register` write whose signed basis observed exactly `saw` as this
+/// cell's heads, and which therefore supersedes exactly those (section 9.3.1.3
+/// items 1 and 4).
+fn cas_after(id: &str, value: Value, saw: &[&str]) -> SealedOp {
+    SealedOp::superseding(
+        move_id(id),
+        op_set(value),
+        saw.iter().copied().map(move_id).collect(),
+    )
 }
 
 fn op_inc(value: u64) -> LatticeOp {
@@ -231,78 +258,126 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             // The slot family used to declare `initial_value: "__unset__"`.
             // Section 9.3.1.2 deleted that mechanism, so every family now reads
             // `null` before its first write.
-            let slot = CellRef::new(
-                "ak:cell:ak.component.invite.live_target.v1:\
-                 fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc"
-                    .to_owned(),
-            )
-            .unwrap();
-            assert_eq!(value_of(CasRegister.join(&slot, &[])), Value::Null);
-        }
-        ("cas_register", "a release write is set null, keeps its own head, and stays distinguishable from an unwritten cell") => {
-            // The business half is implementable today: a released slot reads
-            // `null`. The identity half — "keeps its own head", so a released
-            // cell is a *different protocol state* from an unwritten one — needs
-            // the causal-heads migration.
-            let claim = json!("ak:event:AUC6BgHput8c8rn_dCCz43Ytxt5ZSdlxtE9subQRQcDF");
-            let ops = vec![
-                SealedOp::new(move_id("e1"), op_supersede(claim.clone(), Value::Null)),
-                SealedOp::new(move_id("e2"), op_supersede(Value::Null, claim)),
-            ];
-            assert_eq!(value_of(CasRegister.join(&cref, &ops)), Value::Null);
-            pending_causal_heads(
-                "a released cell and an unwritten cell are both null here; \
-                 nothing records that the release has its own head",
-            );
+            assert_eq!(value_of(CasRegister.join(&slot_cell(), &[])), Value::Null);
+            assert!(cas_heads(&[]).expect("no heads").is_empty());
         }
         ("cas_register", "each write is identified by its EventId and supersedes exactly the heads observed in its own signed seal_basis") => {
-            pending_causal_heads("SealedOp carries no superseded-head identity set");
+            let ops = vec![
+                cas_first("a1", json!({"revision": 1})),
+                cas_after("a2", json!({"revision": 2}), &["a1"]),
+                cas_after("a3", json!({"revision": 3}), &["a2"]),
+            ];
+            assert_eq!(value_of(CasRegister.join(&cref, &ops)), json!({"revision": 3}));
+            let heads = cas_heads(&ops).expect("one head");
+            assert_eq!(heads.len(), 1);
+            assert_eq!(heads[0].move_id, move_id("a3"));
+        }
+        ("cas_register", "a release write is set null, keeps its own head, and stays distinguishable from an unwritten cell") => {
+            let claim = json!("ak:event:AUC6BgHput8c8rn_dCCz43Ytxt5ZSdlxtE9subQRQcDF");
+            let released = vec![
+                cas_first("e1", claim),
+                cas_after("e2", Value::Null, &["e1"]),
+            ];
+            assert_eq!(value_of(CasRegister.join(&slot_cell(), &released)), Value::Null);
+            let heads = cas_heads(&released).expect("one head");
+            assert_eq!(heads.len(), 1, "the release keeps its own head");
+            assert!(
+                cas_heads(&[]).expect("unwritten").is_empty(),
+                "an unwritten cell has no head at all, which is the difference",
+            );
         }
         ("cas_register", "A -> null -> A reads A, and A -> B -> A -> B reads B") => {
-            pending_causal_heads(
-                "value-edge dedup collapses ABA and ABAB to the same op set",
-            );
+            let a = json!("A");
+            let b = json!("B");
+            let a_null_a = vec![
+                cas_first("f1", a.clone()),
+                cas_after("f2", Value::Null, &["f1"]),
+                cas_after("f3", a.clone(), &["f2"]),
+            ];
+            assert_eq!(value_of(CasRegister.join(&cref, &a_null_a)), a);
+
+            let aba = vec![
+                cas_first("1a", a.clone()),
+                cas_after("1b", b.clone(), &["1a"]),
+                cas_after("1c", a.clone(), &["1b"]),
+            ];
+            assert_eq!(value_of(CasRegister.join(&cref, &aba)), a);
+            let mut abab = aba;
+            abab.push(cas_after("1d", b.clone(), &["1c"]));
+            assert_eq!(value_of(CasRegister.join(&cref, &abab)), b);
         }
         ("cas_register", "concurrent writes with different values leave two heads and a bottom=reject cell materializes failed_bottom") => {
-            let base = json!({"revision": 1});
             let ops = vec![
-                SealedOp::new(move_id("b1"), op_set(base.clone())),
-                SealedOp::new(
-                    move_id("b2"),
-                    op_supersede(json!({"revision": 2}), base.clone()),
-                ),
-                SealedOp::new(move_id("b3"), op_supersede(json!({"revision": 3}), base)),
+                cas_first("b1", json!({"revision": 2})),
+                cas_first("b2", json!({"revision": 3})),
             ];
             assert!(CasRegister.join(&cref, &ops).is_bottom());
+            assert_eq!(cas_heads(&ops).expect("two heads").len(), 2);
         }
         ("cas_register", "concurrent writes with the same value keep both head identities and a successor that saw only one of them removes only that one") => {
-            pending_causal_heads(
-                "same-value concurrent writes are deduplicated by (value, from), \
-                 so the second identity is lost",
+            let shared = json!("A");
+            let concurrent = vec![
+                cas_first("2a", shared.clone()),
+                cas_first("2b", shared.clone()),
+            ];
+            assert_eq!(value_of(CasRegister.join(&cref, &concurrent)), shared);
+            assert_eq!(cas_heads(&concurrent).expect("two heads").len(), 2);
+
+            let mut partial = concurrent.clone();
+            partial.push(cas_after("2c", json!("B"), &["2a"]));
+            assert!(
+                CasRegister.join(&cref, &partial).is_bottom(),
+                "the head the successor never saw must survive"
             );
+
+            let mut complete = concurrent;
+            complete.push(cas_after("2d", json!("B"), &["2a", "2b"]));
+            assert_eq!(value_of(CasRegister.join(&cref, &complete)), json!("B"));
         }
         ("cas_register", "exact replay of the same identity and canonical effect is idempotent") => {
-            // The (value, from) dedup happens to make exact replay idempotent
-            // too, so this assertion holds under both joins.
-            let base = json!({"revision": 1});
-            let terminal = json!({"revision": 2});
-            let ops = vec![
-                SealedOp::new(move_id("d1"), op_set(base.clone())),
-                SealedOp::new(move_id("d2"), op_set(base.clone())),
-                SealedOp::new(
-                    move_id("d3"),
-                    op_supersede(terminal.clone(), base.clone()),
-                ),
-                SealedOp::new(move_id("d4"), op_supersede(terminal.clone(), base)),
-            ];
-            assert_eq!(value_of(CasRegister.join(&cref, &ops)), terminal);
+            let value = json!({"revision": 1});
+            let ops = vec![cas_first("d1", value.clone()), cas_first("d1", value.clone())];
+            assert_eq!(value_of(CasRegister.join(&cref, &ops)), value);
+            assert_eq!(cas_heads(&ops).expect("one head").len(), 1);
+
+            // Same identity, different canonical effect, is a verification error
+            // or a section 6.3.3 collision. The lattice must not pick one.
+            let collided = vec![cas_first("d2", json!("A")), cas_first("d2", json!("B"))];
+            assert!(CasRegister.join(&cref, &collided).is_bottom());
+            assert!(cas_heads(&collided).is_err());
         }
         ("cas_register", "merging two verified (covered set, heads) states is associative, commutative, idempotent and agrees with a full causal-history oracle") => {
-            pending_causal_heads("there is no (covered set, heads) state to merge");
+            // The SDK joins over one op set rather than merging two prepared
+            // states, so the property that carries over is that the join is a
+            // pure function of the op *set*: order and repetition change
+            // nothing, and any prefix-closed subset recomputes its own view.
+            let ops = vec![
+                cas_first("3a", json!("a")),
+                cas_after("3b", json!("b"), &["3a"]),
+                cas_first("3c", json!("c")),
+            ];
+            let forward = CasRegister.join(&cref, &ops);
+            let mut reversed = ops.clone();
+            reversed.reverse();
+            assert_eq!(forward, CasRegister.join(&cref, &reversed));
+            let mut doubled = ops.clone();
+            doubled.extend(ops.iter().cloned());
+            assert_eq!(forward, CasRegister.join(&cref, &doubled));
+            assert!(forward.is_bottom(), "i2 and i3 are concurrent");
+            assert_eq!(value_of(CasRegister.join(&cref, &ops[..2])), json!("b"));
         }
         ("cas_register", "Bottom is recomputed per view, so a receiver that later observes the missing leaf converges with one that saw the full history") => {
-            pending_causal_heads(
-                "join_cell truncates at the last recovery reset by arrival order",
+            let t = json!("T");
+            let diverged = vec![cas_first("4a", json!("A")), cas_first("4b", json!("B"))];
+            assert!(CasRegister.join(&cref, &diverged).is_bottom());
+
+            let mut converged = diverged;
+            converged.push(cas_after("4c", t.clone(), &["4a"]));
+            converged.push(cas_after("4d", t.clone(), &["4b"]));
+            assert_eq!(
+                value_of(CasRegister.join(&cref, &converged)),
+                t,
+                "two heads that agree read that value; bottom is not sticky"
             );
         }
         ("ordered_log", "sparse_actor_sequence_order") => {
@@ -747,7 +822,6 @@ fn lattice_round_trip_cases_execute_against_sdk_lattices() {
         .expect("lattice_round_trip.cases must be an array");
     assert!(!cases.is_empty());
 
-    PENDING_CAUSAL_HEADS.with(|pending| pending.borrow_mut().clear());
     let mut executed_assertions = 0usize;
     for case in cases {
         let vector_id = case["vector_id"]
@@ -774,31 +848,6 @@ fn lattice_round_trip_cases_execute_against_sdk_lattices() {
         "expected the full declared assertion inventory, executed {executed_assertions}"
     );
 
-    // Pinned non-conformance, not a skip. `event-auth-state-resolution.md`
-    // sections 9.3.1.1 to 9.3.1.4 replaced the value-edge maximal-chain join
-    // with a causal register; `CasRegister` still implements the deleted
-    // definition, so the fixture assertions that need write identities cannot
-    // execute yet. Pinning the exact count keeps the gap visible and stops a
-    // newly added assertion from quietly joining it: when the migration in
-    // `arkret-work/work/active/2026-09-05-1030` lands, this drops to 0 and the
-    // arms above become real assertions.
-    let pending = PENDING_CAUSAL_HEADS.with(|pending| pending.borrow().clone());
-    assert_eq!(
-        pending.len(),
-        6,
-        "causal-heads gap changed; update the migration record before editing this pin: {pending:#?}"
-    );
-}
-
-thread_local! {
-    static PENDING_CAUSAL_HEADS: std::cell::RefCell<Vec<String>> =
-        const { std::cell::RefCell::new(Vec::new()) };
-}
-
-/// Record one fixture assertion that the superseded `cas_register` join cannot
-/// satisfy. See the pin in `lattice_round_trip_cases_execute_against_sdk_lattices`.
-fn pending_causal_heads(reason: &str) {
-    PENDING_CAUSAL_HEADS.with(|pending| pending.borrow_mut().push(reason.to_owned()));
 }
 
 /// Inventory gate over the dual-plane CBA scenario vectors plus the actor-chain
@@ -925,7 +974,11 @@ fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
     let reset_effect = ProjectionEffect::reset(target.clone(), op_set(recovered.clone()));
     let reset = IssuedOp {
         issuer_id: ActorId::service(issuer.clone()),
-        op: SealedOp::from_projection(move_id("ef"), &reset_effect),
+        // Section 9.5.1 item 1: the recovery's signed basis showed both divergent
+        // heads, so it supersedes exactly those two. The Seal admission path
+        // derives this set from that basis; the fixture states it directly.
+        op: SealedOp::from_projection(move_id("ef"), &reset_effect)
+            .with_supersedes(vec![move_id("ab"), move_id("cd")]),
     };
 
     let conflicted = vec![vec![

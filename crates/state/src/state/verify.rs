@@ -458,9 +458,9 @@ fn verify_fork_resolution_refs(
         });
     }
     // `state_witness` attests the single legal value a cell held before it
-    // joined to Bottom. The fork-resolution cell is `__unset__` until this very
-    // write, so the role has no referent here and must not be carried over from
-    // the section 9.5 cell-recovery contract. Optional `attestation` /
+    // joined to Bottom. The fork-resolution cell has no head at all until this
+    // very write, so the role has no referent here and must not be carried over
+    // from the section 9.5 cell-recovery contract. Optional `attestation` /
     // `inclusion_proof` refs stay allowed as supporting evidence.
     if event
         .refs
@@ -1885,7 +1885,12 @@ mod tests {
             conflicting("cd", json!({"policy_revision": 7})),
             crate::lattice::ordered_log::IssuedOp {
                 issuer_id: event.actor_id.clone(),
-                op: SealedOp::from_projection(digest("ef"), &effects[0]),
+                // §9.5.1: the recovery is an ordinary identity write that
+                // supersedes exactly the divergent heads its own signed basis
+                // observed. The Seal admission path derives this set; here the
+                // fixture states it directly.
+                op: SealedOp::from_projection(digest("ef"), &effects[0])
+                    .with_supersedes(vec![digest("ab"), digest("cd")]),
             },
         ];
         assert!(

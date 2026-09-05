@@ -66,6 +66,19 @@ pub struct SealedOp {
     /// to survive in the log itself. See [`crate::state::join_cell`], which
     /// drops every op at or before the last reset.
     pub recovery_reset: bool,
+    /// The head identities this write superseded, as `event_digest` values.
+    ///
+    /// `event-auth-state-resolution.md` §9.3.1.1: a `cas_register` write
+    /// supersedes exactly the heads its own signed `seal_basis` observed for
+    /// this cell. The reducer **derives** this from that verified basis; it is
+    /// never producer-reported and never appears on the wire.
+    ///
+    /// Empty means "superseded nothing", which is what a genuine first write
+    /// on a cell looks like — and also what a *concurrent* write looks like.
+    /// That is the fail-closed direction: two writes that each claim to
+    /// supersede nothing are two heads, and a `bottom=reject` cell in that
+    /// state materializes `failed_bottom` rather than silently picking one.
+    pub supersedes: Vec<Hash>,
 }
 
 impl SealedOp {
@@ -74,6 +87,15 @@ impl SealedOp {
             move_id,
             op,
             recovery_reset: false,
+            supersedes: Vec::new(),
+        }
+    }
+
+    /// A write that supersedes the named heads (§9.3.1.1).
+    pub fn superseding(move_id: Hash, op: LatticeOp, supersedes: Vec<Hash>) -> Self {
+        Self {
+            supersedes,
+            ..Self::new(move_id, op)
         }
     }
 
@@ -81,12 +103,22 @@ impl SealedOp {
     ///
     /// Every write-back path goes through here so a reset cannot silently
     /// degrade into an ordinary `set` between projection and the op log.
+    /// `supersedes` starts empty because the projector works from `kind +
+    /// payload` alone; the Seal admission path fills it in from the Move's
+    /// verified basis before the op reaches the log.
     pub fn from_projection(move_id: Hash, effect: &crate::ProjectionEffect) -> Self {
         Self {
             move_id,
             op: effect.op.clone(),
             recovery_reset: effect.recovery_reset,
+            supersedes: Vec::new(),
         }
+    }
+
+    /// Record the derived superseded-head set on an op built by projection.
+    pub fn with_supersedes(mut self, supersedes: Vec<Hash>) -> Self {
+        self.supersedes = supersedes;
+        self
     }
 }
 

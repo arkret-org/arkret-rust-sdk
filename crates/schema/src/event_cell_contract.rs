@@ -697,9 +697,9 @@ pub fn validate_registered_cell_plane_in_context(
 /// invite kind.
 ///
 /// Every caller below reads the slot's shape out of this one descriptor, so
-/// there is no second, hand-written copy of the subject rule, the lattice or
-/// the `__unset__` sentinel anywhere in the SDK. A registry that stopped
-/// declaring the write fails the lookup instead of falling back.
+/// there is no second, hand-written copy of the subject rule or the lattice
+/// anywhere in the SDK. A registry that stopped declaring the write fails the
+/// lookup instead of falling back.
 fn invite_live_target_write(
     kind: &EventKind,
 ) -> Result<EventCellWriteDescriptor, EventCellContractError> {
@@ -922,31 +922,6 @@ fn conflict_recovery_cell(
     })
 }
 
-/// The predecessor value a `cas_register` set supersedes.
-///
-/// `event-auth-state-resolution.md` §9.3.1 makes the projector copy the
-/// whole-value `head_eq` precondition the Move asserted on this very cell into
-/// `op.from`, so the join can tell a sequential replacement from a concurrent
-/// sibling without any Seal-DAG input. The rule is global to the lattice, not
-/// registered per cell family, so it lives here rather than in the registry row.
-///
-/// An initial write asserts no predecessor and leaves `from` absent. A Move that
-/// did assert one is copied verbatim, including a `head_eq` naming the cell's
-/// initial state: deciding that such an assertion opens a chain instead of
-/// superseding a value belongs to the join, which is the only layer that knows
-/// what this family's registered initial state actually is. Recognising one
-/// spelling of "initial" here and another one there is what put
-/// `ak.component.invite.live_target.v1` into `⊥` on its first claim.
-fn cas_register_predecessor(event: &ProjectedEventInput, cell: &CellRef) -> Option<Value> {
-    event
-        .preconditions
-        .iter()
-        .filter(|precondition| {
-            precondition.cell_id == *cell && precondition.predicate.op == PredicateOp::HeadEq
-        })
-        .find_map(|precondition| precondition.predicate.value.clone())
-}
-
 // The registry descriptor is destructured into its parts by the caller, and
 // each part is a separate lookup key here; re-bundling them would only move
 // the same arity behind a constructor.
@@ -1005,9 +980,14 @@ fn derive_effect_ops(
             )?;
             let mut op = LatticeOp::empty();
             op.value = Some(source(EventCellRuleKey::Value, "value")?);
-            if lattice == "cas_register" {
-                op.from = cas_register_predecessor(event, cell);
-            }
+            // `cas_register` deliberately leaves `op.from` absent.
+            // `event-auth-state-resolution.md` §9.3.1.4 deleted the rule that had
+            // the projector copy this Move's whole-value `head_eq` into `from`:
+            // binding supersession to the business value cannot tell
+            // `A -> B -> A` from `A -> B -> A -> B`. Causality now travels as the
+            // derived head-identity set the Seal admission path puts on
+            // `SealedOp::supersedes`, which the projector cannot compute because
+            // it only sees `kind + payload`.
             Ok(vec![ProjectedOp::Direct(op)])
         }
         EventCellRuleOperator::ApplyPatch => {
@@ -3248,8 +3228,8 @@ mod tests {
     #[test]
     fn invite_terminal_member_transition_is_exact() {
         // Both kinds release the live-target slot in the same Move: the
-        // lifecycle transition and the `set "__unset__"` on the slot are one
-        // atomic write set (governance-objects.md section 5.3).
+        // lifecycle transition and the `set null` on the slot are one atomic
+        // write set (governance-objects.md section 5.3).
         let expected = vec![
             write(
                 INVITE_LIFECYCLE_CELL,

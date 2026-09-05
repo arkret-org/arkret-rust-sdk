@@ -1606,40 +1606,54 @@ async fn mv_register_seal_batches_distinguish_successors_from_siblings() {
     ));
 }
 
-/// A `cas_register` cell is joined over its whole covered history, so the
-/// predecessors its chain walk binds to are still in the input.
+/// A `cas_register` cell is joined over its whole covered history: heads are
+/// derived from the identities each write superseded (§9.3.1.1), so truncating
+/// to the last Seal batch would resurrect a write whose superseder was cut away.
 #[tokio::test]
 async fn cas_register_seal_batches_join_the_whole_history() {
     let cell = CellRef::new(
         "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
     )
     .unwrap();
-    let set = |id, value: &str, from: Option<&str>| {
-        issued(SealedOp::new(
+    let set = |id, value: &str, saw: &[u8]| {
+        issued(SealedOp::superseding(
             move_id(id),
             LatticeOp {
                 op_type: LatticeOpType::Set,
                 tag: None,
                 value: Some(json!(value)),
-                from: from.map(|from| json!(from)),
+                from: None,
                 to: None,
                 reason: None,
                 issuer_seq: None,
             },
+            saw.iter().copied().map(move_id).collect(),
         ))
     };
     let lattice = crate::lattice::CasRegister;
 
-    let sequential = vec![
-        vec![set(1, "open", None)],
-        vec![set(2, "closed", Some("open"))],
-    ];
+    let sequential = vec![vec![set(1, "open", &[])], vec![set(2, "closed", &[1])]];
     assert_eq!(
         join_cell_seal_batches(&lattice, &cell, &sequential),
         CellState::Value(json!("closed"))
     );
 
-    let siblings = vec![vec![set(3, "open", None), set(4, "closed", None)]];
+    // Dropping the earlier batch would leave op 2 as the only input. It still
+    // reads "closed" there, so the assertion that actually pins "the whole
+    // history is the input" is that op 1 is *present and superseded*, not
+    // absent.
+    let heads = crate::lattice::cas_register::cas_heads(
+        &sequential
+            .iter()
+            .flatten()
+            .map(|entry| entry.op.clone())
+            .collect::<Vec<_>>(),
+    )
+    .expect("one head");
+    assert_eq!(heads.len(), 1);
+    assert_eq!(heads[0].move_id, move_id(2));
+
+    let siblings = vec![vec![set(3, "open", &[]), set(4, "closed", &[])]];
     assert!(matches!(
         join_cell_seal_batches(&lattice, &cell, &siblings),
         CellState::Bottom(_)
@@ -1887,15 +1901,19 @@ async fn recovery_freshness_uses_the_realm_default_and_seven_day_ceiling() {
     );
 }
 
-/// `event-auth-state-resolution.md` §9.5 — the recovery reset must produce
-/// a cell that has actually **left** `⊥`.
+/// `event-auth-state-resolution.md` §9.5.1 — the recovery reset must produce a
+/// cell that has actually **left** `⊥`, and it does so as an ordinary identity
+/// write rather than by truncating the log.
 ///
-/// Asserting the projected op's shape is not enough, and that is the exact
-/// gap this covers: the reset used to project as a plain `set` and was fed
-/// into the same join as the two concurrent branches that caused the `⊥`.
-/// The op-level assertion stayed green while the cell never recovered, so
-/// `bottom=reject` cells were permanently dead and the only escape §9.5
-/// defines did not exist.
+/// Asserting the projected op's shape is not enough, and that is the exact gap
+/// this covers: the reset used to project as a plain `set` and was fed into the
+/// same join as the two concurrent branches that caused the `⊥`. The op-level
+/// assertion stayed green while the cell never recovered.
+///
+/// §9.5.1 item 4 is the other half: a recovery supersedes **only the heads its
+/// own basis observed**. A branch it never saw stays a head and still merges,
+/// which is why this asserts a late sibling keeps the cell in conflict instead
+/// of being silently swallowed by the reset.
 #[tokio::test]
 async fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
     let cell = CellRef::new(
@@ -1911,17 +1929,25 @@ async fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
         reason: None,
         issuer_seq: None,
     };
-    let set =
-        |id, value: &str, from: Option<&str>| issued(SealedOp::new(move_id(id), op(value, from)));
-    let reset = |id, value: &str| {
-        issued(SealedOp::from_projection(
+    let set = |id, value: &str, saw: &[u8]| {
+        issued(SealedOp::superseding(
             move_id(id),
-            &crate::ProjectionEffect::reset(cell.clone(), op(value, None)),
+            op(value, None),
+            saw.iter().copied().map(move_id).collect(),
         ))
+    };
+    let reset = |id, value: &str, saw: &[u8]| {
+        issued(
+            SealedOp::from_projection(
+                move_id(id),
+                &crate::ProjectionEffect::reset(cell.clone(), op(value, None)),
+            )
+            .with_supersedes(saw.iter().copied().map(move_id).collect()),
+        )
     };
     let lattice = crate::lattice::CasRegister;
 
-    let conflicted = vec![vec![set(1, "open", None), set(2, "closed", None)]];
+    let conflicted = vec![vec![set(1, "open", &[]), set(2, "closed", &[])]];
     assert!(
         matches!(
             join_cell_seal_batches(&lattice, &cell, &conflicted),
@@ -1930,28 +1956,43 @@ async fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
         "precondition: concurrent cas_register writes put the cell in ⊥"
     );
 
+    // §9.5.1 item 1: the recovery's signed basis showed both divergent heads,
+    // so it supersedes both and becomes the cell's only head.
     let mut recovered = conflicted.clone();
-    recovered.push(vec![reset(3, "closed")]);
+    recovered.push(vec![reset(3, "closed", &[1, 2])]);
     assert_eq!(
         join_cell_seal_batches(&lattice, &cell, &recovered),
         CellState::Value(json!("closed")),
-        "the reset discards both conflicting branches and resolves the cell"
+        "the reset supersedes both conflicting branches and resolves the cell"
     );
 
-    // The boundary is a floor, not a freeze: ordinary writes accepted after
-    // the recovery still supersede it, chaining off the recovered value.
+    // The recovery is not a freeze: ordinary writes accepted after it still
+    // supersede it, chaining off the recovered value.
     let mut superseded = recovered.clone();
-    superseded.push(vec![set(4, "archived", Some("closed"))]);
+    superseded.push(vec![set(4, "archived", &[3])]);
     assert_eq!(
         join_cell_seal_batches(&lattice, &cell, &superseded),
         CellState::Value(json!("archived"))
     );
 
-    // And an unmarked op with the same shape must NOT recover the cell —
-    // otherwise the gate would pass on a build where the reset marker was
-    // dropped somewhere between projection and the op log.
+    // §9.5.1 item 4: a branch the recovery's basis never covered is not
+    // swallowed by it. Truncating the log at the reset — which is what the
+    // arrival-order `rposition` slice did — would have hidden this sibling and
+    // reported a clean "closed".
+    let mut late_sibling = recovered.clone();
+    late_sibling.push(vec![set(6, "open", &[])]);
+    assert!(
+        matches!(
+            join_cell_seal_batches(&lattice, &cell, &late_sibling),
+            CellState::Bottom(_)
+        ),
+        "a late branch the recovery never observed still merges"
+    );
+
+    // A write that supersedes nothing does not recover the cell: it is just a
+    // third concurrent head.
     let mut unmarked = conflicted;
-    unmarked.push(vec![set(5, "closed", None)]);
+    unmarked.push(vec![set(5, "closed", &[])]);
     assert!(matches!(
         join_cell_seal_batches(&lattice, &cell, &unmarked),
         CellState::Bottom(_)

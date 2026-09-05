@@ -399,10 +399,12 @@ mod tests {
         let ProjectedOp::Direct(rotate_op) = rotate_write.op else {
             panic!("RHRK rotate must project a direct CAS set");
         };
-        assert_eq!(
-            rotate_op.from.as_ref(),
-            Some(&kat["projected_rotate_op"]["from"])
-        );
+        // Section 9.3.1.4 deleted the rule that copied this Move's head_eq into
+        // `op.from`, so a projected `cas_register` set carries no predecessor
+        // value. The signed whole-value `head_eq` is still on the Event and is
+        // still enforced; what changed is that causality no longer rides on the
+        // business value.
+        assert!(rotate_op.from.is_none());
         assert_eq!(
             rotate_op.value.as_ref(),
             Some(&kat["projected_rotate_op"]["to"])
@@ -426,15 +428,28 @@ mod tests {
                 .to_owned(),
         )
         .unwrap();
+        // The rotate's own signed basis covered the register write, so Seal
+        // admission derives that identity as what it supersedes (§9.3.1.3 items
+        // 1 and 4) and the cell settles on the rotated tuple.
         let sealed = vec![
             SealedOp::new(register_move_id.clone(), register_op.clone()),
-            SealedOp::new(rotate_move_id.clone(), rotate_op),
+            SealedOp::superseding(
+                rotate_move_id.clone(),
+                rotate_op,
+                vec![register_move_id.clone()],
+            ),
         ];
         assert_eq!(
             CasRegister.join(&register_write.cell_id, &sealed),
             CellState::Value(kat["projected_rotate_op"]["to"].clone())
         );
 
+        // A rotate that superseded nothing is concurrent with the register
+        // write, not a replacement of it, so the cell is in conflict. This is
+        // where "stale" lives now: dropping the signed `head_eq` no longer
+        // changes the projected op at all — §9.3.1.3 item 3 rejects the write at
+        // Seal admission by comparing head identities, and the join below is the
+        // defensive backstop for an op that somehow reached the log anyway.
         let mut stale_event = rotate_event;
         stale_event.preconditions.clear();
         let stale_write = arkret_schema::project_registered_cell_writes(

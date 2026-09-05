@@ -1845,8 +1845,8 @@ impl ForkResolutionRecord {
             return schema_violation(ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED);
         }
         // `state_witness` attests the legal value a cell held before Bottom.
-        // The fork-resolution cell is `__unset__` until this very write, so the
-        // role has no referent here and must not be smuggled in from the
+        // The fork-resolution cell has no head at all until this very write, so
+        // the role has no referent here and must not be smuggled in from the
         // section 9.5 cell-recovery contract.
         if event
             .refs
