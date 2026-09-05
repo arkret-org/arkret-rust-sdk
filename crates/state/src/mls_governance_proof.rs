@@ -2471,42 +2471,11 @@ async fn add_pcr_holder_from_verified_create_anchor(
 fn winning_membership_join(
     covered_ops: &[crate::lattice::ordered_log::IssuedOp],
 ) -> arkret_wire::Result<Hash> {
-    let covered_ops = covered_ops
-        .iter()
-        .rposition(|issued| issued.op.recovery_reset)
-        .map_or(covered_ops, |boundary| &covered_ops[boundary..]);
-    let mut current = Value::String("leave".to_owned());
-    let mut seen = BTreeSet::<(String, String)>::new();
-    let mut winning_join = None;
-    for issued in covered_ops {
-        let from = issued.op.op.from.as_ref().and_then(Value::as_str);
-        let to = issued.op.op.to.as_ref().and_then(Value::as_str);
-        let (Some(from), Some(to)) = (from, to) else {
-            return Err(WireError::Protocol(
-                "membership cell contains a non-transition operation".to_owned(),
-            ));
-        };
-        let transition = (from.to_owned(), to.to_owned());
-        if seen.contains(&transition) {
-            continue;
-        }
-        if seen
-            .iter()
-            .any(|(seen_from, seen_to)| seen_from == from && seen_to != to)
-            || current.as_str() != Some(from)
-        {
-            return Err(WireError::Protocol(
-                "membership operation history does not resolve to the effective FSM value"
-                    .to_owned(),
-            ));
-        }
-        seen.insert(transition);
-        current = Value::String(to.to_owned());
-        winning_join = (to == "join").then(|| issued.op.move_id.clone());
-    }
-    winning_join.ok_or_else(|| {
-        WireError::Protocol("joined member cell has no effective join Event".to_owned())
-    })
+    crate::lattice::fsm::membership_transition_head_into(covered_ops, "join")
+        .map_err(WireError::Protocol)?
+        .ok_or_else(|| {
+            WireError::Protocol("joined member cell has no effective join Event".to_owned())
+        })
 }
 
 fn add_joined_holder_from_event(

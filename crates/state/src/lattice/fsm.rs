@@ -48,6 +48,76 @@ impl Fsm {
     }
 }
 
+/// The registered initial state of `ak.fsm.membership.v1`.
+///
+/// The membership state machine is shared by `ak.component.member.state.v1` and
+/// `ak.component.circle.member.v1`, and its contract lives in
+/// `contract-registry.json` under `event_kind_registry.fsm_templates`. This
+/// constant exists because the two callers of
+/// [`membership_transition_head_into`] sit below the lattice registry that
+/// resolves that contract, and repeating the literal at each of them is how
+/// three separate copies of this fold came to exist.
+///
+/// It is a stopgap, not a design: the `fsm` transition algebra is unresolved
+/// (`arkret-work/review/spec-open/2026-09-06-1610`), and when it lands this fold
+/// and this constant both go away in favour of the resolved contract.
+pub const MEMBERSHIP_INITIAL_STATE: &str = "leave";
+
+/// The identity of the write that most recently moved a membership cell into
+/// `target`, or `None` if the cell does not resolve there.
+///
+/// **This is the arrival-ordered fold, kept in one place rather than fixed.**
+/// It walks the op log in delivery order, so it inherits every defect
+/// `2026-09-06-1610` documents: it is not commutative, its `(from, to)`
+/// deduplication cannot tell `A -> B -> A` from `A -> B -> A -> B`, and it
+/// truncates at the last `recovery_reset` even though §9.5.1 item 5 forbids
+/// exactly that for `fsm`. It existed in three independent copies — here, in the
+/// MLS governance proof replay, and in soland's notary — each with its own
+/// hardcoded `"leave"`. Converging them does not make the semantics right; it
+/// makes there be one thing to correct when the algebra is adjudicated.
+///
+/// `Err` is a history that does not fold at all: a non-transition op in a
+/// transition cell, a sibling that contradicts an earlier transition from the
+/// same state, or a `from` that does not match the state the walk is in.
+pub fn membership_transition_head_into(
+    ops: &[crate::lattice::ordered_log::IssuedOp],
+    target: &str,
+) -> Result<Option<crate::Hash>, String> {
+    let ops = ops
+        .iter()
+        .rposition(|issued| issued.op.recovery_reset)
+        .map_or(ops, |boundary| &ops[boundary..]);
+    let mut current = MEMBERSHIP_INITIAL_STATE.to_owned();
+    let mut seen = std::collections::BTreeSet::<(String, String)>::new();
+    let mut head = None;
+    for issued in ops {
+        let from = issued.op.op.from.as_ref().and_then(Value::as_str);
+        let to = issued.op.op.to.as_ref().and_then(Value::as_str);
+        let (Some(from), Some(to)) = (from, to) else {
+            return Err("membership cell contains a non-transition operation".to_owned());
+        };
+        let transition = (from.to_owned(), to.to_owned());
+        if seen.contains(&transition) {
+            continue;
+        }
+        if seen
+            .iter()
+            .any(|(seen_from, seen_to)| seen_from == from && seen_to != to)
+            || current != from
+        {
+            return Err(
+                "membership operation history does not resolve to the effective FSM value"
+                    .to_owned(),
+            );
+        }
+        seen.insert(transition);
+        current.clear();
+        current.push_str(to);
+        head = (to == target).then(|| issued.op.move_id.clone());
+    }
+    Ok(head)
+}
+
 impl Lattice for Fsm {
     fn kind(&self) -> LatticeKind {
         LatticeKind::Fsm

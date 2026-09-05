@@ -3243,7 +3243,7 @@ mod tests {
             "station_id": "ak:did_core:web:principal.example"
         }});
         let mut pre_state = FrozenPreState::new();
-        pre_state.insert(lifecycle.clone(), stored_invitee_value.clone());
+        pre_state.insert(lifecycle, stored_invitee_value);
 
         // Both kinds carry a `stored_field_matches_payload(invitee_account_id)`
         // pre-state requirement, so neither is evaluable against an empty

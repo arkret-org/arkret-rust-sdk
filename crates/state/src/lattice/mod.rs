@@ -40,7 +40,7 @@ mod traits;
 
 pub use cas_register::CasRegister;
 pub use counter::Counter;
-pub use fsm::Fsm;
+pub use fsm::{Fsm, MEMBERSHIP_INITIAL_STATE, membership_transition_head_into};
 pub use mv_register::MvRegister;
 pub use or_set::OrSet;
 pub use ordered_log::OrderedLog;
