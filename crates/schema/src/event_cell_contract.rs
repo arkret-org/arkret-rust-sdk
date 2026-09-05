@@ -2776,7 +2776,9 @@ mod tests {
                 ),
                 write(
                     INVITE_LIVE_TARGET_CELL,
-                    set_op(json!("ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA")),
+                    set_op(json!(
+                        "ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA"
+                    )),
                 ),
             ]
         );

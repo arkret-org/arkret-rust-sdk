@@ -5,8 +5,8 @@ use std::fmt;
 
 use arkret_wire::{
     ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId, NotificationKind,
-    NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorScope, RealmId,
-    RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
+    NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorScope, RealmId, RelationId,
+    Result, SchemaId, StrandId, ViewId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
