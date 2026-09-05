@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-05.6;
-//! sha256=6d13792f667cc05083e83ef0765de2a1f1aceb12102a8d9a9ada6ba5d5e79161 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-06.1;
+//! sha256=bb556b769db964948407d2dc354d6da54309b49c9174ee189185274278738d59 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -583,7 +583,7 @@ impl ProofContextId {
 #[repr(usize)]
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
-    AgentAuthoritySnapshotV1,
+    AgentAuthorityStateEvidenceV1,
     AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
     AppletDeliveryAuthenticationRecordDigestV1,
@@ -626,7 +626,7 @@ pub enum DomainSeparationId {
 impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
-        Self::AgentAuthoritySnapshotV1,
+        Self::AgentAuthorityStateEvidenceV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
         Self::AppletDeliveryAuthenticationRecordDigestV1,
@@ -667,7 +667,8 @@ impl DomainSeparationId {
     ];
 
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
-    pub const AGENT_AUTHORITY_SNAPSHOT_V1: &'static str = "ak.agent_authority_snapshot.v1";
+    pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
+        "ak.agent_authority_state_evidence.v1";
     pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
         "ak.agent_signer_admission_receipt.v1";
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.agent_signer_evidence.v1";
@@ -730,7 +731,7 @@ impl DomainSeparationId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
-            Self::AgentAuthoritySnapshotV1 => Self::AGENT_AUTHORITY_SNAPSHOT_V1,
+            Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
             Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
             Self::AppletDeliveryAuthenticationRecordDigestV1 => {
@@ -794,7 +795,7 @@ impl DomainSeparationId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
-            Self::AGENT_AUTHORITY_SNAPSHOT_V1 => Some(Self::AgentAuthoritySnapshotV1),
+            Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
             Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
             Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {

@@ -31,7 +31,7 @@ use crate::agent::{
 };
 use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
-const SNAPSHOT_LEASE_DOMAIN: &str = DomainSeparationId::AGENT_AUTHORITY_SNAPSHOT_V1;
+const AUTHORITY_STATE_LEASE_DOMAIN: &str = DomainSeparationId::AGENT_AUTHORITY_STATE_EVIDENCE_V1;
 const CONTROLLER_GATE_DOMAIN: &str = DomainSeparationId::CONTROLLER_ACCOUNT_GATE_V1;
 const EVENT_ADMISSION_RECEIPT_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_ADMISSION_RECEIPT_V1;
 const OUTER_ATTESTATION_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_EVIDENCE_V1;
@@ -85,13 +85,13 @@ pub fn sign_controller_account_gate_attestation(
     Ok(())
 }
 
-/// Sign the short-lived Agent Authority lease after `snapshot_digest` has
+/// Sign the short-lived Agent Authority lease after `state_digest` has
 /// been computed from the complete snapshot core.
-pub fn sign_agent_snapshot_lease(
-    lease: &mut arkret_models_identity::agent_signer_evidence::AgentSnapshotLease,
+pub fn sign_agent_authority_state_lease(
+    lease: &mut arkret_models_identity::agent_signer_evidence::AgentAuthorityStateLease,
     signing_key: &SigningKey,
 ) -> Result<(), AgentEvidenceSigningError> {
-    lease.proof.jws = domain_proof_jws(SNAPSHOT_LEASE_DOMAIN, lease, signing_key)?;
+    lease.proof.jws = domain_proof_jws(AUTHORITY_STATE_LEASE_DOMAIN, lease, signing_key)?;
     Ok(())
 }
 
@@ -260,7 +260,7 @@ pub struct VerifiedAgentSigningKey {
     authority_id: DidCoreId,
     key: [u8; 32],
     authorization_ref: EventId,
-    snapshot_digest: Hash,
+    state_digest: Hash,
     admission_evidence_digest: Hash,
 }
 
@@ -281,8 +281,8 @@ impl VerifiedAgentSigningKey {
         &self.authorization_ref
     }
 
-    pub fn snapshot_digest(&self) -> &Hash {
-        &self.snapshot_digest
+    pub fn state_digest(&self) -> &Hash {
+        &self.state_digest
     }
 
     pub fn admission_evidence_digest(&self) -> &Hash {
@@ -340,7 +340,7 @@ pub enum AgentSignerEvidenceVerdict {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAgentEvidenceState {
     admission_evidence_digest: Hash,
-    snapshot_digest: Hash,
+    state_digest: Hash,
     signer_id: DidCoreId,
     authorization_event_id: EventId,
     key_seal_id: SealId,
@@ -570,8 +570,8 @@ pub fn verify_agent_evidence_state(
     admission: &AgentAdmissionEvidence,
     context: &AgentEvidenceStateVerificationContext<'_>,
 ) -> Result<VerifiedAgentEvidenceState, AgentEvidenceRejectedReason> {
-    let snapshot = &admission.agent_authority_snapshot;
-    if canonical_digest(&snapshot.core)? != snapshot.snapshot_digest
+    let snapshot = &admission.agent_authority_state_evidence;
+    if canonical_digest(&snapshot.state)? != snapshot.state_digest
         || agent_admission_evidence_digest(
             snapshot,
             &admission.controller_account_gate_attestation,
@@ -581,14 +581,14 @@ pub fn verify_agent_evidence_state(
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
-    (context.verify_lifecycle_reducer)(&snapshot.core.agent_lifecycle_witness)?;
+    (context.verify_lifecycle_reducer)(&snapshot.state.agent_lifecycle_witness)?;
     Ok(VerifiedAgentEvidenceState {
         admission_evidence_digest: admission.admission_evidence_digest.clone(),
-        snapshot_digest: snapshot.snapshot_digest.clone(),
+        state_digest: snapshot.state_digest.clone(),
         signer_id: context.signer_id.clone(),
         authorization_event_id: context.agent_key_authorize_event_id.clone(),
-        key_seal_id: snapshot.core.key_state_witness.seal_id.clone(),
-        lifecycle_seal_id: snapshot.core.agent_lifecycle_witness.seal_id.clone(),
+        key_seal_id: snapshot.state.key_state_witness.seal_id.clone(),
+        lifecycle_seal_id: snapshot.state.agent_lifecycle_witness.seal_id.clone(),
     })
 }
 
@@ -598,19 +598,19 @@ pub fn verify_agent_evidence_state(
 /// Producers and verifiers must share this exact two-field projection; local
 /// look-alike structs risk changing the signed evidence contract independently.
 pub fn agent_admission_evidence_digest(
-    snapshot: &arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
+    snapshot: &arkret_models_identity::agent_signer_evidence::AgentAuthorityStateEvidence,
     gate: &arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
 ) -> Result<Hash, AgentEvidenceRejectedReason> {
     #[derive(Serialize)]
     struct AdmissionCore<'a> {
-        agent_authority_snapshot:
-            &'a arkret_models_identity::agent_signer_evidence::AgentAuthoritySnapshot,
+        agent_authority_state_evidence:
+            &'a arkret_models_identity::agent_signer_evidence::AgentAuthorityStateEvidence,
         controller_account_gate_attestation:
             &'a arkret_models_identity::agent_signer_evidence::ControllerAccountGateAttestation,
     }
 
     canonical_digest(&AdmissionCore {
-        agent_authority_snapshot: snapshot,
+        agent_authority_state_evidence: snapshot,
         controller_account_gate_attestation: gate,
     })
 }
@@ -881,16 +881,16 @@ pub fn validate_current_agent_signer_evidence(
         &context.common,
     ) {
         Ok(verified) => {
-            let snapshot = &admission_evidence.agent_authority_snapshot;
+            let snapshot = &admission_evidence.agent_authority_state_evidence;
             let gate_digest =
                 match canonical_digest(&admission_evidence.controller_account_gate_attestation) {
                     Ok(digest) => digest,
                     Err(reason) => return rejected(reason),
                 };
-            if current_observation.agent_snapshot_digest != snapshot.snapshot_digest
-                || current_observation.agent_key_seal_id != snapshot.core.key_state_witness.seal_id
+            if current_observation.agent_authority_state_digest != snapshot.state_digest
+                || current_observation.agent_key_seal_id != snapshot.state.key_state_witness.seal_id
                 || current_observation.agent_status_seal_id
-                    != snapshot.core.agent_lifecycle_witness.seal_id
+                    != snapshot.state.agent_lifecycle_witness.seal_id
                 || current_observation.controller_gate_attestation_digest != gate_digest
                 || current_observation.evaluated_at > context.common.now
             {
@@ -1000,15 +1000,15 @@ fn validate_common_evidence(
     outer_not_before: DateTime<Utc>,
     context: &AgentEvidenceCommonContext<'_>,
 ) -> Result<VerifiedAgentSigningKey, CommonEvidenceFailure> {
-    let snapshot = &admission.agent_authority_snapshot;
-    let core = &snapshot.core;
+    let snapshot = &admission.agent_authority_state_evidence;
+    let core = &snapshot.state;
     let binding = &core.signing_key_binding;
     let authorization = &core.authorization;
     let key_witness = &core.key_state_witness;
     let lifecycle = &core.agent_lifecycle_witness;
     let gate = &admission.controller_account_gate_attestation;
 
-    let expected_snapshot_digest = canonical_digest(&snapshot.core)?;
+    let expected_state_digest = canonical_digest(&snapshot.state)?;
     let expected_admission_digest = agent_admission_evidence_digest(snapshot, gate)?;
     let expected_outer_core_digest = outer_core_digest(evidence)?;
     let (outer_domain, outer_core_digest_value, outer_source_id_value, outer_method) = match outer {
@@ -1050,13 +1050,13 @@ fn validate_common_evidence(
         ),
     }
     .is_ok();
-    if snapshot.snapshot_digest != expected_snapshot_digest
+    if snapshot.state_digest != expected_state_digest
         || admission.admission_evidence_digest != expected_admission_digest
         || snapshot.lease.authority_kind.as_str() != "agent_authority"
         || snapshot.lease.authority_id != core.authority_id
         || snapshot.lease.authority_id != *context.expected_authority_id
         || snapshot.lease.verification_method != *context.expected_authority_verification_method
-        || snapshot.lease.snapshot_digest != snapshot.snapshot_digest
+        || snapshot.lease.state_digest != snapshot.state_digest
         || lease_authority_id != snapshot.lease.authority_id
         || snapshot.lease.issued_at >= snapshot.lease.expires_at
         || outer_domain.as_str() != OUTER_ATTESTATION_DOMAIN
@@ -1067,7 +1067,7 @@ fn validate_common_evidence(
         || !outer_time_valid
         || basis_time < snapshot.lease.issued_at
         || verify_domain_proof(
-            SNAPSHOT_LEASE_DOMAIN,
+            AUTHORITY_STATE_LEASE_DOMAIN,
             &snapshot.lease,
             &snapshot.lease.proof,
             context.authority_public_key,
@@ -1134,7 +1134,7 @@ fn validate_common_evidence(
     }
     let verified_state = context.verified_state;
     if verified_state.admission_evidence_digest != admission.admission_evidence_digest
-        || verified_state.snapshot_digest != snapshot.snapshot_digest
+        || verified_state.state_digest != snapshot.state_digest
         || verified_state.signer_id != *context.signer_id
         || verified_state.authorization_event_id != *context.agent_key_authorize_event_id
         || verified_state.key_seal_id != key_witness.seal_id
@@ -1179,7 +1179,7 @@ fn validate_common_evidence(
         authority_id: context.expected_authority_id.clone(),
         key,
         authorization_ref: context.agent_key_authorize_event_id.clone(),
-        snapshot_digest: snapshot.snapshot_digest.clone(),
+        state_digest: snapshot.state_digest.clone(),
         admission_evidence_digest: admission.admission_evidence_digest.clone(),
     })
 }
@@ -1265,10 +1265,10 @@ fn validate_state_witnesses(
     admission: &AgentAdmissionEvidence,
     context: &AgentEvidenceStateVerificationContext<'_>,
 ) -> Result<bool, AgentEvidenceRejectedReason> {
-    let snapshot = &admission.agent_authority_snapshot;
-    let key = &snapshot.core.key_state_witness;
-    let lifecycle = &snapshot.core.agent_lifecycle_witness;
-    let binding = &snapshot.core.signing_key_binding;
+    let snapshot = &admission.agent_authority_state_evidence;
+    let key = &snapshot.state.key_state_witness;
+    let lifecycle = &snapshot.state.agent_lifecycle_witness;
+    let binding = &snapshot.state.signing_key_binding;
     let key_value = serde_json::to_value(&key.cell_value)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let lifecycle_value = serde_json::to_value(lifecycle.cell_value)
@@ -1280,7 +1280,7 @@ fn validate_state_witnesses(
         && key.authorization_event_id == *context.agent_key_authorize_event_id
         && key.seal.id == key.seal_id
         && key.seal.state_root == key.state_root
-        && key.seal.realm_id == snapshot.core.principal_control_realm_id
+        && key.seal.realm_id == snapshot.state.principal_control_realm_id
         && agent_authorization_cell_ref(context.signer_id, context.agent_key_id).ok()
             == Some(key.cell_ref.clone())
         && value_contains_authorization_record(
@@ -1310,7 +1310,7 @@ fn validate_state_witnesses(
             })
         && lifecycle.seal.id == lifecycle.seal_id
         && lifecycle.seal.state_root == lifecycle.state_root
-        && lifecycle.seal.realm_id == snapshot.core.principal_control_realm_id
+        && lifecycle.seal.realm_id == snapshot.state.principal_control_realm_id
         && agent_lifecycle_cell_ref(context.signer_actor_id).ok()
             == Some(lifecycle.cell_ref.clone())
         && verify_witness_branch(
@@ -1328,8 +1328,8 @@ fn validate_seal_lineage(
     admission: &AgentAdmissionEvidence,
     context: &AgentEvidenceStateVerificationContext<'_>,
 ) -> Result<bool, AgentEvidenceRejectedReason> {
-    let snapshot = &admission.agent_authority_snapshot;
-    let core = &snapshot.core;
+    let snapshot = &admission.agent_authority_state_evidence;
+    let core = &snapshot.state;
     if core.seal_lineages.is_empty() || core.seal_lineages.len() > MAX_SEAL_LINEAGE {
         return Ok(false);
     }
@@ -1634,33 +1634,45 @@ fn value_contains_authorization_record(
 
 #[cfg(test)]
 mod producer_tests {
-    use arkret_models_identity::agent_signer_evidence::AgentSnapshotLease;
+    use arkret_models_identity::agent_signer_evidence::AgentAuthorityStateLease;
     use serde_json::json;
 
     use super::*;
 
     #[test]
-    fn signed_snapshot_lease_rejects_evidence_tamper() {
+    fn signed_authority_state_lease_rejects_evidence_tamper() {
         let signing_key = SigningKey::from_bytes(&[29_u8; 32]);
-        let mut lease: AgentSnapshotLease = serde_json::from_value(json!({
+        let mut lease: AgentAuthorityStateLease = serde_json::from_value(json!({
             "authority_kind": "agent_authority",
             "authority_id": "ak:did_core:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
             "verification_method": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
-            "snapshot_digest": format!("sha256:{}", "11".repeat(32)),
+            "state_digest": format!("sha256:{}", "11".repeat(32)),
             "issued_at": "2026-08-10T00:00:00.000Z",
             "expires_at": "2026-08-10T00:02:00.000Z",
             "proof": {"kind": "detached_jws", "jws": "pending"}
         }))
         .unwrap();
-        sign_agent_snapshot_lease(&mut lease, &signing_key).unwrap();
+        sign_agent_authority_state_lease(&mut lease, &signing_key).unwrap();
         let material = PublicKeyMaterial::Ed25519Raw {
             bytes: signing_key.verifying_key().to_bytes().to_vec(),
         };
-        verify_domain_proof(SNAPSHOT_LEASE_DOMAIN, &lease, &lease.proof, &material).unwrap();
+        verify_domain_proof(
+            AUTHORITY_STATE_LEASE_DOMAIN,
+            &lease,
+            &lease.proof,
+            &material,
+        )
+        .unwrap();
 
-        lease.snapshot_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
+        lease.state_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
         assert!(
-            verify_domain_proof(SNAPSHOT_LEASE_DOMAIN, &lease, &lease.proof, &material).is_err()
+            verify_domain_proof(
+                AUTHORITY_STATE_LEASE_DOMAIN,
+                &lease,
+                &lease.proof,
+                &material
+            )
+            .is_err()
         );
     }
 }

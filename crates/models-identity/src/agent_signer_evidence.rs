@@ -269,11 +269,11 @@ pub struct AgentDetachedJws {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSnapshotLease {
+pub struct AgentAuthorityStateLease {
     pub authority_kind: NonEmptyString,
     pub authority_id: DidCoreId,
     pub verification_method: DidUrl,
-    pub snapshot_digest: Hash,
+    pub state_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -284,7 +284,7 @@ pub struct AgentSnapshotLease {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentAuthoritySnapshotCore {
+pub struct AgentAuthorityState {
     pub authority_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
     pub frontier_seal_id: SealId,
@@ -301,10 +301,10 @@ pub struct AgentAuthoritySnapshotCore {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentAuthoritySnapshot {
-    pub core: AgentAuthoritySnapshotCore,
-    pub snapshot_digest: Hash,
-    pub lease: AgentSnapshotLease,
+pub struct AgentAuthorityStateEvidence {
+    pub state: AgentAuthorityState,
+    pub state_digest: Hash,
+    pub lease: AgentAuthorityStateLease,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -385,7 +385,7 @@ pub struct ControllerAccountGateAttestationIssueOutcome {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentAdmissionEvidence {
-    pub agent_authority_snapshot: AgentAuthoritySnapshot,
+    pub agent_authority_state_evidence: AgentAuthorityStateEvidence,
     pub controller_account_gate_attestation: ControllerAccountGateAttestation,
     pub admission_evidence_digest: Hash,
 }
@@ -399,7 +399,7 @@ pub struct AgentCurrentObservation {
     pub verifier_id: DidCoreId,
     pub audience_id: DidCoreId,
     pub challenge: NonEmptyString,
-    pub agent_snapshot_digest: Hash,
+    pub agent_authority_state_digest: Hash,
     pub agent_key_seal_id: SealId,
     pub agent_status_seal_id: SealId,
     pub controller_gate_attestation_digest: Hash,

@@ -139,8 +139,8 @@ impl AuthenticatedSignerResolutionEvidence {
                         admission_evidence, ..
                     } => {
                         let binding = &admission_evidence
-                            .agent_authority_snapshot
-                            .core
+                            .agent_authority_state_evidence
+                            .state
                             .signing_key_binding;
                         &binding.agent_id == signer_id
                             && &binding.verification_method == verification_method

@@ -535,8 +535,8 @@ where
                             ..
                         } => {
                             &admission_evidence
-                                .agent_authority_snapshot
-                                .core
+                                .agent_authority_state_evidence
+                                .state
                                 .signing_key_binding
                         }
                     };

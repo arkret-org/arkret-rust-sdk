@@ -2091,11 +2091,11 @@ impl AgentEvidenceViewLocator {
                 "Agent evidence view locator requires current signer evidence".to_owned(),
             ));
         };
-        let snapshot = &admission_evidence.agent_authority_snapshot.core;
-        let binding = &snapshot.signing_key_binding;
-        let lifecycle = &snapshot.agent_lifecycle_witness;
+        let authority_state = &admission_evidence.agent_authority_state_evidence.state;
+        let binding = &authority_state.signing_key_binding;
+        let lifecycle = &authority_state.agent_lifecycle_witness;
         let expected_basis = SealBasis {
-            leaves: vec![snapshot.frontier_seal_id.clone()],
+            leaves: vec![authority_state.frontier_seal_id.clone()],
         };
         if lifecycle.status != AgentLifecycleStatus::Active
             || self.agent_id != binding.agent_id

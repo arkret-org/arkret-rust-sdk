@@ -575,7 +575,7 @@ mod tests {
             verifier_id: request.recipient_account_id.station_id.clone(),
             audience_id: request.recipient_account_id.principal_id.clone(),
             challenge: request.challenge.clone(),
-            agent_snapshot_digest: graph_hash(10),
+            agent_authority_state_digest: graph_hash(10),
             agent_key_seal_id: SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap(),
             agent_status_seal_id: SealId::new(format!("ak:seal:sha256:{}", "c".repeat(64)))
                 .unwrap(),

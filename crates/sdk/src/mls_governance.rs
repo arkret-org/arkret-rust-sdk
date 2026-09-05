@@ -330,8 +330,8 @@ pub fn build_agent_signer_resolution_evidence(
                 ..
             } => {
                 let binding = &admission_evidence
-                    .agent_authority_snapshot
-                    .core
+                    .agent_authority_state_evidence
+                    .state
                     .signing_key_binding;
                 (
                     binding.agent_id.clone(),
@@ -346,8 +346,8 @@ pub fn build_agent_signer_resolution_evidence(
                 ..
             } => {
                 let binding = &admission_evidence
-                    .agent_authority_snapshot
-                    .core
+                    .agent_authority_state_evidence
+                    .state
                     .signing_key_binding;
                 (
                     binding.agent_id.clone(),
@@ -370,8 +370,8 @@ pub fn build_agent_signer_resolution_evidence(
             admission_evidence, ..
         } => admission_evidence,
     };
-    let snapshot = &admission_evidence.agent_authority_snapshot;
-    let binding = &snapshot.core.signing_key_binding;
+    let authority_evidence_state = &admission_evidence.agent_authority_state_evidence;
+    let binding = &authority_evidence_state.state.signing_key_binding;
     let gate = &admission_evidence.controller_account_gate_attestation;
     for evidence in [
         authority_evidence,
@@ -381,8 +381,9 @@ pub fn build_agent_signer_resolution_evidence(
     ] {
         evidence.validate_attester_binding()?;
     }
-    if authority_evidence.signer_id() != &snapshot.core.authority_id
-        || authority_evidence.verification_method() != &snapshot.lease.verification_method
+    if authority_evidence.signer_id() != &authority_evidence_state.state.authority_id
+        || authority_evidence.verification_method()
+            != &authority_evidence_state.lease.verification_method
         || controller_evidence.signer_id() != &binding.controller_principal_id
         || controller_evidence.verification_method()
             != &binding.controller_proof.verification_method
@@ -464,8 +465,8 @@ where
             "Agent signer evidence is not historical_event".to_owned(),
         ));
     };
-    let snapshot = &admission_evidence.agent_authority_snapshot;
-    let core = &snapshot.core;
+    let authority_evidence_state = &admission_evidence.agent_authority_state_evidence;
+    let core = &authority_evidence_state.state;
     let binding = &core.signing_key_binding;
     let gate = &admission_evidence.controller_account_gate_attestation;
 
@@ -473,7 +474,7 @@ where
         dependencies,
         attester_signer_evidence_ref,
         &core.authority_id,
-        &snapshot.lease.verification_method,
+        &authority_evidence_state.lease.verification_method,
     )?;
     let controller_evidence = bound_evidence_by_ref(
         dependencies,
@@ -483,8 +484,11 @@ where
     )?;
     let controller_public_key =
         authenticated_document_key(controller_evidence, dependencies, binding.issued_at)?;
-    let authority_public_key =
-        authenticated_document_key(authority_evidence, dependencies, snapshot.lease.issued_at)?;
+    let authority_public_key = authenticated_document_key(
+        authority_evidence,
+        dependencies,
+        authority_evidence_state.lease.issued_at,
+    )?;
     let account_authority_evidence = bound_evidence_by_ref(
         dependencies,
         account_authority_signer_evidence_ref,
@@ -575,7 +579,9 @@ where
                 authorize_public_key_digest: &public_key_digest,
                 authorize_signing_key_binding_digest: &binding_digest,
                 expected_authority_id: &core.authority_id,
-                expected_authority_verification_method: &snapshot.lease.verification_method,
+                expected_authority_verification_method: &authority_evidence_state
+                    .lease
+                    .verification_method,
                 expected_account_authority_id: &gate.authority_id,
                 expected_account_authority_verification_method: &gate.verification_method,
                 controller_public_key: &controller_public_key,
@@ -660,15 +666,15 @@ where
         ));
     }
 
-    let snapshot = &admission_evidence.agent_authority_snapshot;
-    let core = &snapshot.core;
+    let authority_evidence_state = &admission_evidence.agent_authority_state_evidence;
+    let core = &authority_evidence_state.state;
     let binding = &core.signing_key_binding;
     let gate = &admission_evidence.controller_account_gate_attestation;
     let authority_evidence = bound_evidence_by_ref(
         dependencies,
         attester_signer_evidence_ref,
         &core.authority_id,
-        &snapshot.lease.verification_method,
+        &authority_evidence_state.lease.verification_method,
     )?;
     let controller_evidence = bound_evidence_by_ref(
         dependencies,
@@ -699,8 +705,11 @@ where
     }
     let controller_public_key =
         authenticated_document_key(controller_evidence, dependencies, binding.issued_at)?;
-    let authority_public_key =
-        authenticated_document_key(authority_evidence, dependencies, snapshot.lease.issued_at)?;
+    let authority_public_key = authenticated_document_key(
+        authority_evidence,
+        dependencies,
+        authority_evidence_state.lease.issued_at,
+    )?;
     let account_authority_public_key =
         authenticated_document_key(account_authority_evidence, dependencies, gate.issued_at)?;
     authenticated_document_key(
@@ -757,7 +766,9 @@ where
                 authorize_public_key_digest: &public_key_digest,
                 authorize_signing_key_binding_digest: &binding_digest,
                 expected_authority_id: &core.authority_id,
-                expected_authority_verification_method: &snapshot.lease.verification_method,
+                expected_authority_verification_method: &authority_evidence_state
+                    .lease
+                    .verification_method,
                 expected_account_authority_id: &gate.authority_id,
                 expected_account_authority_verification_method: &gate.verification_method,
                 controller_public_key: &controller_public_key,
