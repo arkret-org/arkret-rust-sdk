@@ -25,7 +25,7 @@
 //! `ak.component.notary.v1`); the implicit `bottom=reject` semantics are
 //! enforced by whichever cell registry uses it.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::Value;
 
@@ -64,29 +64,34 @@ pub struct CasHead {
 /// canonical effects is a verification error or a §6.3.3 digest collision, and
 /// §9.3.1.1 forbids letting the lattice pick one.
 pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
+    // Insertion-ordered, with an index beside it. The order is what makes the
+    // duplicate-identity diagnostic name the *first* write it saw; the index is
+    // what keeps this linear. A cell that has been written a few thousand times
+    // is replayed on every view, and a scan per op made that quadratic.
     let mut writes: Vec<&SealedOp> = Vec::new();
+    let mut by_identity: BTreeMap<&str, usize> = BTreeMap::new();
     for entry in sealed_ops {
         if CasRegister.validate_op(&entry.op).is_err() {
             continue;
         }
-        match writes
-            .iter()
-            .find(|existing| existing.move_id == entry.move_id)
-        {
+        match by_identity.get(entry.move_id.as_str()) {
             // Exact replay of one identity is idempotent (§9.3.1.1).
-            Some(existing) if existing.op.value == entry.op.value => continue,
-            Some(existing) => {
+            Some(&index) if writes[index].op.value == entry.op.value => continue,
+            Some(&index) => {
                 let mut bottom = Bottom::new(BottomKind::Conflict, Vec::new());
                 bottom.move_ids.push(entry.move_id.clone());
                 bottom
                     .head_ids
-                    .push(existing.op.value.clone().unwrap_or(Value::Null));
+                    .push(writes[index].op.value.clone().unwrap_or(Value::Null));
                 bottom
                     .head_ids
                     .push(entry.op.value.clone().unwrap_or(Value::Null));
                 return Err(Box::new(bottom));
             }
-            None => writes.push(entry),
+            None => {
+                by_identity.insert(entry.move_id.as_str(), writes.len());
+                writes.push(entry);
+            }
         }
     }
 

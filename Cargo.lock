@@ -682,6 +682,7 @@ dependencies = [
  "arkret-wire",
  "async-trait",
  "chrono",
+ "criterion",
  "hex",
  "salvo-oapi",
  "serde",

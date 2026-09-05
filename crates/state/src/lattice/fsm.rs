@@ -165,6 +165,12 @@ impl Lattice for Fsm {
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         let mut current: Option<Value> = self.initial_state.clone();
         let mut seen_transitions: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
+        // Exact replay is deduplicated by **write identity**, not by the
+        // `(from, to)` pair. The pair cannot express it: on a reversible family
+        // the same pair legitimately occurs more than once, and on a
+        // convergent one two different Moves legitimately carry the same pair.
+        // Only the identity says "this is the write I already folded in".
+        let mut applied: HashMap<String, &LatticeOp> = HashMap::new();
         for entry in sealed_ops {
             let op = &entry.op;
             // Skip ops that don't pass shape (defensive — same rule as
@@ -201,6 +207,25 @@ impl Lattice for Fsm {
                 ]));
                 return CellState::Bottom(bottom);
             };
+            if let Some(previous) = applied.get(entry.move_id.as_str()) {
+                if *previous == &entry.op {
+                    // Redelivery of one write. Idempotent wherever it lands.
+                    continue;
+                }
+                // One identity carrying two different canonical effects is a
+                // verification error or a §6.3.3 digest collision. The lattice
+                // must refuse rather than pick, exactly as `cas_heads` does.
+                let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
+                bottom.move_ids = vec![entry.move_id.clone()];
+                bottom.details = Some(bottom_details([
+                    ("current", current.clone().unwrap_or(Value::Null)),
+                    ("from", from.clone()),
+                    ("reason", json!("one_identity_two_effects")),
+                    ("to", to.clone()),
+                ]));
+                return CellState::Bottom(bottom);
+            }
+            applied.insert(entry.move_id.as_str().to_owned(), &entry.op);
             // Whether the walk is standing where this transition starts. A
             // `None` current is the first transition on a cell with no declared
             // initial state, which starts wherever it says it does.
@@ -215,7 +240,8 @@ impl Lattice for Fsm {
             let at_from = current.as_ref().is_none_or(|cur| cur == from);
             if !at_from {
                 if seen_transitions.get(&from_key) == Some(&to_key) {
-                    // Redelivery of a transition already folded in. The walk has
+                    // A *different* Move carrying a transition already folded
+                    // in — two writers converging on one state. The walk has
                     // moved on, so applying it again would rewind the cell.
                     continue;
                 }
@@ -464,10 +490,15 @@ mod causal_regression_tests {
         );
     }
 
-    /// Redelivering a transition the walk has already moved past stays a no-op,
-    /// which is what keeps an at-least-once transport from rewinding a cell.
+    /// Redelivering one write is idempotent wherever it lands, which is what
+    /// keeps an at-least-once transport from rewinding a cell.
+    ///
+    /// The second case is the one that decides the dedup key: the walk is back
+    /// at `active`, so this write's `from` matches again, and a `(from, to)`
+    /// key would apply it a second time and read `archived`. Only the write
+    /// identity says "already folded in".
     #[test]
-    fn a_redelivered_transition_is_still_idempotent() {
+    fn a_redelivered_write_is_idempotent_wherever_it_lands() {
         let ops = vec![
             step(1, json!("active"), json!("archived")),
             step(1, json!("active"), json!("archived")),
@@ -476,6 +507,43 @@ mod causal_regression_tests {
             reversible().join(&cell_ref(), &ops),
             CellState::Value(json!("archived")),
         );
+
+        let returned = vec![
+            step(1, json!("active"), json!("archived")),
+            step(2, json!("archived"), json!("active")),
+            step(1, json!("active"), json!("archived")),
+        ];
+        assert_eq!(
+            reversible().join(&cell_ref(), &returned),
+            CellState::Value(json!("active")),
+        );
+    }
+
+    /// Two different writers converging on one transition still converge.
+    #[test]
+    fn two_writes_of_one_transition_converge() {
+        let ops = vec![
+            step(1, json!("active"), json!("archived")),
+            step(2, json!("active"), json!("archived")),
+        ];
+        assert_eq!(
+            reversible().join(&cell_ref(), &ops),
+            CellState::Value(json!("archived")),
+        );
+    }
+
+    /// One identity carrying two different effects is a verification error or a
+    /// digest collision. The lattice refuses rather than picking one.
+    #[test]
+    fn one_identity_with_two_effects_fails_closed() {
+        let ops = vec![
+            step(1, json!("active"), json!("archived")),
+            step(1, json!("active"), json!("tombstoned")),
+        ];
+        let CellState::Bottom(bottom) = reversible().join(&cell_ref(), &ops) else {
+            panic!("one identity with two effects must not resolve");
+        };
+        assert_eq!(bottom.kind, BottomKind::Conflict);
     }
 
     /// A registered self-loop must not consume the state it loops on.

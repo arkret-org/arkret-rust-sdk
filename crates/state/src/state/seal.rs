@@ -580,6 +580,15 @@ where
     }
 
     let mut new_ops: Vec<(CellRef, IssuedOp)> = Vec::new();
+    // One rebuild per distinct basis, not per Move. A Seal's Moves are usually
+    // authored against the same frontier, and rebuilding the head view is a
+    // whole-Realm pass: a `list_cells` plus one history read per cell. Nothing
+    // in this loop writes to the store — new effects are collected into
+    // `new_ops` and applied later — so the same leaf set answers the same way
+    // every time, which is what makes reusing it sound rather than merely
+    // faster. The key is order-insensitive because the rebuild unions its
+    // leaves' covered sets.
+    let mut basis_heads_by_leaves: BTreeMap<Vec<SealId>, CasHeadsByCell> = BTreeMap::new();
     for (digest, event, effects) in &accepted {
         // §9.3.1.3 item 1: the baseline is the Move's *own* signed `seal_basis`,
         // not the receiving Seal's predecessor set. Anchor units have no basis
@@ -587,8 +596,28 @@ where
         // context is what admission already used.
         let basis_heads = match event.seal_basis.as_ref() {
             Some(basis) => {
-                effective_cas_heads_at(&basis.leaves, &seal.realm_id, seals, cells, registry)
-                    .await?
+                let key: Vec<SealId> = basis
+                    .leaves
+                    .iter()
+                    .cloned()
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect();
+                match basis_heads_by_leaves.get(&key) {
+                    Some(cached) => cached.clone(),
+                    None => {
+                        let heads = effective_cas_heads_at(
+                            &basis.leaves,
+                            &seal.realm_id,
+                            seals,
+                            cells,
+                            registry,
+                        )
+                        .await?;
+                        basis_heads_by_leaves.insert(key, heads.clone());
+                        heads
+                    }
+                }
             }
             None => BTreeMap::new(),
         };
@@ -1735,16 +1764,75 @@ pub async fn effective_joined_view_at(
     effective_joined_view_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
+/// Both halves of the view from **one** pass over the cell store.
+///
+/// The two halves come from the same op set by construction — a caller that
+/// builds one without the other has a bug rather than an option — so reading
+/// the history twice was never buying independence, only a second
+/// `list_cells` and a second `sealed_op_batches_for_cell` per cell. On a Realm
+/// with `C` written cells that is `2 + 2C` round trips where `1 + C` do, and
+/// `prepare_seal_with_proof_set` pays it several times per Seal.
 async fn effective_joined_view_for_covered_events(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
 ) -> Result<JoinedView, SealReject> {
-    Ok(JoinedView {
-        cells: effective_state_for_covered_events(covered, realm_id, cells, registry).await?,
-        cas_heads: cas_heads_for_covered_events(covered, realm_id, cells, registry, &[]).await?,
-    })
+    let mut view = JoinedView {
+        cells: BTreeMap::new(),
+        cas_heads: BTreeMap::new(),
+    };
+    for cell in cells.list_cells(realm_id).await? {
+        // `CellBinding` owns a `Box<dyn Lattice>`, which is not `Send`. Reading
+        // the kind and dropping the binding *before* the first await is what
+        // keeps this future `Send` for the handlers that call it.
+        let kind = {
+            let binding = registry.resolve(realm_id, &cell)?;
+            binding.lattice.kind()
+        };
+        let batches: Vec<Vec<IssuedOp>> = cells
+            .sealed_op_batches_for_cell(realm_id, &cell)
+            .await?
+            .into_iter()
+            .filter_map(|(_, ops)| {
+                let covered_ops = ops
+                    .into_iter()
+                    .filter(|issued| covered.contains(&issued.op.move_id))
+                    .collect::<Vec<_>>();
+                (!covered_ops.is_empty()).then_some(covered_ops)
+            })
+            .collect();
+        if batches.is_empty() {
+            continue;
+        }
+        let binding = registry.resolve(realm_id, &cell)?;
+        view.cells.insert(
+            cell.clone(),
+            join_cell_seal_batches(binding.lattice.as_ref(), &cell, &batches),
+        );
+        drop(binding);
+        if kind != crate::lattice::LatticeKind::CasRegister {
+            continue;
+        }
+        // The head half reads the same ops flat: §9.3.1.1 derives supersession
+        // from write identity, so batch boundaries carry no information for it.
+        let ops: Vec<SealedOp> = batches
+            .into_iter()
+            .flatten()
+            .map(|issued| issued.op)
+            .collect();
+        // A cell whose identities disagree is not a usable baseline: admission
+        // fails closed on the empty answer rather than silently proposing a
+        // guard the writer could satisfy by accident.
+        let Ok(heads) = crate::lattice::cas_register::cas_heads(&ops) else {
+            continue;
+        };
+        if heads.is_empty() {
+            continue;
+        }
+        view.cas_heads.insert(cell, heads);
+    }
+    Ok(view)
 }
 
 async fn effective_state_for_covered_events(

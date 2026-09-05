@@ -42,7 +42,14 @@ thiserror = { workspace = true }
 arkret-schema-conformance = { workspace = true }
 arkret-schema = { workspace = true }
 arkret-wire = { workspace = true, features = ["test-support"] }
+criterion = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
+
+# Scale measurements for the causal-register recompute path. Run on demand with
+# `cargo bench -p arkret-state`; never run in CI.
+[[bench]]
+name = "causal_register"
+harness = false
 
 [lints]
 workspace = true

@@ -679,6 +679,73 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 "conflicting transitions from one state must produce Bottom"
             );
         }
+        ("fsm", "reentered_transition_is_a_new_occurrence") => {
+            // A cell that legally returns to a state is standing at that
+            // state's outgoing edges again, so the same `(from, to)` pair is a
+            // new occurrence rather than a replay of the first one. Deciding
+            // from the pair alone folds the last step away and reads `draft` —
+            // the failure §9.3.1.4 names when it deletes the value-edge join
+            // for `cas_register`.
+            let fsm = Fsm::new(vec![
+                (json!("draft"), json!("active")),
+                (json!("active"), json!("draft")),
+            ])
+            .with_initial(json!("draft"));
+            let ops = vec![
+                SealedOp::new(
+                    move_id("aa"),
+                    op_transition(json!("draft"), json!("active")),
+                ),
+                SealedOp::new(
+                    move_id("bb"),
+                    op_transition(json!("active"), json!("draft")),
+                ),
+                SealedOp::new(
+                    move_id("cc"),
+                    op_transition(json!("draft"), json!("active")),
+                ),
+            ];
+            assert_eq!(
+                value_of(fsm.join(&cell(), &ops)),
+                json!("active"),
+                "a transition re-entered after the cell returned to its source must apply again"
+            );
+            // The redelivery it must not be confused with: the walk has moved
+            // past this one, so replaying it stays a no-op.
+            let mut redelivered = ops.clone();
+            redelivered.push(ops[1].clone());
+            assert_eq!(
+                value_of(fsm.join(&cell(), &redelivered)),
+                json!("active"),
+                "redelivering a transition the walk has passed must not rewind the cell"
+            );
+        }
+        ("fsm", "registered_self_loop_does_not_consume_its_state") => {
+            // `ak.component.realm.link.v1` declares `(active, active)` so a
+            // repeated declaration is legal. Recording it as the one edge out
+            // of `active` turned the next declared transition into a phantom
+            // sibling conflict.
+            let fsm = Fsm::new(vec![
+                (json!("active"), json!("active")),
+                (json!("active"), json!("tombstoned")),
+            ])
+            .with_initial(json!("active"));
+            let ops = vec![
+                SealedOp::new(
+                    move_id("aa"),
+                    op_transition(json!("active"), json!("active")),
+                ),
+                SealedOp::new(
+                    move_id("bb"),
+                    op_transition(json!("active"), json!("tombstoned")),
+                ),
+            ];
+            assert_eq!(
+                value_of(fsm.join(&cell(), &ops)),
+                json!("tombstoned"),
+                "a registered self-loop must not block the next declared transition"
+            );
+        }
         ("fsm", "all_declared_initial_states_are_accepted") => {
             let declared: Vec<&str> = case["parameters"]["initial_states"]
                 .as_array()
