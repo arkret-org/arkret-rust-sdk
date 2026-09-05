@@ -1239,7 +1239,10 @@ where
         let branch_digest_suite = live_suites.get(&target_seal_ref).copied().ok_or_else(|| {
             WireError::Protocol("materializer target Seal has no verified digest suite".to_owned())
         })?;
-        let state = effective_state_at(
+        // The frontier registry lists three `cas_register` families, so the
+        // inclusion proofs below need the head half of the view as well: §6.2.1
+        // hashes a different leaf preimage for those cells.
+        let state = crate::state::effective_joined_view_at(
             std::slice::from_ref(&target_seal_ref),
             expected_realm,
             &seal_store,
@@ -1249,6 +1252,7 @@ where
         .await
         .map_err(replay_reject_error)?;
         let ordered_values = state
+            .cells
             .iter()
             .filter_map(|(cell, state)| match state {
                 CellState::Value(value) => Some((cell.clone(), value.clone())),
@@ -1444,7 +1448,7 @@ async fn materialize_frontier_entry(
     cell: &CellRef,
     cell_state: &FrontierValueState<'_>,
     seal: &Seal,
-    state: &BTreeMap<CellRef, CellState>,
+    state: &crate::state::JoinedView,
     seal_store: &MemorySealStore,
     cell_store: &MemoryCellStore,
     events: &BTreeMap<Hash, Event>,
@@ -1452,7 +1456,7 @@ async fn materialize_frontier_entry(
     digest_suite: DigestSuite,
 ) -> arkret_wire::Result<MlsGovernanceFrontierCellEntry> {
     let value = cell_state.value;
-    let proof = crate::state_inclusion_proof(state, cell, digest_suite)?;
+    let proof = crate::state_inclusion_proof(state.as_governance_view(), cell, digest_suite)?;
     let preimage = canonical_state_leaf_preimage(cell, value)?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
         .await

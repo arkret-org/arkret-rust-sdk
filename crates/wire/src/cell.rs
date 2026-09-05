@@ -55,6 +55,32 @@ pub fn null_subject_cell(component: &str) -> String {
     subject_cell(component, NULL_SUBJECT)
 }
 
+/// Whether the registry declares this cell family as a `cas_register`.
+///
+/// The registry is the only place that says so, and every registered write on
+/// one family agrees on its lattice, so the first declaration answers it. This
+/// exists so a consumer that has a `cell_id` but no `CellRegistry` — the
+/// `state_root` builder is the one that matters — can still tell that a cell
+/// needs the `{"heads":[…]}` leaf of `event-auth-state-resolution.md` §6.2.1
+/// rather than the `{"value":…}` one, and fail loudly instead of silently
+/// hashing the wrong preimage.
+pub fn is_registered_cas_register_family(family: &str) -> bool {
+    crate::EVENT_KIND_DESCRIPTORS.iter().any(|descriptor| {
+        descriptor.cell_writes.iter().any(|write| {
+            write.cell_family.map(|declared| declared.as_str()) == Some(family)
+                && write.lattice == Some(crate::EventCellLattice::CasRegister)
+        })
+    })
+}
+
+/// [`is_registered_cas_register_family`] addressed by a full cell id.
+///
+/// An unparsable cell id answers `false`: it cannot name a registered family,
+/// and the caller's own validation is what should reject it.
+pub fn is_registered_cas_register_cell(cell_ref: &str) -> bool {
+    CellId::parse(cell_ref).is_ok_and(|cell| is_registered_cas_register_family(cell.component()))
+}
+
 /// Canonical genesis-log cell of every `ak.realm.create` (`ordered_log`).
 pub const REALM_CREATE_CELL: &str = "ak:cell:ak.component.realm.create.v1:null";
 /// Canonical minimal Realm identity/security root written by `ak.realm.create`.

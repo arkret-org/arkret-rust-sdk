@@ -3,9 +3,15 @@
 //! Per [arkret-spec event-auth-state-resolution.md §6.2.1 / §6.2.2](
 //! ../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md):
 //!
-//! 1. For each non-`⊥` control cell under the current joined Seal view, build a leaf:
-//!    `leaf_preimage = canonical_json({"cell": "<wire>", "state": <state_object>})`, `leaf = H(0x00
-//!    || leaf_preimage_utf8_bytes)` (RFC 6962 leaf domain separation).
+//! 1. For each member control cell under the current joined Seal view, build a leaf: `leaf_preimage
+//!    = canonical_json({"cell": "<wire>", "state": <state_object>})`, `leaf = H(0x00 ||
+//!    leaf_preimage_utf8_bytes)` (RFC 6962 leaf domain separation). `<state_object>` has two shapes
+//!    and the cell's lattice picks between them:
+//!    * `cas_register`: `{"heads":[{"event_id":…,"value":…}]}`, and the membership test is "the
+//!      cell has at least one active head" — so a cell whose value is `null` or whose heads diverge
+//!      into `⊥` is still a member. Non-membership alone cannot otherwise separate "never written"
+//!      from "released" or from "in conflict".
+//!    * everything else: `{"value": <lattice_value>}`, and a `⊥` cell is not a member.
 //! 2. Sort leaves by `cell_wire` Unicode code point ascending.
 //! 3. Combine leaves via the unified Seal Merkle rule (§6.2.2): internal node = `H(0x01 || left ||
 //!    right)`, odd tail promoted without duplication, single-leaf root equals that leaf's `H(0x00
@@ -28,7 +34,56 @@ use std::collections::BTreeMap;
 use serde_json::json;
 
 use crate::lattice::CellState;
+use crate::lattice::cas_register::CasHead;
 use crate::{CellRef, Hash, canonical};
+
+/// The active `cas_register` heads of every written cell in a joined view.
+///
+/// Keyed by cell, in the order [`crate::lattice::cas_register::cas_heads`]
+/// returns. A cell with no entry has never been written; a cell with an entry
+/// always has at least one head.
+pub type CasHeadsByCell = BTreeMap<CellRef, Vec<CasHead>>;
+
+/// One joined governance view, in the two halves a `state_root` needs.
+///
+/// `cells` is what readers and preconditions see: one settled value per cell,
+/// or `⊥`. `cas_heads` is the identity half that `cells` structurally cannot
+/// carry — a released cell and an unwritten one both read `null`, and a `⊥`
+/// cell has no single value at all, yet §6.2.1 requires both to be members with
+/// their full head set.
+///
+/// Both halves come from the same op set, so a caller that builds one without
+/// the other has a bug rather than an option. [`compute_state_root`] enforces
+/// that: a `cas_register` cell present in `cells` but missing from `cas_heads`
+/// is rejected instead of being hashed under the wrong preimage.
+#[derive(Clone, Copy, Debug)]
+pub struct GovernanceView<'a> {
+    pub cells: &'a BTreeMap<CellRef, CellState>,
+    pub cas_heads: &'a CasHeadsByCell,
+}
+
+impl<'a> GovernanceView<'a> {
+    pub fn new(cells: &'a BTreeMap<CellRef, CellState>, cas_heads: &'a CasHeadsByCell) -> Self {
+        Self { cells, cas_heads }
+    }
+
+    /// A view over a cell map that provably holds no `cas_register` cell.
+    ///
+    /// Callers that hand-build a state map for a single non-CAS family use this;
+    /// it still goes through the same membership check, so naming a CAS family
+    /// here fails loudly rather than producing a `{"value":…}` leaf.
+    pub fn values_only(cells: &'a BTreeMap<CellRef, CellState>) -> Self {
+        Self {
+            cells,
+            cas_heads: empty_cas_heads(),
+        }
+    }
+}
+
+fn empty_cas_heads() -> &'static CasHeadsByCell {
+    static EMPTY: std::sync::OnceLock<CasHeadsByCell> = std::sync::OnceLock::new();
+    EMPTY.get_or_init(BTreeMap::new)
+}
 
 /// Domain-separation prefix for Merkle leaves (RFC 6962, spec §6.2.2).
 const LEAF_PREFIX: u8 = 0x00;
@@ -66,17 +121,10 @@ pub struct StateInclusionProof {
 /// Empty input returns [`EMPTY_STATE_ROOT`].
 /// Compute the canonical Merkle root under the Realm's verified digest suite.
 pub fn compute_state_root(
-    cells: &BTreeMap<CellRef, CellState>,
+    view: GovernanceView<'_>,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, crate::WireError> {
-    let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
-    for (cell, state) in cells {
-        if matches!(state, CellState::Bottom(_)) {
-            continue;
-        }
-        let leaf = leaf_hash(cell, state, digest_suite)?;
-        leaves.push((cell.as_str().to_owned(), leaf));
-    }
+    let mut leaves = state_root_leaves(view, digest_suite)?;
     // Sort by cell wire string ascending (Unicode code point).
     leaves.sort_by(|a, b| a.0.cmp(&b.0));
 
@@ -86,15 +134,22 @@ pub fn compute_state_root(
     )
 }
 
-/// Build the portable Merkle branch for `target_cell` in a resolved state map.
+/// A frontier-comparison digest over cell **values**, for any lattice.
 ///
-/// The returned `leaf_index` and `leaf_count` are required because sibling
-/// hashes alone cannot encode left/right orientation or odd-tail promotion.
-pub fn state_inclusion_proof(
+/// This is deliberately **not** the §6.2.1 governance `state_root`, and callers
+/// must not present it as one. Two issuers comparing a filtered projection —
+/// `policy_frontier_digest`, an actor-scoped membership frontier — need a
+/// stable structured hash over the values they both hold; they do not hold each
+/// other's write identities, and the domains those digests cover are defined by
+/// their own sections (`realm-and-space.md` §3.6 for the policy frontier).
+///
+/// It reuses the same leaf preimage and Merkle combination so one implementation
+/// serves both, and it skips `⊥` cells for the same reason `state_root` does:
+/// a conflicted cell has no single value to compare.
+pub fn value_frontier_digest(
     cells: &BTreeMap<CellRef, CellState>,
-    target_cell: &CellRef,
     digest_suite: arkret_canonical::DigestSuite,
-) -> Result<StateInclusionProof, crate::WireError> {
+) -> Result<Hash, crate::WireError> {
     let mut leaves: Vec<(String, [u8; 32])> = Vec::with_capacity(cells.len());
     for (cell, state) in cells {
         if matches!(state, CellState::Bottom(_)) {
@@ -105,6 +160,96 @@ pub fn state_inclusion_proof(
             leaf_hash(cell, state, digest_suite)?,
         ));
     }
+    leaves.sort_by(|a, b| a.0.cmp(&b.0));
+    seal_merkle_root_from_leaf_hashes(
+        leaves.into_iter().map(|(_, hash)| hash).collect(),
+        digest_suite,
+    )
+}
+
+/// The unsorted `(cell_wire, leaf_hash)` member set of one joined view.
+///
+/// Membership follows §6.2.1: a `cas_register` cell is a member iff it has at
+/// least one active head, every other cell is a member iff it resolved to a
+/// non-`⊥` value.
+fn state_root_leaves(
+    view: GovernanceView<'_>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<Vec<(String, [u8; 32])>, crate::WireError> {
+    let mut leaves: Vec<(String, [u8; 32])> =
+        Vec::with_capacity(view.cells.len() + view.cas_heads.len());
+    for (cell, heads) in view.cas_heads {
+        if heads.is_empty() {
+            // "No entry" and "no head" are the same statement: an unwritten cell
+            // is not a member. Accepting an empty vector here would make the
+            // root depend on whether a producer chose to emit the key.
+            continue;
+        }
+        leaves.push((
+            cell.as_str().to_owned(),
+            cas_leaf_hash(cell, heads, digest_suite)?,
+        ));
+    }
+    for (cell, state) in view.cells {
+        if view.cas_heads.contains_key(cell) {
+            continue;
+        }
+        if arkret_wire::is_registered_cas_register_cell(cell.as_str()) {
+            return Err(crate::WireError::Protocol(format!(
+                "cas_register cell {} resolved to a state without its active heads; \
+                 §6.2.1 needs the head set to build its leaf",
+                cell.as_str()
+            )));
+        }
+        if matches!(state, CellState::Bottom(_)) {
+            continue;
+        }
+        leaves.push((
+            cell.as_str().to_owned(),
+            leaf_hash(cell, state, digest_suite)?,
+        ));
+    }
+    Ok(leaves)
+}
+
+/// The §6.2.1 leaf of one written `cas_register` cell.
+///
+/// `heads` is serialized as `{"event_id":…,"value":…}` entries ordered by the
+/// decoded 33-octet `event_id` token, which is the order
+/// [`crate::lattice::cas_register::cas_heads`] already produces. The identity is
+/// recovered from the op's `event_digest` losslessly, so the leaf never depends
+/// on a second stored spelling of the same identity.
+pub fn cas_leaf_hash(
+    cell: &CellRef,
+    heads: &[CasHead],
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<[u8; 32], crate::WireError> {
+    let mut entries = Vec::with_capacity(heads.len());
+    for head in heads {
+        let event_id = arkret_wire::EventId::from_event_digest(&head.move_id).map_err(|error| {
+            crate::WireError::Protocol(format!(
+                "cas_register head {} is not a recoverable Event identity: {error}",
+                head.move_id.as_str()
+            ))
+        })?;
+        entries.push(json!({
+            "event_id": event_id.as_str(),
+            "value": head.value,
+        }));
+    }
+    leaf_hash_from_state_object(cell, json!({ "heads": entries }), digest_suite)
+}
+
+/// Build the portable Merkle branch for `target_cell` in a resolved state map.
+///
+/// The returned `leaf_index` and `leaf_count` are required because sibling
+/// hashes alone cannot encode left/right orientation or odd-tail promotion.
+pub fn state_inclusion_proof(
+    view: GovernanceView<'_>,
+    target_cell: &CellRef,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<StateInclusionProof, crate::WireError> {
+    let mut leaves = state_root_leaves(view, digest_suite)?;
     leaves.sort_by(|a, b| a.0.cmp(&b.0));
     let mut index = leaves
         .iter()
@@ -367,6 +512,18 @@ pub fn leaf_hash(
             ));
         }
     };
+    leaf_hash_from_state_object(cell, state_object, digest_suite)
+}
+
+/// Hash one `{"cell":…,"state":…}` leaf preimage.
+///
+/// Both leaf shapes share this tail, so the `0x00` domain separation and the
+/// canonical-JSON encoding have exactly one implementation.
+fn leaf_hash_from_state_object(
+    cell: &CellRef,
+    state_object: serde_json::Value,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<[u8; 32], crate::WireError> {
     let leaf_input = json!({
         "cell": cell.as_str(),
         "state": state_object,
@@ -394,7 +551,8 @@ mod tests {
 
     #[test]
     fn empty_map_returns_constant_root() {
-        let root = compute_state_root(&BTreeMap::new(), SUITE).unwrap();
+        let root =
+            compute_state_root(GovernanceView::values_only(&BTreeMap::new()), SUITE).unwrap();
         assert_eq!(root.as_str(), EMPTY_STATE_ROOT);
     }
 
@@ -405,7 +563,7 @@ mod tests {
             cell("ak:cell:ak.component.member.state.v1:did.web.alice.example"),
             CellState::Value(json!("join")),
         );
-        let root = compute_state_root(&map, SUITE).unwrap();
+        let root = compute_state_root(GovernanceView::values_only(&map), SUITE).unwrap();
         // Format must match ak:hash:sha256: prefix.
         assert!(root.as_str().starts_with("sha256:"));
         // Single-leaf root MUST equal the leaf hash directly (per spec §6.2.2).
@@ -461,8 +619,8 @@ mod tests {
             CellState::Value(json!(1)),
         );
         assert_eq!(
-            compute_state_root(&a, SUITE).unwrap(),
-            compute_state_root(&b, SUITE).unwrap()
+            compute_state_root(GovernanceView::values_only(&a), SUITE).unwrap(),
+            compute_state_root(GovernanceView::values_only(&b), SUITE).unwrap()
         );
     }
 
@@ -479,8 +637,8 @@ mod tests {
             CellState::Value(json!("b")),
         );
         assert_ne!(
-            compute_state_root(&a, SUITE).unwrap(),
-            compute_state_root(&b, SUITE).unwrap()
+            compute_state_root(GovernanceView::values_only(&a), SUITE).unwrap(),
+            compute_state_root(GovernanceView::values_only(&b), SUITE).unwrap()
         );
     }
 
@@ -495,7 +653,9 @@ mod tests {
         cells.insert(target.clone(), bottom.clone());
 
         assert_eq!(
-            compute_state_root(&cells, SUITE).unwrap().as_str(),
+            compute_state_root(GovernanceView::values_only(&cells), SUITE)
+                .unwrap()
+                .as_str(),
             EMPTY_STATE_ROOT
         );
         assert!(leaf_hash(&target, &bottom, SUITE).is_err());
@@ -519,7 +679,7 @@ mod tests {
             cell("ak:cell:ak.component.test.state_c.v1:3"),
             CellState::Value(json!("c")),
         );
-        let root = compute_state_root(&m, SUITE).unwrap();
+        let root = compute_state_root(GovernanceView::values_only(&m), SUITE).unwrap();
         // Must not match any leaf hash.
         let leaf_a = leaf_hash(
             &cell("ak:cell:ak.component.test.state_a.v1:1"),
@@ -546,9 +706,10 @@ mod tests {
                 CellState::Value(json!(value)),
             );
         }
-        let root = compute_state_root(&cells, SUITE).unwrap();
+        let root = compute_state_root(GovernanceView::values_only(&cells), SUITE).unwrap();
         for target in cells.keys() {
-            let proof = state_inclusion_proof(&cells, target, SUITE).unwrap();
+            let proof =
+                state_inclusion_proof(GovernanceView::values_only(&cells), target, SUITE).unwrap();
             assert!(
                 verify_state_inclusion_proof(
                     &proof.leaf_digest,
@@ -610,8 +771,8 @@ mod tests {
             CellState::Bottom(crate::Bottom::new(BottomKind::SchemaError, vec![target])),
         );
         assert_eq!(
-            compute_state_root(&conflict, SUITE).unwrap(),
-            compute_state_root(&schema, SUITE).unwrap()
+            compute_state_root(GovernanceView::values_only(&conflict), SUITE).unwrap(),
+            compute_state_root(GovernanceView::values_only(&schema), SUITE).unwrap()
         );
     }
 
@@ -623,10 +784,18 @@ mod tests {
         cells.insert(first.clone(), CellState::Value(json!("alpha")));
         cells.insert(second, CellState::Value(json!("beta")));
 
-        let root = compute_state_root(&cells, arkret_canonical::DigestSuite::Blake3).unwrap();
+        let root = compute_state_root(
+            GovernanceView::values_only(&cells),
+            arkret_canonical::DigestSuite::Blake3,
+        )
+        .unwrap();
         assert!(root.as_str().starts_with("blake3:"));
-        let proof =
-            state_inclusion_proof(&cells, &first, arkret_canonical::DigestSuite::Blake3).unwrap();
+        let proof = state_inclusion_proof(
+            GovernanceView::values_only(&cells),
+            &first,
+            arkret_canonical::DigestSuite::Blake3,
+        )
+        .unwrap();
         assert!(
             verify_state_inclusion_proof(
                 &proof.leaf_digest,

@@ -11,8 +11,9 @@ use arkret_models_collaboration::governance_dependencies::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
-    CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, control_event_set_root,
-    join_cell_seal_batches, resolve_projected_write,
+    CasHeadsByCell, CellRegistry, CellState, GovernanceView, LatticeKind, SealedOp,
+    cas_heads_for_batches, compute_state_root, control_event_set_root, join_cell_seal_batches,
+    resolve_projected_write,
 };
 use arkret_wire::{
     ActorId, AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Event, EventKind,
@@ -251,6 +252,7 @@ pub fn materialize_agent_pcr_control(
     let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
     let mut event_ops = Vec::new();
     let mut joined = BTreeMap::new();
+    let mut cas_heads = CasHeadsByCell::new();
 
     apply_agent_batch(
         &ordered[..anchor_len],
@@ -262,6 +264,7 @@ pub fn materialize_agent_pcr_control(
         &mut batches_by_cell,
         &mut event_ops,
         &mut joined,
+        &mut cas_heads,
     )?;
     let mut cursor = anchor_len;
     while cursor < ordered.len() {
@@ -282,12 +285,16 @@ pub fn materialize_agent_pcr_control(
             &mut batches_by_cell,
             &mut event_ops,
             &mut joined,
+            &mut cas_heads,
         )?;
         cursor = end;
     }
 
-    let state_root = compute_state_root(&joined, AGENT_PCR_DIGEST_SUITE)
-        .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
+    let state_root = compute_state_root(
+        GovernanceView::new(&joined, &cas_heads),
+        AGENT_PCR_DIGEST_SUITE,
+    )
+    .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
     Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
@@ -312,6 +319,7 @@ fn apply_agent_batch(
     batches_by_cell: &mut BTreeMap<CellRef, Vec<Vec<IssuedOp>>>,
     event_ops: &mut Vec<(CellRef, IssuedOp)>,
     joined: &mut BTreeMap<CellRef, CellState>,
+    cas_heads: &mut CasHeadsByCell,
 ) -> Result<()> {
     let frozen_pre_state = joined.clone();
     let mut batch_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
@@ -384,6 +392,7 @@ fn apply_agent_batch(
     }
 
     joined.clear();
+    cas_heads.clear();
     for (cell, batches) in batches_by_cell {
         let binding = registry
             .resolve(&create.realm_id, cell)
@@ -393,6 +402,15 @@ fn apply_agent_batch(
             return Err(WireError::Protocol(format!(
                 "Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
             )));
+        }
+        // A `cas_register` cell's `state_root` leaf carries its heads rather
+        // than its settled value (spec section 6.2.1); they come from the same
+        // batches the join just consumed.
+        if binding.lattice.kind() == LatticeKind::CasRegister {
+            let heads = cas_heads_for_batches(batches);
+            if !heads.is_empty() {
+                cas_heads.insert(cell.clone(), heads);
+            }
         }
         joined.insert(cell.clone(), state);
     }

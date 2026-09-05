@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
-    CellRegistry, CellState, LatticeKind, SealedOp, compute_state_root, join_cell_seal_batches,
-    resolve_projected_write,
+    CasHeadsByCell, CellRegistry, CellState, GovernanceView, LatticeKind, SealedOp,
+    cas_heads_for_batches, compute_state_root, join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
     CellRef, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
@@ -169,6 +169,7 @@ pub(crate) fn state_root_from_projection(
     let registry = arkret_lattice_registry::build_sdk_cell_registry();
     let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
     let mut joined = BTreeMap::<CellRef, CellState>::new();
+    let mut cas_heads = CasHeadsByCell::new();
     for (event, move_id) in covered {
         let frozen_pre_state = joined.clone();
         let projected = project(event).map_err(|error| {
@@ -224,6 +225,7 @@ pub(crate) fn state_root_from_projection(
         }
 
         joined.clear();
+        cas_heads.clear();
         for (cell, batches) in &batches_by_cell {
             let binding = registry.resolve(realm_id, cell).map_err(|error| {
                 WireError::Protocol(format!("bootstrap cell registry: {error}"))
@@ -234,10 +236,19 @@ pub(crate) fn state_root_from_projection(
                     "bootstrap cell {cell} resolved to Bottom"
                 )));
             }
+            // A `cas_register` cell's `state_root` leaf carries its heads, not
+            // its settled value (spec section 6.2.1), and they come from the
+            // same batches the join just consumed.
+            if binding.lattice.kind() == LatticeKind::CasRegister {
+                let heads = cas_heads_for_batches(batches);
+                if !heads.is_empty() {
+                    cas_heads.insert(cell.clone(), heads);
+                }
+            }
             joined.insert(cell.clone(), state);
         }
     }
-    compute_state_root(&joined, digest_suite)
+    compute_state_root(GovernanceView::new(&joined, &cas_heads), digest_suite)
         .map_err(|error| WireError::Protocol(format!("bootstrap state root: {error}")))
 }
 

@@ -8,8 +8,8 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::state_root::{
-    compute_state_root, seal_merkle_audit_path_from_leaf_data, seal_merkle_root_from_leaf_data,
-    verify_seal_merkle_audit_path_from_leaf_data,
+    CasHeadsByCell, GovernanceView, compute_state_root, seal_merkle_audit_path_from_leaf_data,
+    seal_merkle_root_from_leaf_data, verify_seal_merkle_audit_path_from_leaf_data,
 };
 use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
 use super::verify::{
@@ -398,13 +398,13 @@ where
     // frozen-predecessor rule). The first closed anchor unit is the sole
     // exception: realm-and-space.md §2.5 requires ak.realm.create's registered
     // writes to be staged before its bootstrap follow-ups are evaluated.
+    // Both halves of the frozen baseline come from one call, so the values the
+    // preconditions read and the head identities §9.3.1.3 item 3 compares can
+    // never be resolved against different op sets.
     let pre_state =
-        effective_state_for_covered_events(&pred_covered, &seal.realm_id, cells, registry).await?;
-    // The identity half of that same frozen baseline. §9.3.1.3 item 3 compares a
-    // writer's own `H_c(B)` against this `H_c(P)`, and item 4 makes the accepted
-    // write supersede exactly it.
-    let pre_heads =
-        cas_heads_for_covered_events(&pred_covered, &seal.realm_id, cells, registry, &[]).await?;
+        effective_joined_view_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)
+            .await?;
+    let pre_heads = &pre_state.cas_heads;
     let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals).await?;
 
     let mut new_events: Vec<(Hash, Event)> = Vec::with_capacity(seal.delta.len());
@@ -467,7 +467,7 @@ where
 
     let mut accepted: Vec<(Hash, Event, Vec<crate::ProjectionEffect>)> =
         Vec::with_capacity(ordered.len());
-    let mut staged_anchor_state = pre_state.clone();
+    let mut staged_anchor_state = pre_state.cells.clone();
     let mut staged_anchor_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
     for (digest, event) in ordered {
         let event_digest_suite = event_digest_suite_for_seal(&event, seal, digest_suites);
@@ -494,7 +494,7 @@ where
                     pre_state: if context == EventSubmitContext::AnchorUnit {
                         &staged_anchor_state
                     } else {
-                        &pre_state
+                        &pre_state.cells
                     },
                     registry,
                     digest_suite: event_digest_suite,
@@ -510,7 +510,7 @@ where
                     pre_state: if context == EventSubmitContext::AnchorUnit {
                         &staged_anchor_state
                     } else {
-                        &pre_state
+                        &pre_state.cells
                     },
                     registry,
                     digest_suite: event_digest_suite,
@@ -526,7 +526,7 @@ where
                     pre_state: if context == EventSubmitContext::AnchorUnit {
                         &staged_anchor_state
                     } else {
-                        &pre_state
+                        &pre_state.cells
                     },
                     registry,
                     digest_suite: event_digest_suite,
@@ -542,7 +542,7 @@ where
                     &event,
                     &effects,
                     &seal.realm_id,
-                    &pre_state,
+                    &pre_state.cells,
                     &pred_closure,
                     seals,
                     cells,
@@ -598,12 +598,9 @@ where
                 binding.lattice.kind()
             };
             let supersedes = if kind == crate::lattice::LatticeKind::CasRegister {
-                let observed = basis_heads
-                    .get(&effect.cell_id)
-                    .cloned()
-                    .unwrap_or_default();
+                let observed = head_identities(basis_heads.get(&effect.cell_id));
                 if event.seal_basis.is_some() {
-                    let frozen = pre_heads.get(&effect.cell_id).cloned().unwrap_or_default();
+                    let frozen = head_identities(pre_heads.get(&effect.cell_id));
                     // §9.3.1.3 item 3: identity-for-identity, and stale even when
                     // both sides settle to the same business value. That equality
                     // is the whole point — it is what a claim/release/claim slot
@@ -643,21 +640,17 @@ where
     // re-reading the store after append_sealed_effects cannot portably expose
     // the candidate batch. Resolve the already-sealed predecessor batches and
     // layer this Seal's receiver-derived ops onto them in memory instead.
-    let post_state = effective_state_for_covered_events_with_new_ops(
-        &covered,
-        &seal.realm_id,
-        cells,
-        registry,
-        &new_ops,
-    )
-    .await?;
-    let post_live_suite = live_digest_suite_from_state(&post_state)?;
+    let post_state =
+        effective_joined_view_with_new_ops(&covered, &seal.realm_id, cells, registry, &new_ops)
+            .await?;
+    let post_live_suite = live_digest_suite_from_state(&post_state.cells)?;
     if post_live_suite != digest_suites.seal_digest_suite {
         return Err(SealReject::Structural(
             "post-state live digest suite does not match the Seal suite".to_owned(),
         ));
     }
-    let recomputed_state = compute_state_root(&post_state, digest_suites.seal_digest_suite)
+    let recomputed_state = post_state
+        .state_root(digest_suites.seal_digest_suite)
         .map_err(|e| SealReject::Store(format!("state_root recompute failed: {e}")))?;
     if recomputed_state.as_str() != seal.state_root.as_str() {
         return Err(SealReject::StateRootMismatch {
@@ -713,7 +706,7 @@ fn event_digest_suite_for_seal(
 fn validate_digest_suite_bridge(
     seal: &Seal,
     delta_events: &[(Hash, Event)],
-    pre_state: &BTreeMap<CellRef, CellState>,
+    pre_state: &JoinedView,
     digest_suites: SealDigestSuites,
 ) -> Result<(), SealReject> {
     let transition_events = delta_events
@@ -770,7 +763,7 @@ fn validate_digest_suite_bridge(
         return Ok(());
     }
 
-    let live_suite = live_digest_suite_from_state(pre_state)?;
+    let live_suite = live_digest_suite_from_state(&pre_state.cells)?;
     match transition_events.as_slice() {
         [] => {
             if digest_suites.previous_state_digest_suite.is_some()
@@ -840,7 +833,8 @@ fn validate_digest_suite_bridge(
                         .to_owned(),
                 ));
             }
-            let recomputed_previous = compute_state_root(pre_state, from)
+            let recomputed_previous = pre_state
+                .state_root(from)
                 .map_err(|error| SealReject::Store(format!("previous_state_root: {error}")))?;
             if seal.previous_state_root.as_ref() != Some(&recomputed_previous) {
                 return Err(SealReject::StateRootMismatch {
@@ -990,22 +984,26 @@ pub async fn verify_recovery_witness(
                 .await
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         let witness_state =
-            effective_state_for_covered_events(&witness_covered, realm_id, cells, registry)
+            effective_joined_view_for_covered_events(&witness_covered, realm_id, cells, registry)
                 .await
                 .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         let witness_digest_suite = digest_suite_from_trusted_hash(&witness.state_root)
             .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        let witness_root = compute_state_root(&witness_state, witness_digest_suite)
+        let witness_root = witness_state
+            .state_root(witness_digest_suite)
             .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
         if witness_root != witness.state_root
-            || !matches!(witness_state.get(&reset.cell_id), Some(CellState::Value(_)))
+            || !matches!(
+                witness_state.cells.get(&reset.cell_id),
+                Some(CellState::Value(_))
+            )
         {
             return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
         }
         if !recovery_capability_is_active(
             capability_ref.id.as_str(),
             &event.actor_id,
-            &witness_state,
+            &witness_state.cells,
         ) {
             return Err(reject(
                 arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED,
@@ -1182,8 +1180,9 @@ pub async fn effective_seal_view(
     let covered = union_covered_from_proof(&union_proof);
     let covered_event_digests: Vec<Hash> = covered.iter().cloned().collect();
     let control_event_set_root = control_event_set_root(&covered, digest_suite)?;
-    let post_state = effective_state_at(&sorted, realm_id, seals, cells, registry).await?;
-    let state_root = compute_state_root(&post_state, digest_suite)
+    let post_state = effective_joined_view_at(&sorted, realm_id, seals, cells, registry).await?;
+    let state_root = post_state
+        .state_root(digest_suite)
         .map_err(|e| SealReject::Store(format!("state_root: {e}")))?;
     let view_hash = joined_control_view_hash(
         &sorted,
@@ -1530,6 +1529,14 @@ pub async fn effective_state_at(
     effective_state_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
+/// The identity half of one cell's active heads, or an empty set when the cell
+/// has never been written.
+fn head_identities(heads: Option<&Vec<crate::lattice::cas_register::CasHead>>) -> Vec<Hash> {
+    heads.map_or_else(Vec::new, |heads| {
+        heads.iter().map(|head| head.move_id.clone()).collect()
+    })
+}
+
 /// Whether two derived head-identity sets name the same writes.
 ///
 /// Order and repetition are not part of the comparison: both sides come from
@@ -1560,9 +1567,25 @@ pub async fn effective_cas_heads_at(
     seals: &dyn SealStore,
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
-) -> Result<BTreeMap<CellRef, Vec<Hash>>, SealReject> {
+) -> Result<CasHeadsByCell, SealReject> {
     let covered = union_predecessor_covered_events(leaves, seals).await?;
     cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[]).await
+}
+
+/// The `cas_register` heads of a candidate post-state: an explicit covered set
+/// layered with the ops a Seal is about to accept.
+///
+/// A durable backend may hide a cell op until its accepting Seal exists, so a
+/// committer that has to recompute `state_root` before the commit assembles the
+/// post-state in memory. This is the head half of that same assembly.
+pub async fn effective_cas_heads_with_new_ops(
+    covered: &BTreeSet<Hash>,
+    realm_id: &RealmId,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    new_ops: &[(CellRef, IssuedOp)],
+) -> Result<CasHeadsByCell, SealReject> {
+    cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops).await
 }
 
 /// [`effective_cas_heads_at`] over an explicit covered set, optionally layered
@@ -1577,7 +1600,7 @@ async fn cas_heads_for_covered_events(
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
     new_ops: &[(CellRef, IssuedOp)],
-) -> Result<BTreeMap<CellRef, Vec<Hash>>, SealReject> {
+) -> Result<CasHeadsByCell, SealReject> {
     let mut targets = cells
         .list_cells(realm_id)
         .await?
@@ -1625,9 +1648,59 @@ async fn cas_heads_for_covered_events(
         if heads.is_empty() {
             continue;
         }
-        out.insert(cell, heads.into_iter().map(|head| head.move_id).collect());
+        out.insert(cell, heads);
     }
     Ok(out)
+}
+
+/// One joined governance view: the settled values readers and preconditions
+/// see, plus the `cas_register` head identities `state_root` needs.
+///
+/// The two halves are always derived from the same op set. Keeping them in one
+/// value is what stops a caller from recomputing a root against a state whose
+/// heads it never fetched — §6.2.1 hashes a different preimage for a CAS cell,
+/// so a mismatched pair silently produces a wrong root rather than an error.
+#[derive(Clone, Debug, Default)]
+pub struct JoinedView {
+    pub cells: BTreeMap<CellRef, CellState>,
+    pub cas_heads: CasHeadsByCell,
+}
+
+impl JoinedView {
+    pub fn as_governance_view(&self) -> GovernanceView<'_> {
+        GovernanceView::new(&self.cells, &self.cas_heads)
+    }
+
+    pub fn state_root(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Hash, crate::WireError> {
+        compute_state_root(self.as_governance_view(), digest_suite)
+    }
+}
+
+/// [`effective_state_at`] paired with the head identities of the same view.
+pub async fn effective_joined_view_at(
+    leaves: &[SealId],
+    realm_id: &RealmId,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+) -> Result<JoinedView, SealReject> {
+    let covered = union_predecessor_covered_events(leaves, seals).await?;
+    effective_joined_view_for_covered_events(&covered, realm_id, cells, registry).await
+}
+
+async fn effective_joined_view_for_covered_events(
+    covered: &BTreeSet<Hash>,
+    realm_id: &RealmId,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+) -> Result<JoinedView, SealReject> {
+    Ok(JoinedView {
+        cells: effective_state_for_covered_events(covered, realm_id, cells, registry).await?,
+        cas_heads: cas_heads_for_covered_events(covered, realm_id, cells, registry, &[]).await?,
+    })
 }
 
 async fn effective_state_for_covered_events(
@@ -1717,6 +1790,25 @@ async fn effective_state_for_covered_events_with_new_ops(
         );
     }
     Ok(out)
+}
+
+/// [`effective_state_for_covered_events_with_new_ops`] paired with the head
+/// identities of the same candidate view.
+async fn effective_joined_view_with_new_ops(
+    covered: &BTreeSet<Hash>,
+    realm_id: &RealmId,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    new_ops: &[(CellRef, IssuedOp)],
+) -> Result<JoinedView, SealReject> {
+    Ok(JoinedView {
+        cells: effective_state_for_covered_events_with_new_ops(
+            covered, realm_id, cells, registry, new_ops,
+        )
+        .await?,
+        cas_heads: cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops)
+            .await?,
+    })
 }
 
 /// Linearize one Seal's `delta[]` per §6.3.1 steps 2-3.
@@ -1862,6 +1954,27 @@ fn ops_since_last_recovery_reset(
     ops.iter()
         .rposition(|issued| issued.op.recovery_reset)
         .map_or(ops, |boundary| &ops[boundary..])
+}
+
+/// The active `cas_register` heads of one cell over its accepted Seal batches.
+///
+/// The batch structure carries no causal information for this lattice — heads
+/// come from the identities each write superseded — so this simply flattens and
+/// derives. It exists so a caller that already holds batches (the bootstrap and
+/// Agent-PCR projectors do) can build the head half of a
+/// [`crate::state::state_root::GovernanceView`] without going back to a store.
+///
+/// A cell whose identities disagree yields an empty head set: the caller is
+/// about to reject the view anyway, and an empty set keeps it out of the
+/// `state_root` rather than hashing a leaf nothing can verify.
+pub fn cas_heads_for_batches(
+    batches: &[Vec<IssuedOp>],
+) -> Vec<crate::lattice::cas_register::CasHead> {
+    let ops: Vec<SealedOp> = batches
+        .iter()
+        .flat_map(|batch| batch.iter().map(|issued| issued.op.clone()))
+        .collect();
+    crate::lattice::cas_register::cas_heads(&ops).unwrap_or_default()
 }
 
 /// Join accepted operations while preserving frozen-predecessor Seal batches.

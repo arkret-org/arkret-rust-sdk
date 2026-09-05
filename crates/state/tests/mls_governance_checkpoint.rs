@@ -14,7 +14,7 @@ use arkret_state::mls_governance_proof::{
     materialize_registered_cell_value_at_basis_from_verified_checkpoint,
     materialize_registered_cell_value_from_verified_checkpoint,
 };
-use arkret_state::{BottomMode, CellState, MemoryCellRegistry, compute_state_root};
+use arkret_state::{BottomMode, CellState, GovernanceView, MemoryCellRegistry, compute_state_root};
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
     CellFamilyId, CellRef, DidCoreId, EncryptionProfile, Event, EventKind, GenesisSalt, Hash, Hlc,
@@ -109,6 +109,43 @@ fn attach_proof(event: &mut Event, descriptor: &NotarySignerDescriptor) {
     ];
 }
 
+/// The `cas_register` heads this fixture's linear chain ends on.
+///
+/// Section 6.2.1 gives a CAS cell a `{"heads":[…]}` leaf, so a Seal's declared
+/// `state_root` cannot come from the value map alone. Each cell here is written
+/// by one chain, so the head is the last covered Event whose projection touches
+/// it — the same identity `apply_seal` derives. It asks this fixture's own
+/// `projection`, because that is what seeds the notary and digest-suite cells
+/// here; the registered projector would find no writer for them.
+fn expected_cas_heads(
+    covered_events: &[Event],
+    state: &BTreeMap<CellRef, CellState>,
+) -> arkret_state::CasHeadsByCell {
+    let mut out = arkret_state::CasHeadsByCell::new();
+    for (cell, cell_state) in state {
+        if !arkret_wire::is_registered_cas_register_cell(cell.as_str()) {
+            continue;
+        }
+        let CellState::Value(value) = cell_state else {
+            continue;
+        };
+        let head = covered_events.iter().rev().find(|event| {
+            projection(event, SUITE)
+                .is_ok_and(|writes| writes.iter().any(|write| &write.cell_id == cell))
+        });
+        if let Some(event) = head {
+            out.insert(
+                cell.clone(),
+                vec![arkret_state::lattice::cas_register::CasHead {
+                    move_id: digest(event),
+                    value: value.clone(),
+                }],
+            );
+        }
+    }
+    out
+}
+
 fn seal(
     predecessor: Option<&Seal>,
     event: &Event,
@@ -125,7 +162,11 @@ fn seal(
             .unwrap_or_default(),
         delta: vec![digest(event)],
         control_event_set_root: arkret_state::control_event_set_root(&covered, SUITE).unwrap(),
-        state_root: compute_state_root(state, SUITE).unwrap(),
+        state_root: compute_state_root(
+            GovernanceView::new(state, &expected_cas_heads(covered_events, state)),
+            SUITE,
+        )
+        .unwrap(),
         completeness_root: arkret_state::control_event_completeness_root(
             &covered_events
                 .iter()

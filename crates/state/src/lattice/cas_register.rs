@@ -42,7 +42,7 @@ pub struct CasRegister;
 /// identity is held as the Control Move's `event_digest` because that is what
 /// the op log stores; `EventId` is recovered losslessly from it when the leaf is
 /// serialized, so the two are the same identity in different spellings.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CasHead {
     pub move_id: Hash,
     pub value: Value,

@@ -142,8 +142,13 @@ async fn live_digest_suite_fails_closed_without_transition_or_genesis_state() {
     );
 }
 
+/// The shim these tests use hands `compute_state_root` a values-only view.
+///
+/// Every state map built here names a non-`cas_register` family; the membership
+/// check inside rejects a CAS cell that arrives without its heads, so a test
+/// that starts using one fails loudly instead of hashing the wrong preimage.
 fn compute_state_root(cells: &BTreeMap<CellRef, CellState>) -> Result<Hash, crate::WireError> {
-    super::compute_state_root(cells, SUITE)
+    super::compute_state_root(GovernanceView::values_only(cells), SUITE)
 }
 
 fn control_event_set_root(covered: &BTreeSet<Hash>) -> Result<Hash, SealReject> {
@@ -861,12 +866,90 @@ fn signed_seal(
     seal
 }
 
+/// The `cas_register` heads a single-chain fixture ends on.
+///
+/// Section 6.2.1 gives a CAS cell a `{"heads":[…]}` leaf, so a Seal's declared
+/// `state_root` cannot be computed from the value map alone.
+///
+/// These fixtures write each CAS cell from one linear chain, so the head is the
+/// last covered Event whose projection touches it — which is what `apply_seal`
+/// will derive from the signed bases. The projector is the fixture's own,
+/// because several of these tests install a custom one; asking the registered
+/// projector instead would silently find no writer and hand back an empty head
+/// set. A fixture that grows a genuine concurrent branch disagrees here and
+/// fails, which is the point: this reproduces the expectation rather than
+/// copying the pipeline's answer.
+fn expected_cas_heads(
+    covered_events: &[Event],
+    post_state: &BTreeMap<CellRef, CellState>,
+    project: impl Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
+) -> super::CasHeadsByCell {
+    let mut out = super::CasHeadsByCell::new();
+    for (cell, state) in post_state {
+        if !arkret_wire::is_registered_cas_register_cell(cell.as_str()) {
+            continue;
+        }
+        let CellState::Value(value) = state else {
+            continue;
+        };
+        let head = covered_events.iter().rev().find(|event| {
+            project(event).is_ok_and(|writes| writes.iter().any(|write| &write.cell_id == cell))
+        });
+        if let Some(event) = head {
+            out.insert(
+                cell.clone(),
+                vec![crate::lattice::cas_register::CasHead {
+                    move_id: control_event_digest(event, SUITE).unwrap(),
+                    value: value.clone(),
+                }],
+            );
+        }
+    }
+    out
+}
+
 fn signed_seal_with_coverage(
     predecessor_refs: Vec<SealId>,
     delta: Vec<Hash>,
     covered_events: &[Event],
     post_state: &BTreeMap<CellRef, CellState>,
     notary_seq: u64,
+) -> Seal {
+    signed_seal_with_coverage_projected(
+        predecessor_refs,
+        delta,
+        covered_events,
+        post_state,
+        notary_seq,
+        fixture_writes,
+    )
+}
+
+/// The writes these fixtures attribute to one covered Event.
+///
+/// `install_genesis` seeds `ak.component.realm.digest_suite.v1` through
+/// `genesis_digest_suite_write` rather than the registered contract, so asking
+/// the registered projector alone would find no writer for it and leave the
+/// cell without the heads its §6.2.1 leaf needs. Both sources are consulted;
+/// the genesis one only fires for `ak.realm.create`, so they cannot disagree.
+fn fixture_writes(event: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
+    let mut writes = arkret_schema::project_registered_cell_writes(event, SUITE)
+        .map_err(|error| error.to_string())
+        .unwrap_or_default();
+    if let Ok(genesis) = genesis_digest_suite_write(event) {
+        writes.extend(genesis);
+    }
+    Ok(writes)
+}
+
+/// [`signed_seal_with_coverage`] for a fixture that installs its own projector.
+fn signed_seal_with_coverage_projected(
+    predecessor_refs: Vec<SealId>,
+    delta: Vec<Hash>,
+    covered_events: &[Event],
+    post_state: &BTreeMap<CellRef, CellState>,
+    notary_seq: u64,
+    project: impl Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
 ) -> Seal {
     let covered = covered_events
         .iter()
@@ -877,7 +960,14 @@ fn signed_seal_with_coverage(
         predecessor_refs,
         delta,
         control_event_set_root(&covered).unwrap(),
-        compute_state_root(post_state).unwrap(),
+        super::compute_state_root(
+            GovernanceView::new(
+                post_state,
+                &expected_cas_heads(covered_events, post_state, project),
+            ),
+            SUITE,
+        )
+        .unwrap(),
         notary_seq,
     );
     seal.covered_event_digests = covered.iter().cloned().collect();
@@ -1714,7 +1804,25 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     let mut witness =
         materialized_seal(seal_id(0x40), vec![target_move.clone(), grant_move.clone()]);
     witness.delta = vec![target_move.clone(), grant_move.clone()];
-    witness.state_root = compute_state_root(&witness_state).unwrap();
+    // The witness view's `cas_register` target was written by `target_move`, so
+    // that identity is its head (§6.2.1); the capability cell is an `or_set` and
+    // keeps its value leaf.
+    let witness_heads = super::CasHeadsByCell::from([(
+        target.clone(),
+        vec![crate::lattice::cas_register::CasHead {
+            move_id: target_move.clone(),
+            value: witness_state
+                .get(&target)
+                .and_then(|state| match state {
+                    CellState::Value(value) => Some(value.clone()),
+                    CellState::Bottom(_) => None,
+                })
+                .expect("witness target resolves to a value"),
+        }],
+    )]);
+    witness.state_root =
+        super::compute_state_root(GovernanceView::new(&witness_state, &witness_heads), SUITE)
+            .unwrap();
     witness.id = witness.derive_id(SUITE).unwrap();
     let witness_id = witness.id.clone();
     cells
