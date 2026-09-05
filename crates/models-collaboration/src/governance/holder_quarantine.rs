@@ -1,14 +1,18 @@
-//! Holder-private Station-written invite quarantine cells.
+//! Holder-private Station-written quarantine cells.
+//!
+//! `ak.account.holder_quarantine` covers both deferred admission surfaces the
+//! consent gate holds back — invite delivery and consent requests — so the
+//! carrier is named for the holder, not for one of its two surfaces.
 
 use arkret_wire::{AccountId, DidCoreId, EventId, Hash, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-crate::string_marker!(InviteQuarantineSchema, V1, "ak.schema.invite_quarantine.v1");
-crate::string_marker!(InviteQuarantineStatus, PendingReview, "pending_review");
-crate::string_marker!(InviteQuarantineScope, Invite, "invite");
+crate::string_marker!(HolderQuarantineSchema, V1, "ak.schema.holder_quarantine.v1");
+crate::string_marker!(HolderQuarantineStatus, PendingReview, "pending_review");
+crate::string_marker!(HolderQuarantineScope, Invite, "invite");
 crate::string_marker!(
-    InviteQuarantineInvalidationReason,
+    HolderQuarantineInvalidationReason,
     ConsentRevoke,
     "consent_revoke"
 );
@@ -16,7 +20,7 @@ crate::string_marker!(
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum InviteQuarantineIntroductionKind {
+pub enum HolderQuarantineIntroductionKind {
     LocatorRef,
     ConsentGrant,
     SharedRealm,
@@ -37,7 +41,7 @@ pub enum InviteTrustTier {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum InviteQuarantineInvalidationScope {
+pub enum HolderQuarantineInvalidationScope {
     Invite,
     Any,
 }
@@ -45,15 +49,15 @@ pub enum InviteQuarantineInvalidationScope {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteQuarantineEntry {
+pub struct HolderQuarantineEntry {
     pub entry_digest: Hash,
-    pub status: InviteQuarantineStatus,
+    pub status: HolderQuarantineStatus,
     pub account_id: AccountId,
     pub source_peer_principal_id: DidCoreId,
     pub source_id: DidCoreId,
-    pub consent_scope: InviteQuarantineScope,
-    pub introduction_kind: InviteQuarantineIntroductionKind,
-    pub effective_kind: InviteQuarantineIntroductionKind,
+    pub consent_scope: HolderQuarantineScope,
+    pub introduction_kind: HolderQuarantineIntroductionKind,
+    pub effective_kind: HolderQuarantineIntroductionKind,
     pub trust_tier: InviteTrustTier,
     pub invite_event_id: EventId,
     pub request_digest: Hash,
@@ -67,10 +71,10 @@ pub struct InviteQuarantineEntry {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteQuarantineInvalidation {
-    pub reason: InviteQuarantineInvalidationReason,
+pub struct HolderQuarantineInvalidation {
+    pub reason: HolderQuarantineInvalidationReason,
     pub peer_principal_id: DidCoreId,
-    pub consent_scope: InviteQuarantineInvalidationScope,
+    pub consent_scope: HolderQuarantineInvalidationScope,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub revoked_at: DateTime<Utc>,
     pub removed_entries: u64,
@@ -79,19 +83,19 @@ pub struct InviteQuarantineInvalidation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct InviteQuarantine {
-    pub schema: InviteQuarantineSchema,
+pub struct HolderQuarantine {
+    pub schema: HolderQuarantineSchema,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
-    pub quarantine_entries: Vec<InviteQuarantineEntry>,
+    pub quarantine_entries: Vec<HolderQuarantineEntry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub last_invalidation: Option<InviteQuarantineInvalidation>,
+    pub last_invalidation: Option<HolderQuarantineInvalidation>,
 }
 
-impl InviteQuarantine {
+impl HolderQuarantine {
     pub fn new(updated_at: DateTime<Utc>) -> Self {
         Self {
-            schema: InviteQuarantineSchema::V1,
+            schema: HolderQuarantineSchema::V1,
             updated_at,
             quarantine_entries: Vec::new(),
             last_invalidation: None,

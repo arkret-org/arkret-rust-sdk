@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, ActorId, DidCoreId, DidUrl, EventId, Hash, InviteId, RealmId, Result, StrandId,
-    WireError, XExtensionMap, canonical,
+    AccountId, ActorId, DidCoreId, DidUrl, EventId, Hash, InviteId, NonEmptyString, PayloadProof,
+    RealmId, Result, StrandId, WireError, XExtensionMap, canonical,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -39,6 +37,117 @@ pub enum MembershipPayloadState {
     Ban,
 }
 
+/// The two join-policy gate kinds that take an applicant-supplied proof.
+///
+/// `parent_membership`, `principal_admission` and `cooldown` are replayed by
+/// the reducer from accepted state, so a proof item naming one of them has no
+/// meaning and cannot be constructed (`join-policy.md` §4 rule 4).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JoinGateProofKind {
+    ChallengeResponse,
+    ClaimRequired,
+}
+
+/// Closed applicant proof for one automatic join gate
+/// (`event-payload.schema.json#/$defs/join_gate_proof`).
+///
+/// The binding tuple — gate, Realm, applicant, policy revision, creation time —
+/// rides as wire members and is covered by `proofs`, so a proof replayed across
+/// Realms, applicants or policy revisions fails by field comparison before any
+/// signature is checked. Freshness is judged against the enclosing Event's
+/// signed `created_at`, never a receiver clock.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JoinGateProof {
+    pub gate_id: String,
+    pub kind: JoinGateProofKind,
+    pub realm_id: RealmId,
+    pub applicant_actor_id: ActorId,
+    /// `sha256` over the canonical JSON of the accepted `join_policy`
+    /// component the reducer evaluates this join against.
+    pub policy_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// `challenge_response` only; MUST be one of the gate's `challenge_kinds`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge_kind: Option<JoinPolicyChallengeKind>,
+    /// `challenge_response` only; the provider treats it as single-use.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub challenge_id: Option<String>,
+    /// `claim_required` only; MUST be listed in the gate's `trusted_issuer_ids`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issuer_id: Option<DidCoreId>,
+    /// `claim_required` only; MUST cover the gate's `required_claims`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claims: Option<Vec<NonEmptyString>>,
+    pub proofs: Vec<PayloadProof>,
+}
+
+impl JoinGateProof {
+    /// `payload_digest` for this proof: `sha256` over its canonical JSON with
+    /// `proofs` removed (`proof-context-registry.json`, context
+    /// `ak.join_gate_proof.v1`).
+    ///
+    /// Derived from the typed body rather than from received JSON, so a
+    /// verifier cannot be handed a digest over some other object.
+    pub fn payload_digest(&self) -> Result<Hash> {
+        let mut body = serde_json::to_value(self)?;
+        body.as_object_mut()
+            .ok_or_else(|| WireError::Protocol("join gate proof must be an object".to_owned()))?
+            .remove("proofs");
+        Hash::new(canonical::canonical_sha256(&body)?).map_err(Into::into)
+    }
+
+    /// The canonical binding object one detached proof signs.
+    ///
+    /// Members are exactly the registered `binding_fields` for this context and
+    /// in that order, so a signature made under another object family's context
+    /// cannot verify against this one.
+    pub fn proof_binding_object(&self, detached: &PayloadProof) -> Result<Value> {
+        let payload_digest = self.payload_digest()?;
+        let mut binding = serde_json::Map::new();
+        binding.insert(
+            "context".to_owned(),
+            Value::String(arkret_wire::ProofContextId::JOIN_GATE_PROOF_V1.to_owned()),
+        );
+        binding.insert(
+            "payload_digest".to_owned(),
+            serde_json::to_value(&payload_digest)?,
+        );
+        binding.insert("gate_id".to_owned(), Value::String(self.gate_id.clone()));
+        binding.insert("realm_id".to_owned(), serde_json::to_value(&self.realm_id)?);
+        binding.insert(
+            "applicant_actor_id".to_owned(),
+            serde_json::to_value(&self.applicant_actor_id)?,
+        );
+        binding.insert(
+            "policy_digest".to_owned(),
+            serde_json::to_value(&self.policy_digest)?,
+        );
+        binding.insert(
+            "verification_method".to_owned(),
+            serde_json::to_value(&detached.verification_method)?,
+        );
+        binding.insert(
+            "created_at".to_owned(),
+            Value::String(canonical::format_timestamp_canonical(detached.created_at)),
+        );
+        Ok(Value::Object(binding))
+    }
+}
+
+/// Challenge families a `challenge_response` gate may accept
+/// (`join-policy.md` §3.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JoinPolicyChallengeKind {
+    Captcha,
+    Pow,
+    AttestedHuman,
+    IdpOidc,
+}
+
 /// Strong type for `ak.member.state` payloads
 /// (`event-payload.schema.json#/$defs/membership_payload`).
 ///
@@ -62,7 +171,7 @@ pub struct MembershipPayload {
     pub member_id: ActorId,
     pub membership: MembershipPayloadState,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub gate_proofs: Vec<BTreeMap<String, Value>>,
+    pub gate_proofs: Vec<JoinGateProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

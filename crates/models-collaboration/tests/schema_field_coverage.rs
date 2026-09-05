@@ -198,7 +198,8 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "gates": [{
                     "gate_id": "claim",
                     "kind": "claim_required",
-                    "required_claims": ["verified_email"]
+                    "required_claims": ["verified_email"],
+                    "trusted_issuer_ids": ["ak:did_core:web:issuer.example"]
                 }],
                 "combinator": "all"
             },

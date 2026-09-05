@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::mls::MlsEpochRange;
-use crate::governance::audit::AuditAssurance;
+use crate::governance::audit::{AuditAssurance, AuditReleaseAttestation};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -104,6 +104,22 @@ impl AuditBindingStatus {
     }
 }
 
+/// The Realm-declared trust root list and allowed measurement set every
+/// `ak.audit.release` attestation is verified against (`audited-e2ee.md` §3).
+///
+/// Present exactly when the binding declares `attested_hardware`. Like every
+/// other binding policy field it is immutable: widening it takes a new binding
+/// genesis, so historical release eligibility cannot be expanded in place.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuditAttestationPolicy {
+    /// `sha256` over the decoded bytes of the chain's vendor root. Evidence
+    /// whose root is not listed is `audit_release_attestation_invalid`.
+    pub trust_root_digests: Vec<Hash>,
+    pub allowed_code_digests: Vec<Hash>,
+    pub allowed_policy_versions: Vec<NonEmptyString>,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
 /// audit_applet_binding_create_payload`.
@@ -124,6 +140,10 @@ pub struct AuditAppletBindingCreatePayload {
     pub first_auditable_epoch: u64,
     pub release_window_policy: AuditAppletBindingPayloadReleaseWindowPolicy,
     pub policy_version_digest: Hash,
+    /// Required exactly when `audit_assurance_class` is `attested_hardware`;
+    /// the schema's conditional keeps `disclosed_policy` from carrying one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attestation_policy: Option<AuditAttestationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub not_before: Option<DateTime<Utc>>,
@@ -202,6 +222,13 @@ pub struct AuditReleasePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sealed_by_commit_ref: Option<EventId>,
     pub wrapped_material_digest: Vec<Hash>,
+    /// Remote attestation evidence for the release service's controlled output
+    /// path (`audited-e2ee.md` §4.4 / §6). Required under an
+    /// `attested_hardware` binding and forbidden under `disclosed_policy`;
+    /// because that depends on accepted state rather than the payload, it is an
+    /// admission check rather than a schema keyword.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub release_attestation: Option<AuditReleaseAttestation>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub released_at: DateTime<Utc>,
 }

@@ -15,7 +15,7 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub use super::invite_quarantine::*;
+pub use super::holder_quarantine::*;
 
 pub const INVITE_RECIPIENT_SERVICE_KIND_STATION: &str = "station";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
