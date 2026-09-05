@@ -1761,21 +1761,38 @@ struct RecoveryWitnessFixture {
     conflict_a_id: SealId,
 }
 
+/// §9.5 splits by lattice, so the fixture has to as well.
 async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
+    recovery_witness_fixture_for(crate::lattice::LatticeKind::CasRegister).await
+}
+
+async fn recovery_witness_fixture_for(
+    target_lattice: crate::lattice::LatticeKind,
+) -> RecoveryWitnessFixture {
     let seals = MemorySealStore::default();
     let cells = MemoryCellStore::default();
     let registry = MemoryCellRegistry::default();
-    let target = CellRef::new(
-        "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
-    )
-    .unwrap();
+    let cas = target_lattice == crate::lattice::LatticeKind::CasRegister;
+    let target = if cas {
+        CellRef::new(
+            "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp00000000000000000aa".to_owned(),
+        )
+        .unwrap()
+    } else {
+        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
+            .unwrap()
+    };
     let grant_id = "ak:grant:Aam-wkD4GZDuqJ92ccjIGHTOT3JazvV5Z0uaBH7S5eFX";
     let target_move = move_id(0x41);
     let grant_move = move_id(0x42);
     let conflict_a_move = move_id(0x51);
     let conflict_b_move = move_id(0x52);
     let actor = DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap();
-    let target_value = json!({"policy_revision": 7});
+    let target_value = if cas {
+        json!({"policy_revision": 7})
+    } else {
+        json!("join")
+    };
     let grant_value = json!({
         "grant_id": grant_id,
         "subject": ActorId::account(arkret_wire::AccountId::new(
@@ -1787,8 +1804,31 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     });
 
     let mut target_op = LatticeOp::empty();
-    target_op.op_type = LatticeOpType::Set;
-    target_op.value = Some(target_value.clone());
+    if cas {
+        target_op.op_type = LatticeOpType::Set;
+        target_op.value = Some(target_value.clone());
+    } else {
+        target_op.op_type = LatticeOpType::Transition;
+        target_op.from = Some(json!("invited"));
+        target_op.to = Some(json!("join"));
+    }
+    // The two writes that actually put the cell in `⊥`. They belong in the cell
+    // store, not only in a hand-built `pre_state`: §9.5.1 proves a
+    // `cas_register` target's conflict from the Move's *own signed basis*, so a
+    // fixture whose store still shows one clean head would be asserting against
+    // a divergence that does not exist in any view.
+    let conflict_op = |value: Value| {
+        let mut op = LatticeOp::empty();
+        if cas {
+            op.op_type = LatticeOpType::Set;
+            op.value = Some(value);
+        } else {
+            op.op_type = LatticeOpType::Transition;
+            op.from = Some(json!("join"));
+            op.to = Some(value);
+        }
+        op
+    };
     let mut grant_op = LatticeOp::empty();
     grant_op.op_type = LatticeOpType::Add;
     grant_op.tag = Some(grant_id.to_owned());
@@ -1807,19 +1847,23 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     // The witness view's `cas_register` target was written by `target_move`, so
     // that identity is its head (§6.2.1); the capability cell is an `or_set` and
     // keeps its value leaf.
-    let witness_heads = CasHeadsByCell::from([(
-        target.clone(),
-        vec![crate::lattice::cas_register::CasHead {
-            move_id: target_move.clone(),
-            value: witness_state
-                .get(&target)
-                .and_then(|state| match state {
-                    CellState::Value(value) => Some(value.clone()),
-                    CellState::Bottom(_) => None,
-                })
-                .expect("witness target resolves to a value"),
-        }],
-    )]);
+    let witness_heads = if cas {
+        CasHeadsByCell::from([(
+            target.clone(),
+            vec![crate::lattice::cas_register::CasHead {
+                move_id: target_move.clone(),
+                value: witness_state
+                    .get(&target)
+                    .and_then(|state| match state {
+                        CellState::Value(value) => Some(value.clone()),
+                        CellState::Bottom(_) => None,
+                    })
+                    .expect("witness target resolves to a value"),
+            }],
+        )])
+    } else {
+        CasHeadsByCell::new()
+    };
     witness.state_root =
         super::compute_state_root(GovernanceView::new(&witness_state, &witness_heads), SUITE)
             .unwrap();
@@ -1858,9 +1902,34 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     conflict_a.sealed_at += chrono::Duration::seconds(1);
     conflict_a.id = conflict_a.derive_id(SUITE).unwrap();
     seals.put(&conflict_a, SUITE).await.unwrap();
+    if cas {
+        // Only the `cas_register` path reads the store for its divergence:
+        // §9.5.1 item 1 proves the conflict from the Move's own signed basis.
+        // The `fsm` path is gated on the hand-built frozen `pre_state`, and
+        // seeding the conflict into the store there would make a
+        // witness-at-the-conflict-Seal fixture fail as `witness_invalid` before
+        // it could reach the `post_conflict` check it exists to cover.
+        cells
+            .append_sealed_effects(
+                &realm(),
+                &conflict_a.id,
+                &[(
+                    target.clone(),
+                    issued(
+                        SealedOp::new(
+                            conflict_a_move.clone(),
+                            conflict_op(if cas { json!("open") } else { json!("leave") }),
+                        )
+                        .with_supersedes(vec![target_move.clone()]),
+                    ),
+                )],
+            )
+            .await
+            .unwrap();
+    }
     let mut conflict_b = materialized_seal(
         seal_id(0x52),
-        vec![target_move, grant_move, conflict_b_move.clone()],
+        vec![target_move.clone(), grant_move, conflict_b_move.clone()],
     );
     conflict_b.predecessor_refs = vec![witness_id.clone()];
     conflict_b.delta = vec![conflict_b_move.clone()];
@@ -1868,6 +1937,31 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     conflict_b.sealed_at += chrono::Duration::seconds(1);
     conflict_b.id = conflict_b.derive_id(SUITE).unwrap();
     seals.put(&conflict_b, SUITE).await.unwrap();
+    if cas {
+        // Only the `cas_register` path reads the store for its divergence:
+        // §9.5.1 item 1 proves the conflict from the Move's own signed basis.
+        // The `fsm` path is gated on the hand-built frozen `pre_state`, and
+        // seeding the conflict into the store there would make a
+        // witness-at-the-conflict-Seal fixture fail as `witness_invalid` before
+        // it could reach the `post_conflict` check it exists to cover.
+        cells
+            .append_sealed_effects(
+                &realm(),
+                &conflict_b.id,
+                &[(
+                    target.clone(),
+                    issued(
+                        SealedOp::new(
+                            conflict_b_move.clone(),
+                            conflict_op(if cas { json!("closed") } else { json!("ban") }),
+                        )
+                        .with_supersedes(vec![target_move.clone()]),
+                    ),
+                )],
+            )
+            .await
+            .unwrap();
+    }
 
     let mut event = control_move(
         9,
@@ -1884,7 +1978,11 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     let effects = vec![crate::ProjectionEffect::reset(
         target.clone(),
         LatticeOp {
-            op_type: LatticeOpType::Set,
+            op_type: if cas {
+                LatticeOpType::Set
+            } else {
+                LatticeOpType::Transition
+            },
             tag: None,
             value: Some(json!({"policy_revision": 8})),
             from: None,
@@ -1923,9 +2021,16 @@ fn conflict_a_id() -> SealId {
     seal_id(0x51)
 }
 
+async fn fsm_recovery_witness_fixture() -> RecoveryWitnessFixture {
+    recovery_witness_fixture_for(crate::lattice::LatticeKind::Fsm).await
+}
+
+/// §9.5 conditions 2-5 still gate an `fsm` recovery: the witness must rebuild
+/// its own `state_root`, sit strictly before the conflict, carry an active
+/// capability, and be fresh.
 #[tokio::test]
-async fn conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
-    let fixture = recovery_witness_fixture().await;
+async fn fsm_conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
+    let fixture = fsm_recovery_witness_fixture().await;
     verify_recovery_witness(
         &fixture.event,
         &fixture.effects,
@@ -1940,9 +2045,103 @@ async fn conflict_recovery_accepts_a_sealed_pre_conflict_witness() {
     .unwrap();
 }
 
+/// §9.5.1: a `cas_register` recovery needs no witness at all. Its conflict comes
+/// from its own signed basis and its authority from its capability path.
 #[tokio::test]
-async fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
-    let mut post_conflict = recovery_witness_fixture().await;
+async fn cas_conflict_recovery_needs_no_witness() {
+    let mut fixture = recovery_witness_fixture().await;
+    fixture
+        .event
+        .refs
+        .retain(|reference| reference.role != "state_witness");
+    verify_recovery_witness(
+        &fixture.event,
+        &fixture.effects,
+        &realm(),
+        &fixture.pre_state,
+        &fixture.predecessor_closure,
+        &fixture.seals,
+        &fixture.cells,
+        &fixture.registry,
+    )
+    .await
+    .unwrap();
+}
+
+/// §9.5.1 item 1: the divergence must be visible in the Move's **own** signed
+/// basis. A recovery authored against a view where the cell still resolved
+/// cleanly is repairing something it never observed.
+#[tokio::test]
+async fn cas_conflict_recovery_rejects_a_basis_without_divergence() {
+    let mut fixture = recovery_witness_fixture().await;
+    // The witness Seal is the pre-conflict view: exactly one head, one value.
+    let witness_leaf = fixture
+        .predecessor_closure
+        .iter()
+        .find(|id| **id != conflict_a_id() && **id != seal_id(0x52))
+        .cloned()
+        .expect("the fixture closure contains the pre-conflict witness Seal");
+    fixture.event.seal_basis = Some(SealBasis {
+        leaves: vec![witness_leaf],
+    });
+    let error = verify_recovery_witness(
+        &fixture.event,
+        &fixture.effects,
+        &realm(),
+        &fixture.pre_state,
+        &fixture.predecessor_closure,
+        &fixture.seals,
+        &fixture.cells,
+        &fixture.registry,
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ControlMoveReject::FailedPrecondition { ref reason, .. }
+                if reason == arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM
+        ),
+        "unexpected reject: {error:?}"
+    );
+}
+
+/// §9.5.1 item 2: dropping the witness requirement does not relax authority.
+/// Being in `⊥` never excuses a capability the frozen predecessor no longer
+/// carries.
+#[tokio::test]
+async fn cas_conflict_recovery_still_requires_an_active_capability() {
+    let mut fixture = recovery_witness_fixture().await;
+    fixture
+        .event
+        .refs
+        .retain(|reference| reference.role != "state_witness");
+    fixture.pre_state.remove(&capability_cell());
+    let error = verify_recovery_witness(
+        &fixture.event,
+        &fixture.effects,
+        &realm(),
+        &fixture.pre_state,
+        &fixture.predecessor_closure,
+        &fixture.seals,
+        &fixture.cells,
+        &fixture.registry,
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ControlMoveReject::FailedPrecondition { ref reason, .. }
+                if reason == arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING
+        ),
+        "unexpected reject: {error:?}"
+    );
+}
+
+#[tokio::test]
+async fn fsm_conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
+    let mut post_conflict = fsm_recovery_witness_fixture().await;
     post_conflict
         .event
         .refs
@@ -1968,7 +2167,7 @@ async fn conflict_recovery_rejects_post_conflict_and_revoked_witnesses() {
             if reason == arkret_wire::ReasonCode::RECOVERY_WITNESS_POST_CONFLICT
     ));
 
-    let mut revoked = recovery_witness_fixture().await;
+    let mut revoked = fsm_recovery_witness_fixture().await;
     revoked.pre_state.remove(&capability_cell());
     let error = verify_recovery_witness(
         &revoked.event,

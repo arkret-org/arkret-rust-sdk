@@ -352,11 +352,18 @@ where
     // Step 5: derive every write from kind + payload, then validate its shape
     // against the target cell's lattice.
     let projected = project_writes(event).map_err(ControlMoveReject::ProjectionFailed)?;
-    if projected
-        .iter()
-        .any(|write| matches!(write.op, ProjectedOp::Reset { .. }))
-    {
-        verify_recovery_refs(event)?;
+    for write in &projected {
+        if !matches!(write.op, ProjectedOp::Reset { .. }) {
+            continue;
+        }
+        // §9.5 splits by lattice, so the target cell decides which conditions
+        // apply — see `verify_recovery_refs`.
+        let lattice = registry
+            .resolve(realm_id, &write.cell_id)
+            .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
+            .lattice
+            .kind();
+        verify_recovery_refs(event, lattice)?;
     }
     let mut effects = Vec::with_capacity(projected.len());
     for write in &projected {
@@ -400,15 +407,31 @@ where
 }
 
 /// `event-auth-state-resolution.md` §9.5 condition 1 — the recovery Move MUST
-/// carry its authorization and its pre-conflict anchor as critical `refs[]`.
+/// carry its authorization as a critical `refs[]` entry, and for the lattices
+/// §9.5 still anchors that way, its pre-conflict `state_witness` too.
 ///
 /// These are refs, not payload fields, so nothing in the payload schema can
 /// enforce them; without this check a Move that merely names the right kind
-/// resets a cell with no authorization and no anchor at all. Conditions 2–5
-/// (witness inclusion proof, pre-conflict causality, capability sealed under
-/// the witness, freshness / revoke lag) are frontier-dependent and belong to
-/// the Seal-accepting caller, which is the only layer holding the Seal DAG.
-fn verify_recovery_refs(event: &Event) -> Result<(), ControlMoveReject> {
+/// resets a cell with no authorization at all.
+///
+/// **`cas_register` requires no `state_witness`** (§9.5.1). Its recovery is an
+/// ordinary identity write whose target conflict is proved by the Move's own
+/// signed basis showing divergent heads, and whose authority is proved by its
+/// registered capability path — two separate proofs, neither of which is a
+/// witness to a pre-conflict value. Demanding one is not merely redundant, it
+/// is unsatisfiable in the case that matters most: a cell that conflicted on its
+/// *first* write never had a legal prior value for anything to witness. §9.5.1
+/// also drops `recovery_witness_freshness_window_ms` on this path, so a
+/// long-unrepaired conflict cannot age out of a still-valid authority's reach.
+///
+/// For the remaining `bottom=reject` lattices (`fsm`) conditions 2–5 (witness
+/// inclusion proof, pre-conflict causality, capability sealed under the witness,
+/// freshness / revoke lag) are frontier-dependent and belong to the
+/// Seal-accepting caller, which is the only layer holding the Seal DAG.
+fn verify_recovery_refs(
+    event: &Event,
+    lattice: crate::lattice::LatticeKind,
+) -> Result<(), ControlMoveReject> {
     let critical_ref = |role: &str| {
         event
             .refs
@@ -426,7 +449,7 @@ fn verify_recovery_refs(event: &Event) -> Result<(), ControlMoveReject> {
             reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
         });
     }
-    if !critical_ref("state_witness") {
+    if lattice != crate::lattice::LatticeKind::CasRegister && !critical_ref("state_witness") {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
             reason: "recovery_witness_missing".to_owned(),
@@ -1777,12 +1800,16 @@ mod tests {
         )])
     }
 
-    /// Vector case `missing_state_witness`. The anchor is a critical ref, not a
-    /// payload field, so nothing in the payload schema rejects its absence: a
-    /// Move that only named the right kind would otherwise reset a cell with no
-    /// pre-conflict anchor at all.
+    /// §9.5.1: a `cas_register` recovery carries no `state_witness`.
+    ///
+    /// The requirement is not merely redundant there, it is unsatisfiable in the
+    /// case that most needs repair: a cell that conflicted on its *first* write
+    /// never held a legal prior value, so nothing exists to witness. The target
+    /// conflict is proved by the Move's own signed basis and the authority by
+    /// its registered capability path — two separate proofs, checked by the
+    /// Seal-accepting layer that holds the DAG.
     #[test]
-    fn a_reset_without_a_state_witness_ref_is_rejected() {
+    fn a_cas_register_reset_needs_no_state_witness_ref() {
         let event = control_move(
             vec![],
             vec![EventRef::new(
@@ -1791,7 +1818,7 @@ mod tests {
             )],
         );
 
-        let error = verify_control_move(
+        verify_control_move(
             &event,
             &realm(),
             &bottom_policy_cell(),
@@ -1799,7 +1826,46 @@ mod tests {
             ok_proofs,
             project(vec![reset_write(json!({"policy_revision": 8}))]),
         )
-        .expect_err("a recovery Move without a state_witness must fail closed");
+        .expect("a cas_register recovery needs only its capability ref");
+    }
+
+    /// The other half of the same split: `fsm` still anchors on a pre-conflict
+    /// witness (§9.5 condition 1), because §9.5.1's register proof does not
+    /// carry over to a state machine — that needs its own transition algebra.
+    ///
+    /// The anchor is a critical ref, not a payload field, so nothing in the
+    /// payload schema rejects its absence.
+    #[test]
+    fn an_fsm_reset_without_a_state_witness_ref_is_rejected() {
+        let event = control_move(
+            vec![],
+            vec![EventRef::new(
+                "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi",
+                "recovery_capability",
+            )],
+        );
+        let bottom_member = BTreeMap::from([(
+            cell_member(),
+            CellState::Bottom(crate::Bottom::new(
+                BottomKind::Conflict,
+                vec![cell_member()],
+            )),
+        )]);
+
+        let error = verify_control_move(
+            &event,
+            &realm(),
+            &bottom_member,
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![ProjectedCellWrite {
+                cell_id: cell_member(),
+                op: ProjectedOp::Reset {
+                    value: json!("join"),
+                },
+            }]),
+        )
+        .expect_err("an fsm recovery Move without a state_witness must fail closed");
 
         assert!(
             matches!(

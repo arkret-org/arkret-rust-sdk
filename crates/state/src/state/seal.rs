@@ -941,18 +941,6 @@ pub async fn verify_recovery_witness(
         .iter()
         .find(|reference| reference.role == "recovery_capability" && reference.critical)
         .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED))?;
-    let witnesses = event
-        .refs
-        .iter()
-        .filter(|reference| reference.role == "state_witness" && reference.critical)
-        .map(|reference| {
-            SealId::new(reference.id.as_str().to_owned())
-                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    if witnesses.is_empty() {
-        return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_MISSING));
-    }
 
     let CellState::Bottom(bottom) = pre_state
         .get(&reset.cell_id)
@@ -964,6 +952,62 @@ pub async fn verify_recovery_witness(
     };
     if bottom.move_ids.is_empty() {
         return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
+    }
+
+    // §9.5.1: a `cas_register` recovery proves its target conflict from its own
+    // signed basis and its authority from its registered capability path. Those
+    // are two separate proofs and neither is a witness to a pre-conflict value —
+    // a cell that conflicted on its *first* write never had one, so requiring a
+    // `state_witness` here would make exactly the case that most needs repair
+    // unrepairable. The freshness window goes with it: a conflict left standing
+    // for a week must not age out of a still-valid authority's reach.
+    let reset_lattice = registry
+        .resolve(realm_id, &reset.cell_id)
+        .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?
+        .lattice
+        .kind();
+    if reset_lattice == crate::lattice::LatticeKind::CasRegister {
+        let basis = event
+            .seal_basis
+            .as_ref()
+            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?;
+        let basis_view = effective_joined_view_at(&basis.leaves, realm_id, seals, cells, registry)
+            .await
+            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?;
+        // Item 1: the divergence must be visible in the *Move's own* basis, not
+        // merely in the frozen predecessor. A recovery authored against a view
+        // where the cell still resolved cleanly is repairing something it never
+        // saw. (Item 3's `H_c(B) = H_c(P)` guard runs separately in `apply_seal`
+        // and is what rejects a recovery whose branch set has since moved on.)
+        if !matches!(
+            basis_view.cells.get(&reset.cell_id),
+            Some(CellState::Bottom(_))
+        ) {
+            return Err(reject(
+                arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
+            ));
+        }
+        // Item 2: authority is verified on its own, against the frozen
+        // predecessor. Being in `⊥` never excuses a revoked capability.
+        if !recovery_capability_is_active(capability_ref.id.as_str(), &event.actor_id, pre_state) {
+            return Err(reject(
+                arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING,
+            ));
+        }
+        return Ok(());
+    }
+
+    let witnesses = event
+        .refs
+        .iter()
+        .filter(|reference| reference.role == "state_witness" && reference.critical)
+        .map(|reference| {
+            SealId::new(reference.id.as_str().to_owned())
+                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if witnesses.is_empty() {
+        return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_MISSING));
     }
 
     for witness_id in witnesses {
