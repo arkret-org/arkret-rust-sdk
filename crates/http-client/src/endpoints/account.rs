@@ -30,7 +30,7 @@ use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
     AccountHandoffRequestBody, AccountLogoutOutcome, AccountLogoutRequestBody,
-    AccountOnboardingSnapshot, AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
+    AccountOnboardingState, AccountUpdateProfileOutcome, IdentityAbandonmentChallengeOutcome,
     IdentityAbandonmentChallengeRequestBody, IdentityAbandonmentOutcome,
     IdentityAbandonmentRequestBody, IdentityBindingChallengeOutcome,
     IdentityBindingChallengeRequestBody,
@@ -111,9 +111,8 @@ impl Client {
     /// Read the current server-authored onboarding projection using the live
     /// DPoP-bound account handoff. Clients call this before reconciling local
     /// onboarding artifacts after reload, callback, or an uncertain result.
-    pub async fn auth_account_onboarding_snapshot(&self) -> Result<AccountOnboardingSnapshot> {
-        let snapshot: AccountOnboardingSnapshot =
-            self.get("/_arkret/gate/account/onboarding").await?;
+    pub async fn auth_account_onboarding_state(&self) -> Result<AccountOnboardingState> {
+        let snapshot: AccountOnboardingState = self.get("/_arkret/gate/account/onboarding").await?;
         snapshot.validate()?;
         Ok(snapshot)
     }

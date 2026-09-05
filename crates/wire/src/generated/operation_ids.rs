@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-05.4;
-//! sha256=459ebbed24a2358bde385fc271d3a728fd430c7d81813acd293e2f3de731ede7 Entries: registered=235
+//! Input: registry/operation-registry.json; version=2026-09-06.1;
+//! sha256=01b59ff31e2adeb5edcbc2c30f1f6a520ae7e5f222e005448cf191cbfa3fd9d1 Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -3141,7 +3141,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/account_onboarding_snapshot",
+            "schemas/account-operations.schema.json#/$defs/account_onboarding_state",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {

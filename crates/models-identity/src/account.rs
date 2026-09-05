@@ -828,7 +828,7 @@ impl AccountHandoffOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AccountOnboardingSnapshot {
+pub struct AccountOnboardingState {
     pub handoff_request_id: RequestId,
     pub account_subject: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -837,7 +837,7 @@ pub struct AccountOnboardingSnapshot {
     pub goal: AccountOnboardingGoal,
 }
 
-impl AccountOnboardingSnapshot {
+impl AccountOnboardingState {
     pub fn validate(&self) -> Result<()> {
         match &self.binding {
             AccountHandoffBinding::IdentityCreationActive {
@@ -2176,9 +2176,9 @@ mod account_handoff_tests {
     }
 
     #[test]
-    fn onboarding_snapshot_is_a_closed_server_goal_projection() {
+    fn onboarding_state_is_a_closed_server_goal_projection() {
         let did = Did::new("did:webvh:z6mkfixture:example.com").unwrap();
-        let snapshot = AccountOnboardingSnapshot {
+        let snapshot = AccountOnboardingState {
             handoff_request_id: handoff_request().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),
@@ -2198,7 +2198,7 @@ mod account_handoff_tests {
     #[test]
     fn bound_onboarding_rejects_a_core_and_did_mismatch() {
         let alice = Did::new("did:webvh:z6mkalice:alice.example").unwrap();
-        let snapshot = AccountOnboardingSnapshot {
+        let snapshot = AccountOnboardingState {
             handoff_request_id: handoff_request().request_id,
             account_subject: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             observed_at: Utc::now(),

@@ -13461,13 +13461,13 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-identity/src/account.rs::AccountOnboardingSnapshot",
+      "rust_type": "crates/models-identity/src/account.rs::AccountOnboardingState",
       "crate": "models-identity",
       "file": "crates/models-identity/src/account.rs",
       "line": 830,
       "kind": "struct",
-      "value_kind": "AccountOnboardingSnapshot",
-      "spec_pointer": "account-operations.schema.json#/$defs/account_onboarding_snapshot",
+      "value_kind": "AccountOnboardingState",
+      "spec_pointer": "account-operations.schema.json#/$defs/account_onboarding_state",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,
