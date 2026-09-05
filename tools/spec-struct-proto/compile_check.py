@@ -129,10 +129,12 @@ def main() -> int:
 
     root = Path(tempfile.mkdtemp(prefix="spec-struct-proto-"))
     (root / "src").mkdir(parents=True)
-    (root / "Cargo.toml").write_text(CARGO_TOML, encoding="utf-8")
+    (root / "Cargo.toml").write_text(CARGO_TOML, encoding="utf-8", newline="\n")
     body = source.replace("#![allow(dead_code)]", "#![allow(dead_code)]\n")
     (root / "src" / "lib.rs").write_text(
-        body + "\n" + STUB_PRELUDE + "\n" + stub_text + "\n", encoding="utf-8"
+        body + "\n" + STUB_PRELUDE + "\n" + stub_text + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
 
     environment = dict(os.environ)

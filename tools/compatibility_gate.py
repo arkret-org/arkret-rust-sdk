@@ -457,7 +457,7 @@ def negative_mutation(document: dict[str, Any], workspace_root: Path) -> str:
             / probe["source"]
         )
         mutated_path.parent.mkdir(parents=True)
-        mutated_path.write_text(mutated, encoding="utf-8")
+        mutated_path.write_text(mutated, encoding="utf-8", newline="\n")
         try:
             check_public_models({"repositories": document["repositories"], "public_model_probes": [probe]}, temporary_root)
         except CompatibilityError as error:
