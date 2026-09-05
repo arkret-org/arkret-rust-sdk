@@ -10,9 +10,10 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    CbaEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey, EventCellRuleOperator,
-    EventCellWriteDescriptor, EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT,
-    PredicateOp, ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
+    AccountId, ActorId, CbaEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey,
+    EventCellRuleOperator, EventCellWriteDescriptor, EventId, EventKind, LatticeOp, LatticeOpType,
+    NULL_SUBJECT, Precondition, Predicate, PredicateOp, ProjectedCellWrite, ProjectedEventInput,
+    ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -326,7 +327,7 @@ pub fn project_registered_cell_writes(
     project_registered_operation_writes_with_pre_state(
         &ProjectedEventInput::from(event),
         digest_suite,
-        &FrozenPreState::new(),
+        None,
         None,
     )
 }
@@ -341,7 +342,7 @@ pub fn project_registered_cell_writes_with_authority_resolver(
     project_registered_operation_writes_with_pre_state(
         &ProjectedEventInput::from(event),
         digest_suite,
-        &FrozenPreState::new(),
+        None,
         Some(resolve),
     )
 }
@@ -359,7 +360,7 @@ pub fn project_registered_cell_writes_with_pre_state(
     project_registered_operation_writes_with_pre_state(
         &ProjectedEventInput::from(event),
         digest_suite,
-        frozen_pre_state,
+        Some(frozen_pre_state),
         None,
     )
 }
@@ -375,7 +376,7 @@ pub fn project_registered_cell_writes_with_pre_state_and_authority_resolver(
     project_registered_operation_writes_with_pre_state(
         &ProjectedEventInput::from(event),
         digest_suite,
-        frozen_pre_state,
+        Some(frozen_pre_state),
         Some(resolve),
     )
 }
@@ -386,12 +387,7 @@ pub fn project_registered_operation_writes(
     event: &ProjectedEventInput,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
-    project_registered_operation_writes_with_pre_state(
-        event,
-        digest_suite,
-        &FrozenPreState::new(),
-        None,
-    )
+    project_registered_operation_writes_with_pre_state(event, digest_suite, None, None)
 }
 
 /// Project an accepted operation with its Capability Grant authority basis.
@@ -400,18 +396,13 @@ pub fn project_registered_operation_writes_with_authority_resolver(
     digest_suite: arkret_canonical::DigestSuite,
     resolve: &CapabilityAuthorityResolver<'_>,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
-    project_registered_operation_writes_with_pre_state(
-        event,
-        digest_suite,
-        &FrozenPreState::new(),
-        Some(resolve),
-    )
+    project_registered_operation_writes_with_pre_state(event, digest_suite, None, Some(resolve))
 }
 
 fn project_registered_operation_writes_with_pre_state(
     event: &ProjectedEventInput,
     digest_suite: arkret_canonical::DigestSuite,
-    frozen_pre_state: &FrozenPreState,
+    frozen_pre_state: Option<&FrozenPreState>,
     authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
@@ -421,12 +412,19 @@ fn project_registered_operation_writes_with_pre_state(
         .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
     let runtime_contract = crate::event_runtime_contract(&kind)
         .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.clone()))?;
-    validate_pre_state_requirements(
-        event,
-        runtime_contract.pre_state_requirements,
-        frozen_pre_state,
-        &kind,
-    )?;
+    // Only the admitting receiver evaluates pre-state requirements, and only
+    // against the snapshot it froze. `None` means the caller is projecting the
+    // write set (pre-authoring, replay of an already accepted operation), not
+    // admitting the Event; substituting an empty snapshot there would reject
+    // every kind that declares a requirement.
+    if let Some(frozen_pre_state) = frozen_pre_state {
+        validate_pre_state_requirements(
+            event,
+            runtime_contract.pre_state_requirements,
+            frozen_pre_state,
+            &kind,
+        )?;
+    }
     let writes = descriptor.cell_writes;
     if writes.is_empty() {
         // An active reducer-input kind MUST declare a complete contract
@@ -496,7 +494,10 @@ fn project_registered_operation_writes_with_pre_state(
             .cell_family
             .map(|family| family.as_str())
             .ok_or_else(|| effect_set_error(&kind, "cell write omits cell_family"))?;
-        let subject = derive_subject_value(event, write.cell_subject_rule)?;
+        let subject = derive_subject_value(
+            CellSubjectSource::from_event(event),
+            write.cell_subject_rule,
+        )?;
         let cell = CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
             EventCellContractError::InvalidCell {
                 kind: kind.clone(),
@@ -562,6 +563,12 @@ fn validate_pre_state_requirements(
     kind: &str,
 ) -> Result<(), EventCellContractError> {
     for requirement in requirements {
+        // event-and-patch.md 2.4.2: a requirement whose registered condition does
+        // not hold is not evaluated at all. It shares the closed condition
+        // grammar of a conditional cell write, so the same evaluator decides it.
+        if !condition_matches(event, requirement.condition_rule, kind)? {
+            continue;
+        }
         let subject = field_value(event, requirement.subject_field)
             .ok_or_else(|| effect_set_error(kind, "pre-state subject field is absent"))
             .and_then(|value| {
@@ -585,7 +592,29 @@ fn validate_pre_state_requirements(
                 let payload_path = requirement.payload_field.ok_or_else(|| {
                     effect_set_error(kind, "stored_field_equals_payload omits payload_field")
                 })?;
-                stored_value == field_value(event, payload_path)
+                // Both sides MUST be present and byte-equal. Treating a mutual
+                // absence as satisfied would silently collapse this predicate
+                // into stored_field_matches_payload.
+                let payload_value = field_value(event, payload_path);
+                stored_value.is_some_and(|value| !value.is_null())
+                    && payload_value.is_some_and(|value| !value.is_null())
+                    && stored_value == payload_value
+            }
+            crate::EventPreStatePredicateKind::StoredFieldMatchesPayload => {
+                let payload_path = requirement.payload_field.ok_or_else(|| {
+                    effect_set_error(kind, "stored_field_matches_payload omits payload_field")
+                })?;
+                // Either both sides are absent, or both are present and
+                // byte-equal. A one-sided presence is a rejection in both
+                // directions (governance-objects.md 5.3).
+                let payload_value = field_value(event, payload_path);
+                let stored_present = stored_value.is_some_and(|value| !value.is_null());
+                let payload_present = payload_value.is_some_and(|value| !value.is_null());
+                match (stored_present, payload_present) {
+                    (false, false) => true,
+                    (true, true) => stored_value == payload_value,
+                    _ => false,
+                }
             }
         };
         if !satisfied {
@@ -657,6 +686,178 @@ pub fn validate_registered_cell_plane_in_context(
     Ok(())
 }
 
+/// Locate the registered `ak.component.invite.live_target.v1` write on one
+/// invite kind.
+///
+/// Every caller below reads the slot's shape out of this one descriptor, so
+/// there is no second, hand-written copy of the subject rule, the lattice or
+/// the `__unset__` sentinel anywhere in the SDK. A registry that stopped
+/// declaring the write fails the lookup instead of falling back.
+fn invite_live_target_write(
+    kind: &EventKind,
+) -> Result<EventCellWriteDescriptor, EventCellContractError> {
+    let descriptor = kind.descriptor().ok_or_else(|| {
+        EventCellContractError::UnregisteredReducerInput(kind.as_str().to_owned())
+    })?;
+    descriptor
+        .cell_writes
+        .iter()
+        .copied()
+        .find(|write| write.cell_family == Some(arkret_wire::CellFamilyId::InviteLiveTargetV1))
+        .ok_or_else(|| {
+            EventCellContractError::MissingCellContract(format!(
+                "{} declares no {} write",
+                kind.as_str(),
+                arkret_wire::CellFamilyId::InviteLiveTargetV1.as_str()
+            ))
+        })
+}
+
+/// Derive the Realm live-target cell for one invitee account.
+///
+/// The subject comes from the registered `ak.invite.create` `cell_subject`
+/// rule, evaluated by the same code path a receiver uses on a signed Event, so
+/// a producer building the `head_eq` precondition and a receiver projecting the
+/// accepted Event cannot disagree. A producer needs this before its Event id
+/// exists — `preconditions[]` is part of the preimage that id is computed from
+/// — which is why the source here is payload-only.
+///
+/// There is deliberately no scan-the-Realm variant: `governance-objects.md`
+/// section 5.3 makes this cell the sole truth source for live directed-invite
+/// uniqueness, and an implementation-private index is not Realm state.
+pub fn invite_live_target_cell(
+    invitee_account_id: &AccountId,
+) -> Result<CellRef, EventCellContractError> {
+    let kind = EventKind::InviteCreate;
+    let write = invite_live_target_write(&kind)?;
+    let family = write
+        .cell_family
+        .map(|family| family.as_str())
+        .ok_or_else(|| effect_set_error(kind.as_str(), "cell write omits cell_family"))?;
+    let payload = BTreeMap::from([(
+        "invitee_account_id".to_owned(),
+        serde_json::to_value(invitee_account_id).map_err(|error| {
+            subject_error(
+                kind.as_str(),
+                &format!("invitee_account_id is not serialisable: {error}"),
+            )
+        })?,
+    )]);
+    let subject = derive_subject_value(
+        CellSubjectSource::from_payload(kind.as_str(), &payload),
+        write.cell_subject_rule,
+    )?;
+    CellRef::new(format!("ak:cell:{family}:{subject}")).map_err(|error| {
+        EventCellContractError::InvalidCell {
+            kind: kind.as_str().to_owned(),
+            message: error.to_string(),
+        }
+    })
+}
+
+/// The registered `initial_value` of the live-target slot: the register value
+/// that means "no live directed invite for this account".
+pub fn invite_live_target_unset_value() -> Result<Value, EventCellContractError> {
+    let kind = EventKind::InviteCreate;
+    invite_live_target_write(&kind)?
+        .initial_value_rule
+        .map(EventCellRule::to_json_value)
+        .ok_or_else(|| effect_set_error(kind.as_str(), "live-target write omits initial_value"))
+}
+
+/// The state of one Realm live-target slot.
+///
+/// "Occupied" *is* the definition of "a live directed invite exists for this
+/// account" (`governance-objects.md` section 5.3). There is no second state
+/// axis to consult and no wall-clock comparison to make: `expires_at` passing
+/// does not free the slot, it only authorises somebody to submit the
+/// `ak.invite.revoke` that does.
+///
+/// The occupied value is the occupying `ak.invite.create` Event id spelled
+/// `ak:event:` **verbatim**, never the `ak:invite:` retype of the same 33-octet
+/// token. That is why [`Self::HeldBy`] carries an [`EventId`] and why
+/// [`Self::held_by_invite`] is the only way in from an `InviteId`: the retype
+/// happens once, here. A release Move that asserted the `ak:invite:` spelling
+/// as its `head_eq` value would compare unequal forever and strand the slot,
+/// and the mistake only surfaces the next time somebody invites that account.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InviteLiveTargetSlot {
+    /// Free: the next `ak.invite.create` may claim it.
+    Unset,
+    /// Claimed by the directed invite this `ak.invite.create` Event created.
+    HeldBy(EventId),
+}
+
+impl InviteLiveTargetSlot {
+    /// The slot value an existing invite holds, retyping its `ak:invite:`
+    /// spelling into the `ak:event:` one the register actually stores.
+    pub fn held_by_invite(invite_id: &arkret_wire::InviteId) -> Self {
+        Self::HeldBy(invite_id.event_id())
+    }
+
+    /// Read a slot out of a frozen pre-state value.
+    ///
+    /// Anything that is neither the registered `initial_value` nor a valid
+    /// Event id is a corrupted register, not an empty slot: reporting it as
+    /// free would hand the next `ak.invite.create` a `head_eq` that silently
+    /// overwrites a live invite.
+    pub fn from_cell_value(value: &Value) -> Result<Self, EventCellContractError> {
+        if *value == invite_live_target_unset_value()? {
+            return Ok(Self::Unset);
+        }
+        let occupant = value.as_str().ok_or_else(|| {
+            effect_set_error(
+                EventKind::InviteCreate.as_str(),
+                "live-target slot value must be a string",
+            )
+        })?;
+        EventId::new(occupant.to_owned())
+            .map(Self::HeldBy)
+            .map_err(|error| {
+                effect_set_error(
+                    EventKind::InviteCreate.as_str(),
+                    &format!("live-target slot value is not a create Event id: {error}"),
+                )
+            })
+    }
+
+    /// The occupying `ak.invite.create` Event id, or `None` when free.
+    pub fn create_event_id(&self) -> Option<&EventId> {
+        match self {
+            Self::Unset => None,
+            Self::HeldBy(event_id) => Some(event_id),
+        }
+    }
+
+    /// The exact `head_eq` value a Move must assert on this slot.
+    ///
+    /// `ak.invite.create` asserts the free value; every registered release Move
+    /// asserts the stored `create_event_id`, so a slot already re-claimed by a
+    /// later invite cannot be freed by an older Move.
+    pub fn head_eq_value(&self) -> Result<Value, EventCellContractError> {
+        match self {
+            Self::Unset => invite_live_target_unset_value(),
+            Self::HeldBy(event_id) => Ok(Value::String(event_id.as_str().to_owned())),
+        }
+    }
+
+    /// The complete `head_eq` precondition for one invitee's slot.
+    pub fn precondition(
+        &self,
+        invitee_account_id: &AccountId,
+    ) -> Result<Precondition, EventCellContractError> {
+        Ok(Precondition {
+            cell_id: invite_live_target_cell(invitee_account_id)?,
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(self.head_eq_value()?),
+                values: None,
+                predicate_id: None,
+            },
+        })
+    }
+}
+
 fn require_lattice(
     kind: &str,
     projection_kind: &str,
@@ -717,10 +918,13 @@ fn conflict_recovery_cell(
 /// sibling without any Seal-DAG input. The rule is global to the lattice, not
 /// registered per cell family, so it lives here rather than in the registry row.
 ///
-/// An initial write asserts no predecessor and leaves `from` absent. An explicit
-/// `head_eq null` asserts the *initial* state (the settled value of an absent
-/// cell is `null`), so it is likewise a chain head rather than a predecessor
-/// value.
+/// An initial write asserts no predecessor and leaves `from` absent. A Move that
+/// did assert one is copied verbatim, including a `head_eq` naming the cell's
+/// initial state: deciding that such an assertion opens a chain instead of
+/// superseding a value belongs to the join, which is the only layer that knows
+/// what this family's registered initial state actually is. Recognising one
+/// spelling of "initial" here and another one there is what put
+/// `ak.component.invite.live_target.v1` into `⊥` on its first claim.
 fn cas_register_predecessor(event: &ProjectedEventInput, cell: &CellRef) -> Option<Value> {
     event
         .preconditions
@@ -729,7 +933,6 @@ fn cas_register_predecessor(event: &ProjectedEventInput, cell: &CellRef) -> Opti
             precondition.cell_id == *cell && precondition.predicate.op == PredicateOp::HeadEq
         })
         .find_map(|precondition| precondition.predicate.value.clone())
-        .filter(|value| !value.is_null())
 }
 
 // The registry descriptor is destructured into its parts by the caller, and
@@ -1511,19 +1714,62 @@ fn validate_plane(
     }
 }
 
+/// The closed set of Event sources a registered `cell_subject` rule may read.
+///
+/// `event-and-patch.md` section 2.4.2 derives a subject from the signed
+/// envelope and the schema-validated payload, and v1's envelope namespace is
+/// just `envelope.event_id` plus `envelope.actor_id`. Naming that set as its
+/// own type lets a *producer* evaluate the registered rule before the Event id
+/// exists — a `head_eq` precondition is part of the preimage the id is computed
+/// from — without growing a second, hand-spelled copy of the subject grammar.
+/// A rule that reaches for an envelope source the caller does not have fails
+/// closed rather than falling back to a substitute.
+#[derive(Clone, Copy)]
+struct CellSubjectSource<'a> {
+    kind: &'a str,
+    event_id: Option<&'a EventId>,
+    actor_id: Option<&'a ActorId>,
+    payload: &'a BTreeMap<String, Value>,
+}
+
+impl<'a> CellSubjectSource<'a> {
+    fn from_event(event: &'a ProjectedEventInput) -> Self {
+        Self {
+            kind: event.kind.as_str(),
+            event_id: Some(&event.event_id),
+            actor_id: Some(&event.actor_id),
+            payload: &event.payload,
+        }
+    }
+
+    /// Payload-only source for a rule the registry declares purely over
+    /// `payload.*`. Both envelope sources are absent, so a registry change that
+    /// introduced one would be rejected here instead of silently locating a
+    /// different cell.
+    fn from_payload(kind: &'a str, payload: &'a BTreeMap<String, Value>) -> Self {
+        Self {
+            kind,
+            event_id: None,
+            actor_id: None,
+            payload,
+        }
+    }
+}
+
 #[cfg(test)]
 fn derive_subject(
     event: &Event,
     rule: Option<EventCellRule>,
 ) -> Result<String, EventCellContractError> {
-    derive_subject_value(&ProjectedEventInput::from(event), rule)
+    let projected = ProjectedEventInput::from(event);
+    derive_subject_value(CellSubjectSource::from_event(&projected), rule)
 }
 
 fn derive_subject_value(
-    event: &ProjectedEventInput,
+    event: CellSubjectSource<'_>,
     rule: Option<EventCellRule>,
 ) -> Result<String, EventCellContractError> {
-    let kind = event.kind.as_str().to_owned();
+    let kind = event.kind.to_owned();
     let Some(rule) = rule else {
         // `cell_subject: null` is a per-Realm singleton located by the Event
         // envelope `realm_id`. Its canonical wire subject segment is the literal
@@ -1559,7 +1805,7 @@ fn derive_subject_value(
                 let Some(path) = (*field).as_str() else {
                     continue;
                 };
-                if let Some(value) = field_value(event, path) {
+                if let Some(value) = payload_value(event.payload, path) {
                     return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
                 }
                 if let Some(value) = envelope_field(event, path) {
@@ -1579,7 +1825,7 @@ fn derive_subject_value(
                 .field(EventCellRuleKey::Field)
                 .and_then(EventCellRule::as_str)
                 .ok_or_else(|| subject_error(&kind, "cell subject field is missing"))?;
-            let value = field_value(event, path)
+            let value = payload_value(event.payload, path)
                 .ok_or_else(|| subject_error(&kind, &format!("{path} is missing")))?;
             let scalar = scalar_subject(value).map_err(|message| subject_error(&kind, &message))?;
             Ok(arkret_wire::uri_cell_subject(&scalar))
@@ -1596,9 +1842,12 @@ fn derive_subject_value(
             // every later update of the same object, which locates it by
             // `payload.<kind>_id`.
             if path == EVENT_ID_SUBJECT_SOURCE {
-                return retype_event_id(&event.event_id, rule_kind.as_str(), &kind);
+                let event_id = event.event_id.ok_or_else(|| {
+                    subject_error(&kind, "envelope.event_id is not available to this caller")
+                })?;
+                return retype_event_id(event_id, rule_kind.as_str(), &kind);
             }
-            if let Some(value) = field_value(event, path) {
+            if let Some(value) = payload_value(event.payload, path) {
                 return scalar_subject(value).map_err(|message| subject_error(&kind, &message));
             }
             envelope_field(event, path)
@@ -1710,7 +1959,7 @@ fn retype_event_id(
 }
 
 fn derive_composite(
-    event: &ProjectedEventInput,
+    event: CellSubjectSource<'_>,
     components: &[EventCellRule],
     kind: &str,
 ) -> Result<String, EventCellContractError> {
@@ -1725,7 +1974,7 @@ fn derive_composite(
 /// Resolve one composite component: either a plain field path or a
 /// discriminated `select` (`conformance/encoding.md` §9.5.1).
 fn component_value(
-    event: &ProjectedEventInput,
+    event: CellSubjectSource<'_>,
     component: &EventCellRule,
     kind: &str,
 ) -> Result<Value, EventCellContractError> {
@@ -1767,7 +2016,7 @@ fn component_value(
 }
 
 fn string_set_digest_component_value(
-    event: &ProjectedEventInput,
+    event: CellSubjectSource<'_>,
     component: EventCellRule,
     kind: &str,
 ) -> Result<Value, EventCellContractError> {
@@ -1855,7 +2104,7 @@ fn string_set_digest_component_value(
 /// an `effective_scope` with `kind="circle"` is required by schema to carry
 /// `realm_id` as well, which is exactly the `realm` branch's value field.
 fn select_field_path(
-    event: &ProjectedEventInput,
+    event: CellSubjectSource<'_>,
     component: EventCellRule,
     kind: &str,
 ) -> Result<String, EventCellContractError> {
@@ -1897,10 +2146,14 @@ fn payload_root(event: &ProjectedEventInput) -> Value {
 }
 
 fn field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<&'a Value> {
+    payload_value(&event.payload, path)
+}
+
+fn payload_value<'a>(payload: &'a BTreeMap<String, Value>, path: &str) -> Option<&'a Value> {
     let path = path.strip_prefix("payload.")?;
     let mut segments = path.split('.');
     let first = segments.next()?;
-    let mut current = event.payload.get(first)?;
+    let mut current = payload.get(first)?;
     for segment in segments {
         current = current.as_object()?.get(segment)?;
     }
@@ -1915,21 +2168,23 @@ fn field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<&'a Val
 /// invitee who submitted the acceptance. The namespace and set are closed: v1
 /// accepts only the explicit `envelope.actor_id` source and never guesses from
 /// a bare name or payload-first fallback.
-fn envelope_field(event: &ProjectedEventInput, path: &str) -> Option<String> {
+fn envelope_field(event: CellSubjectSource<'_>, path: &str) -> Option<String> {
     match path {
-        "envelope.actor_id" => event.actor_id.canonical_key().ok(),
+        "envelope.actor_id" => event.actor_id?.canonical_key().ok(),
         _ => None,
     }
 }
 
-fn subject_field_value<'a>(event: &'a ProjectedEventInput, path: &str) -> Option<Cow<'a, Value>> {
-    field_value(event, path).map(Cow::Borrowed).or_else(|| {
-        if path == "envelope.actor_id" {
-            serde_json::to_value(&event.actor_id).ok().map(Cow::Owned)
-        } else {
-            envelope_field(event, path).map(|value| Cow::Owned(Value::String(value)))
-        }
-    })
+fn subject_field_value<'a>(event: CellSubjectSource<'a>, path: &str) -> Option<Cow<'a, Value>> {
+    payload_value(event.payload, path)
+        .map(Cow::Borrowed)
+        .or_else(|| {
+            if path == "envelope.actor_id" {
+                serde_json::to_value(event.actor_id?).ok().map(Cow::Owned)
+            } else {
+                envelope_field(event, path).map(|value| Cow::Owned(Value::String(value)))
+            }
+        })
 }
 
 fn composite_scalar(value: &Value) -> Result<Value, String> {
@@ -2277,7 +2532,7 @@ mod tests {
         let projected = ProjectedEventInput::from(&event);
         assert!(matches!(
             component_value(
-                &projected,
+                CellSubjectSource::from_event(&projected),
                 &EventCellRule::String("envelope.event_id"),
                 EventKind::RsvpSet.as_str(),
             ),
@@ -2285,7 +2540,7 @@ mod tests {
         ));
         assert!(matches!(
             component_value(
-                &projected,
+                CellSubjectSource::from_event(&projected),
                 &EventCellRule::String("actor_id"),
                 EventKind::RsvpSet.as_str(),
             ),
@@ -2313,7 +2568,12 @@ mod tests {
             },
         ]);
         assert_eq!(
-            component_value(&projected, &ENVELOPE_ACTOR, EventKind::RsvpSet.as_str(),).unwrap(),
+            component_value(
+                CellSubjectSource::from_event(&projected),
+                &ENVELOPE_ACTOR,
+                EventKind::RsvpSet.as_str(),
+            )
+            .unwrap(),
             json!(
                 r#"{"account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:web:principal.example"},"kind":"account"}"#
             )
@@ -2353,6 +2613,124 @@ mod tests {
         );
         derive_subject(&event, descriptor.cell_writes[0].cell_subject_rule)
             .unwrap_or_else(|error| panic!("{kind} subject derivation failed: {error}"))
+    }
+
+    /// The invitee account every live-target fixture below addresses.
+    fn live_target_invitee() -> Value {
+        json!({
+            "principal_id": "ak:did_core:webvh:z6mkfixturebob",
+            "station_id": "ak:did_core:web:principal.example"
+        })
+    }
+
+    #[test]
+    fn invite_live_target_cell_equals_the_projected_create_write() {
+        // The producer-side helper and the receiver-side projection must name
+        // one cell. If they could disagree, the `head_eq` a client signs would
+        // guard a different slot than the one the reducer claims.
+        let invitee = live_target_invitee();
+        let event = subject_event(
+            "ak.invite.create",
+            json!({
+                "invitee_account_id": invitee,
+                "introduction_evidence_digest": format!("sha256:{}", "a".repeat(64)),
+                "expires_at": "2026-08-02T01:00:00.000Z"
+            }),
+        );
+        let projected = project(&event);
+        let live_target = projected
+            .iter()
+            .find(|write| {
+                write
+                    .cell_id
+                    .as_str()
+                    .starts_with("ak:cell:ak.component.invite.live_target.v1:")
+            })
+            .expect("ak.invite.create must claim the live-target slot");
+        let account: AccountId = serde_json::from_value(invitee).expect("fixture account");
+        assert_eq!(
+            invite_live_target_cell(&account).expect("registered subject rule"),
+            live_target.cell_id
+        );
+        // The claim write stores the create Event id verbatim, in `ak:event:`
+        // form. This is the value every release Move has to assert.
+        assert_eq!(
+            live_target.op,
+            set_op(json!(
+                "ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe"
+            ))
+        );
+    }
+
+    #[test]
+    fn live_target_head_eq_is_always_the_event_prefix() {
+        // `invite_id` and `create_event_id` are one 33-octet token under two
+        // prefixes. Asserting the `ak:invite:` spelling as `head_eq` compares
+        // unequal forever and strands the slot, and the mistake only surfaces
+        // the second time somebody invites that account — so the only way in
+        // from an InviteId retypes.
+        let invite_id =
+            arkret_wire::InviteId::new("ak:invite:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe")
+                .expect("fixture invite id");
+        let slot = InviteLiveTargetSlot::held_by_invite(&invite_id);
+        assert_eq!(
+            slot.head_eq_value().expect("registered initial value"),
+            json!("ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe")
+        );
+        assert_ne!(
+            slot.head_eq_value().expect("registered initial value"),
+            json!(invite_id.as_str())
+        );
+        assert_eq!(
+            slot.create_event_id().map(EventId::as_str),
+            Some("ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe")
+        );
+    }
+
+    #[test]
+    fn live_target_slot_reads_only_registered_values() {
+        // The free value comes from the registry, not from a hand-written
+        // sentinel, and it round-trips: the release write sets exactly this,
+        // which is what makes the next create's `head_eq` succeed.
+        let unset = invite_live_target_unset_value().expect("registered initial value");
+        assert_eq!(unset, json!("__unset__"));
+        assert_eq!(
+            InviteLiveTargetSlot::from_cell_value(&unset).expect("free slot"),
+            InviteLiveTargetSlot::Unset
+        );
+        assert_eq!(
+            InviteLiveTargetSlot::Unset
+                .head_eq_value()
+                .expect("registered initial value"),
+            unset
+        );
+
+        // An `ak:invite:` value in the register is a producer that spelled the
+        // token by hand. Reporting it as free would let the next create
+        // overwrite a live invite, so it fails closed instead.
+        assert!(matches!(
+            InviteLiveTargetSlot::from_cell_value(&json!(
+                "ak:invite:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe"
+            )),
+            Err(EventCellContractError::EffectSetMismatch { .. })
+        ));
+        assert!(matches!(
+            InviteLiveTargetSlot::from_cell_value(&json!({"head": "__unset__"})),
+            Err(EventCellContractError::EffectSetMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn live_target_precondition_targets_the_registered_cell() {
+        let invitee = live_target_invitee();
+        let account: AccountId = serde_json::from_value(invitee).expect("fixture account");
+        let cell = invite_live_target_cell(&account).expect("registered subject rule");
+        let precondition = InviteLiveTargetSlot::Unset
+            .precondition(&account)
+            .expect("registered contract");
+        assert_eq!(precondition.cell_id, cell);
+        assert_eq!(precondition.predicate.op, PredicateOp::HeadEq);
+        assert_eq!(precondition.predicate.value, Some(json!("__unset__")));
     }
 
     #[test]
@@ -2614,7 +2992,7 @@ mod tests {
         let projected = ProjectedEventInput::from(&event);
         assert!(matches!(
             component_value(
-                &projected,
+                CellSubjectSource::from_event(&projected),
                 &DESCRIPTOR,
                 EventKind::IdentityAccountabilityGrant.as_str()
             ),
@@ -2718,33 +3096,45 @@ mod tests {
     const INVITE_LIFECYCLE_CELL: &str = "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA";
     const BOB_MEMBER_CELL: &str =
         "ak:cell:ak.component.member.state.v1:-R4dRtD6CAwTRae2S7Pu2Y-yX68SpjNQkAPrG7HLvk4";
+    /// `ak.component.invite.live_target.v1` keyed by the one-component
+    /// composite over `payload.invitee_account_id`. Every invite fixture below
+    /// addresses the same invitee, so they all claim and release this slot.
+    const INVITE_LIVE_TARGET_CELL: &str =
+        "ak:cell:ak.component.invite.live_target.v1:RMIat7Rg9OslR6WIHOjxCmCFnUVUGyoovN1ldcxev88";
 
     #[test]
-    fn conditional_invite_member_target_is_exact() {
-        // The producer picks neither the Invite ID, member cell nor transition,
-        // so the assertion is the exact projected set rather than a rejected
-        // mutation. The lifecycle subject is retyped from event_id.
-        // The lifecycle cell enters from null: `leave` is a member.state state,
-        // and this Event's second write is the one that touches it.
+    fn invite_create_claims_the_live_target_slot_with_the_create_event_id() {
+        // The producer picks neither the Invite ID, the slot subject nor the
+        // transition, so the assertion is the exact projected set rather than a
+        // rejected mutation. The lifecycle subject is retyped from event_id;
+        // the slot subject is the one-component composite over the invitee
+        // AccountId, and the stored value is verbatim `envelope.event_id` --
+        // the `ak:event:` spelling, never the `ak:invite:` one
+        // (governance-objects.md section 5.3).
         let directed = invite_create_event(true);
         assert_eq!(
             project(&directed),
-            vec![write(
-                INVITE_LIFECYCLE_CELL,
-                transition_op(json!(null), json!("pending")),
-            )]
+            vec![
+                write(
+                    INVITE_LIFECYCLE_CELL,
+                    transition_op(json!(null), json!("pending")),
+                ),
+                write(
+                    INVITE_LIVE_TARGET_CELL,
+                    set_op(json!(
+                        "ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA"
+                    )),
+                ),
+            ]
         );
 
-        // Without an invitee the conditional member write is inactive, so a
-        // third-party invite touches the lifecycle cell only.
-        let third_party = invite_create_event(false);
-        assert_eq!(
-            project(&third_party),
-            vec![write(
-                INVITE_LIFECYCLE_CELL,
-                transition_op(json!(null), json!("pending")),
-            )]
-        );
+        // `invitee_account_id` is required on invite_create_payload and the slot
+        // write is unconditional, so a create without it cannot derive its
+        // second subject and fails closed. A third-party invite is a different
+        // kind (`ak.invite.third_party`), not this one with a field omitted.
+        let without_invitee = invite_create_event(false);
+        project_registered_cell_writes(&without_invitee, arkret_canonical::DigestSuite::Sha256)
+            .expect_err("a create with no invitee cannot address the live-target slot");
     }
 
     #[test]
@@ -2817,27 +3207,56 @@ mod tests {
 
     #[test]
     fn invite_terminal_member_transition_is_exact() {
-        let expected = vec![write(
-            INVITE_LIFECYCLE_CELL,
-            ProjectedOp::TransitionTo {
-                to: json!("revoked"),
-            },
-        )];
+        // Both kinds release the live-target slot in the same Move: the
+        // lifecycle transition and the `set "__unset__"` on the slot are one
+        // atomic write set (governance-objects.md section 5.3).
+        let expected = vec![
+            write(
+                INVITE_LIFECYCLE_CELL,
+                ProjectedOp::TransitionTo {
+                    to: json!("revoked"),
+                },
+            ),
+            write(INVITE_LIVE_TARGET_CELL, set_op(json!("__unset__"))),
+        ];
+        let lifecycle = CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap();
+        let stored_invitee = json!({"invitee_account_id": {
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
+            "station_id": "ak:did_core:web:principal.example"
+        }});
+        let mut pre_state = FrozenPreState::new();
+        pre_state.insert(lifecycle.clone(), stored_invitee.clone());
+
+        // Both kinds carry a `stored_field_matches_payload(invitee_account_id)`
+        // pre-state requirement, so neither is evaluable against an empty
+        // pre-state: a signed `invitee_account_id` with nothing stored is the
+        // forged 3PID release direction and MUST be rejected.
+        let revoke = invite_terminal_event(EventKind::InviteRevoke);
         assert_eq!(
-            project(&invite_terminal_event(EventKind::InviteRevoke)),
+            project_registered_cell_writes_with_pre_state(
+                &revoke,
+                arkret_canonical::DigestSuite::Sha256,
+                &pre_state,
+            )
+            .unwrap(),
             expected
         );
+        let forged = project_registered_cell_writes_with_pre_state(
+            &revoke,
+            arkret_canonical::DigestSuite::Sha256,
+            &FrozenPreState::new(),
+        )
+        .unwrap_err();
+        assert_eq!(forged.reason_code(), "reducer_projection_failed");
+
+        // Supplying no snapshot at all is a different thing from supplying an
+        // empty one: pre-state admission is the receiver's step, so the
+        // pre-authoring projection must still yield the whole write set.
+        // Conflating the two would make every kind that declares a requirement
+        // unauthorable on the client.
+        assert_eq!(project(&revoke), expected);
 
         let cancel = invite_terminal_event(EventKind::InviteCancel);
-        let lifecycle = CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap();
-        let mut pre_state = FrozenPreState::new();
-        pre_state.insert(
-            lifecycle.clone(),
-            json!({"invitee_account_id": {
-                "principal_id": "ak:did_core:webvh:z6mkfixture",
-                "station_id": "ak:did_core:web:principal.example"
-            }}),
-        );
         assert_eq!(
             project_registered_cell_writes_with_pre_state(
                 &cancel,
@@ -2848,7 +3267,7 @@ mod tests {
             expected
         );
 
-        pre_state = FrozenPreState::new();
+        let mut pre_state = FrozenPreState::new();
         let missing = project_registered_cell_writes_with_pre_state(
             &cancel,
             arkret_canonical::DigestSuite::Sha256,

@@ -99,10 +99,10 @@ pub use arkret_identifiers::{
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
     DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
     InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
-    MorphId, NotificationId, OperationId, PolicyId, PresentationId, RealmId,
-    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
-    SidecarId, SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId,
-    WebOrigin, new_prefixed_uuid7, project_did_to_core_id,
+    MorphId, NotificationId, OperationId, PolicyId, PresentationId, RealmId, ReceiptId,
+    RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId, SidecarId,
+    SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin,
+    new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -312,8 +312,9 @@ pub use arkret_push_policy::{blind_payload_sanitizer, push_rule_core};
 pub use arkret_schema as schema;
 pub use arkret_schema::protocol::*;
 pub use arkret_schema::{
-    EventSchemaExt, PreparedControlMove, PreparedDataEvent, PreparedEventPlane,
-    PreparedNonReducerEvent, PreparedStandardEvent,
+    EventSchemaExt, InviteLiveTargetSlot, PreparedControlMove, PreparedDataEvent,
+    PreparedEventPlane, PreparedNonReducerEvent, PreparedStandardEvent, invite_live_target_cell,
+    invite_live_target_unset_value,
 };
 #[cfg(feature = "server")]
 pub use arkret_server as server;

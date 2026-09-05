@@ -298,9 +298,26 @@ impl InviteCancelPayload {
 pub enum InviteRevokeTargetState {
     Revoked,
     Expired,
+    /// The delivery service could not reach the private invite delivery target.
+    ///
+    /// It is the only non-terminal target state and the only one that keeps the
+    /// invite inside the live set, so it derives no
+    /// `ak.component.invite.live_target.v1` release write
+    /// (`zh/models/governance-objects.md` section 5.3).
+    SendFailed,
     RevokedByCapabilityLoss,
     RevokedByInviterLeft,
     InvalidatedByRateLimit,
+}
+
+impl InviteRevokeTargetState {
+    /// Whether this transition releases the invitee's Realm live-target slot.
+    ///
+    /// `send_failed` keeps the invite live, so it MUST NOT release; every other
+    /// registered target state is terminal and MUST.
+    pub const fn releases_live_target(self) -> bool {
+        !matches!(self, Self::SendFailed)
+    }
 }
 
 /// High-risk/direct-or-third-party revocation payload.
@@ -308,6 +325,9 @@ pub enum InviteRevokeTargetState {
 #[serde(deny_unknown_fields)]
 pub struct InviteRevokePayload {
     pub invite_id: InviteId,
+    /// Present exactly when the target Invite stores one and `target_state` is
+    /// not `send_failed`: it is the only signed source the
+    /// `ak.component.invite.live_target.v1` subject can be derived from.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invitee_account_id: Option<AccountId>,
     pub target_state: InviteRevokeTargetState,
@@ -315,17 +335,99 @@ pub struct InviteRevokePayload {
     pub reason: Option<String>,
 }
 
+impl InviteRevokePayload {
+    /// Enforce the schema's `if/then`: `send_failed` MUST NOT carry
+    /// `invitee_account_id`.
+    ///
+    /// A `send_failed` Move that carried one would derive a slot release write
+    /// while the invite is still live, which is exactly the leak the live set
+    /// definition forbids (`zh/models/governance-objects.md` section 5.3).
+    pub fn validate(&self) -> Result<()> {
+        if self.target_state == InviteRevokeTargetState::SendFailed
+            && self.invitee_account_id.is_some()
+        {
+            return Err(WireError::Protocol(
+                "invite revoke payload must omit invitee_account_id when target_state is send_failed"
+                    .to_owned(),
+            ));
+        }
+        if let Some(invitee_account_id) = &self.invitee_account_id {
+            invitee_account_id.validate()?;
+        }
+        Ok(())
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self)
+            .map_err(|err| WireError::Protocol(format!("invite revoke payload serialize: {err}")))
+    }
+}
+
 /// `ak.invite.accept` payload. The accepting subject is the Event actor.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InviteAcceptPayload {
     pub invite_id: InviteId,
+    /// Present exactly when the target Invite stores one, that is for a
+    /// directed invite and never for a third-party invite.
+    ///
+    /// It exists only so the `ak.component.invite.live_target.v1` subject can be
+    /// derived from the signed Event: the projection grammar cannot convert the
+    /// envelope ActorId into an AccountId. It is not a "accept on behalf of"
+    /// entry point — see [`Self::validate_actor`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invitee_account_id: Option<AccountId>,
     #[serde(flatten, default)]
     pub extensions: XExtensionMap,
 }
 
 impl InviteAcceptPayload {
+    pub fn new(invite_id: InviteId) -> Self {
+        Self {
+            invite_id,
+            invitee_account_id: None,
+            extensions: XExtensionMap::default(),
+        }
+    }
+
+    /// Directed form: carry the stored invitee so the slot release write is
+    /// derivable from this Event alone.
+    pub fn directed(invite_id: InviteId, invitee_account_id: AccountId) -> Self {
+        Self {
+            invite_id,
+            invitee_account_id: Some(invitee_account_id),
+            extensions: XExtensionMap::default(),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
+        if let Some(invitee_account_id) = &self.invitee_account_id {
+            invitee_account_id.validate()?;
+        }
         Ok(())
+    }
+
+    /// `zh/models/governance-objects.md` section 5.3: `invitee_account_id` MUST
+    /// equal the envelope actor's account component. Only the invitee accepts
+    /// their own invite; the field never widens who may accept.
+    pub fn validate_actor(&self, actor_id: &ActorId) -> Result<()> {
+        self.validate()?;
+        let Some(invitee_account_id) = &self.invitee_account_id else {
+            return Ok(());
+        };
+        if actor_id.as_account_id() != Some(invitee_account_id) {
+            return Err(WireError::Protocol(
+                "invite accept payload invitee_account_id must equal the envelope actor account"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn to_value(&self) -> Result<Value> {
+        self.validate()?;
+        serde_json::to_value(self)
+            .map_err(|err| WireError::Protocol(format!("invite accept payload serialize: {err}")))
     }
 }
 

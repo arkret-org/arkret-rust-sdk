@@ -405,7 +405,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/mention.rs",
-      "line": 77,
+      "line": 82,
       "struct_name": "Mention",
       "field_name": "resolved_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -417,7 +417,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/mention.rs",
-      "line": 143,
+      "line": 148,
       "struct_name": "AudienceMention",
       "field_name": "resolved_at",
       "field_type": "Option<DateTime<Utc>>",

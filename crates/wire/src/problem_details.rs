@@ -168,6 +168,108 @@ pub enum AgentHumanApprovalProblemError {
     InvalidDetails(#[from] serde_json::Error),
 }
 
+/// Closed details carried by the `failed_precondition` that rejects an
+/// `ak.invite.create` whose invitee already holds the Realm live-target slot
+/// (`zh/models/governance-objects.md` section 5.3).
+///
+/// Both identifiers name the same 33-octet token under two prefixes. The pair
+/// is derived here, never accepted from two independent inputs, so a producer
+/// cannot emit an `invite_id` and a `create_event_id` that disagree and a
+/// client cannot be handed a `head_eq` value it has to re-spell itself. The
+/// slot stores the `ak:event:` spelling verbatim: [`Self::create_event_id`] is
+/// the value a release Move must assert, and `invite_id` is only the object
+/// name to show a human or look a lifecycle up by.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct InviteLiveTargetOccupiedProblem {
+    reason_code: &'static str,
+    invite_id: crate::InviteId,
+    create_event_id: crate::EventId,
+}
+
+impl InviteLiveTargetOccupiedProblem {
+    /// Build the closed details from the slot value itself.
+    ///
+    /// The slot stores the occupying `ak.invite.create` Event id, so that is
+    /// the only input: `invite_id` is its retype and cannot be passed in.
+    pub fn new(create_event_id: crate::EventId) -> Self {
+        Self {
+            reason_code: crate::ReasonCode::INVITE_LIVE_TARGET_OCCUPIED,
+            invite_id: crate::InviteId::from_event_id(&create_event_id),
+            create_event_id,
+        }
+    }
+
+    pub const fn reason_code(&self) -> &'static str {
+        self.reason_code
+    }
+
+    pub fn invite_id(&self) -> &crate::InviteId {
+        &self.invite_id
+    }
+
+    /// The current slot value, and therefore the exact `head_eq` value a
+    /// release Move must carry. Always the `ak:event:` spelling.
+    pub fn create_event_id(&self) -> &crate::EventId {
+        &self.create_event_id
+    }
+
+    fn into_wire_details(self) -> BTreeMap<String, Value> {
+        BTreeMap::from([
+            (
+                "reason_code".to_owned(),
+                Value::String(self.reason_code.to_owned()),
+            ),
+            (
+                "invite_id".to_owned(),
+                Value::String(self.invite_id.into_string()),
+            ),
+            (
+                "create_event_id".to_owned(),
+                Value::String(self.create_event_id.into_string()),
+            ),
+        ])
+    }
+}
+
+impl<'de> Deserialize<'de> for InviteLiveTargetOccupiedProblem {
+    fn deserialize<D>(deserializer: D) -> StdResult<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireDetails {
+            reason_code: String,
+            invite_id: crate::InviteId,
+            create_event_id: crate::EventId,
+        }
+
+        let wire = WireDetails::deserialize(deserializer)?;
+        if wire.reason_code != crate::ReasonCode::INVITE_LIVE_TARGET_OCCUPIED {
+            return Err(serde::de::Error::custom(format!(
+                "reason_code must be {}",
+                crate::ReasonCode::INVITE_LIVE_TARGET_OCCUPIED
+            )));
+        }
+        let details = Self::new(wire.create_event_id);
+        // The two members are one token under two prefixes. A pair that does
+        // not retype into itself is a producer that spelled one of them by
+        // hand, which is the exact failure that leaks the slot forever.
+        if details.invite_id != wire.invite_id {
+            return Err(serde::de::Error::custom(
+                "invite_id must be the retype of create_event_id",
+            ));
+        }
+        Ok(details)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InviteLiveTargetOccupiedProblemError {
+    #[error("invalid invite live-target occupied error details: {0}")]
+    InvalidDetails(#[from] serde_json::Error),
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ErrorDetail {
@@ -199,6 +301,46 @@ impl ErrorDetail {
             retry_after_ms: None,
             details: details.into_wire_details(),
         }
+    }
+
+    /// Construct the closed `failed_precondition` detail returned when an
+    /// `ak.invite.create` hits an occupied Realm live-target slot.
+    ///
+    /// The rejection is atomic: the Event is not accepted, enters no canonical
+    /// history and derives no cell write, projection or notification.
+    pub fn invite_live_target_occupied(
+        message: impl Into<String>,
+        details: InviteLiveTargetOccupiedProblem,
+    ) -> Self {
+        Self {
+            code: crate::error_codes::ErrorCode::FAILED_PRECONDITION.to_owned(),
+            message: message.into(),
+            retry_after_ms: None,
+            details: details.into_wire_details(),
+        }
+    }
+
+    /// Decode the occupied-slot details only when the enclosing code is
+    /// `failed_precondition` and the details carry the matching reason code.
+    ///
+    /// Any other `failed_precondition` returns `Ok(None)`: the top-level code
+    /// is shared by many sub-reasons, so the reason code inside the closed
+    /// object is what selects this shape.
+    pub fn invite_live_target_occupied_details(
+        &self,
+    ) -> StdResult<Option<InviteLiveTargetOccupiedProblem>, InviteLiveTargetOccupiedProblemError>
+    {
+        if self.code != crate::error_codes::ErrorCode::FAILED_PRECONDITION {
+            return Ok(None);
+        }
+        if self.details.get("reason_code").and_then(Value::as_str)
+            != Some(crate::ReasonCode::INVITE_LIVE_TARGET_OCCUPIED)
+        {
+            return Ok(None);
+        }
+        serde_json::from_value(Value::Object(self.details.clone().into_iter().collect()))
+            .map(Some)
+            .map_err(InviteLiveTargetOccupiedProblemError::from)
     }
 
     /// Parse human-approval details only when the enclosing error code is
@@ -486,6 +628,13 @@ impl ErrorEnvelope {
         &self,
     ) -> StdResult<Option<SessionGrantReplayTerminalProblem>, SessionGrantReplayProblemError> {
         self.error.session_grant_replay_terminal_details()
+    }
+
+    pub fn invite_live_target_occupied_details(
+        &self,
+    ) -> StdResult<Option<InviteLiveTargetOccupiedProblem>, InviteLiveTargetOccupiedProblemError>
+    {
+        self.error.invite_live_target_occupied_details()
     }
 }
 

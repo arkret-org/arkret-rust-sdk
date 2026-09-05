@@ -324,10 +324,17 @@ where
 
     // Step 4: preconditions
     for pre in &event.preconditions {
-        let cell_state = pre_state
-            .get(&pre.cell_id)
-            .cloned()
-            .unwrap_or(CellState::Value(Value::Null));
+        // An unwritten cell presents its registered `initial_value`, and `null`
+        // only when the family declares none. Hard-coding `null` here would
+        // refuse the first `ak.invite.create` in a Realm, whose slot asserts
+        // the registered free value `"__unset__"`
+        // (`governance-objects.md` section 5.3).
+        let cell_state = pre_state.get(&pre.cell_id).cloned().unwrap_or_else(|| {
+            CellState::Value(
+                arkret_wire::registered_cell_initial_value(pre.cell_id.as_str())
+                    .unwrap_or(Value::Null),
+            )
+        });
         // bottom=reject cells fail closed.
         if let CellState::Bottom(b) = &cell_state {
             let binding = registry
@@ -413,7 +420,7 @@ fn verify_recovery_refs(event: &Event) -> Result<(), ControlMoveReject> {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event
                 .payload
-                .get("target_cell")
+                .get("target_cell_id")
                 .and_then(Value::as_str)
                 .unwrap_or(event.realm_id.as_str())
                 .to_owned(),

@@ -1166,6 +1166,20 @@ impl MessageId {
     }
 }
 
+impl InviteId {
+    /// Retype this Invite token as the `ak.invite.create` Event identity it was
+    /// derived from (`zh/models/common-fields.md` section 6.0).
+    ///
+    /// The `ak.component.invite.live_target.v1` slot stores the `ak:event:`
+    /// spelling verbatim, so a release Move's `head_eq` value must come through
+    /// this retype rather than through the `ak:invite:` string a caller already
+    /// holds. The two spellings share one 33-octet token and would otherwise
+    /// compare unequal forever, leaking the slot.
+    pub fn event_id(&self) -> EventId {
+        EventId(encode_event_token(EventId::KIND_PREFIX, self.token_bytes()))
+    }
+}
+
 impl EventId {
     /// Construct from the canonical binary token used by database/wire codecs.
     pub fn from_token_bytes(token: [u8; 33]) -> Result<Self> {

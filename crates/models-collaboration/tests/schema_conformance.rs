@@ -13,9 +13,9 @@ mod models {
         StrandWatchLevel, StrandWatchSetPayload,
     };
     pub use arkret_models_collaboration::governance::membership_invite::{
-        InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload, InviteRevokePayload,
-        InviteRevokeTargetState, MembershipInviteRef, MembershipPayload, MembershipPayloadState,
-        RelationCreatePayload, validate_invite_create_wire_keys,
+        InviteAcceptPayload, InviteCancelPayload, InviteCancelTargetState, InviteCreatePayload,
+        InviteRevokePayload, InviteRevokeTargetState, MembershipInviteRef, MembershipPayload,
+        MembershipPayloadState, RelationCreatePayload, validate_invite_create_wire_keys,
     };
     pub use arkret_models_collaboration::governance::plaintext_visibility::{
         PlaintextServiceVisibility, PlaintextVisibleService, PlaintextVisibleServicesPayload,
@@ -174,8 +174,9 @@ fn membership_payload_strong_type_passes_spec_validator() {
 #[test]
 fn split_invite_payload_strong_types_pass_spec_validator() {
     use crate::models::{
-        AccountId, DidCoreId, Hash, InviteCancelPayload, InviteCancelTargetState,
-        InviteCreatePayload, InviteId, InviteRevokePayload, InviteRevokeTargetState,
+        AccountId, ActorId, DidCoreId, Hash, InviteAcceptPayload, InviteCancelPayload,
+        InviteCancelTargetState, InviteCreatePayload, InviteId, InviteRevokePayload,
+        InviteRevokeTargetState,
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
@@ -216,14 +217,68 @@ fn split_invite_payload_strong_types_pass_spec_validator() {
         .validate_payload("ak.invite.cancel", &cancel_value)
         .unwrap();
     let revoke = InviteRevokePayload {
-        invite_id,
-        invitee_account_id: Some(invitee),
+        invite_id: invite_id.clone(),
+        invitee_account_id: Some(invitee.clone()),
         target_state: InviteRevokeTargetState::RevokedByInviterLeft,
         reason: Some("inviter_left".to_owned()),
     };
     catalog
-        .validate_payload("ak.invite.revoke", &serde_json::to_value(revoke).unwrap())
+        .validate_payload("ak.invite.revoke", &revoke.to_value().unwrap())
         .unwrap();
+
+    // `send_failed` keeps the invite live, so the schema's `if/then` forbids
+    // the account that would derive a slot release write. The strong type has
+    // to reject the same shape, or a caller can build a payload the receiver
+    // must refuse.
+    let send_failed = InviteRevokePayload {
+        invite_id: invite_id.clone(),
+        invitee_account_id: None,
+        target_state: InviteRevokeTargetState::SendFailed,
+        reason: Some("delivery_target_unreachable".to_owned()),
+    };
+    catalog
+        .validate_payload("ak.invite.revoke", &send_failed.to_value().unwrap())
+        .unwrap();
+    let leaking_send_failed = InviteRevokePayload {
+        invitee_account_id: Some(invitee.clone()),
+        ..send_failed
+    };
+    assert!(leaking_send_failed.validate().is_err());
+    assert!(
+        catalog
+            .validate_payload(
+                "ak.invite.revoke",
+                &serde_json::to_value(&leaking_send_failed).unwrap(),
+            )
+            .is_err()
+    );
+
+    // Directed accept carries the stored invitee so the slot release write is
+    // derivable; the third-party form omits it.
+    let directed_accept = InviteAcceptPayload::directed(invite_id.clone(), invitee.clone());
+    catalog
+        .validate_payload("ak.invite.accept", &directed_accept.to_value().unwrap())
+        .unwrap();
+    catalog
+        .validate_payload(
+            "ak.invite.accept",
+            &InviteAcceptPayload::new(invite_id).to_value().unwrap(),
+        )
+        .unwrap();
+    assert!(
+        directed_accept
+            .validate_actor(&ActorId::account(invitee))
+            .is_ok()
+    );
+    assert!(
+        directed_accept
+            .validate_actor(&ActorId::account(AccountId::new(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturemallory".to_owned()).unwrap(),
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturestation".to_owned()).unwrap(),
+            )))
+            .is_err(),
+        "invitee_account_id must never widen who may accept"
+    );
 }
 
 #[test]

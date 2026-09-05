@@ -1,12 +1,15 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-04.4;
-//! sha256=379074e949749430cf5de556b91699114747013b467daa6e30567839e1aa4b83 Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-05.3;
+//! sha256=620c5b5e367cdec1d7c7264febf8eda6da62259333ca5aeefdace3ffe7a4051f Input: registry/
 //! id-kind-registry.json; version=2026-09-04.2;
 //! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4
-//! Entries: active_events=170, pre_state_requirements=2
+//! Entries: active_events=170, pre_state_requirements=8
 
-use arkret_wire::{CellFamilyId, event_kind_str};
+use arkret_wire::{
+    CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
+    event_kind_str,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventIdSource {
@@ -17,12 +20,14 @@ pub enum EventIdSource {
 pub enum EventPreStatePredicateKind {
     StoredFieldPresent,
     StoredFieldEqualsPayload,
+    StoredFieldMatchesPayload,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventPreStateRequirementDescriptor {
     pub cell_family: CellFamilyId,
     pub subject_field: &'static str,
+    pub condition_rule: Option<EventCellRule>,
     pub predicate: EventPreStatePredicateKind,
     pub stored_field: &'static str,
     pub payload_field: Option<&'static str>,
@@ -39,10 +44,23 @@ pub struct EventRuntimeContractDescriptor {
     pub pre_state_requirements: &'static [EventPreStateRequirementDescriptor],
 }
 
+const INVITE_ACCEPT_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor] =
+    &[EventPreStateRequirementDescriptor {
+        cell_family: CellFamilyId::InviteLifecycleV1,
+        subject_field: "payload.invite_id",
+        condition_rule: None,
+        predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
+        stored_field: "invitee_account_id",
+        payload_field: Some("payload.invitee_account_id"),
+        failure_code: "failed_precondition",
+        failure_reason_code: "reducer_projection_failed",
+    }];
+
 const INVITE_CANCEL_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor] = &[
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
+        condition_rule: None,
         predicate: EventPreStatePredicateKind::StoredFieldPresent,
         stored_field: "invitee_account_id",
         payload_field: None,
@@ -52,7 +70,126 @@ const INVITE_CANCEL_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor
     EventPreStateRequirementDescriptor {
         cell_family: CellFamilyId::InviteLifecycleV1,
         subject_field: "payload.invite_id",
+        condition_rule: None,
         predicate: EventPreStatePredicateKind::StoredFieldEqualsPayload,
+        stored_field: "invitee_account_id",
+        payload_field: Some("payload.invitee_account_id"),
+        failure_code: "failed_precondition",
+        failure_reason_code: "reducer_projection_failed",
+    },
+];
+
+const INVITE_REVOKE_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor] = &[
+    EventPreStateRequirementDescriptor {
+        cell_family: CellFamilyId::InviteLifecycleV1,
+        subject_field: "payload.invite_id",
+        condition_rule: Some(EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Const,
+                value: EventCellRule::String("revoked"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("payload.target_state"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+            },
+        ])),
+        predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
+        stored_field: "invitee_account_id",
+        payload_field: Some("payload.invitee_account_id"),
+        failure_code: "failed_precondition",
+        failure_reason_code: "reducer_projection_failed",
+    },
+    EventPreStateRequirementDescriptor {
+        cell_family: CellFamilyId::InviteLifecycleV1,
+        subject_field: "payload.invite_id",
+        condition_rule: Some(EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Const,
+                value: EventCellRule::String("expired"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("payload.target_state"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+            },
+        ])),
+        predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
+        stored_field: "invitee_account_id",
+        payload_field: Some("payload.invitee_account_id"),
+        failure_code: "failed_precondition",
+        failure_reason_code: "reducer_projection_failed",
+    },
+    EventPreStateRequirementDescriptor {
+        cell_family: CellFamilyId::InviteLifecycleV1,
+        subject_field: "payload.invite_id",
+        condition_rule: Some(EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Const,
+                value: EventCellRule::String("revoked_by_capability_loss"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("payload.target_state"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+            },
+        ])),
+        predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
+        stored_field: "invitee_account_id",
+        payload_field: Some("payload.invitee_account_id"),
+        failure_code: "failed_precondition",
+        failure_reason_code: "reducer_projection_failed",
+    },
+    EventPreStateRequirementDescriptor {
+        cell_family: CellFamilyId::InviteLifecycleV1,
+        subject_field: "payload.invite_id",
+        condition_rule: Some(EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Const,
+                value: EventCellRule::String("revoked_by_inviter_left"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("payload.target_state"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+            },
+        ])),
+        predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
+        stored_field: "invitee_account_id",
+        payload_field: Some("payload.invitee_account_id"),
+        failure_code: "failed_precondition",
+        failure_reason_code: "reducer_projection_failed",
+    },
+    EventPreStateRequirementDescriptor {
+        cell_family: CellFamilyId::InviteLifecycleV1,
+        subject_field: "payload.invite_id",
+        condition_rule: Some(EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::Const,
+                value: EventCellRule::String("invalidated_by_rate_limit"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Field,
+                value: EventCellRule::String("payload.target_state"),
+            },
+            EventCellRuleField {
+                key: EventCellRuleKey::Kind,
+                value: EventCellRule::Operator(EventCellRuleOperator::FieldEquals),
+            },
+        ])),
+        predicate: EventPreStatePredicateKind::StoredFieldMatchesPayload,
         stored_field: "invitee_account_id",
         payload_field: Some("payload.invitee_account_id"),
         failure_code: "failed_precondition",
@@ -528,7 +665,7 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],
-        pre_state_requirements: &[],
+        pre_state_requirements: INVITE_ACCEPT_PRE_STATE_REQUIREMENTS,
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::INVITE_CANCEL,
@@ -556,7 +693,7 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],
-        pre_state_requirements: &[],
+        pre_state_requirements: INVITE_REVOKE_PRE_STATE_REQUIREMENTS,
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::INVITE_THIRD_PARTY,

@@ -307,6 +307,10 @@ pub struct EventCellWrite {
 pub struct EventPreStateRequirement {
     pub cell_family: String,
     pub subject: EventPreStateSubject,
+    /// Optional gate reusing the closed condition grammar of a conditional cell
+    /// write (`zh/models/event-and-patch.md` 2.4.2). Carried through verbatim so
+    /// the runtime evaluates one vocabulary instead of a second private one.
+    pub condition: Option<serde_json::Value>,
     pub predicate: EventPreStatePredicate,
     pub failure: EventPreStateFailure,
 }

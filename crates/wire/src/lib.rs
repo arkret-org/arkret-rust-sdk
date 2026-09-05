@@ -106,8 +106,9 @@ pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
     REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,
-    composite_subject, composite_subject_pipe, null_subject_cell, string_set_digest_component,
-    subject_cell, uri_cell_subject,
+    composite_subject, composite_subject_pipe, null_subject_cell,
+    registered_cell_family_initial_value, registered_cell_initial_value,
+    string_set_digest_component, subject_cell, uri_cell_subject,
 };
 pub use consent_scope::*;
 pub use constants::*;

@@ -1,5 +1,5 @@
 use arkret_models_identity::handle::Handle;
-use arkret_wire::DidCoreId;
+use arkret_wire::AccountId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -26,12 +26,14 @@ pub const AUDIENCE_MENTION_NODE_KIND: &str = "audience_mention";
 ///
 /// Spec source: `models/strand-and-message.md §9.4` + `identity/identity-handles.md §3.8.1`.
 ///
-/// The authoritative reference field is `subject_id` (principal
-/// `did_core_id`). The handle / display strings are audit metadata only
-/// (`handle_at_time` / `display_name_at_time` / `mention_text_original`)
-/// and MUST NOT be used as the current display value or for actor
-/// attribution — verifier / reducer / policy engine MUST ignore them and
-/// read `subject_id` exclusively.
+/// The authoritative reference field is `subject_account_id`, the complete
+/// `AccountId` of the mentioned subject. Equality is byte-for-byte over both
+/// components: the same principal hosted by another Station is a different
+/// subject and MUST NOT match. The handle / display strings are audit
+/// metadata only (`handle_at_time` / `display_name_at_time` /
+/// `mention_text_original`) and MUST NOT be used as the current display value
+/// or for actor attribution — verifier / reducer / policy engine MUST ignore
+/// them and read `subject_account_id` exclusively.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MentionKind {
     #[serde(rename = "mention")]
@@ -42,10 +44,11 @@ pub enum MentionKind {
 #[serde(deny_unknown_fields)]
 pub struct Mention {
     pub kind: MentionKind,
-    /// Principal DID of the mentioned subject. The ONLY field that
-    /// participates in actor attribution, authorization, resolution and
-    /// render lookup.
-    pub subject_id: DidCoreId,
+    /// Complete `AccountId` of the mentioned subject, principal and Station
+    /// component both. The ONLY field that participates in actor attribution,
+    /// authorization, resolution and render lookup, and the comparison MUST
+    /// cover both components.
+    pub subject_account_id: AccountId,
     /// Snapshot of the subject's display name at compose time. Persistent
     /// snapshot semantics (anti-impersonation guard).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -55,10 +58,12 @@ pub struct Mention {
     /// the current display handle.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handle_at_time: Option<Handle>,
-    /// Controller principal DID captured when the mention came from a
-    /// controller-scoped agent selector. Audit metadata only.
+    /// Complete controller `AccountId` captured when the mention came from a
+    /// controller-scoped agent selector. Audit metadata only; MUST NOT
+    /// replace `subject_account_id` for routing, authorization or
+    /// attribution.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub controller_subject_id: Option<DidCoreId>,
+    pub controller_subject_account_id: Option<AccountId>,
     /// Controller handle snapshot from `@<controller-handle>/<agent_slug>`.
     /// Audit / search / fallback metadata only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -81,7 +86,7 @@ pub struct Mention {
 ///
 /// `StrandEngaged` is the v1 mapping for common UI token `@here`; it means
 /// `strand_participants ∪ strand_watchers` and is never presence-filtered.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AudienceMentionAudience {
     EffectiveScopeMembers,
@@ -156,6 +161,19 @@ pub enum MentionNode {
     AudienceMention(AudienceMention),
 }
 
+/// Typed addressing target of one mention AST node.
+///
+/// A direct mention addresses one account and carries its complete
+/// `AccountId`; a broadcast mention addresses a closed audience. The two are
+/// never interchangeable and neither collapses to a string, so callers cannot
+/// accidentally compare a mention subject at principal granularity or use it
+/// as an opaque key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum MentionTarget<'a> {
+    Subject(&'a AccountId),
+    Audience(AudienceMentionAudience),
+}
+
 impl AudienceMention {
     pub fn new(audience: AudienceMentionAudience) -> Self {
         Self {
@@ -214,8 +232,9 @@ impl AudienceMention {
 /// Parse one canonical mention AST node.
 ///
 /// Only the current wire shapes are admitted: `{"kind":"mention",...}` with a
-/// `did_core_id` `subject_id`, and `{"kind":"audience_mention",...}` with a
-/// closed `audience`. Both node types are `deny_unknown_fields`.
+/// complete `AccountId` `subject_account_id`, and
+/// `{"kind":"audience_mention",...}` with a closed `audience`. Both node types
+/// are `deny_unknown_fields`.
 pub fn parse_mention_node(value: &Value) -> ContentBlockValidationResult<MentionNode> {
     match value.get("kind").and_then(Value::as_str) {
         Some(MENTION_NODE_KIND) => serde_json::from_value::<Mention>(value.clone())
@@ -246,15 +265,20 @@ pub fn collect_mention_nodes(content: &Value) -> ContentBlockValidationResult<Ve
     Ok(nodes)
 }
 
-/// Collect only the direct mention nodes of a Content Block tree, in wire
-/// order. Broadcast nodes are dropped; they address an audience, not a subject.
-pub fn collect_mention_subject_ids(
+/// Collect the complete `AccountId` of every direct mention node in a Content
+/// Block tree, in wire order. Broadcast nodes are dropped; they address an
+/// audience, not a subject.
+///
+/// Callers MUST compare the returned ids as whole accounts: a bare
+/// `principal_id` comparison would match the same principal hosted by another
+/// Station.
+pub fn collect_mention_subject_account_ids(
     content: &Value,
-) -> ContentBlockValidationResult<Vec<DidCoreId>> {
+) -> ContentBlockValidationResult<Vec<AccountId>> {
     Ok(collect_mention_nodes(content)?
         .into_iter()
         .filter_map(|node| match node {
-            MentionNode::Mention(mention) => Some(mention.subject_id),
+            MentionNode::Mention(mention) => Some(mention.subject_account_id),
             MentionNode::AudienceMention(_) => None,
         })
         .collect())
@@ -333,15 +357,15 @@ fn collect_mention_nodes_into(
 }
 
 impl Mention {
-    /// Construct a mention from its authoritative `subject_id`. Audit
+    /// Construct a mention from its authoritative `subject_account_id`. Audit
     /// metadata is attached via the builder setters.
-    pub fn new(subject_id: DidCoreId) -> Self {
+    pub fn new(subject_account_id: AccountId) -> Self {
         Self {
             kind: MentionKind::Mention,
-            subject_id,
+            subject_account_id,
             display_name_at_time: None,
             handle_at_time: None,
-            controller_subject_id: None,
+            controller_subject_account_id: None,
             controller_handle_at_time: None,
             agent_slug_at_time: None,
             mention_text_original: None,
@@ -361,11 +385,11 @@ impl Mention {
 
     pub fn with_agent_selector_metadata(
         mut self,
-        controller_subject_id: DidCoreId,
+        controller_subject_account_id: AccountId,
         controller_handle_at_time: Handle,
         agent_slug_at_time: impl Into<String>,
     ) -> Self {
-        self.controller_subject_id = Some(controller_subject_id);
+        self.controller_subject_account_id = Some(controller_subject_account_id);
         self.controller_handle_at_time = Some(controller_handle_at_time);
         self.agent_slug_at_time = Some(agent_slug_at_time.into());
         self
@@ -405,10 +429,15 @@ impl MentionNode {
         }
     }
 
-    pub fn target_id(&self) -> &str {
+    /// Typed addressing target of this node.
+    ///
+    /// Direct mentions expose the complete `AccountId`; there is deliberately
+    /// no string form, so ordering, de-duplication and equality all run over
+    /// both account components.
+    pub fn target(&self) -> MentionTarget<'_> {
         match self {
-            Self::Mention(mention) => mention.subject_id.as_str(),
-            Self::AudienceMention(mention) => mention.audience.as_wire(),
+            Self::Mention(mention) => MentionTarget::Subject(&mention.subject_account_id),
+            Self::AudienceMention(mention) => MentionTarget::Audience(mention.audience),
         }
     }
 
@@ -422,14 +451,30 @@ impl MentionNode {
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::DidCoreId;
+
     use super::*;
+
+    const STATION: &str = "ak:did_core:web:acme.example";
+    const OTHER_STATION: &str = "ak:did_core:web:other.example";
+
+    fn account(principal: &str, station: &str) -> AccountId {
+        AccountId::new(
+            DidCoreId::new(principal).unwrap(),
+            DidCoreId::new(station).unwrap(),
+        )
+    }
 
     #[test]
     fn mention_minimal_shape_round_trips() {
-        let m = Mention::new(DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap());
+        let m = Mention::new(account("ak:did_core:webvh:z6mkfixturealice", STATION));
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(json["kind"], "mention");
-        assert!(json.get("subject_id").is_some());
+        assert_eq!(
+            json["subject_account_id"]["principal_id"],
+            "ak:did_core:webvh:z6mkfixturealice"
+        );
+        assert_eq!(json["subject_account_id"]["station_id"], STATION);
         // Audit metadata omitted when unset.
         assert!(json.get("handle_at_time").is_none());
         assert!(json.get("display_name_at_time").is_none());
@@ -439,22 +484,53 @@ mod tests {
 
     #[test]
     fn mention_agent_selector_metadata_round_trips() {
-        let m = Mention::new(DidCoreId::new("ak:did_core:webvh:z6mkfixtureagent").unwrap())
+        let m = Mention::new(account("ak:did_core:webvh:z6mkfixtureagent", STATION))
             .with_agent_selector_metadata(
-                DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+                account("ak:did_core:webvh:z6mkfixturealice", STATION),
                 Handle::parse("alice:example.com").unwrap(),
                 "summary",
             )
             .with_mention_text_original("@alice:example.com/summary");
         let json = serde_json::to_value(&m).unwrap();
         assert_eq!(
-            json["controller_subject_id"],
+            json["controller_subject_account_id"]["principal_id"],
             "ak:did_core:webvh:z6mkfixturealice"
         );
+        assert_eq!(json["controller_subject_account_id"]["station_id"], STATION);
         assert_eq!(json["controller_handle_at_time"], "alice:example.com");
         assert_eq!(json["agent_slug_at_time"], "summary");
         let decoded: Mention = serde_json::from_value(json).unwrap();
         assert_eq!(decoded, m);
+    }
+
+    /// `identity-handles.md §3.8` — the same principal hosted by another
+    /// Station is a different subject. Neither the node nor its typed target
+    /// may compare equal at principal granularity.
+    #[test]
+    fn mention_subject_does_not_match_same_principal_on_another_station() {
+        let here = Mention::new(account("ak:did_core:webvh:z6mkfixturealice", STATION));
+        let elsewhere = Mention::new(account("ak:did_core:webvh:z6mkfixturealice", OTHER_STATION));
+        assert_eq!(
+            here.subject_account_id.principal_id,
+            elsewhere.subject_account_id.principal_id
+        );
+        assert_ne!(here.subject_account_id, elsewhere.subject_account_id);
+        assert_ne!(
+            MentionNode::mention(here).target(),
+            MentionNode::mention(elsewhere).target()
+        );
+    }
+
+    #[test]
+    fn mention_node_rejects_a_bare_principal_subject() {
+        let node = serde_json::json!({
+            "kind": "mention",
+            "subject_account_id": "ak:did_core:webvh:z6mkfixturealice"
+        });
+        assert_eq!(
+            parse_mention_node(&node).unwrap_err().message(),
+            "mention node is invalid"
+        );
     }
 
     #[test]
@@ -469,9 +545,10 @@ mod tests {
 
     #[test]
     fn mention_node_round_trips_actor_and_audience_variants() {
-        let actor = MentionNode::mention(Mention::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-        ));
+        let actor = MentionNode::mention(Mention::new(account(
+            "ak:did_core:webvh:z6mkfixturealice",
+            STATION,
+        )));
         let actor_json = serde_json::to_value(&actor).unwrap();
         assert_eq!(actor_json["kind"], "mention");
         let decoded_actor: MentionNode = serde_json::from_value(actor_json).unwrap();
@@ -524,7 +601,10 @@ mod tests {
                     "body": "hi @bob",
                     "mentions": [{
                         "kind": "mention",
-                        "subject_id": "ak:did_core:webvh:z6mkfixturebob"
+                        "subject_account_id": {
+                            "principal_id": "ak:did_core:webvh:z6mkfixturebob",
+                            "station_id": "ak:did_core:web:acme.example"
+                        }
                     }],
                     "audience_mentions": [{
                         "kind": "audience_mention",
@@ -535,8 +615,8 @@ mod tests {
             ]
         });
         assert_eq!(
-            collect_mention_subject_ids(&content).unwrap(),
-            vec![DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap()]
+            collect_mention_subject_account_ids(&content).unwrap(),
+            vec![account("ak:did_core:webvh:z6mkfixturebob", STATION)]
         );
         assert_eq!(collect_audience_mention_nodes(&content).unwrap().len(), 1);
     }
@@ -565,7 +645,13 @@ mod tests {
         let content = serde_json::json!({
             "kind": "ak.content.text",
             "body": "hi",
-            "mentions": [{"kind": "mention", "subject_id": "did:web:bob.example"}]
+            "mentions": [{
+                "kind": "mention",
+                "subject_account_id": {
+                    "principal_id": "did:web:bob.example",
+                    "station_id": "ak:did_core:web:acme.example"
+                }
+            }]
         });
         assert_eq!(
             collect_mention_nodes(&content).unwrap_err().message(),

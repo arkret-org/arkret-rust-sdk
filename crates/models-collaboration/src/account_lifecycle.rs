@@ -18,10 +18,11 @@ use arkret_models_identity::account::{
 };
 use arkret_models_identity::actor_profile::{AccountMaterializedProfile, ActorProfile};
 use arkret_wire::{
-    AccountId, ActorId, ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText, ConsentScope,
-    Cursor, DeviceId, Did, DidCoreId, DidUrl, EventBatchReceipt, EventInitialSubmission, EventKind,
-    Hash, PayloadProof, ProofContextId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, ScopeRef,
-    ServiceOperationId, SessionGrantId, UnsignedPayloadProof, canonical, project_did_to_core_id,
+    AccountId, ActorId, ActorProfileId, AppletId, AppletRevokeMode, AuditReasonText,
+    ConsentRequestScope, ConsentScope, Cursor, DeviceId, Did, DidCoreId, DidUrl, EventBatchReceipt,
+    EventInitialSubmission, EventKind, Hash, PayloadProof, ProofContextId, RealmId, ReasonCode,
+    ReceiptId, Result, SchemaId, ScopeRef, ServiceOperationId, SessionGrantId,
+    UnsignedPayloadProof, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -37,15 +38,169 @@ pub enum ConsentState {
     NoConsent,
 }
 
-/// Exact peer correlation for one consent cell. Account/Agent peers retain
-/// their complete ActorId; a Realm pairwise peer is intentionally a local
-/// principal projection and cannot be confused with an account actor.
+/// Every Realm-local ephemeral pairwise principal is a `did:key` projection
+/// (`ak.profile.ephemeral_pairwise_principal.v1` admits no other DID method),
+/// so this prefix is the admission-time form check of spec
+/// `zh/identity/consent-model.md` section 3.2.
+const PAIRWISE_PRINCIPAL_PREFIX: &str = "ak:did_core:key:";
+
+/// Exact peer correlation for one consent cell (spec
+/// `zh/identity/consent-model.md` section 3.2).
+///
+/// The two branches are disjoint identities, not two encodings of one:
+///
+/// - [`ConsentPeer::Actor`] carries the counterparty's **complete ActorId**, Station and actor role
+///   included. Ordinary Accounts, Agents, pseudonymous Accounts and service actors all live here.
+/// - [`ConsentPeer::PairwisePrincipal`] is reserved for the Realm-local ephemeral pairwise actor of
+///   a `ak.profile.mls.minimal_metadata_realm.v1` Realm. That actor does not exist outside its
+///   Realm, so `realm_id` is a required carrier and the identity key is `(realm_id, principal_id)`,
+///   never aggregated across Realms.
+///
+/// Matching is kind-dispatched and **never** crosses kinds
+/// (section 6.1 query step 1); see [`ConsentPeer::matches`]. Folding either
+/// branch down to a bare `DidCoreId` is non-conformant — it creates both the
+/// "different Station / different role read as the same peer" and the
+/// "pairwise value impersonates an ordinary Account" escalation paths, so this
+/// type deliberately exposes no `-> DidCoreId` projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentPeer {
-    Actor { actor_id: ActorId },
-    PairwisePrincipal { principal_id: DidCoreId },
+    Actor {
+        actor_id: ActorId,
+    },
+    PairwisePrincipal {
+        realm_id: RealmId,
+        principal_id: DidCoreId,
+    },
+}
+
+/// The authenticated counterparty a consent gate resolved, in the same closed
+/// taxonomy as [`ConsentPeer`].
+///
+/// A gate builds this from its own authenticated context, never from the
+/// stored cell, and then asks [`ConsentPeer::matches`]. Because the two
+/// branches are separate variants here as well, a caller cannot accidentally
+/// compare an ordinary Account against a pairwise entry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConsentCounterparty {
+    /// Ordinary Account, Agent, pseudonymous Account or service actor,
+    /// identified by its complete ActorId.
+    Actor(ActorId),
+    /// Realm-local ephemeral pairwise actor of a minimal-metadata Realm.
+    ///
+    /// Construct it only through
+    /// [`ConsentCounterparty::realm_local_pairwise`], and only after having
+    /// verified that `principal_id` is the actor projected by an active
+    /// LeafNode of the Realm named by `realm_id` at the current epoch
+    /// (section 6.1 query step 1). The "only an accepted binding counts" rule
+    /// is enforced here, at match time; Event admission never queries a
+    /// foreign Realm.
+    RealmLocalPairwise {
+        realm_id: RealmId,
+        principal_id: DidCoreId,
+    },
+}
+
+impl ConsentCounterparty {
+    /// An authenticated ordinary Account / Agent / pseudonymous Account /
+    /// service counterparty, carrying its complete ActorId.
+    pub fn actor(actor_id: ActorId) -> Self {
+        Self::Actor(actor_id)
+    }
+
+    /// An authenticated Realm-local ephemeral pairwise counterparty.
+    ///
+    /// The caller asserts it has already verified the active-LeafNode binding
+    /// for `realm_id`. Rejects any `principal_id` that is not a `did:key`
+    /// projection, so a caller cannot smuggle an ordinary account principal
+    /// into the pairwise lane.
+    pub fn realm_local_pairwise(realm_id: RealmId, principal_id: DidCoreId) -> Result<Self> {
+        require_pairwise_principal_form(&principal_id)?;
+        Ok(Self::RealmLocalPairwise {
+            realm_id,
+            principal_id,
+        })
+    }
+}
+
+fn require_pairwise_principal_form(principal_id: &DidCoreId) -> Result<()> {
+    if principal_id.as_str().starts_with(PAIRWISE_PRINCIPAL_PREFIX) {
+        return Ok(());
+    }
+    Err(arkret_wire::WireError::Protocol(format!(
+        "consent pairwise principal must be a {PAIRWISE_PRINCIPAL_PREFIX} projection, got {}",
+        principal_id.as_str()
+    )))
+}
+
+impl ConsentPeer {
+    /// Build the Realm-local ephemeral pairwise branch.
+    ///
+    /// Rejects any `principal_id` that is not a `did:key` projection, so the
+    /// branch cannot be reached by relabelling an ordinary account principal.
+    /// Callers hold a real `(realm_id, principal_id)` pair — one they derived
+    /// for a minimal-metadata Realm, or read back from an existing cell — and
+    /// never guess the kind from the shape of a string.
+    pub fn realm_local_pairwise(realm_id: RealmId, principal_id: DidCoreId) -> Result<Self> {
+        require_pairwise_principal_form(&principal_id)?;
+        Ok(Self::PairwisePrincipal {
+            realm_id,
+            principal_id,
+        })
+    }
+
+    /// Spec section 3.2 Event-admission form check.
+    ///
+    /// Admission validates the closed shape only: a pairwise `principal_id`
+    /// MUST be a `did:key` projection, and the peer principal MUST differ from
+    /// the holder principal. It deliberately does **not** query any foreign
+    /// Realm — "only an accepted binding counts" is enforced at match time by
+    /// [`ConsentPeer::matches`], so a holder who writes an unaccepted,
+    /// cross-Realm or invented value simply owns an entry that can never match.
+    pub fn validate_admission_form(&self, holder_principal_id: &DidCoreId) -> Result<()> {
+        let peer_principal = match self {
+            Self::Actor { actor_id } => actor_id.signing_principal_id(),
+            Self::PairwisePrincipal { principal_id, .. } => {
+                require_pairwise_principal_form(principal_id)?;
+                principal_id
+            }
+        };
+        if peer_principal == holder_principal_id {
+            return Err(arkret_wire::WireError::Protocol(
+                "consent peer principal must differ from the holder principal".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Spec section 6.1 query step 1 — kind-dispatched exact match.
+    ///
+    /// An ordinary counterparty matches only an [`ConsentPeer::Actor`] entry,
+    /// and only on the **complete ActorId**; a Realm-local pairwise
+    /// counterparty matches only a [`ConsentPeer::PairwisePrincipal`] entry,
+    /// and only on the whole `(realm_id, principal_id)` pair. The two kinds
+    /// never match each other, and neither ever falls back to a bare
+    /// `principal_id`.
+    pub fn matches(&self, counterparty: &ConsentCounterparty) -> bool {
+        match (self, counterparty) {
+            (Self::Actor { actor_id }, ConsentCounterparty::Actor(authenticated)) => {
+                actor_id == authenticated
+            }
+            (
+                Self::PairwisePrincipal {
+                    realm_id,
+                    principal_id,
+                },
+                ConsentCounterparty::RealmLocalPairwise {
+                    realm_id: authenticated_realm_id,
+                    principal_id: authenticated_principal_id,
+                },
+            ) => realm_id == authenticated_realm_id && principal_id == authenticated_principal_id,
+            (Self::Actor { .. }, ConsentCounterparty::RealmLocalPairwise { .. })
+            | (Self::PairwisePrincipal { .. }, ConsentCounterparty::Actor(_)) => false,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -122,8 +277,13 @@ pub struct ConsentRevokeRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ConsentRequestRequestBody {
     pub holder_account_id: AccountId,
+    /// Requested scope, taken from the section 4 enum minus `invite`. An
+    /// invite-scope request has no carrier: it would have to become a
+    /// `holder_quarantine` entry whose `surface_kind` is `consent_request`, and
+    /// that branch pins the scope away from `invite` because an invite belongs
+    /// to invite delivery. Absent means [`ConsentRequestScope::DEFAULT`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub consent_scope: Option<ConsentScope>,
+    pub consent_scope: Option<ConsentRequestScope>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -154,6 +314,136 @@ mod consent_request_tests {
         assert_eq!(
             serde_json::to_value(ConsentState::NoConsent).unwrap(),
             serde_json::json!("no_consent")
+        );
+    }
+}
+
+#[cfg(test)]
+mod consent_peer_tests {
+    use arkret_wire::{AccountId, ActorId, DidCoreId, RealmId};
+
+    use super::{ConsentCounterparty, ConsentPeer};
+
+    const REALM: &str = "ak:realm:Aaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+    const OTHER_REALM: &str = "ak:realm:Abqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+    const PAIRWISE: &str = "ak:did_core:key:z6MkfixturePairwisePeer";
+    const CORE: &str = "ak:did_core:web:bob.example";
+    const STATION: &str = "ak:did_core:web:station-one.example";
+    const OTHER_STATION: &str = "ak:did_core:web:station-two.example";
+
+    fn core(value: &str) -> DidCoreId {
+        DidCoreId::new(value.to_owned()).expect("did core id")
+    }
+
+    fn realm(value: &str) -> RealmId {
+        RealmId::new(value.to_owned()).expect("realm id")
+    }
+
+    fn account_actor(principal: &str, station: &str) -> ActorId {
+        ActorId::account(AccountId::new(core(principal), core(station)))
+    }
+
+    fn pairwise_peer(realm_id: &str, principal: &str) -> ConsentPeer {
+        ConsentPeer::PairwisePrincipal {
+            realm_id: realm(realm_id),
+            principal_id: core(principal),
+        }
+    }
+
+    fn pairwise_counterparty(realm_id: &str, principal: &str) -> ConsentCounterparty {
+        ConsentCounterparty::realm_local_pairwise(realm(realm_id), core(principal))
+            .expect("did:key pairwise counterparty")
+    }
+
+    #[test]
+    fn pairwise_branch_serializes_kind_realm_then_principal() {
+        let value = serde_json::to_value(pairwise_peer(REALM, PAIRWISE)).expect("serialize");
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "kind": "pairwise_principal",
+                "realm_id": REALM,
+                "principal_id": PAIRWISE,
+            })
+        );
+        // `serde_json::Value` is a sorted map, so key order has to be read off
+        // the emitted bytes: that is the wire order the schema pins.
+        let wire = serde_json::to_string(&pairwise_peer(REALM, PAIRWISE)).expect("serialize");
+        let kind_at = wire.find("\"kind\"").expect("kind is emitted");
+        let realm_at = wire.find("\"realm_id\"").expect("realm_id is emitted");
+        let principal_at = wire
+            .find("\"principal_id\"")
+            .expect("principal_id is emitted");
+        assert!(kind_at < realm_at, "{wire}");
+        assert!(realm_at < principal_at, "{wire}");
+        // The branch is closed: the pre-realm_id shape no longer parses.
+        assert!(
+            serde_json::from_value::<ConsentPeer>(serde_json::json!({
+                "kind": "pairwise_principal",
+                "principal_id": PAIRWISE,
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn actor_entries_match_only_on_the_complete_actor_id() {
+        let peer = ConsentPeer::Actor {
+            actor_id: account_actor(CORE, STATION),
+        };
+        assert!(peer.matches(&ConsentCounterparty::actor(account_actor(CORE, STATION))));
+        // Same principal core, different Station.
+        assert!(!peer.matches(&ConsentCounterparty::actor(account_actor(
+            CORE,
+            OTHER_STATION
+        ))));
+        // Same principal core, different actor role.
+        assert!(!peer.matches(&ConsentCounterparty::actor(ActorId::service(core(CORE)))));
+    }
+
+    #[test]
+    fn pairwise_entries_match_only_on_the_whole_realm_principal_pair() {
+        let peer = pairwise_peer(REALM, PAIRWISE);
+        assert!(peer.matches(&pairwise_counterparty(REALM, PAIRWISE)));
+        // Same key bound in another Realm is a different peer, never aggregated.
+        assert!(!peer.matches(&pairwise_counterparty(OTHER_REALM, PAIRWISE)));
+    }
+
+    #[test]
+    fn the_two_kinds_never_match_each_other() {
+        let pairwise = pairwise_peer(REALM, PAIRWISE);
+        let actor = ConsentPeer::Actor {
+            actor_id: account_actor(PAIRWISE, STATION),
+        };
+        // A pairwise value dressed up as an ordinary Account, and the reverse.
+        assert!(!pairwise.matches(&ConsentCounterparty::actor(account_actor(
+            PAIRWISE, STATION
+        ))));
+        assert!(!actor.matches(&pairwise_counterparty(REALM, PAIRWISE)));
+    }
+
+    #[test]
+    fn admission_form_rejects_non_did_key_and_self_grants() {
+        let holder = core(CORE);
+        assert!(
+            pairwise_peer(REALM, PAIRWISE)
+                .validate_admission_form(&holder)
+                .is_ok()
+        );
+        // An ordinary account principal may not be smuggled into the pairwise lane.
+        assert!(
+            pairwise_peer(REALM, CORE)
+                .validate_admission_form(&holder)
+                .is_err()
+        );
+        assert!(ConsentCounterparty::realm_local_pairwise(realm(REALM), core(CORE)).is_err());
+        // Holder may not consent to itself, on either branch.
+        assert!(
+            ConsentPeer::Actor {
+                actor_id: account_actor(CORE, STATION)
+            }
+            .validate_admission_form(&holder)
+            .is_err()
         );
     }
 }

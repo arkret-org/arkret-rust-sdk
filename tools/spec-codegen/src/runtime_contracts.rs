@@ -6,7 +6,8 @@ use anyhow::{Result, bail};
 
 use crate::model::{RealmBootstrapProfile, SpecInputs};
 use crate::render::{
-    associated_name, event_kind_slice, header, option_string, rust_string, string_slice, variant,
+    associated_name, event_kind_slice, header, option_cell_rule, option_string, rust_string,
+    string_slice, variant,
 };
 
 pub struct GeneratedOutput {
@@ -177,7 +178,9 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
         for requirement in &event.pre_state_requirements {
             if !matches!(
                 requirement.predicate.kind.as_str(),
-                "stored_field_present" | "stored_field_equals_payload"
+                "stored_field_present"
+                    | "stored_field_equals_payload"
+                    | "stored_field_matches_payload"
             ) {
                 bail!(
                     "{} uses unsupported pre-state predicate {}",
@@ -185,12 +188,65 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                     requirement.predicate.kind
                 );
             }
-            if requirement.predicate.kind == "stored_field_equals_payload"
-                && requirement.predicate.payload_field.is_none()
+            if matches!(
+                requirement.predicate.kind.as_str(),
+                "stored_field_equals_payload" | "stored_field_matches_payload"
+            ) && requirement.predicate.payload_field.is_none()
             {
                 bail!(
-                    "{} omits payload_field for stored_field_equals_payload",
-                    event.event_kind
+                    "{} omits payload_field for {}",
+                    event.event_kind,
+                    requirement.predicate.kind
+                );
+            }
+            if let Some(condition) = requirement.condition.as_ref() {
+                validate_pre_state_condition(&event.event_kind, condition)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validate one `pre_state_requirements[].condition` against the closed
+/// condition grammar shared with conditional cell writes.
+///
+/// `zh/models/event-and-patch.md` 2.4.2 gates a pre-state requirement with the
+/// same vocabulary a conditional target uses, so there is exactly one grammar to
+/// implement. Anything outside it fails generation closed rather than reaching
+/// the runtime as an unevaluable node.
+fn validate_pre_state_condition(event_kind: &str, condition: &serde_json::Value) -> Result<()> {
+    let Some(members) = condition.as_object() else {
+        bail!("{event_kind} pre-state condition must be an object");
+    };
+    let kind = members
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if !matches!(
+        kind,
+        "field_present"
+            | "field_absent"
+            | "field_equals"
+            | "any_field_present"
+            | "critical_ref_role_exact_count"
+    ) {
+        bail!("{event_kind} pre-state condition has unsupported kind {kind}");
+    }
+    for member in ["field", "fields"] {
+        let Some(value) = members.get(member) else {
+            continue;
+        };
+        let paths = match value {
+            serde_json::Value::Array(items) => items.iter().collect::<Vec<_>>(),
+            other => vec![other],
+        };
+        for path in paths {
+            let Some(path) = path.as_str() else {
+                bail!("{event_kind} pre-state condition {member} must hold field paths");
+            };
+            if !path.starts_with("payload.") {
+                bail!(
+                    "{event_kind} pre-state condition {member} must be explicitly sourced: {path}"
                 );
             }
         }
@@ -795,18 +851,22 @@ fn generate_event_runtime_contracts(inputs: &SpecInputs) -> String {
         ),
     );
     output.push_str(
-        r#"use arkret_wire::{CellFamilyId, event_kind_str};
+        r#"use arkret_wire::{
+    CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
+    event_kind_str,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventIdSource { EventDerived }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EventPreStatePredicateKind { StoredFieldPresent, StoredFieldEqualsPayload }
+pub enum EventPreStatePredicateKind { StoredFieldPresent, StoredFieldEqualsPayload, StoredFieldMatchesPayload }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventPreStateRequirementDescriptor {
     pub cell_family: CellFamilyId,
     pub subject_field: &'static str,
+    pub condition_rule: Option<EventCellRule>,
     pub predicate: EventPreStatePredicateKind,
     pub stored_field: &'static str,
     pub payload_field: Option<&'static str>,
@@ -838,9 +898,10 @@ pub struct EventRuntimeContractDescriptor {
         for requirement in &event.pre_state_requirements {
             writeln!(
                 output,
-                "    EventPreStateRequirementDescriptor {{ cell_family: CellFamilyId::{}, subject_field: {}, predicate: EventPreStatePredicateKind::{}, stored_field: {}, payload_field: {}, failure_code: {}, failure_reason_code: {} }},",
+                "    EventPreStateRequirementDescriptor {{ cell_family: CellFamilyId::{}, subject_field: {}, condition_rule: {}, predicate: EventPreStatePredicateKind::{}, stored_field: {}, payload_field: {}, failure_code: {}, failure_reason_code: {} }},",
                 variant(&requirement.cell_family, &["ak.component."]),
                 rust_string(&requirement.subject.field),
+                option_cell_rule(requirement.condition.as_ref()),
                 variant(&requirement.predicate.kind, &[]),
                 rust_string(&requirement.predicate.field),
                 option_string(requirement.predicate.payload_field.as_deref()),

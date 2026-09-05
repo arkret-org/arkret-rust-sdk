@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=62f0a95f82fd72c10a39b20c8fa30a16f0536806b4e1baf2c26777f1824c8fe5
-//! Entries: forbidden_wire_fields=260
+//! sha256=6dfec255c5af491a11cb84cb7f7ed7ee2c61a788618c41ed2b435fbbb715cf6b
+//! Entries: forbidden_wire_fields=261
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireFieldDescriptor {
@@ -865,6 +865,11 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     ForbiddenWireFieldDescriptor {
         id: "via_ids",
         context: "membership_payload",
+        rejection_level: "hard_reject",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "track_name",
+        context: "message",
         rejection_level: "hard_reject",
     },
     ForbiddenWireFieldDescriptor {

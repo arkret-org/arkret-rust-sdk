@@ -128,6 +128,13 @@ foreach ($row in $artifact.event_kinds) {
         Add-RuleVocabulary -Value $write.condition
         Add-RuleVocabulary -Value $write.derived_members
     }
+    # event-and-patch.md 2.4.2 gates a pre-state requirement with the same closed
+    # condition grammar a conditional cell write uses. Folding those nodes here
+    # keeps one rule vocabulary, so tools/spec-codegen can render them as the
+    # same EventCellRule AST instead of inventing a second one.
+    foreach ($requirement in $row.pre_state_requirements) {
+        Add-RuleVocabulary -Value $requirement.condition
+    }
 }
 $sortedRuleKeys = Sort-Utf8ByteLexicographic -Values @($ruleKeys)
 $sortedRuleOperators = Sort-Utf8ByteLexicographic -Values @($ruleOperators)
