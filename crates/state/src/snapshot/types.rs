@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use super::constants::DETACHED_JWS_PROOF_KIND;
 use super::merkle::sha256_digest;
-use crate::{BlobRef, EventId, Hash, Hlc, RealmId, Result, SnapshotId};
+use crate::{BlobRef, CellRef, EventId, Hash, Hlc, RealmId, Result, SnapshotId, WireError};
 
 /// Object-family context of `authority_binding.witness_attestations[]`. It is
 /// deliberately not the manifest's `ak.snapshot_proof.v1`: a witness signature
@@ -461,14 +461,215 @@ pub struct SnapshotVerificationHints {
     pub quarantined_digest: Option<Hash>,
 }
 
-/// Materialized reducer output item stored inside spec snapshot chunks.
+/// One still-active `cas_register` write inside a snapshot chunk.
+///
+/// The wire form of `event-auth-state-resolution.md` §6.2.1's head entry. The
+/// identity is the `ak:event:` spelling here rather than the `event_digest` the
+/// op log stores, because this is the byte-exact preimage every implementation
+/// has to reproduce.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SnapshotMaterializedItem {
-    pub kind: String,
-    pub id: String,
-    pub object: Value,
-    pub source_event_id: EventId,
+#[serde(deny_unknown_fields)]
+pub struct SnapshotCasHead {
+    pub event_id: EventId,
+    pub value: Value,
+}
+
+/// The `state_object` of one written `cas_register` cell (§6.2.1).
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotCasCellState {
+    pub heads: Vec<SnapshotCasHead>,
+}
+
+/// Materialized reducer output item stored inside spec snapshot chunks.
+///
+/// `snapshot-schema.md` §3 makes `items[]` a closed union discriminated by
+/// `kind`. The `cas_cell` branch carries neither `object` nor
+/// `source_event_id`: a `cas_register` cell's state is its head set, and a
+/// single `source_event_id` cannot express more than one active write — an
+/// implementation that picked "the last one" would be inventing a winner the
+/// lattice deliberately refuses to pick.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SnapshotMaterializedItem {
+    /// A materialized canonical object.
+    Object {
+        kind: String,
+        id: String,
+        object: Value,
+        source_event_id: EventId,
+    },
+    /// One written `cas_register` control cell.
+    CasCell {
+        cell: CellRef,
+        state: SnapshotCasCellState,
+    },
+}
+
+/// The literal `kind` of the `cas_cell` branch (`snapshot-schema.md` §3).
+pub const SNAPSHOT_CAS_CELL_KIND: &str = "cas_cell";
+
+impl SnapshotMaterializedItem {
+    pub fn object(kind: String, id: String, object: Value, source_event_id: EventId) -> Self {
+        Self::Object {
+            kind,
+            id,
+            object,
+            source_event_id,
+        }
+    }
+
+    /// A `cas_cell` item for one written cell.
+    ///
+    /// `heads` comes from [`crate::lattice::cas_register::cas_heads`], already
+    /// ordered by the decoded `event_id` token. Each head's identity is
+    /// recovered losslessly from its `event_digest`, so the chunk never depends
+    /// on a second stored spelling of the same identity.
+    ///
+    /// An empty head set is rejected rather than emitted: §6.2.1 makes an
+    /// unwritten cell a non-member, so an empty entry would put a leaf in the
+    /// tree for a cell that must not have one.
+    pub fn cas_cell(
+        cell: CellRef,
+        heads: &[crate::lattice::cas_register::CasHead],
+    ) -> Result<Self> {
+        if heads.is_empty() {
+            return Err(WireError::Protocol(format!(
+                "cas_cell snapshot item for {cell} has no head; an unwritten cell is not a \
+                 state_root member"
+            )));
+        }
+        let heads = heads
+            .iter()
+            .map(|head| {
+                Ok(SnapshotCasHead {
+                    event_id: EventId::from_event_digest(&head.move_id)
+                        .map_err(|error| WireError::Protocol(error.to_string()))?,
+                    value: head.value.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self::CasCell {
+            cell,
+            state: SnapshotCasCellState { heads },
+        })
+    }
+
+    /// The `kind` this item sorts and deduplicates under.
+    pub fn kind(&self) -> &str {
+        match self {
+            Self::Object { kind, .. } => kind,
+            Self::CasCell { .. } => SNAPSHOT_CAS_CELL_KIND,
+        }
+    }
+
+    /// The `id` this item sorts and deduplicates under.
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Object { id, .. } => id,
+            Self::CasCell { cell, .. } => cell.as_str(),
+        }
+    }
+}
+
+/// The flat wire object both branches share.
+///
+/// Kept separate from the enum so the union stays closed: the conversion below
+/// names exactly which members each `kind` may carry, instead of letting an
+/// untagged match silently accept an item that mixes them.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSnapshotItem {
+    kind: String,
+    id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    object: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_event_id: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    state: Option<SnapshotCasCellState>,
+}
+
+/// The OpenAPI shape is the flat wire object, not a `oneOf` over the Rust
+/// variants: on the wire both branches are one object discriminated by `kind`,
+/// and the `cas_cell` branch's `id` is a cell reference rather than a separate
+/// member. Delegating to [`RawSnapshotItem`] keeps the document describing what
+/// is actually serialized.
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for SnapshotMaterializedItem {
+    fn to_schema(
+        components: &mut salvo_oapi::Components,
+    ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        <RawSnapshotItem as salvo_oapi::ToSchema>::to_schema(components)
+    }
+}
+
+impl Serialize for SnapshotMaterializedItem {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        let raw = match self {
+            Self::Object {
+                kind,
+                id,
+                object,
+                source_event_id,
+            } => RawSnapshotItem {
+                kind: kind.clone(),
+                id: id.clone(),
+                object: Some(object.clone()),
+                source_event_id: Some(source_event_id.clone()),
+                state: None,
+            },
+            Self::CasCell { cell, state } => RawSnapshotItem {
+                kind: SNAPSHOT_CAS_CELL_KIND.to_owned(),
+                id: cell.as_str().to_owned(),
+                object: None,
+                source_event_id: None,
+                state: Some(state.clone()),
+            },
+        };
+        raw.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SnapshotMaterializedItem {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        use serde::de::Error as _;
+        let raw = RawSnapshotItem::deserialize(deserializer)?;
+        if raw.kind == SNAPSHOT_CAS_CELL_KIND {
+            if raw.object.is_some() || raw.source_event_id.is_some() {
+                return Err(D::Error::custom(
+                    "a cas_cell snapshot item carries neither object nor source_event_id",
+                ));
+            }
+            let state = raw
+                .state
+                .ok_or_else(|| D::Error::custom("a cas_cell snapshot item requires state"))?;
+            let cell = CellRef::new(raw.id).map_err(D::Error::custom)?;
+            return Ok(Self::CasCell { cell, state });
+        }
+        if raw.state.is_some() {
+            return Err(D::Error::custom(
+                "only a cas_cell snapshot item carries state",
+            ));
+        }
+        Ok(Self::Object {
+            kind: raw.kind,
+            id: raw.id,
+            object: raw
+                .object
+                .ok_or_else(|| D::Error::custom("an object snapshot item requires object"))?,
+            source_event_id: raw.source_event_id.ok_or_else(|| {
+                D::Error::custom("an object snapshot item requires source_event_id")
+            })?,
+        })
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -883,8 +883,8 @@ fn expected_cas_heads(
     covered_events: &[Event],
     post_state: &BTreeMap<CellRef, CellState>,
     project: impl Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
-) -> super::CasHeadsByCell {
-    let mut out = super::CasHeadsByCell::new();
+) -> CasHeadsByCell {
+    let mut out = CasHeadsByCell::new();
     for (cell, state) in post_state {
         if !arkret_wire::is_registered_cas_register_cell(cell.as_str()) {
             continue;
@@ -1807,7 +1807,7 @@ async fn recovery_witness_fixture() -> RecoveryWitnessFixture {
     // The witness view's `cas_register` target was written by `target_move`, so
     // that identity is its head (§6.2.1); the capability cell is an `or_set` and
     // keeps its value leaf.
-    let witness_heads = super::CasHeadsByCell::from([(
+    let witness_heads = CasHeadsByCell::from([(
         target.clone(),
         vec![crate::lattice::cas_register::CasHead {
             move_id: target_move.clone(),

@@ -197,11 +197,29 @@ pub fn state_digest_from_items(items: &[SnapshotMaterializedItem]) -> Result<Has
     merkle_root_from_hashes(leaves)
 }
 
+/// The `state_digest` leaf of one snapshot item (`snapshot-schema.md` §4).
+///
+/// Both branches share the `kind:id:<inner digest>` shape; they differ in what
+/// the inner digest covers. The `object` branch hashes the materialized object.
+/// The `cas_cell` branch has no object, so it hashes the same
+/// `{"cell","state"}` preimage that `event-auth-state-resolution.md` §6.2.1
+/// gives the governance `state_root` leaf — one definition of a CAS cell's
+/// canonical form, not two that can drift.
 pub fn snapshot_state_leaf_hash(item: &SnapshotMaterializedItem) -> Result<Hash> {
-    let object_bytes = crate::canonical::canonical_json_bytes(&item.object)?;
-    let object_digest = crate::canonical::sha256_digest(&object_bytes);
+    let inner = match item {
+        SnapshotMaterializedItem::Object { object, .. } => {
+            crate::canonical::sha256_digest(&crate::canonical::canonical_json_bytes(object)?)
+        }
+        SnapshotMaterializedItem::CasCell { cell, state } => {
+            let preimage = serde_json::json!({
+                "cell": cell.as_str(),
+                "state": state,
+            });
+            crate::canonical::sha256_digest(&crate::canonical::canonical_json_bytes(&preimage)?)
+        }
+    };
     Ok(sha256_digest(
-        format!("{}:{}:{}", item.kind, item.id, object_digest).as_bytes(),
+        format!("{}:{}:{}", item.kind(), item.id(), inner).as_bytes(),
     ))
 }
 
@@ -280,19 +298,16 @@ pub fn verify_snapshot_chunk_bytes(
 }
 
 fn sort_snapshot_items(items: &mut [SnapshotMaterializedItem]) {
-    items.sort_by(|a, b| {
-        let left = (&a.kind, &a.id);
-        let right = (&b.kind, &b.id);
-        left.cmp(&right)
-    });
+    items.sort_by(|a, b| (a.kind(), a.id()).cmp(&(b.kind(), b.id())));
 }
 
 fn ensure_unique_snapshot_items(items: &[SnapshotMaterializedItem]) -> Result<()> {
     for pair in items.windows(2) {
-        if pair[0].kind == pair[1].kind && pair[0].id == pair[1].id {
+        if pair[0].kind() == pair[1].kind() && pair[0].id() == pair[1].id() {
             return Err(WireError::Protocol(format!(
                 "duplicate snapshot item key ({}, {})",
-                pair[0].kind, pair[0].id
+                pair[0].kind(),
+                pair[0].id()
             )));
         }
     }

@@ -3,7 +3,8 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{merkle, *};
-use crate::{DidCoreId, EventId, Hash, Hlc, PayloadSignature, RealmId, SnapshotId};
+use crate::lattice::cas_register::CasHead;
+use crate::{CellRef, DidCoreId, EventId, Hash, Hlc, PayloadSignature, RealmId, SnapshotId};
 
 fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
@@ -391,16 +392,16 @@ fn snapshot_id() -> SnapshotId {
 }
 
 fn state_item(kind: &str, id: &str, source_suffix: &str) -> SnapshotMaterializedItem {
-    SnapshotMaterializedItem {
-        kind: kind.to_owned(),
-        id: id.to_owned(),
-        object: serde_json::json!({
+    SnapshotMaterializedItem::object(
+        kind.to_owned(),
+        id.to_owned(),
+        serde_json::json!({
             "id": id,
             "kind": kind,
             "schema": "ak.schema.test.v1"
         }),
-        source_event_id: event_id(source_suffix),
-    }
+        event_id(source_suffix),
+    )
 }
 
 #[test]
@@ -706,4 +707,133 @@ fn witness_quorum_rejects_manifest_context_and_foreign_controller() {
             .code,
         SnapshotValidationCode::SignatureInvalid
     );
+}
+
+/// One head, in the SDK form the lattice produces.
+fn cas_head(byte: u8, value: Value) -> CasHead {
+    CasHead {
+        move_id: Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
+        value,
+    }
+}
+
+fn slot_cell() -> CellRef {
+    CellRef::new(
+        "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc"
+            .to_owned(),
+    )
+    .unwrap()
+}
+
+/// `snapshot-schema.md` §3: the `cas_cell` branch carries `state` and neither
+/// `object` nor `source_event_id`, and its identity is the `ak:event:` spelling
+/// recovered from the op log's `event_digest`.
+#[test]
+fn a_cas_cell_item_serializes_to_the_closed_branch() {
+    let item =
+        SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x11, Value::Null)]).unwrap();
+    let wire = serde_json::to_value(&item).unwrap();
+
+    assert_eq!(wire["kind"], "cas_cell");
+    assert_eq!(wire["id"], slot_cell().as_str());
+    assert!(wire.get("object").is_none());
+    assert!(wire.get("source_event_id").is_none());
+    let heads = wire["state"]["heads"].as_array().unwrap();
+    assert_eq!(heads.len(), 1);
+    assert_eq!(heads[0]["value"], Value::Null);
+    let expected_id =
+        crate::EventId::from_event_digest(&cas_head(0x11, serde_json::json!(null)).move_id)
+            .unwrap();
+    assert_eq!(heads[0]["event_id"], expected_id.as_str());
+
+    assert_eq!(
+        serde_json::from_value::<SnapshotMaterializedItem>(wire).unwrap(),
+        item
+    );
+}
+
+/// A released slot and an unwritten one both read `null`, so the chunk has to
+/// keep the release write's identity or the two become the same snapshot.
+#[test]
+fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
+    let released =
+        SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x22, Value::Null)]).unwrap();
+    let claimed = SnapshotMaterializedItem::cas_cell(
+        slot_cell(),
+        &[cas_head(0x22, serde_json::json!("ak:event:AUC6Bg"))],
+    )
+    .unwrap();
+    assert_ne!(
+        snapshot_state_leaf_hash(&released).unwrap(),
+        snapshot_state_leaf_hash(&claimed).unwrap(),
+    );
+
+    // An unwritten cell is not a member at all (§6.2.1), so it cannot be built.
+    assert!(SnapshotMaterializedItem::cas_cell(slot_cell(), &[]).is_err());
+}
+
+/// Two heads that agree on a value still have two identities, and the leaf must
+/// reflect that: a snapshot that collapsed them would let a receiver drop a
+/// branch it never observed.
+#[test]
+fn same_value_heads_keep_both_identities_in_the_leaf() {
+    let one =
+        SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x33, serde_json::json!("A"))])
+            .unwrap();
+    let two = SnapshotMaterializedItem::cas_cell(
+        slot_cell(),
+        &[
+            cas_head(0x33, serde_json::json!("A")),
+            cas_head(0x44, serde_json::json!("A")),
+        ],
+    )
+    .unwrap();
+    assert_ne!(
+        snapshot_state_leaf_hash(&one).unwrap(),
+        snapshot_state_leaf_hash(&two).unwrap(),
+    );
+}
+
+/// §4: the `cas_cell` leaf's inner digest is the same `{"cell","state"}`
+/// preimage §6.2.1 gives the governance `state_root` leaf, so an implementation
+/// has one canonical form for a CAS cell rather than two that can drift.
+#[test]
+fn the_cas_cell_leaf_reuses_the_state_root_preimage() {
+    let heads = [cas_head(0x55, serde_json::json!("v"))];
+    let item = SnapshotMaterializedItem::cas_cell(slot_cell(), &heads).unwrap();
+    let SnapshotMaterializedItem::CasCell { cell, state } = &item else {
+        panic!("built a cas_cell item");
+    };
+    let preimage = serde_json::json!({"cell": cell.as_str(), "state": state});
+    let inner = crate::canonical::sha256_digest(
+        &crate::canonical::canonical_json_bytes(&preimage).unwrap(),
+    );
+    assert_eq!(
+        snapshot_state_leaf_hash(&item).unwrap(),
+        merkle::sha256_digest(format!("cas_cell:{}:{}", cell.as_str(), inner).as_bytes()),
+    );
+}
+
+/// The union is closed in both directions: an item cannot mix the branches.
+#[test]
+fn a_mixed_snapshot_item_is_rejected() {
+    let object_with_state = serde_json::json!({
+        "kind": "strand",
+        "id": "ak:strand:AVgnD-1YLmV6g-_RiZro8Yzmydn3Q8upFMpAgJW9bsbj",
+        "object": {"id": "x"},
+        "source_event_id": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-",
+        "state": {"heads": []},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(object_with_state).is_err());
+
+    let cas_with_object = serde_json::json!({
+        "kind": "cas_cell",
+        "id": slot_cell().as_str(),
+        "object": {"value": null},
+        "state": {"heads": []},
+    });
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(cas_with_object).is_err());
+
+    let cas_without_state = serde_json::json!({"kind": "cas_cell", "id": slot_cell().as_str()});
+    assert!(serde_json::from_value::<SnapshotMaterializedItem>(cas_without_state).is_err());
 }
