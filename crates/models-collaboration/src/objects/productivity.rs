@@ -1563,7 +1563,7 @@ impl ContactRemark {
 /// evidence that the namespace holds: `ak.*` is reserved for the specification
 /// and a client extension MUST use a reverse-domain `<vendor>.*` prefix. An
 /// unrecognised `ak.*` tag is preserved rather than dropped, so this accepts
-/// any well-formed reserved tag. Ruling `review/spec-done/2026-09-05-1730`.
+/// any well-formed reserved tag. Ruling `review/spec-done/2026-09-05-1730-contact-remark-value-object-is-prose-only.md`.
 fn validate_contact_remark_tag(tag: &str) -> Result<()> {
     let invalid =
         |reason: &str| WireError::Protocol(format!("contact remark tag {tag:?} {reason}"));
@@ -2448,7 +2448,7 @@ mod tests {
         );
     }
 
-    /// Ruling `review/spec-done/2026-09-05-1730`: the registered schema pins
+    /// Ruling `review/spec-done/2026-09-05-1730-contact-remark-value-object-is-prose-only.md`: the registered schema pins
     /// `verified_handle_at_save` to the canonical `<localpart>:<domain>` wire
     /// form and the section 3.1 tag namespace is a domain rule the schema
     /// cannot state. Both were previously unvalidated here, so a value the
