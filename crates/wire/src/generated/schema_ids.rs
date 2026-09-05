@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-04.1;
-//! sha256=eb790fbcb3ec798fc9cde370645b5df6c52a363d2ad709d88f01e83142a20611 Entries: schema_ids=200,
+//! Input: registry/schema-registry.json; version=2026-09-05.2;
+//! sha256=6a791a1f9bb3d7c0c3d6cc4a431716ee2dbd4d1bb4d3f6945e32adb4c9e0d6c9 Entries: schema_ids=200,
 //! active=200
 
 use serde::{Deserialize, Serialize};
@@ -108,6 +108,7 @@ pub enum SchemaId {
     HandleClaimRevocationV1,
     HighRiskAuthorityProofV1,
     HistoryKeyV1,
+    HolderQuarantineV1,
     HttpProblemDetailsV1,
     IceConfigResponseV1,
     IdentityLinkV1,
@@ -117,7 +118,6 @@ pub enum SchemaId {
     InviteV1,
     InviteDeliveryV1,
     InviteDeliveryRequestV1,
-    InviteQuarantineV1,
     InviteReceivePolicyV1,
     KeyBackupV1,
     KeyBackupActiveSeriesV1,
@@ -312,6 +312,7 @@ impl SchemaId {
         Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
         Self::HistoryKeyV1,
+        Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
@@ -321,7 +322,6 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
-        Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
@@ -516,6 +516,7 @@ impl SchemaId {
         Self::HandleClaimRevocationV1,
         Self::HighRiskAuthorityProofV1,
         Self::HistoryKeyV1,
+        Self::HolderQuarantineV1,
         Self::HttpProblemDetailsV1,
         Self::IceConfigResponseV1,
         Self::IdentityLinkV1,
@@ -525,7 +526,6 @@ impl SchemaId {
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
-        Self::InviteQuarantineV1,
         Self::InviteReceivePolicyV1,
         Self::KeyBackupV1,
         Self::KeyBackupActiveSeriesV1,
@@ -912,6 +912,10 @@ impl SchemaId {
     /// Closed private history-key request, response stream, source relay, response record,
     /// organization-recovery archive, and HPKE plaintext DTO family
     pub const HISTORY_KEY_V1: &'static str = "ak.schema.history_key.v1";
+    /// Actor-private plaintext account-data cell value of ak.account.holder_quarantine, written
+    /// only by the recipient Station CAS materializer. surface_kind discriminates invite_delivery
+    /// from consent_request. See zh/identity/consent-model.md and zh/sync/client-sync.md.
+    pub const HOLDER_QUARANTINE_V1: &'static str = "ak.schema.holder_quarantine.v1";
     /// Canonical RFC 9457 application/problem+json HTTP error response from sync/api-conventions.md
     /// section 5.
     pub const HTTP_PROBLEM_DETAILS_V1: &'static str = "ak.schema.http_problem_details.v1";
@@ -934,10 +938,6 @@ impl SchemaId {
     /// Private service-to-service invite delivery request carrying invite_address and
     /// introduction_evidence.
     pub const INVITE_DELIVERY_REQUEST_V1: &'static str = "ak.schema.invite_delivery_request.v1";
-    /// Actor-private plaintext account-data cell value of ak.account.invite_quarantine, written
-    /// only by the recipient Station CAS materializer. See zh/identity/consent-model.md and
-    /// zh/sync/client-sync.md.
-    pub const INVITE_QUARANTINE_V1: &'static str = "ak.schema.invite_quarantine.v1";
     /// Subject-private invite receive policy controlling which introduction evidence kinds may
     /// notify the holder.
     pub const INVITE_RECEIVE_POLICY_V1: &'static str = "ak.schema.invite_receive_policy.v1";
@@ -1291,6 +1291,7 @@ impl SchemaId {
             Self::HandleClaimRevocationV1 => Self::HANDLE_CLAIM_REVOCATION_V1,
             Self::HighRiskAuthorityProofV1 => Self::HIGH_RISK_AUTHORITY_PROOF_V1,
             Self::HistoryKeyV1 => Self::HISTORY_KEY_V1,
+            Self::HolderQuarantineV1 => Self::HOLDER_QUARANTINE_V1,
             Self::HttpProblemDetailsV1 => Self::HTTP_PROBLEM_DETAILS_V1,
             Self::IceConfigResponseV1 => Self::ICE_CONFIG_RESPONSE_V1,
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
@@ -1300,7 +1301,6 @@ impl SchemaId {
             Self::InviteV1 => Self::INVITE_V1,
             Self::InviteDeliveryV1 => Self::INVITE_DELIVERY_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
-            Self::InviteQuarantineV1 => Self::INVITE_QUARANTINE_V1,
             Self::InviteReceivePolicyV1 => Self::INVITE_RECEIVE_POLICY_V1,
             Self::KeyBackupV1 => Self::KEY_BACKUP_V1,
             Self::KeyBackupActiveSeriesV1 => Self::KEY_BACKUP_ACTIVE_SERIES_V1,
@@ -1536,6 +1536,7 @@ impl SchemaId {
             Self::HandleClaimRevocationV1 => "schemas/handle-claim.schema.json",
             Self::HighRiskAuthorityProofV1 => "schemas/high-risk-authority-proof.schema.json",
             Self::HistoryKeyV1 => "schemas/history-key.schema.json",
+            Self::HolderQuarantineV1 => "schemas/holder-quarantine.schema.json",
             Self::HttpProblemDetailsV1 => "schemas/http-problem-details.schema.json",
             Self::IceConfigResponseV1 => "schemas/ice-config-response.schema.json",
             Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
@@ -1545,7 +1546,6 @@ impl SchemaId {
             Self::InviteV1 => "schemas/invite.schema.json",
             Self::InviteDeliveryV1 => "schemas/invite-delivery.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
-            Self::InviteQuarantineV1 => "schemas/invite-quarantine.schema.json",
             Self::InviteReceivePolicyV1 => "schemas/invite-receive-policy.schema.json",
             Self::KeyBackupV1 => "schemas/key-backup.schema.json",
             Self::KeyBackupActiveSeriesV1 => "schemas/key-backup-active-series.schema.json",
@@ -1781,6 +1781,7 @@ impl SchemaId {
             Self::HANDLE_CLAIM_REVOCATION_V1 => Some(Self::HandleClaimRevocationV1),
             Self::HIGH_RISK_AUTHORITY_PROOF_V1 => Some(Self::HighRiskAuthorityProofV1),
             Self::HISTORY_KEY_V1 => Some(Self::HistoryKeyV1),
+            Self::HOLDER_QUARANTINE_V1 => Some(Self::HolderQuarantineV1),
             Self::HTTP_PROBLEM_DETAILS_V1 => Some(Self::HttpProblemDetailsV1),
             Self::ICE_CONFIG_RESPONSE_V1 => Some(Self::IceConfigResponseV1),
             Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
@@ -1790,7 +1791,6 @@ impl SchemaId {
             Self::INVITE_V1 => Some(Self::InviteV1),
             Self::INVITE_DELIVERY_V1 => Some(Self::InviteDeliveryV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),
-            Self::INVITE_QUARANTINE_V1 => Some(Self::InviteQuarantineV1),
             Self::INVITE_RECEIVE_POLICY_V1 => Some(Self::InviteReceivePolicyV1),
             Self::KEY_BACKUP_V1 => Some(Self::KeyBackupV1),
             Self::KEY_BACKUP_ACTIVE_SERIES_V1 => Some(Self::KeyBackupActiveSeriesV1),

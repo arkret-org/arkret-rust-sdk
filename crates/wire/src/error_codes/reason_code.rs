@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-05.1;
-//! sha256=4da16735865849964af38cec5746deae472336f9267006874c8fec3e0f97ddb9
-//! Entries: reason_codes=430
+//! Input: registry/error-code-registry.json; version=2026-09-05.3;
+//! sha256=a7f9a552ec1e07adabdd7939e67c2b5af024d9a60a501b22de03e116f20906b5
+//! Entries: reason_codes=431
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -198,6 +198,7 @@ pub enum ReasonCode {
     InviteEventActorMismatch,
     InviteEventUnaccepted,
     InviteKindRequiresRevoke,
+    InviteLiveTargetOccupied,
     InviteOobEntropyTooLow,
     JoinPolicyDuplicateGateId,
     JoinRulePolicyMismatch,
@@ -687,6 +688,7 @@ impl ReasonCode {
     pub const INVITE_EVENT_ACTOR_MISMATCH: &'static str = "invite_event_actor_mismatch";
     pub const INVITE_EVENT_UNACCEPTED: &'static str = "invite_event_unaccepted";
     pub const INVITE_KIND_REQUIRES_REVOKE: &'static str = "invite_kind_requires_revoke";
+    pub const INVITE_LIVE_TARGET_OCCUPIED: &'static str = "invite_live_target_occupied";
     pub const INVITE_OOB_ENTROPY_TOO_LOW: &'static str = "invite_oob_entropy_too_low";
     pub const JOIN_POLICY_DUPLICATE_GATE_ID: &'static str = "join_policy_duplicate_gate_id";
     pub const JOIN_RULE_POLICY_MISMATCH: &'static str = "join_rule_policy_mismatch";
@@ -1195,6 +1197,7 @@ impl ReasonCode {
             Self::InviteEventActorMismatch => Self::INVITE_EVENT_ACTOR_MISMATCH,
             Self::InviteEventUnaccepted => Self::INVITE_EVENT_UNACCEPTED,
             Self::InviteKindRequiresRevoke => Self::INVITE_KIND_REQUIRES_REVOKE,
+            Self::InviteLiveTargetOccupied => Self::INVITE_LIVE_TARGET_OCCUPIED,
             Self::InviteOobEntropyTooLow => Self::INVITE_OOB_ENTROPY_TOO_LOW,
             Self::JoinPolicyDuplicateGateId => Self::JOIN_POLICY_DUPLICATE_GATE_ID,
             Self::JoinRulePolicyMismatch => Self::JOIN_RULE_POLICY_MISMATCH,
@@ -1701,6 +1704,7 @@ impl ReasonCode {
             Self::INVITE_EVENT_ACTOR_MISMATCH => Self::InviteEventActorMismatch,
             Self::INVITE_EVENT_UNACCEPTED => Self::InviteEventUnaccepted,
             Self::INVITE_KIND_REQUIRES_REVOKE => Self::InviteKindRequiresRevoke,
+            Self::INVITE_LIVE_TARGET_OCCUPIED => Self::InviteLiveTargetOccupied,
             Self::INVITE_OOB_ENTROPY_TOO_LOW => Self::InviteOobEntropyTooLow,
             Self::JOIN_POLICY_DUPLICATE_GATE_ID => Self::JoinPolicyDuplicateGateId,
             Self::JOIN_RULE_POLICY_MISMATCH => Self::JoinRulePolicyMismatch,
@@ -2997,6 +3001,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "ak.invite.cancel targeted a token/3PID Invite without a stored direct invitee binding. Only ak.invite.revoke may terminate that Invite class.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::INVITE_LIVE_TARGET_OCCUPIED,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "Sub-reason for failed_precondition when ak.invite.create targets an account whose Realm live-target slot ak.component.invite.live_target.v1 is already claimed by another live directed Invite. The Event is not accepted, enters no canonical history and derives no cell write; the closed error.details is InviteLiveTargetOccupiedProblem carrying the occupying invite_id and create_event_id. See zh/models/governance-objects.md section 5.3.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::INVITE_OOB_ENTROPY_TOO_LOW,
         applies_to: &["auth_decision"],
         description: "An out-of-band invite code was rejected because its entropy is below the required floor. See zh/conformance/conformance-vectors.md §9 (ak.vector.invite.oob_code_entropy.v1).",
@@ -3094,7 +3103,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_PROOF_INVALID,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "The MemberIdentity object carried by ak.member.identity.update failed proof validation: proof.payload_digest does not equal the sha256 of the proof-less MemberIdentity RFC 8785 JCS canonical bytes, the signature does not verify under proof.verification_method, or the method is not controlled by the disclosed subject_id. The event MUST NOT be promoted to a verified display identity. See zh/sync/client-sync.md §8.1.",
+        description: "The MemberIdentity object carried by ak.member.identity.update failed proof validation: proof.payload_digest does not equal the sha256 of the proof-less MemberIdentity RFC 8785 JCS canonical bytes, the signature does not verify under proof.verification_method, or the method is not controlled by the disclosed subject_actor_id. The event MUST NOT be promoted to a verified display identity. See zh/sync/client-sync.md §8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEMBER_IDENTITY_REPLACEMENT_DIGEST_MISMATCH,

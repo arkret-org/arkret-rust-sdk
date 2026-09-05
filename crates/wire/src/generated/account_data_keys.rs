@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-04.2;
-//! sha256=6d72d6ce1a9a4c9afc81138fcda51475e437cc61ebc5ecdfe9b0f00c0abe2743
+//! Input: registry/account-data-key-registry.json; version=2026-09-05.1;
+//! sha256=cd8a34c1176fd20bb8f99de0fa4162ad1e86abe899f5055296caaac5a34f43e1
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 #[repr(usize)]
 pub enum AccountDataKey {
     AccountBlocklist,
+    AccountHolderQuarantine,
     AccountInviteDelivery,
-    AccountInviteQuarantine,
     AgentDraftV1,
     AgentSidecarViewStateV1,
     ClientUiState,
@@ -42,8 +42,8 @@ pub enum AccountDataKey {
 impl AccountDataKey {
     pub const ALL: &'static [Self] = &[
         Self::AccountBlocklist,
+        Self::AccountHolderQuarantine,
         Self::AccountInviteDelivery,
-        Self::AccountInviteQuarantine,
         Self::AgentDraftV1,
         Self::AgentSidecarViewStateV1,
         Self::ClientUiState,
@@ -71,6 +71,15 @@ impl AccountDataKey {
     /// notifications, contact handling, and trusted holder-side filtering. Key pattern:
     /// `ak.account.blocklist`.
     pub const ACCOUNT_BLOCKLIST: &'static str = "ak.account.blocklist";
+    /// Actor-private plaintext holder quarantine inbox for the two admission surfaces the consent
+    /// gate defers under the default profile: invite delivery and
+    /// ak.self.consent.command.request.v1. The recipient Station is the sole CAS writer; holder
+    /// self PUT/DELETE and synthetic ak.account_data.set are forbidden. Accepted writes fan out as
+    /// service-sender ak.account_data.update hints and MUST NOT expose contactability signals to
+    /// the requester. Contact requests are metered by the same new-source quota but keep their own
+    /// pending_incoming state and never produce an entry here. Key pattern:
+    /// `ak.account.holder_quarantine`.
+    pub const ACCOUNT_HOLDER_QUARANTINE: &'static str = "ak.account.holder_quarantine";
     /// Actor-private holder-side carrier for delivered directed-invite credentials on the notify
     /// branch (invite-addressing.md section 7). Written by the recipient Station through the
     /// delivery path, so the value is plaintext JSON (ak.schema.invite_delivery.v1), not a
@@ -79,12 +88,6 @@ impl AccountDataKey {
     /// entries purged first, then oldest evicted; accepted writes fan out as ak.account_data.update
     /// actor-private device updates. Key pattern: `ak.account.invite_delivery`.
     pub const ACCOUNT_INVITE_DELIVERY: &'static str = "ak.account.invite_delivery";
-    /// Actor-private plaintext quarantine inbox for invites held by the consent gate default
-    /// profile. The recipient Station is the sole CAS writer; holder self PUT/DELETE and synthetic
-    /// ak.account_data.set are forbidden. Accepted writes fan out as service-sender
-    /// ak.account_data.update hints and MUST NOT expose contactability signals to the inviter.
-    /// Key pattern: `ak.account.invite_quarantine`.
-    pub const ACCOUNT_INVITE_QUARANTINE: &'static str = "ak.account.invite_quarantine";
     /// Controller-owned encrypted draft created when Station materializes an agent's
     /// ak.agent.draft.propose / ak.agent.action_request after capability / policy / accountability
     /// / risk check. Draft MUST NOT enter shared Realm history; publishing produces a new shared
@@ -177,8 +180,8 @@ impl AccountDataKey {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountBlocklist => Self::ACCOUNT_BLOCKLIST,
+            Self::AccountHolderQuarantine => Self::ACCOUNT_HOLDER_QUARANTINE,
             Self::AccountInviteDelivery => Self::ACCOUNT_INVITE_DELIVERY,
-            Self::AccountInviteQuarantine => Self::ACCOUNT_INVITE_QUARANTINE,
             Self::AgentDraftV1 => Self::AGENT_DRAFT_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::ClientUiState => Self::CLIENT_UI_STATE,
@@ -216,8 +219,8 @@ impl AccountDataKey {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::ACCOUNT_BLOCKLIST => Some(Self::AccountBlocklist),
+            Self::ACCOUNT_HOLDER_QUARANTINE => Some(Self::AccountHolderQuarantine),
             Self::ACCOUNT_INVITE_DELIVERY => Some(Self::AccountInviteDelivery),
-            Self::ACCOUNT_INVITE_QUARANTINE => Some(Self::AccountInviteQuarantine),
             Self::AGENT_DRAFT_V1 => Some(Self::AgentDraftV1),
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::CLIENT_UI_STATE => Some(Self::ClientUiState),

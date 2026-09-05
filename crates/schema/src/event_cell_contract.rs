@@ -561,7 +561,17 @@ fn validate_pre_state_requirements(
     frozen_pre_state: &FrozenPreState,
     kind: &str,
 ) -> Result<(), EventCellContractError> {
+    // A registered field counts as present only when it is there and not JSON
+    // `null`, the same reading the closed payload-condition grammar uses.
+    let present = |value: Option<&Value>| value.is_some_and(|value| !value.is_null());
     for requirement in requirements {
+        // A requirement whose registered condition does not hold is not
+        // evaluated (`event-and-patch.md` section 2.4.2). The condition is
+        // drawn from the same closed payload grammar as a cell write's, so it
+        // goes through the same evaluator rather than a second copy of it.
+        if !condition_matches(event, requirement.condition, kind)? {
+            continue;
+        }
         let subject = field_value(event, requirement.subject_field)
             .ok_or_else(|| effect_set_error(kind, "pre-state subject field is absent"))
             .and_then(|value| {
@@ -578,14 +588,25 @@ fn validate_pre_state_requirements(
         let stored = frozen_pre_state.get(&cell);
         let stored_value = stored.and_then(|value| nested_value(value, requirement.stored_field));
         let satisfied = match requirement.predicate {
-            crate::EventPreStatePredicateKind::StoredFieldPresent => {
-                stored_value.is_some_and(|value| !value.is_null())
-            }
+            crate::EventPreStatePredicateKind::StoredFieldPresent => present(stored_value),
+            // Both comparisons read the payload field the registry names, and
+            // both are byte comparisons of the stored and signed values. They
+            // differ only in what an absence means: `equals` requires both
+            // sides present, `matches` also admits both sides absent and
+            // nothing else. That weaker form is what an optional payload field
+            // needs, because it rejects a forged value against a stored
+            // absence and an omitted value against a stored presence alike.
             crate::EventPreStatePredicateKind::StoredFieldEqualsPayload => {
-                let payload_path = requirement.payload_field.ok_or_else(|| {
-                    effect_set_error(kind, "stored_field_equals_payload omits payload_field")
-                })?;
-                stored_value == field_value(event, payload_path)
+                let payload_value = payload_comparand(event, requirement, kind)?;
+                present(stored_value) && present(payload_value) && stored_value == payload_value
+            }
+            crate::EventPreStatePredicateKind::StoredFieldMatchesPayload => {
+                let payload_value = payload_comparand(event, requirement, kind)?;
+                match (present(stored_value), present(payload_value)) {
+                    (false, false) => true,
+                    (true, true) => stored_value == payload_value,
+                    _ => false,
+                }
             }
         };
         if !satisfied {
@@ -598,6 +619,20 @@ fn validate_pre_state_requirements(
         }
     }
     Ok(())
+}
+
+/// Resolve the signed payload value a stored-field comparison is measured
+/// against. A predicate that compares against the payload without naming the
+/// field is an invalid registration, not a comparison that trivially holds.
+fn payload_comparand<'a>(
+    event: &'a ProjectedEventInput,
+    requirement: &crate::EventPreStateRequirementDescriptor,
+    kind: &str,
+) -> Result<Option<&'a Value>, EventCellContractError> {
+    let payload_path = requirement
+        .payload_field
+        .ok_or_else(|| effect_set_error(kind, "stored-field comparison omits payload_field"))?;
+    Ok(field_value(event, payload_path))
 }
 
 fn nested_value<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
@@ -2688,9 +2723,11 @@ mod tests {
         );
     }
 
-    fn invite_create_event(invitee: bool) -> Event {
+    /// `ak.invite.create` carries a required `invitee_account_id`; an Invite
+    /// with no direct invitee is the separate `ak.invite.third_party` kind.
+    fn invite_create_event(kind: EventKind) -> Event {
         let mut payload = json!({});
-        if invitee {
+        if kind == EventKind::InviteCreate {
             payload["invitee_account_id"] = json!({
                 "principal_id": "ak:did_core:webvh:z6mkfixture",
                 "station_id": "ak:did_core:web:principal.example"
@@ -2698,7 +2735,7 @@ mod tests {
         }
         serde_json::from_value(json!({
             "event_id": "ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA",
-            "kind": EventKind::InviteCreate,
+            "kind": kind,
             "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy",
             "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy"},
             "actor_id": {"kind": "account", "account_id": {
@@ -2718,26 +2755,35 @@ mod tests {
     const INVITE_LIFECYCLE_CELL: &str = "ak:cell:ak.component.invite.lifecycle.v1:ak:invite:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA";
     const BOB_MEMBER_CELL: &str =
         "ak:cell:ak.component.member.state.v1:-R4dRtD6CAwTRae2S7Pu2Y-yX68SpjNQkAPrG7HLvk4";
+    const INVITE_LIVE_TARGET_CELL: &str =
+        "ak:cell:ak.component.invite.live_target.v1:RMIat7Rg9OslR6WIHOjxCmCFnUVUGyoovN1ldcxev88";
 
     #[test]
     fn conditional_invite_member_target_is_exact() {
-        // The producer picks neither the Invite ID, member cell nor transition,
-        // so the assertion is the exact projected set rather than a rejected
-        // mutation. The lifecycle subject is retyped from event_id.
-        // The lifecycle cell enters from null: `leave` is a member.state state,
-        // and this Event's second write is the one that touches it.
-        let directed = invite_create_event(true);
+        // The producer picks neither the Invite ID, the live-target slot nor
+        // the transition, so the assertion is the exact projected set rather
+        // than a rejected mutation. The lifecycle subject is retyped from
+        // event_id and enters from null; the live-target subject is the
+        // canonical JSON of the invitee, and a directed Invite occupies that
+        // slot with its own Event ID.
+        let directed = invite_create_event(EventKind::InviteCreate);
         assert_eq!(
             project(&directed),
-            vec![write(
-                INVITE_LIFECYCLE_CELL,
-                transition_op(json!(null), json!("pending")),
-            )]
+            vec![
+                write(
+                    INVITE_LIFECYCLE_CELL,
+                    transition_op(json!(null), json!("pending")),
+                ),
+                write(
+                    INVITE_LIVE_TARGET_CELL,
+                    set_op(json!("ak:event:AVcbARXDOZuMaYlp1-g60cl4c6Y5NzY10J6VMsgtrakA")),
+                ),
+            ]
         );
 
-        // Without an invitee the conditional member write is inactive, so a
-        // third-party invite touches the lifecycle cell only.
-        let third_party = invite_create_event(false);
+        // A third-party Invite names no account, so there is no slot to
+        // occupy and it touches the lifecycle cell only.
+        let third_party = invite_create_event(EventKind::InviteThirdParty);
         assert_eq!(
             project(&third_party),
             vec![write(
@@ -2815,62 +2861,143 @@ mod tests {
         .unwrap()
     }
 
+    /// The invitee this fixture's terminal Events name, as the invite
+    /// lifecycle cell stores it.
+    fn fixture_invitee() -> Value {
+        json!({
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
+            "station_id": "ak:did_core:web:principal.example"
+        })
+    }
+
+    fn project_terminal(event: &Event, pre_state: &FrozenPreState) -> Vec<ProjectedCellWrite> {
+        project_registered_cell_writes_with_pre_state(
+            event,
+            arkret_canonical::DigestSuite::Sha256,
+            pre_state,
+        )
+        .expect("the registered contract must be evaluable")
+    }
+
+    fn stored_invitee(invitee: Value) -> FrozenPreState {
+        FrozenPreState::from([(
+            CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap(),
+            json!({"invitee_account_id": invitee}),
+        )])
+    }
+
     #[test]
     fn invite_terminal_member_transition_is_exact() {
-        let expected = vec![write(
-            INVITE_LIFECYCLE_CELL,
-            ProjectedOp::TransitionTo {
-                to: json!("revoked"),
-            },
-        )];
+        // A terminal Event that names an invitee both moves the lifecycle cell
+        // and releases the live-target slot that Invite occupied.
+        let expected = vec![
+            write(
+                INVITE_LIFECYCLE_CELL,
+                ProjectedOp::TransitionTo {
+                    to: json!("revoked"),
+                },
+            ),
+            write(INVITE_LIVE_TARGET_CELL, set_op(json!("__unset__"))),
+        ];
+        let stored = stored_invitee(fixture_invitee());
         assert_eq!(
-            project(&invite_terminal_event(EventKind::InviteRevoke)),
+            project_terminal(&invite_terminal_event(EventKind::InviteRevoke), &stored),
             expected
         );
 
         let cancel = invite_terminal_event(EventKind::InviteCancel);
-        let lifecycle = CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap();
-        let mut pre_state = FrozenPreState::new();
-        pre_state.insert(
-            lifecycle.clone(),
-            json!({"invitee_account_id": {
-                "principal_id": "ak:did_core:webvh:z6mkfixture",
-                "station_id": "ak:did_core:web:principal.example"
-            }}),
-        );
-        assert_eq!(
-            project_registered_cell_writes_with_pre_state(
-                &cancel,
-                arkret_canonical::DigestSuite::Sha256,
-                &pre_state,
-            )
-            .unwrap(),
-            expected
-        );
+        assert_eq!(project_terminal(&cancel, &stored), expected);
 
-        pre_state = FrozenPreState::new();
         let missing = project_registered_cell_writes_with_pre_state(
             &cancel,
             arkret_canonical::DigestSuite::Sha256,
-            &pre_state,
+            &FrozenPreState::new(),
         )
         .unwrap_err();
         assert_eq!(missing.reason_code(), "invite_kind_requires_revoke");
 
-        pre_state.insert(
-            lifecycle,
-            json!({"invitee_account_id": {
-                "principal_id": "ak:did_core:webvh:z6mkmallory",
-                "station_id": "ak:did_core:web:principal.example"
-            }}),
-        );
         let mismatch = project_registered_cell_writes_with_pre_state(
             &cancel,
             arkret_canonical::DigestSuite::Sha256,
-            &pre_state,
+            &stored_invitee(json!({
+                "principal_id": "ak:did_core:webvh:z6mkmallory",
+                "station_id": "ak:did_core:web:principal.example"
+            })),
         )
         .unwrap_err();
         assert_eq!(mismatch.reason_code(), "reducer_projection_failed");
+    }
+
+    #[test]
+    fn stored_field_matches_payload_closes_both_directions() {
+        // `stored_field_matches_payload` holds when the stored field and the
+        // payload field are both absent, or both present and byte-identical
+        // (`event-and-patch.md` section 2.4.2). Both failing directions are
+        // security-relevant: a forged `invitee_account_id` on a third-party
+        // Invite must not release someone else's direct slot, and an omitted
+        // one on a direct Invite must not leave that slot occupied forever.
+        let revoke = invite_terminal_event(EventKind::InviteRevoke);
+        let forged = project_registered_cell_writes_with_pre_state(
+            &revoke,
+            arkret_canonical::DigestSuite::Sha256,
+            &FrozenPreState::from([(
+                CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap(),
+                json!({"state": "pending"}),
+            )]),
+        )
+        .unwrap_err();
+        assert_eq!(forged.reason_code(), "reducer_projection_failed");
+
+        let mut omitted = invite_terminal_event(EventKind::InviteRevoke);
+        omitted.payload.remove("invitee_account_id");
+        let omitted_error = project_registered_cell_writes_with_pre_state(
+            &omitted,
+            arkret_canonical::DigestSuite::Sha256,
+            &stored_invitee(fixture_invitee()),
+        )
+        .unwrap_err();
+        assert_eq!(omitted_error.reason_code(), "reducer_projection_failed");
+
+        // Both absent is the third-party lane, and it projects the lifecycle
+        // move alone.
+        assert_eq!(
+            project_terminal(
+                &omitted,
+                &FrozenPreState::from([(
+                    CellRef::new(INVITE_LIFECYCLE_CELL.to_owned()).unwrap(),
+                    json!({"state": "pending"}),
+                )]),
+            ),
+            vec![write(
+                INVITE_LIFECYCLE_CELL,
+                ProjectedOp::TransitionTo {
+                    to: json!("revoked"),
+                },
+            )]
+        );
+    }
+
+    #[test]
+    fn send_failed_revoke_does_not_evaluate_the_conditional_pre_state() {
+        // `ak.invite.revoke` registers its pre-state requirement once per
+        // non-`send_failed` target_state. `send_failed` is schema-barred from
+        // carrying `invitee_account_id`, releases no slot, and its requirement
+        // condition therefore never holds -- so a direct Invite whose stored
+        // invitee is present must still be movable to that state.
+        let mut event = invite_terminal_event(EventKind::InviteRevoke);
+        event
+            .payload
+            .insert("target_state".to_owned(), json!("send_failed"));
+        event.payload.remove("invitee_account_id");
+        assert_eq!(
+            project_terminal(&event, &stored_invitee(fixture_invitee())),
+            vec![write(
+                INVITE_LIFECYCLE_CELL,
+                ProjectedOp::TransitionTo {
+                    to: json!("send_failed"),
+                },
+            )]
+        );
     }
 
     fn consent_revoke_event(observed_dots: Value) -> Event {
