@@ -128,6 +128,15 @@ foreach ($row in $artifact.event_kinds) {
         Add-RuleVocabulary -Value $write.condition
         Add-RuleVocabulary -Value $write.derived_members
     }
+    # A `pre_state_requirements[].condition` is drawn from the same closed
+    # payload-condition grammar as `cell_writes[].condition` and is rendered
+    # into the same AST by tools/spec-codegen. Feeding it through the same
+    # vocabulary keeps the two generators from disagreeing about which
+    # operators and keys exist: an operator only a pre-state condition uses
+    # would otherwise be emitted by spec-codegen but missing from this enum.
+    foreach ($requirement in $row.pre_state_requirements) {
+        Add-RuleVocabulary -Value $requirement.condition
+    }
 }
 $sortedRuleKeys = Sort-Utf8ByteLexicographic -Values @($ruleKeys)
 $sortedRuleOperators = Sort-Utf8ByteLexicographic -Values @($ruleOperators)

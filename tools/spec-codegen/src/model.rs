@@ -307,6 +307,11 @@ pub struct EventCellWrite {
 pub struct EventPreStateRequirement {
     pub cell_family: String,
     pub subject: EventPreStateSubject,
+    /// Optional payload condition drawn from the same closed grammar as
+    /// `cell_writes[].condition`. A requirement whose condition does not hold
+    /// is not evaluated at all, so the raw AST is carried through verbatim
+    /// rather than flattened into a codegen-private shape.
+    pub condition: Option<serde_json::Value>,
     pub predicate: EventPreStatePredicate,
     pub failure: EventPreStateFailure,
 }
