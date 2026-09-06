@@ -290,7 +290,7 @@ pub fn realm_state_snapshot_state_leaf_hash_with_digest_suite(
 
 /// Digest of one auxiliary list concatenated across chunks in ascending index
 /// order (`realm-state-snapshot-schema.md` §3): `<suite>:hex(H(canonical_json(rows)))`.
-pub fn snapshot_auxiliary_list_digest<'a, T: Serialize + 'a>(
+pub fn realm_state_snapshot_auxiliary_list_digest<'a, T: Serialize + 'a>(
     rows: impl IntoIterator<Item = &'a T>,
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
@@ -300,11 +300,11 @@ pub fn snapshot_auxiliary_list_digest<'a, T: Serialize + 'a>(
 }
 
 /// `verification_hints.conflict_records_digest` over delivered chunks.
-pub fn snapshot_conflict_records_digest(
+pub fn realm_state_snapshot_conflict_records_digest(
     chunks: &[RealmStateRealmRealmStateSnapshotStateChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
-    snapshot_auxiliary_list_digest(
+    realm_state_snapshot_auxiliary_list_digest(
         chunks
             .iter()
             .flat_map(|chunk| chunk.conflict_records.iter()),
@@ -313,33 +313,33 @@ pub fn snapshot_conflict_records_digest(
 }
 
 /// `verification_hints.soft_failed_digest` over delivered chunks.
-pub fn snapshot_soft_failed_digest(
+pub fn realm_state_snapshot_soft_failed_digest(
     chunks: &[RealmStateRealmRealmStateSnapshotStateChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
-    snapshot_auxiliary_list_digest(
+    realm_state_snapshot_auxiliary_list_digest(
         chunks.iter().flat_map(|chunk| chunk.soft_failed.iter()),
         digest_suite,
     )
 }
 
 /// `verification_hints.quarantined_digest` over delivered chunks.
-pub fn snapshot_quarantined_digest(
+pub fn realm_state_snapshot_quarantined_digest(
     chunks: &[RealmStateRealmRealmStateSnapshotStateChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
-    snapshot_auxiliary_list_digest(
+    realm_state_snapshot_auxiliary_list_digest(
         chunks.iter().flat_map(|chunk| chunk.quarantined.iter()),
         digest_suite,
     )
 }
 
 /// `verification_hints.erasure_stubs_digest` over delivered chunks.
-pub fn snapshot_erasure_stubs_digest(
+pub fn realm_state_snapshot_erasure_stubs_digest(
     chunks: &[RealmStateRealmRealmStateSnapshotStateChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
-    snapshot_auxiliary_list_digest(
+    realm_state_snapshot_auxiliary_list_digest(
         chunks.iter().flat_map(|chunk| chunk.erasure_stubs.iter()),
         digest_suite,
     )

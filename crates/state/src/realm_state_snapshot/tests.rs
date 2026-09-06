@@ -1122,7 +1122,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
         if let Some(chunks) = observed {
             if let Some(digest) = case["expected_conflict_records_digest"].as_str() {
                 assert_eq!(
-                    snapshot_conflict_records_digest(&chunks, suite)
+                    realm_state_snapshot_conflict_records_digest(&chunks, suite)
                         .unwrap()
                         .as_str(),
                     digest,
@@ -1131,7 +1131,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
             }
             if let Some(digest) = case["expected_erasure_stubs_digest"].as_str() {
                 assert_eq!(
-                    snapshot_erasure_stubs_digest(&chunks, suite)
+                    realm_state_snapshot_erasure_stubs_digest(&chunks, suite)
                         .unwrap()
                         .as_str(),
                     digest,
