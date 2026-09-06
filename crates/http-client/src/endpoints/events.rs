@@ -31,7 +31,7 @@ use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator
 use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
 use arkret_models_discovery::ServiceDescribe;
 use arkret_schema::PreparedStandardEvent;
-use arkret_state::SnapshotManifest;
+use arkret_state::RealmRealmStateSnapshotStateManifest;
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     AccountId, ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
@@ -886,9 +886,12 @@ impl Client {
         self.post("/_arkret/self/seals", seal).await
     }
 
-    pub async fn snapshot_head(&self, realm_id: &str) -> Result<SnapshotManifest> {
+    pub async fn snapshot_head(
+        &self,
+        realm_id: &str,
+    ) -> Result<RealmRealmStateSnapshotStateManifest> {
         let builder = self
-            .request(Method::GET, "/_arkret/self/snapshot/head")?
+            .request(Method::GET, "/_arkret/self/realm-state-snapshot/head")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
     }

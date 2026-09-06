@@ -728,12 +728,17 @@ impl Default for ProtocolSchemaRegistry {
             ),
         );
         registry.register(
-            SchemaId::SNAPSHOT_V1,
+            SchemaId::REALM_STATE_SNAPSHOT_V1,
             object_schema(
-                SchemaId::SNAPSHOT_V1,
-                &["snapshot_id", "realm_id", "frontier", "state_root"],
+                SchemaId::REALM_STATE_SNAPSHOT_V1,
                 &[
-                    ("snapshot_id", "string"),
+                    "realm_state_snapshot_id",
+                    "realm_id",
+                    "frontier",
+                    "state_root",
+                ],
+                &[
+                    ("realm_state_snapshot_id", "string"),
                     ("realm_id", "string"),
                     ("frontier", "array"),
                     ("state_root", "string"),

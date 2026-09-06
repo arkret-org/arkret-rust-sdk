@@ -1796,7 +1796,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotChunksItem.extra",
+      "finding": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmRealmStateSnapshotStateChunksItem.extra",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -1807,7 +1807,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotVerificationHintsValue.extra",
+      "finding": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmRealmStateSnapshotStateVerificationHintsValue.extra",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2555,7 +2555,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/state/src/snapshot/types.rs::SnapshotChunkPayload.conflict_records",
+      "finding": "crates/state/src/realm_state_snapshot/types.rs::RealmStateRealmRealmStateSnapshotStateChunkPayload.conflict_records",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2566,7 +2566,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/state/src/snapshot/types.rs::SnapshotChunkPayload.quarantined",
+      "finding": "crates/state/src/realm_state_snapshot/types.rs::RealmStateRealmRealmStateSnapshotStateChunkPayload.quarantined",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2577,7 +2577,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/state/src/snapshot/types.rs::SnapshotChunkPayload.soft_failed",
+      "finding": "crates/state/src/realm_state_snapshot/types.rs::RealmStateRealmRealmStateSnapshotStateChunkPayload.soft_failed",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2588,7 +2588,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/state/src/snapshot/types.rs::SnapshotMaterializedItem.object",
+      "finding": "crates/state/src/realm_state_snapshot/types.rs::RealmRealmStateSnapshotStateMaterializedItem.object",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

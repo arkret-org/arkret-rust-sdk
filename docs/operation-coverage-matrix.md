@@ -37,7 +37,7 @@
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.keys.keypackages.command.revoke.v1` | `POST /_arkret/self/keys/keypackages/revoke` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.keys.keypackages.upload.create.v1` | `POST /_arkret/self/keys/keypackages/upload` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
-| `ak.profile.agent_auth.v1` | `server` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.agent_auth.v1` | `server` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.agent_auth.v1` | `server` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.authz.read.check.v1` | `POST /_arkret/self/authz/check` | — | — | — | gap |
 | `ak.profile.agent_delegation_policy.v1` | `server` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
@@ -356,7 +356,7 @@
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.keys.upload.create.v1` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.self.seals.read.mls_governance_proof.v1` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
-| `ak.profile.high_security_organization.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.high_security_organization.v1` | `admin` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.high_security_organization.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.identity_registry.v1` | `directory` | `ak.root.identity.command.submit_did_operation.v1` | `POST /_arkret/root/identity/submit-did-operation` | — | — | — | gap |
 | `ak.profile.identity_registry.v1` | `directory` | `ak.root.identity.document.resource.get.v1` | `GET /_arkret/root/identity/document` | — | — | — | gap |
@@ -408,7 +408,7 @@
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.keys.upload.create.v1` | `POST /_arkret/self/keys/upload` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.seals.read.mls_governance_proof.v1` | `POST /_arkret/self/seals/mls-governance-proof` | — | — | — | gap |
-| `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.isolated_sovereign_network.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.kanban_mvp.v1` | `client` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.kanban_mvp.v1` | `client` | `ak.self.events.read.describe.v1` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |
@@ -502,7 +502,7 @@
 | `ak.profile.organization.v1` | `admin` | `ak.self.events.resource.get.v1` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.self.events.stream.subscribe.v1` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
-| `ak.profile.organization.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.organization.v1` | `admin` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.organization.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.agent_provisioning.v1` | `server` | `ak.gate.account.command.pair_agent_key.v1` | `POST /_arkret/gate/account/agent-key-pair` | — | — | — | gap |
 | `ak.profile.agent_provisioning.v1` | `server` | `ak.self.agent.command.provision.v1` | `POST /_arkret/self/agents` | — | — | — | gap |
@@ -591,7 +591,7 @@
 | `ak.profile.small_team.v1` | `admin` | `ak.self.events.resource.get.v1` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.events.stream.subscribe.v1` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
-| `ak.profile.small_team.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.small_team.v1` | `admin` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.small_team.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.root.identity.read.resolve.v1` | `POST /_arkret/root/identity/resolve` | — | — | — | gap |
 | `ak.profile.sovereign_client.v1` | `client` | `ak.self.account.stream.subscribe.v1` | `GET /_arkret/self/account/subscribe` | — | — | — | gap |
@@ -634,7 +634,7 @@
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.events.resource.get.v1` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.events.stream.subscribe.v1` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
-| `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.sovereign_deployment.v1` | `admin` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.sovereign_deployment.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.gate.account.command.introspect_session_grant.v1` | `POST /_arkret/gate/account/session-grants/introspect` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.gate.account.command.issue_session_grant.v1` | `POST /_arkret/gate/account/session-grants` | — | — | — | gap |
@@ -663,7 +663,7 @@
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.events.resource.get.v1` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.events.stream.subscribe.v1` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
-| `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.sovereign_enclave.v1` | `admin` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.sovereign_enclave.v1` | `admin` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.gate.account.command.introspect_session_grant.v1` | `POST /_arkret/gate/account/session-grants/introspect` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.gate.account.command.issue_session_grant.v1` | `POST /_arkret/gate/account/session-grants` | — | — | — | gap |
@@ -686,7 +686,7 @@
 | `ak.profile.station.v1` | `server` | `ak.self.events.resource.get.v1` | `GET /_arkret/self/events/{event_id}` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.events.stream.subscribe.v1` | `GET /_arkret/self/events/subscribe` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.self.seals.read.frontier.v1` | `QUERY /_arkret/self/seals/frontier` | — | — | — | gap |
-| `ak.profile.station.v1` | `server` | `ak.self.snapshot.read.manifest_head.v1` | `GET /_arkret/self/snapshot/head` | — | — | — | gap |
+| `ak.profile.station.v1` | `server` | `ak.self.realm_state_snapshot.read.manifest_head.v1` | `GET /_arkret/self/realm-state-snapshot/head` | — | — | — | gap |
 | `ak.profile.station.v1` | `server` | `ak.server.read.describe.v1` | `GET /_arkret/describe` | — | — | — | gap |
 | `ak.profile.station_events_api.v1` | `server` | `ak.self.events.command.submit.v1` | `POST /_arkret/self/events` | — | — | — | gap |
 | `ak.profile.station_events_api.v1` | `server` | `ak.self.events.read.describe.v1` | `QUERY /_arkret/self/events/describe` | — | — | — | gap |

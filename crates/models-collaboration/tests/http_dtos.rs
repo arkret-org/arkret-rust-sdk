@@ -220,7 +220,7 @@ fn events_subscribe_frame_control_helpers() {
 fn events_query_outcome_serializes_has_more_even_when_false() {
     let body = EventsQueryOutcome {
         events: Vec::new(),
-        snapshot_bootstrap: None,
+        realm_state_snapshot_bootstrap: None,
         next_cursor: None,
         prev_cursor: None,
         has_more: false,
@@ -248,7 +248,7 @@ fn events_query_outcome_serializes_has_more_even_when_false() {
 }
 
 #[test]
-fn peer_events_query_outcome_rejects_self_snapshot_bootstrap() {
+fn peer_events_query_outcome_rejects_self_realm_state_snapshot_bootstrap() {
     let body = PeerEventsQueryOutcome {
         events: Vec::new(),
         next_cursor: None,
@@ -263,7 +263,7 @@ fn peer_events_query_outcome_rejects_self_snapshot_bootstrap() {
         serde_json::from_value::<PeerEventsQueryOutcome>(json!({
             "events": [],
             "has_more": false,
-            "snapshot_bootstrap": {}
+            "realm_state_snapshot_bootstrap": {}
         }))
         .is_err(),
         "peer scan must reject the self-only snapshot bootstrap field"

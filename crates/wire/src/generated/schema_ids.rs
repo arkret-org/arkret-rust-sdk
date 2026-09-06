@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-06.1;
-//! sha256=9f052e39da9473df79be6dd815afccb0e8814b0937c943ae2e6b236a87ea7719 Entries: schema_ids=205,
+//! Input: registry/schema-registry.json; version=2026-09-07.1;
+//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Entries: schema_ids=205,
 //! active=205
 
 use serde::{Deserialize, Serialize};
@@ -166,6 +166,8 @@ pub enum SchemaId {
     RealmOrganizationOperationsV1,
     RealmProfileV1,
     RealmReadOperationsV1,
+    RealmStateSnapshotV1,
+    RealmStateSnapshotChunkV1,
     RecoveryCompletionAttestationV1,
     RecoveryPolicyV1,
     RecoveryReceiptV1,
@@ -190,8 +192,6 @@ pub enum SchemaId {
     SignalRelayV1,
     SignalStreamFrameV1,
     SignalTypingV1,
-    SnapshotV1,
-    SnapshotChunkV1,
     SpaceV1,
     StrandV1,
     StringProfilesV1,
@@ -375,6 +375,8 @@ impl SchemaId {
         Self::RealmOrganizationOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
+        Self::RealmStateSnapshotV1,
+        Self::RealmStateSnapshotChunkV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
@@ -399,8 +401,6 @@ impl SchemaId {
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
-        Self::SnapshotV1,
-        Self::SnapshotChunkV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -584,6 +584,8 @@ impl SchemaId {
         Self::RealmOrganizationOperationsV1,
         Self::RealmProfileV1,
         Self::RealmReadOperationsV1,
+        Self::RealmStateSnapshotV1,
+        Self::RealmStateSnapshotChunkV1,
         Self::RecoveryCompletionAttestationV1,
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
@@ -608,8 +610,6 @@ impl SchemaId {
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
-        Self::SnapshotV1,
-        Self::SnapshotChunkV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -1082,6 +1082,11 @@ impl SchemaId {
     /// operations (ak.self.realm.*); see zh/models/realm-and-space.md and
     /// zh/governance/content-moderation.md.
     pub const REALM_READ_OPERATIONS_V1: &'static str = "ak.schema.realm_read_operations.v1";
+    pub const REALM_STATE_SNAPSHOT_V1: &'static str = "ak.schema.realm_state_snapshot.v1";
+    /// Snapshot chunk payload: the Realm reducer cells behind one manifest chunks[].chunk_ref,
+    /// whose leaves are the state_root leaves of event-auth-state-resolution.md section 6.2.1
+    pub const REALM_STATE_SNAPSHOT_CHUNK_V1: &'static str =
+        "ak.schema.realm_state_snapshot_chunk.v1";
     /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant
     /// promotion.
     pub const RECOVERY_COMPLETION_ATTESTATION_V1: &'static str =
@@ -1151,10 +1156,6 @@ impl SchemaId {
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
-    pub const SNAPSHOT_V1: &'static str = "ak.schema.snapshot.v1";
-    /// Snapshot chunk payload: the Realm reducer cells behind one manifest chunks[].chunk_ref,
-    /// whose leaves are the state_root leaves of event-auth-state-resolution.md section 6.2.1
-    pub const SNAPSHOT_CHUNK_V1: &'static str = "ak.schema.snapshot_chunk.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
     /// Shared coarse JSON Schema shapes for Arkret human identifiers, IDNA domains, handles, acct
@@ -1391,6 +1392,8 @@ impl SchemaId {
             Self::RealmOrganizationOperationsV1 => Self::REALM_ORGANIZATION_OPERATIONS_V1,
             Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
             Self::RealmReadOperationsV1 => Self::REALM_READ_OPERATIONS_V1,
+            Self::RealmStateSnapshotV1 => Self::REALM_STATE_SNAPSHOT_V1,
+            Self::RealmStateSnapshotChunkV1 => Self::REALM_STATE_SNAPSHOT_CHUNK_V1,
             Self::RecoveryCompletionAttestationV1 => Self::RECOVERY_COMPLETION_ATTESTATION_V1,
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
@@ -1415,8 +1418,6 @@ impl SchemaId {
             Self::SignalRelayV1 => Self::SIGNAL_RELAY_V1,
             Self::SignalStreamFrameV1 => Self::SIGNAL_STREAM_FRAME_V1,
             Self::SignalTypingV1 => Self::SIGNAL_TYPING_V1,
-            Self::SnapshotV1 => Self::SNAPSHOT_V1,
-            Self::SnapshotChunkV1 => Self::SNAPSHOT_CHUNK_V1,
             Self::SpaceV1 => Self::SPACE_V1,
             Self::StrandV1 => Self::STRAND_V1,
             Self::StringProfilesV1 => Self::STRING_PROFILES_V1,
@@ -1645,6 +1646,8 @@ impl SchemaId {
             }
             Self::RealmProfileV1 => "schemas/realm-profile.schema.json",
             Self::RealmReadOperationsV1 => "schemas/realm-read-operations.schema.json",
+            Self::RealmStateSnapshotV1 => "schemas/realm-state-snapshot.schema.json",
+            Self::RealmStateSnapshotChunkV1 => "schemas/realm-state-snapshot-chunk.schema.json",
             Self::RecoveryCompletionAttestationV1 => "schemas/recovery-authority.schema.json",
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
@@ -1669,8 +1672,6 @@ impl SchemaId {
             Self::SignalRelayV1 => "schemas/signal-relay.schema.json",
             Self::SignalStreamFrameV1 => "schemas/signal-stream-frame.schema.json",
             Self::SignalTypingV1 => "schemas/signal-typing.schema.json",
-            Self::SnapshotV1 => "schemas/snapshot.schema.json",
-            Self::SnapshotChunkV1 => "schemas/snapshot-chunk.schema.json",
             Self::SpaceV1 => "schemas/space.schema.json",
             Self::StrandV1 => "schemas/strand.schema.json",
             Self::StringProfilesV1 => "schemas/string-profiles.schema.json",
@@ -1893,6 +1894,8 @@ impl SchemaId {
             Self::REALM_ORGANIZATION_OPERATIONS_V1 => Some(Self::RealmOrganizationOperationsV1),
             Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
             Self::REALM_READ_OPERATIONS_V1 => Some(Self::RealmReadOperationsV1),
+            Self::REALM_STATE_SNAPSHOT_V1 => Some(Self::RealmStateSnapshotV1),
+            Self::REALM_STATE_SNAPSHOT_CHUNK_V1 => Some(Self::RealmStateSnapshotChunkV1),
             Self::RECOVERY_COMPLETION_ATTESTATION_V1 => Some(Self::RecoveryCompletionAttestationV1),
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),
@@ -1917,8 +1920,6 @@ impl SchemaId {
             Self::SIGNAL_RELAY_V1 => Some(Self::SignalRelayV1),
             Self::SIGNAL_STREAM_FRAME_V1 => Some(Self::SignalStreamFrameV1),
             Self::SIGNAL_TYPING_V1 => Some(Self::SignalTypingV1),
-            Self::SNAPSHOT_V1 => Some(Self::SnapshotV1),
-            Self::SNAPSHOT_CHUNK_V1 => Some(Self::SnapshotChunkV1),
             Self::SPACE_V1 => Some(Self::SpaceV1),
             Self::STRAND_V1 => Some(Self::StrandV1),
             Self::STRING_PROFILES_V1 => Some(Self::StringProfilesV1),

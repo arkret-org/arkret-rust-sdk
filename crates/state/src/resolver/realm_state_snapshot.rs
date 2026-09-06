@@ -4,7 +4,7 @@ use super::*;
 
 /// State snapshot at a specific point in time.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StateSnapshot {
+pub struct RealmStateSnapshotState {
     pub realm_id: RealmId,
     pub reducer_profile: String,
     pub frontier: Vec<EventId>,
@@ -24,15 +24,15 @@ pub struct StateSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tombstone_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest: Option<ReducerSnapshotManifest>,
+    pub manifest: Option<RealmRealmStateSnapshotStateReducerManifest>,
 }
 
 /// Dev-only reducer snapshot container.
 ///
 /// Current production snapshot bootstrap uses
-/// `ak.schema.snapshot.v1` [`crate::snapshot::SnapshotManifest`].
+/// `ak.schema.realm_state_snapshot.v1` [`crate::snapshot::RealmRealmStateSnapshotStateManifest`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ReducerSnapshotManifest {
+pub struct RealmRealmStateSnapshotStateReducerManifest {
     pub schema: String,
     pub reducer_profile: String,
     pub realm_id: RealmId,
@@ -41,23 +41,23 @@ pub struct ReducerSnapshotManifest {
     pub merkle_root: String,
     pub chunk_count: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub chunks: Vec<SnapshotChunkManifest>,
+    pub chunks: Vec<RealmStateRealmRealmStateSnapshotStateChunkManifest>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub signatures: Vec<SnapshotSignature>,
+    pub signatures: Vec<RealmRealmStateSnapshotStateSignature>,
 }
 
 /// Dev-only reducer snapshot chunk descriptor.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SnapshotChunkManifest {
+pub struct RealmStateRealmRealmStateSnapshotStateChunkManifest {
     pub index: u32,
     pub digest: String,
     pub byte_len: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SnapshotSignature {
+pub struct RealmRealmStateSnapshotStateSignature {
     pub kind: String,
     pub signature_algorithm: String,
     pub verification_method: DidUrl,
@@ -73,15 +73,15 @@ pub struct SnapshotSignature {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SnapshotRestoreSource {
+pub enum RealmStateRealmRealmStateSnapshotStateRestoreSource {
     Snapshot,
     RepoReplay,
 }
 
 #[derive(Clone, Debug)]
-pub struct SnapshotRestore {
+pub struct RealmRealmStateSnapshotStateRestore {
     pub state: RealmState,
-    pub source: SnapshotRestoreSource,
+    pub source: RealmStateRealmRealmStateSnapshotStateRestoreSource,
     pub snapshot_error: Option<String>,
 }
 
@@ -171,7 +171,7 @@ pub(super) fn canonicalize_strand_ref(value: &str) -> String {
     value.to_owned()
 }
 
-impl StateSnapshot {
+impl RealmStateSnapshotState {
     /// Verify the state hash. Fail-closed: a digest mismatch is an error, so
     /// the outcome cannot be silently discarded or misread as a boolean.
     pub fn verify_hash(&self) -> Result<()> {
@@ -191,35 +191,40 @@ impl StateSnapshot {
         state_merkle_root(&self.state_payload())
     }
 
-    pub fn canonical_snapshot_bytes(&self) -> Result<Vec<u8>> {
+    pub fn canonical_realm_state_snapshot_bytes(&self) -> Result<Vec<u8>> {
         Ok(canonical_json_bytes(&self.state_payload())?)
     }
 
-    pub fn chunk_manifest(&self, chunk_size: usize) -> Result<Vec<SnapshotChunkManifest>> {
+    pub fn chunk_manifest(
+        &self,
+        chunk_size: usize,
+    ) -> Result<Vec<RealmStateRealmRealmStateSnapshotStateChunkManifest>> {
         if chunk_size == 0 {
             return Err(WireError::Protocol(
                 "snapshot chunk size must be greater than zero".to_owned(),
             ));
         }
-        let bytes = self.canonical_snapshot_bytes()?;
+        let bytes = self.canonical_realm_state_snapshot_bytes()?;
         Ok(bytes
             .chunks(chunk_size)
             .enumerate()
-            .map(|(index, chunk)| SnapshotChunkManifest {
-                index: index as u32,
-                digest: sha256_digest(chunk),
-                byte_len: chunk.len(),
-            })
+            .map(
+                |(index, chunk)| RealmStateRealmRealmStateSnapshotStateChunkManifest {
+                    index: index as u32,
+                    digest: sha256_digest(chunk),
+                    byte_len: chunk.len(),
+                },
+            )
             .collect())
     }
 
     /// Build the reducer snapshot manifest. Fail-closed: a Merkle-root
     /// computation failure is an error — a manifest carrying a placeholder
     /// root must never reach the signing path.
-    pub fn manifest(&self) -> Result<ReducerSnapshotManifest> {
+    pub fn manifest(&self) -> Result<RealmRealmStateSnapshotStateReducerManifest> {
         let merkle_root = self.state_merkle_root()?;
-        Ok(ReducerSnapshotManifest {
-            schema: REDUCER_SNAPSHOT_SCHEMA.to_owned(),
+        Ok(RealmRealmStateSnapshotStateReducerManifest {
+            schema: REALM_STATE_SNAPSHOT_REDUCER_SCHEMA.to_owned(),
             reducer_profile: self.reducer_profile.clone(),
             realm_id: self.realm_id.clone(),
             frontier: self.frontier.clone(),
@@ -236,7 +241,7 @@ impl StateSnapshot {
         self.verify_hash()?;
         let actual_root = self.state_merkle_root()?;
         if let Some(manifest) = &self.manifest {
-            manifest.verify_against_snapshot(self, &actual_root)?;
+            manifest.verify_against_realm_state_snapshot(self, &actual_root)?;
         }
         Ok(())
     }
@@ -258,13 +263,13 @@ impl StateSnapshot {
     }
 }
 
-impl ReducerSnapshotManifest {
-    pub fn verify_against_snapshot(
+impl RealmRealmStateSnapshotStateReducerManifest {
+    pub fn verify_against_realm_state_snapshot(
         &self,
-        snapshot: &StateSnapshot,
+        snapshot: &RealmStateSnapshotState,
         actual_merkle_root: &str,
     ) -> Result<()> {
-        if self.schema != REDUCER_SNAPSHOT_SCHEMA {
+        if self.schema != REALM_STATE_SNAPSHOT_REDUCER_SCHEMA {
             return Err(WireError::Protocol(
                 "snapshot manifest schema mismatch".to_owned(),
             ));
@@ -327,7 +332,10 @@ impl ReducerSnapshotManifest {
     }
 }
 
-pub fn verify_snapshot_chunks<I, B>(manifest: &ReducerSnapshotManifest, chunks: I) -> Result<()>
+pub fn verify_realm_state_snapshot_chunks<I, B>(
+    manifest: &RealmRealmStateSnapshotStateReducerManifest,
+    chunks: I,
+) -> Result<()>
 where
     I: IntoIterator<Item = B>,
     B: AsRef<[u8]>,

@@ -2,16 +2,16 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-06.2;
-//! sha256=da78cee6e5f72b8e6dd550b0f6490e0351dafb25a2b24551d7eade09b85d49b0 Input: registry/
-//! operation-registry.json; version=2026-09-06.1;
-//! sha256=01b59ff31e2adeb5edcbc2c30f1f6a520ae7e5f222e005448cf191cbfa3fd9d1 Input: registry/
+//! contract-registry.json; version=2026-09-07.1;
+//! sha256=19cfcdaac88f2780dfd57a7958c2b92a96651b068f34e191bac6581f89470e9a Input: registry/
+//! operation-registry.json; version=2026-09-07.1;
+//! sha256=80980055fb39d84087ef1507d45f10922784c90885347ebf327210a96799b07a Input: registry/
 //! event-kind-registry.json; version=2026-09-05.4;
 //! sha256=0abec03fc70f88978b1026b3d7f9edaaa0b959bed4e0683e039be85f0fdc64d1 Input: registry/
-//! schema-registry.json; version=2026-09-06.1;
-//! sha256=9f052e39da9473df79be6dd815afccb0e8814b0937c943ae2e6b236a87ea7719 Input: registry/
-//! id-kind-registry.json; version=2026-09-04.2;
-//! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4
+//! schema-registry.json; version=2026-09-07.1;
+//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Input: registry/
+//! id-kind-registry.json; version=2026-09-07.1;
+//! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
@@ -389,7 +389,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfActorProfileReadResolveV1,
             ServiceOperationId::SelfAccountStreamSubscribeV1,
             ServiceOperationId::SelfAccountCommandRevokeCursorV1,
-            ServiceOperationId::SelfSnapshotReadManifestHeadV1,
+            ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -781,7 +781,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 ];
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-05.4";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-06.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-06.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-04.2";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-07.1";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-07.1";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-07.1";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

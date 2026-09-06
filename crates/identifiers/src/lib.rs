@@ -947,7 +947,7 @@ declare_uuid_id_kinds! {
     ReceiptId, "ak:receipt:", UUID_VERSION_PRODUCER_ALLOCATED;
     RequestId, "ak:request:", UUID_VERSION_PRODUCER_ALLOCATED;
     ScheduledSendId, "ak:scheduled_send:", UUID_VERSION_PRODUCER_ALLOCATED;
-    SnapshotId, "ak:snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
+    RealmStateSnapshotId, "ak:realm_state_snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
     SubscriptionId, "ak:subscription:", UUID_VERSION_PRODUCER_ALLOCATED;
     TransactionId, "ak:transaction:", UUID_VERSION_PRODUCER_ALLOCATED;
 }
@@ -1705,7 +1705,7 @@ mod tests {
         assert_id!(ReportId, "ak:report:");
         assert_id!(RequestId, "ak:request:");
         assert_id!(ScheduledSendId, "ak:scheduled_send:");
-        assert_id!(SnapshotId, "ak:snapshot:");
+        assert_id!(RealmStateSnapshotId, "ak:realm_state_snapshot:");
         assert_id!(TransactionId, "ak:transaction:");
         assert_id!(ViewId, "ak:view:");
     }

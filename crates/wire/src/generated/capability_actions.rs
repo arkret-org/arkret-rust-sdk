@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-02.8;
-//! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Entries: registered=162
+//! Input: registry/capability-action-registry.json; version=2026-09-07.1;
+//! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Entries: registered=162
 
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +147,7 @@ pub enum CapabilityActionId {
     SelfEventsReadScanV1,
     SelfEventsStreamSubscribeV1,
     SelfKeysBackupSeriesCommandEraseV1,
-    SelfSnapshotReadManifestHeadV1,
+    SelfRealmStateSnapshotReadManifestHeadV1,
     SpaceArchive,
     SpaceCreate,
     SpaceParent,
@@ -313,7 +313,7 @@ impl CapabilityActionId {
         Self::SelfEventsReadScanV1,
         Self::SelfEventsStreamSubscribeV1,
         Self::SelfKeysBackupSeriesCommandEraseV1,
-        Self::SelfSnapshotReadManifestHeadV1,
+        Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SpaceArchive,
         Self::SpaceCreate,
         Self::SpaceParent,
@@ -484,8 +484,8 @@ impl CapabilityActionId {
     pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
     pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
         "ak.self.keys.backup_series.command.erase.v1";
-    pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
-        "ak.self.snapshot.read.manifest_head.v1";
+    pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
+        "ak.self.realm_state_snapshot.read.manifest_head.v1";
     pub const SPACE_ARCHIVE: &'static str = "ak.space.archive";
     pub const SPACE_CREATE: &'static str = "ak.space.create";
     pub const SPACE_PARENT: &'static str = "ak.space.parent";
@@ -654,7 +654,9 @@ impl CapabilityActionId {
             Self::SelfKeysBackupSeriesCommandEraseV1 => {
                 Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
             }
-            Self::SelfSnapshotReadManifestHeadV1 => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1,
+            Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
+                Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
+            }
             Self::SpaceArchive => Self::SPACE_ARCHIVE,
             Self::SpaceCreate => Self::SPACE_CREATE,
             Self::SpaceParent => Self::SPACE_PARENT,
@@ -827,7 +829,9 @@ impl CapabilityActionId {
             Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
                 Some(Self::SelfKeysBackupSeriesCommandEraseV1)
             }
-            Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1 => Some(Self::SelfSnapshotReadManifestHeadV1),
+            Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
+                Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)
+            }
             Self::SPACE_ARCHIVE => Some(Self::SpaceArchive),
             Self::SPACE_CREATE => Some(Self::SpaceCreate),
             Self::SPACE_PARENT => Some(Self::SpaceParent),

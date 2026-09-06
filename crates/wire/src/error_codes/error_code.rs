@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-05.3;
-//! sha256=a7f9a552ec1e07adabdd7939e67c2b5af024d9a60a501b22de03e116f20906b5 Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-09-07.1;
+//! sha256=c8b2ab4dbf79d90e837c456adf00b00958c708d39f35fb6b54c6ad9bc7e41799 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -227,6 +227,9 @@ pub enum ErrorCode {
     RealmFederationPolicyQuarantine,
     RealmFederationPolicyRestricted,
     RealmFrozen,
+    RealmStateSnapshotAuthorityUnverified,
+    RealmStateSnapshotChunkDigestMismatch,
+    RealmStateSnapshotUnavailable,
     ReauthenticationRequired,
     RecordingDenied,
     RecoveryAuthorizationDeviceMismatch,
@@ -277,9 +280,6 @@ pub enum ErrorCode {
     SignatureInvalid,
     SignatureStale,
     SignatureWindowInvalid,
-    SnapshotAuthorityUnverified,
-    SnapshotChunkDigestMismatch,
-    SnapshotUnavailable,
     SoftLoggedOut,
     SourceRefsUnverifiable,
     StateMismatch,
@@ -525,6 +525,9 @@ impl ErrorCode {
         Self::RealmFederationPolicyQuarantine,
         Self::RealmFederationPolicyRestricted,
         Self::RealmFrozen,
+        Self::RealmStateSnapshotAuthorityUnverified,
+        Self::RealmStateSnapshotChunkDigestMismatch,
+        Self::RealmStateSnapshotUnavailable,
         Self::ReauthenticationRequired,
         Self::RecordingDenied,
         Self::RecoveryAuthorizationDeviceMismatch,
@@ -575,9 +578,6 @@ impl ErrorCode {
         Self::SignatureInvalid,
         Self::SignatureStale,
         Self::SignatureWindowInvalid,
-        Self::SnapshotAuthorityUnverified,
-        Self::SnapshotChunkDigestMismatch,
-        Self::SnapshotUnavailable,
         Self::SoftLoggedOut,
         Self::SourceRefsUnverifiable,
         Self::StateMismatch,
@@ -831,6 +831,11 @@ impl ErrorCode {
     pub const REALM_FEDERATION_POLICY_RESTRICTED: &'static str =
         "realm_federation_policy_restricted";
     pub const REALM_FROZEN: &'static str = "realm_frozen";
+    pub const REALM_STATE_SNAPSHOT_AUTHORITY_UNVERIFIED: &'static str =
+        "realm_state_snapshot_authority_unverified";
+    pub const REALM_STATE_SNAPSHOT_CHUNK_DIGEST_MISMATCH: &'static str =
+        "realm_state_snapshot_chunk_digest_mismatch";
+    pub const REALM_STATE_SNAPSHOT_UNAVAILABLE: &'static str = "realm_state_snapshot_unavailable";
     pub const REAUTHENTICATION_REQUIRED: &'static str = "reauthentication_required";
     pub const RECORDING_DENIED: &'static str = "recording_denied";
     pub const RECOVERY_AUTHORIZATION_DEVICE_MISMATCH: &'static str =
@@ -891,9 +896,6 @@ impl ErrorCode {
     pub const SIGNATURE_INVALID: &'static str = "signature_invalid";
     pub const SIGNATURE_STALE: &'static str = "signature_stale";
     pub const SIGNATURE_WINDOW_INVALID: &'static str = "signature_window_invalid";
-    pub const SNAPSHOT_AUTHORITY_UNVERIFIED: &'static str = "snapshot_authority_unverified";
-    pub const SNAPSHOT_CHUNK_DIGEST_MISMATCH: &'static str = "snapshot_chunk_digest_mismatch";
-    pub const SNAPSHOT_UNAVAILABLE: &'static str = "snapshot_unavailable";
     pub const SOFT_LOGGED_OUT: &'static str = "soft_logged_out";
     pub const SOURCE_REFS_UNVERIFIABLE: &'static str = "source_refs_unverifiable";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
@@ -1143,6 +1145,13 @@ impl ErrorCode {
             Self::RealmFederationPolicyQuarantine => "realm_federation_policy_quarantine",
             Self::RealmFederationPolicyRestricted => "realm_federation_policy_restricted",
             Self::RealmFrozen => "realm_frozen",
+            Self::RealmStateSnapshotAuthorityUnverified => {
+                "realm_state_snapshot_authority_unverified"
+            }
+            Self::RealmStateSnapshotChunkDigestMismatch => {
+                "realm_state_snapshot_chunk_digest_mismatch"
+            }
+            Self::RealmStateSnapshotUnavailable => "realm_state_snapshot_unavailable",
             Self::ReauthenticationRequired => "reauthentication_required",
             Self::RecordingDenied => "recording_denied",
             Self::RecoveryAuthorizationDeviceMismatch => "recovery_authorization_device_mismatch",
@@ -1195,9 +1204,6 @@ impl ErrorCode {
             Self::SignatureInvalid => "signature_invalid",
             Self::SignatureStale => "signature_stale",
             Self::SignatureWindowInvalid => "signature_window_invalid",
-            Self::SnapshotAuthorityUnverified => "snapshot_authority_unverified",
-            Self::SnapshotChunkDigestMismatch => "snapshot_chunk_digest_mismatch",
-            Self::SnapshotUnavailable => "snapshot_unavailable",
             Self::SoftLoggedOut => "soft_logged_out",
             Self::SourceRefsUnverifiable => "source_refs_unverifiable",
             Self::StateMismatch => "state_mismatch",
@@ -1460,6 +1466,13 @@ impl ErrorCode {
             "realm_federation_policy_quarantine" => Some(Self::RealmFederationPolicyQuarantine),
             "realm_federation_policy_restricted" => Some(Self::RealmFederationPolicyRestricted),
             "realm_frozen" => Some(Self::RealmFrozen),
+            "realm_state_snapshot_authority_unverified" => {
+                Some(Self::RealmStateSnapshotAuthorityUnverified)
+            }
+            "realm_state_snapshot_chunk_digest_mismatch" => {
+                Some(Self::RealmStateSnapshotChunkDigestMismatch)
+            }
+            "realm_state_snapshot_unavailable" => Some(Self::RealmStateSnapshotUnavailable),
             "reauthentication_required" => Some(Self::ReauthenticationRequired),
             "recording_denied" => Some(Self::RecordingDenied),
             "recovery_authorization_device_mismatch" => {
@@ -1522,9 +1535,6 @@ impl ErrorCode {
             "signature_invalid" => Some(Self::SignatureInvalid),
             "signature_stale" => Some(Self::SignatureStale),
             "signature_window_invalid" => Some(Self::SignatureWindowInvalid),
-            "snapshot_authority_unverified" => Some(Self::SnapshotAuthorityUnverified),
-            "snapshot_chunk_digest_mismatch" => Some(Self::SnapshotChunkDigestMismatch),
-            "snapshot_unavailable" => Some(Self::SnapshotUnavailable),
             "soft_logged_out" => Some(Self::SoftLoggedOut),
             "source_refs_unverifiable" => Some(Self::SourceRefsUnverifiable),
             "state_mismatch" => Some(Self::StateMismatch),
@@ -3550,6 +3560,36 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The target Realm is reversibly frozen or archived and the attempted write is outside the closed exemption set in zh/models/realm-and-space.md §2.6.0. Terminal tombstone/destroy states use realm_terminal_state.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::RealmStateSnapshotAuthorityUnverified,
+        type_uri: "https://arkret.org/problems/realm_state_snapshot_authority_unverified",
+        title: "Snapshot authority unverified",
+        http_status: 403,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The snapshot issuer, witness quorum, or signing authority cannot be verified for the requested Realm and manifest time.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::RealmStateSnapshotChunkDigestMismatch,
+        type_uri: "https://arkret.org/problems/realm_state_snapshot_chunk_digest_mismatch",
+        title: "Snapshot chunk digest mismatch",
+        http_status: 400,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A conformance snapshot chunk digest does not match the declared digest.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::RealmStateSnapshotUnavailable,
+        type_uri: "https://arkret.org/problems/realm_state_snapshot_unavailable",
+        title: "Snapshot unavailable",
+        http_status: 503,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The requested snapshot head or snapshot artifact is not currently available from this service.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::ReauthenticationRequired,
         type_uri: "https://arkret.org/problems/reauthentication_required",
         title: "Reauthentication required",
@@ -4048,36 +4088,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
         description: "A per-delivery HTTP Message Signature created/expires parameters fell outside the protocol freshness window (expires-created over 300s, created skew over +/-30s, or expires already past), including byte-identical replays after the bounded replay cache evicted the entry. Window judged per zh/sync/federation.md §3.2. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SnapshotAuthorityUnverified,
-        type_uri: "https://arkret.org/problems/snapshot_authority_unverified",
-        title: "Snapshot authority unverified",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The snapshot issuer, witness quorum, or signing authority cannot be verified for the requested Realm and manifest time.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SnapshotChunkDigestMismatch,
-        type_uri: "https://arkret.org/problems/snapshot_chunk_digest_mismatch",
-        title: "Snapshot chunk digest mismatch",
-        http_status: 400,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A conformance snapshot chunk digest does not match the declared digest.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SnapshotUnavailable,
-        type_uri: "https://arkret.org/problems/snapshot_unavailable",
-        title: "Snapshot unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The requested snapshot head or snapshot artifact is not currently available from this service.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SoftLoggedOut,

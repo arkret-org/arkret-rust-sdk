@@ -1,4 +1,4 @@
-use super::super::snapshot::{canonicalize_strand_ref, membership_rank};
+use super::super::realm_state_snapshot::{canonicalize_strand_ref, membership_rank};
 use super::super::*;
 use super::RealmState;
 

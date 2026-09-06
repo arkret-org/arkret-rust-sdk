@@ -7,14 +7,16 @@ use serde_json::Value;
 
 use super::constants::DETACHED_JWS_PROOF_KIND;
 use super::merkle::sha256_digest;
-use crate::{BlobRef, CellRef, EventId, Hash, Hlc, RealmId, Result, SnapshotId, WireError};
+use crate::{
+    BlobRef, CellRef, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId, Result, WireError,
+};
 
 /// Object-family context of `authority_binding.witness_attestations[]`. It is
-/// deliberately not the manifest's `ak.snapshot_proof.v1`: a witness signature
+/// deliberately not the manifest's `ak.realm_state_snapshot_proof.v1`: a witness signature
 /// produced under the manifest context is rejected even when the JWS verifies
-/// (`snapshot-schema.md` §5.1).
-pub const SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT: &str =
-    ProofContextId::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1;
+/// (`realm-state-snapshot-schema.md` §5.1).
+pub const REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT: &str =
+    ProofContextId::REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1;
 
 mod base64_url {
     use serde::{Deserialize, Deserializer, Serializer};
@@ -31,23 +33,24 @@ mod base64_url {
     }
 }
 
-/// Full `ak.schema.snapshot.v1` manifest returned by `ak.self.snapshot.read.manifest_head.v1`.
+/// Full `ak.schema.realm_state_snapshot.v1` manifest returned by
+/// `ak.self.realm_state_snapshot.read.manifest_head.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SnapshotManifest {
-    pub id: SnapshotId,
+pub struct RealmRealmStateSnapshotStateManifest {
+    pub id: RealmStateSnapshotId,
     pub realm_id: RealmId,
     pub reducer_profile: String,
-    pub security_class: SnapshotSecurityClass,
+    pub security_class: RealmRealmStateSnapshotStateSecurityClass,
     #[serde(default)]
     pub schema_profile_refs: Vec<String>,
     pub state_digest: Hash,
-    pub frontier: SnapshotFrontier,
+    pub frontier: RealmRealmStateSnapshotStateFrontier,
     pub event_set_commitment: EventSetCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_hints: Option<SnapshotVerificationHints>,
+    pub verification_hints: Option<RealmRealmStateSnapshotStateVerificationHints>,
     #[serde(default)]
-    pub chunks: Vec<SnapshotChunkDescriptor>,
+    pub chunks: Vec<RealmStateRealmRealmStateSnapshotStateChunkDescriptor>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -57,27 +60,27 @@ pub struct SnapshotManifest {
 
 /// Snapshot manifest view used for canonical signing bytes.
 #[derive(Clone, Debug, PartialEq, Serialize)]
-pub struct UnsignedSnapshotManifest<'a> {
-    pub id: &'a SnapshotId,
+pub struct UnsignedRealmRealmStateSnapshotStateManifest<'a> {
+    pub id: &'a RealmStateSnapshotId,
     pub realm_id: &'a RealmId,
     pub reducer_profile: &'a str,
-    pub security_class: &'a SnapshotSecurityClass,
+    pub security_class: &'a RealmRealmStateSnapshotStateSecurityClass,
     pub schema_profile_refs: &'a [String],
     pub state_digest: &'a Hash,
-    pub frontier: &'a SnapshotFrontier,
+    pub frontier: &'a RealmRealmStateSnapshotStateFrontier,
     pub event_set_commitment: &'a EventSetCommitment,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub verification_hints: Option<&'a SnapshotVerificationHints>,
-    pub chunks: &'a [SnapshotChunkDescriptor],
+    pub verification_hints: Option<&'a RealmRealmStateSnapshotStateVerificationHints>,
+    pub chunks: &'a [RealmStateRealmRealmStateSnapshotStateChunkDescriptor],
     pub created_by: &'a ActorId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: &'a AuthorityBinding,
 }
 
-impl SnapshotManifest {
-    pub fn unsigned_view(&self) -> UnsignedSnapshotManifest<'_> {
-        UnsignedSnapshotManifest {
+impl RealmRealmStateSnapshotStateManifest {
+    pub fn unsigned_view(&self) -> UnsignedRealmRealmStateSnapshotStateManifest<'_> {
+        UnsignedRealmRealmStateSnapshotStateManifest {
             id: &self.id,
             realm_id: &self.realm_id,
             reducer_profile: &self.reducer_profile,
@@ -103,7 +106,7 @@ impl SnapshotManifest {
     }
 }
 
-impl UnsignedSnapshotManifest<'_> {
+impl UnsignedRealmRealmStateSnapshotStateManifest<'_> {
     pub fn canonical_bytes(&self) -> Result<Vec<u8>> {
         Ok(crate::canonical::canonical_json_bytes(self)?)
     }
@@ -113,9 +116,9 @@ impl UnsignedSnapshotManifest<'_> {
     }
 }
 
-impl SnapshotManifest {
-    /// Exact canonical `SnapshotWitnessAttestation` projection of
-    /// `snapshot-schema.md` §5.1.
+impl RealmRealmStateSnapshotStateManifest {
+    /// Exact canonical `RealmRealmStateSnapshotStateWitnessAttestation` projection of
+    /// `realm-state-snapshot-schema.md` §5.1.
     ///
     /// Every value is recomputed from the manifest and the row's `witness_id`.
     /// The proof itself, `signature`, the whole `witness_attestations[]`,
@@ -125,9 +128,9 @@ impl SnapshotManifest {
     /// containing its own or another witness's signature.
     pub fn witness_attestation_projection(&self, witness_id: &DidCoreId) -> Result<Value> {
         Ok(serde_json::json!({
-            "context": SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT,
+            "context": REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT,
             "witness_id": witness_id,
-            "snapshot_id": self.id,
+            "realm_state_snapshot_id": self.id,
             "realm_id": self.realm_id,
             "reducer_profile": self.reducer_profile,
             "schema_profile_refs": self.schema_profile_refs,
@@ -139,7 +142,7 @@ impl SnapshotManifest {
             "authority_kind": self.authority_binding.authority_kind,
             "auth_state_digest": self.authority_binding.auth_state_digest,
             "auth_frontier": self.authority_binding.auth_frontier,
-            "snapshot_created_at": arkret_canonical::canonical::format_timestamp_canonical(
+            "realm_state_snapshot_created_at": arkret_canonical::canonical::format_timestamp_canonical(
                 self.created_at,
             ),
         }))
@@ -158,7 +161,7 @@ impl SnapshotManifest {
         ))
     }
 
-    /// Witness-quorum admission of `snapshot-schema.md` §5.1.
+    /// Witness-quorum admission of `realm-state-snapshot-schema.md` §5.1.
     ///
     /// Callers must have already accepted the top-level issuer signature: the
     /// manifest signature covers the final ordered witness list, so verifying it
@@ -170,30 +173,32 @@ impl SnapshotManifest {
     /// Schema-level witness-list conditions that need no auth state: presence
     /// for `authority_kind=witness_quorum`, strict ascending `witness_id` order
     /// and `witness_id` uniqueness. Violations are rejected, never normalized
-    /// first (`snapshot-schema.md` §5.1).
+    /// first (`realm-state-snapshot-schema.md` §5.1).
     pub fn validate_witness_attestation_shape(
         &self,
-    ) -> std::result::Result<(), SnapshotValidationError> {
+    ) -> std::result::Result<(), RealmRealmStateSnapshotStateValidationError> {
         let attestations = &self.authority_binding.witness_attestations;
-        if self.authority_binding.authority_kind != SnapshotAuthorityKind::WitnessQuorum {
+        if self.authority_binding.authority_kind
+            != RealmRealmStateSnapshotStateAuthorityKind::WitnessQuorum
+        {
             if attestations.is_empty() {
                 return Ok(());
             }
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SchemaViolation,
+            return Err(RealmRealmStateSnapshotStateValidationError::new(
+                RealmRealmStateSnapshotStateValidationCode::SchemaViolation,
                 "witness_attestations are only carried by authority_kind=witness_quorum",
             ));
         }
         if attestations.is_empty() {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SchemaViolation,
+            return Err(RealmRealmStateSnapshotStateValidationError::new(
+                RealmRealmStateSnapshotStateValidationCode::SchemaViolation,
                 "authority_kind=witness_quorum requires a non-empty witness_attestations list",
             ));
         }
         for pair in attestations.windows(2) {
             if pair[0].witness_id.as_str() >= pair[1].witness_id.as_str() {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::SchemaViolation,
+                return Err(RealmRealmStateSnapshotStateValidationError::new(
+                    RealmRealmStateSnapshotStateValidationCode::SchemaViolation,
                     "witness_attestations must be sorted by unique witness_id in UTF-8 byte order",
                 ));
             }
@@ -203,11 +208,13 @@ impl SnapshotManifest {
 
     pub fn verify_witness_attestations(
         &self,
-        policy: &SnapshotWitnessQuorumPolicy,
-    ) -> std::result::Result<(), SnapshotValidationError> {
+        policy: &RealmRealmStateSnapshotStateWitnessQuorumPolicy,
+    ) -> std::result::Result<(), RealmRealmStateSnapshotStateValidationError> {
         self.validate_witness_attestation_shape()?;
         let attestations = &self.authority_binding.witness_attestations;
-        if self.authority_binding.authority_kind != SnapshotAuthorityKind::WitnessQuorum {
+        if self.authority_binding.authority_kind
+            != RealmRealmStateSnapshotStateAuthorityKind::WitnessQuorum
+        {
             return Ok(());
         }
 
@@ -216,8 +223,8 @@ impl SnapshotManifest {
                 .authorized_witnesses
                 .contains(&attestation.witness_id)
             {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::SnapshotAuthorityUnverified,
+                return Err(RealmRealmStateSnapshotStateValidationError::new(
+                    RealmRealmStateSnapshotStateValidationCode::SnapshotAuthorityUnverified,
                     format!(
                         "witness {} is not an authorized non-revoked snapshot witness at created_at",
                         attestation.witness_id
@@ -227,8 +234,8 @@ impl SnapshotManifest {
             if attestation.proof.kind != DETACHED_JWS_PROOF_KIND
                 || attestation.proof.jws.trim().is_empty()
             {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::SignatureInvalid,
+                return Err(RealmRealmStateSnapshotStateValidationError::new(
+                    RealmRealmStateSnapshotStateValidationCode::SignatureInvalid,
                     "witness attestation proof is not a structurally valid detached JWS proof",
                 ));
             }
@@ -239,42 +246,42 @@ impl SnapshotManifest {
                 .split_once('#')
                 .map(|(controller, _)| controller)
                 .ok_or_else(|| {
-                    SnapshotValidationError::new(
-                        SnapshotValidationCode::SignatureInvalid,
+                    RealmRealmStateSnapshotStateValidationError::new(
+                        RealmRealmStateSnapshotStateValidationCode::SignatureInvalid,
                         "witness attestation verification_method has no controller",
                     )
                 })?;
             let controller = project_witness_controller(controller).ok_or_else(|| {
-                SnapshotValidationError::new(
-                    SnapshotValidationCode::SignatureInvalid,
+                RealmRealmStateSnapshotStateValidationError::new(
+                    RealmRealmStateSnapshotStateValidationCode::SignatureInvalid,
                     "witness attestation verification_method controller is not projectable by a registered DID method adapter",
                 )
             })?;
             if controller != attestation.witness_id {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::SignatureInvalid,
+                return Err(RealmRealmStateSnapshotStateValidationError::new(
+                    RealmRealmStateSnapshotStateValidationCode::SignatureInvalid,
                     "witness attestation verification_method controller does not project to witness_id",
                 ));
             }
             let expected = self
                 .witness_attestation_digest(&attestation.witness_id)
                 .map_err(|error| {
-                    SnapshotValidationError::new(
-                        SnapshotValidationCode::DigestMismatch,
+                    RealmRealmStateSnapshotStateValidationError::new(
+                        RealmRealmStateSnapshotStateValidationCode::DigestMismatch,
                         format!("witness attestation projection could not be computed: {error}"),
                     )
                 })?;
             if attestation.proof.payload_digest != expected {
-                return Err(SnapshotValidationError::new(
-                    SnapshotValidationCode::SignatureInvalid,
+                return Err(RealmRealmStateSnapshotStateValidationError::new(
+                    RealmRealmStateSnapshotStateValidationCode::SignatureInvalid,
                     "witness attestation payload_digest does not match the canonical witness projection",
                 ));
             }
         }
 
         if attestations.len() < policy.threshold as usize {
-            return Err(SnapshotValidationError::new(
-                SnapshotValidationCode::SnapshotAuthorityUnverified,
+            return Err(RealmRealmStateSnapshotStateValidationError::new(
+                RealmRealmStateSnapshotStateValidationCode::SnapshotAuthorityUnverified,
                 "deduplicated valid witness count is below the policy-derived threshold",
             ));
         }
@@ -284,7 +291,7 @@ impl SnapshotManifest {
 
 /// Project a bare controller DID to its stable `did_core_id` through the
 /// registered method adapter. Direct DID / core-id string comparison is
-/// forbidden (`snapshot-schema.md` §5.1).
+/// forbidden (`realm-state-snapshot-schema.md` §5.1).
 fn project_witness_controller(controller: &str) -> Option<DidCoreId> {
     let did = arkret_wire::Did::new(controller).ok()?;
     arkret_wire::project_did_to_core_id(&did).ok()
@@ -292,7 +299,7 @@ fn project_witness_controller(controller: &str) -> Option<DidCoreId> {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SnapshotFrontier {
+pub struct RealmRealmStateSnapshotStateFrontier {
     #[serde(default)]
     pub event_ids: Vec<EventId>,
     pub timeline_hlc: Hlc,
@@ -301,14 +308,14 @@ pub struct SnapshotFrontier {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SnapshotSecurityClass {
+pub enum RealmRealmStateSnapshotStateSecurityClass {
     Standard,
     HighAssurance,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SnapshotChunkDescriptor {
+pub struct RealmStateRealmRealmStateSnapshotStateChunkDescriptor {
     pub chunk_ref: BlobRef,
     pub size_bytes: u64,
 }
@@ -353,7 +360,7 @@ pub struct EventSetLeaf {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AuthorityBinding {
-    pub authority_kind: SnapshotAuthorityKind,
+    pub authority_kind: RealmRealmStateSnapshotStateAuthorityKind,
     pub auth_state_digest: Hash,
     #[serde(default)]
     pub auth_frontier: Vec<EventId>,
@@ -361,33 +368,34 @@ pub struct AuthorityBinding {
     pub checked_at: DateTime<Utc>,
     /// Typed witness quorum evidence, sorted by `witness_id` in UTF-8 byte
     /// order with `witness_id` unique across rows. v1 has no untyped equivalent
-    /// quorum carrier (`snapshot-schema.md` §5.1).
+    /// quorum carrier (`realm-state-snapshot-schema.md` §5.1).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub witness_attestations: Vec<SnapshotWitnessAttestation>,
+    pub witness_attestations: Vec<RealmRealmStateSnapshotStateWitnessAttestation>,
 }
 
 /// One witness statement that the snapshot issuer held snapshot-sealing
 /// authority for this exact reduced state at manifest `created_at`
-/// (`snapshot.schema.json#/$defs/snapshot_witness_attestation`).
+/// (`realm-state-snapshot.schema.json#/$defs/realm_state_snapshot_witness_attestation`).
 ///
 /// It is a separate object family from the manifest: the witness signs the
-/// canonical signature-free projection of `snapshot-schema.md` §5.1 under
-/// `ak.snapshot_witness_attestation_proof.v1`. Reusing the manifest-level
-/// `ak.snapshot_proof.v1` context here is rejected.
+/// canonical signature-free projection of `realm-state-snapshot-schema.md` §5.1 under
+/// `ak.realm_state_snapshot_witness_attestation_proof.v1`. Reusing the manifest-level
+/// `ak.realm_state_snapshot_proof.v1` context here is rejected.
 ///
 /// This is the **verification model** half of the snapshot model, alongside
-/// [`SnapshotManifest`] and [`AuthorityBinding`]: it carries the typed
+/// [`RealmRealmStateSnapshotStateManifest`] and [`AuthorityBinding`]: it carries the typed
 /// [`DetachedJwsProof`] this crate signs and verifies, and it is the half that
-/// owns [`SnapshotManifest::witness_attestation_projection`] and
-/// [`SnapshotManifest::verify_witness_attestations`]. The **wire DTO** half is
-/// `arkret_models_collaboration::sync_frames::snapshot::SnapshotWitnessAttestationItem`,
+/// owns [`RealmRealmStateSnapshotStateManifest::witness_attestation_projection`] and
+/// [`RealmRealmStateSnapshotStateManifest::verify_witness_attestations`]. The **wire DTO** half is
+/// `arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateRealmRealmStateSnapshotStateWitnessAttestationItem`,
 /// which mirrors the schema verbatim with the full shared `PayloadProof` leaf.
-/// The two halves are named apart on purpose — same as [`SnapshotChunkDescriptor`]
-/// vs `SnapshotChunksItem` — so neither shadows the other in the `arkret_sdk`
-/// prelude.
+/// The two halves are named apart on purpose — same as
+/// [`RealmStateRealmRealmStateSnapshotStateChunkDescriptor`]
+/// vs `RealmStateRealmRealmStateSnapshotStateChunksItem` — so neither shadows the other in the
+/// `arkret_sdk` prelude.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SnapshotWitnessAttestation {
+pub struct RealmRealmStateSnapshotStateWitnessAttestation {
     /// Stable `did_core_id` of the witness. Quorum counting is per
     /// `witness_id`, so several keys of one witness count once.
     pub witness_id: DidCoreId,
@@ -397,9 +405,9 @@ pub struct SnapshotWitnessAttestation {
 /// Witness-quorum admission inputs resolved from the accepted Realm
 /// auth/policy state at `manifest.created_at` through
 /// `authority_binding.auth_frontier` / `auth_state_digest`
-/// (`snapshot-schema.md` §5.1).
+/// (`realm-state-snapshot-schema.md` §5.1).
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SnapshotWitnessQuorumPolicy {
+pub struct RealmRealmStateSnapshotStateWitnessQuorumPolicy {
     /// Witnesses authorized at `manifest.created_at` whose signing keys the
     /// resolver confirmed valid and not revoked at that instant. A witness the
     /// resolver could not confirm MUST be left out so it cannot reach quorum.
@@ -411,7 +419,7 @@ pub struct SnapshotWitnessQuorumPolicy {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SnapshotAuthorityKind {
+pub enum RealmRealmStateSnapshotStateAuthorityKind {
     RealmOwner,
     RealmPolicySnapshotIssuer,
     WitnessQuorum,
@@ -447,8 +455,8 @@ impl DetachedJwsProof {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SnapshotVerificationHints {
-    pub verification_profile: SnapshotSecurityClass,
+pub struct RealmRealmStateSnapshotStateVerificationHints {
+    pub verification_profile: RealmRealmStateSnapshotStateSecurityClass,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inclusion_proof_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -475,7 +483,7 @@ pub struct SnapshotVerificationHints {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SnapshotCasHead {
+pub struct RealmRealmStateSnapshotStateCasHead {
     pub event_id: EventId,
     pub value: Value,
 }
@@ -488,7 +496,7 @@ pub struct SnapshotCasHead {
 /// lattice. The two shapes are mutually exclusive and carry no other member, so
 /// a cell's snapshot state and its `state_root` leaf preimage
 /// `{"cell","state"}` are one definition, not two that can drift
-/// (`snapshot-schema.md` §3 / §4).
+/// (`realm-state-snapshot-schema.md` §3 / §4).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SnapshotCellState {
     /// Joined lattice value of a materialized non-`cas_register` cell, verbatim.
@@ -498,7 +506,7 @@ pub enum SnapshotCellState {
     /// Complete active head set of a written `cas_register` cell, ordered by the
     /// decoded 33-octet `event_id` token with identities unique. Never empty:
     /// an unwritten cell is not a member.
-    Heads(Vec<SnapshotCasHead>),
+    Heads(Vec<RealmRealmStateSnapshotStateCasHead>),
 }
 
 impl SnapshotCellState {
@@ -532,7 +540,7 @@ impl<'de> Deserialize<'de> for SnapshotCellState {
                 Ok(Self::Value(object.remove("value").unwrap_or(Value::Null)))
             }
             [key] if key == "heads" => {
-                let heads = serde_json::from_value::<Vec<SnapshotCasHead>>(
+                let heads = serde_json::from_value::<Vec<RealmRealmStateSnapshotStateCasHead>>(
                     object.remove("heads").unwrap_or(Value::Null),
                 )
                 .map_err(D::Error::custom)?;
@@ -563,7 +571,9 @@ fn event_token_bytes(event_id: &EventId) -> std::result::Result<Vec<u8>, String>
 
 /// §6.2.1: a head set is non-empty, sorted by decoded token in unsigned
 /// lexicographic ascending order, and carries each identity once.
-fn cas_heads_are_canonical(heads: &[SnapshotCasHead]) -> std::result::Result<(), String> {
+fn cas_heads_are_canonical(
+    heads: &[RealmRealmStateSnapshotStateCasHead],
+) -> std::result::Result<(), String> {
     if heads.is_empty() {
         return Err(
             "a cas_register snapshot item carries at least one head; an unwritten cell \
@@ -588,12 +598,12 @@ fn cas_heads_are_canonical(heads: &[SnapshotCasHead]) -> std::result::Result<(),
     Ok(())
 }
 
-/// The literal `kind` of every snapshot item (`snapshot-schema.md` §3).
+/// The literal `kind` of every snapshot item (`realm-state-snapshot-schema.md` §3).
 pub const SNAPSHOT_CELL_KIND: &str = "cell";
 
 /// One written Realm-scope reducer cell inside a snapshot chunk.
 ///
-/// `snapshot-schema.md` §3 makes `items[]` a closed single-branch union:
+/// `realm-state-snapshot-schema.md` §3 makes `items[]` a closed single-branch union:
 /// `{"kind":"cell","id":<cell wire id>,"state":<state_object>}`. There is no
 /// materialized-object branch — a snapshot ships the reducer's own state and a
 /// consumer derives display objects locally, exactly as it does from replay —
@@ -605,12 +615,12 @@ pub const SNAPSHOT_CELL_KIND: &str = "cell";
 /// be one a registered `cell_writes[]` row writes, and the state shape must be
 /// the one its lattice gets — `heads` for `cas_register`, `value` otherwise.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SnapshotMaterializedItem {
+pub struct RealmRealmStateSnapshotStateMaterializedItem {
     cell: CellRef,
     state: SnapshotCellState,
 }
 
-impl SnapshotMaterializedItem {
+impl RealmRealmStateSnapshotStateMaterializedItem {
     /// Build an item for one written cell, validating it against the registry.
     pub fn new(cell: CellRef, state: SnapshotCellState) -> Result<Self> {
         validate_snapshot_cell(&cell, &state)?;
@@ -639,7 +649,7 @@ impl SnapshotMaterializedItem {
         let heads = heads
             .iter()
             .map(|head| {
-                Ok(SnapshotCasHead {
+                Ok(RealmRealmStateSnapshotStateCasHead {
                     event_id: EventId::from_event_digest(&head.move_id)
                         .map_err(|error| WireError::Protocol(error.to_string()))?,
                     value: head.value.clone(),
@@ -701,7 +711,7 @@ fn validate_snapshot_cell(cell: &CellRef, state: &SnapshotCellState) -> Result<(
 
 /// The flat wire object of one item.
 ///
-/// Kept separate from [`SnapshotMaterializedItem`] so the union stays closed:
+/// Kept separate from [`RealmRealmStateSnapshotStateMaterializedItem`] so the union stays closed:
 /// `kind` is checked against the single registered literal and `state` is
 /// re-validated against the registry on the way in.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -717,7 +727,7 @@ struct RawSnapshotItem {
 /// being the §6.2.1 state_object. Delegating to [`RawSnapshotItem`] keeps the
 /// document describing what is actually serialized.
 #[cfg(feature = "openapi")]
-impl salvo_oapi::ToSchema for SnapshotMaterializedItem {
+impl salvo_oapi::ToSchema for RealmRealmStateSnapshotStateMaterializedItem {
     fn to_schema(
         components: &mut salvo_oapi::Components,
     ) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
@@ -725,7 +735,7 @@ impl salvo_oapi::ToSchema for SnapshotMaterializedItem {
     }
 }
 
-impl Serialize for SnapshotMaterializedItem {
+impl Serialize for RealmRealmStateSnapshotStateMaterializedItem {
     fn serialize<S: serde::Serializer>(
         &self,
         serializer: S,
@@ -739,7 +749,7 @@ impl Serialize for SnapshotMaterializedItem {
     }
 }
 
-impl<'de> Deserialize<'de> for SnapshotMaterializedItem {
+impl<'de> Deserialize<'de> for RealmRealmStateSnapshotStateMaterializedItem {
     fn deserialize<D: serde::Deserializer<'de>>(
         deserializer: D,
     ) -> std::result::Result<Self, D::Error> {
@@ -758,14 +768,14 @@ impl<'de> Deserialize<'de> for SnapshotMaterializedItem {
     }
 }
 
-/// One row of a chunk's `conflict_records[]` (`snapshot-schema.md` §3): either
+/// One row of a chunk's `conflict_records[]` (`realm-state-snapshot-schema.md` §3): either
 /// a written non-`cas_register` cell whose join is `⊥` — it has no leaf, but a
 /// restoring receiver must fail closed on it rather than read it as never
 /// written — or an Event input whose admission is still undecided.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum SnapshotConflictRecord {
+pub enum RealmRealmStateSnapshotStateConflictRecord {
     BottomCell {
         cell_ref: CellRef,
     },
@@ -801,20 +811,20 @@ pub struct SnapshotErasureStub {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-/// One `ak.schema.snapshot_chunk.v1` payload — the canonical JSON behind a
-/// manifest `chunks[].chunk_ref` (`snapshot-schema.md` §3). Closed on the way
+/// One `ak.schema.realm_state_snapshot_chunk.v1` payload — the canonical JSON behind a
+/// manifest `chunks[].chunk_ref` (`realm-state-snapshot-schema.md` §3). Closed on the way
 /// in: an unknown member, a legacy `type` discriminator or an item outside the
 /// single `cell` branch fails to parse.
 #[serde(deny_unknown_fields)]
-pub struct SnapshotChunkPayload {
+pub struct RealmStateRealmRealmStateSnapshotStateChunkPayload {
     pub chunk_kind: String,
-    pub snapshot_ref: SnapshotId,
+    pub realm_state_snapshot_ref: RealmStateSnapshotId,
     pub index: u32,
     pub reducer_profile: String,
     #[serde(default)]
-    pub items: Vec<SnapshotMaterializedItem>,
+    pub items: Vec<RealmRealmStateSnapshotStateMaterializedItem>,
     #[serde(default)]
-    pub conflict_records: Vec<SnapshotConflictRecord>,
+    pub conflict_records: Vec<RealmRealmStateSnapshotStateConflictRecord>,
     #[serde(default)]
     pub soft_failed: Vec<SnapshotNonAcceptedInput>,
     #[serde(default)]
@@ -824,14 +834,14 @@ pub struct SnapshotChunkPayload {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BuiltSnapshotChunk {
-    pub payload: SnapshotChunkPayload,
+pub struct BuiltRealmStateRealmRealmStateSnapshotStateChunk {
+    pub payload: RealmStateRealmRealmStateSnapshotStateChunkPayload,
     pub canonical_bytes: Vec<u8>,
-    pub descriptor: SnapshotChunkDescriptor,
+    pub descriptor: RealmStateRealmRealmStateSnapshotStateChunkDescriptor,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SnapshotValidationCode {
+pub enum RealmRealmStateSnapshotStateValidationCode {
     DigestMismatch,
     SchemaViolation,
     SignatureInvalid,
@@ -841,31 +851,34 @@ pub enum SnapshotValidationCode {
     SnapshotUnavailable,
 }
 
-impl SnapshotValidationCode {
+impl RealmRealmStateSnapshotStateValidationCode {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::DigestMismatch => crate::ErrorCode::DIGEST_MISMATCH,
             Self::SchemaViolation => crate::error::ErrorCode::SCHEMA_VIOLATION,
             Self::SignatureInvalid => crate::error::ErrorCode::SIGNATURE_INVALID,
             Self::SnapshotAuthorityUnverified => {
-                crate::error::ErrorCode::SNAPSHOT_AUTHORITY_UNVERIFIED
+                crate::error::ErrorCode::REALM_STATE_SNAPSHOT_AUTHORITY_UNVERIFIED
             }
-            Self::SnapshotIssuerRevoked => "snapshot_issuer_revoked",
+            Self::SnapshotIssuerRevoked => "realm_state_snapshot_issuer_revoked",
             Self::InclusionProofFailed => "inclusion_proof_failed",
-            Self::SnapshotUnavailable => crate::error::ErrorCode::SNAPSHOT_UNAVAILABLE,
+            Self::SnapshotUnavailable => crate::error::ErrorCode::REALM_STATE_SNAPSHOT_UNAVAILABLE,
         }
     }
 }
 
 #[derive(Clone, Debug, thiserror::Error, PartialEq, Eq)]
 #[error("{code:?}: {message}")]
-pub struct SnapshotValidationError {
-    pub code: SnapshotValidationCode,
+pub struct RealmRealmStateSnapshotStateValidationError {
+    pub code: RealmRealmStateSnapshotStateValidationCode,
     pub message: String,
 }
 
-impl SnapshotValidationError {
-    pub fn new(code: SnapshotValidationCode, message: impl Into<String>) -> Self {
+impl RealmRealmStateSnapshotStateValidationError {
+    pub fn new(
+        code: RealmRealmStateSnapshotStateValidationCode,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             code,
             message: message.into(),
@@ -874,13 +887,13 @@ impl SnapshotValidationError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SnapshotVerifyOptions {
+pub struct RealmRealmStateSnapshotStateVerifyOptions {
     pub now: DateTime<Utc>,
     pub expected_reducer_profile: String,
     pub allow_high_assurance: bool,
 }
 
-impl SnapshotVerifyOptions {
+impl RealmRealmStateSnapshotStateVerifyOptions {
     pub fn standard(now: DateTime<Utc>, expected_reducer_profile: impl Into<String>) -> Self {
         Self {
             now,
@@ -891,7 +904,7 @@ impl SnapshotVerifyOptions {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SnapshotVerifyReport {
+pub struct RealmRealmStateSnapshotStateVerifyReport {
     pub item_count: usize,
     pub chunk_count: usize,
     pub state_digest: Hash,
@@ -900,7 +913,7 @@ pub struct SnapshotVerifyReport {
 /// One byte range of a snapshot, addressable by `chunk_id`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SnapshotChunk {
+pub struct RealmRealmStateSnapshotStateChunk {
     /// Ordinal index starting at 0. Chunks MUST be delivered in
     /// `chunk_id` order when streaming the whole snapshot.
     pub chunk_id: u32,

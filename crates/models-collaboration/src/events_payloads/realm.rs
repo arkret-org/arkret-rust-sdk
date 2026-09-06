@@ -728,8 +728,8 @@ impl RealmNotaryPayload {
 pub struct RealmDigestSuiteTransitionPayload {
     pub from_digest_algorithm: canonical::DigestSuite,
     pub to_digest_algorithm: canonical::DigestSuite,
-    pub transition_snapshot_ref: SnapshotId,
-    pub snapshot_commitment: Hash,
+    pub transition_realm_state_snapshot_ref: RealmStateSnapshotId,
+    pub realm_state_snapshot_commitment: Hash,
 }
 
 impl RealmDigestSuiteTransitionPayload {
@@ -1140,8 +1140,8 @@ mod realm_control_payload_tests {
         let value = json!({
             "from_digest_algorithm": "sha256",
             "to_digest_algorithm": "blake3",
-            "transition_snapshot_ref": "ak:snapshot:01904100-0000-7000-8000-000000000002",
-            "snapshot_commitment": format!("sha256:{}", "a".repeat(64))
+            "transition_realm_state_snapshot_ref": "ak:realm_state_snapshot:01904100-0000-7000-8000-000000000002",
+            "realm_state_snapshot_commitment": format!("sha256:{}", "a".repeat(64))
         });
         let payload: RealmDigestSuiteTransitionPayload =
             serde_json::from_value(value.clone()).unwrap();

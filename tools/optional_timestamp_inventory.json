@@ -1592,7 +1592,7 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-collaboration/src/sync_frames/snapshot.rs",
+      "file": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs",
       "line": 52,
       "struct_name": "RangeCompletenessAttestationWitnessAttestationWitnessesItem",
       "field_name": "attested_at",

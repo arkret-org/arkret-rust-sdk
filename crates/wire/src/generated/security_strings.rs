@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-06.1;
-//! sha256=bb556b769db964948407d2dc354d6da54309b49c9174ee189185274278738d59 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-07.1;
+//! sha256=7c045966587f886ab11bf7566b284e5cf24e8ca69ce0e7345606825b6c1a69eb Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -85,6 +85,8 @@ pub enum ProofContextId {
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
     RealmJoinCandidateProofV1,
+    RealmStateSnapshotProofV1,
+    RealmStateSnapshotWitnessAttestationProofV1,
     ReceiptProofV1,
     RegistrationDidEvidenceControlProofV1,
     ServiceRegistrationReceiptProofV1,
@@ -93,8 +95,6 @@ pub enum ProofContextId {
     ServiceRouteHandoverNoticeProofV1,
     SessionGrantAcceptedDevicePossessionProofV1,
     SignalProofV1,
-    SnapshotProofV1,
-    SnapshotWitnessAttestationProofV1,
     StationAdmissionProofV1,
 }
 
@@ -163,6 +163,8 @@ impl ProofContextId {
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
         Self::RealmJoinCandidateProofV1,
+        Self::RealmStateSnapshotProofV1,
+        Self::RealmStateSnapshotWitnessAttestationProofV1,
         Self::ReceiptProofV1,
         Self::RegistrationDidEvidenceControlProofV1,
         Self::ServiceRegistrationReceiptProofV1,
@@ -171,8 +173,6 @@ impl ProofContextId {
         Self::ServiceRouteHandoverNoticeProofV1,
         Self::SessionGrantAcceptedDevicePossessionProofV1,
         Self::SignalProofV1,
-        Self::SnapshotProofV1,
-        Self::SnapshotWitnessAttestationProofV1,
         Self::StationAdmissionProofV1,
     ];
 
@@ -280,6 +280,9 @@ impl ProofContextId {
     pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.principal_resolution_projection_attestation_proof.v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm_join_candidate_proof.v1";
+    pub const REALM_STATE_SNAPSHOT_PROOF_V1: &'static str = "ak.realm_state_snapshot_proof.v1";
+    pub const REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1: &'static str =
+        "ak.realm_state_snapshot_witness_attestation_proof.v1";
     pub const RECEIPT_PROOF_V1: &'static str = "ak.receipt_proof.v1";
     pub const REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1: &'static str =
         "ak.registration_did_evidence_control_proof.v1";
@@ -294,9 +297,6 @@ impl ProofContextId {
     pub const SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.session_grant_accepted_device_possession_proof.v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal_proof.v1";
-    pub const SNAPSHOT_PROOF_V1: &'static str = "ak.snapshot_proof.v1";
-    pub const SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1: &'static str =
-        "ak.snapshot_witness_attestation_proof.v1";
     pub const STATION_ADMISSION_PROOF_V1: &'static str = "ak.station_admission_proof.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -402,6 +402,10 @@ impl ProofContextId {
                 Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1
             }
             Self::RealmJoinCandidateProofV1 => Self::REALM_JOIN_CANDIDATE_PROOF_V1,
+            Self::RealmStateSnapshotProofV1 => Self::REALM_STATE_SNAPSHOT_PROOF_V1,
+            Self::RealmStateSnapshotWitnessAttestationProofV1 => {
+                Self::REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1
+            }
             Self::ReceiptProofV1 => Self::RECEIPT_PROOF_V1,
             Self::RegistrationDidEvidenceControlProofV1 => {
                 Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1
@@ -416,8 +420,6 @@ impl ProofContextId {
                 Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
-            Self::SnapshotProofV1 => Self::SNAPSHOT_PROOF_V1,
-            Self::SnapshotWitnessAttestationProofV1 => Self::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1,
             Self::StationAdmissionProofV1 => Self::STATION_ADMISSION_PROOF_V1,
         }
     }
@@ -551,6 +553,10 @@ impl ProofContextId {
                 Some(Self::PrincipalResolutionProjectionAttestationProofV1)
             }
             Self::REALM_JOIN_CANDIDATE_PROOF_V1 => Some(Self::RealmJoinCandidateProofV1),
+            Self::REALM_STATE_SNAPSHOT_PROOF_V1 => Some(Self::RealmStateSnapshotProofV1),
+            Self::REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1 => {
+                Some(Self::RealmStateSnapshotWitnessAttestationProofV1)
+            }
             Self::RECEIPT_PROOF_V1 => Some(Self::ReceiptProofV1),
             Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1 => {
                 Some(Self::RegistrationDidEvidenceControlProofV1)
@@ -569,10 +575,6 @@ impl ProofContextId {
                 Some(Self::SessionGrantAcceptedDevicePossessionProofV1)
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
-            Self::SNAPSHOT_PROOF_V1 => Some(Self::SnapshotProofV1),
-            Self::SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1 => {
-                Some(Self::SnapshotWitnessAttestationProofV1)
-            }
             Self::STATION_ADMISSION_PROOF_V1 => Some(Self::StationAdmissionProofV1),
             _ => None,
         }
@@ -619,7 +621,7 @@ pub enum DomainSeparationId {
     PeerContactControlReceiptV1,
     PeerContactMirrorReceiptV1,
     RealmOrganizationStatementV1,
-    SnapshotAuthStateIssuerLocalV1,
+    RealmStateSnapshotAuthStateIssuerLocalV1,
     WebsocketAuthV1,
 }
 
@@ -662,7 +664,7 @@ impl DomainSeparationId {
         Self::PeerContactControlReceiptV1,
         Self::PeerContactMirrorReceiptV1,
         Self::RealmOrganizationStatementV1,
-        Self::SnapshotAuthStateIssuerLocalV1,
+        Self::RealmStateSnapshotAuthStateIssuerLocalV1,
         Self::WebsocketAuthV1,
     ];
 
@@ -724,8 +726,8 @@ impl DomainSeparationId {
     pub const PEER_CONTACT_CONTROL_RECEIPT_V1: &'static str = "ak.peer_contact.control_receipt.v1";
     pub const PEER_CONTACT_MIRROR_RECEIPT_V1: &'static str = "ak.peer_contact.mirror_receipt.v1";
     pub const REALM_ORGANIZATION_STATEMENT_V1: &'static str = "ak.realm.organization.statement.v1";
-    pub const SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
-        "ak.snapshot.auth_state.issuer_local.v1";
+    pub const REALM_STATE_SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1: &'static str =
+        "ak.realm_state_snapshot.auth_state.issuer_local.v1";
     pub const WEBSOCKET_AUTH_V1: &'static str = "ak.websocket_auth.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -787,7 +789,9 @@ impl DomainSeparationId {
             Self::PeerContactControlReceiptV1 => Self::PEER_CONTACT_CONTROL_RECEIPT_V1,
             Self::PeerContactMirrorReceiptV1 => Self::PEER_CONTACT_MIRROR_RECEIPT_V1,
             Self::RealmOrganizationStatementV1 => Self::REALM_ORGANIZATION_STATEMENT_V1,
-            Self::SnapshotAuthStateIssuerLocalV1 => Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1,
+            Self::RealmStateSnapshotAuthStateIssuerLocalV1 => {
+                Self::REALM_STATE_SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1
+            }
             Self::WebsocketAuthV1 => Self::WEBSOCKET_AUTH_V1,
         }
     }
@@ -861,7 +865,9 @@ impl DomainSeparationId {
             Self::PEER_CONTACT_CONTROL_RECEIPT_V1 => Some(Self::PeerContactControlReceiptV1),
             Self::PEER_CONTACT_MIRROR_RECEIPT_V1 => Some(Self::PeerContactMirrorReceiptV1),
             Self::REALM_ORGANIZATION_STATEMENT_V1 => Some(Self::RealmOrganizationStatementV1),
-            Self::SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => Some(Self::SnapshotAuthStateIssuerLocalV1),
+            Self::REALM_STATE_SNAPSHOT_AUTH_STATE_ISSUER_LOCAL_V1 => {
+                Some(Self::RealmStateSnapshotAuthStateIssuerLocalV1)
+            }
             Self::WEBSOCKET_AUTH_V1 => Some(Self::WebsocketAuthV1),
             _ => None,
         }
@@ -2110,6 +2116,48 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/realm-join-candidate.schema.json",
     },
     ProofContextDescriptor {
+        id: ProofContextId::RealmStateSnapshotProofV1,
+        context: "ak.realm_state_snapshot_proof.v1",
+        object_family: "realm_state_snapshot",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "realm_state_snapshot_id",
+            "realm_id",
+            "verification_method",
+            "created_at",
+            "domain?",
+            "audience?",
+        ],
+        schema_ref: "schemas/realm-state-snapshot.schema.json",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::RealmStateSnapshotWitnessAttestationProofV1,
+        context: "ak.realm_state_snapshot_witness_attestation_proof.v1",
+        object_family: "realm_state_snapshot_witness_attestation",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "witness_id",
+            "realm_state_snapshot_id",
+            "realm_id",
+            "reducer_profile",
+            "schema_profile_refs",
+            "security_class",
+            "state_digest",
+            "frontier",
+            "event_set_commitment",
+            "issuer",
+            "authority_kind",
+            "auth_state_digest",
+            "auth_frontier",
+            "realm_state_snapshot_created_at",
+            "verification_method",
+            "created_at",
+        ],
+        schema_ref: "schemas/realm-state-snapshot.schema.json#/$defs/realm_state_snapshot_witness_attestation",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::ReceiptProofV1,
         context: "ak.receipt_proof.v1",
         object_family: "event_batch_receipt",
@@ -2272,48 +2320,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/signal-envelope.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::SnapshotProofV1,
-        context: "ak.snapshot_proof.v1",
-        object_family: "snapshot",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "snapshot_id",
-            "realm_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/snapshot.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::SnapshotWitnessAttestationProofV1,
-        context: "ak.snapshot_witness_attestation_proof.v1",
-        object_family: "snapshot_witness_attestation",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "witness_id",
-            "snapshot_id",
-            "realm_id",
-            "reducer_profile",
-            "schema_profile_refs",
-            "security_class",
-            "state_digest",
-            "frontier",
-            "event_set_commitment",
-            "issuer",
-            "authority_kind",
-            "auth_state_digest",
-            "auth_frontier",
-            "snapshot_created_at",
-            "verification_method",
-            "created_at",
-        ],
-        schema_ref: "schemas/snapshot.schema.json#/$defs/snapshot_witness_attestation",
     },
     ProofContextDescriptor {
         id: ProofContextId::StationAdmissionProofV1,

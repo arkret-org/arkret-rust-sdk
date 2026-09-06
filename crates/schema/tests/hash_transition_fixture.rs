@@ -108,7 +108,7 @@ fn hash_transition_fixture_authenticates_genesis_and_transition_bytes() {
     assert_sha256(
         transition,
         "snapshot_canonical_bytes_utf8",
-        "snapshot_commitment",
+        "realm_state_snapshot_commitment",
     );
     assert_sha256(
         transition,

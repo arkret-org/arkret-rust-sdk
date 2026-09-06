@@ -7,7 +7,7 @@ use crate::{Hash, PayloadSignature, RealmId, Result, WireError};
 /// Signed commitment from the snapshot generator. Receivers verify this
 /// proof against the generator DID before trusting any chunks. Once
 /// verified, the receiver can fetch chunks lazily and verify each one
-/// against `merkle_root` via [`super::merkle::SnapshotMerkleTree::verify`].
+/// against `merkle_root` via [`super::merkle::RealmRealmStateSnapshotStateMerkleTree::verify`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GeneratorProof {
     /// DID of the snapshot generator (typically the Station's

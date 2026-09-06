@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-06.2;
-//! sha256=da78cee6e5f72b8e6dd550b0f6490e0351dafb25a2b24551d7eade09b85d49b0
+//! Input: registry/contract-registry.json; version=2026-09-07.1;
+//! sha256=19cfcdaac88f2780dfd57a7958c2b92a96651b068f34e191bac6581f89470e9a
 //! Entries: operation_bundles=36 features=21
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -1099,6 +1099,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1128,10 +1132,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfSignalStreamSubscribeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfSnapshotReadManifestHeadV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1561,6 +1561,20 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         conflicts: &[],
     },
     FeatureDescriptor {
+        feature_id: "ak.feature.realm_state_snapshot.v1",
+        status: FeatureStatus::Active,
+        defined_in: "zh/sync/service-surface.md",
+        service_kinds: &[],
+        required_operation_pairs: &[OperationBindingPair {
+            operation_id: ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+        required_profiles: &[],
+        required_limits: &[],
+        semantic_guarantees: &[],
+        conflicts: &[],
+    },
+    FeatureDescriptor {
         feature_id: "ak.feature.service_route_handover.v1",
         status: FeatureStatus::Active,
         defined_in: "zh/sync/service-surface.md",
@@ -1575,20 +1589,6 @@ pub const FEATURES: &[FeatureDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
         ],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
-        feature_id: "ak.feature.snapshot.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/sync/service-surface.md",
-        service_kinds: &[],
-        required_operation_pairs: &[OperationBindingPair {
-            operation_id: ServiceOperationId::SelfSnapshotReadManifestHeadV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
         required_profiles: &[],
         required_limits: &[],
         semantic_guarantees: &[],

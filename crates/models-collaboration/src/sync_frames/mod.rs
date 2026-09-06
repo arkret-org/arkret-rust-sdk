@@ -8,7 +8,7 @@
 pub mod account_subscribe;
 pub mod account_sync;
 pub mod client_sync;
-pub mod snapshot;
+pub mod realm_state_snapshot;
 pub mod stream_trace;
 pub mod websocket_binding;
 pub mod websocket_session;

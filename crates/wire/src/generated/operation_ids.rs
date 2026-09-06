@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-06.1;
-//! sha256=01b59ff31e2adeb5edcbc2c30f1f6a520ae7e5f222e005448cf191cbfa3fd9d1 Entries: registered=235
+//! Input: registry/operation-registry.json; version=2026-09-07.1;
+//! sha256=80980055fb39d84087ef1507d45f10922784c90885347ebf327210a96799b07a Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -228,6 +228,7 @@ pub enum ServiceOperationId {
     SelfRealmLinkReadEffectivePolicyV1,
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
+    SelfRealmStateSnapshotReadManifestHeadV1,
     SelfSealsCommandIssueAvailabilityReceiptsV1,
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
@@ -239,7 +240,6 @@ pub enum ServiceOperationId {
     SelfSecurityTransactionResourceGetV1,
     SelfSignalCommandSendV1,
     SelfSignalStreamSubscribeV1,
-    SelfSnapshotReadManifestHeadV1,
     SelfSpaceReadListV1,
     SelfStrandReadListV1,
     ServerReadDescribeV1,
@@ -466,6 +466,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
+    ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
@@ -477,7 +478,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
     ServiceOperationId::SELF_SIGNAL_COMMAND_SEND_V1,
     ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE_V1,
-    ServiceOperationId::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1,
     ServiceOperationId::SELF_SPACE_READ_LIST_V1,
     ServiceOperationId::SELF_STRAND_READ_LIST_V1,
     ServiceOperationId::SERVER_READ_DESCRIBE_V1,
@@ -746,6 +746,7 @@ impl ServiceOperationId {
         Self::SelfRealmLinkReadEffectivePolicyV1,
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
+        Self::SelfRealmStateSnapshotReadManifestHeadV1,
         Self::SelfSealsCommandIssueAvailabilityReceiptsV1,
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
@@ -757,7 +758,6 @@ impl ServiceOperationId {
         Self::SelfSecurityTransactionResourceGetV1,
         Self::SelfSignalCommandSendV1,
         Self::SelfSignalStreamSubscribeV1,
-        Self::SelfSnapshotReadManifestHeadV1,
         Self::SelfSpaceReadListV1,
         Self::SelfStrandReadListV1,
         Self::ServerReadDescribeV1,
@@ -1136,6 +1136,8 @@ impl ServiceOperationId {
     pub const SELF_REALM_LINK_READ_LIST_V1: &'static str = "ak.self.realm_link.read.list.v1";
     pub const SELF_REALM_ORGANIZATION_READ_LIST_V1: &'static str =
         "ak.self.realm_organization.read.list.v1";
+    pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
+        "ak.self.realm_state_snapshot.read.manifest_head.v1";
     pub const SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1: &'static str =
         "ak.self.seals.command.issue_availability_receipts.v1";
     pub const SELF_SEALS_COMMAND_SUBMIT_V1: &'static str = "ak.self.seals.command.submit.v1";
@@ -1153,8 +1155,6 @@ impl ServiceOperationId {
         "ak.self.security_transaction.resource.get.v1";
     pub const SELF_SIGNAL_COMMAND_SEND_V1: &'static str = "ak.self.signal.command.send.v1";
     pub const SELF_SIGNAL_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.signal.stream.subscribe.v1";
-    pub const SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
-        "ak.self.snapshot.read.manifest_head.v1";
     pub const SELF_SPACE_READ_LIST_V1: &'static str = "ak.self.space.read.list.v1";
     pub const SELF_STRAND_READ_LIST_V1: &'static str = "ak.self.strand.read.list.v1";
     pub const SERVER_READ_DESCRIBE_V1: &'static str = "ak.server.read.describe.v1";
@@ -1525,6 +1525,9 @@ impl ServiceOperationId {
             }
             Self::SelfRealmLinkReadListV1 => Self::SELF_REALM_LINK_READ_LIST_V1,
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
+            Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
+                Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
+            }
             Self::SelfSealsCommandIssueAvailabilityReceiptsV1 => {
                 Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1
             }
@@ -1548,7 +1551,6 @@ impl ServiceOperationId {
             }
             Self::SelfSignalCommandSendV1 => Self::SELF_SIGNAL_COMMAND_SEND_V1,
             Self::SelfSignalStreamSubscribeV1 => Self::SELF_SIGNAL_STREAM_SUBSCRIBE_V1,
-            Self::SelfSnapshotReadManifestHeadV1 => Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1,
             Self::SelfSpaceReadListV1 => Self::SELF_SPACE_READ_LIST_V1,
             Self::SelfStrandReadListV1 => Self::SELF_STRAND_READ_LIST_V1,
             Self::ServerReadDescribeV1 => Self::SERVER_READ_DESCRIBE_V1,
@@ -2005,6 +2007,9 @@ impl ServiceOperationId {
             Self::SELF_REALM_ORGANIZATION_READ_LIST_V1 => {
                 Some(Self::SelfRealmOrganizationReadListV1)
             }
+            Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
+                Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)
+            }
             Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1 => {
                 Some(Self::SelfSealsCommandIssueAvailabilityReceiptsV1)
             }
@@ -2028,7 +2033,6 @@ impl ServiceOperationId {
             }
             Self::SELF_SIGNAL_COMMAND_SEND_V1 => Some(Self::SelfSignalCommandSendV1),
             Self::SELF_SIGNAL_STREAM_SUBSCRIBE_V1 => Some(Self::SelfSignalStreamSubscribeV1),
-            Self::SELF_SNAPSHOT_READ_MANIFEST_HEAD_V1 => Some(Self::SelfSnapshotReadManifestHeadV1),
             Self::SELF_SPACE_READ_LIST_V1 => Some(Self::SelfSpaceReadListV1),
             Self::SELF_STRAND_READ_LIST_V1 => Some(Self::SelfStrandReadListV1),
             Self::SERVER_READ_DESCRIBE_V1 => Some(Self::ServerReadDescribeV1),
@@ -7076,6 +7080,22 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
+        http_method: "GET",
+        http_path: "/_arkret/self/realm-state-snapshot/head",
+        grpc: Some("SelfRealmStateSnapshot/Head"),
+        mq: Some("self.realm_state_snapshot.query.manifest_head"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some("schemas/realm-state-snapshot.schema.json"),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,
         http_method: "POST",
         http_path: "/_arkret/self/seals/availability-receipts",
@@ -7301,22 +7321,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some("schemas/signal-stream-frame.schema.json"),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfSnapshotReadManifestHeadV1,
-        http_method: "GET",
-        http_path: "/_arkret/self/snapshot/head",
-        grpc: Some("SelfSnapshot/Head"),
-        mq: Some("self.snapshot.query.manifest_head"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "schema_resource",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: None,
-        response_schema_ref: Some("schemas/snapshot.schema.json"),
         uncertain_outcome: None,
         durable_effect: None,
     },

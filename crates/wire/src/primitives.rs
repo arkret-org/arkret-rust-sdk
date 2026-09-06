@@ -981,7 +981,7 @@ pub enum OperationKind {
     Redact,
     Grant,
     Revoke,
-    SnapshotRef,
+    RealmStateSnapshotRef,
     Move,
     Reorder,
     Rebalance,

@@ -99,9 +99,9 @@ pub use arkret_identifiers::{
     CapabilityId, CellRef, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
     DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
     InviteId, InviteLocatorId, KeyEventId, MessageId, MessageStreamId, ModerationQueueItemId,
-    MorphId, NotificationId, OperationId, PolicyId, PresentationId, RealmId, ReceiptId,
-    RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId, SidecarId,
-    SnapshotId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin,
+    MorphId, NotificationId, OperationId, PolicyId, PresentationId, RealmId, RealmStateSnapshotId,
+    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SealId,
+    SidecarId, SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin,
     new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
@@ -211,7 +211,7 @@ pub use arkret_models_collaboration::sync_frames::client_sync::{
     SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier,
     sync_filter_digest,
 };
-pub use arkret_models_collaboration::sync_frames::snapshot::*;
+pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
 pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
     StreamTraceValidator,
@@ -345,7 +345,7 @@ pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, webvh,
 };
 pub use arkret_state::mls_governance_proof::*;
-pub use arkret_state::{lattice, snapshot, state, *};
+pub use arkret_state::{lattice, realm_state_snapshot, state, *};
 pub use arkret_wire::authored_event::AuthoredEvent;
 pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
 pub use arkret_wire::cba::{
@@ -521,9 +521,11 @@ pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "mls")]
 pub use mls::*;
 pub use resolver::{
-    REDUCER_SNAPSHOT_SCHEMA, RealmState, ReducerSnapshotManifest, SnapshotChunkManifest,
-    SnapshotRestore, SnapshotRestoreSource, SnapshotSignature, StateSnapshot, merkle_root,
-    state_merkle_root, verify_snapshot_chunks,
+    REALM_STATE_SNAPSHOT_REDUCER_SCHEMA, RealmRealmStateSnapshotStateReducerManifest,
+    RealmRealmStateSnapshotStateRestore, RealmRealmStateSnapshotStateSignature, RealmState,
+    RealmStateRealmRealmStateSnapshotStateChunkManifest,
+    RealmStateRealmRealmStateSnapshotStateRestoreSource, RealmStateSnapshotState, merkle_root,
+    state_merkle_root, verify_realm_state_snapshot_chunks,
 };
 #[cfg(feature = "server")]
 pub use server::reject_query_auth;

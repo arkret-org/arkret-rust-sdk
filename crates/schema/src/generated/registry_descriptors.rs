@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-04.2;
-//! sha256=1a1f28aa9365ee5962421d8d6443daf592cf48de4b11b7466d8d5193d9a646e4 Input: registry/
-//! capability-action-registry.json; version=2026-09-02.8;
-//! sha256=e818b7693b4831edb4f3c67b0e6eba84653314c4ecccaa97fed8a3a613016de2 Input: registry/
-//! schema-registry.json; version=2026-09-06.1;
-//! sha256=9f052e39da9473df79be6dd815afccb0e8814b0937c943ae2e6b236a87ea7719 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-07.1;
+//! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0 Input: registry/
+//! capability-action-registry.json; version=2026-09-07.1;
+//! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Input: registry/
+//! schema-registry.json; version=2026-09-07.1;
+//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.2;
 //! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
 //! special_forms=14, actions=162, schemas=205, account_data_patterns=24
@@ -162,7 +162,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     },
     IdKindDescriptor {
         kind: "chunk",
-        category: "snapshot",
+        category: "chunk",
         wire_form: "ak:chunk:<uuidv7>",
     },
     IdKindDescriptor {
@@ -286,6 +286,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:realm:<44-char-event-token>",
     },
     IdKindDescriptor {
+        kind: "realm_state_snapshot",
+        category: "realm_state_snapshot",
+        wire_form: "ak:realm_state_snapshot:<uuidv7>",
+    },
+    IdKindDescriptor {
         kind: "receipt",
         category: "receipt",
         wire_form: "ak:receipt:<uuidv7>",
@@ -339,11 +344,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "sidecar",
         category: "core_object",
         wire_form: "ak:sidecar:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "snapshot",
-        category: "snapshot",
-        wire_form: "ak:snapshot:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "space",
@@ -2717,7 +2717,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::SelfSnapshotReadManifestHeadV1,
+        action: CapabilityActionId::SelfRealmStateSnapshotReadManifestHeadV1,
         category: "service",
         risk_tier: CapabilityRiskTier::Low,
         required_constraints: &[],
@@ -3658,6 +3658,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-read-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::REALM_STATE_SNAPSHOT_V1,
+        file: "schemas/realm-state-snapshot.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_STATE_SNAPSHOT_CHUNK_V1,
+        file: "schemas/realm-state-snapshot-chunk.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,
         file: "schemas/recovery-authority.schema.json",
     },
@@ -3752,14 +3760,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SIGNAL_TYPING_V1,
         file: "schemas/signal-typing.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SNAPSHOT_V1,
-        file: "schemas/snapshot.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SNAPSHOT_CHUNK_V1,
-        file: "schemas/snapshot-chunk.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SPACE_V1,

@@ -11,7 +11,7 @@
 //! them rather than reuse them.
 //!
 //! The projection halves (`collection_projection`,
-//! `strand_discussion_timeline` entries, `snapshot_frontier_recovery`,
+//! `strand_discussion_timeline` entries, `realm_state_snapshot_frontier_recovery`,
 //! `snapshot_inclusion_challenge`, `e2ee_decryption_pending`) are server
 //! sync-pipeline / snapshot-reducer semantics and stay owned by the soland
 //! suite; they are consumed here only through the cursor surface plus a pinned
@@ -43,7 +43,7 @@ fn sync_fixture_profile_is_pinned() {
         "strand_discussion_timeline",
         "cursor_gap_recovery",
         "expired_cursor_not_reused",
-        "snapshot_frontier_recovery",
+        "realm_state_snapshot_frontier_recovery",
         "snapshot_inclusion_challenge",
         "e2ee_decryption_pending",
     ] {
@@ -144,12 +144,12 @@ fn expired_recovery_cursors_fail_closed_at_decode() {
 }
 
 #[test]
-fn snapshot_frontier_recovery_shape_is_pinned() {
+fn realm_state_snapshot_frontier_recovery_shape_is_pinned() {
     // Frontier recovery is a server snapshot-reducer flow; consume it here by
     // pinning the frontier commitment shape the SDK's snapshot verification
     // consumes downstream (event-set commitment + state digest present).
     let fixture = fixture();
-    let recovery = &fixture["snapshot_frontier_recovery"];
+    let recovery = &fixture["realm_state_snapshot_frontier_recovery"];
     assert!(
         recovery["state_digest"].as_str().is_some(),
         "frontier recovery must carry a state_digest"

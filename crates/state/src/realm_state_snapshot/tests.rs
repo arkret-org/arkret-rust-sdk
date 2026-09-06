@@ -4,7 +4,9 @@ use serde_json::Value;
 
 use super::{merkle, *};
 use crate::lattice::cas_register::CasHead;
-use crate::{CellRef, DidCoreId, EventId, Hash, Hlc, PayloadSignature, RealmId, SnapshotId};
+use crate::{
+    CellRef, DidCoreId, EventId, Hash, Hlc, PayloadSignature, RealmId, RealmStateSnapshotId,
+};
 
 fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
@@ -25,8 +27,11 @@ fn snapshot_v1_event_id(suffix: &str) -> EventId {
     .unwrap()
 }
 
-fn snapshot_v1_id() -> SnapshotId {
-    SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001".to_owned()).unwrap()
+fn snapshot_v1_id() -> RealmStateSnapshotId {
+    RealmStateSnapshotId::new(
+        "ak:realm_state_snapshot:01904100-0000-7000-8000-000000000001".to_owned(),
+    )
+    .unwrap()
 }
 
 fn hash(seed: u8) -> Hash {
@@ -34,11 +39,16 @@ fn hash(seed: u8) -> Hash {
 }
 
 fn manifest_for_items(
-    items: Vec<SnapshotMaterializedItem>,
-) -> (SnapshotManifest, Vec<SnapshotChunkPayload>, Vec<Vec<u8>>) {
+    items: Vec<RealmRealmStateSnapshotStateMaterializedItem>,
+) -> (
+    RealmRealmStateSnapshotStateManifest,
+    Vec<RealmStateRealmRealmStateSnapshotStateChunkPayload>,
+    Vec<Vec<u8>>,
+) {
     let state_digest = state_digest_from_items(&items).unwrap();
     let built =
-        build_snapshot_chunks(&snapshot_v1_id(), CORE_REDUCER_PROFILE, items, 4096).unwrap();
+        build_realm_state_snapshot_chunks(&snapshot_v1_id(), CORE_REDUCER_PROFILE, items, 4096)
+            .unwrap();
     let chunk_payloads = built
         .iter()
         .map(|chunk| chunk.payload.clone())
@@ -52,13 +62,13 @@ fn manifest_for_items(
         .map(|chunk| chunk.descriptor)
         .collect::<Vec<_>>();
     let created_at = "2026-06-01T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap();
-    let mut manifest = SnapshotManifest {
+    let mut manifest = RealmRealmStateSnapshotStateManifest {
         id: snapshot_v1_id(),
         realm_id: realm(),
         reducer_profile: CORE_REDUCER_PROFILE.to_owned(),
         schema_profile_refs: vec!["ak.profile.core_event_store.v1".to_owned()],
         state_digest,
-        frontier: SnapshotFrontier {
+        frontier: RealmRealmStateSnapshotStateFrontier {
             event_ids: vec![snapshot_v1_event_id("000000000001")],
             timeline_hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         },
@@ -69,12 +79,12 @@ fn manifest_for_items(
             actor_seq_ranges: Vec::new(),
         },
         chunks: descriptors,
-        security_class: SnapshotSecurityClass::Standard,
+        security_class: RealmRealmStateSnapshotStateSecurityClass::Standard,
         verification_hints: None,
         created_by: arkret_wire::ActorId::service(actor()),
         created_at,
         authority_binding: AuthorityBinding {
-            authority_kind: SnapshotAuthorityKind::RealmPolicySnapshotIssuer,
+            authority_kind: RealmRealmStateSnapshotStateAuthorityKind::RealmPolicySnapshotIssuer,
             auth_state_digest: hash(1),
             auth_frontier: vec![snapshot_v1_event_id("000000000001")],
             checked_at: created_at,
@@ -95,19 +105,19 @@ fn manifest_for_items(
 
 #[test]
 fn chunker_zero_target_rejected() {
-    let err = SnapshotChunker::new(0).unwrap_err();
+    let err = RealmStateRealmRealmStateSnapshotStateChunker::new(0).unwrap_err();
     assert!(format!("{err}").contains("target_chunk_bytes must be > 0"));
 }
 
 #[test]
 fn chunker_empty_input_yields_empty() {
-    let c = SnapshotChunker::default();
+    let c = RealmStateRealmRealmStateSnapshotStateChunker::default();
     assert!(c.chunk(&[]).is_empty());
 }
 
 #[test]
 fn chunker_partitions_with_last_chunk_short() {
-    let c = SnapshotChunker::new(4).unwrap();
+    let c = RealmStateRealmRealmStateSnapshotStateChunker::new(4).unwrap();
     let chunks = c.chunk(b"hello world!"); // 12 bytes → 3 chunks of 4
     assert_eq!(chunks.len(), 3);
     assert_eq!(chunks[0].chunk_id, 0);
@@ -120,7 +130,7 @@ fn chunker_partitions_with_last_chunk_short() {
     // 13-byte input → 3 chunks (4 / 4 / 5? no — 4 / 4 / 5 isn't right;
     // chunks() of size 4 → 4,4,5 only if step > 4. std slice::chunks
     // is fixed-size so 13/4 = 3 full + 1 short = 4 chunks. Let me re-check.
-    let c2 = SnapshotChunker::new(4).unwrap();
+    let c2 = RealmStateRealmRealmStateSnapshotStateChunker::new(4).unwrap();
     let chunks2 = c2.chunk(b"hello world!!"); // 13 bytes
     assert_eq!(chunks2.len(), 4); // 4+4+4+1
     assert_eq!(chunks2[3].bytes.len(), 1);
@@ -128,7 +138,7 @@ fn chunker_partitions_with_last_chunk_short() {
 
 #[test]
 fn chunker_digests_match_recomputation() {
-    let c = SnapshotChunker::new(8).unwrap();
+    let c = RealmStateRealmRealmStateSnapshotStateChunker::new(8).unwrap();
     let chunks = c.chunk(b"the quick brown fox jumps over the lazy dog");
     for chunk in &chunks {
         let recomputed = merkle::sha256_digest(&chunk.bytes);
@@ -138,7 +148,7 @@ fn chunker_digests_match_recomputation() {
 
 #[test]
 fn chunker_is_deterministic_across_runs() {
-    let c = SnapshotChunker::new(16).unwrap();
+    let c = RealmStateRealmRealmStateSnapshotStateChunker::new(16).unwrap();
     let a = c.chunk(b"the quick brown fox jumps over the lazy dog");
     let b = c.chunk(b"the quick brown fox jumps over the lazy dog");
     assert_eq!(a, b);
@@ -146,8 +156,8 @@ fn chunker_is_deterministic_across_runs() {
 
 // ── Merkle tree ───────────────────────────────────────────────────
 
-fn chunks(n: u32) -> Vec<SnapshotChunk> {
-    let c = SnapshotChunker::new(4).unwrap();
+fn chunks(n: u32) -> Vec<RealmRealmStateSnapshotStateChunk> {
+    let c = RealmStateRealmRealmStateSnapshotStateChunker::new(4).unwrap();
     let mut bytes = Vec::new();
     for i in 0..(n * 4) {
         bytes.push((i % 256) as u8);
@@ -157,7 +167,7 @@ fn chunks(n: u32) -> Vec<SnapshotChunk> {
 
 #[test]
 fn merkle_empty_rejected() {
-    let err = SnapshotMerkleTree::build(&[]).unwrap_err();
+    let err = RealmRealmStateSnapshotStateMerkleTree::build(&[]).unwrap_err();
     assert!(format!("{err}").contains("at least one chunk"));
 }
 
@@ -165,14 +175,14 @@ fn merkle_empty_rejected() {
 fn merkle_out_of_order_rejected() {
     let mut cs = chunks(2);
     cs.swap(0, 1);
-    let err = SnapshotMerkleTree::build(&cs).unwrap_err();
+    let err = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap_err();
     assert!(format!("{err}").contains("expected"));
 }
 
 #[test]
 fn merkle_single_leaf_root_is_domain_separated() {
     let cs = chunks(1);
-    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
     assert_eq!(tree.leaf_count(), 1);
     let leaf_data = parse_sha256(&cs[0].digest).unwrap();
     assert_eq!(*tree.root(), format_hash(&hash_leaf(&leaf_data)));
@@ -184,7 +194,7 @@ fn merkle_single_leaf_root_is_domain_separated() {
 #[test]
 fn merkle_two_leaves_root_is_hash_pair() {
     let cs = chunks(2);
-    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
     // root = sha256(0x01 || sha256(0x00 || leaf0) || sha256(0x00 || leaf1)).
     let left = parse_sha256(&cs[0].digest).unwrap();
     let right = parse_sha256(&cs[1].digest).unwrap();
@@ -196,12 +206,18 @@ fn merkle_two_leaves_root_is_hash_pair() {
 fn merkle_audit_path_verifies_each_leaf() {
     for n in [1u32, 2, 3, 4, 5, 8, 11] {
         let cs = chunks(n);
-        let tree = SnapshotMerkleTree::build(&cs).unwrap();
+        let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
         let root = tree.root().clone();
         for (i, chunk) in cs.iter().enumerate() {
             let path = tree.audit_path(i).unwrap();
             assert!(
-                SnapshotMerkleTree::verify(&root, &chunk.digest, i, &path, tree.leaf_count()),
+                RealmRealmStateSnapshotStateMerkleTree::verify(
+                    &root,
+                    &chunk.digest,
+                    i,
+                    &path,
+                    tree.leaf_count()
+                ),
                 "audit_path verification failed for n={n} leaf={i}"
             );
         }
@@ -211,10 +227,10 @@ fn merkle_audit_path_verifies_each_leaf() {
 #[test]
 fn merkle_audit_path_rejects_wrong_leaf() {
     let cs = chunks(4);
-    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
     let path = tree.audit_path(0).unwrap();
     // Try to use leaf-0's path with leaf-1's digest — should fail.
-    assert!(!SnapshotMerkleTree::verify(
+    assert!(!RealmRealmStateSnapshotStateMerkleTree::verify(
         tree.root(),
         &cs[1].digest,
         0,
@@ -226,7 +242,7 @@ fn merkle_audit_path_rejects_wrong_leaf() {
 #[test]
 fn merkle_out_of_range_index_rejected() {
     let cs = chunks(2);
-    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
     assert!(tree.audit_path(2).is_none());
 }
 
@@ -235,23 +251,23 @@ fn merkle_duplicate_tail_leaf_changes_root() {
     // Promote-without-duplication: [A,B,C] and [A,B,C,C] MUST NOT
     // share a root (CVE-2012-2459-shaped ambiguity).
     let cs3 = chunks(3);
-    let tree3 = SnapshotMerkleTree::build(&cs3).unwrap();
+    let tree3 = RealmRealmStateSnapshotStateMerkleTree::build(&cs3).unwrap();
     let mut cs4 = cs3.clone();
-    cs4.push(SnapshotChunk {
+    cs4.push(RealmRealmStateSnapshotStateChunk {
         chunk_id: 3,
         bytes: cs3[2].bytes.clone(),
         digest: cs3[2].digest.clone(),
     });
-    let tree4 = SnapshotMerkleTree::build(&cs4).unwrap();
+    let tree4 = RealmRealmStateSnapshotStateMerkleTree::build(&cs4).unwrap();
     assert_ne!(tree3.root(), tree4.root());
 }
 
 #[test]
 fn merkle_verify_rejects_mismatched_leaf_count() {
     let cs = chunks(3);
-    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
     let path = tree.audit_path(2).unwrap();
-    assert!(SnapshotMerkleTree::verify(
+    assert!(RealmRealmStateSnapshotStateMerkleTree::verify(
         tree.root(),
         &cs[2].digest,
         2,
@@ -259,14 +275,14 @@ fn merkle_verify_rejects_mismatched_leaf_count() {
         3
     ));
     // The same proof under a different claimed leaf_count MUST fail.
-    assert!(!SnapshotMerkleTree::verify(
+    assert!(!RealmRealmStateSnapshotStateMerkleTree::verify(
         tree.root(),
         &cs[2].digest,
         3,
         &path,
         4
     ));
-    assert!(!SnapshotMerkleTree::verify(
+    assert!(!RealmRealmStateSnapshotStateMerkleTree::verify(
         tree.root(),
         &cs[2].digest,
         2,
@@ -369,14 +385,14 @@ fn generator_proof_serializes_with_all_fields() {
 }
 
 #[test]
-fn snapshot_chunk_round_trips_base64() {
-    let chunk = SnapshotChunk {
+fn realm_state_snapshot_chunk_round_trips_base64() {
+    let chunk = RealmRealmStateSnapshotStateChunk {
         chunk_id: 7,
         bytes: vec![0x00, 0xff, 0x42, 0x55],
         digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
     };
     let s = serde_json::to_string(&chunk).unwrap();
-    let back: SnapshotChunk = serde_json::from_str(&s).unwrap();
+    let back: RealmRealmStateSnapshotStateChunk = serde_json::from_str(&s).unwrap();
     assert_eq!(back, chunk);
 }
 
@@ -387,13 +403,18 @@ fn event_id(suffix: &str) -> EventId {
     .unwrap()
 }
 
-fn snapshot_id() -> SnapshotId {
-    SnapshotId::new("ak:snapshot:01904100-0000-7000-8000-000000000001").unwrap()
+fn realm_state_snapshot_id() -> RealmStateSnapshotId {
+    RealmStateSnapshotId::new("ak:realm_state_snapshot:01904100-0000-7000-8000-000000000001")
+        .unwrap()
 }
 
-/// A materialized non-`cas_register` cell item (`snapshot-schema.md` §3).
-fn cell_item(cell: &str, value: Value) -> SnapshotMaterializedItem {
-    SnapshotMaterializedItem::value(CellRef::new(cell.to_owned()).unwrap(), value).unwrap()
+/// A materialized non-`cas_register` cell item (`realm-state-snapshot-schema.md` §3).
+fn cell_item(cell: &str, value: Value) -> RealmRealmStateSnapshotStateMaterializedItem {
+    RealmRealmStateSnapshotStateMaterializedItem::value(
+        CellRef::new(cell.to_owned()).unwrap(),
+        value,
+    )
+    .unwrap()
 }
 
 const STRAND_LIFECYCLE_CELL: &str = "ak:cell:ak.component.strand.lifecycle.v1:ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
@@ -436,15 +457,15 @@ fn merkle_verify_rejects_wrong_branch() {
     let cs = [0x11, 0x22]
         .into_iter()
         .enumerate()
-        .map(|(chunk_id, byte)| SnapshotChunk {
+        .map(|(chunk_id, byte)| RealmRealmStateSnapshotStateChunk {
             chunk_id: chunk_id as u32,
             bytes: vec![byte],
             digest: Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
         })
         .collect::<Vec<_>>();
-    let tree = SnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmRealmStateSnapshotStateMerkleTree::build(&cs).unwrap();
     let wrong_path = vec![Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap()];
-    assert!(!SnapshotMerkleTree::verify(
+    assert!(!RealmRealmStateSnapshotStateMerkleTree::verify(
         tree.root(),
         &cs[0].digest,
         0,
@@ -491,7 +512,13 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
         cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
     ];
 
-    let built = build_snapshot_chunks(&snapshot_id(), CORE_REDUCER_PROFILE, items, 240).unwrap();
+    let built = build_realm_state_snapshot_chunks(
+        &realm_state_snapshot_id(),
+        CORE_REDUCER_PROFILE,
+        items,
+        240,
+    )
+    .unwrap();
 
     assert_eq!(
         built
@@ -516,12 +543,13 @@ fn state_digest_rejects_duplicate_cell() {
     assert!(format!("{err}").contains("duplicate snapshot item cell"));
 }
 
-fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> SnapshotManifest {
+fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> RealmRealmStateSnapshotStateManifest {
     let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"));
     let (mut manifest, ..) = manifest_for_items(vec![item]);
-    manifest.authority_binding.authority_kind = SnapshotAuthorityKind::WitnessQuorum;
-    manifest.verification_hints = Some(SnapshotVerificationHints {
-        verification_profile: SnapshotSecurityClass::Standard,
+    manifest.authority_binding.authority_kind =
+        RealmRealmStateSnapshotStateAuthorityKind::WitnessQuorum;
+    manifest.verification_hints = Some(RealmRealmStateSnapshotStateVerificationHints {
+        verification_profile: RealmRealmStateSnapshotStateSecurityClass::Standard,
         inclusion_proof_url: None,
         challenge_window_seconds: None,
         conflict_records_digest: None,
@@ -535,7 +563,7 @@ fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> SnapshotManifest {
         .map(|(core_id, did)| {
             let witness_id = DidCoreId::new((*core_id).to_owned()).unwrap();
             let digest = manifest.witness_attestation_digest(&witness_id).unwrap();
-            SnapshotWitnessAttestation {
+            RealmRealmStateSnapshotStateWitnessAttestation {
                 witness_id,
                 proof: DetachedJwsProof::ed25519(
                     DidUrl::new(format!("{did}#snapshot-witness")).unwrap(),
@@ -550,8 +578,11 @@ fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> SnapshotManifest {
     manifest
 }
 
-fn witness_policy(core_ids: &[&str], threshold: u32) -> SnapshotWitnessQuorumPolicy {
-    SnapshotWitnessQuorumPolicy {
+fn witness_policy(
+    core_ids: &[&str],
+    threshold: u32,
+) -> RealmRealmStateSnapshotStateWitnessQuorumPolicy {
+    RealmRealmStateSnapshotStateWitnessQuorumPolicy {
         authorized_witnesses: core_ids
             .iter()
             .map(|value| DidCoreId::new((*value).to_owned()).unwrap())
@@ -580,7 +611,7 @@ fn witness_attestation_projection_excludes_signatures_and_witness_list() {
 
     assert_eq!(
         projection["context"],
-        Value::String(SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT.to_owned())
+        Value::String(REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT.to_owned())
     );
     for excluded in [
         "signature",
@@ -600,7 +631,7 @@ fn witness_attestation_projection_excludes_signatures_and_witness_list() {
         serde_json::to_value(arkret_wire::ActorId::service(actor())).unwrap()
     );
     assert_eq!(
-        projection["snapshot_created_at"],
+        projection["realm_state_snapshot_created_at"],
         "2026-06-01T00:00:00.000Z"
     );
 }
@@ -620,7 +651,10 @@ fn witness_quorum_rejects_unsorted_or_duplicate_rows() {
     let error = manifest
         .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0, WITNESS_TWO.0], 2))
         .unwrap_err();
-    assert_eq!(error.code, SnapshotValidationCode::SchemaViolation);
+    assert_eq!(
+        error.code,
+        RealmRealmStateSnapshotStateValidationCode::SchemaViolation
+    );
 
     let mut duplicated = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO]);
     duplicated.authority_binding.witness_attestations[1].witness_id =
@@ -628,7 +662,10 @@ fn witness_quorum_rejects_unsorted_or_duplicate_rows() {
     let error = duplicated
         .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0, WITNESS_TWO.0], 2))
         .unwrap_err();
-    assert_eq!(error.code, SnapshotValidationCode::SchemaViolation);
+    assert_eq!(
+        error.code,
+        RealmRealmStateSnapshotStateValidationCode::SchemaViolation
+    );
 }
 
 #[test]
@@ -640,7 +677,7 @@ fn witness_quorum_requires_attestations_and_policy_threshold() {
             .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 1))
             .unwrap_err()
             .code,
-        SnapshotValidationCode::SchemaViolation
+        RealmRealmStateSnapshotStateValidationCode::SchemaViolation
     );
 
     let manifest = witness_quorum_manifest(&[WITNESS_ONE]);
@@ -649,7 +686,7 @@ fn witness_quorum_requires_attestations_and_policy_threshold() {
             .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 2))
             .unwrap_err()
             .code,
-        SnapshotValidationCode::SnapshotAuthorityUnverified
+        RealmRealmStateSnapshotStateValidationCode::SnapshotAuthorityUnverified
     );
 
     let unauthorized = witness_quorum_manifest(&[WITNESS_ONE]);
@@ -658,7 +695,7 @@ fn witness_quorum_requires_attestations_and_policy_threshold() {
             .verify_witness_attestations(&witness_policy(&[WITNESS_TWO.0], 1))
             .unwrap_err()
             .code,
-        SnapshotValidationCode::SnapshotAuthorityUnverified
+        RealmRealmStateSnapshotStateValidationCode::SnapshotAuthorityUnverified
     );
 }
 
@@ -673,7 +710,7 @@ fn witness_quorum_rejects_manifest_context_and_foreign_controller() {
             .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 1))
             .unwrap_err()
             .code,
-        SnapshotValidationCode::SignatureInvalid
+        RealmRealmStateSnapshotStateValidationCode::SignatureInvalid
     );
 
     let mut foreign_controller = witness_quorum_manifest(&[WITNESS_ONE]);
@@ -685,7 +722,7 @@ fn witness_quorum_rejects_manifest_context_and_foreign_controller() {
             .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0], 1))
             .unwrap_err()
             .code,
-        SnapshotValidationCode::SignatureInvalid
+        RealmRealmStateSnapshotStateValidationCode::SignatureInvalid
     );
 }
 
@@ -705,13 +742,16 @@ fn slot_cell() -> CellRef {
     .unwrap()
 }
 
-/// `snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`,
+/// `realm-state-snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`,
 /// a CAS cell's `state` is its head set, and its identity is the `ak:event:`
 /// spelling recovered from the op log's `event_digest`.
 #[test]
 fn a_cas_cell_item_serializes_to_the_closed_branch() {
-    let item =
-        SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x11, Value::Null)]).unwrap();
+    let item = RealmRealmStateSnapshotStateMaterializedItem::cas_cell(
+        slot_cell(),
+        &[cas_head(0x11, Value::Null)],
+    )
+    .unwrap();
     let wire = serde_json::to_value(&item).unwrap();
 
     assert_eq!(wire["kind"], "cell");
@@ -727,7 +767,7 @@ fn a_cas_cell_item_serializes_to_the_closed_branch() {
     assert_eq!(heads[0]["event_id"], expected_id.as_str());
 
     assert_eq!(
-        serde_json::from_value::<SnapshotMaterializedItem>(wire).unwrap(),
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(wire).unwrap(),
         item
     );
 }
@@ -742,7 +782,7 @@ fn a_value_cell_item_serializes_to_the_closed_branch() {
     assert_eq!(wire["id"], STRAND_LIFECYCLE_CELL);
     assert_eq!(wire["state"], serde_json::json!({"value": "archived"}));
     assert_eq!(
-        serde_json::from_value::<SnapshotMaterializedItem>(wire).unwrap(),
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(wire).unwrap(),
         item
     );
 }
@@ -751,20 +791,23 @@ fn a_value_cell_item_serializes_to_the_closed_branch() {
 /// keep the release write's identity or the two become the same snapshot.
 #[test]
 fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
-    let released =
-        SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x22, Value::Null)]).unwrap();
-    let claimed = SnapshotMaterializedItem::cas_cell(
+    let released = RealmRealmStateSnapshotStateMaterializedItem::cas_cell(
+        slot_cell(),
+        &[cas_head(0x22, Value::Null)],
+    )
+    .unwrap();
+    let claimed = RealmRealmStateSnapshotStateMaterializedItem::cas_cell(
         slot_cell(),
         &[cas_head(0x22, serde_json::json!("ak:event:AUC6Bg"))],
     )
     .unwrap();
     assert_ne!(
-        snapshot_state_leaf_hash(&released).unwrap(),
-        snapshot_state_leaf_hash(&claimed).unwrap(),
+        realm_state_snapshot_state_leaf_hash(&released).unwrap(),
+        realm_state_snapshot_state_leaf_hash(&claimed).unwrap(),
     );
 
     // An unwritten cell is not a member at all (§6.2.1), so it cannot be built.
-    assert!(SnapshotMaterializedItem::cas_cell(slot_cell(), &[]).is_err());
+    assert!(RealmRealmStateSnapshotStateMaterializedItem::cas_cell(slot_cell(), &[]).is_err());
 }
 
 /// Two heads that agree on a value still have two identities, and the leaf must
@@ -772,10 +815,12 @@ fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
 /// branch it never observed.
 #[test]
 fn same_value_heads_keep_both_identities_in_the_leaf() {
-    let one =
-        SnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x33, serde_json::json!("A"))])
-            .unwrap();
-    let two = SnapshotMaterializedItem::cas_cell(
+    let one = RealmRealmStateSnapshotStateMaterializedItem::cas_cell(
+        slot_cell(),
+        &[cas_head(0x33, serde_json::json!("A"))],
+    )
+    .unwrap();
+    let two = RealmRealmStateSnapshotStateMaterializedItem::cas_cell(
         slot_cell(),
         &[
             cas_head(0x33, serde_json::json!("A")),
@@ -784,8 +829,8 @@ fn same_value_heads_keep_both_identities_in_the_leaf() {
     )
     .unwrap();
     assert_ne!(
-        snapshot_state_leaf_hash(&one).unwrap(),
-        snapshot_state_leaf_hash(&two).unwrap(),
+        realm_state_snapshot_state_leaf_hash(&one).unwrap(),
+        realm_state_snapshot_state_leaf_hash(&two).unwrap(),
     );
 }
 
@@ -795,7 +840,7 @@ fn same_value_heads_keep_both_identities_in_the_leaf() {
 #[test]
 fn the_snapshot_leaf_is_the_state_root_leaf() {
     let heads = [cas_head(0x55, serde_json::json!("v"))];
-    let item = SnapshotMaterializedItem::cas_cell(slot_cell(), &heads).unwrap();
+    let item = RealmRealmStateSnapshotStateMaterializedItem::cas_cell(slot_cell(), &heads).unwrap();
     let state_root_leaf = crate::state::state_root::cas_leaf_hash(
         &slot_cell(),
         &heads,
@@ -803,7 +848,9 @@ fn the_snapshot_leaf_is_the_state_root_leaf() {
     )
     .unwrap();
     assert_eq!(
-        snapshot_state_leaf_hash(&item).unwrap().as_str(),
+        realm_state_snapshot_state_leaf_hash(&item)
+            .unwrap()
+            .as_str(),
         format!("sha256:{}", hex::encode(state_root_leaf)),
     );
 
@@ -815,12 +862,14 @@ fn the_snapshot_leaf_is_the_state_root_leaf() {
     )
     .unwrap();
     assert_eq!(
-        snapshot_state_leaf_hash(&value_item).unwrap().as_str(),
+        realm_state_snapshot_state_leaf_hash(&value_item)
+            .unwrap()
+            .as_str(),
         format!("sha256:{}", hex::encode(value_leaf)),
     );
 
     // And the digest suite follows the Realm, not a hard-coded SHA-256.
-    let blake = snapshot_state_leaf_hash_with_digest_suite(
+    let blake = realm_state_snapshot_state_leaf_hash_with_digest_suite(
         &value_item,
         arkret_canonical::DigestSuite::Blake3,
     )
@@ -839,52 +888,77 @@ fn items_outside_the_cell_branch_are_rejected() {
         "object": {"id": "x"},
         "source_event_id": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-",
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(object_branch).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(object_branch)
+            .is_err()
+    );
 
     let cas_cell_literal = serde_json::json!({
         "kind": "cas_cell",
         "id": slot_cell().as_str(),
         "state": {"heads": [{"event_id": event_id("a").as_str(), "value": null}]},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(cas_cell_literal).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(cas_cell_literal)
+            .is_err()
+    );
 
     let mixed_state = serde_json::json!({
         "kind": "cell",
         "id": STRAND_LIFECYCLE_CELL,
         "state": {"value": "archived", "heads": []},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(mixed_state).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(mixed_state)
+            .is_err()
+    );
 
     let no_state = serde_json::json!({"kind": "cell", "id": STRAND_LIFECYCLE_CELL});
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(no_state).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(no_state).is_err()
+    );
 
     let value_on_cas_family = serde_json::json!({
         "kind": "cell",
         "id": slot_cell().as_str(),
         "state": {"value": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-"},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(value_on_cas_family).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(value_on_cas_family)
+            .is_err()
+    );
 
     let heads_on_value_family = serde_json::json!({
         "kind": "cell",
         "id": STRAND_LIFECYCLE_CELL,
         "state": {"heads": [{"event_id": event_id("a").as_str(), "value": "archived"}]},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(heads_on_value_family).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(
+            heads_on_value_family
+        )
+        .is_err()
+    );
 
     let empty_heads = serde_json::json!({
         "kind": "cell",
         "id": slot_cell().as_str(),
         "state": {"heads": []},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(empty_heads).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(empty_heads)
+            .is_err()
+    );
 
     let unregistered_family = serde_json::json!({
         "kind": "cell",
         "id": "ak:cell:ak.component.nowhere.v1:null",
         "state": {"value": 1},
     });
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(unregistered_family).is_err());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(unregistered_family)
+            .is_err()
+    );
 }
 
 /// §6.2.1 orders heads by the decoded token, and a snapshot must not accept a
@@ -892,13 +966,14 @@ fn items_outside_the_cell_branch_are_rejected() {
 #[test]
 fn unsorted_heads_are_rejected() {
     let mut ordered = [cas_head(0x66, Value::Null), cas_head(0x77, Value::Null)];
-    let item = SnapshotMaterializedItem::cas_cell(slot_cell(), &ordered).unwrap();
+    let item =
+        RealmRealmStateSnapshotStateMaterializedItem::cas_cell(slot_cell(), &ordered).unwrap();
     let mut wire = serde_json::to_value(&item).unwrap();
     wire["state"]["heads"].as_array_mut().unwrap().reverse();
-    assert!(serde_json::from_value::<SnapshotMaterializedItem>(wire).is_err());
+    assert!(serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(wire).is_err());
 
     ordered.reverse();
-    assert!(SnapshotMaterializedItem::cas_cell(slot_cell(), &ordered).is_err());
+    assert!(RealmRealmStateSnapshotStateMaterializedItem::cas_cell(slot_cell(), &ordered).is_err());
 }
 
 /// The auxiliary rows are closed objects too: an unknown member on a
@@ -906,20 +981,25 @@ fn unsorted_heads_are_rejected() {
 #[test]
 fn auxiliary_rows_and_chunk_payloads_are_closed() {
     let bottom = serde_json::json!({"kind": "bottom_cell", "cell_ref": STRAND_LIFECYCLE_CELL});
-    assert!(serde_json::from_value::<SnapshotConflictRecord>(bottom.clone()).is_ok());
+    assert!(
+        serde_json::from_value::<RealmRealmStateSnapshotStateConflictRecord>(bottom.clone())
+            .is_ok()
+    );
     let mut extra = bottom;
     extra["note"] = serde_json::json!("x");
-    assert!(serde_json::from_value::<SnapshotConflictRecord>(extra).is_err());
+    assert!(serde_json::from_value::<RealmRealmStateSnapshotStateConflictRecord>(extra).is_err());
 
     let (_, payloads, _) = manifest_for_items(vec![cell_item(
         STRAND_LIFECYCLE_CELL,
         serde_json::json!("active"),
     )]);
     let mut wire = serde_json::to_value(&payloads[0]).unwrap();
-    assert_eq!(wire["chunk_kind"], "snapshot_chunk");
+    assert_eq!(wire["chunk_kind"], "realm_state_snapshot_chunk");
     assert_eq!(wire["erasure_stubs"], serde_json::json!([]));
-    wire["type"] = serde_json::json!("snapshot_chunk");
-    assert!(serde_json::from_value::<SnapshotChunkPayload>(wire).is_err());
+    wire["type"] = serde_json::json!("realm_state_snapshot_chunk");
+    assert!(
+        serde_json::from_value::<RealmStateRealmRealmStateSnapshotStateChunkPayload>(wire).is_err()
+    );
 }
 
 /// The consumer-side recomputation refuses to reorder: unsorted or duplicated
@@ -945,7 +1025,7 @@ fn chunk_payload_verification_is_strict() {
 
     let mut duplicated = payloads.clone();
     let duplicate = duplicated[0].items[1].clone();
-    duplicated.push(SnapshotChunkPayload {
+    duplicated.push(RealmStateRealmRealmStateSnapshotStateChunkPayload {
         index: 1,
         items: vec![duplicate],
         ..payloads[0].clone()
@@ -967,7 +1047,7 @@ fn spec_sync_fixture() -> Value {
     serde_json::from_str(&text).unwrap()
 }
 
-/// Replays `ak.vector.snapshot.state_digest_recompute.v1`: every accept case
+/// Replays `ak.vector.realm_state_snapshot.state_digest_recompute.v1`: every accept case
 /// recomputes the fixture's `state_digest` (and auxiliary digests) from the
 /// chunk bytes alone, every reject case is refused, and every published leaf
 /// preimage / leaf pair is reproduced from the item.
@@ -977,7 +1057,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
     let block = &fixture["snapshot_state_digest"];
     assert_eq!(
         block["vector_id"],
-        "ak.vector.snapshot.state_digest_recompute.v1"
+        "ak.vector.realm_state_snapshot.state_digest_recompute.v1"
     );
     let reducer_profile = block["manifest"]["reducer_profile"].as_str().unwrap();
     let cases = block["cases"].as_array().unwrap();
@@ -986,7 +1066,10 @@ fn spec_snapshot_state_digest_fixture_replays() {
         .as_array()
         .unwrap()
         .iter()
-        .map(|item| serde_json::from_value::<SnapshotMaterializedItem>(item.clone()).unwrap())
+        .map(|item| {
+            serde_json::from_value::<RealmRealmStateSnapshotStateMaterializedItem>(item.clone())
+                .unwrap()
+        })
         .collect::<Vec<_>>();
     for row in block["leaves"].as_array().unwrap() {
         let id = row["id"].as_str().unwrap();
@@ -1001,7 +1084,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
             "leaf preimage of {id}"
         );
         assert_eq!(
-            snapshot_state_leaf_hash(item).unwrap().as_str(),
+            realm_state_snapshot_state_leaf_hash(item).unwrap().as_str(),
             row["leaf"].as_str().unwrap(),
             "leaf of {id}"
         );
@@ -1021,7 +1104,11 @@ fn spec_snapshot_state_digest_fixture_replays() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|chunk| serde_json::from_value::<SnapshotChunkPayload>(chunk.clone()))
+            .map(|chunk| {
+                serde_json::from_value::<RealmStateRealmRealmStateSnapshotStateChunkPayload>(
+                    chunk.clone(),
+                )
+            })
             .collect::<Result<Vec<_>, _>>();
         let observed = match parsed {
             Err(_) => None,

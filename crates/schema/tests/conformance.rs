@@ -16,7 +16,7 @@ fn required_profiles() -> [ConformanceProfile; 11] {
         ConformanceProfile::Redaction,
         ConformanceProfile::Capability,
         ConformanceProfile::Sync,
-        ConformanceProfile::Snapshot,
+        ConformanceProfile::RealmStateSnapshot,
         ConformanceProfile::FederationSignatures,
         ConformanceProfile::Privacy,
         ConformanceProfile::Security,

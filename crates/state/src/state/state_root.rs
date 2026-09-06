@@ -518,7 +518,7 @@ pub fn leaf_hash(
 /// Hash one `{"cell":…,"state":…}` leaf preimage into its Realm-suite wire form.
 ///
 /// This is the single leaf definition the Seal `state_root` and the snapshot
-/// `state_digest` share (`snapshot-schema.md` §4): a control cell's snapshot
+/// `state_digest` share (`realm-state-snapshot-schema.md` §4): a control cell's snapshot
 /// leaf is byte-identical to its `state_root` leaf.
 pub fn state_leaf_hash_from_state_object(
     cell: &CellRef,

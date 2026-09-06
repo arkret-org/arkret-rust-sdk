@@ -712,14 +712,14 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotFrontierValue",
-      "schema": "snapshot.schema.json#/properties/frontier",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmRealmStateSnapshotStateFrontierValue",
+      "schema": "realm-state-snapshot.schema.json#/properties/frontier",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/snapshot.rs::SnapshotWitnessAttestationItem",
-      "schema": "snapshot.schema.json#/$defs/snapshot_witness_attestation"
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmRealmStateSnapshotStateWitnessAttestationItem",
+      "schema": "realm-state-snapshot.schema.json#/$defs/realm_state_snapshot_witness_attestation"
     },
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::DidRootTranscript",
@@ -1056,8 +1056,8 @@
       "schema": "sdk-conformance-claim.schema.json#/$defs/issuer"
     },
     {
-      "rust_type": "crates/state/src/snapshot/types.rs::SnapshotWitnessAttestation",
-      "schema": "snapshot.schema.json#/$defs/snapshot_witness_attestation"
+      "rust_type": "crates/state/src/realm_state_snapshot/types.rs::RealmRealmStateSnapshotStateWitnessAttestation",
+      "schema": "realm-state-snapshot.schema.json#/$defs/realm_state_snapshot_witness_attestation"
     },
     {
       "rust_type": "crates/wire/src/device_revocation.rs::DeviceRevocationGateDecisionReceipt",

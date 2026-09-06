@@ -83,7 +83,7 @@ pub fn is_registered_cas_register_cell(cell_ref: &str) -> bool {
 
 /// Whether any registered reducer contract writes this cell family.
 ///
-/// A snapshot item names a Realm reducer cell (`snapshot-schema.md` §3); a
+/// A snapshot item names a Realm reducer cell (`realm-state-snapshot-schema.md` §3); a
 /// family no `cell_writes[]` row ever writes has no reducer state to carry, and
 /// actor-private `ak.private.*` families are not Realm consensus state at all.
 /// This lets a consumer that only has a `cell_id` refuse such an item without

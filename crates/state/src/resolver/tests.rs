@@ -1004,7 +1004,7 @@ fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
     let snapshot = state.snapshot().unwrap();
     let manifest = snapshot.manifest.as_ref().unwrap();
 
-    assert_eq!(manifest.schema, REDUCER_SNAPSHOT_SCHEMA);
+    assert_eq!(manifest.schema, REALM_STATE_SNAPSHOT_REDUCER_SCHEMA);
     assert_eq!(manifest.reducer_profile, CORE_REDUCER_PROFILE);
     assert_eq!(manifest.state_digest, snapshot.state_digest);
     assert_eq!(manifest.merkle_root, snapshot.state_merkle_root().unwrap());

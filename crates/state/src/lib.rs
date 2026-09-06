@@ -42,10 +42,10 @@ pub mod history_store;
 pub mod lattice;
 pub mod mls_cells;
 pub mod mls_governance_proof;
+pub mod realm_state_snapshot;
 pub mod resolver;
-pub mod snapshot;
 pub mod state;
 
 pub use lattice::*;
-pub use snapshot::*;
+pub use realm_state_snapshot::*;
 pub use state::*;

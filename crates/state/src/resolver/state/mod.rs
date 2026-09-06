@@ -1,6 +1,6 @@
 use arkret_wire::EventKind;
 
-use super::snapshot::{StateHashInput, state_digest_payload, state_merkle_root};
+use super::realm_state_snapshot::{StateHashInput, state_digest_payload, state_merkle_root};
 use super::*;
 
 mod events;
@@ -283,8 +283,8 @@ impl RealmState {
 
     /// Create a state snapshot at the current point. Fails when the manifest
     /// Merkle root cannot be computed (fail-closed: no placeholder manifest).
-    pub fn snapshot(&self) -> Result<StateSnapshot> {
-        let mut snapshot = StateSnapshot {
+    pub fn snapshot(&self) -> Result<RealmStateSnapshotState> {
+        let mut snapshot = RealmStateSnapshotState {
             realm_id: self.realm_id.clone(),
             reducer_profile: self.reducer_profile.clone(),
             frontier: self.frontier.clone(),

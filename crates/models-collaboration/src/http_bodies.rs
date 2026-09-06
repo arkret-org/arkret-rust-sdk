@@ -42,7 +42,7 @@ use crate::objects::mimi::{
     MimiIdentifierMatch, MimiKeyPackage, MimiNotification, MimiNotificationRouting,
     MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
-use crate::sync_frames::snapshot::SnapshotBootstrap;
+use crate::sync_frames::realm_state_snapshot::RealmRealmStateSnapshotStateBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -2582,7 +2582,7 @@ pub struct EventsQueryOutcome {
     pub has_more: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub snapshot_bootstrap: Option<SnapshotBootstrap>,
+    pub realm_state_snapshot_bootstrap: Option<RealmRealmStateSnapshotStateBootstrap>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

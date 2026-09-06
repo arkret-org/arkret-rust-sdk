@@ -1,10 +1,10 @@
 /// Default chunk size in bytes (256 KiB). Picked so a 100 MB snapshot
 /// becomes ~400 chunks — small enough for HTTP delivery, large enough
 /// that the per-chunk audit-path overhead stays negligible.
-pub const DEFAULT_SNAPSHOT_CHUNK_BYTES: usize = 256 * 1024;
-pub const SNAPSHOT_CHUNK_TYPE: &str = "snapshot_chunk";
+pub const DEFAULT_REALM_STATE_SNAPSHOT_CHUNK_BYTES: usize = 256 * 1024;
+pub const REALM_STATE_SNAPSHOT_CHUNK_TYPE: &str = "realm_state_snapshot_chunk";
 pub const DETACHED_JWS_PROOF_KIND: &str = "detached_jws";
-pub const SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS: i64 = 2_592_000_000;
-pub const SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS: i64 = 604_800_000;
+pub const REALM_STATE_SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS: i64 = 2_592_000_000;
+pub const REALM_STATE_SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS: i64 = 604_800_000;
 pub const EMPTY_SHA256_DIGEST: &str =
     "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";

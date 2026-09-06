@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-05.3;
-//! sha256=a7f9a552ec1e07adabdd7939e67c2b5af024d9a60a501b22de03e116f20906b5
+//! Input: registry/error-code-registry.json; version=2026-09-07.1;
+//! sha256=c8b2ab4dbf79d90e837c456adf00b00958c708d39f35fb6b54c6ad9bc7e41799
 //! Entries: reason_codes=431
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -311,6 +311,7 @@ pub enum ReasonCode {
     RealmOrganizationExpired,
     RealmOrganizationRealmAcceptanceMissing,
     RealmOrganizationScopeMissing,
+    RealmStateSnapshotIssuerRevoked,
     RealmTerminalState,
     RealmUnavailable,
     RecipientUnavailable,
@@ -383,7 +384,6 @@ pub enum ReasonCode {
     ShareCommitmentMismatch,
     SidecarCreateDenied,
     SignalPlaintextForbidden,
-    SnapshotIssuerRevoked,
     SoftFailed,
     SpaceAlreadyTerminal,
     SpaceHasLiveDependents,
@@ -817,6 +817,8 @@ impl ReasonCode {
     pub const REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING: &'static str =
         "realm_organization_realm_acceptance_missing";
     pub const REALM_ORGANIZATION_SCOPE_MISSING: &'static str = "realm_organization_scope_missing";
+    pub const REALM_STATE_SNAPSHOT_ISSUER_REVOKED: &'static str =
+        "realm_state_snapshot_issuer_revoked";
     pub const REALM_TERMINAL_STATE: &'static str = "realm_terminal_state";
     pub const REALM_UNAVAILABLE: &'static str = "realm_unavailable";
     pub const RECIPIENT_UNAVAILABLE: &'static str = "recipient_unavailable";
@@ -900,7 +902,6 @@ impl ReasonCode {
     pub const SHARE_COMMITMENT_MISMATCH: &'static str = "share_commitment_mismatch";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
     pub const SIGNAL_PLAINTEXT_FORBIDDEN: &'static str = "signal_plaintext_forbidden";
-    pub const SNAPSHOT_ISSUER_REVOKED: &'static str = "snapshot_issuer_revoked";
     pub const SOFT_FAILED: &'static str = "soft_failed";
     pub const SPACE_ALREADY_TERMINAL: &'static str = "space_already_terminal";
     pub const SPACE_HAS_LIVE_DEPENDENTS: &'static str = "space_has_live_dependents";
@@ -1324,6 +1325,7 @@ impl ReasonCode {
                 Self::REALM_ORGANIZATION_REALM_ACCEPTANCE_MISSING
             }
             Self::RealmOrganizationScopeMissing => Self::REALM_ORGANIZATION_SCOPE_MISSING,
+            Self::RealmStateSnapshotIssuerRevoked => Self::REALM_STATE_SNAPSHOT_ISSUER_REVOKED,
             Self::RealmTerminalState => Self::REALM_TERMINAL_STATE,
             Self::RealmUnavailable => Self::REALM_UNAVAILABLE,
             Self::RecipientUnavailable => Self::RECIPIENT_UNAVAILABLE,
@@ -1402,7 +1404,6 @@ impl ReasonCode {
             Self::ShareCommitmentMismatch => Self::SHARE_COMMITMENT_MISMATCH,
             Self::SidecarCreateDenied => Self::SIDECAR_CREATE_DENIED,
             Self::SignalPlaintextForbidden => Self::SIGNAL_PLAINTEXT_FORBIDDEN,
-            Self::SnapshotIssuerRevoked => Self::SNAPSHOT_ISSUER_REVOKED,
             Self::SoftFailed => Self::SOFT_FAILED,
             Self::SpaceAlreadyTerminal => Self::SPACE_ALREADY_TERMINAL,
             Self::SpaceHasLiveDependents => Self::SPACE_HAS_LIVE_DEPENDENTS,
@@ -1831,6 +1832,7 @@ impl ReasonCode {
                 Self::RealmOrganizationRealmAcceptanceMissing
             }
             Self::REALM_ORGANIZATION_SCOPE_MISSING => Self::RealmOrganizationScopeMissing,
+            Self::REALM_STATE_SNAPSHOT_ISSUER_REVOKED => Self::RealmStateSnapshotIssuerRevoked,
             Self::REALM_TERMINAL_STATE => Self::RealmTerminalState,
             Self::REALM_UNAVAILABLE => Self::RealmUnavailable,
             Self::RECIPIENT_UNAVAILABLE => Self::RecipientUnavailable,
@@ -1909,7 +1911,6 @@ impl ReasonCode {
             Self::SHARE_COMMITMENT_MISMATCH => Self::ShareCommitmentMismatch,
             Self::SIDECAR_CREATE_DENIED => Self::SidecarCreateDenied,
             Self::SIGNAL_PLAINTEXT_FORBIDDEN => Self::SignalPlaintextForbidden,
-            Self::SNAPSHOT_ISSUER_REVOKED => Self::SnapshotIssuerRevoked,
             Self::SOFT_FAILED => Self::SoftFailed,
             Self::SPACE_ALREADY_TERMINAL => Self::SpaceAlreadyTerminal,
             Self::SPACE_HAS_LIVE_DEPENDENTS => Self::SpaceHasLiveDependents,
@@ -2927,7 +2928,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INCLUSION_PROOF_FAILED,
-        applies_to: &["client_sync", "snapshot_verification"],
+        applies_to: &["client_sync", "realm_state_snapshot_verification"],
         description: "Snapshot inclusion / omission challenge failed: issuer could not produce a valid Merkle branch or ordered-set slice for a sampled Event ID / actor sequence range against the manifest's event_set_commitment.root, OR the proof's root differs, OR an actor sequence gap is not reflected in soft_failed/quarantined digests. Client MUST quarantine or reject the snapshot and fall back to raw Event replay.",
     },
     ReasonCodeDescriptor {
@@ -2937,7 +2938,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INSUFFICIENT_CHALLENGE_SAMPLES,
-        applies_to: &["client_sync", "snapshot_verification"],
+        applies_to: &["client_sync", "realm_state_snapshot_verification"],
         description: "A high-assurance range/challenge attestation does not carry the required minimum number of event_id (or equivalent) samples. The challenge MUST reject. See sync/client-sync.md and fixtures/sync-fixture.json.",
     },
     ReasonCodeDescriptor {
@@ -3571,6 +3572,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A ak.realm.organization statement asserts a control_scope (or relationship) that the verified organization-side authorization or its delegation does not cover. The endorsement boundary in payload.control_scopes exceeds what the proof/delegation grants.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::REALM_STATE_SNAPSHOT_ISSUER_REVOKED,
+        applies_to: &["client_sync", "realm_state_snapshot_verification"],
+        description: "Snapshot signer's authority (Realm owner / admin / trusted snapshot issuer / witness quorum membership) was revoked at or before the manifest's `created_at`, or revoke freshness cannot be sealed within the verifier's revocation_freshness_window_ms. Client MUST quarantine or reject the snapshot. A revoke that takes effect strictly after `created_at` does not retroactively invalidate a previously valid snapshot.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::REALM_TERMINAL_STATE,
         applies_to: &["state_resolution", "auth_decision"],
         description: "Realm has accepted ak.realm.tombstone or ak.realm.destroy and cannot accept new ordinary writes. Only audit-class events (ak.audit.*, ak.audit.erasure_receipt) are still acceptable. Receivers MUST reject ak.self.events.command.submit.v1 for any other kind targeting this Realm. See zh/models/realm-and-space.md §2.6.",
@@ -3933,11 +3939,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SIGNAL_PLAINTEXT_FORBIDDEN,
         applies_to: &["service_call", "client_sync"],
         description: "Sub-reason for failed_precondition when any plaintext broadcast envelope is submitted or received. Signal is encrypted-only in every scope; implementations MUST fail closed and MUST NOT advertise Signal for a scope unless they can verify its MLS basis, AAD, and proof. See zh/crypto-media/encryption-and-audit.md section 2.9.1.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SNAPSHOT_ISSUER_REVOKED,
-        applies_to: &["client_sync", "snapshot_verification"],
-        description: "Snapshot signer's authority (Realm owner / admin / trusted snapshot issuer / witness quorum membership) was revoked at or before the manifest's `created_at`, or revoke freshness cannot be sealed within the verifier's revocation_freshness_window_ms. Client MUST quarantine or reject the snapshot. A revoke that takes effect strictly after `created_at` does not retroactively invalidate a previously valid snapshot.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SOFT_FAILED,

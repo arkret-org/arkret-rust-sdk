@@ -22,12 +22,12 @@ use crate::{
     WireError,
 };
 
-pub const REDUCER_SNAPSHOT_SCHEMA: &str = "org.arkret.sdk.reducer_snapshot.v1";
+pub const REALM_STATE_SNAPSHOT_REDUCER_SCHEMA: &str = "org.arkret.sdk.realm_state_snapshot.v1";
 
-mod snapshot;
+mod realm_state_snapshot;
 mod state;
 #[cfg(test)]
 mod tests;
 
-pub use snapshot::*;
+pub use realm_state_snapshot::*;
 pub use state::*;
