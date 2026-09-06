@@ -825,7 +825,7 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             .unwrap();
             assert_eq!(outcome, RealmLinkTransitionOutcome::IdempotentReplay);
         }
-        ("fsm", "same_status_same_basis_replay_is_idempotent") => {
+        ("fsm", "same_event_identity_replay_is_idempotent") => {
             let source = realm_id("1");
             let current_payload = realm_link_payload(RealmLinkStatus::Active, realm_id("2"));
             let replay_payload = current_payload.clone();
