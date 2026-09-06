@@ -66,7 +66,7 @@ pub struct CasHead {
 pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
     causal_heads(
         sealed_ops,
-        |op| CasRegister.validate_op(op).is_ok(),
+        |entry| CasRegister.validate_op(&entry.op).is_ok(),
         |op| op.value.clone().unwrap_or(Value::Null),
     )
 }
@@ -85,7 +85,7 @@ pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
 /// `head_value` reads the head's carried value.
 pub(crate) fn causal_heads(
     sealed_ops: &[SealedOp],
-    accepts: impl Fn(&LatticeOp) -> bool,
+    accepts: impl Fn(&SealedOp) -> bool,
     head_value: impl Fn(&LatticeOp) -> Value,
 ) -> Result<Vec<CasHead>, Box<Bottom>> {
     // Insertion-ordered, with an index beside it. The order is what makes the
@@ -95,7 +95,7 @@ pub(crate) fn causal_heads(
     let mut writes: Vec<&SealedOp> = Vec::new();
     let mut by_identity: BTreeMap<&str, usize> = BTreeMap::new();
     for entry in sealed_ops {
-        if !accepts(&entry.op) {
+        if !accepts(entry) {
             continue;
         }
         match by_identity.get(entry.move_id.as_str()) {

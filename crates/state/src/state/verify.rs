@@ -394,7 +394,14 @@ where
                     });
                 }
             }
-            binding.lattice.validate_op(&effect.op).map_err(|e| {
+            // A §9.5.1 recovery answers to its own shape rule: on `fsm` it is a
+            // transition with no `from`, which the ordinary check rejects.
+            let shape = if effect.recovery_reset {
+                binding.lattice.validate_recovery_op(&effect.op)
+            } else {
+                binding.lattice.validate_op(&effect.op)
+            };
+            shape.map_err(|e| {
                 ControlMoveReject::SchemaViolation(format!(
                     "derived write on {} invalid: {e}",
                     effect.cell_id
@@ -546,14 +553,35 @@ pub fn resolve_projected_write(
                 });
             }
         }
+        let kind = registry
+            .resolve(realm_id, &write.cell_id)
+            .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
+            .lattice
+            .kind();
         let mut op = LatticeOp::empty();
-        op.op_type = LatticeOpType::Set;
-        op.value = Some(value.clone());
-        // Marked as a reset, not merely projected as a `set`. The op vocabulary
-        // is spec-registered and has no `reset` member, so an unmarked op is
-        // indistinguishable from an ordinary write and would be *joined with*
-        // the concurrent branches that put the cell in `⊥` — leaving it in `⊥`
-        // and quietly removing the only escape §9.5 defines.
+        // The registered contract projects one `reset` regardless of target
+        // (`ak.conflict.recovery` declares no lattice — the cell does), so the
+        // op shape is decided here, from the target's own lattice. `fsm` accepts
+        // no `set`: §9.5.1 makes its recovery an ordinary transition write that
+        // still owes the §9.3.1.7 admission, so it has to travel as one.
+        //
+        // It carries no `from`. Under `⊥` the write supersedes two or more
+        // divergent heads, so its sources are a set; `Fsm::validate_recovery_op`
+        // rejects a single one, and `Fsm::validate_recovery_sources` checks the
+        // set against the transition table in `apply_seal`, where the basis
+        // heads exist.
+        if kind == crate::lattice::LatticeKind::Fsm {
+            op.op_type = LatticeOpType::Transition;
+            op.to = Some(value.clone());
+        } else {
+            op.op_type = LatticeOpType::Set;
+            op.value = Some(value.clone());
+        }
+        // Marked as a reset, not merely projected as an ordinary write. The op
+        // vocabulary is spec-registered and has no `reset` member, so an
+        // unmarked op is indistinguishable from a normal write — and for `fsm`
+        // it would additionally be held to the ordinary `from` requirement it
+        // cannot satisfy.
         return Ok(vec![ProjectionEffect::reset(write.cell_id.clone(), op)]);
     }
     let observed = frozen_cell_value(&write.cell_id, realm_id, pre_state, registry)?;
@@ -1014,6 +1042,7 @@ fn evaluate_predicate(
 
 #[cfg(test)]
 mod tests {
+    use crate::lattice::Lattice;
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use arkret_wire::{
         DidKey, DidUrl, EventProof, ProducerEventProof, StationAdmissionProof,
@@ -1842,6 +1871,10 @@ mod tests {
     /// proof"; that sentence is gone, and the witness family now applies to a
     /// `bottom=reject` lattice that is *not* causal — see the `ordered_log`
     /// case below, which is what still keeps the branch honest.
+    ///
+    /// It then asserted the *op shape* gap: a recovery projected `set`, and
+    /// `fsm` takes only `transition`, so an fsm cell could not be recovered at
+    /// all. That gap is closed — the assertion below is now the positive one.
     #[test]
     fn an_fsm_reset_needs_only_its_capability_ref() {
         let event = control_move(
@@ -1859,7 +1892,7 @@ mod tests {
             )),
         )]);
 
-        let error = verify_control_move(
+        let effects = verify_control_move(
             &event,
             &realm(),
             &bottom_member,
@@ -1872,20 +1905,83 @@ mod tests {
                 },
             }]),
         )
-        .expect_err("the fsm reset op shape is the remaining gap, see below");
+        .expect("an fsm recovery needs only its capability ref");
 
-        // The witness guard no longer fires -- that is what this test pins.
-        // What stops the Move now is the *shape* of the derived write: a
-        // recovery still projects `set`, and `fsm` only accepts `transition`.
-        // §9.5.1's fsm paragraph says the recovery write owes a §9.3.1.7
-        // admission, which means it has to be projected as a transition
-        // carrying its own `from`. That projection does not exist yet, so an
-        // fsm cell cannot actually be recovered today; the gap is tracked in
-        // `arkret-work/review/spec-open/2026-09-06-1610-fsm-has-no-transition-algebra-and-its-join-is-arrival-ordered.md`.
+        assert_eq!(effects.len(), 1);
+        assert!(effects[0].recovery_reset);
+        // The derived write is a transition, not a `set`: `fsm` accepts no
+        // `set`, and §9.5.1 makes the recovery an ordinary identity write that
+        // still owes the §9.3.1.7 admission.
+        assert_eq!(effects[0].op.op_type, LatticeOpType::Transition);
+        assert_eq!(effects[0].op.to.as_ref(), Some(&json!("join")));
+        // No `from`: the write supersedes every divergent head, so its sources
+        // are a set. `apply_seal` checks them against the transition table with
+        // the basis heads in hand -- see
+        // `a_recovery_out_of_a_head_with_no_registered_edge_is_rejected`.
+        assert_eq!(effects[0].op.from, None);
+    }
+
+    /// The shape half of §9.5.1's fsm admission, at the layer that can decide
+    /// it: a recovery that arrives already carrying a `from` is not the write
+    /// §9.5.1 describes, because no single state is the one it leaves.
+    #[test]
+    fn an_fsm_recovery_op_may_not_carry_a_single_from() {
+        let fsm = crate::lattice::fsm::Fsm::new(vec![(json!("leave"), json!("join"))]);
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Transition;
+        op.from = Some(json!("leave"));
+        op.to = Some(json!("join"));
+        let error = fsm
+            .validate_recovery_op(&op)
+            .expect_err("a recovery carrying one from must be refused");
         assert!(
-            matches!(&error, ControlMoveReject::SchemaViolation(message)
-                if message.contains("set is not allowed for fsm")),
-            "expected the op-shape reject, not the witness one: {error:?}"
+            error.to_string().contains("carries no single from"),
+            "unexpected reason: {error}"
+        );
+
+        op.from = None;
+        fsm.validate_recovery_op(&op)
+            .expect("a recovery carrying only its to is well shaped");
+    }
+
+    /// The table half. Every superseded head is a source, so a recovery is
+    /// admissible only if it is a registered transition out of each of them --
+    /// which is also what keeps a terminal state terminal, since a terminal
+    /// state has no outgoing edge but its registered self-loop.
+    #[test]
+    fn an_fsm_recovery_must_be_a_registered_transition_out_of_every_head() {
+        let fsm = crate::lattice::fsm::Fsm::new(vec![
+            (json!("active"), json!("paused")),
+            (json!("paused"), json!("active")),
+            (json!("active"), json!("deactivated")),
+        ]);
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Transition;
+        op.to = Some(json!("active"));
+
+        fsm.validate_recovery_sources(&[json!("paused")], &op)
+            .expect("paused -> active is registered");
+
+        // `deactivated` is terminal: no outgoing edge, so a recovery that would
+        // have to leave it is refused even though the other head allows it.
+        let error = fsm
+            .validate_recovery_sources(&[json!("paused"), json!("deactivated")], &op)
+            .expect_err("a recovery out of a terminal head must be refused");
+        assert!(
+            error
+                .to_string()
+                .contains("superseded head \"deactivated\""),
+            "unexpected reason: {error}"
+        );
+
+        // No heads means no proof of the target conflict, which §9.5.1 item 1
+        // makes a precondition rather than a formality.
+        let error = fsm
+            .validate_recovery_sources(&[], &op)
+            .expect_err("a recovery with no visible heads must be refused");
+        assert!(
+            error.to_string().contains("basis heads are unavailable"),
+            "unexpected reason: {error}"
         );
     }
 

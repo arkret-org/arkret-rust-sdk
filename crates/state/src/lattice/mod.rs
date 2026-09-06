@@ -62,9 +62,15 @@ pub struct SealedOp {
     /// This op is the §9.5 conflict-recovery reset for its cell.
     ///
     /// Carried on the stored op rather than derived at read time: the cell's
-    /// state is recomputed from the op log on every view, so the boundary has
-    /// to survive in the log itself. See [`crate::state::join_cell`], which
-    /// drops every op at or before the last reset.
+    /// state is recomputed from the op log on every view, so the marking has to
+    /// survive in the log itself. What it means depends on the lattice. On a
+    /// causal register it marks an authorized write that may be shaped
+    /// differently from an ordinary one — an `fsm` recovery carries no `from`
+    /// — and that is allowed to have been authored against a `⊥` basis; it
+    /// still supersedes only what `supersedes` names. On the remaining
+    /// `bottom=reject` lattices it is a history boundary; see
+    /// [`crate::state::seal::join_cell`], which truncates there and exempts
+    /// causal registers because §9.5.1 item 5 forbids arrival-order slicing.
     pub recovery_reset: bool,
     /// The head identities this write superseded, as `event_digest` values.
     ///

@@ -195,14 +195,19 @@ pub struct ProjectionEffect {
     /// This write is the `event-auth-state-resolution.md` §9.5 recovery reset,
     /// not an ordinary lattice write.
     ///
-    /// A reset **replaces** the cell: it is a boundary in that cell's history,
-    /// and every op accepted before it stops being an input to the cell's join.
-    /// The op below still travels as a `set`, because the lattice op vocabulary
-    /// is spec-registered and has no `reset` member — which is exactly why the
-    /// distinction has to live here. Without it the reset is indistinguishable
-    /// from a normal `set` and joins **against** the concurrent branches that
-    /// put the cell in `⊥`, so the cell never leaves `⊥` and the one escape
-    /// path §9.5 defines does not exist.
+    /// On a **causal register** (`cas_register` / `fsm`) a reset replaces
+    /// nothing: §9.5.1 makes it an authorized new identity write that supersedes
+    /// exactly the divergent heads its own signed basis observed, and a branch
+    /// outside that basis still merges. On the remaining `bottom=reject`
+    /// lattices it is still the boundary §9.5 describes.
+    ///
+    /// The flag is what the derived op cannot say for itself. The lattice op
+    /// vocabulary is spec-registered and has no `reset` member, so the write
+    /// travels as the target lattice's own op — a `set` for `cas_register`, a
+    /// `transition` carrying only its `to` for `fsm` — and only this flag
+    /// distinguishes it from an ordinary write. `fsm` needs the distinction
+    /// twice over: an ordinary transition owes a single `from`, and a recovery
+    /// has none to give, because it leaves every divergent head at once.
     #[serde(default, skip_serializing_if = "core::ops::Not::not")]
     pub recovery_reset: bool,
 }
@@ -217,7 +222,8 @@ impl ProjectionEffect {
         }
     }
 
-    /// The §9.5 recovery write: a boundary that discards the cell's prior ops.
+    /// The §9.5 recovery write. On a causal register it supersedes the heads
+    /// its basis saw (§9.5.1); elsewhere it is a boundary in the cell's history.
     pub fn reset(cell: CellRef, op: LatticeOp) -> Self {
         Self {
             cell_id: cell,
@@ -271,13 +277,17 @@ pub enum ProjectedOp {
     /// Resolve a cell in `⊥` back to one legal value
     /// (`event-auth-state-resolution.md` §9.5).
     ///
-    /// This is not a lattice op and does not join: it replaces the cell.
-    /// `ak.conflict.recovery` is the only kind whose contract may project
-    /// it, and the reducer MUST apply it only to a cell already in `⊥`, and
-    /// only when the Event carries the `recovery_capability` and
-    /// `state_witness` refs that section requires. On a cell in any other state
-    /// the write MUST be rejected — otherwise recovery becomes a general
-    /// overwrite channel that bypasses every lattice.
+    /// `ak.conflict.recovery` is the only kind whose contract may project it,
+    /// and the reducer MUST apply it only to a cell already in `⊥`. On a cell in
+    /// any other state the write MUST be rejected — otherwise recovery becomes a
+    /// general overwrite channel that bypasses every lattice.
+    ///
+    /// The registered contract names no lattice, so the concrete op shape is
+    /// decided from the target cell when the write is resolved: `set` for
+    /// `cas_register`, `transition` carrying only its `to` for `fsm`. Which
+    /// refs the Move owes also splits by lattice — a causal register proves its
+    /// target conflict from its own signed basis and owes no `state_witness`
+    /// (§9.5.1), the remaining `bottom=reject` lattices still owe one (§9.5).
     Reset { value: Value },
 }
 

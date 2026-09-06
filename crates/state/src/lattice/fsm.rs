@@ -120,8 +120,15 @@ pub fn fsm_heads(
 ) -> Result<Vec<crate::lattice::cas_register::CasHead>, Box<Bottom>> {
     crate::lattice::cas_register::causal_heads(
         sealed_ops,
-        |op| {
-            op.op_type == LatticeOpType::Transition && op.from.is_some() && op.to.is_some()
+        // The §9.5.1 recovery is a head like any other — it is a new identity
+        // write that supersedes the divergent heads, not a boundary that erases
+        // them. It differs only in carrying no `from` (see
+        // [`Fsm::validate_recovery_op`]), so requiring one here would drop the
+        // recovery from the head set and leave the cell in `⊥` forever.
+        |entry| {
+            entry.op.op_type == LatticeOpType::Transition
+                && entry.op.to.is_some()
+                && (entry.recovery_reset || entry.op.from.is_some())
         },
         |op| op.to.clone().unwrap_or(Value::Null),
     )
@@ -197,6 +204,81 @@ impl Lattice for Fsm {
         }
     }
 
+    /// §9.5.1: the recovery write is a `transition` carrying only its `to`.
+    ///
+    /// It MUST NOT carry a `from`. A recovery target is by definition in `⊥`,
+    /// which for this lattice means two or more divergent `to` heads
+    /// (§9.3.1.6), so the write supersedes several source states at once and no
+    /// single `from` names them. Inventing one — the last head, the lowest
+    /// head, the pre-conflict value — would be a producer-invisible choice that
+    /// two receivers could make differently. The sources are checked as a set
+    /// by [`Fsm::validate_recovery_sources`] instead.
+    fn validate_recovery_op(&self, op: &LatticeOp) -> Result<(), OpError> {
+        if op.op_type != LatticeOpType::Transition {
+            return Err(OpError::UnsupportedOpType {
+                got: op.op_type.as_str().to_owned(),
+                expected_kind: "fsm",
+            });
+        }
+        if op.to.is_none() {
+            return Err(OpError::MissingField {
+                kind: "fsm",
+                field: "to",
+            });
+        }
+        if let Some(from) = &op.from {
+            return Err(OpError::InvalidValue {
+                kind: "fsm",
+                field: "from",
+                reason: format!(
+                    "a recovery write supersedes every divergent head, so it carries no single \
+                     from; got {from}"
+                ),
+            });
+        }
+        Ok(())
+    }
+
+    /// §9.5.1 `fsm` additional admission: the recovery MUST be a registered
+    /// transition out of **every** head it supersedes.
+    ///
+    /// `terminal_states` needs no separate lookup. A terminal state carries no
+    /// outgoing edge in `allowed_transitions` except a registered self-loop, so
+    /// "a recovery out of a terminal state is rejected unless it is that
+    /// registered self-loop" is exactly what table membership already says. The
+    /// registry invariant that makes this equivalence hold is enforced by
+    /// `arkret-spec/tools/artifact_lint`, not assumed here.
+    fn validate_recovery_sources(&self, sources: &[Value], op: &LatticeOp) -> Result<(), OpError> {
+        let Some(to) = op.to.as_ref() else {
+            return Err(OpError::MissingField {
+                kind: "fsm",
+                field: "to",
+            });
+        };
+        if sources.is_empty() {
+            // Fail closed rather than vacuously true: an empty source set means
+            // the caller could not see the basis heads, and a recovery admitted
+            // without them has had no transition check at all.
+            return Err(OpError::InvalidValue {
+                kind: "fsm",
+                field: "from",
+                reason: "recovery basis heads are unavailable, so its transition cannot be checked"
+                    .to_owned(),
+            });
+        }
+        if let Some(source) = sources.iter().find(|source| !self.is_allowed(source, to)) {
+            return Err(OpError::InvalidValue {
+                kind: "fsm",
+                field: "transition",
+                reason: format!(
+                    "recovery to {to} is not in allowed_transitions from the superseded head \
+                     {source}"
+                ),
+            });
+        }
+        Ok(())
+    }
+
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
         // §9.3.1.5: the state is the active write identities, each carrying its
         // `to`. Nothing here reads the op list as a sequence — that is what the
@@ -207,8 +289,17 @@ impl Lattice for Fsm {
         // a transition cell whose op carries no `from`/`to`, or one outside the
         // registered table, is an admission failure that reached the join, and
         // §9.3.1.7 makes that a rejection rather than a state.
+        //
+        // A §9.5.1 recovery is held to its own shape: it carries no `from`, so
+        // running the ordinary check on it would Bottom the cell on the one
+        // write whose whole purpose is to lift it out of `⊥`.
         for entry in sealed_ops {
-            if self.validate_op(&entry.op).is_err() {
+            let shape = if entry.recovery_reset {
+                self.validate_recovery_op(&entry.op)
+            } else {
+                self.validate_op(&entry.op)
+            };
+            if shape.is_err() {
                 let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
                 bottom.details = Some(bottom_details([

@@ -622,10 +622,33 @@ where
             None => BTreeMap::new(),
         };
         for effect in effects {
-            let kind = {
-                let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
-                binding.lattice.kind()
-            };
+            let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
+            let kind = binding.lattice.kind();
+            if effect.recovery_reset {
+                // §9.5.1 `fsm` additional admission. The recovery supersedes
+                // every divergent head, so each of their `to` values is one of
+                // its sources and each has to be a registered transition into
+                // the resolved state. This is the one site with those values:
+                // the pre-state the Move verifier sees is `⊥`, which carries no
+                // usable head list, and the whole point of §9.5.1 item 1 is that
+                // the proof comes from the write's *own* signed basis.
+                let sources: Vec<Value> = basis_heads
+                    .get(&effect.cell_id)
+                    .into_iter()
+                    .flatten()
+                    .map(|head| head.value.clone())
+                    .collect();
+                binding
+                    .lattice
+                    .validate_recovery_sources(&sources, &effect.op)
+                    .map_err(|error| SealReject::ControlMoveRejected {
+                        event_digest: digest.as_str().to_owned(),
+                        reason: format!(
+                            "recovery write on {} is not admissible: {error}",
+                            effect.cell_id.as_str()
+                        ),
+                    })?;
+            }
             let supersedes = if is_causal_register(kind) {
                 let observed = head_identities(basis_heads.get(&effect.cell_id));
                 if event.seal_basis.is_some() {

@@ -124,6 +124,41 @@ pub trait Lattice {
     fn initial_state(&self) -> Option<serde_json::Value> {
         None
     }
+
+    /// Shape check for the §9.5 conflict-recovery write on this lattice.
+    ///
+    /// A recovery is an authorized identity write, not a second op vocabulary
+    /// (`event-auth-state-resolution.md` §9.5.1), so most lattices answer this
+    /// exactly as they answer [`Lattice::validate_op`]. `fsm` is the exception:
+    /// its recovery cannot carry the single `from` an ordinary transition owes,
+    /// because the sources it supersedes are the divergent heads — plural by
+    /// construction, since a cell that is not in `⊥` is not a recovery target.
+    ///
+    /// This half is only the shape. The transition table is checked against the
+    /// actual heads by [`Lattice::validate_recovery_sources`], at the one site
+    /// that has them.
+    fn validate_recovery_op(&self, op: &LatticeOp) -> Result<(), OpError> {
+        self.validate_op(op)
+    }
+
+    /// §9.5.1 admission of a recovery write against the head values its own
+    /// signed basis observed for the target cell.
+    ///
+    /// `sources` is `{ h.value | h ∈ H_c(B) }` — for `fsm` that is each
+    /// divergent `to`, which is what the recovery transitions out of. Lattices
+    /// with no transition table have nothing to check and accept.
+    ///
+    /// Separate from [`Lattice::validate_recovery_op`] because the two halves
+    /// have different inputs: the shape is decidable from the Move alone and is
+    /// checked when the write is derived, while this needs the basis heads and
+    /// is therefore checked in `apply_seal`. Neither restates the other.
+    fn validate_recovery_sources(
+        &self,
+        _sources: &[serde_json::Value],
+        _op: &LatticeOp,
+    ) -> Result<(), OpError> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]

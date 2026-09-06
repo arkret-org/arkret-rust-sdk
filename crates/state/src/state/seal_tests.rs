@@ -2334,6 +2334,94 @@ async fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
     ));
 }
 
+/// The `fsm` half of the same obligation (§9.5.1 fsm additional admission).
+///
+/// This is the case that could not be written before: a recovery projected a
+/// `set`, `fsm` accepts only `transition`, so an fsm cell in `⊥` had no escape
+/// at all. The recovery now travels as a transition carrying only its `to` —
+/// there is no single `from`, because it leaves both divergent heads at once.
+#[tokio::test]
+async fn a_recovery_reset_lifts_an_fsm_cell_out_of_bottom() {
+    let cell =
+        CellRef::new("ak:cell:ak.component.member.state.v1:did:web:alice.example".to_owned())
+            .unwrap();
+    let transition = |from: Option<&str>, to: &str| LatticeOp {
+        op_type: LatticeOpType::Transition,
+        tag: None,
+        value: None,
+        from: from.map(|from| json!(from)),
+        to: Some(json!(to)),
+        reason: None,
+        issuer_seq: None,
+    };
+    let write = |id, from: &str, to: &str, saw: &[u8]| {
+        issued(SealedOp::superseding(
+            move_id(id),
+            transition(Some(from), to),
+            saw.iter().copied().map(move_id).collect(),
+        ))
+    };
+    let recover = |id, to: &str, saw: &[u8]| {
+        issued(
+            SealedOp::from_projection(
+                move_id(id),
+                &crate::ProjectionEffect::reset(cell.clone(), transition(None, to)),
+            )
+            .with_supersedes(saw.iter().copied().map(move_id).collect()),
+        )
+    };
+    let lattice = crate::lattice::Fsm::new(vec![
+        (json!("leave"), json!("join")),
+        (json!("leave"), json!("knock")),
+        (json!("knock"), json!("join")),
+        (json!("join"), json!("leave")),
+        (json!("knock"), json!("leave")),
+    ])
+    .with_initial(json!("leave"));
+
+    // Two concurrent transitions out of the registered initial state.
+    let conflicted = vec![vec![
+        write(0x21, "leave", "join", &[]),
+        write(0x22, "leave", "knock", &[]),
+    ]];
+    assert!(
+        matches!(
+            join_cell_seal_batches(&lattice, &cell, &conflicted),
+            CellState::Bottom(_)
+        ),
+        "precondition: concurrent fsm transitions put the cell in ⊥"
+    );
+
+    let mut recovered = conflicted;
+    recovered.push(vec![recover(0x23, "join", &[0x21, 0x22])]);
+    assert_eq!(
+        join_cell_seal_batches(&lattice, &cell, &recovered),
+        CellState::Value(json!("join")),
+        "the recovery supersedes both divergent heads and settles the cell"
+    );
+
+    // Not a freeze: an ordinary transition accepted afterwards chains off the
+    // recovered state, which is only possible because the recovery is a head.
+    let mut superseded = recovered.clone();
+    superseded.push(vec![write(0x24, "join", "leave", &[0x23])]);
+    assert_eq!(
+        join_cell_seal_batches(&lattice, &cell, &superseded),
+        CellState::Value(json!("leave"))
+    );
+
+    // §9.5.1 item 4 / item 5: a branch outside the recovery's basis still
+    // merges. Truncating the op log at the reset would have hidden it.
+    let mut late_sibling = recovered;
+    late_sibling.push(vec![write(0x25, "leave", "knock", &[])]);
+    assert!(
+        matches!(
+            join_cell_seal_batches(&lattice, &cell, &late_sibling),
+            CellState::Bottom(_)
+        ),
+        "a late branch the recovery never observed still merges"
+    );
+}
+
 // ── R5: multi-Seal coverage, interleaved cells, recovery arrival order, forged heads ──
 
 fn policy_cell(subject: &str) -> CellRef {
