@@ -27,6 +27,7 @@ fn main() -> Result<()> {
     let inputs = SpecInputs::load(&artifacts_dir)?;
     let mut outputs = runtime_contracts::generate(&inputs)?;
     outputs.push(lattice_contracts::generate(&inputs)?);
+    outputs.push(lattice_contracts::generate_sole_recovery_families(&inputs)?);
     outputs.extend(registry_types::generate(&artifacts_dir)?);
     outputs.push(openapi::generate(&artifacts_dir)?);
     for output in outputs {

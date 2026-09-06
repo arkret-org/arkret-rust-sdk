@@ -166,7 +166,10 @@ mod tests {
             "const": "revoked"
         });
         let rendered = cell_rule(&condition);
-        assert!(rendered.starts_with("EventCellRule::Object(&["), "{rendered}");
+        assert!(
+            rendered.starts_with("EventCellRule::Object(&["),
+            "{rendered}"
+        );
         assert!(rendered.contains("EventCellRuleKey::Const"), "{rendered}");
         assert!(
             rendered.contains("EventCellRuleOperator::FieldEquals"),

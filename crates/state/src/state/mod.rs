@@ -55,3 +55,28 @@ pub use verify::{
     resolve_projected_write, verify_accepted_control_move_in_context, verify_control_move,
     verify_control_move_in_context,
 };
+
+/// Whether a cell wire id names a family whose only exit from Bottom is
+/// `ak.conflict.recovery`.
+///
+/// `event-auth-state-resolution.md` section 9.3.1.4: where a write's own
+/// authorization or business precondition reads the cell, Bottom leaves nobody
+/// able to author an ordinary write, so recovery is the only way back. Every
+/// other `cas_register` family heals through an ordinary write that already
+/// holds authority for its action.
+///
+/// This is the `cas_register` half only. Every `fsm` family is in the same
+/// position by construction (section 9.3.1.7 item 2), and `ak.component.notary.v1`
+/// is deliberately absent, because verifying any Seal reads that cell so no
+/// recovery Seal for it could ever be accepted.
+#[must_use]
+pub fn is_sole_recovery_cell(cell_id: &str) -> bool {
+    crate::generated::sole_recovery_families::SOLE_RECOVERY_FAMILIES
+        .iter()
+        .any(|family| {
+            cell_id
+                .strip_prefix("ak:cell:")
+                .and_then(|rest| rest.strip_prefix(*family))
+                .is_some_and(|rest| rest.starts_with(':'))
+        })
+}

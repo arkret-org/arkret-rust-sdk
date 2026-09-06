@@ -2,17 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/identifiers/src/generated/digest_suite_codes.rs"
-      ],
-      "owner": "arkret-identifiers",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/digest-suite-registry.json"
-      ]
-    },
-    {
       "generator": "event-kinds",
       "outputs": [
         "crates/wire/src/generated/event_kinds.rs"
@@ -52,6 +41,93 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/identifiers/src/generated/digest_suite_codes.rs"
+      ],
+      "owner": "arkret-identifiers",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/digest-suite-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/lattice-registry/src/generated/contract_registry.rs"
+      ],
+      "owner": "arkret-lattice-registry",
+      "mode": "static-typed-descriptor",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/event_runtime_contracts.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/event-kind-registry.json",
+        "registry/id-kind-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/openapi_query.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "openapi-operation+component",
+      "artifacts": [
+        "openapi/arkret-service-api.openapi.yaml"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/registry_descriptors.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/schema-registry.json",
+        "registry/id-kind-registry.json",
+        "registry/capability-action-registry.json",
+        "registry/account-data-key-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/schema/src/generated/runtime_contracts.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/agent-runtime-scope-registry.json",
+        "registry/contract-registry.json",
+        "registry/operation-registry.json",
+        "registry/event-kind-registry.json",
+        "registry/schema-registry.json",
+        "registry/id-kind-registry.json",
+        "deployment-probes.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/state/src/generated/sole_recovery_families.rs"
+      ],
+      "owner": "arkret-state",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/wire/src/error_codes/error_code.rs",
         "crates/wire/src/error_codes/reason_code.rs"
       ],
@@ -62,25 +138,50 @@
       ]
     },
     {
-      "generator": "typed-profile-requirements",
+      "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/profile_requirements.rs"
+        "crates/wire/src/generated/account_data_keys.rs"
       ],
       "owner": "arkret-wire",
-      "mode": "descriptor",
+      "mode": "enum+descriptor",
       "artifacts": [
-        "profiles/conformance-profiles.json"
+        "registry/account-data-key-registry.json"
       ]
     },
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/operation_ids.rs"
+        "crates/wire/src/generated/authority_set_ids.rs"
       ],
       "owner": "arkret-wire",
-      "mode": "enum+descriptor",
+      "mode": "enum",
       "artifacts": [
-        "registry/operation-registry.json"
+        "registry/authority-set-policy-registry.json"
+      ],
+      "provides": [
+        "AuthoritySetId"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/authority_sources.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum",
+      "artifacts": [
+        "registry/authority-source-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/capability_actions.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum",
+      "artifacts": [
+        "registry/capability-action-registry.json"
       ]
     },
     {
@@ -101,17 +202,6 @@
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/schema_ids.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/schema-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
         "crates/wire/src/generated/closed_registry_types.rs"
       ],
       "owner": "arkret-wire",
@@ -125,74 +215,15 @@
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/account_data_keys.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/account-data-key-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/service_kinds.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/service-kind-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/relation_kinds.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/relation-kind-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/capability_actions.rs"
+        "crates/wire/src/generated/device_message_kinds.rs"
       ],
       "owner": "arkret-wire",
       "mode": "enum",
       "artifacts": [
-        "registry/capability-action-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/profile_ids.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "profiles/conformance-profiles.json"
+        "schemas/device-message.schema.json"
       ],
       "provides": [
-        "ProfileId",
-        "ProfileRole"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/reducer_profiles.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/reducer-profile-registry.json"
-      ],
-      "provides": [
-        "ReducerProfileId"
+        "ActorPrivateUpdateKind"
       ]
     },
     {
@@ -220,12 +251,15 @@
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/authority_sources.rs"
+        "crates/wire/src/generated/forbidden_wire_fields.rs"
       ],
       "owner": "arkret-wire",
-      "mode": "enum",
+      "mode": "registered+descriptor",
       "artifacts": [
-        "registry/authority-source-registry.json"
+        "registry/forbidden-wire-fields.json"
+      ],
+      "provides": [
+        "FORBIDDEN_WIRE_FIELDS"
       ]
     },
     {
@@ -237,6 +271,32 @@
       "mode": "descriptor",
       "artifacts": [
         "registry/history-recovery-scalability-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/operation_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/operation-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/profile_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "profiles/conformance-profiles.json"
+      ],
+      "provides": [
+        "ProfileId",
+        "ProfileRole"
       ]
     },
     {
@@ -273,15 +333,37 @@
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/forbidden_wire_fields.rs"
+        "crates/wire/src/generated/reducer_profiles.rs"
       ],
       "owner": "arkret-wire",
-      "mode": "registered+descriptor",
+      "mode": "enum+descriptor",
       "artifacts": [
-        "registry/forbidden-wire-fields.json"
+        "registry/reducer-profile-registry.json"
       ],
       "provides": [
-        "FORBIDDEN_WIRE_FIELDS"
+        "ReducerProfileId"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/relation_kinds.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/relation-kind-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
+        "crates/wire/src/generated/schema_ids.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/schema-registry.json"
       ]
     },
     {
@@ -319,94 +401,23 @@
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/device_message_kinds.rs"
+        "crates/wire/src/generated/service_kinds.rs"
       ],
       "owner": "arkret-wire",
-      "mode": "enum",
+      "mode": "enum+descriptor",
       "artifacts": [
-        "schemas/device-message.schema.json"
-      ],
-      "provides": [
-        "ActorPrivateUpdateKind"
+        "registry/service-kind-registry.json"
       ]
     },
     {
-      "generator": "spec-codegen",
+      "generator": "typed-profile-requirements",
       "outputs": [
-        "crates/wire/src/generated/authority_set_ids.rs"
+        "crates/wire/src/generated/profile_requirements.rs"
       ],
       "owner": "arkret-wire",
-      "mode": "enum",
+      "mode": "descriptor",
       "artifacts": [
-        "registry/authority-set-policy-registry.json"
-      ],
-      "provides": [
-        "AuthoritySetId"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/schema/src/generated/registry_descriptors.rs"
-      ],
-      "owner": "arkret-schema",
-      "mode": "registered+descriptor",
-      "artifacts": [
-        "registry/schema-registry.json",
-        "registry/id-kind-registry.json",
-        "registry/capability-action-registry.json",
-        "registry/account-data-key-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/schema/src/generated/runtime_contracts.rs"
-      ],
-      "owner": "arkret-schema",
-      "mode": "registered+descriptor",
-      "artifacts": [
-        "registry/agent-runtime-scope-registry.json",
-        "registry/contract-registry.json",
-        "registry/operation-registry.json",
-        "registry/event-kind-registry.json",
-        "registry/schema-registry.json",
-        "registry/id-kind-registry.json",
-        "deployment-probes.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/lattice-registry/src/generated/contract_registry.rs"
-      ],
-      "owner": "arkret-lattice-registry",
-      "mode": "static-typed-descriptor",
-      "artifacts": [
-        "registry/contract-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/schema/src/generated/event_runtime_contracts.rs"
-      ],
-      "owner": "arkret-schema",
-      "mode": "registered+descriptor",
-      "artifacts": [
-        "registry/event-kind-registry.json",
-        "registry/id-kind-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/schema/src/generated/openapi_query.rs"
-      ],
-      "owner": "arkret-schema",
-      "mode": "openapi-operation+component",
-      "artifacts": [
-        "openapi/arkret-service-api.openapi.yaml"
+        "profiles/conformance-profiles.json"
       ]
     }
   ]

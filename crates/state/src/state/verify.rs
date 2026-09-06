@@ -33,6 +33,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
 
+use super::is_sole_recovery_cell;
 use super::store::{BottomMode, CellRegistry, StoreError};
 use crate::lattice::CellState;
 use crate::{
@@ -378,7 +379,25 @@ where
             // claim/release/claim slot in the first place. The guard that does
             // the work is the identity comparison H_c(B) = H_c(P) at Seal
             // admission (item 3, `apply_seal`); registered business
-            // preconditions are still evaluated below like any other predicate.
+            // preconditions are still evaluated above like any other predicate.
+            //
+            // What Bottom costs the write does depend on the family (9.3.1.4).
+            // Where the write's own authorization or business precondition
+            // reads the cell, Bottom leaves nobody able to author an ordinary
+            // write, so only `ak.conflict.recovery` may move it. Every other
+            // `cas_register` family heals through an authorized ordinary write,
+            // so a Bottom target alone is not a rejection.
+            if binding.lattice.kind() == crate::lattice::LatticeKind::CasRegister
+                && effect.op.op_type == LatticeOpType::Set
+                && !matches!(write.op, ProjectedOp::Reset { .. })
+                && is_sole_recovery_cell(effect.cell_id.as_str())
+                && let Some(CellState::Bottom(bottom)) = pre_state.get(&effect.cell_id)
+            {
+                return Err(ControlMoveReject::FailedBottom {
+                    cell: effect.cell_id.as_str().to_owned(),
+                    kind: bottom.kind,
+                });
+            }
             // A §9.5.1 recovery answers to its own shape rule: on `fsm` it is a
             // transition with no `from`, which the ordinary check rejects.
             let shape = if effect.recovery_reset {
@@ -1459,6 +1478,72 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, ControlMoveReject::CapabilityDenied(_)));
+    }
+
+    #[test]
+    fn bottom_blocks_an_ordinary_write_only_on_a_sole_recovery_family() {
+        // Section 9.3.1.4: ak.mls.commit's base-epoch precondition reads the
+        // very cell it would have to heal, so the MLS epoch cell has no
+        // ordinary-write exit; ak.component.realm.policy.v1 is outside the list
+        // and heals through one.
+        let registry = MemoryCellRegistry::new();
+        for (cell_id, blocked) in [
+            ("ak:cell:ak.component.mls.epoch.v1:null", true),
+            ("ak:cell:ak.component.realm.policy.v1:null", false),
+        ] {
+            let cell = CellRef::new(cell_id.to_owned()).unwrap();
+            let mut op = LatticeOp::empty();
+            op.op_type = LatticeOpType::Set;
+            op.value = Some(json!({"disclosure": "required"}));
+            let write = ProjectedCellWrite {
+                cell_id: cell.clone(),
+                op: ProjectedOp::Direct(op),
+            };
+            let pre_state = BTreeMap::from([(
+                cell.clone(),
+                CellState::Bottom(arkret_wire::Bottom {
+                    kind: arkret_wire::BottomKind::Conflict,
+                    cell_ids: vec![cell.clone()],
+                    move_ids: Vec::new(),
+                    seal_view: None,
+                    head_ids: Vec::new(),
+                    details: None,
+                    escalated_at: None,
+                }),
+            )]);
+            let outcome = verify_control_move(
+                &control_move(vec![], vec![]),
+                &realm(),
+                &pre_state,
+                &registry,
+                ok_proofs,
+                project(vec![write]),
+            );
+            if blocked {
+                assert!(
+                    matches!(outcome, Err(ControlMoveReject::FailedBottom { .. })),
+                    "{cell_id} must have no ordinary-write exit, got {outcome:?}"
+                );
+            } else {
+                assert!(
+                    outcome.is_ok(),
+                    "{cell_id} must heal through an ordinary write"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn sole_recovery_cell_match_is_whole_family_segment() {
+        assert!(crate::state::is_sole_recovery_cell(
+            "ak:cell:ak.component.realm.authority_root.v1:null"
+        ));
+        assert!(!crate::state::is_sole_recovery_cell(
+            "ak:cell:ak.component.realm.authority_root.v1x:null"
+        ));
+        assert!(!crate::state::is_sole_recovery_cell(
+            "ak:cell:ak.component.notary.v1:null"
+        ));
     }
 
     #[test]

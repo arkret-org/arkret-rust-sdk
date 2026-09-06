@@ -5,7 +5,6 @@ use thiserror::Error;
 
 use crate::generated::{
     GENERATED_ACTOR_PRIVATE_FAMILIES, GENERATED_ACTOR_PRIVATE_WRITES, GENERATED_FSM_CONTRACTS,
-    GENERATED_SOLE_RECOVERY_FAMILIES,
 };
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -461,36 +460,6 @@ fn valid_revision_successor(
         && incoming.revision == current_revision.checked_add(1)
 }
 
-/// The cell families whose only exit from Bottom is `ak.conflict.recovery`.
-///
-/// `event-auth-state-resolution.md` section 9.3.1.4: a family whose write
-/// authorization or business precondition reads the cell itself leaves nobody
-/// able to author an ordinary write once it is in Bottom, so recovery is its
-/// only way back. Every other `cas_register` family heals through an ordinary
-/// write that already holds authority for its action.
-///
-/// This is the `cas_register` half only. Every `fsm` family is in the same
-/// position by construction -- section 9.3.1.7 item 2 makes an ordinary
-/// transition's `from` equal a settled value that does not exist under Bottom --
-/// and `ak.component.notary.v1` is deliberately absent, because verifying any
-/// Seal reads that cell so no recovery Seal for it can ever be accepted.
-///
-/// Generated from the registry; consumers MUST call this instead of repeating
-/// the list.
-pub fn sole_recovery_families() -> &'static [&'static str] {
-    GENERATED_SOLE_RECOVERY_FAMILIES
-}
-
-/// Whether a cell wire id names a family from [`sole_recovery_families`].
-pub fn is_sole_recovery_cell(cell_id: &str) -> bool {
-    GENERATED_SOLE_RECOVERY_FAMILIES.iter().any(|family| {
-        cell_id
-            .strip_prefix("ak:cell:")
-            .and_then(|rest| rest.strip_prefix(*family))
-            .is_some_and(|rest| rest.starts_with(':'))
-    })
-}
-
 pub fn canonical_fsm_contracts() -> Result<Vec<ResolvedFsmContract>, ContractRegistryError> {
     Ok(GENERATED_FSM_CONTRACTS
         .iter()
@@ -512,56 +481,5 @@ fn resolved_fsm_contract(generated: &GeneratedFsmContract) -> ResolvedFsmContrac
             .iter()
             .map(|(from, to)| (from.to_value(), to.to_value()))
             .collect(),
-    }
-}
-
-#[cfg(test)]
-mod sole_recovery_family_tests {
-    use super::*;
-
-    #[test]
-    fn list_is_the_registered_cas_register_half() {
-        let families = sole_recovery_families();
-        assert_eq!(families.len(), 7, "{families:?}");
-        assert!(families.contains(&"ak.component.realm.authority_root.v1"));
-        assert!(families.contains(&"ak.component.mls.epoch.v1"));
-        // Every fsm family is sole-recovery by construction (section 9.3.1.7
-        // item 2), so listing one here would suggest this is fsm's source of
-        // truth as well.
-        let fsm_families: Vec<&str> = GENERATED_FSM_CONTRACTS
-            .iter()
-            .map(|contract| contract.cell_family)
-            .collect();
-        for family in families {
-            assert!(!fsm_families.contains(family), "{family} is an fsm family");
-        }
-    }
-
-    #[test]
-    fn notary_cell_is_absent_because_it_has_no_exit_at_all() {
-        assert!(!sole_recovery_families().contains(&"ak.component.notary.v1"));
-        assert!(!is_sole_recovery_cell(
-            "ak:cell:ak.component.notary.v1:null"
-        ));
-    }
-
-    #[test]
-    fn cell_ids_match_on_the_whole_family_segment() {
-        assert!(is_sole_recovery_cell(
-            "ak:cell:ak.component.realm.authority_root.v1:null"
-        ));
-        assert!(is_sole_recovery_cell(
-            "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc"
-        ));
-        // A family that merely shares a prefix must not match.
-        assert!(!is_sole_recovery_cell(
-            "ak:cell:ak.component.realm.authority_root.v1x:null"
-        ));
-        assert!(!is_sole_recovery_cell(
-            "ak:cell:ak.component.realm.profile.v1:null"
-        ));
-        assert!(!is_sole_recovery_cell(
-            "ak.component.realm.authority_root.v1:null"
-        ));
     }
 }

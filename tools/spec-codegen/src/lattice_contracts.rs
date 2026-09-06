@@ -34,19 +34,16 @@ pub fn generate(inputs: &SpecInputs) -> Result<GeneratedOutput> {
     let registered = registered_cell_families(&inputs.event_kinds)?;
 
     let mut body = String::new();
-    let sole_recovery = resolve_sole_recovery_families(registry)?;
     render_actor_private_families(&mut body, families, &registered)?;
     render_actor_private_writes(&mut body, writes, families, &registered)?;
-    render_sole_recovery_families(&mut body, &sole_recovery, &registered);
     render_fsms(&mut body, &fsms, &registered);
 
     let mut output = header(
         &[&inputs.contracts_source],
         &format!(
-            "actor_private_families={}, actor_private_writes={}, sole_recovery_families={}, fsm_contracts={}",
+            "actor_private_families={}, actor_private_writes={}, fsm_contracts={}",
             families.len(),
             writes.len(),
-            sole_recovery.len(),
             fsms.len()
         ),
     );
@@ -80,10 +77,12 @@ fn registered_cell_families(registry: &EventKindRegistry) -> Result<BTreeSet<Str
         if event.status != "active" {
             continue;
         }
-        let families = event
-            .cell_family
-            .iter()
-            .chain(event.cell_writes.iter().filter_map(|write| write.cell_family.as_ref()));
+        let families = event.cell_family.iter().chain(
+            event
+                .cell_writes
+                .iter()
+                .filter_map(|write| write.cell_family.as_ref()),
+        );
         for family in families {
             if family.starts_with("ak.component.") {
                 registered.insert(family.clone());
@@ -98,7 +97,10 @@ fn registered_cell_families(registry: &EventKindRegistry) -> Result<BTreeSet<Str
 
 fn cell_family(family: &str, registered: &BTreeSet<String>) -> String {
     if registered.contains(family) {
-        format!("{CELL_FAMILY_ID}{}", associated_name(family, &["ak.component."]))
+        format!(
+            "{CELL_FAMILY_ID}{}",
+            associated_name(family, &["ak.component."])
+        )
     } else {
         rust_string(family)
     }
@@ -329,19 +331,38 @@ fn render_fsms(output: &mut String, fsms: &[ResolvedFsm], registered: &BTreeSet<
 /// move them. Generated so no consumer retypes the list; every `fsm` family is in
 /// the same position by construction (section 9.3.1.7 item 2) and is deliberately
 /// absent here, as is the notary cell, whose recovery Seal could never be accepted.
-fn render_sole_recovery_families(
-    output: &mut String,
-    families: &[String],
-    registered: &BTreeSet<String>,
-) {
-    output.push_str("pub(crate) const GENERATED_SOLE_RECOVERY_FAMILIES: &[&str] = &[
-");
-    for family in families {
-        writeln!(output, "    {},", cell_family(family, registered)).expect("write to String");
+pub fn generate_sole_recovery_families(inputs: &SpecInputs) -> Result<GeneratedOutput> {
+    let registry = object(&inputs.contracts.event_kind_registry, "event_kind_registry")?;
+    let families = resolve_sole_recovery_families(registry)?;
+    let registered = registered_cell_families(&inputs.event_kinds)?;
+    let mut body = String::new();
+    body.push_str(
+        "pub const SOLE_RECOVERY_FAMILIES: &[&str] = &[
+",
+    );
+    for family in &families {
+        writeln!(body, "    {},", cell_family(family, &registered)).expect("write to String");
     }
-    output.push_str("];
+    body.push_str(
+        "];
+",
+    );
+    let mut output = header(
+        &[&inputs.contracts_source],
+        &format!("sole_recovery_families={}", families.len()),
+    );
+    if body.contains(CELL_FAMILY_ID) {
+        output.push_str(
+            "use arkret_wire::CellFamilyId;
 
-");
+",
+        );
+    }
+    output.push_str(&body);
+    Ok(GeneratedOutput {
+        relative_path: "crates/state/src/generated/sole_recovery_families.rs".into(),
+        contents: output,
+    })
 }
 
 fn resolve_sole_recovery_families(registry: &Map<String, Value>) -> Result<Vec<String>> {

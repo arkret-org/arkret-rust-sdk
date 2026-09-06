@@ -274,11 +274,13 @@ fn validate_pre_state_condition(event_kind: &str, condition: &Value) -> Result<(
 }
 
 fn require_payload_path(event_kind: &str, kind: &str, field: &Value) -> Result<()> {
-    let path = field
-        .as_str()
-        .with_context(|| format!("{event_kind} pre-state condition {kind} field is not a string"))?;
+    let path = field.as_str().with_context(|| {
+        format!("{event_kind} pre-state condition {kind} field is not a string")
+    })?;
     if !path.starts_with("payload.") || path.ends_with('.') {
-        bail!("{event_kind} pre-state condition {kind} field {path} is not an explicit payload path");
+        bail!(
+            "{event_kind} pre-state condition {kind} field {path} is not an explicit payload path"
+        );
     }
     Ok(())
 }
