@@ -29,11 +29,13 @@ mod chunking;
 mod constants;
 mod generator_proof;
 pub(crate) mod merkle;
+mod restore;
 mod types;
 
 pub use chunking::*;
 pub use constants::*;
 pub use generator_proof::*;
+pub use restore::*;
 pub use merkle::{RealmStateSnapshotMerkleTree, format_hash, hash_leaf, hash_node, parse_sha256};
 pub use types::*;
 

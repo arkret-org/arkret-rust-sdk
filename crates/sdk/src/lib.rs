@@ -520,12 +520,7 @@ pub use identity::{
 pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "mls")]
 pub use mls::*;
-pub use resolver::{
-    REALM_STATE_SNAPSHOT_REDUCER_SCHEMA, RealmState, RealmStateSnapshotChunkManifest,
-    RealmStateSnapshotReducerManifest, RealmStateSnapshotRestore, RealmStateSnapshotRestoreSource,
-    RealmStateSnapshotSignature, RealmStateSnapshotState, merkle_root, state_merkle_root,
-    verify_realm_state_snapshot_chunks,
-};
+pub use resolver::RealmState;
 #[cfg(feature = "server")]
 pub use server::reject_query_auth;
 

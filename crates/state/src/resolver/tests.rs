@@ -5,6 +5,7 @@ use arkret_wire::{
 use serde_json::json;
 
 use super::*;
+use crate::canonical::sha256_digest;
 use crate::{EventRequirements, Hlc, RealmId};
 
 fn realm_id() -> RealmId {
@@ -109,10 +110,10 @@ fn realm_create_sets_the_single_canonical_reducer_profile() {
         .apply_event(&event(
             EventKind::RealmCreate,
             1,
-            json!({"object": {"reducer_profile": arkret_wire::CORE_REDUCER_PROFILE}}),
+            json!({"object": {"reducer_profile": CORE_REDUCER_PROFILE}}),
         ))
         .unwrap();
-    assert_eq!(state.reducer_profile, arkret_wire::CORE_REDUCER_PROFILE);
+    assert_eq!(state.reducer_profile, CORE_REDUCER_PROFILE);
 }
 
 #[test]
@@ -993,57 +994,6 @@ fn message_revision_redaction_and_reaction_converge() {
         ))
         .unwrap();
     assert!(reaction.active);
-}
-
-#[test]
-fn snapshot_manifest_tracks_state_digest_and_merkle_root() {
-    let event = morph_event(9, "Snapshot task");
-    let mut state = RealmState::new(realm_id());
-
-    state.apply_events(std::slice::from_ref(&event)).unwrap();
-    let snapshot = state.snapshot().unwrap();
-    let manifest = snapshot.manifest.as_ref().unwrap();
-
-    assert_eq!(manifest.schema, REALM_STATE_SNAPSHOT_REDUCER_SCHEMA);
-    assert_eq!(manifest.reducer_profile, CORE_REDUCER_PROFILE);
-    assert_eq!(manifest.state_digest, snapshot.state_digest);
-    assert_eq!(manifest.merkle_root, snapshot.state_merkle_root().unwrap());
-    snapshot.verify().unwrap();
-}
-
-#[test]
-fn merkle_root_preserves_caller_leaf_order() {
-    let a = merkle_root(vec![
-        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-    ])
-    .unwrap();
-    let b = merkle_root(vec![
-        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-    ])
-    .unwrap();
-
-    assert_ne!(a, b);
-}
-
-#[test]
-fn merkle_root_promotes_odd_tail_without_duplication() {
-    let three = merkle_root(vec![
-        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
-    ])
-    .unwrap();
-    let duplicate_tail = merkle_root(vec![
-        "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_owned(),
-        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb".to_owned(),
-        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
-        "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc".to_owned(),
-    ])
-    .unwrap();
-
-    assert_ne!(three, duplicate_tail);
 }
 
 #[test]

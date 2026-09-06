@@ -1,7 +1,7 @@
 use arkret_event_draft::EventPayloadExt;
 use arkret_wire::{SchemaId, event_spec};
 
-use super::super::realm_state_snapshot::{
+use super::super::resolved_values::{
     patch_fields, patch_state, patch_string, space_state_from_str,
 };
 use super::super::*;

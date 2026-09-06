@@ -1,6 +1,5 @@
 use arkret_wire::EventKind;
 
-use super::realm_state_snapshot::{StateHashInput, state_digest_payload, state_merkle_root};
 use super::*;
 
 mod events;
@@ -279,62 +278,5 @@ impl RealmState {
                 | arkret_wire::event_kind_str::REALM_DESTROY
                 | arkret_wire::event_kind_str::REDACTION
         )
-    }
-
-    /// Create a state snapshot at the current point. Fails when the manifest
-    /// Merkle root cannot be computed (fail-closed: no placeholder manifest).
-    pub fn snapshot(&self) -> Result<RealmStateSnapshotState> {
-        let mut snapshot = RealmStateSnapshotState {
-            realm_id: self.realm_id.clone(),
-            reducer_profile: self.reducer_profile.clone(),
-            frontier: self.frontier.clone(),
-            subjects: self.subjects.clone(),
-            morphs: self.morphs.clone(),
-            spaces: self.spaces.clone(),
-            relations: self.relations.clone(),
-            resolved_state: self.resolved_state.clone(),
-            messages: self.messages.clone(),
-            reactions: self.reactions.clone(),
-            state_digest: self.compute_state_digest(),
-            snapshot_timestamp: chrono::Utc::now(),
-            tombstone_event_id: self.tombstone_event_id.clone(),
-            manifest: None,
-        };
-        snapshot.manifest = Some(snapshot.manifest()?);
-        Ok(snapshot)
-    }
-
-    /// Compute state hash for verification.
-    pub fn compute_state_digest(&self) -> String {
-        canonical_sha256(&state_digest_payload(StateHashInput {
-            realm_id: &self.realm_id,
-            reducer_profile: &self.reducer_profile,
-            frontier: &self.frontier,
-            subjects: &self.subjects,
-            morphs: &self.morphs,
-            spaces: &self.spaces,
-            relations: &self.relations,
-            resolved_state: &self.resolved_state,
-            messages: &self.messages,
-            reactions: &self.reactions,
-            tombstone_event_id: &self.tombstone_event_id,
-        }))
-        .unwrap_or_else(|_| sha256_digest(format!("{:?}", self.frontier)))
-    }
-
-    pub fn state_merkle_root(&self) -> Result<String> {
-        state_merkle_root(&state_digest_payload(StateHashInput {
-            realm_id: &self.realm_id,
-            reducer_profile: &self.reducer_profile,
-            frontier: &self.frontier,
-            subjects: &self.subjects,
-            morphs: &self.morphs,
-            spaces: &self.spaces,
-            relations: &self.relations,
-            resolved_state: &self.resolved_state,
-            messages: &self.messages,
-            reactions: &self.reactions,
-            tombstone_event_id: &self.tombstone_event_id,
-        }))
     }
 }
