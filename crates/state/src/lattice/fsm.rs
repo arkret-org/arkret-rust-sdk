@@ -93,8 +93,9 @@ pub fn membership_transition_heads_into(
             bad.move_id.as_str()
         ));
     }
-    let heads = fsm_heads(&sealed)
-        .map_err(|_| "one membership write identity carries two different transitions".to_owned())?;
+    let heads = fsm_heads(&sealed).map_err(|_| {
+        "one membership write identity carries two different transitions".to_owned()
+    })?;
     let settled = heads.first().map(|head| &head.value);
     if heads.iter().any(|head| Some(&head.value) != settled) {
         // `⊥`: the cell resolves to no state at all, so it resolves to no
@@ -686,12 +687,23 @@ mod causal_regression_tests {
         // Two writers converging on one transition keep **both** identities:
         // the state is one, the writes are two, and a caller that needs exactly
         // one must fail closed rather than take the first.
-        let converged = vec![issued(1, "leave", "join", &[]), issued(2, "leave", "join", &[])];
-        assert_eq!(membership_transition_heads_into(&converged, "join").unwrap().len(), 2);
+        let converged = vec![
+            issued(1, "leave", "join", &[]),
+            issued(2, "leave", "join", &[]),
+        ];
+        assert_eq!(
+            membership_transition_heads_into(&converged, "join")
+                .unwrap()
+                .len(),
+            2
+        );
 
         // A genuine sibling with a different `to` puts the cell in `⊥`, so it
         // resolves to no target at all.
-        let sibling = vec![issued(1, "leave", "join", &[]), issued(2, "leave", "ban", &[])];
+        let sibling = vec![
+            issued(1, "leave", "join", &[]),
+            issued(2, "leave", "ban", &[]),
+        ];
         assert!(
             membership_transition_heads_into(&sibling, "join")
                 .unwrap()

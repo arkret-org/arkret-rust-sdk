@@ -239,7 +239,10 @@ impl CoveredEventSet {
         leaf_index: usize,
         audit_path: &[Hash],
     ) -> ValidationResult<()> {
-        if !matches!(self.algorithm, EventSetCommitmentAlgorithm::MerkleEventSetV1) {
+        if !matches!(
+            self.algorithm,
+            EventSetCommitmentAlgorithm::MerkleEventSetV1
+        ) {
             return Err(inclusion_proof_failed(format!(
                 "{:?} commits the whole sorted entry array and has no per-entry audit path",
                 self.algorithm
@@ -351,9 +354,12 @@ where
     F: FnOnce(&DidUrl, &[u8], &str) -> Result<(), String>,
 {
     let chunks = verify_manifest_and_chunks(manifest, chunk_bytes, options, verify_issuer_jws)?;
-    let state_digest =
-        state_digest_from_chunk_payloads(&chunks, &manifest.reducer_profile, digest_suite(manifest)?)
-            .map_err(|error| schema_violation(error.to_string()))?;
+    let state_digest = state_digest_from_chunk_payloads(
+        &chunks,
+        &manifest.reducer_profile,
+        digest_suite(manifest)?,
+    )
+    .map_err(|error| schema_violation(error.to_string()))?;
     if state_digest != manifest.state_digest {
         return Err(digest_mismatch(format!(
             "chunks recompute state_digest {state_digest}; the manifest commits {}",
@@ -392,7 +398,8 @@ where
             }
         }
         for record in &chunk.conflict_records {
-            if let super::types::RealmStateSnapshotConflictRecord::BottomCell { cell_ref } = record {
+            if let super::types::RealmStateSnapshotConflictRecord::BottomCell { cell_ref } = record
+            {
                 bottom_cells.insert(cell_ref.clone());
             }
         }
@@ -503,8 +510,10 @@ where
     let mut payloads = Vec::with_capacity(chunk_bytes.len());
     for (position, (descriptor, bytes)) in manifest.chunks.iter().zip(chunk_bytes).enumerate() {
         verify_realm_state_snapshot_chunk_bytes(descriptor, bytes)?;
-        let payload: RealmStateSnapshotChunkPayload = serde_json::from_slice(bytes)
-            .map_err(|error| schema_violation(format!("chunk {position} does not parse: {error}")))?;
+        let payload: RealmStateSnapshotChunkPayload =
+            serde_json::from_slice(bytes).map_err(|error| {
+                schema_violation(format!("chunk {position} does not parse: {error}"))
+            })?;
         if payload.realm_state_snapshot_ref != manifest.id {
             return Err(schema_violation(format!(
                 "chunk {position} names snapshot {}; the manifest is {}",
@@ -575,7 +584,11 @@ fn verify_auxiliary_list_digests(
     let suite = arkret_canonical::DigestSuite::Sha256;
     let hints = manifest.verification_hints.as_ref();
     let has_erasure_stubs = chunks.iter().any(|chunk| !chunk.erasure_stubs.is_empty());
-    if has_erasure_stubs && hints.and_then(|hints| hints.erasure_stubs_digest.as_ref()).is_none() {
+    if has_erasure_stubs
+        && hints
+            .and_then(|hints| hints.erasure_stubs_digest.as_ref())
+            .is_none()
+    {
         // §3: erased cells are not leaves, so this digest is their only
         // commitment and is mandatory once any chunk carries one.
         return Err(schema_violation(

@@ -4,9 +4,7 @@ use serde_json::Value;
 
 use super::{merkle, *};
 use crate::lattice::cas_register::CasHead;
-use crate::{
-    CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId,
-};
+use crate::{CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId};
 
 fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
@@ -920,7 +918,8 @@ fn spec_snapshot_state_digest_fixture_replays() {
 
 // ── Restore (consumer side) ────────────────────────────────────────
 
-const INVITE_LIVE_TARGET_CELL: &str = "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc";
+const INVITE_LIVE_TARGET_CELL: &str =
+    "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc";
 
 fn cas_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMaterializedItem {
     let heads = heads
@@ -1042,9 +1041,13 @@ fn restore_rejects_a_state_digest_the_chunks_do_not_reproduce() {
 fn restore_rejects_a_signature_bound_to_another_transcript() {
     let (mut manifest, chunk_bytes, _) = restore_fixture();
     manifest.signature.payload_digest = hash(3);
-    let error =
-        restore_realm_state_snapshot(&manifest, &chunk_bytes, &restore_options(), |_, _, _| Ok(()))
-            .unwrap_err();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        |_, _, _| Ok(()),
+    )
+    .unwrap_err();
     assert_eq!(
         error.code,
         RealmStateSnapshotValidationCode::SignatureInvalid
@@ -1056,13 +1059,11 @@ fn restore_rejects_a_signature_bound_to_another_transcript() {
 #[test]
 fn restore_propagates_a_failed_issuer_signature() {
     let (manifest, chunk_bytes, _) = restore_fixture();
-    let error = restore_realm_state_snapshot(
-        &manifest,
-        &chunk_bytes,
-        &restore_options(),
-        |_, _, _| Err("verification method is revoked".to_owned()),
-    )
-    .unwrap_err();
+    let error =
+        restore_realm_state_snapshot(&manifest, &chunk_bytes, &restore_options(), |_, _, _| {
+            Err("verification method is revoked".to_owned())
+        })
+        .unwrap_err();
     assert_eq!(
         error.code,
         RealmStateSnapshotValidationCode::SignatureInvalid
@@ -1109,7 +1110,10 @@ fn restore_rejects_a_chunk_belonging_to_another_snapshot() {
         accepting_issuer_verifier(transcript),
     )
     .unwrap_err();
-    assert_eq!(error.code, RealmStateSnapshotValidationCode::SchemaViolation);
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SchemaViolation
+    );
 }
 
 /// §5: a snapshot outside `realm_state_snapshot_max_acceptance_age_ms` is
@@ -1403,7 +1407,10 @@ fn covered_set_refuses_per_entry_proofs_under_the_ordered_algorithm() {
 /// them would read them as never written. Both survive the restore.
 #[test]
 fn restore_carries_bottom_cells_and_erasure_stubs() {
-    let items = vec![cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"))];
+    let items = vec![cell_item(
+        STRAND_LIFECYCLE_CELL,
+        serde_json::json!("active"),
+    )];
     let bottom = CellRef::new(MESSAGE_REACTIONS_CELL.to_owned()).unwrap();
     let erased = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
@@ -1491,7 +1498,10 @@ fn restore_carries_bottom_cells_and_erasure_stubs() {
 /// An erasure stub is a substitute for a leaf, not an annotation beside one.
 #[test]
 fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
-    let items = vec![cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"))];
+    let items = vec![cell_item(
+        STRAND_LIFECYCLE_CELL,
+        serde_json::json!("active"),
+    )];
     let cell = CellRef::new(STRAND_LIFECYCLE_CELL.to_owned()).unwrap();
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
         &snapshot_v1_id(),
@@ -1538,14 +1548,20 @@ fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
         accepting_issuer_verifier(transcript),
     )
     .unwrap_err();
-    assert_eq!(error.code, RealmStateSnapshotValidationCode::SchemaViolation);
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SchemaViolation
+    );
 }
 
 /// §3 makes `erasure_stubs_digest` mandatory once any chunk carries a stub: it
 /// is the only commitment an erased cell has.
 #[test]
 fn restore_rejects_erasure_stubs_with_no_commitment() {
-    let items = vec![cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"))];
+    let items = vec![cell_item(
+        STRAND_LIFECYCLE_CELL,
+        serde_json::json!("active"),
+    )];
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
         &snapshot_v1_id(),
         CORE_REDUCER_PROFILE,
@@ -1575,7 +1591,10 @@ fn restore_rejects_erasure_stubs_with_no_commitment() {
         accepting_issuer_verifier(transcript),
     )
     .unwrap_err();
-    assert_eq!(error.code, RealmStateSnapshotValidationCode::SchemaViolation);
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SchemaViolation
+    );
     assert!(format!("{error}").contains("erasure_stubs_digest"));
 }
 

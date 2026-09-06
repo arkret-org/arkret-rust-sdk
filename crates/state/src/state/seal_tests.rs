@@ -1686,7 +1686,10 @@ async fn effective_state_preserves_cross_seal_fsm_order() {
             &[
                 (
                     cell.clone(),
-                    issued(SealedOp::new(join_id.clone(), transition("invited", "join"))),
+                    issued(SealedOp::new(
+                        join_id.clone(),
+                        transition("invited", "join"),
+                    )),
                 ),
                 (
                     cell.clone(),
@@ -2473,7 +2476,10 @@ async fn one_move_covered_by_two_seals_is_one_head_not_a_sibling_pair() {
             .append_sealed_effects(
                 &realm,
                 &seal.id,
-                &[(cell.clone(), cas_write(0x71, json!({"policy_revision": 1}), &[]))],
+                &[(
+                    cell.clone(),
+                    cas_write(0x71, json!({"policy_revision": 1}), &[]),
+                )],
             )
             .await
             .unwrap();
@@ -2531,7 +2537,10 @@ async fn one_move_with_two_effects_across_seals_fails_closed() {
         .append_sealed_effects(
             &realm,
             &seal_a.id,
-            &[(cell.clone(), cas_write(0x71, json!({"policy_revision": 1}), &[]))],
+            &[(
+                cell.clone(),
+                cas_write(0x71, json!({"policy_revision": 1}), &[]),
+            )],
         )
         .await
         .unwrap();
@@ -2539,21 +2548,18 @@ async fn one_move_with_two_effects_across_seals_fails_closed() {
         .append_sealed_effects(
             &realm,
             &seal_b.id,
-            &[(cell.clone(), cas_write(0x71, json!({"policy_revision": 2}), &[]))],
+            &[(
+                cell.clone(),
+                cas_write(0x71, json!({"policy_revision": 2}), &[]),
+            )],
         )
         .await
         .unwrap();
     seals.put(&seal_a, SUITE).await.unwrap();
     seals.put(&seal_b, SUITE).await.unwrap();
 
-    let rejected = effective_cas_heads_at(
-        &[seal_a.id, seal_b.id],
-        &realm,
-        &seals,
-        &cells,
-        &registry,
-    )
-    .await;
+    let rejected =
+        effective_cas_heads_at(&[seal_a.id, seal_b.id], &realm, &seals, &cells, &registry).await;
     assert!(
         rejected.is_err(),
         "one identity with two effects must not be resolved by picking one"
@@ -2607,12 +2613,18 @@ async fn interleaved_multi_cell_writes_keep_independent_head_sets() {
     .await
     .unwrap();
     assert_eq!(
-        heads.get(&left).map(|h| h.iter().map(|head| head.move_id.clone()).collect::<Vec<_>>()),
+        heads.get(&left).map(|h| h
+            .iter()
+            .map(|head| head.move_id.clone())
+            .collect::<Vec<_>>()),
         Some(vec![move_id(0x83)]),
         "the successor on `left` retires only its own cell's write"
     );
     assert_eq!(
-        heads.get(&right).map(|h| h.iter().map(|head| head.move_id.clone()).collect::<Vec<_>>()),
+        heads.get(&right).map(|h| h
+            .iter()
+            .map(|head| head.move_id.clone())
+            .collect::<Vec<_>>()),
         Some(vec![move_id(0x82)]),
         "`right` never saw a superseder, so its first write is still the head"
     );
@@ -2626,8 +2638,14 @@ async fn interleaved_multi_cell_writes_keep_independent_head_sets() {
     )
     .await
     .unwrap();
-    assert_eq!(state.get(&left).cloned(), Some(CellState::Value(json!("left-2"))));
-    assert_eq!(state.get(&right).cloned(), Some(CellState::Value(json!("right-1"))));
+    assert_eq!(
+        state.get(&left).cloned(),
+        Some(CellState::Value(json!("left-2")))
+    );
+    assert_eq!(
+        state.get(&right).cloned(),
+        Some(CellState::Value(json!("right-1")))
+    );
 }
 
 /// §9.5 drops every op at or before the last recovery reset, so the reset is a
@@ -2734,8 +2752,12 @@ fn forged_head_leaf(cell: &CellRef, heads: &[crate::lattice::cas_register::CasHe
             })
         })
         .collect::<Vec<_>>();
-    crate::state::state_root::state_leaf_hash_from_state_object(cell, json!({"heads": entries}), SUITE)
-        .unwrap()
+    crate::state::state_root::state_leaf_hash_from_state_object(
+        cell,
+        json!({"heads": entries}),
+        SUITE,
+    )
+    .unwrap()
 }
 
 /// A `state_root` inclusion proof commits the whole head set, not the settled
@@ -2759,7 +2781,8 @@ async fn a_forged_head_set_does_not_verify_against_the_state_root() {
     let heads = CasHeadsByCell::from([(cell.clone(), genuine.clone())]);
     let root = super::compute_state_root(GovernanceView::new(&state, &heads), SUITE).unwrap();
     let proof =
-        crate::state::state_inclusion_proof(GovernanceView::new(&state, &heads), &cell, SUITE).unwrap();
+        crate::state::state_inclusion_proof(GovernanceView::new(&state, &heads), &cell, SUITE)
+            .unwrap();
     assert!(
         crate::state::verify_state_inclusion_proof(
             &proof.leaf_digest,

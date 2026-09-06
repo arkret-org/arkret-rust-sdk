@@ -1400,10 +1400,7 @@ fn seal_is_ancestor(
 /// `ak.component.agent.status.v1` is an `fsm` (§9.3.1.5), so its leaf hashes
 /// `{"heads":[…]}`. [`verify_witness_branch`] stays as it is for the `or_set`
 /// key cells, whose leaf really is the value.
-fn verify_lifecycle_branch(
-    lifecycle: &AgentLifecycleWitness,
-    settled: &Value,
-) -> bool {
+fn verify_lifecycle_branch(lifecycle: &AgentLifecycleWitness, settled: &Value) -> bool {
     let Ok(cell_ref) = CellRef::new(lifecycle.cell_ref.as_str().to_owned()) else {
         return false;
     };

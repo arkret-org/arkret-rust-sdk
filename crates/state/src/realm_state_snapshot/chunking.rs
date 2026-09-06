@@ -334,7 +334,10 @@ pub fn event_set_root(
 /// index a caller reads off the sorted list is the index the branch proves.
 pub fn event_set_merkle_tree(
     entries: &[EventSetLeaf],
-) -> Result<(Vec<EventSetLeaf>, super::merkle::RealmStateSnapshotMerkleTree)> {
+) -> Result<(
+    Vec<EventSetLeaf>,
+    super::merkle::RealmStateSnapshotMerkleTree,
+)> {
     let sorted = sorted_event_set_entries(entries);
     let mut leaves = Vec::with_capacity(sorted.len());
     for entry in &sorted {

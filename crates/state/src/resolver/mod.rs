@@ -16,8 +16,7 @@ use arkret_wire::CORE_REDUCER_PROFILE;
 use serde_json::Value;
 
 use crate::{
-    Event, EventId, Morph, RealmId, Relation, RelationId, Result, Space, SpaceId, Strand,
-    WireError,
+    Event, EventId, Morph, RealmId, Relation, RelationId, Result, Space, SpaceId, Strand, WireError,
 };
 
 mod resolved_values;

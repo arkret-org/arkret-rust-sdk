@@ -885,4 +885,3 @@ pub struct RealmStateSnapshotVerifyReport {
     pub chunk_count: usize,
     pub state_digest: Hash,
 }
-

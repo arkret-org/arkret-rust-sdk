@@ -24,8 +24,8 @@ mod types;
 
 pub use chunking::*;
 pub use constants::*;
-pub use restore::*;
 pub use merkle::{RealmStateSnapshotMerkleTree, format_hash, hash_leaf, hash_node, parse_sha256};
+pub use restore::*;
 pub use types::*;
 
 #[cfg(test)]
