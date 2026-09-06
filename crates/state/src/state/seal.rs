@@ -1016,7 +1016,6 @@ pub async fn verify_recovery_witness(
         // where the cell still resolved cleanly is repairing something it never
         // saw. (Item 3's `H_c(B) = H_c(P)` guard runs separately in `apply_seal`
         // and is what rejects a recovery whose branch set has since moved on.)
-        eprintln!("DEBUG basis cell = {:?}", basis_view.cells.get(&reset.cell_id));
         if !matches!(
             basis_view.cells.get(&reset.cell_id),
             Some(CellState::Bottom(_))
