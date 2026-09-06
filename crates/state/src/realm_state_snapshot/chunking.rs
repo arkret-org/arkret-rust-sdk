@@ -6,9 +6,8 @@ use super::constants::{
 };
 use super::merkle::{build_levels, sha256_digest};
 use super::types::{
-    BuiltRealmStateRealmStateSnapshotChunk, EventSetCommitment, EventSetCommitmentAlgorithm,
-    EventSetLeaf, RealmStateRealmStateSnapshotChunkDescriptor,
-    RealmStateRealmStateSnapshotChunkPayload, RealmStateSnapshotChunk,
+    BuiltRealmStateSnapshotChunk, EventSetCommitment, EventSetCommitmentAlgorithm, EventSetLeaf,
+    RealmStateSnapshotChunk, RealmStateSnapshotChunkDescriptor, RealmStateSnapshotChunkPayload,
     RealmStateSnapshotConflictRecord, RealmStateSnapshotMaterializedItem,
     RealmStateSnapshotValidationCode, RealmStateSnapshotValidationError, SnapshotErasureStub,
     SnapshotNonAcceptedInput,
@@ -18,13 +17,13 @@ use crate::{BlobRef, Hash, RealmStateSnapshotId, Result, WireError};
 /// Deterministic snapshot chunker. Same input always produces the same
 /// chunk layout, regardless of implementation.
 #[derive(Clone, Debug)]
-pub struct RealmStateRealmStateSnapshotChunker {
+pub struct RealmStateSnapshotChunker {
     /// Target bytes per chunk. The last chunk may be smaller; all
     /// non-final chunks are exactly this size. Must be > 0.
     pub target_chunk_bytes: usize,
 }
 
-impl Default for RealmStateRealmStateSnapshotChunker {
+impl Default for RealmStateSnapshotChunker {
     fn default() -> Self {
         Self {
             target_chunk_bytes: DEFAULT_REALM_STATE_SNAPSHOT_CHUNK_BYTES,
@@ -32,11 +31,11 @@ impl Default for RealmStateRealmStateSnapshotChunker {
     }
 }
 
-impl RealmStateRealmStateSnapshotChunker {
+impl RealmStateSnapshotChunker {
     pub fn new(target_chunk_bytes: usize) -> Result<Self> {
         if target_chunk_bytes == 0 {
             return Err(WireError::Protocol(
-                "RealmStateRealmStateSnapshotChunker target_chunk_bytes must be > 0".to_owned(),
+                "RealmStateSnapshotChunker target_chunk_bytes must be > 0".to_owned(),
             ));
         }
         Ok(Self { target_chunk_bytes })
@@ -63,7 +62,7 @@ impl RealmStateRealmStateSnapshotChunker {
 }
 
 pub fn realm_state_snapshot_chunk_payload_bytes(
-    payload: &RealmStateRealmStateSnapshotChunkPayload,
+    payload: &RealmStateSnapshotChunkPayload,
 ) -> Result<Vec<u8>> {
     Ok(crate::canonical::canonical_json_bytes(payload)?)
 }
@@ -84,7 +83,7 @@ pub fn build_realm_state_snapshot_chunks(
     reducer_profile: &str,
     items: Vec<RealmStateSnapshotMaterializedItem>,
     target_chunk_bytes: usize,
-) -> Result<Vec<BuiltRealmStateRealmStateSnapshotChunk>> {
+) -> Result<Vec<BuiltRealmStateSnapshotChunk>> {
     build_realm_state_snapshot_chunks_with_auxiliary_lists(
         realm_state_snapshot_ref,
         reducer_profile,
@@ -106,7 +105,7 @@ pub fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
     mut items: Vec<RealmStateSnapshotMaterializedItem>,
     target_chunk_bytes: usize,
     auxiliary: SnapshotAuxiliaryLists,
-) -> Result<Vec<BuiltRealmStateRealmStateSnapshotChunk>> {
+) -> Result<Vec<BuiltRealmStateSnapshotChunk>> {
     if target_chunk_bytes == 0 {
         return Err(WireError::Protocol(
             "snapshot target_chunk_bytes must be > 0".to_owned(),
@@ -119,7 +118,7 @@ pub fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
                    items: Vec<RealmStateSnapshotMaterializedItem>,
                    auxiliary: Option<SnapshotAuxiliaryLists>| {
         let auxiliary = auxiliary.unwrap_or_default();
-        RealmStateRealmStateSnapshotChunkPayload {
+        RealmStateSnapshotChunkPayload {
             chunk_kind: REALM_STATE_SNAPSHOT_CHUNK_TYPE.to_owned(),
             realm_state_snapshot_ref: realm_state_snapshot_ref.clone(),
             index: index as u32,
@@ -203,7 +202,7 @@ pub fn state_digest_from_items_with_digest_suite(
 /// with no duplicate. Nothing is reordered on the consumer's behalf — an
 /// unsorted or duplicated item set is a malformed snapshot, not a hint.
 pub fn state_digest_from_chunk_payloads(
-    chunks: &[RealmStateRealmStateSnapshotChunkPayload],
+    chunks: &[RealmStateSnapshotChunkPayload],
     expected_reducer_profile: &str,
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
@@ -297,7 +296,7 @@ pub fn realm_state_snapshot_auxiliary_list_digest<'a, T: Serialize + 'a>(
 
 /// `verification_hints.conflict_records_digest` over delivered chunks.
 pub fn realm_state_snapshot_conflict_records_digest(
-    chunks: &[RealmStateRealmStateSnapshotChunkPayload],
+    chunks: &[RealmStateSnapshotChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
     realm_state_snapshot_auxiliary_list_digest(
@@ -310,7 +309,7 @@ pub fn realm_state_snapshot_conflict_records_digest(
 
 /// `verification_hints.soft_failed_digest` over delivered chunks.
 pub fn realm_state_snapshot_soft_failed_digest(
-    chunks: &[RealmStateRealmStateSnapshotChunkPayload],
+    chunks: &[RealmStateSnapshotChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
     realm_state_snapshot_auxiliary_list_digest(
@@ -321,7 +320,7 @@ pub fn realm_state_snapshot_soft_failed_digest(
 
 /// `verification_hints.quarantined_digest` over delivered chunks.
 pub fn realm_state_snapshot_quarantined_digest(
-    chunks: &[RealmStateRealmStateSnapshotChunkPayload],
+    chunks: &[RealmStateSnapshotChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
     realm_state_snapshot_auxiliary_list_digest(
@@ -332,7 +331,7 @@ pub fn realm_state_snapshot_quarantined_digest(
 
 /// `verification_hints.erasure_stubs_digest` over delivered chunks.
 pub fn realm_state_snapshot_erasure_stubs_digest(
-    chunks: &[RealmStateRealmStateSnapshotChunkPayload],
+    chunks: &[RealmStateSnapshotChunkPayload],
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
     realm_state_snapshot_auxiliary_list_digest(
@@ -389,7 +388,7 @@ pub fn merkle_root_from_hashes(leaves: Vec<Hash>) -> Result<Hash> {
 }
 
 pub fn verify_realm_state_snapshot_chunk_bytes(
-    descriptor: &RealmStateRealmStateSnapshotChunkDescriptor,
+    descriptor: &RealmStateSnapshotChunkDescriptor,
     bytes: &[u8],
 ) -> std::result::Result<(), RealmStateSnapshotValidationError> {
     if bytes.len() as u64 != descriptor.size_bytes {
@@ -437,15 +436,15 @@ fn ensure_unique_realm_state_snapshot_items(
 }
 
 fn build_chunk_descriptor(
-    payload: RealmStateRealmStateSnapshotChunkPayload,
-) -> Result<BuiltRealmStateRealmStateSnapshotChunk> {
+    payload: RealmStateSnapshotChunkPayload,
+) -> Result<BuiltRealmStateSnapshotChunk> {
     let canonical_bytes = realm_state_snapshot_chunk_payload_bytes(&payload)?;
     let digest = sha256_digest(&canonical_bytes);
-    let descriptor = RealmStateRealmStateSnapshotChunkDescriptor {
+    let descriptor = RealmStateSnapshotChunkDescriptor {
         chunk_ref: BlobRef::new(format!("ak:blob:{digest}")).map_err(WireError::from)?,
         size_bytes: canonical_bytes.len() as u64,
     };
-    Ok(BuiltRealmStateRealmStateSnapshotChunk {
+    Ok(BuiltRealmStateSnapshotChunk {
         payload,
         canonical_bytes,
         descriptor,

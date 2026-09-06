@@ -712,13 +712,13 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmStateSnapshotFrontierValue",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotFrontierValue",
       "schema": "realm-state-snapshot.schema.json#/properties/frontier",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmStateSnapshotWitnessAttestationItem",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotWitnessAttestationItem",
       "schema": "realm-state-snapshot.schema.json#/$defs/realm_state_snapshot_witness_attestation"
     },
     {

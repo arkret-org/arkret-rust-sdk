@@ -7,10 +7,10 @@
 //!
 //! The v1 snapshot model uses three primitives:
 //!
-//! - [`RealmStateRealmStateSnapshotChunker`] — deterministically partitions a serialized snapshot
-//!   blob into fixed-size byte ranges, each addressable by an ordinal `chunk_id` starting at 0.
-//!   Boundaries are at exact byte offsets (`target_chunk_bytes`) so two implementations always
-//!   produce the same chunk layout for the same input.
+//! - [`RealmStateSnapshotChunker`] — deterministically partitions a serialized snapshot blob into
+//!   fixed-size byte ranges, each addressable by an ordinal `chunk_id` starting at 0. Boundaries
+//!   are at exact byte offsets (`target_chunk_bytes`) so two implementations always produce the
+//!   same chunk layout for the same input.
 //! - [`RealmStateSnapshotMerkleTree`] — a binary Merkle tree over chunk digests keyed by
 //!   `chunk_id`. RFC 6962-style audit paths let receivers verify a single chunk's leaf hash against
 //!   the root using just `O(log n)` sibling hashes.

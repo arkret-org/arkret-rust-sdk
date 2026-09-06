@@ -42,7 +42,7 @@ fn manifest_for_items(
     items: Vec<RealmStateSnapshotMaterializedItem>,
 ) -> (
     RealmStateSnapshotManifest,
-    Vec<RealmStateRealmStateSnapshotChunkPayload>,
+    Vec<RealmStateSnapshotChunkPayload>,
     Vec<Vec<u8>>,
 ) {
     let state_digest = state_digest_from_items(&items).unwrap();
@@ -105,19 +105,19 @@ fn manifest_for_items(
 
 #[test]
 fn chunker_zero_target_rejected() {
-    let err = RealmStateRealmStateSnapshotChunker::new(0).unwrap_err();
+    let err = RealmStateSnapshotChunker::new(0).unwrap_err();
     assert!(format!("{err}").contains("target_chunk_bytes must be > 0"));
 }
 
 #[test]
 fn chunker_empty_input_yields_empty() {
-    let c = RealmStateRealmStateSnapshotChunker::default();
+    let c = RealmStateSnapshotChunker::default();
     assert!(c.chunk(&[]).is_empty());
 }
 
 #[test]
 fn chunker_partitions_with_last_chunk_short() {
-    let c = RealmStateRealmStateSnapshotChunker::new(4).unwrap();
+    let c = RealmStateSnapshotChunker::new(4).unwrap();
     let chunks = c.chunk(b"hello world!"); // 12 bytes → 3 chunks of 4
     assert_eq!(chunks.len(), 3);
     assert_eq!(chunks[0].chunk_id, 0);
@@ -130,7 +130,7 @@ fn chunker_partitions_with_last_chunk_short() {
     // 13-byte input → 3 chunks (4 / 4 / 5? no — 4 / 4 / 5 isn't right;
     // chunks() of size 4 → 4,4,5 only if step > 4. std slice::chunks
     // is fixed-size so 13/4 = 3 full + 1 short = 4 chunks. Let me re-check.
-    let c2 = RealmStateRealmStateSnapshotChunker::new(4).unwrap();
+    let c2 = RealmStateSnapshotChunker::new(4).unwrap();
     let chunks2 = c2.chunk(b"hello world!!"); // 13 bytes
     assert_eq!(chunks2.len(), 4); // 4+4+4+1
     assert_eq!(chunks2[3].bytes.len(), 1);
@@ -138,7 +138,7 @@ fn chunker_partitions_with_last_chunk_short() {
 
 #[test]
 fn chunker_digests_match_recomputation() {
-    let c = RealmStateRealmStateSnapshotChunker::new(8).unwrap();
+    let c = RealmStateSnapshotChunker::new(8).unwrap();
     let chunks = c.chunk(b"the quick brown fox jumps over the lazy dog");
     for chunk in &chunks {
         let recomputed = merkle::sha256_digest(&chunk.bytes);
@@ -148,7 +148,7 @@ fn chunker_digests_match_recomputation() {
 
 #[test]
 fn chunker_is_deterministic_across_runs() {
-    let c = RealmStateRealmStateSnapshotChunker::new(16).unwrap();
+    let c = RealmStateSnapshotChunker::new(16).unwrap();
     let a = c.chunk(b"the quick brown fox jumps over the lazy dog");
     let b = c.chunk(b"the quick brown fox jumps over the lazy dog");
     assert_eq!(a, b);
@@ -157,7 +157,7 @@ fn chunker_is_deterministic_across_runs() {
 // ── Merkle tree ───────────────────────────────────────────────────
 
 fn chunks(n: u32) -> Vec<RealmStateSnapshotChunk> {
-    let c = RealmStateRealmStateSnapshotChunker::new(4).unwrap();
+    let c = RealmStateSnapshotChunker::new(4).unwrap();
     let mut bytes = Vec::new();
     for i in 0..(n * 4) {
         bytes.push((i % 256) as u8);
@@ -966,7 +966,7 @@ fn auxiliary_rows_and_chunk_payloads_are_closed() {
     assert_eq!(wire["chunk_kind"], "realm_state_snapshot_chunk");
     assert_eq!(wire["erasure_stubs"], serde_json::json!([]));
     wire["type"] = serde_json::json!("realm_state_snapshot_chunk");
-    assert!(serde_json::from_value::<RealmStateRealmStateSnapshotChunkPayload>(wire).is_err());
+    assert!(serde_json::from_value::<RealmStateSnapshotChunkPayload>(wire).is_err());
 }
 
 /// The consumer-side recomputation refuses to reorder: unsorted or duplicated
@@ -992,7 +992,7 @@ fn chunk_payload_verification_is_strict() {
 
     let mut duplicated = payloads.clone();
     let duplicate = duplicated[0].items[1].clone();
-    duplicated.push(RealmStateRealmStateSnapshotChunkPayload {
+    duplicated.push(RealmStateSnapshotChunkPayload {
         index: 1,
         items: vec![duplicate],
         ..payloads[0].clone()
@@ -1070,9 +1070,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|chunk| {
-                serde_json::from_value::<RealmStateRealmStateSnapshotChunkPayload>(chunk.clone())
-            })
+            .map(|chunk| serde_json::from_value::<RealmStateSnapshotChunkPayload>(chunk.clone()))
             .collect::<Result<Vec<_>, _>>();
         let observed = match parsed {
             Err(_) => None,

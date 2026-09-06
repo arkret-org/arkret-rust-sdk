@@ -50,7 +50,7 @@ pub struct RealmStateSnapshotManifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<RealmStateSnapshotVerificationHints>,
     #[serde(default)]
-    pub chunks: Vec<RealmStateRealmStateSnapshotChunkDescriptor>,
+    pub chunks: Vec<RealmStateSnapshotChunkDescriptor>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -71,7 +71,7 @@ pub struct UnsignedRealmStateSnapshotManifest<'a> {
     pub event_set_commitment: &'a EventSetCommitment,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<&'a RealmStateSnapshotVerificationHints>,
-    pub chunks: &'a [RealmStateRealmStateSnapshotChunkDescriptor],
+    pub chunks: &'a [RealmStateSnapshotChunkDescriptor],
     pub created_by: &'a ActorId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -311,7 +311,7 @@ pub enum RealmStateSnapshotSecurityClass {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RealmStateRealmStateSnapshotChunkDescriptor {
+pub struct RealmStateSnapshotChunkDescriptor {
     pub chunk_ref: BlobRef,
     pub size_bytes: u64,
 }
@@ -383,11 +383,11 @@ pub struct AuthorityBinding {
 /// [`DetachedJwsProof`] this crate signs and verifies, and it is the half that
 /// owns [`RealmStateSnapshotManifest::witness_attestation_projection`] and
 /// [`RealmStateSnapshotManifest::verify_witness_attestations`]. The **wire DTO** half is
-/// `arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateRealmStateSnapshotWitnessAttestationItem`,
+/// `arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotWitnessAttestationItem`,
 /// which mirrors the schema verbatim with the full shared `PayloadProof` leaf.
 /// The two halves are named apart on purpose — same as
-/// [`RealmStateRealmStateSnapshotChunkDescriptor`]
-/// vs `RealmStateRealmStateSnapshotChunksItem` — so neither shadows the other in the
+/// [`RealmStateSnapshotChunkDescriptor`]
+/// vs `RealmStateSnapshotChunksItem` — so neither shadows the other in the
 /// `arkret_sdk` prelude.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -810,7 +810,7 @@ pub struct SnapshotErasureStub {
 /// in: an unknown member, a legacy `type` discriminator or an item outside the
 /// single `cell` branch fails to parse.
 #[serde(deny_unknown_fields)]
-pub struct RealmStateRealmStateSnapshotChunkPayload {
+pub struct RealmStateSnapshotChunkPayload {
     pub chunk_kind: String,
     pub realm_state_snapshot_ref: RealmStateSnapshotId,
     pub index: u32,
@@ -828,10 +828,10 @@ pub struct RealmStateRealmStateSnapshotChunkPayload {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct BuiltRealmStateRealmStateSnapshotChunk {
-    pub payload: RealmStateRealmStateSnapshotChunkPayload,
+pub struct BuiltRealmStateSnapshotChunk {
+    pub payload: RealmStateSnapshotChunkPayload,
     pub canonical_bytes: Vec<u8>,
-    pub descriptor: RealmStateRealmStateSnapshotChunkDescriptor,
+    pub descriptor: RealmStateSnapshotChunkDescriptor,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

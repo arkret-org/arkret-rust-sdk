@@ -7,7 +7,7 @@ use crate::internal_prelude::*;
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/realm-state-realm-state-snapshot.schema.json#/properties/frontier`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmStateRealmStateSnapshotFrontierValue {
+pub struct RealmStateSnapshotFrontierValue {
     pub event_ids: Vec<EventId>,
     pub timeline_hlc: String,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -16,7 +16,7 @@ pub struct RealmStateRealmStateSnapshotFrontierValue {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStateRealmStateSnapshotEventSetCommitmentActorSeqRangesItem {
+pub struct RealmStateSnapshotEventSetCommitmentActorSeqRangesItem {
     pub actor_id: ActorId,
     pub from_seq: u64,
     pub to_seq: u64,
@@ -30,12 +30,11 @@ pub struct RealmStateSnapshotEventSetCommitment {
     pub root: Hash,
     pub covered_event_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_seq_ranges:
-        Option<Vec<RealmStateRealmStateSnapshotEventSetCommitmentActorSeqRangesItem>>,
+    pub actor_seq_ranges: Option<Vec<RealmStateSnapshotEventSetCommitmentActorSeqRangesItem>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmStateRealmStateSnapshotVerificationHintsValue {
+pub struct RealmStateSnapshotVerificationHintsValue {
     pub verification_profile: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inclusion_proof_url: Option<String>,
@@ -52,7 +51,7 @@ pub struct RealmStateRealmStateSnapshotVerificationHintsValue {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmStateRealmStateSnapshotChunksItem {
+pub struct RealmStateSnapshotChunksItem {
     pub chunk_ref: BlobRef,
     pub size_bytes: u64,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
@@ -74,12 +73,12 @@ pub struct RealmStateRealmStateSnapshotChunksItem {
 /// `RealmStateSnapshotWitnessAttestation` hangs off
 /// `RealmStateSnapshotManifest` / `AuthorityBinding` and owns the canonical projection
 /// builder and the quorum verifier. The two halves are named apart on purpose — same as
-/// [`RealmStateRealmStateSnapshotChunksItem`] vs
-/// `RealmStateRealmStateSnapshotChunkDescriptor` — so neither shadows the other in the
+/// [`RealmStateSnapshotChunksItem`] vs
+/// `RealmStateSnapshotChunkDescriptor` — so neither shadows the other in the
 /// `arkret_sdk` prelude.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStateRealmStateSnapshotWitnessAttestationItem {
+pub struct RealmStateSnapshotWitnessAttestationItem {
     pub witness_id: DidCoreId,
     pub proof: PayloadProof,
 }
@@ -93,7 +92,7 @@ pub struct RealmStateSnapshotAuthorityBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness_attestations: Option<Vec<RealmStateRealmStateSnapshotWitnessAttestationItem>>,
+    pub witness_attestations: Option<Vec<RealmStateSnapshotWitnessAttestationItem>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -105,11 +104,11 @@ pub struct Snapshot {
     pub security_class: String,
     pub schema_profile_refs: Vec<String>,
     pub state_digest: Hash,
-    pub frontier: RealmStateRealmStateSnapshotFrontierValue,
+    pub frontier: RealmStateSnapshotFrontierValue,
     pub event_set_commitment: RealmStateSnapshotEventSetCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_hints: Option<RealmStateRealmStateSnapshotVerificationHintsValue>,
-    pub chunks: Vec<RealmStateRealmStateSnapshotChunksItem>,
+    pub verification_hints: Option<RealmStateSnapshotVerificationHintsValue>,
+    pub chunks: Vec<RealmStateSnapshotChunksItem>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -135,5 +134,5 @@ pub struct RealmStateSnapshotBootstrap {
     pub authority_binding: RealmStateSnapshotAuthorityBinding,
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verification_hints: Option<RealmStateRealmStateSnapshotVerificationHintsValue>,
+    pub verification_hints: Option<RealmStateSnapshotVerificationHintsValue>,
 }

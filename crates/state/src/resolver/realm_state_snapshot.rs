@@ -41,7 +41,7 @@ pub struct RealmStateSnapshotReducerManifest {
     pub merkle_root: String,
     pub chunk_count: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub chunks: Vec<RealmStateRealmStateSnapshotChunkManifest>,
+    pub chunks: Vec<RealmStateSnapshotChunkManifest>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -50,7 +50,7 @@ pub struct RealmStateSnapshotReducerManifest {
 
 /// Dev-only reducer snapshot chunk descriptor.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmStateRealmStateSnapshotChunkManifest {
+pub struct RealmStateSnapshotChunkManifest {
     pub index: u32,
     pub digest: String,
     pub byte_len: usize,
@@ -73,7 +73,7 @@ pub struct RealmStateSnapshotSignature {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RealmStateRealmStateSnapshotRestoreSource {
+pub enum RealmStateSnapshotRestoreSource {
     Snapshot,
     RepoReplay,
 }
@@ -81,7 +81,7 @@ pub enum RealmStateRealmStateSnapshotRestoreSource {
 #[derive(Clone, Debug)]
 pub struct RealmStateSnapshotRestore {
     pub state: RealmState,
-    pub source: RealmStateRealmStateSnapshotRestoreSource,
+    pub source: RealmStateSnapshotRestoreSource,
     pub snapshot_error: Option<String>,
 }
 
@@ -198,7 +198,7 @@ impl RealmStateSnapshotState {
     pub fn chunk_manifest(
         &self,
         chunk_size: usize,
-    ) -> Result<Vec<RealmStateRealmStateSnapshotChunkManifest>> {
+    ) -> Result<Vec<RealmStateSnapshotChunkManifest>> {
         if chunk_size == 0 {
             return Err(WireError::Protocol(
                 "snapshot chunk size must be greater than zero".to_owned(),
@@ -208,7 +208,7 @@ impl RealmStateSnapshotState {
         Ok(bytes
             .chunks(chunk_size)
             .enumerate()
-            .map(|(index, chunk)| RealmStateRealmStateSnapshotChunkManifest {
+            .map(|(index, chunk)| RealmStateSnapshotChunkManifest {
                 index: index as u32,
                 digest: sha256_digest(chunk),
                 byte_len: chunk.len(),
