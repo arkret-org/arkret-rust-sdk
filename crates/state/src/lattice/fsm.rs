@@ -57,9 +57,9 @@ impl Fsm {
 /// three separate copies of this fold came to exist.
 ///
 /// The transition algebra itself is resolved (§9.3.1.5-§9.3.1.8, ruling in
-/// `arkret-work/review/spec-open/
-/// 2026-09-06-1610-fsm-has-no-transition-algebra-and-its-join-is-arrival-ordered.md`), and the fold
-/// is gone: this is now the registry literal that one caller still reaches for, not a parallel
+/// `arkret-work/review/spec-done/
+/// 2026-09-06-2056-station-sealed-control-chain-and-independent-recovery.md` section 8), and the
+/// fold is gone: this is now the registry literal that one caller still reaches for, not a parallel
 /// state machine.
 pub const MEMBERSHIP_INITIAL_STATE: &str = "leave";
 
