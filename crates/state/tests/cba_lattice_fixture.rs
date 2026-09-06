@@ -983,8 +983,12 @@ fn dual_plane_vector_inventory_is_pinned() {
                 // and concurrent conflicting declarations are all state_root
                 // leaf-set invariants rather than per-domain reducer behaviour.
                 || vector_id == "ak.vector.event_kind.realm_alias_single_carrier.v1"
-                // The FSM state algebra rides the same fixture: causal-head
-                // admission is a lattice invariant, not per-domain behaviour.
+                // `fsm` is a causal register (§9.3.1.5), so its state algebra is
+                // a `state_root` leaf-set invariant in the same way
+                // `cas_register`'s is rather than per-domain reducer behaviour.
+                // The cases are registered and not yet executed: the SDK still
+                // folds `fsm` by arrival order, and R7 carries the migration
+                // (`arkret-work/review/spec-open/2026-09-06-1610` §8).
                 || vector_id == "ak.vector.lattice.fsm_causal_heads.v1",
             "unexpected vector id {vector_id}"
         );
