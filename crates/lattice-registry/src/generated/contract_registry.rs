@@ -1,8 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-07.4;
-//! sha256=303d9c3212ce20a79b3011109240309478e6aa796226bba86eb439f48b25097c
-//! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=18
+//! Input: registry/contract-registry.json; version=2026-09-07.7;
+//! sha256=9a78356f3b41a7034183ce058246db1ab54f965cf7fd3767565e475424ba664d
+//! Entries: actor_private_families=5, actor_private_writes=8, sole_recovery_families=7,
+//! fsm_contracts=18
 
 use arkret_wire::CellFamilyId;
 
@@ -145,6 +146,16 @@ pub(crate) const GENERATED_ACTOR_PRIVATE_WRITES: &[GeneratedActorPrivateWrite] =
         ]),
         effect_projection: ActorPrivateEffectProjection::MergePayload,
     },
+];
+
+pub(crate) const GENERATED_SOLE_RECOVERY_FAMILIES: &[&str] = &[
+    CellFamilyId::FORK_RESOLUTION_V1,
+    CellFamilyId::IDENTITY_RESOLUTION_V1,
+    CellFamilyId::INVITE_LIVE_TARGET_V1,
+    CellFamilyId::MLS_EPOCH_V1,
+    CellFamilyId::REALM_AUTHORITY_ROOT_V1,
+    CellFamilyId::REALM_ORGANIZATION_RECOVERY_KEY_V1,
+    CellFamilyId::REALM_REDUCER_PROFILE_V1,
 ];
 
 pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[

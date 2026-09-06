@@ -34,16 +34,19 @@ pub fn generate(inputs: &SpecInputs) -> Result<GeneratedOutput> {
     let registered = registered_cell_families(&inputs.event_kinds)?;
 
     let mut body = String::new();
+    let sole_recovery = resolve_sole_recovery_families(registry)?;
     render_actor_private_families(&mut body, families, &registered)?;
     render_actor_private_writes(&mut body, writes, families, &registered)?;
+    render_sole_recovery_families(&mut body, &sole_recovery, &registered);
     render_fsms(&mut body, &fsms, &registered);
 
     let mut output = header(
         &[&inputs.contracts_source],
         &format!(
-            "actor_private_families={}, actor_private_writes={}, fsm_contracts={}",
+            "actor_private_families={}, actor_private_writes={}, sole_recovery_families={}, fsm_contracts={}",
             families.len(),
             writes.len(),
+            sole_recovery.len(),
             fsms.len()
         ),
     );
@@ -318,6 +321,53 @@ fn render_fsms(output: &mut String, fsms: &[ResolvedFsm], registered: &BTreeSet<
         .expect("write to String");
     }
     output.push_str("];\n");
+}
+
+/// `event-auth-state-resolution.md` section 9.3.1.4: the families whose write
+/// authorization or business precondition reads the cell itself, so Bottom leaves
+/// nobody able to author an ordinary write and only `ak.conflict.recovery` can
+/// move them. Generated so no consumer retypes the list; every `fsm` family is in
+/// the same position by construction (section 9.3.1.7 item 2) and is deliberately
+/// absent here, as is the notary cell, whose recovery Seal could never be accepted.
+fn render_sole_recovery_families(
+    output: &mut String,
+    families: &[String],
+    registered: &BTreeSet<String>,
+) {
+    output.push_str("pub(crate) const GENERATED_SOLE_RECOVERY_FAMILIES: &[&str] = &[
+");
+    for family in families {
+        writeln!(output, "    {},", cell_family(family, registered)).expect("write to String");
+    }
+    output.push_str("];
+
+");
+}
+
+fn resolve_sole_recovery_families(registry: &Map<String, Value>) -> Result<Vec<String>> {
+    let cell_contracts = object_member(registry, "cell_contracts")?;
+    let recovery = cell_contracts
+        .get("ak.conflict.recovery")
+        .and_then(Value::as_object)
+        .context("cell_contracts must declare ak.conflict.recovery")?;
+    let write = recovery
+        .get("cell_writes")
+        .and_then(Value::as_array)
+        .and_then(|writes| writes.first())
+        .and_then(Value::as_object)
+        .context("ak.conflict.recovery must declare one cell_writes entry")?;
+    let listed = write
+        .get("sole_recovery_families")
+        .and_then(Value::as_array)
+        .context("ak.conflict.recovery must declare sole_recovery_families")?;
+    let mut families = Vec::with_capacity(listed.len());
+    for value in listed {
+        let family = value
+            .as_str()
+            .context("sole_recovery_families entries must be strings")?;
+        families.push(family.to_owned());
+    }
+    Ok(families)
 }
 
 fn resolve_fsms(registry: &Map<String, Value>) -> Result<Vec<ResolvedFsm>> {
