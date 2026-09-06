@@ -18,21 +18,6 @@ use crate::{
 pub const REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT: &str =
     ProofContextId::REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1;
 
-mod base64_url {
-    use serde::{Deserialize, Deserializer, Serializer};
-
-    use crate::base64url::{base64url_decode, base64url_encode};
-
-    pub fn serialize<S: Serializer>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&base64url_encode(bytes))
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
-        let s = String::deserialize(deserializer)?;
-        base64url_decode(&s).map_err(serde::de::Error::custom)
-    }
-}
-
 /// Full `ak.schema.realm_state_snapshot.v1` manifest returned by
 /// `ak.self.realm_state_snapshot.read.manifest_head.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -901,19 +886,3 @@ pub struct RealmStateSnapshotVerifyReport {
     pub state_digest: Hash,
 }
 
-/// One byte range of a snapshot, addressable by `chunk_id`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RealmStateSnapshotChunk {
-    /// Ordinal index starting at 0. Chunks MUST be delivered in
-    /// `chunk_id` order when streaming the whole snapshot.
-    pub chunk_id: u32,
-    /// Raw chunk bytes. The producer is responsible for the encoding
-    /// (typically the canonical-JSON bytes of the snapshot blob); the
-    /// chunker treats them as opaque.
-    #[serde(with = "base64_url")]
-    pub bytes: Vec<u8>,
-    /// `sha256:<hex>` digest of `bytes`. Receivers recompute this
-    /// before trusting the chunk.
-    pub digest: Hash,
-}

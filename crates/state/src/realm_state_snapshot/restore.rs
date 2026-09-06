@@ -36,6 +36,8 @@ use super::types::{
 use super::verify_realm_state_snapshot_chunk_bytes;
 use crate::lattice::cas_register::CasHead;
 use crate::state::CasHeadsByCell;
+use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
+
 use crate::{CellRef, DidUrl, EventId, Hash, RealmStateSnapshotId};
 
 type ValidationResult<T> = Result<T, RealmStateSnapshotValidationError>;
@@ -136,17 +138,36 @@ pub struct CoveredEventSet {
 }
 
 impl CoveredEventSet {
-    /// The set a manifest alone supports: frontier heads only, everything else
-    /// unknown.
-    pub fn from_manifest(manifest: &RealmStateSnapshotManifest) -> Self {
+    /// The set a commitment and a frontier alone support.
+    ///
+    /// Separate from [`Self::from_manifest`] so a receiver that persisted only
+    /// the commitment and frontier — which is all §3 obliges it to keep — can
+    /// rebuild the oracle across a restart without holding the whole manifest.
+    pub fn new(
+        algorithm: EventSetCommitmentAlgorithm,
+        root: Hash,
+        covered_event_count: u64,
+        frontier: impl IntoIterator<Item = EventId>,
+    ) -> Self {
         Self {
-            algorithm: manifest.event_set_commitment.algorithm.clone(),
-            root: manifest.event_set_commitment.root.clone(),
-            covered_event_count: manifest.event_set_commitment.covered_event_count,
-            frontier: manifest.frontier.event_ids.iter().cloned().collect(),
+            algorithm,
+            root,
+            covered_event_count,
+            frontier: frontier.into_iter().collect(),
             proven: BTreeMap::new(),
             complete: false,
         }
+    }
+
+    /// The set a manifest alone supports: frontier heads only, everything else
+    /// unknown.
+    pub fn from_manifest(manifest: &RealmStateSnapshotManifest) -> Self {
+        Self::new(
+            manifest.event_set_commitment.algorithm.clone(),
+            manifest.event_set_commitment.root.clone(),
+            manifest.event_set_commitment.covered_event_count,
+            manifest.frontier.event_ids.iter().cloned(),
+        )
     }
 
     pub fn root(&self) -> &Hash {
@@ -597,6 +618,50 @@ fn verify_auxiliary_list_digests(
                 "{name} recomputes to {recomputed}; verification_hints commits {committed}"
             )));
         }
+    }
+    Ok(())
+}
+
+/// Check that a `realm_state_snapshot_bootstrap` hint and a manifest describe
+/// the same snapshot.
+///
+/// The hint rides on an events query and carries no `chunks[]`, so a client
+/// that acted on it has to fetch the manifest separately — two responses, and
+/// nothing structural stops a server from answering the second with a
+/// different snapshot than the first advertised. The fields checked here are
+/// exactly the ones both objects carry, so a hint that named the state the
+/// client decided to accelerate on cannot be swapped for another after the
+/// decision.
+pub fn realm_state_snapshot_bootstrap_binds_manifest(
+    bootstrap: &RealmStateSnapshotBootstrap,
+    manifest: &RealmStateSnapshotManifest,
+) -> ValidationResult<()> {
+    if bootstrap.realm_state_snapshot_ref != manifest.id {
+        return Err(schema_violation(format!(
+            "bootstrap hint names snapshot {}; the manifest is {}",
+            bootstrap.realm_state_snapshot_ref, manifest.id
+        )));
+    }
+    if bootstrap.state_digest != manifest.state_digest {
+        return Err(digest_mismatch(format!(
+            "bootstrap hint commits state_digest {}; the manifest commits {}",
+            bootstrap.state_digest, manifest.state_digest
+        )));
+    }
+    if bootstrap.realm_state_snapshot_frontier != manifest.frontier.event_ids {
+        return Err(schema_violation(
+            "bootstrap hint and manifest disagree on the snapshot frontier",
+        ));
+    }
+    if bootstrap.created_by != manifest.created_by || bootstrap.created_at != manifest.created_at {
+        return Err(schema_violation(
+            "bootstrap hint and manifest disagree on the snapshot issuer or creation time",
+        ));
+    }
+    if bootstrap.signature.payload_digest != manifest.signature.payload_digest {
+        return Err(signature_invalid(
+            "bootstrap hint and manifest carry different signature payload digests",
+        ));
     }
     Ok(())
 }

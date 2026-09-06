@@ -1,10 +1,13 @@
-use super::types::RealmStateSnapshotChunk;
 use crate::{Hash, Result, WireError};
 
-/// RFC 6962 binary Merkle tree over snapshot chunk digests.
+/// RFC 6962 binary Merkle tree over caller-supplied leaf data.
+///
+/// Used for both trees the snapshot needs: the `merkle_event_set_v1`
+/// `event_set_commitment` (leaf data = `sha256(canonical_json(entry))`) and any
+/// other leaf-data list under the same house rules.
 ///
 /// Construction:
-/// - Leaf data are the raw bytes of each `sha256:` chunk digest in `chunk_id` order.
+/// - Leaf data are the caller's `sha256:` digests, in the order they commit to.
 /// - Leaves are `sha256(0x00 || leaf_data)`.
 /// - Internal nodes are `sha256(0x01 || left || right)`.
 /// - Odd levels promote the last node to the next level **unchanged** (RFC 6962-style; never
@@ -21,32 +24,24 @@ pub struct RealmStateSnapshotMerkleTree {
 }
 
 impl RealmStateSnapshotMerkleTree {
-    /// Build a tree from chunks. Chunks MUST be in `chunk_id` order;
-    /// the caller is responsible for sorting if the source iteration
-    /// order isn't already ascending.
-    pub fn build(chunks: &[RealmStateSnapshotChunk]) -> Result<Self> {
-        if chunks.is_empty() {
+    /// Build a tree over `leaf_data`, in the order the caller commits to.
+    ///
+    /// Order is the caller's to fix — for an `event_set_commitment` it is the
+    /// `(actor_id, actor_seq, event_id)` sort §6 mandates — because the tree
+    /// itself never reorders: a tree that sorted for you would verify a proof
+    /// the prover built for a different position.
+    pub fn from_leaf_data(leaf_data: &[Hash]) -> Result<Self> {
+        if leaf_data.is_empty() {
             return Err(WireError::Protocol(
-                "RealmStateSnapshotMerkleTree requires at least one chunk".to_owned(),
+                "RealmStateSnapshotMerkleTree requires at least one leaf".to_owned(),
             ));
         }
-        // Verify ordering — fail closed instead of silently building a
-        // tree that won't match the receiver's tree.
-        for (i, chunk) in chunks.iter().enumerate() {
-            if chunk.chunk_id as usize != i {
-                return Err(WireError::Protocol(format!(
-                    "RealmStateSnapshotMerkleTree chunk {i} has chunk_id={} (expected {i})",
-                    chunk.chunk_id
-                )));
-            }
-        }
-        let leaf_data: Vec<Hash> = chunks.iter().map(|c| c.digest.clone()).collect();
-        let levels = build_levels(&leaf_data)?;
+        let levels = build_levels(leaf_data)?;
         let leaves = levels[0].clone();
         Ok(Self { leaves, levels })
     }
 
-    /// Number of leaf chunks.
+    /// Number of leaves.
     pub fn leaf_count(&self) -> usize {
         self.leaves.len()
     }

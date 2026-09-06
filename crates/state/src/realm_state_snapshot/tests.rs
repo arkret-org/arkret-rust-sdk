@@ -1,19 +1,15 @@
-use arkret_wire::{CORE_REDUCER_PROFILE, Did, DidUrl};
+use arkret_wire::{CORE_REDUCER_PROFILE, DidUrl};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{merkle, *};
 use crate::lattice::cas_register::CasHead;
 use crate::{
-    CellRef, DidCoreId, EventId, Hash, Hlc, PayloadSignature, RealmId, RealmStateSnapshotId,
+    CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId,
 };
 
 fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
-}
-
-fn did() -> Did {
-    Did::new("did:webvh:z6mkfixture:generator.example").unwrap()
 }
 
 fn realm() -> RealmId {
@@ -101,103 +97,40 @@ fn manifest_for_items(
     (manifest, chunk_payloads, chunk_bytes)
 }
 
-// ── Chunker ───────────────────────────────────────────────────────
-
-#[test]
-fn chunker_zero_target_rejected() {
-    let err = RealmStateSnapshotChunker::new(0).unwrap_err();
-    assert!(format!("{err}").contains("target_chunk_bytes must be > 0"));
-}
-
-#[test]
-fn chunker_empty_input_yields_empty() {
-    let c = RealmStateSnapshotChunker::default();
-    assert!(c.chunk(&[]).is_empty());
-}
-
-#[test]
-fn chunker_partitions_with_last_chunk_short() {
-    let c = RealmStateSnapshotChunker::new(4).unwrap();
-    let chunks = c.chunk(b"hello world!"); // 12 bytes → 3 chunks of 4
-    assert_eq!(chunks.len(), 3);
-    assert_eq!(chunks[0].chunk_id, 0);
-    assert_eq!(chunks[0].bytes, b"hell");
-    assert_eq!(chunks[1].chunk_id, 1);
-    assert_eq!(chunks[1].bytes, b"o wo");
-    assert_eq!(chunks[2].chunk_id, 2);
-    assert_eq!(chunks[2].bytes, b"rld!");
-
-    // 13-byte input → 3 chunks (4 / 4 / 5? no — 4 / 4 / 5 isn't right;
-    // chunks() of size 4 → 4,4,5 only if step > 4. std slice::chunks
-    // is fixed-size so 13/4 = 3 full + 1 short = 4 chunks. Let me re-check.
-    let c2 = RealmStateSnapshotChunker::new(4).unwrap();
-    let chunks2 = c2.chunk(b"hello world!!"); // 13 bytes
-    assert_eq!(chunks2.len(), 4); // 4+4+4+1
-    assert_eq!(chunks2[3].bytes.len(), 1);
-}
-
-#[test]
-fn chunker_digests_match_recomputation() {
-    let c = RealmStateSnapshotChunker::new(8).unwrap();
-    let chunks = c.chunk(b"the quick brown fox jumps over the lazy dog");
-    for chunk in &chunks {
-        let recomputed = merkle::sha256_digest(&chunk.bytes);
-        assert_eq!(chunk.digest, recomputed);
-    }
-}
-
-#[test]
-fn chunker_is_deterministic_across_runs() {
-    let c = RealmStateSnapshotChunker::new(16).unwrap();
-    let a = c.chunk(b"the quick brown fox jumps over the lazy dog");
-    let b = c.chunk(b"the quick brown fox jumps over the lazy dog");
-    assert_eq!(a, b);
-}
-
 // ── Merkle tree ───────────────────────────────────────────────────
 
-fn chunks(n: u32) -> Vec<RealmStateSnapshotChunk> {
-    let c = RealmStateSnapshotChunker::new(4).unwrap();
-    let mut bytes = Vec::new();
-    for i in 0..(n * 4) {
-        bytes.push((i % 256) as u8);
-    }
-    c.chunk(&bytes)
+/// `n` distinct leaf-data digests, in the order a caller commits to them.
+fn leaf_data(n: u32) -> Vec<Hash> {
+    (0..n)
+        .map(|i| merkle::sha256_digest(&i.to_be_bytes()))
+        .collect()
 }
 
 #[test]
 fn merkle_empty_rejected() {
-    let err = RealmStateSnapshotMerkleTree::build(&[]).unwrap_err();
-    assert!(format!("{err}").contains("at least one chunk"));
-}
-
-#[test]
-fn merkle_out_of_order_rejected() {
-    let mut cs = chunks(2);
-    cs.swap(0, 1);
-    let err = RealmStateSnapshotMerkleTree::build(&cs).unwrap_err();
-    assert!(format!("{err}").contains("expected"));
+    let err = RealmStateSnapshotMerkleTree::from_leaf_data(&[]).unwrap_err();
+    assert!(format!("{err}").contains("at least one leaf"));
 }
 
 #[test]
 fn merkle_single_leaf_root_is_domain_separated() {
-    let cs = chunks(1);
-    let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+    let leaves = leaf_data(1);
+    let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaves).unwrap();
     assert_eq!(tree.leaf_count(), 1);
-    let leaf_data = parse_sha256(&cs[0].digest).unwrap();
-    assert_eq!(*tree.root(), format_hash(&hash_leaf(&leaf_data)));
-    assert_ne!(tree.root(), &cs[0].digest);
+    let raw = parse_sha256(&leaves[0]).unwrap();
+    assert_eq!(*tree.root(), format_hash(&hash_leaf(&raw)));
+    assert_ne!(tree.root(), &leaves[0]);
     // Audit path is empty for single-leaf trees.
     assert_eq!(tree.audit_path(0).unwrap().len(), 0);
 }
 
 #[test]
 fn merkle_two_leaves_root_is_hash_pair() {
-    let cs = chunks(2);
-    let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+    let leaves = leaf_data(2);
+    let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaves).unwrap();
     // root = sha256(0x01 || sha256(0x00 || leaf0) || sha256(0x00 || leaf1)).
-    let left = parse_sha256(&cs[0].digest).unwrap();
-    let right = parse_sha256(&cs[1].digest).unwrap();
+    let left = parse_sha256(&leaves[0]).unwrap();
+    let right = parse_sha256(&leaves[1]).unwrap();
     let expected = hash_node(&hash_leaf(&left), &hash_leaf(&right));
     assert_eq!(*tree.root(), format_hash(&expected));
 }
@@ -205,19 +138,13 @@ fn merkle_two_leaves_root_is_hash_pair() {
 #[test]
 fn merkle_audit_path_verifies_each_leaf() {
     for n in [1u32, 2, 3, 4, 5, 8, 11] {
-        let cs = chunks(n);
-        let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+        let leaves = leaf_data(n);
+        let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaves).unwrap();
         let root = tree.root().clone();
-        for (i, chunk) in cs.iter().enumerate() {
+        for (i, leaf) in leaves.iter().enumerate() {
             let path = tree.audit_path(i).unwrap();
             assert!(
-                RealmStateSnapshotMerkleTree::verify(
-                    &root,
-                    &chunk.digest,
-                    i,
-                    &path,
-                    tree.leaf_count()
-                ),
+                RealmStateSnapshotMerkleTree::verify(&root, leaf, i, &path, tree.leaf_count()),
                 "audit_path verification failed for n={n} leaf={i}"
             );
         }
@@ -226,13 +153,13 @@ fn merkle_audit_path_verifies_each_leaf() {
 
 #[test]
 fn merkle_audit_path_rejects_wrong_leaf() {
-    let cs = chunks(4);
-    let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+    let leaves = leaf_data(4);
+    let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaves).unwrap();
     let path = tree.audit_path(0).unwrap();
     // Try to use leaf-0's path with leaf-1's digest — should fail.
     assert!(!RealmStateSnapshotMerkleTree::verify(
         tree.root(),
-        &cs[1].digest,
+        &leaves[1],
         0,
         &path,
         tree.leaf_count()
@@ -241,8 +168,7 @@ fn merkle_audit_path_rejects_wrong_leaf() {
 
 #[test]
 fn merkle_out_of_range_index_rejected() {
-    let cs = chunks(2);
-    let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaf_data(2)).unwrap();
     assert!(tree.audit_path(2).is_none());
 }
 
@@ -250,26 +176,22 @@ fn merkle_out_of_range_index_rejected() {
 fn merkle_duplicate_tail_leaf_changes_root() {
     // Promote-without-duplication: [A,B,C] and [A,B,C,C] MUST NOT
     // share a root (CVE-2012-2459-shaped ambiguity).
-    let cs3 = chunks(3);
-    let tree3 = RealmStateSnapshotMerkleTree::build(&cs3).unwrap();
-    let mut cs4 = cs3.clone();
-    cs4.push(RealmStateSnapshotChunk {
-        chunk_id: 3,
-        bytes: cs3[2].bytes.clone(),
-        digest: cs3[2].digest.clone(),
-    });
-    let tree4 = RealmStateSnapshotMerkleTree::build(&cs4).unwrap();
+    let three = leaf_data(3);
+    let tree3 = RealmStateSnapshotMerkleTree::from_leaf_data(&three).unwrap();
+    let mut four = three.clone();
+    four.push(three[2].clone());
+    let tree4 = RealmStateSnapshotMerkleTree::from_leaf_data(&four).unwrap();
     assert_ne!(tree3.root(), tree4.root());
 }
 
 #[test]
 fn merkle_verify_rejects_mismatched_leaf_count() {
-    let cs = chunks(3);
-    let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+    let leaves = leaf_data(3);
+    let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaves).unwrap();
     let path = tree.audit_path(2).unwrap();
     assert!(RealmStateSnapshotMerkleTree::verify(
         tree.root(),
-        &cs[2].digest,
+        &leaves[2],
         2,
         &path,
         3
@@ -277,123 +199,18 @@ fn merkle_verify_rejects_mismatched_leaf_count() {
     // The same proof under a different claimed leaf_count MUST fail.
     assert!(!RealmStateSnapshotMerkleTree::verify(
         tree.root(),
-        &cs[2].digest,
+        &leaves[2],
         3,
         &path,
         4
     ));
     assert!(!RealmStateSnapshotMerkleTree::verify(
         tree.root(),
-        &cs[2].digest,
+        &leaves[2],
         2,
         &path,
         4
     ));
-}
-
-// ── GeneratorProof ─────────────────────────────────────────────────
-
-fn move_sig(payload_digest: Hash) -> PayloadSignature {
-    PayloadSignature {
-        verification_method: DidUrl::new("did:webvh:z6mkfixture:generator.example#k1").unwrap(),
-        payload_digest,
-        created_at: Utc::now(),
-        jws: "AAAA.BBBB.CCCC".to_owned(),
-    }
-}
-
-#[test]
-fn generator_proof_body_digest_round_trips() {
-    let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
-    let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-    let digest =
-        GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 42, 1024, 256)
-            .unwrap();
-
-    let proof = GeneratorProof {
-        generator_did: did(),
-        realm_id: realm(),
-        state_root,
-        merkle_root,
-        chunk_count: 42,
-        total_bytes: 1024,
-        chunk_bytes: 256,
-        signature: move_sig(digest),
-    };
-    proof.verify_payload_digest().unwrap();
-}
-
-#[test]
-fn generator_proof_mismatched_payload_digest_rejected() {
-    let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
-    let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-    let wrong = Hash::new(format!("sha256:{}", "ee".repeat(32))).unwrap();
-    let proof = GeneratorProof {
-        generator_did: did(),
-        realm_id: realm(),
-        state_root,
-        merkle_root,
-        chunk_count: 1,
-        total_bytes: 4,
-        chunk_bytes: 4,
-        signature: move_sig(wrong),
-    };
-    let err = proof.verify_payload_digest().unwrap_err();
-    assert!(format!("{err}").contains("payload_digest mismatch"));
-}
-
-#[test]
-fn generator_proof_changing_chunk_count_changes_digest() {
-    let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
-    let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-    let d1 =
-        GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 1, 4, 4).unwrap();
-    let d2 =
-        GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 2, 4, 4).unwrap();
-    assert_ne!(d1, d2, "chunk_count must be in the canonical bytes");
-}
-
-#[test]
-fn generator_proof_serializes_with_all_fields() {
-    let state_root = Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap();
-    let merkle_root = Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap();
-    let digest =
-        GeneratorProof::body_digest(&did(), &realm(), &state_root, &merkle_root, 3, 12, 4).unwrap();
-    let proof = GeneratorProof {
-        generator_did: did(),
-        realm_id: realm(),
-        state_root,
-        merkle_root,
-        chunk_count: 3,
-        total_bytes: 12,
-        chunk_bytes: 4,
-        signature: move_sig(digest),
-    };
-    let v: Value = serde_json::to_value(&proof).unwrap();
-    for f in [
-        "generator_did",
-        "realm_id",
-        "state_root",
-        "merkle_root",
-        "chunk_count",
-        "total_bytes",
-        "chunk_bytes",
-        "signature",
-    ] {
-        assert!(v.get(f).is_some(), "missing {f}");
-    }
-}
-
-#[test]
-fn realm_state_snapshot_chunk_round_trips_base64() {
-    let chunk = RealmStateSnapshotChunk {
-        chunk_id: 7,
-        bytes: vec![0x00, 0xff, 0x42, 0x55],
-        digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-    };
-    let s = serde_json::to_string(&chunk).unwrap();
-    let back: RealmStateSnapshotChunk = serde_json::from_str(&s).unwrap();
-    assert_eq!(back, chunk);
 }
 
 fn event_id(suffix: &str) -> EventId {
@@ -451,20 +268,15 @@ fn spec_merkle_rfc6962_fixed_vectors() {
 
 #[test]
 fn merkle_verify_rejects_wrong_branch() {
-    let cs = [0x11, 0x22]
+    let leaves = [0x11u8, 0x22]
         .into_iter()
-        .enumerate()
-        .map(|(chunk_id, byte)| RealmStateSnapshotChunk {
-            chunk_id: chunk_id as u32,
-            bytes: vec![byte],
-            digest: Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
-        })
+        .map(|byte| Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap())
         .collect::<Vec<_>>();
-    let tree = RealmStateSnapshotMerkleTree::build(&cs).unwrap();
+    let tree = RealmStateSnapshotMerkleTree::from_leaf_data(&leaves).unwrap();
     let wrong_path = vec![Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap()];
     assert!(!RealmStateSnapshotMerkleTree::verify(
         tree.root(),
-        &cs[0].digest,
+        &leaves[0],
         0,
         &wrong_path,
         2
@@ -1104,4 +916,719 @@ fn spec_snapshot_state_digest_fixture_replays() {
         seen += 1;
     }
     assert!(seen >= 17, "the fixture publishes {seen} cases");
+}
+
+// ── Restore (consumer side) ────────────────────────────────────────
+
+const INVITE_LIVE_TARGET_CELL: &str = "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc";
+
+fn cas_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMaterializedItem {
+    let heads = heads
+        .iter()
+        .map(|(suffix, value)| CasHead {
+            move_id: snapshot_v1_event_id(suffix).event_digest(),
+            value: value.clone(),
+        })
+        .collect::<Vec<_>>();
+    // The head set is ordered by the decoded event_id token; under one suite
+    // that is the digest hex, so the fixture sorts on it rather than on the
+    // base64url spelling, whose alphabet is not byte-ordered.
+    let mut heads = heads;
+    heads.sort_by(|a, b| a.move_id.as_str().cmp(b.move_id.as_str()));
+    RealmStateSnapshotMaterializedItem::cas_cell(CellRef::new(cell.to_owned()).unwrap(), &heads)
+        .unwrap()
+}
+
+fn restore_options() -> RealmStateSnapshotVerifyOptions {
+    RealmStateSnapshotVerifyOptions::standard(
+        "2026-06-02T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap(),
+        CORE_REDUCER_PROFILE,
+    )
+}
+
+/// A verifier stand-in for the DID resolution the caller owns. It asserts the
+/// transcript it is handed is the manifest's unsigned canonical bytes, which is
+/// the only thing the restore path can promise about it.
+fn accepting_issuer_verifier(
+    expected_transcript: Vec<u8>,
+) -> impl FnOnce(&DidUrl, &[u8], &str) -> Result<(), String> {
+    move |_method: &DidUrl, transcript: &[u8], jws: &str| {
+        assert_eq!(transcript, expected_transcript.as_slice());
+        assert!(!jws.is_empty());
+        Ok(())
+    }
+}
+
+fn restore_fixture() -> (
+    RealmStateSnapshotManifest,
+    Vec<Vec<u8>>,
+    Vec<RealmStateSnapshotMaterializedItem>,
+) {
+    let items = vec![
+        cas_item(
+            INVITE_LIVE_TARGET_CELL,
+            &[
+                ("000000000011", Value::Null),
+                ("000000000012", serde_json::json!("ak:account:slot-b")),
+            ],
+        ),
+        cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
+        cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived")),
+    ];
+    let (manifest, _, chunk_bytes) = manifest_for_items(items.clone());
+    (manifest, chunk_bytes, items)
+}
+
+#[test]
+fn restore_materializes_values_and_cas_heads() {
+    let (manifest, chunk_bytes, _) = restore_fixture();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    assert_eq!(restored.report.item_count, 3);
+    assert_eq!(restored.report.state_digest, manifest.state_digest);
+    assert_eq!(restored.realm_state_snapshot_ref, manifest.id);
+
+    let lifecycle = CellRef::new(STRAND_LIFECYCLE_CELL.to_owned()).unwrap();
+    assert_eq!(
+        restored.cell(&lifecycle),
+        Some(RestoredCell::Value(serde_json::json!("archived")))
+    );
+
+    // A CAS cell comes back as its complete head set, `null` head included:
+    // §6.2.1 makes the head set the state, so dropping the released slot would
+    // silently turn two active writes into one.
+    let invite = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
+    let Some(RestoredCell::CasHeads(heads)) = restored.cell(&invite) else {
+        panic!("invite cell restored as a value");
+    };
+    assert_eq!(heads.len(), 2);
+    assert!(heads.iter().any(|head| head.value.is_null()));
+    assert!(
+        heads
+            .iter()
+            .any(|head| head.value == serde_json::json!("ak:account:slot-b"))
+    );
+    assert_eq!(
+        restored.cas_heads.get(&invite).map(Vec::len),
+        Some(2),
+        "the restored head set is the joined-view shape, not a settled value"
+    );
+}
+
+#[test]
+fn restore_rejects_a_state_digest_the_chunks_do_not_reproduce() {
+    let (mut manifest, chunk_bytes, _) = restore_fixture();
+    manifest.state_digest = hash(7);
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, RealmStateSnapshotValidationCode::DigestMismatch);
+}
+
+#[test]
+fn restore_rejects_a_signature_bound_to_another_transcript() {
+    let (mut manifest, chunk_bytes, _) = restore_fixture();
+    manifest.signature.payload_digest = hash(3);
+    let error =
+        restore_realm_state_snapshot(&manifest, &chunk_bytes, &restore_options(), |_, _, _| Ok(()))
+            .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SignatureInvalid
+    );
+}
+
+/// The resolver is a parameter, not a documented obligation: a snapshot whose
+/// issuer signature does not verify never reaches materialization.
+#[test]
+fn restore_propagates_a_failed_issuer_signature() {
+    let (manifest, chunk_bytes, _) = restore_fixture();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        |_, _, _| Err("verification method is revoked".to_owned()),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SignatureInvalid
+    );
+    assert!(format!("{error}").contains("revoked"));
+}
+
+#[test]
+fn restore_rejects_a_chunk_that_is_not_its_content_address() {
+    let (manifest, mut chunk_bytes, _) = restore_fixture();
+    chunk_bytes[0].push(b' ');
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, RealmStateSnapshotValidationCode::DigestMismatch);
+}
+
+#[test]
+fn restore_rejects_a_chunk_belonging_to_another_snapshot() {
+    let (manifest, _, items) = restore_fixture();
+    let other = RealmStateSnapshotId::new(
+        "ak:realm_state_snapshot:01904100-0000-7000-8000-00000000dead".to_owned(),
+    )
+    .unwrap();
+    let rebuilt =
+        build_realm_state_snapshot_chunks(&other, CORE_REDUCER_PROFILE, items, 4096).unwrap();
+    let mut manifest = manifest;
+    manifest.chunks = rebuilt.iter().map(|c| c.descriptor.clone()).collect();
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let chunk_bytes = rebuilt
+        .iter()
+        .map(|c| c.canonical_bytes.clone())
+        .collect::<Vec<_>>();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, RealmStateSnapshotValidationCode::SchemaViolation);
+}
+
+/// §5: a snapshot outside `realm_state_snapshot_max_acceptance_age_ms` is
+/// refused even though every digest and signature still checks out — the auth
+/// state it speaks for has drifted.
+#[test]
+fn restore_rejects_a_snapshot_past_its_acceptance_window() {
+    let (manifest, chunk_bytes, _) = restore_fixture();
+    let options = RealmStateSnapshotVerifyOptions::standard(
+        manifest.created_at
+            + chrono::Duration::milliseconds(
+                REALM_STATE_SNAPSHOT_V1_STANDARD_MAX_ACCEPTANCE_AGE_MS + 1,
+            ),
+        CORE_REDUCER_PROFILE,
+    );
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &options,
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SnapshotAuthorityUnverified
+    );
+    assert_eq!(
+        realm_state_snapshot_max_acceptance_age_ms(&RealmStateSnapshotSecurityClass::HighAssurance),
+        REALM_STATE_SNAPSHOT_V1_HIGH_ASSURANCE_MAX_ACCEPTANCE_AGE_MS,
+        "high_assurance tightens the same window rather than using its own rule"
+    );
+}
+
+/// §6.2: a high-assurance snapshot is not adoptable until the caller has run
+/// the witness path or the raw replay. Nothing about the manifest changes; the
+/// caller's own readiness is the gate.
+#[test]
+fn restore_refuses_high_assurance_without_the_supplementary_path() {
+    let (mut manifest, chunk_bytes, _) = restore_fixture();
+    manifest.security_class = RealmStateSnapshotSecurityClass::HighAssurance;
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript.clone()),
+    )
+    .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SnapshotAuthorityUnverified
+    );
+
+    let mut options = restore_options();
+    options.allow_high_assurance = true;
+    restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &options,
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+}
+
+/// §3's membership rule. A restored receiver answers `Unknown` — hold — for
+/// every Event it has no evidence about, and never `NotCovered`, because
+/// `NotCovered` is what revives a superseded write on the §9.3.1.4 merge.
+#[test]
+fn covered_set_holds_without_evidence() {
+    let (manifest, chunk_bytes, _) = restore_fixture();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    let frontier_head = &manifest.frontier.event_ids[0];
+    assert_eq!(
+        restored.covered_events.membership(frontier_head),
+        CoveredEventMembership::Covered,
+        "a frontier head is in C by construction"
+    );
+    assert_eq!(
+        restored
+            .covered_events
+            .membership(&snapshot_v1_event_id("some-older-event")),
+        CoveredEventMembership::Unknown
+    );
+    assert!(!restored.covered_events.is_complete());
+}
+
+fn event_set_entry(suffix: &str, actor_seq: u64) -> EventSetLeaf {
+    EventSetLeaf {
+        event_id: snapshot_v1_event_id(suffix),
+        event_digest: snapshot_v1_event_id(suffix).event_digest(),
+        actor_id: arkret_wire::ActorId::service(actor()),
+        actor_seq,
+        hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+    }
+}
+
+fn manifest_committing(entries: &[EventSetLeaf]) -> (RealmStateSnapshotManifest, Vec<Vec<u8>>) {
+    let (mut manifest, chunk_bytes, _) = restore_fixture();
+    manifest.event_set_commitment =
+        event_set_commitment(EventSetCommitmentAlgorithm::MerkleEventSetV1, entries).unwrap();
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    (manifest, chunk_bytes)
+}
+
+/// «保留共享 membership 索引»: with the committed index in hand, and only then,
+/// an absent id is provably `NotCovered`.
+#[test]
+fn covered_set_admits_the_committed_index_and_can_then_say_not_covered() {
+    let entries = (1u64..=4)
+        .map(|seq| event_set_entry(&format!("covered-{seq}"), seq))
+        .collect::<Vec<_>>();
+    let (manifest, chunk_bytes) = manifest_committing(&entries);
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let mut restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    let outsider = snapshot_v1_event_id("never-committed");
+    assert_eq!(
+        restored.covered_events.membership(&outsider),
+        CoveredEventMembership::Unknown
+    );
+
+    restored
+        .covered_events
+        .admit_committed_index(entries.clone())
+        .unwrap();
+    assert!(restored.covered_events.is_complete());
+    assert_eq!(
+        restored.covered_events.membership(&entries[2].event_id),
+        CoveredEventMembership::Covered
+    );
+    assert_eq!(
+        restored.covered_events.membership(&outsider),
+        CoveredEventMembership::NotCovered
+    );
+    assert_eq!(
+        restored.covered_events.entry(&entries[2].event_id),
+        Some(&entries[2])
+    );
+}
+
+/// A prefix is not the set. Admitting one would let the receiver answer
+/// `NotCovered` for the tail it never saw.
+#[test]
+fn covered_set_rejects_a_partial_or_altered_index() {
+    let entries = (1u64..=4)
+        .map(|seq| event_set_entry(&format!("covered-{seq}"), seq))
+        .collect::<Vec<_>>();
+    let (manifest, chunk_bytes) = manifest_committing(&entries);
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let mut restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    let error = restored
+        .covered_events
+        .admit_committed_index(entries[..3].to_vec())
+        .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::InclusionProofFailed
+    );
+
+    let mut swapped = entries.clone();
+    swapped[1].actor_seq = 99;
+    let error = restored
+        .covered_events
+        .admit_committed_index(swapped)
+        .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::InclusionProofFailed
+    );
+    assert!(
+        !restored.covered_events.is_complete(),
+        "a refused index must not leave the set claiming completeness"
+    );
+}
+
+/// «按现有 root 取得有效证明»: one entry plus its audit path against the
+/// manifest's own root turns `Unknown` into `Covered` without the whole index.
+#[test]
+fn covered_set_admits_one_entry_against_the_manifest_root() {
+    let entries = (1u64..=5)
+        .map(|seq| event_set_entry(&format!("covered-{seq}"), seq))
+        .collect::<Vec<_>>();
+    let (manifest, chunk_bytes) = manifest_committing(&entries);
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let mut restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    // The prover's side of §6.2: the same tree the commitment was computed
+    // from, in the ordering it fixes, and the audit path straight out of it.
+    let (sorted, tree) = event_set_merkle_tree(&entries).unwrap();
+    assert_eq!(tree.root(), &manifest.event_set_commitment.root);
+    let index = 3usize;
+    let audit_path = tree.audit_path(index).unwrap();
+
+    assert_eq!(
+        restored.covered_events.membership(&sorted[index].event_id),
+        CoveredEventMembership::Unknown
+    );
+    restored
+        .covered_events
+        .admit_inclusion_proof(sorted[index].clone(), index, &audit_path)
+        .unwrap();
+    assert_eq!(
+        restored.covered_events.membership(&sorted[index].event_id),
+        CoveredEventMembership::Covered
+    );
+    // One proof is not the index: everything else still holds.
+    assert!(!restored.covered_events.is_complete());
+    assert_eq!(
+        restored.covered_events.membership(&sorted[0].event_id),
+        CoveredEventMembership::Unknown
+    );
+
+    let error = restored
+        .covered_events
+        .admit_inclusion_proof(sorted[index].clone(), index + 1, &audit_path)
+        .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::InclusionProofFailed
+    );
+}
+
+/// `ordered_event_id_sha256_v1` hashes the whole sorted array; there is no
+/// per-entry path to offer, and pretending otherwise would accept an unproven
+/// entry.
+#[test]
+fn covered_set_refuses_per_entry_proofs_under_the_ordered_algorithm() {
+    let entries = vec![event_set_entry("covered-1", 1)];
+    let (mut manifest, chunk_bytes, _) = restore_fixture();
+    manifest.event_set_commitment = event_set_commitment(
+        EventSetCommitmentAlgorithm::OrderedEventIdSha256V1,
+        &entries,
+    )
+    .unwrap();
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let mut restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    let error = restored
+        .covered_events
+        .admit_inclusion_proof(entries[0].clone(), 0, &[])
+        .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::InclusionProofFailed
+    );
+    // The whole-index path still works under that algorithm.
+    restored
+        .covered_events
+        .admit_committed_index(entries)
+        .unwrap();
+    assert!(restored.covered_events.is_complete());
+}
+
+/// §3: `⊥` cells and erased cells have no leaf, and a receiver that dropped
+/// them would read them as never written. Both survive the restore.
+#[test]
+fn restore_carries_bottom_cells_and_erasure_stubs() {
+    let items = vec![cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"))];
+    let bottom = CellRef::new(MESSAGE_REACTIONS_CELL.to_owned()).unwrap();
+    let erased = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
+    let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
+        &snapshot_v1_id(),
+        CORE_REDUCER_PROFILE,
+        items.clone(),
+        4096,
+        SnapshotAuxiliaryLists {
+            conflict_records: vec![RealmStateSnapshotConflictRecord::BottomCell {
+                cell_ref: bottom.clone(),
+            }],
+            erasure_stubs: vec![SnapshotErasureStub {
+                cell_ref: erased.clone(),
+                stub: serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"}),
+            }],
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let payloads = built.iter().map(|c| c.payload.clone()).collect::<Vec<_>>();
+    let chunk_bytes = built
+        .iter()
+        .map(|c| c.canonical_bytes.clone())
+        .collect::<Vec<_>>();
+    let (mut manifest, _, _) = manifest_for_items(items);
+    manifest.chunks = built.iter().map(|c| c.descriptor.clone()).collect();
+    manifest.verification_hints = Some(RealmStateSnapshotVerificationHints {
+        verification_profile: RealmStateSnapshotSecurityClass::Standard,
+        inclusion_proof_url: None,
+        challenge_window_seconds: None,
+        conflict_records_digest: Some(
+            realm_state_snapshot_conflict_records_digest(
+                &payloads,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap(),
+        ),
+        soft_failed_digest: None,
+        quarantined_digest: None,
+        erasure_stubs_digest: Some(
+            realm_state_snapshot_erasure_stubs_digest(
+                &payloads,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap(),
+        ),
+    });
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let restored = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap();
+
+    assert!(restored.bottom_cells.contains(&bottom));
+    assert!(restored.erasure_stubs.contains_key(&erased));
+    assert_eq!(
+        restored.cell(&bottom),
+        None,
+        "a bottom cell has no leaf; the caller reads bottom_cells, not a value"
+    );
+
+    // The digest a `verification_hints` entry commits is checked, not trusted.
+    let mut tampered = manifest.clone();
+    tampered
+        .verification_hints
+        .as_mut()
+        .unwrap()
+        .erasure_stubs_digest = Some(hash(6));
+    tampered.signature.payload_digest = tampered.expected_signature_digest().unwrap();
+    let tampered_transcript = tampered.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &tampered,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(tampered_transcript),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, RealmStateSnapshotValidationCode::DigestMismatch);
+}
+
+/// An erasure stub is a substitute for a leaf, not an annotation beside one.
+#[test]
+fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
+    let items = vec![cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"))];
+    let cell = CellRef::new(STRAND_LIFECYCLE_CELL.to_owned()).unwrap();
+    let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
+        &snapshot_v1_id(),
+        CORE_REDUCER_PROFILE,
+        items.clone(),
+        4096,
+        SnapshotAuxiliaryLists {
+            erasure_stubs: vec![SnapshotErasureStub {
+                cell_ref: cell,
+                stub: serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"}),
+            }],
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let payloads = built.iter().map(|c| c.payload.clone()).collect::<Vec<_>>();
+    let chunk_bytes = built
+        .iter()
+        .map(|c| c.canonical_bytes.clone())
+        .collect::<Vec<_>>();
+    let (mut manifest, _, _) = manifest_for_items(items);
+    manifest.chunks = built.iter().map(|c| c.descriptor.clone()).collect();
+    manifest.verification_hints = Some(RealmStateSnapshotVerificationHints {
+        verification_profile: RealmStateSnapshotSecurityClass::Standard,
+        inclusion_proof_url: None,
+        challenge_window_seconds: None,
+        conflict_records_digest: None,
+        soft_failed_digest: None,
+        quarantined_digest: None,
+        erasure_stubs_digest: Some(
+            realm_state_snapshot_erasure_stubs_digest(
+                &payloads,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap(),
+        ),
+    });
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, RealmStateSnapshotValidationCode::SchemaViolation);
+}
+
+/// §3 makes `erasure_stubs_digest` mandatory once any chunk carries a stub: it
+/// is the only commitment an erased cell has.
+#[test]
+fn restore_rejects_erasure_stubs_with_no_commitment() {
+    let items = vec![cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"))];
+    let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
+        &snapshot_v1_id(),
+        CORE_REDUCER_PROFILE,
+        items.clone(),
+        4096,
+        SnapshotAuxiliaryLists {
+            erasure_stubs: vec![SnapshotErasureStub {
+                cell_ref: CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap(),
+                stub: serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"}),
+            }],
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let chunk_bytes = built
+        .iter()
+        .map(|c| c.canonical_bytes.clone())
+        .collect::<Vec<_>>();
+    let (mut manifest, _, _) = manifest_for_items(items);
+    manifest.chunks = built.iter().map(|c| c.descriptor.clone()).collect();
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert_eq!(error.code, RealmStateSnapshotValidationCode::SchemaViolation);
+    assert!(format!("{error}").contains("erasure_stubs_digest"));
+}
+
+/// A hint and a manifest arrive in two responses; the second is only usable
+/// when it is the snapshot the first named.
+#[test]
+fn bootstrap_hint_must_name_the_manifest_it_is_bound_to() {
+    use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
+
+    let (manifest, _, _) = restore_fixture();
+    let bootstrap = RealmStateSnapshotBootstrap {
+        realm_state_snapshot_ref: manifest.id.clone(),
+        state_digest: manifest.state_digest.clone(),
+        realm_state_snapshot_frontier: manifest.frontier.event_ids.clone(),
+        created_by: manifest.created_by.clone(),
+        created_at: manifest.created_at,
+        authority_binding: serde_json::from_value(
+            serde_json::to_value(&manifest.authority_binding).unwrap(),
+        )
+        .unwrap(),
+        signature: serde_json::from_value(serde_json::to_value(&manifest.signature).unwrap())
+            .unwrap(),
+        verification_hints: None,
+    };
+    realm_state_snapshot_bootstrap_binds_manifest(&bootstrap, &manifest).unwrap();
+
+    let mut swapped_digest = bootstrap.clone();
+    swapped_digest.state_digest = hash(4);
+    assert_eq!(
+        realm_state_snapshot_bootstrap_binds_manifest(&swapped_digest, &manifest)
+            .unwrap_err()
+            .code,
+        RealmStateSnapshotValidationCode::DigestMismatch
+    );
+
+    let mut swapped_ref = bootstrap.clone();
+    swapped_ref.realm_state_snapshot_ref = RealmStateSnapshotId::new(
+        "ak:realm_state_snapshot:01904100-0000-7000-8000-00000000beef".to_owned(),
+    )
+    .unwrap();
+    assert_eq!(
+        realm_state_snapshot_bootstrap_binds_manifest(&swapped_ref, &manifest)
+            .unwrap_err()
+            .code,
+        RealmStateSnapshotValidationCode::SchemaViolation
+    );
+
+    let mut swapped_signature = bootstrap;
+    swapped_signature.signature.payload_digest = hash(5);
+    assert_eq!(
+        realm_state_snapshot_bootstrap_binds_manifest(&swapped_signature, &manifest)
+            .unwrap_err()
+            .code,
+        RealmStateSnapshotValidationCode::SignatureInvalid
+    );
 }

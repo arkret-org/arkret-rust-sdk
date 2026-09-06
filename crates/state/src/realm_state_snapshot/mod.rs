@@ -1,40 +1,29 @@
-//! Snapshot chunks — multi-chunk Merkle output with signed generator proofs.
+//! `ak.schema.realm_state_snapshot.v1` — the signed manifest, its
+//! content-addressed chunks, and the consumer half that restores them.
 //!
-//! The v1 snapshot wire is a single base64-url JSON blob: fine for small
-//! Spaces, but doesn't scale to multi-megabyte projection dumps and
-//! doesn't let receivers verify a single chunk without trusting the
-//! whole bundle.
+//! Producer side: [`build_realm_state_snapshot_chunks_with_auxiliary_lists`]
+//! partitions the reducer's materialized cells on whole-item boundaries and
+//! [`state_digest_from_items`] commits them, with each leaf byte-identical to
+//! that cell's `event-auth-state-resolution.md` §6.2.1 `state_root` leaf.
+//! [`event_set_commitment`] commits the covered Event set, and
+//! [`event_set_merkle_tree`] is the prover side of the §6.2 inclusion
+//! challenge over that same commitment.
 //!
-//! The v1 snapshot model uses three primitives:
-//!
-//! - [`RealmStateSnapshotChunker`] — deterministically partitions a serialized snapshot blob into
-//!   fixed-size byte ranges, each addressable by an ordinal `chunk_id` starting at 0. Boundaries
-//!   are at exact byte offsets (`target_chunk_bytes`) so two implementations always produce the
-//!   same chunk layout for the same input.
-//! - [`RealmStateSnapshotMerkleTree`] — a binary Merkle tree over chunk digests keyed by
-//!   `chunk_id`. RFC 6962-style audit paths let receivers verify a single chunk's leaf hash against
-//!   the root using just `O(log n)` sibling hashes.
-//! - [`GeneratorProof`] — the generator's signed commitment to a snapshot frontier (`state_root` +
-//!   `merkle_root` + `chunk_count`). Receivers verify the proof against the generator DID before
-//!   trusting any chunks; chunks themselves don't need per-chunk signatures because their digests
-//!   are committed in the Merkle root that the proof signs.
-//!
-//! The snapshot manifest endpoint
-//! (`/_arkret/self/realm-state-snapshot/head`) returns `chunk_count`, `merkle_root`,
-//! and `generator_proof`. Receivers fetch chunks through the manifest's
-//! `chunks[]` download descriptors and verify each chunk against its
-//! `audit_path[]` Merkle siblings.
+//! Consumer side: [`restore_realm_state_snapshot`] runs §5's checklist —
+//! signature transcript, reducer profile, acceptance window, per-chunk content
+//! address, `state_digest` recomputation, auxiliary-list digests — and hands
+//! back materialized cells plus a [`CoveredEventSet`], which is what keeps a
+//! restored receiver able to answer §3's covered-set question instead of
+//! guessing `false`.
 
 mod chunking;
 mod constants;
-mod generator_proof;
 pub(crate) mod merkle;
 mod restore;
 mod types;
 
 pub use chunking::*;
 pub use constants::*;
-pub use generator_proof::*;
 pub use restore::*;
 pub use merkle::{RealmStateSnapshotMerkleTree, format_hash, hash_leaf, hash_node, parse_sha256};
 pub use types::*;

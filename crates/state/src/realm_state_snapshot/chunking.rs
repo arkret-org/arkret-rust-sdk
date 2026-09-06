@@ -1,65 +1,16 @@
 use arkret_canonical::DigestSuite;
 use serde::Serialize;
 
-use super::constants::{
-    DEFAULT_REALM_STATE_SNAPSHOT_CHUNK_BYTES, EMPTY_SHA256_DIGEST, REALM_STATE_SNAPSHOT_CHUNK_TYPE,
-};
+use super::constants::{EMPTY_SHA256_DIGEST, REALM_STATE_SNAPSHOT_CHUNK_TYPE};
 use super::merkle::{build_levels, sha256_digest};
 use super::types::{
     BuiltRealmStateSnapshotChunk, EventSetCommitment, EventSetCommitmentAlgorithm, EventSetLeaf,
-    RealmStateSnapshotChunk, RealmStateSnapshotChunkDescriptor, RealmStateSnapshotChunkPayload,
+    RealmStateSnapshotChunkDescriptor, RealmStateSnapshotChunkPayload,
     RealmStateSnapshotConflictRecord, RealmStateSnapshotMaterializedItem,
     RealmStateSnapshotValidationCode, RealmStateSnapshotValidationError, SnapshotErasureStub,
     SnapshotNonAcceptedInput,
 };
 use crate::{BlobRef, Hash, RealmStateSnapshotId, Result, WireError};
-
-/// Deterministic snapshot chunker. Same input always produces the same
-/// chunk layout, regardless of implementation.
-#[derive(Clone, Debug)]
-pub struct RealmStateSnapshotChunker {
-    /// Target bytes per chunk. The last chunk may be smaller; all
-    /// non-final chunks are exactly this size. Must be > 0.
-    pub target_chunk_bytes: usize,
-}
-
-impl Default for RealmStateSnapshotChunker {
-    fn default() -> Self {
-        Self {
-            target_chunk_bytes: DEFAULT_REALM_STATE_SNAPSHOT_CHUNK_BYTES,
-        }
-    }
-}
-
-impl RealmStateSnapshotChunker {
-    pub fn new(target_chunk_bytes: usize) -> Result<Self> {
-        if target_chunk_bytes == 0 {
-            return Err(WireError::Protocol(
-                "RealmStateSnapshotChunker target_chunk_bytes must be > 0".to_owned(),
-            ));
-        }
-        Ok(Self { target_chunk_bytes })
-    }
-
-    /// Partition `bytes` into chunks. Empty input produces an empty
-    /// vector — callers MAY treat that as a sentinel ("nothing to
-    /// snapshot") or as an error depending on their use case.
-    pub fn chunk(&self, bytes: &[u8]) -> Vec<RealmStateSnapshotChunk> {
-        if bytes.is_empty() {
-            return Vec::new();
-        }
-        let mut out = Vec::with_capacity(bytes.len().div_ceil(self.target_chunk_bytes));
-        for (chunk_id, slice) in bytes.chunks(self.target_chunk_bytes).enumerate() {
-            let digest = sha256_digest(slice);
-            out.push(RealmStateSnapshotChunk {
-                chunk_id: chunk_id as u32,
-                bytes: slice.to_vec(),
-                digest,
-            });
-        }
-        out
-    }
-}
 
 pub fn realm_state_snapshot_chunk_payload_bytes(
     payload: &RealmStateSnapshotChunkPayload,
@@ -372,6 +323,27 @@ pub fn event_set_root(
             merkle_root_from_hashes(leaves)
         }
     }
+}
+
+/// The `merkle_event_set_v1` tree behind an `event_set_commitment`.
+///
+/// The prover side of the §6.2 inclusion challenge: build it over the same
+/// entries the commitment was computed from, and `audit_path(index)` is the
+/// `merkle_branch` a challenge response carries. Entries are sorted here by the
+/// same `(actor_id, actor_seq, event_id)` key [`event_set_root`] uses, so the
+/// index a caller reads off the sorted list is the index the branch proves.
+pub fn event_set_merkle_tree(
+    entries: &[EventSetLeaf],
+) -> Result<(Vec<EventSetLeaf>, super::merkle::RealmStateSnapshotMerkleTree)> {
+    let sorted = sorted_event_set_entries(entries);
+    let mut leaves = Vec::with_capacity(sorted.len());
+    for entry in &sorted {
+        leaves.push(sha256_digest(&crate::canonical::canonical_json_bytes(
+            entry,
+        )?));
+    }
+    let tree = super::merkle::RealmStateSnapshotMerkleTree::from_leaf_data(&leaves)?;
+    Ok((sorted, tree))
 }
 
 pub fn merkle_root_from_hashes(leaves: Vec<Hash>) -> Result<Hash> {

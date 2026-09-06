@@ -27,11 +27,15 @@ use arkret_models_collaboration::http_bodies::{
     EventsSubscribeFrame, ProjectionSpaceList, ProjectionStrandList, SealResolveOutcome,
     SelfSealResolveRequestBody,
 };
+use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
 use arkret_models_discovery::ServiceDescribe;
 use arkret_schema::PreparedStandardEvent;
-use arkret_state::RealmStateSnapshotManifest;
+use arkret_state::{
+    RealmStateSnapshotManifest, RealmStateSnapshotRestore, RealmStateSnapshotVerifyOptions,
+    realm_state_snapshot_bootstrap_binds_manifest, restore_realm_state_snapshot,
+};
 use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
     AccountId, ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
@@ -886,11 +890,92 @@ impl Client {
         self.post("/_arkret/self/seals", seal).await
     }
 
-    pub async fn snapshot_head(&self, realm_id: &str) -> Result<RealmStateSnapshotManifest> {
+    /// The Realm's head snapshot manifest, as served.
+    ///
+    /// Nothing is verified here — `realm-state-snapshot-schema.md` §5 puts the
+    /// transcript check before the chunks, and both belong to
+    /// [`Self::restore_realm_state_snapshot_head`]. A caller that only wants to
+    /// compare a `state_digest` or read the frontier can use this; a caller
+    /// that wants state MUST NOT.
+    pub async fn realm_state_snapshot_head(
+        &self,
+        realm_id: &str,
+    ) -> Result<RealmStateSnapshotManifest> {
         let builder = self
             .request(Method::GET, "/_arkret/self/realm-state-snapshot/head")?
             .query(&[("realm_id", realm_id)]);
         self.send_json(builder).await
+    }
+
+    /// Fetch the Realm's head snapshot, verify it, and materialize it.
+    ///
+    /// The whole §5 consumer path in one call: manifest, every chunk recovered
+    /// from its content-addressed `chunk_ref`, the transcript signature through
+    /// `verify_issuer_jws`, and the `state_digest` recomputed from the
+    /// delivered chunks rather than believed.
+    ///
+    /// The result carries a [`CoveredEventSet`] that answers §3's covered-set
+    /// question with `Unknown` until the caller feeds it the committed index or
+    /// an inclusion proof. That is deliberate: a restored client that answered
+    /// «not covered» from ignorance would revive superseded writes on the next
+    /// late-branch merge.
+    pub async fn restore_realm_state_snapshot_head<F>(
+        &self,
+        realm_id: &str,
+        options: &RealmStateSnapshotVerifyOptions,
+        verify_issuer_jws: F,
+    ) -> Result<RealmStateSnapshotRestore>
+    where
+        F: FnOnce(&arkret_wire::DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+    {
+        let manifest = self.realm_state_snapshot_head(realm_id).await?;
+        self.restore_realm_state_snapshot(&manifest, options, verify_issuer_jws)
+            .await
+    }
+
+    /// Restore the snapshot a `realm_state_snapshot_bootstrap` hint named.
+    ///
+    /// The hint and the manifest arrive in two different responses, so the
+    /// manifest is bound to the hint before any chunk is fetched: a server that
+    /// advertised one snapshot on the events query and served another on the
+    /// head route is rejected rather than silently accelerated on.
+    pub async fn restore_realm_state_snapshot_for_bootstrap<F>(
+        &self,
+        realm_id: &str,
+        bootstrap: &RealmStateSnapshotBootstrap,
+        options: &RealmStateSnapshotVerifyOptions,
+        verify_issuer_jws: F,
+    ) -> Result<RealmStateSnapshotRestore>
+    where
+        F: FnOnce(&arkret_wire::DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+    {
+        let manifest = self.realm_state_snapshot_head(realm_id).await?;
+        realm_state_snapshot_bootstrap_binds_manifest(bootstrap, &manifest)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        self.restore_realm_state_snapshot(&manifest, options, verify_issuer_jws)
+            .await
+    }
+
+    /// Restore a manifest the caller already holds.
+    ///
+    /// Split from [`Self::restore_realm_state_snapshot_head`] so a client that
+    /// received a `realm_state_snapshot_bootstrap` hint can bind the manifest to
+    /// that hint before spending the chunk downloads.
+    pub async fn restore_realm_state_snapshot<F>(
+        &self,
+        manifest: &RealmStateSnapshotManifest,
+        options: &RealmStateSnapshotVerifyOptions,
+        verify_issuer_jws: F,
+    ) -> Result<RealmStateSnapshotRestore>
+    where
+        F: FnOnce(&arkret_wire::DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+    {
+        let mut chunk_bytes = Vec::with_capacity(manifest.chunks.len());
+        for descriptor in &manifest.chunks {
+            chunk_bytes.push(self.blob_download(&descriptor.chunk_ref, None).await?);
+        }
+        restore_realm_state_snapshot(manifest, &chunk_bytes, options, verify_issuer_jws)
+            .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     pub async fn authz_check(&self, request: &AuthzCheckRequestBody) -> Result<AuthzCheckOutcome> {
