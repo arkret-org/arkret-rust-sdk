@@ -509,6 +509,43 @@ fn verify_fork_resolution_refs(
             reason: "schema_violation".to_owned(),
         });
     }
+    // Section 6.3.2: an adjudication is final in one direction only. Without a
+    // `head_eq: null` on the target cell, a causal successor whose basis already
+    // contains the settled verdict satisfies the automatic complete-heads guard
+    // -- `H_c(B) = H_c(P)` holds for exactly that writer -- and could swap the
+    // canonical winner or flip void_all, retroactively cutting an accepted actor
+    // chain. The guard cannot catch it, so the assertion has to be carried.
+    //
+    // Only the shape is checked here; step 4 evaluates the predicate against the
+    // frozen pre-state, so a cell that already holds a verdict rejects there.
+    let mut slot_guards = event.preconditions.iter().filter(|precondition| {
+        precondition.predicate.op == PredicateOp::HeadEq
+            && precondition
+                .cell_id
+                .as_str()
+                .strip_prefix("ak:cell:")
+                .and_then(|rest| rest.strip_prefix(arkret_wire::CellFamilyId::FORK_RESOLUTION_V1))
+                .is_some_and(|rest| rest.starts_with(':'))
+    });
+    let slot_guard = slot_guards
+        .next()
+        .ok_or_else(|| ControlMoveReject::FailedPrecondition {
+            cell: event.realm_id.as_str().to_owned(),
+            reason: "fork resolution must carry head_eq null for its target cell".to_owned(),
+        })?;
+    if slot_guards.next().is_some() {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: slot_guard.cell_id.as_str().to_owned(),
+            reason: "fork resolution must carry exactly one fork-resolution head_eq".to_owned(),
+        });
+    }
+    if slot_guard.predicate.value.as_ref() != Some(&Value::Null) {
+        return Err(ControlMoveReject::FailedPrecondition {
+            cell: slot_guard.cell_id.as_str().to_owned(),
+            reason: "fork resolution head_eq must be null; a settled subject is not re-adjudicated"
+                .to_owned(),
+        });
+    }
     if !recovery_capability_is_active_for(
         capability.id.as_str(),
         &event.actor_id,
@@ -1478,6 +1515,95 @@ mod tests {
         )
         .unwrap_err();
         assert!(matches!(err, ControlMoveReject::CapabilityDenied(_)));
+    }
+
+    fn fork_resolution_event(preconditions: Vec<Precondition>, with_capability: bool) -> Event {
+        let mut event = control_move(
+            preconditions,
+            if with_capability {
+                vec![EventRef::new(
+                    "ak:grant:AXikJ_OppAbhG0I7SBWrKFxHynEEyYO8-IZ1Lsd9SVu-",
+                    "recovery_capability",
+                )]
+            } else {
+                vec![]
+            },
+        );
+        event.kind = arkret_wire::EventKind::ForkResolution;
+        event
+    }
+
+    fn fork_resolution_slot_guard(value: Value) -> Precondition {
+        Precondition {
+            cell_id: CellRef::new(
+                "ak:cell:ak.component.fork_resolution.v1:AY9WrPRKKFmB5v6VmZC9qMYPmRLBWNzRy4mUvT0BQ2sT"
+                    .to_owned(),
+            )
+            .unwrap(),
+            predicate: Predicate {
+                op: PredicateOp::HeadEq,
+                value: Some(value),
+                values: None,
+                predicate_id: None,
+            },
+        }
+    }
+
+    #[test]
+    fn fork_resolution_must_carry_head_eq_null_for_its_target_cell() {
+        // Section 6.3.2: the automatic complete-heads guard cannot catch a
+        // causal successor that already contains the settled verdict, because
+        // H_c(B) = H_c(P) holds for exactly that writer. Without the assertion
+        // an adjudication could be swapped or flipped after the fact.
+        let pre_state = BTreeMap::new();
+
+        let missing = verify_fork_resolution_refs(&fork_resolution_event(vec![], true), &pre_state)
+            .unwrap_err();
+        assert!(
+            format!("{missing:?}").contains("head_eq null"),
+            "{missing:?}"
+        );
+
+        let wrong_value = verify_fork_resolution_refs(
+            &fork_resolution_event(
+                vec![fork_resolution_slot_guard(json!({"verdict": "void_all"}))],
+                true,
+            ),
+            &pre_state,
+        )
+        .unwrap_err();
+        assert!(
+            format!("{wrong_value:?}").contains("must be null"),
+            "{wrong_value:?}"
+        );
+
+        let duplicated = verify_fork_resolution_refs(
+            &fork_resolution_event(
+                vec![
+                    fork_resolution_slot_guard(Value::Null),
+                    fork_resolution_slot_guard(Value::Null),
+                ],
+                true,
+            ),
+            &pre_state,
+        )
+        .unwrap_err();
+        assert!(
+            format!("{duplicated:?}").contains("exactly one"),
+            "{duplicated:?}"
+        );
+
+        // A well-shaped guard gets past the shape check and fails only on the
+        // capability, which this fixture's pre-state does not grant.
+        let shaped = verify_fork_resolution_refs(
+            &fork_resolution_event(vec![fork_resolution_slot_guard(Value::Null)], true),
+            &pre_state,
+        )
+        .unwrap_err();
+        assert!(
+            format!("{shaped:?}").contains("recovery_capability"),
+            "{shaped:?}"
+        );
     }
 
     #[test]
