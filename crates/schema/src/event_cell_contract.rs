@@ -2341,6 +2341,12 @@ mod tests {
     }
 
     /// `event-auth-state-resolution.md` §9.5 recovery, built as a Control Move.
+    ///
+    /// Both targets below are causal registers, so the Move carries no
+    /// `state_witness`: §9.5.1 makes that role a non-condition on this path,
+    /// because a cell that conflicted on its very first write never had a
+    /// pre-conflict value to witness. The conflict is proved from the Move's own
+    /// signed basis and the authority from its registered capability.
     fn conflict_recovery_event(target_cell_id: &str, resolved: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AbTm4abxkmMcE7rkV-Wz8Uk_vFh-cUlesAd-EsJX395Y",
@@ -2360,9 +2366,7 @@ mod tests {
             },
             "refs": [
                 {"role": "recovery_capability", "critical": true,
-                 "id": "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi"},
-                {"role": "state_witness", "critical": true,
-                 "id": "ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+                 "id": "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi"}
             ],
             "payload": {"target_cell_id": target_cell_id, "resolved_value": resolved},
             "proofs": []
