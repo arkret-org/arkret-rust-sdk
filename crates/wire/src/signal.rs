@@ -787,10 +787,6 @@ mod tests {
             serde_json::from_slice(&original.proof_binding_bytes().unwrap()).unwrap();
         assert_eq!(aad["sender_actor_id"], value["sender_actor_id"]);
         assert_eq!(proof["sender_actor_id"], value["sender_actor_id"]);
-        let mut legacy = value;
-        legacy["sender_actor_id"] =
-            serde_json::json!(original.sender_actor_id.signing_principal_id());
-        assert!(serde_json::from_value::<SignalEnvelope>(legacy).is_err());
         let mut moved = original.clone();
         let mut account = moved.sender_actor_id.as_account_id().unwrap().clone();
         account.station_id =

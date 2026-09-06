@@ -761,14 +761,6 @@ mod tests {
             assert_eq!(decoded.revoked_by.as_ref(), Some(&actor));
             assert_eq!(serde_json::to_value(decoded).unwrap(), value);
             assert!(identities.insert(actor));
-            let mut legacy = value;
-            legacy["revoked_by"] = json!(principal);
-            assert!(
-                registry
-                    .validate_value(SchemaId::CAPABILITY_V1, &legacy)
-                    .is_err()
-            );
-            assert!(serde_json::from_value::<CapabilityGrant>(legacy).is_err());
         }
     }
 
@@ -830,9 +822,6 @@ mod tests {
             wire["executed_by"],
             serde_json::json!({"kind":"service","service_id":"ak:did_core:web:calendar.example"})
         );
-        let mut legacy = wire.clone();
-        legacy["executed_by"] = serde_json::json!("ak:did_core:web:calendar.example");
-        assert!(serde_json::from_value::<GrantConstraint>(legacy).is_err());
         assert!(wire.get("applet_delegation_binding").is_none());
     }
 

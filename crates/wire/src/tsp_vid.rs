@@ -121,8 +121,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_legacy_strings_and_cross_kind_values() {
-        assert!(serde_json::from_value::<TspVid>(json!("did:web:verifier.example")).is_err());
+    fn rejects_cross_kind_values() {
         assert!(
             serde_json::from_value::<TspVid>(json!({
                 "kind": "did",

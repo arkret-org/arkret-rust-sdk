@@ -386,7 +386,7 @@ mod tests {
     }
 
     #[test]
-    fn local_mls_records_reject_unknown_legacy_fields() {
+    fn local_mls_records_reject_unknown_fields() {
         let principal_id = DidCoreId::new("ak:did_core:web:alice.example".to_owned()).unwrap();
         let device_id =
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001".to_owned()).unwrap();
@@ -419,7 +419,7 @@ mod tests {
         key_package_value
             .as_object_mut()
             .unwrap()
-            .insert("legacy_field".to_owned(), serde_json::Value::Bool(true));
+            .insert("unknown_field".to_owned(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<MlsKeyPackageRecord>(key_package_value).is_err());
 
         let mut group_value = serde_json::to_value(group).unwrap();
@@ -427,7 +427,7 @@ mod tests {
         group_value
             .as_object_mut()
             .unwrap()
-            .insert("legacy_field".to_owned(), serde_json::Value::Bool(true));
+            .insert("unknown_field".to_owned(), serde_json::Value::Bool(true));
         assert!(serde_json::from_value::<MlsGroupStateRecord>(group_value).is_err());
     }
 }

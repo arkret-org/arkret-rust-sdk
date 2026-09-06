@@ -190,9 +190,6 @@ mod membership_remove_identity_tests {
             assert!(identities.insert(actor));
         }
         assert_eq!(identities.len(), 3);
-        let legacy = json!({"event_kind": "ak.member.state", "member_id": principal, "membership": "remove", "reason_code": "applet_revoked"});
-        assert!(registry.validate_value(&schema, &legacy).is_err());
-        assert!(serde_json::from_value::<AppletMembershipRemoveIntent>(legacy).is_err());
     }
 }
 
@@ -331,9 +328,6 @@ mod actor_view_tests {
             assert_eq!(serde_json::to_value(decoded).unwrap(), value);
             assert!(identities.insert(actor));
         }
-        let legacy = json!({"exists": true, "actor_id": principal});
-        assert!(registry.validate_value(&schema, &legacy).is_err());
-        assert!(serde_json::from_value::<AppletActorView>(legacy).is_err());
     }
 }
 

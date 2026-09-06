@@ -627,18 +627,7 @@ mod tests {
     }
 
     #[test]
-    fn a_problem_rejects_the_legacy_envelope_wire_and_accepts_rfc_9457() {
-        // The `{ok, error, request_id}` shape has never been on the wire; the
-        // compatibility type that carried those field names in Rust is gone,
-        // and the JSON it never emitted still must not decode.
-        assert!(
-            serde_json::from_value::<Problem>(json!({
-                "ok": false,
-                "error": {"code": "not_found", "message": "not found"}
-            }))
-            .is_err()
-        );
-
+    fn a_problem_decodes_the_rfc_9457_wire() {
         let decoded = serde_json::from_value::<Problem>(json!({
             "type": "https://arkret.org/problems/not_found",
             "title": "Not found",

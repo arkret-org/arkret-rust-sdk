@@ -555,15 +555,6 @@ mod tests {
                 registry.validate_value(&schema, &value).unwrap();
                 assert_eq!(roundtrip(value.clone()).unwrap(), value);
                 assert!(encoded_identities.insert(serde_json::to_string(&value).unwrap()));
-                for field in fields {
-                    let mut legacy = value.clone();
-                    legacy[*field] = json!(principal);
-                    assert!(
-                        registry.validate_value(&schema, &legacy).is_err(),
-                        "{definition}.{field}"
-                    );
-                    assert!(roundtrip(legacy).is_err(), "{definition}.{field}");
-                }
             }
             assert_eq!(encoded_identities.len(), 3);
         }

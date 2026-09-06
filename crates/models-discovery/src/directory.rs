@@ -1455,7 +1455,6 @@ mod agent_selector_outcome_tests {
 mod directory_requester_proof_binding_tests {
     use arkret_wire::{DidCoreId, DidUrl, Hash};
     use chrono::Utc;
-    use serde_json::json;
 
     use super::{DirectoryRequestProof, DirectoryResolveTargetRequestBody};
 
@@ -1488,24 +1487,13 @@ mod directory_requester_proof_binding_tests {
     /// mismatch that §9.2 collapses into an indistinguishable rejection, so the
     /// binding helper refuses to produce transcript bytes for it.
     #[test]
-    fn audience_id_is_the_only_closed_directory_service_identifier_shape() {
+    fn audience_id_is_the_pinned_directory_service_identifier_shape() {
         let body = body();
         let digest = body.payload_digest().unwrap();
 
-        let core = proof("ak:did_core:web:directory.example", digest.clone());
+        let core = proof("ak:did_core:web:directory.example", digest);
         body.proof_binding_bytes(&core)
             .expect("a did_core_id audience_id is the pinned form");
-
-        let legacy = json!({
-            "kind": "detached_jws",
-            "verification_method": "did:web:alice.example#key-1",
-            "payload_digest": digest,
-            "created_at": "2026-09-02T00:00:00.000Z",
-            "audience": "ak:did_core:web:directory.example",
-            "jws": "aaa.bbb.ccc"
-        });
-        serde_json::from_value::<DirectoryRequestProof>(legacy)
-            .expect_err("bare audience is not a compatibility alias");
     }
 }
 

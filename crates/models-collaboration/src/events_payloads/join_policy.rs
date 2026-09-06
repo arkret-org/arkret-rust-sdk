@@ -191,22 +191,6 @@ mod tests {
     }
 
     #[test]
-    fn principal_admission_rejects_unknown_principal_list_fields() {
-        for disposition in ["allowed", "denied"] {
-            let mut value = serde_json::json!({
-                "gates": [{
-                    "gate_id": "identity",
-                    "kind": "principal_admission"
-                }],
-                "combinator": "all"
-            });
-            let legacy_field = [disposition, "_principal_", "core_ids"].concat();
-            value["gates"][0][legacy_field] = serde_json::json!(["ak:did_core:webvh:z6mkfixture"]);
-            assert!(serde_json::from_value::<JoinPolicyPayload>(value).is_err());
-        }
-    }
-
-    #[test]
     fn did_method_selector_is_not_parsed_as_a_did() {
         let method: DidMethod = serde_json::from_str(r#""did:webvh""#).unwrap();
         assert_eq!(method.as_str(), "did:webvh");

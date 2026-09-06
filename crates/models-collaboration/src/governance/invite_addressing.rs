@@ -776,9 +776,6 @@ mod tests {
         assert_eq!(policy.account_id.principal_id, subject_id);
         let value = serde_json::to_value(&policy).unwrap();
         assert!(value.get("subject_id").is_none());
-        let mut legacy = value;
-        legacy["subject_id"] = serde_json::json!(subject_id);
-        assert!(serde_json::from_value::<InviteReceivePolicy>(legacy).is_err());
         assert_eq!(
             policy.holder_allowed_introduction_kinds,
             ["locator_ref", "consent_grant", "shared_realm"]

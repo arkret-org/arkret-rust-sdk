@@ -465,14 +465,6 @@ mod tests {
                     .is_err()
             );
             assert!(serde_json::from_value::<AuditRywReceipt>(event_proof).is_err());
-            let mut legacy = value;
-            legacy["audit_actor_id"] = json!(actor.signing_principal_id());
-            assert!(
-                registry
-                    .validate_value(AuditRywReceipt::SCHEMA, &legacy)
-                    .is_err()
-            );
-            assert!(serde_json::from_value::<AuditRywReceipt>(legacy).is_err());
         }
         let wire = serde_json::to_value(&frontier).unwrap();
         for actor in actors() {

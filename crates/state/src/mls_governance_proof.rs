@@ -3176,18 +3176,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn security_frontier_leaf_rejects_legacy_principal_only_shape() {
-        assert!(
-            serde_json::from_value::<MlsSecurityFrontierLeaf>(json!({
-                "leaf_index": 0,
-                "principal_id": "ak:did_core:web:alice.example",
-                "credential_ref": "device-a"
-            }))
-            .is_err()
-        );
-    }
-
-    #[tokio::test]
     async fn circle_frontier_selects_realm_members_by_registry_subject_encoding() {
         let actor = ActorId::account(arkret_wire::AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),

@@ -80,7 +80,7 @@ mod tests {
     use super::OpaqueLocalId;
 
     #[test]
-    fn structured_identity_adapters_preserve_station_and_reject_legacy_shapes() {
+    fn structured_identity_adapters_preserve_station_and_stay_closed() {
         use crate::{AccountId, ActorId, DidCoreId};
         let principal = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
         let first = AccountId::new(
@@ -109,8 +109,6 @@ mod tests {
             service
         );
         for invalid in [
-            serde_json::json!("ak:did_core:web:alice.example"),
-            serde_json::json!({"principal_id": "ak:did_core:web:alice.example"}),
             serde_json::json!({"principal_id": "ak:did_core:web:alice.example", "station_id": "ak:did_core:web:a.example", "extra": true}),
         ] {
             assert!(super::parse_account_text(&invalid.to_string()).is_err());

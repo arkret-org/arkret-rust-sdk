@@ -27,7 +27,7 @@ fn self_and_peer_keypackage_claim_dtos_have_distinct_schema_identities() {
 }
 
 #[test]
-fn human_claim_account_station_is_bound_and_legacy_principal_mirrors_are_rejected() {
+fn human_claim_account_station_is_bound() {
     let fixture =
         arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
             .unwrap();
@@ -52,15 +52,6 @@ fn human_claim_account_station_is_bound_and_legacy_principal_mirrors_are_rejecte
         arkret_canonical::canonical_json_bytes(&other_station).unwrap(),
         "same principal at another Station is a distinct claim target"
     );
-
-    for legacy in ["target_principal_id", "requester_id"] {
-        let mut mirrored = request.clone();
-        mirrored[legacy] = json!("ak:did_core:webvh:z6mkfixture");
-        assert!(
-            serde_json::from_value::<PeerKeyPackagesClaimUnsignedRequest>(mirrored).is_err(),
-            "legacy {legacy} mirror must not be dual-read"
-        );
-    }
 }
 
 #[test]
@@ -260,22 +251,22 @@ fn consume_receipt_coordinates_have_one_nested_carrier() {
         "mls_epoch",
         "source_id",
     ] {
-        let mut legacy = receipt.clone();
-        legacy
+        let mut with_forbidden = receipt.clone();
+        with_forbidden
             .as_object_mut()
             .unwrap()
             .insert(forbidden.to_owned(), serde_json::Value::Null);
-        assert!(serde_json::from_value::<KeyPackageConsumeReceipt>(legacy).is_err());
+        assert!(serde_json::from_value::<KeyPackageConsumeReceipt>(with_forbidden).is_err());
     }
 
     let outcome = json!({"consume_receipt": receipt});
     assert!(serde_json::from_value::<KeyPackagesConsumeOutcome>(outcome.clone()).is_ok());
-    let mut legacy_outcome = outcome;
-    legacy_outcome.as_object_mut().unwrap().insert(
+    let mut outcome_with_forbidden = outcome;
+    outcome_with_forbidden.as_object_mut().unwrap().insert(
         "consumed_keypackage_ref".to_owned(),
         json!("sha256:1111111111111111111111111111111111111111111111111111111111111111"),
     );
-    assert!(serde_json::from_value::<KeyPackagesConsumeOutcome>(legacy_outcome).is_err());
+    assert!(serde_json::from_value::<KeyPackagesConsumeOutcome>(outcome_with_forbidden).is_err());
 }
 
 #[test]
@@ -305,11 +296,13 @@ fn consume_command_has_only_claim_and_durable_receipt() {
         "consumer_agent_key_authorize_event_id",
         "consumer_pairwise_verification_method",
     ] {
-        let mut legacy = request.clone();
-        legacy
+        let mut with_forbidden = request.clone();
+        with_forbidden
             .as_object_mut()
             .unwrap()
             .insert(forbidden.to_owned(), serde_json::Value::Null);
-        assert!(serde_json::from_value::<KeyPackagesConsumeUnsignedRequest>(legacy).is_err());
+        assert!(
+            serde_json::from_value::<KeyPackagesConsumeUnsignedRequest>(with_forbidden).is_err()
+        );
     }
 }

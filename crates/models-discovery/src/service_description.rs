@@ -1104,7 +1104,7 @@ mod tests {
         );
         assert!(
             serde_json::from_value::<AuthGrantExchange>(
-                json!({"kind": "account_handoff", "mode": "legacy"})
+                json!({"kind": "account_handoff", "mode": "vendor"})
             )
             .is_err()
         );
@@ -1139,13 +1139,13 @@ mod tests {
         let metadata: AuthMetadata = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(metadata).unwrap(), value);
 
-        assert!(serde_json::from_value::<AuthMetadata>(json!({"mode": "legacy"})).is_err());
-        assert!(serde_json::from_value::<AuthMetadata>(json!({"read": "legacy"})).is_err());
+        assert!(serde_json::from_value::<AuthMetadata>(json!({"mode": "vendor"})).is_err());
+        assert!(serde_json::from_value::<AuthMetadata>(json!({"read": "vendor"})).is_err());
         assert!(
             serde_json::from_value::<AuthMethod>(json!({
                 "method": "passkey",
                 "grant_exchange": {"kind": "account_handoff"},
-                "mode": "legacy"
+                "mode": "vendor"
             }))
             .is_err()
         );
@@ -1153,7 +1153,7 @@ mod tests {
             serde_json::from_value::<AccountAuthority>(json!({
                 "origin": "https://auth.example",
                 "gate_account_base_url": "https://auth.example/_arkret/gate/account",
-                "mode": "legacy"
+                "mode": "vendor"
             }))
             .is_err()
         );

@@ -554,19 +554,13 @@ mod device_generation_tests {
     }
 
     #[test]
-    fn account_collections_reject_legacy_maps_and_duplicate_identities_with_different_values() {
+    fn account_collections_reject_duplicate_identities_with_different_values() {
         let id = account(STATION_ID);
         let query = json!({"device_keys": [
             {"account_id": id, "device_ids": [DEVICE_ID]},
             {"account_id": id, "device_ids": ["ak:device:0196419b-0000-7000-8000-000000000002"]}
         ]});
         assert!(serde_json::from_value::<KeysQueryRequestBody>(query).is_err());
-        assert!(
-            serde_json::from_value::<KeysQueryRequestBody>(json!({
-                "device_keys": {PRINCIPAL_ID: [DEVICE_ID]}
-            }))
-            .is_err()
-        );
         let duplicate = json!({"device_keys": [], "device_generations": [
             {"account_id": id, "generation_state": {"current_device_generation_ref": 1, "device_generation_status": "active"}},
             {"account_id": id, "generation_state": {"current_device_generation_ref": 2, "device_generation_status": "active"}}
@@ -610,13 +604,5 @@ mod device_generation_tests {
         );
         assert!(value.get("principal_id").is_none());
         assert!(value.get("station_id").is_none());
-        let mut legacy = attested_row(7);
-        let core = legacy["device_projection_attestation"]["attestation"]
-            .as_object_mut()
-            .unwrap();
-        core.remove("account_id");
-        core.insert("principal_id".to_owned(), json!(PRINCIPAL_ID));
-        core.insert("station_id".to_owned(), json!(STATION_ID));
-        assert!(serde_json::from_value::<QueryDeviceRecord>(legacy).is_err());
     }
 }

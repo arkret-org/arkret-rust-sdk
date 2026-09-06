@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(request.external_ref.protocol, "slack");
 
         let mut unknown = value;
-        unknown["legacy_actor_id"] = serde_json::json!("ak:did_core:web:ghost.example");
+        unknown["unknown_actor_id"] = serde_json::json!("ak:did_core:web:ghost.example");
         assert!(serde_json::from_value::<GhostPreviewRequestBody>(unknown).is_err());
     }
 }

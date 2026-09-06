@@ -982,7 +982,10 @@ fn dual_plane_vector_inventory_is_pinned() {
                 // exists, so the closed Realm object, the create/update payloads
                 // and concurrent conflicting declarations are all state_root
                 // leaf-set invariants rather than per-domain reducer behaviour.
-                || vector_id == "ak.vector.event_kind.realm_alias_single_carrier.v1",
+                || vector_id == "ak.vector.event_kind.realm_alias_single_carrier.v1"
+                // The FSM state algebra rides the same fixture: causal-head
+                // admission is a lattice invariant, not per-domain behaviour.
+                || vector_id == "ak.vector.lattice.fsm_causal_heads.v1",
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block,

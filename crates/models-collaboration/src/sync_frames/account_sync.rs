@@ -165,7 +165,7 @@ mod notification_delta_tests {
     #[test]
     fn notification_delta_rejects_unknown_members() {
         let mut value = approval_delta("upsert");
-        value["legacy_action"] = json!("add");
+        value["unknown_action"] = json!("add");
         assert!(serde_json::from_value::<NotificationDelta>(value).is_err());
 
         let mut retired_notification_kind = approval_delta("upsert");
@@ -1583,12 +1583,6 @@ mod tests {
             Some("ak:cursor:roster-page-2")
         );
         assert_eq!(serde_json::to_value(roster).unwrap(), raw);
-
-        let legacy_flat = serde_json::json!({
-            "member_roster_entries": [],
-            "member_roster_entries_limited": true
-        });
-        assert!(serde_json::from_value::<MemberRoster>(legacy_flat).is_err());
     }
 
     #[test]

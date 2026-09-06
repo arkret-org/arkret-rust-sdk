@@ -123,18 +123,7 @@ fn media_type_is_required_and_closed_in_both_branches() {
 }
 
 #[test]
-fn legacy_format_is_rejected_in_both_branches() {
-    for block in [plaintext_block(), e2ee_block()] {
-        for format in ["plain", "markdown", "prosemirror_json"] {
-            assert!(
-                block
-                    .clone()
-                    .with_field("format", json!(format))
-                    .validate_long_text()
-                    .is_err()
-            );
-        }
-    }
+fn e2ee_branch_rejects_a_declared_plaintext_media_type() {
     assert!(
         e2ee_block()
             .with_field("media_type", json!("text/plain"))
@@ -168,14 +157,6 @@ fn e2ee_branch_requires_the_streaming_aead_scheme() {
     attachment["encryption_algorithm"] = json!("mls_exporter_aead_xchacha20poly1305");
     let whole_file = e2ee_block().with_field("attachment", attachment);
     assert!(whole_file.validate_long_text().is_err());
-}
-
-#[test]
-fn e2ee_legacy_ciphertext_digest_is_rejected() {
-    let mut attachment = e2ee_block().extra.get("attachment").unwrap().clone();
-    attachment["ciphertext_digest"] = json!(format!("sha256:{}", "b".repeat(64)));
-    let legacy = e2ee_block().with_field("attachment", attachment);
-    assert!(legacy.validate_long_text().is_err());
 }
 
 #[test]

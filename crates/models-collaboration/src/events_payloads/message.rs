@@ -1107,8 +1107,7 @@ fn validate_text_content_block(block: &Value) -> ContentBlockValidationResult<()
 
 fn validate_code_content_block(block: &Value) -> ContentBlockValidationResult<()> {
     if block
-        .get("text")
-        .or_else(|| block.get("body"))
+        .get("body")
         .and_then(Value::as_str)
         .is_none_or(str::is_empty)
     {
@@ -1212,18 +1211,12 @@ fn content_block_has_text(block: &Value) -> bool {
     block.as_str().is_some_and(|value| !value.trim().is_empty())
         || block
             .get("body")
-            .or_else(|| block.get("text"))
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty())
 }
 
 fn content_block_has_text_value(block: &ContentBlock) -> bool {
     !block.body.trim().is_empty()
-        || block
-            .extra
-            .get("text")
-            .and_then(Value::as_str)
-            .is_some_and(|value| !value.trim().is_empty())
 }
 
 fn json_integer(value: &Value) -> bool {

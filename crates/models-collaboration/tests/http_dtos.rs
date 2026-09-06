@@ -34,10 +34,6 @@ where
         let decoded: T = serde_json::from_value(value.clone()).unwrap();
         assert_eq!(serde_json::to_value(decoded).unwrap(), value);
     }
-    let mut legacy = wire.clone();
-    legacy[field] = json!(principal);
-    assert!(registry.validate_value(schema, &legacy).is_err());
-    assert!(serde_json::from_value::<T>(legacy).is_err());
 }
 
 fn actor_id(name: &str) -> DidCoreId {

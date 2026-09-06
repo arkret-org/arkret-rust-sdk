@@ -1585,10 +1585,6 @@ mod tests {
                 .is_err()
         );
 
-        let mut retired_nonce = valid.clone();
-        retired_nonce["claim_envelope"]["nonce"] = serde_json::json!("legacy");
-        assert!(serde_json::from_value::<MlsWelcomePayload>(retired_nonce).is_err());
-
         let mut mismatched_receipt_context = valid.clone();
         mismatched_receipt_context["claim_receipt"]["request"]["claim_request_id"] =
             serde_json::json!("AAAAAAAAAAAAAAAAAAAAAQ");

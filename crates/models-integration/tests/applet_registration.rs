@@ -257,11 +257,11 @@ fn wire_registration_rejects_missing_and_recursively_unknown_fields() {
     assert!(serde_json::from_value::<AppletRegistrationPayload>(missing_claimed_profiles).is_err());
 
     let mut unknown_top_level = value.clone();
-    unknown_top_level["legacy"] = json!(true);
+    unknown_top_level["unknown_member"] = json!(true);
     assert!(serde_json::from_value::<AppletRegistrationPayload>(unknown_top_level).is_err());
 
     let mut unknown_manifest = value.clone();
-    unknown_manifest["manifest"]["legacy"] = json!(true);
+    unknown_manifest["manifest"]["unknown_member"] = json!(true);
     assert!(serde_json::from_value::<AppletRegistrationPayload>(unknown_manifest).is_err());
 
     let mut old_event_digest_proof = value;
@@ -336,7 +336,7 @@ fn applet_package_rejects_install_evidence_as_an_unknown_member() {
     assert!(serde_json::from_value::<AppletPackage>(value).is_err());
 
     let mut malformed_id = serde_json::to_value(package).unwrap();
-    malformed_id["applet_id"] = json!("did:web:legacy-applet.example");
+    malformed_id["applet_id"] = json!("did:web:malformed-applet.example");
     assert!(serde_json::from_value::<AppletPackage>(malformed_id).is_err());
 }
 
@@ -771,7 +771,7 @@ fn install_commit_uses_each_signed_event_carrier_once() {
 
     let mut unknown_nested_evidence = value.clone();
     unknown_nested_evidence["authoring_request"]["basis"]["registration_event"]["payload"]["manifest"]
-        ["registration_epoch_evidence"]["method_version_evidence"]["legacy_version_hint"] =
+        ["registration_epoch_evidence"]["method_version_evidence"]["unknown_version_hint"] =
         json!("forbidden");
     assert!(serde_json::from_value::<AppletInstallRequestBody>(unknown_nested_evidence).is_err());
 

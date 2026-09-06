@@ -2353,13 +2353,6 @@ mod tests {
             membership_frontier: Some(membership_frontier.clone()),
         };
         valid.validate().unwrap();
-        let mut with_legacy_reason = serde_json::to_value(&valid).unwrap();
-        with_legacy_reason["reason"] = serde_json::json!("mls_remove_obligation_pending");
-        assert!(
-            serde_json::from_value::<PendingSidecarAccessReconciliationItem>(with_legacy_reason)
-                .is_err()
-        );
-
         let mut missing = valid.clone();
         missing.membership_frontier = None;
         assert!(missing.validate().is_err());

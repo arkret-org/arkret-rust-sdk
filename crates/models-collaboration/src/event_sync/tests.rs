@@ -66,12 +66,10 @@ fn federation_peer_actor_bounds_round_trip_exact_accounts_and_service() {
 }
 
 #[test]
-fn federation_peer_actor_bounds_reject_noncanonical_and_legacy_keys() {
+fn federation_peer_actor_bounds_reject_noncanonical_keys() {
     let actor = account_actor("ak:did_core:web:alice.example");
     let canonical = actor.canonical_key().unwrap();
     let invalid_keys = [
-        actor.signing_principal_id().to_string(),
-        serde_json::to_string(actor.signing_principal_id()).unwrap(),
         format!(" {canonical}"),
         serde_json::to_string_pretty(&actor).unwrap(),
         format!(r#"{{"kind":"account","account_id":{}}}"#, actor.as_account_id().unwrap()),

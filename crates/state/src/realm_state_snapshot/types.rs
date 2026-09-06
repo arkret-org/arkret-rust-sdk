@@ -792,8 +792,8 @@ pub struct SnapshotErasureStub {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 /// One `ak.schema.realm_state_snapshot_chunk.v1` payload — the canonical JSON behind a
 /// manifest `chunks[].chunk_ref` (`realm-state-snapshot-schema.md` §3). Closed on the way
-/// in: an unknown member, a legacy `type` discriminator or an item outside the
-/// single `cell` branch fails to parse.
+/// in: an unknown member or an item outside the single `cell` branch fails to
+/// parse.
 #[serde(deny_unknown_fields)]
 pub struct RealmStateSnapshotChunkPayload {
     pub chunk_kind: String,

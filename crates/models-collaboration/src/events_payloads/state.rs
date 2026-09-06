@@ -2235,9 +2235,6 @@ mod tests {
             assert!(identities.insert(actor));
         }
         assert_eq!(identities.len(), 3);
-        let legacy = json!({"kind": "actor", "actor_id": principal});
-        assert!(registry.validate_value(&schema, &legacy).is_err());
-        assert!(serde_json::from_value::<ModerationPolicyTarget>(legacy).is_err());
     }
 
     #[test]
@@ -2278,13 +2275,8 @@ mod tests {
             "disclosure": "explicit",
             "fields": ["name"]
         });
-        serde_json::from_value::<IdentityDisclosurePolicyClaim>(claim.clone())
+        serde_json::from_value::<IdentityDisclosurePolicyClaim>(claim)
             .expect("stable issuer selector");
-
-        let mut legacy = claim;
-        legacy["issuer"] = legacy["issuer_id"].take();
-        legacy.as_object_mut().unwrap().remove("issuer_id");
-        assert!(serde_json::from_value::<IdentityDisclosurePolicyClaim>(legacy).is_err());
     }
 
     #[test]

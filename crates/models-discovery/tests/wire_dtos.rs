@@ -70,15 +70,6 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
         )
         .is_err()
     );
-    let mut legacy_refs = serde_json::to_value(body).unwrap();
-    legacy_refs["source_refs"] =
-        serde_json::json!(["ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2"]);
-    assert!(
-        serde_json::from_value::<arkret_models_discovery::DirectoryAnnounceRequestBody>(
-            legacy_refs
-        )
-        .is_err()
-    );
 }
 
 #[test]

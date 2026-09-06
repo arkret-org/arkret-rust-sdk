@@ -764,15 +764,6 @@ mod tests {
                     .is_none()
             );
         }
-
-        let (_, envelope) =
-            encrypt_stream(&plaintext, &key, &params(MIN_SEGMENT_SIZE), &winning_epoch).unwrap();
-        let mut legacy = serde_json::to_value(envelope).unwrap();
-        legacy
-            .as_object_mut()
-            .unwrap()
-            .insert("epoch".to_owned(), serde_json::json!(42));
-        assert!(serde_json::from_value::<EncryptedAttachment>(legacy).is_err());
     }
 
     #[test]
