@@ -916,7 +916,7 @@ fn expected_cas_heads(
             });
         }
         heads.sort_by_key(|head| {
-            arkret_wire::EventId::from_event_digest(&head.move_id)
+            EventId::from_event_digest(&head.move_id)
                 .map(|id| id.token_bytes())
                 .unwrap_or([0_u8; 33])
         });
