@@ -2305,3 +2305,393 @@ async fn a_recovery_reset_lifts_a_cas_register_cell_out_of_bottom() {
         CellState::Bottom(_)
     ));
 }
+
+// ── R5: multi-Seal coverage, interleaved cells, recovery arrival order, forged heads ──
+
+fn policy_cell(subject: &str) -> CellRef {
+    CellRef::new(format!(
+        "ak:cell:ak.component.realm.policy.v1:ak.realm.01js0sp0000000000000000{subject}"
+    ))
+    .unwrap()
+}
+
+fn cas_set_op(value: Value, saw: &[u8]) -> LatticeOp {
+    let _ = saw;
+    LatticeOp {
+        op_type: LatticeOpType::Set,
+        tag: None,
+        value: Some(value),
+        from: None,
+        to: None,
+        reason: None,
+        issuer_seq: None,
+    }
+}
+
+fn cas_write(id: u8, value: Value, saw: &[u8]) -> IssuedOp {
+    issued(SealedOp::superseding(
+        move_id(id),
+        cas_set_op(value, saw),
+        saw.iter().copied().map(move_id).collect(),
+    ))
+}
+
+/// One Control Move can be covered by more than one Seal — that is why
+/// `direct_covering_seal` refuses a singular lookup. The joined view is over the
+/// *union* of covered Events, so the same write reached twice is still one head,
+/// not two siblings that push the cell to `⊥`.
+#[tokio::test]
+async fn one_move_covered_by_two_seals_is_one_head_not_a_sibling_pair() {
+    let seals = MemorySealStore::default();
+    let cells = MemoryCellStore::default();
+    let registry = MemoryCellRegistry::default();
+    let realm = realm();
+    let cell = policy_cell("aa");
+    let shared = move_id(0x71);
+
+    let seal_a = materialized_seal(seal_id(0xa1), vec![shared.clone()]);
+    let seal_b = materialized_seal(seal_id(0xb1), vec![shared.clone()]);
+    // The same op is recorded under both Seals: two notaries sealed one Move.
+    for seal in [&seal_a, &seal_b] {
+        cells
+            .append_sealed_effects(
+                &realm,
+                &seal.id,
+                &[(cell.clone(), cas_write(0x71, json!({"policy_revision": 1}), &[]))],
+            )
+            .await
+            .unwrap();
+        seals.put(seal, SUITE).await.unwrap();
+    }
+
+    let heads = effective_cas_heads_at(
+        &[seal_a.id.clone(), seal_b.id.clone()],
+        &realm,
+        &seals,
+        &cells,
+        &registry,
+    )
+    .await
+    .unwrap();
+    let cell_heads = heads.get(&cell).expect("the covered write is a head");
+    assert_eq!(
+        cell_heads.len(),
+        1,
+        "double coverage of one Move must not manufacture a second head"
+    );
+    assert_eq!(cell_heads[0].move_id, shared);
+
+    let state = effective_state_at(
+        &[seal_a.id.clone(), seal_b.id],
+        &realm,
+        &seals,
+        &cells,
+        &registry,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        state.get(&cell).cloned(),
+        Some(CellState::Value(json!({"policy_revision": 1}))),
+        "one Move under two Seals settles, it does not go to bottom"
+    );
+}
+
+/// The same identity carrying two *different* canonical effects is the §9.3.1.1
+/// fail-closed case, and double Seal coverage is exactly where a store could
+/// grow one without anybody noticing.
+#[tokio::test]
+async fn one_move_with_two_effects_across_seals_fails_closed() {
+    let seals = MemorySealStore::default();
+    let cells = MemoryCellStore::default();
+    let registry = MemoryCellRegistry::default();
+    let realm = realm();
+    let cell = policy_cell("aa");
+    let shared = move_id(0x71);
+
+    let seal_a = materialized_seal(seal_id(0xa1), vec![shared.clone()]);
+    let seal_b = materialized_seal(seal_id(0xb1), vec![shared.clone()]);
+    cells
+        .append_sealed_effects(
+            &realm,
+            &seal_a.id,
+            &[(cell.clone(), cas_write(0x71, json!({"policy_revision": 1}), &[]))],
+        )
+        .await
+        .unwrap();
+    cells
+        .append_sealed_effects(
+            &realm,
+            &seal_b.id,
+            &[(cell.clone(), cas_write(0x71, json!({"policy_revision": 2}), &[]))],
+        )
+        .await
+        .unwrap();
+    seals.put(&seal_a, SUITE).await.unwrap();
+    seals.put(&seal_b, SUITE).await.unwrap();
+
+    let rejected = effective_cas_heads_at(
+        &[seal_a.id, seal_b.id],
+        &realm,
+        &seals,
+        &cells,
+        &registry,
+    )
+    .await;
+    assert!(
+        rejected.is_err(),
+        "one identity with two effects must not be resolved by picking one"
+    );
+}
+
+/// Two cells written in interleaved Seals keep independent head sets: a
+/// `supersedes` set names Move identities, and a Move that superseded a write on
+/// one cell must not retire a same-identity-adjacent write on another.
+#[tokio::test]
+async fn interleaved_multi_cell_writes_keep_independent_head_sets() {
+    let seals = MemorySealStore::default();
+    let cells = MemoryCellStore::default();
+    let registry = MemoryCellRegistry::default();
+    let realm = realm();
+    let left = policy_cell("aa");
+    let right = policy_cell("bb");
+
+    // Seal 1: first write on each cell. Seal 2: a successor on `left` only.
+    let seal_one = materialized_seal(seal_id(0xa1), vec![move_id(0x81), move_id(0x82)]);
+    let seal_two = materialized_seal(seal_id(0xb1), vec![move_id(0x83)]);
+    cells
+        .append_sealed_effects(
+            &realm,
+            &seal_one.id,
+            &[
+                (left.clone(), cas_write(0x81, json!("left-1"), &[])),
+                (right.clone(), cas_write(0x82, json!("right-1"), &[])),
+            ],
+        )
+        .await
+        .unwrap();
+    cells
+        .append_sealed_effects(
+            &realm,
+            &seal_two.id,
+            &[(left.clone(), cas_write(0x83, json!("left-2"), &[0x81]))],
+        )
+        .await
+        .unwrap();
+    seals.put(&seal_one, SUITE).await.unwrap();
+    seals.put(&seal_two, SUITE).await.unwrap();
+
+    let heads = effective_cas_heads_at(
+        &[seal_one.id.clone(), seal_two.id.clone()],
+        &realm,
+        &seals,
+        &cells,
+        &registry,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        heads.get(&left).map(|h| h.iter().map(|head| head.move_id.clone()).collect::<Vec<_>>()),
+        Some(vec![move_id(0x83)]),
+        "the successor on `left` retires only its own cell's write"
+    );
+    assert_eq!(
+        heads.get(&right).map(|h| h.iter().map(|head| head.move_id.clone()).collect::<Vec<_>>()),
+        Some(vec![move_id(0x82)]),
+        "`right` never saw a superseder, so its first write is still the head"
+    );
+
+    let state = effective_state_at(
+        &[seal_one.id, seal_two.id],
+        &realm,
+        &seals,
+        &cells,
+        &registry,
+    )
+    .await
+    .unwrap();
+    assert_eq!(state.get(&left).cloned(), Some(CellState::Value(json!("left-2"))));
+    assert_eq!(state.get(&right).cloned(), Some(CellState::Value(json!("right-1"))));
+}
+
+/// §9.5 drops every op at or before the last recovery reset, so the reset is a
+/// property of the op set and not of the order it arrived in. The two arrival
+/// orders are the ones a receiver actually sees — reset last after a
+/// backfilled conflict, and reset first with the conflicting pair arriving
+/// late — and they MUST agree.
+#[tokio::test]
+async fn a_recovery_reset_settles_the_same_state_in_either_arrival_order() {
+    async fn view_after(
+        order: [(&SealId, Vec<(CellRef, IssuedOp)>); 2],
+        realm: &RealmId,
+        cell: &CellRef,
+        seals: &MemorySealStore,
+    ) -> (CellState, Vec<Hash>) {
+        let cells = MemoryCellStore::default();
+        let registry = MemoryCellRegistry::default();
+        let mut leaves = Vec::new();
+        for (seal_id, effects) in order {
+            cells
+                .append_sealed_effects(realm, seal_id, &effects)
+                .await
+                .unwrap();
+            leaves.push(seal_id.clone());
+        }
+        let state = effective_state_at(&leaves, realm, seals, &cells, &registry)
+            .await
+            .unwrap();
+        let heads = effective_cas_heads_at(&leaves, realm, seals, &cells, &registry)
+            .await
+            .unwrap();
+        (
+            state.get(cell).cloned().expect("the cell is written"),
+            heads
+                .get(cell)
+                .map(|h| h.iter().map(|head| head.move_id.clone()).collect())
+                .unwrap_or_default(),
+        )
+    }
+
+    let seals = MemorySealStore::default();
+    let realm = realm();
+    let cell = policy_cell("aa");
+
+    // Two concurrent writes put the cell in `⊥`; the recovery lifts it out. For
+    // `cas_register` the recovery is an ordinary identity write that supersedes
+    // exactly the divergent heads its basis observed (§9.5.1) — the
+    // `recovery_reset` flag truncates nothing on this lattice, which is what
+    // makes the two arrival orders comparable at all.
+    let conflict = vec![
+        (cell.clone(), cas_write(0x91, json!("branch-a"), &[])),
+        (cell.clone(), cas_write(0x92, json!("branch-b"), &[])),
+    ];
+    let mut reset_op = SealedOp::superseding(
+        move_id(0x93),
+        cas_set_op(json!("recovered"), &[]),
+        vec![move_id(0x91), move_id(0x92)],
+    );
+    reset_op.recovery_reset = true;
+    let reset = vec![(cell.clone(), issued(reset_op))];
+
+    let conflict_seal = materialized_seal(seal_id(0xa1), vec![move_id(0x91), move_id(0x92)]);
+    let reset_seal = materialized_seal(seal_id(0xb1), vec![move_id(0x93)]);
+    seals.put(&conflict_seal, SUITE).await.unwrap();
+    seals.put(&reset_seal, SUITE).await.unwrap();
+
+    let reset_last = view_after(
+        [
+            (&conflict_seal.id, conflict.clone()),
+            (&reset_seal.id, reset.clone()),
+        ],
+        &realm,
+        &cell,
+        &seals,
+    )
+    .await;
+    let reset_first = view_after(
+        [(&reset_seal.id, reset), (&conflict_seal.id, conflict)],
+        &realm,
+        &cell,
+        &seals,
+    )
+    .await;
+
+    assert_eq!(
+        reset_last, reset_first,
+        "a recovery reset is a property of the op set, not of arrival order"
+    );
+    assert_eq!(reset_last.0, CellState::Value(json!("recovered")));
+    assert_eq!(reset_last.1, vec![move_id(0x93)]);
+}
+
+/// The §6.2.1 leaf of a substituted head set, spelled out so the forgery is the
+/// bytes and not a helper's opinion of them.
+fn forged_head_leaf(cell: &CellRef, heads: &[crate::lattice::cas_register::CasHead]) -> Hash {
+    let entries = heads
+        .iter()
+        .map(|head| {
+            json!({
+                "event_id": EventId::from_event_digest(&head.move_id)
+                    .unwrap()
+                    .as_str(),
+                "value": head.value,
+            })
+        })
+        .collect::<Vec<_>>();
+    crate::state::state_root::state_leaf_hash_from_state_object(cell, json!({"heads": entries}), SUITE)
+        .unwrap()
+}
+
+/// A `state_root` inclusion proof commits the whole head set, not the settled
+/// value. Substituting one head — dropping the released `null` write, say, or
+/// re-labelling which Move wrote the surviving value — is exactly the forgery
+/// that a value-only leaf would have accepted.
+#[tokio::test]
+async fn a_forged_head_set_does_not_verify_against_the_state_root() {
+    let cell = policy_cell("aa");
+    let state = BTreeMap::from([(cell.clone(), CellState::Value(json!("live")))]);
+    let genuine = vec![
+        crate::lattice::cas_register::CasHead {
+            move_id: move_id(0x21),
+            value: Value::Null,
+        },
+        crate::lattice::cas_register::CasHead {
+            move_id: move_id(0x22),
+            value: json!("live"),
+        },
+    ];
+    let heads = CasHeadsByCell::from([(cell.clone(), genuine.clone())]);
+    let root = super::compute_state_root(GovernanceView::new(&state, &heads), SUITE).unwrap();
+    let proof =
+        crate::state::state_inclusion_proof(GovernanceView::new(&state, &heads), &cell, SUITE).unwrap();
+    assert!(
+        crate::state::verify_state_inclusion_proof(
+            &proof.leaf_digest,
+            proof.leaf_index,
+            proof.leaf_count,
+            &proof.inclusion_proof,
+            &root,
+            SUITE,
+        )
+        .unwrap(),
+        "the genuine head set verifies against its own root"
+    );
+
+    // Forgery 1: drop the released `null` head. The cell still reads "live", so
+    // a value-shaped leaf would be unchanged.
+    let dropped = vec![genuine[1].clone()];
+    assert!(
+        !crate::state::verify_state_inclusion_proof(
+            &forged_head_leaf(&cell, &dropped),
+            proof.leaf_index,
+            proof.leaf_count,
+            &proof.inclusion_proof,
+            &root,
+            SUITE,
+        )
+        .unwrap(),
+        "dropping a released head must break the proof even though the value is unchanged"
+    );
+
+    // Forgery 2: keep both heads but re-attribute the surviving value to
+    // another Move.
+    let reattributed = vec![
+        genuine[0].clone(),
+        crate::lattice::cas_register::CasHead {
+            move_id: move_id(0x23),
+            value: json!("live"),
+        },
+    ];
+    assert!(
+        !crate::state::verify_state_inclusion_proof(
+            &forged_head_leaf(&cell, &reattributed),
+            proof.leaf_index,
+            proof.leaf_count,
+            &proof.inclusion_proof,
+            &root,
+            SUITE,
+        )
+        .unwrap(),
+        "re-attributing a head must break the proof"
+    );
+}

@@ -1712,12 +1712,18 @@ async fn cas_heads_for_covered_events(
         if ops.is_empty() {
             continue;
         }
-        // A cell whose identities disagree is not a usable baseline: admission
-        // fails closed on the empty answer rather than silently proposing a
-        // guard the writer could satisfy by accident.
-        let Ok(heads) = crate::lattice::cas_register::cas_heads(&ops) else {
-            continue;
-        };
+        // A cell whose identities disagree is a store fault or a §6.3.3 digest
+        // collision, not a state. Dropping it here used to be read as
+        // "fails closed on the empty answer", which holds only for admission:
+        // to a reader — the snapshot exporter above all — an absent cell is
+        // indistinguishable from one that was never written, which is exactly
+        // the reading `realm-state-snapshot-schema.md` §3 forbids. Both callers
+        // are better served by the loud answer.
+        let heads = crate::lattice::cas_register::cas_heads(&ops).map_err(|bottom| {
+            SealReject::Store(format!(
+                "cas_register cell {cell} carries one write identity with two canonical effects:                  {bottom:?}"
+            ))
+        })?;
         if heads.is_empty() {
             continue;
         }
