@@ -31,6 +31,7 @@ pub mod prepared_event_draft;
 pub mod principal_operations;
 pub mod resolved_state;
 pub mod seal_transparency;
+mod serde_absence;
 pub mod session_grant_bodies;
 pub mod sidecar_operations;
 pub mod signal_message_stream;

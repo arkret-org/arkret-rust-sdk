@@ -17,6 +17,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 pub use super::holder_quarantine::*;
+use crate::serde_absence::{deserialize_non_null_optional, deserialize_present_nullable};
 
 pub const INVITE_RECIPIENT_SERVICE_KIND_STATION: &str = "station";
 pub const INVITE_LOCATOR_RESOLVE_PATH: &str = "_arkret/open/invite-locators/resolve";
@@ -34,26 +35,6 @@ fn validate_locator_token_shape(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-}
-
-fn deserialize_non_null_optional<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
-}
-
-fn deserialize_present_nullable<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

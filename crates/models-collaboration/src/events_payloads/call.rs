@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::internal_prelude::*;
+use crate::serde_absence::deserialize_present_nullable;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -681,16 +682,6 @@ pub enum CallSummaryFinalState {
     Missed,
     Failed,
     Cancelled,
-}
-
-fn deserialize_present_nullable<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<Option<T>>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 fn deserialize_present_nullable_canonical_timestamp<'de, D>(

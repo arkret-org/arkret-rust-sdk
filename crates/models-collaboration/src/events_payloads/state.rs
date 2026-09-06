@@ -12,22 +12,13 @@ use super::event_wire::decode_payload_after_kind_validation;
 use crate::governance::operation_wire::Policy;
 use crate::internal_prelude::*;
 use crate::objects::media::MediaBackendKind;
+use crate::serde_absence::deserialize_non_null_optional;
 
 fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
     Err(WireError::Protocol(format!(
         "schema_violation: {}",
         message.into()
     )))
-}
-
-fn deserialize_non_null_optional<'de, D, T>(
-    deserializer: D,
-) -> std::result::Result<Option<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    T::deserialize(deserializer).map(Some)
 }
 
 macro_rules! validated_string_newtype {
