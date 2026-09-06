@@ -2485,7 +2485,7 @@ fn winning_membership_join(
             "joined member cell has no effective join Event".to_owned(),
         )),
         many => Err(WireError::Protocol(format!(
-            "member cell resolves to join through {} concurrent writes ({}); the proof needs one              identity and MUST NOT choose",
+            "member cell resolves to join through {} concurrent writes ({}); the proof needs one identity and MUST NOT choose",
             many.len(),
             many.iter().map(Hash::as_str).collect::<Vec<_>>().join(", "),
         ))),
