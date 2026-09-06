@@ -73,6 +73,31 @@ pub fn is_registered_cas_register_family(family: &str) -> bool {
     })
 }
 
+/// Whether the registry declares this cell family as a causal register —
+/// `cas_register` or `fsm` (`event-auth-state-resolution.md` §9.3.1.1 /
+/// §9.3.1.5).
+///
+/// Both keep their state as active write identities and therefore both take the
+/// `{"heads":[…]}` §6.2.1 leaf. This is the question the `state_root` builder
+/// and the snapshot exporter actually have; asking only about `cas_register`
+/// let an `fsm` cell fall through to the `{"value":…}` leaf.
+pub fn is_registered_causal_register_family(family: &str) -> bool {
+    crate::EVENT_KIND_DESCRIPTORS.iter().any(|descriptor| {
+        descriptor.cell_writes.iter().any(|write| {
+            write.cell_family.map(|declared| declared.as_str()) == Some(family)
+                && matches!(
+                    write.lattice,
+                    Some(crate::EventCellLattice::CasRegister) | Some(crate::EventCellLattice::Fsm)
+                )
+        })
+    })
+}
+
+/// [`is_registered_causal_register_family`] addressed by a full cell id.
+pub fn is_registered_causal_register_cell(cell_ref: &str) -> bool {
+    CellId::parse(cell_ref).is_ok_and(|cell| is_registered_causal_register_family(cell.component()))
+}
+
 /// [`is_registered_cas_register_family`] addressed by a full cell id.
 ///
 /// An unparsable cell id answers `false`: it cannot name a registered family,

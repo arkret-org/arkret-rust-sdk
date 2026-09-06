@@ -2468,14 +2468,28 @@ async fn add_pcr_holder_from_verified_create_anchor(
     Ok(true)
 }
 
+/// The single write identity that put this member cell in `join`.
+///
+/// §9.3.1.6 keeps every concurrent identity, so this can legitimately come back
+/// with more than one. This caller needs exactly one and MUST NOT pick: the head
+/// order fixes bytes and selects no winner, so taking the first would settle by
+/// digest what the protocol says is unsettled.
 fn winning_membership_join(
     covered_ops: &[crate::lattice::ordered_log::IssuedOp],
 ) -> arkret_wire::Result<Hash> {
-    crate::lattice::fsm::membership_transition_head_into(covered_ops, "join")
-        .map_err(WireError::Protocol)?
-        .ok_or_else(|| {
-            WireError::Protocol("joined member cell has no effective join Event".to_owned())
-        })
+    let heads = crate::lattice::fsm::membership_transition_heads_into(covered_ops, "join")
+        .map_err(WireError::Protocol)?;
+    match heads.as_slice() {
+        [head] => Ok(head.clone()),
+        [] => Err(WireError::Protocol(
+            "joined member cell has no effective join Event".to_owned(),
+        )),
+        many => Err(WireError::Protocol(format!(
+            "member cell resolves to join through {} concurrent writes ({}); the proof needs one              identity and MUST NOT choose",
+            many.len(),
+            many.iter().map(Hash::as_str).collect::<Vec<_>>().join(", "),
+        ))),
+    }
 }
 
 fn add_joined_holder_from_event(

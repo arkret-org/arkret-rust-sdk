@@ -252,10 +252,28 @@ pub struct AgentLifecycleWitness {
     pub seal: Seal,
     pub cell_ref: NonEmptyString,
     pub cell_value: AgentLifecycleStatus,
+    /// The cell's complete active head set, in `event-auth-state-resolution.md`
+    /// §6.2.1 order.
+    ///
+    /// `ak.component.agent.status.v1` is an `fsm` and therefore a causal
+    /// register (§9.3.1.5), so its `state_root` leaf hashes `{"heads":[…]}`
+    /// rather than the settled value — a verifier cannot rebuild `leaf_digest`
+    /// from `cell_value` alone. `cell_value` stays because it is the state the
+    /// authorization check reads; it MUST be the state these heads settle to.
+    pub cell_heads: Vec<AgentLifecycleHead>,
     pub leaf_digest: Hash,
     pub leaf_index: u64,
     pub leaf_count: u64,
     pub inclusion_proof: Vec<Hash>,
+}
+
+/// One still-active transition write on an `fsm` cell, in its §6.2.1 wire form.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentLifecycleHead {
+    pub event_id: EventId,
+    pub value: AgentLifecycleStatus,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

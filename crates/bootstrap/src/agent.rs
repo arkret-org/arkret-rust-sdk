@@ -12,7 +12,7 @@ use arkret_models_identity::ResolutionCommitment;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
     CasHeadsByCell, CellRegistry, CellState, GovernanceView, LatticeKind, SealedOp,
-    cas_heads_for_batches, compute_state_root, control_event_set_root, join_cell_seal_batches,
+    causal_heads_for_batches, compute_state_root, control_event_set_root, join_cell_seal_batches,
     resolve_projected_write,
 };
 use arkret_wire::{
@@ -406,8 +406,8 @@ fn apply_agent_batch(
         // A `cas_register` cell's `state_root` leaf carries its heads rather
         // than its settled value (spec section 6.2.1); they come from the same
         // batches the join just consumed.
-        if binding.lattice.kind() == LatticeKind::CasRegister {
-            let heads = cas_heads_for_batches(batches);
+        if arkret_state::is_causal_register(binding.lattice.kind()) {
+            let heads = causal_heads_for_batches(binding.lattice.kind(), batches);
             if !heads.is_empty() {
                 cas_heads.insert(cell.clone(), heads);
             }

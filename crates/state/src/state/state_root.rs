@@ -194,13 +194,17 @@ fn state_root_leaves(
         if view.cas_heads.contains_key(cell) {
             continue;
         }
-        if arkret_wire::is_registered_cas_register_cell(cell.as_str()) {
+        if arkret_wire::is_registered_causal_register_cell(cell.as_str()) {
             return Err(crate::WireError::Protocol(format!(
-                "cas_register cell {} resolved to a state without its active heads; \
+                "causal register cell {} resolved to a state without its active heads; \
                  §6.2.1 needs the head set to build its leaf",
                 cell.as_str()
             )));
         }
+        // §6.2.1: a written causal register keeps its leaf even in `⊥`, and it
+        // was handled above out of its head map. Every other `bottom=reject`
+        // lattice stays out — its `⊥` is exposed through the failure state and
+        // the §9.5 recovery witness instead.
         if matches!(state, CellState::Bottom(_)) {
             continue;
         }
@@ -574,18 +578,22 @@ mod tests {
 
     #[test]
     fn single_cell_root_equals_leaf_hash() {
+        // A non-causal family on purpose: `member.state` is an `fsm` and
+        // therefore a causal register (§9.3.1.5), so a values-only view of
+        // it is refused rather than hashed with the wrong preimage. The
+        // single-leaf property this pins is about the tree, not the cell.
         let mut map = BTreeMap::new();
         map.insert(
-            cell("ak:cell:ak.component.member.state.v1:did.web.alice.example"),
-            CellState::Value(json!("join")),
+            cell("ak:cell:ak.component.capability.grant.v1:ak:grant:Aam-wkD4GZDuqJ92ccjIGHTOT3JazvV5Z0uaBH7S5eFX"),
+            CellState::Value(json!([])),
         );
         let root = compute_state_root(GovernanceView::values_only(&map), SUITE).unwrap();
         // Format must match ak:hash:sha256: prefix.
         assert!(root.as_str().starts_with("sha256:"));
         // Single-leaf root MUST equal the leaf hash directly (per spec §6.2.2).
         let leaf = leaf_hash(
-            &cell("ak:cell:ak.component.member.state.v1:did.web.alice.example"),
-            &CellState::Value(json!("join")),
+            &cell("ak:cell:ak.component.capability.grant.v1:ak:grant:Aam-wkD4GZDuqJ92ccjIGHTOT3JazvV5Z0uaBH7S5eFX"),
+            &CellState::Value(json!([])),
             SUITE,
         )
         .unwrap();

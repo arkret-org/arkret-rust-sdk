@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
     CasHeadsByCell, CellRegistry, CellState, GovernanceView, LatticeKind, SealedOp,
-    cas_heads_for_batches, compute_state_root, join_cell_seal_batches, resolve_projected_write,
+    causal_heads_for_batches, compute_state_root, join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
     CellRef, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
@@ -239,8 +239,8 @@ pub(crate) fn state_root_from_projection(
             // A `cas_register` cell's `state_root` leaf carries its heads, not
             // its settled value (spec section 6.2.1), and they come from the
             // same batches the join just consumed.
-            if binding.lattice.kind() == LatticeKind::CasRegister {
-                let heads = cas_heads_for_batches(batches);
+            if arkret_state::is_causal_register(binding.lattice.kind()) {
+                let heads = causal_heads_for_batches(binding.lattice.kind(), batches);
                 if !heads.is_empty() {
                     cas_heads.insert(cell.clone(), heads);
                 }

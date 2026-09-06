@@ -13,8 +13,6 @@
 //!
 //! `from` / `to` values are JSON; equality is by JSON canonical form.
 
-use std::collections::HashMap;
-
 use serde_json::{Value, json};
 
 use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
@@ -63,78 +61,95 @@ impl Fsm {
 /// and this constant both go away in favour of the resolved contract.
 pub const MEMBERSHIP_INITIAL_STATE: &str = "leave";
 
-/// The identity of the write that most recently moved a membership cell into
-/// `target`, or `None` if the cell does not resolve there.
+/// The active head identities that put a membership cell in `target`
+/// (§9.3.1.5 / §9.3.1.6).
 ///
-/// **This is the arrival-ordered fold, kept in one place rather than fixed.**
-/// It walks the op log in delivery order, so it inherits every defect
-/// `2026-09-06-1610` documents: it is not commutative, its `(from, to)`
-/// deduplication cannot tell `A -> B -> A` from `A -> B -> A -> B`, and it
-/// truncates at the last `recovery_reset` even though §9.5.1 item 5 forbids
-/// exactly that for `fsm`. It existed in three independent copies — here, in the
-/// MLS governance proof replay, and in soland's notary — each with its own
-/// hardcoded `"leave"`. Converging them does not make the semantics right; it
-/// makes there be one thing to correct when the algebra is adjudicated.
+/// This used to be an arrival-ordered fold returning "the" head, carried in
+/// three independent copies with three hardcoded initial states. §9.3.1.8 says
+/// a consumer of this lattice MUST read it the way the lattice does, so it is
+/// now the same [`fsm_heads`] every other reader gets.
 ///
-/// It walks with the same three decisions [`Fsm::join`] makes, and must keep
-/// doing so. Two folds of one state machine that disagree are worse than two
-/// copies of one fold: the notary and the MLS governance proof replay would
-/// then answer differently about the same membership cell, and the disagreement
-/// would only surface on the histories the weaker one gets wrong.
+/// It returns a set because the state is one: two concurrent writes may both
+/// legitimately carry `to = target`, and §9.3.1.6 keeps both identities. There
+/// is a total order on heads, but it fixes bytes and selects no winner — a
+/// caller that needs exactly one identity MUST fail closed on more, not take
+/// the first. An empty result means the cell does not resolve to `target`,
+/// which includes the `⊥` case.
 ///
-/// `Err` is a history that does not fold at all: a non-transition op in a
-/// transition cell, one identity carrying two different effects, a sibling that
-/// contradicts an earlier transition out of a state the walk never returned to,
-/// or a `from` that does not match the state the walk is in.
-pub fn membership_transition_head_into(
+/// `Err` is a history that does not resolve at all: a non-transition op in a
+/// transition cell, or one identity carrying two different transitions.
+pub fn membership_transition_heads_into(
     ops: &[crate::lattice::ordered_log::IssuedOp],
     target: &str,
-) -> Result<Option<crate::Hash>, String> {
-    let ops = ops
+) -> Result<Vec<crate::Hash>, String> {
+    let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
+    if let Some(bad) = sealed
         .iter()
-        .rposition(|issued| issued.op.recovery_reset)
-        .map_or(ops, |boundary| &ops[boundary..]);
-    let mut current = MEMBERSHIP_INITIAL_STATE.to_owned();
-    let mut seen = std::collections::BTreeMap::<String, String>::new();
-    let mut applied = std::collections::BTreeMap::<&str, (&str, &str)>::new();
-    let mut head = None;
-    for issued in ops {
-        let from = issued.op.op.from.as_ref().and_then(Value::as_str);
-        let to = issued.op.op.to.as_ref().and_then(Value::as_str);
-        let (Some(from), Some(to)) = (from, to) else {
-            return Err("membership cell contains a non-transition operation".to_owned());
-        };
-        // Exact replay is deduplicated by write identity. The `(from, to)` pair
-        // cannot express it: membership is reversible, so one pair legitimately
-        // occurs more than once, and two writers legitimately converge on one
-        // pair.
-        if let Some(&(previous_from, previous_to)) = applied.get(issued.op.move_id.as_str()) {
-            if (previous_from, previous_to) == (from, to) {
-                continue;
-            }
-            return Err(
-                "one membership write identity carries two different transitions".to_owned(),
-            );
-        }
-        applied.insert(issued.op.move_id.as_str(), (from, to));
-        if current != from {
-            // Not standing where this transition starts. Either a redelivery by
-            // a second writer of a transition already folded in, a genuine
-            // sibling of one, or a transition that is simply illegal here.
-            if seen.get(from).map(String::as_str) == Some(to) {
-                continue;
-            }
-            return Err(
-                "membership operation history does not resolve to the effective FSM value"
-                    .to_owned(),
-            );
-        }
-        seen.insert(from.to_owned(), to.to_owned());
-        current.clear();
-        current.push_str(to);
-        head = (to == target).then(|| issued.op.move_id.clone());
+        .find(|entry| entry.op.op_type != LatticeOpType::Transition)
+    {
+        return Err(format!(
+            "membership cell contains a non-transition operation ({})",
+            bad.move_id.as_str()
+        ));
     }
-    Ok(head)
+    let heads = fsm_heads(&sealed)
+        .map_err(|_| "one membership write identity carries two different transitions".to_owned())?;
+    let settled = heads.first().map(|head| &head.value);
+    if heads.iter().any(|head| Some(&head.value) != settled) {
+        // `⊥`: the cell resolves to no state at all, so it resolves to no
+        // target either.
+        return Ok(Vec::new());
+    }
+    if settled.and_then(Value::as_str) != Some(target) {
+        return Ok(Vec::new());
+    }
+    Ok(heads.into_iter().map(|head| head.move_id).collect())
+}
+
+/// The still-active transition writes of one `fsm` cell (§9.3.1.5).
+///
+/// Identical to [`crate::lattice::cas_register::cas_heads`] except that a head
+/// carries the transition's `to`. `from` is not here on purpose: it is the
+/// write's admission assertion against its own signed basis (§9.3.1.7 item 2),
+/// not a join-time edge. Reading the op list as a path is what made the fold
+/// non-commutative, made `(from,to)` deduplication misread ABA, and let a
+/// registered self-loop poison the next legal transition.
+pub fn fsm_heads(
+    sealed_ops: &[SealedOp],
+) -> Result<Vec<crate::lattice::cas_register::CasHead>, Box<Bottom>> {
+    crate::lattice::cas_register::causal_heads(
+        sealed_ops,
+        |op| {
+            op.op_type == LatticeOpType::Transition && op.from.is_some() && op.to.is_some()
+        },
+        |op| op.to.clone().unwrap_or(Value::Null),
+    )
+}
+
+/// The settled state of an `fsm` cell from its active heads (§9.3.1.6).
+///
+/// Empty heads read the registered initial state — the one place `fsm` differs
+/// from `cas_register`, which reads `null`. Heads that agree read that state and
+/// keep every identity; heads that disagree are `⊥`.
+fn settled_from_heads(
+    cell: &CellRef,
+    initial_state: Option<&Value>,
+    heads: &[crate::lattice::cas_register::CasHead],
+) -> CellState {
+    let Some(first) = heads.first() else {
+        return CellState::Value(initial_state.cloned().unwrap_or(Value::Null));
+    };
+    if let Some(divergent) = heads.iter().find(|head| head.value != first.value) {
+        let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
+        bottom.move_ids = heads.iter().map(|head| head.move_id.clone()).collect();
+        bottom.head_ids = heads.iter().map(|head| head.value.clone()).collect();
+        bottom.details = Some(bottom_details([
+            ("reason", json!("same_from_different_to")),
+            ("to", divergent.value.clone()),
+        ]));
+        return CellState::Bottom(bottom);
+    }
+    CellState::Value(first.value.clone())
 }
 
 impl Lattice for Fsm {
@@ -182,118 +197,39 @@ impl Lattice for Fsm {
     }
 
     fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
-        let mut current: Option<Value> = self.initial_state.clone();
-        let mut seen_transitions: HashMap<Vec<u8>, Vec<u8>> = HashMap::new();
-        // Exact replay is deduplicated by **write identity**, not by the
-        // `(from, to)` pair. The pair cannot express it: on a reversible family
-        // the same pair legitimately occurs more than once, and on a
-        // convergent one two different Moves legitimately carry the same pair.
-        // Only the identity says "this is the write I already folded in".
-        let mut applied: HashMap<String, &LatticeOp> = HashMap::new();
+        // §9.3.1.5: the state is the active write identities, each carrying its
+        // `to`. Nothing here reads the op list as a sequence — that is what the
+        // arrival-ordered fold did, and it is why the same op set gave
+        // different answers under different delivery orders.
+        //
+        // A malformed op is not silently skipped the way `cas_heads` skips one:
+        // a transition cell whose op carries no `from`/`to`, or one outside the
+        // registered table, is an admission failure that reached the join, and
+        // §9.3.1.7 makes that a rejection rather than a state.
         for entry in sealed_ops {
-            let op = &entry.op;
-            // Skip ops that don't pass shape (defensive — same rule as
-            // OrSet etc.).
-            if self.validate_op(op).is_err() {
+            if self.validate_op(&entry.op).is_err() {
                 let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
                 bottom.move_ids = vec![entry.move_id.clone()];
                 bottom.details = Some(bottom_details([
-                    ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", op.from.clone().unwrap_or(Value::Null)),
-                    ("to", op.to.clone().unwrap_or(Value::Null)),
+                    ("from", entry.op.from.clone().unwrap_or(Value::Null)),
+                    ("to", entry.op.to.clone().unwrap_or(Value::Null)),
                 ]));
                 return CellState::Bottom(bottom);
             }
-            let from = op.from.as_ref().unwrap();
-            let to = op.to.as_ref().unwrap();
-            let Ok(from_key) = arkret_canonical::canonical_json_value_bytes(from) else {
-                let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
-                bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(bottom_details([
-                    ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", from.clone()),
-                    ("to", to.clone()),
-                ]));
-                return CellState::Bottom(bottom);
-            };
-            let Ok(to_key) = arkret_canonical::canonical_json_value_bytes(to) else {
-                let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
-                bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(bottom_details([
-                    ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", from.clone()),
-                    ("to", to.clone()),
-                ]));
-                return CellState::Bottom(bottom);
-            };
-            if let Some(previous) = applied.get(entry.move_id.as_str()) {
-                if *previous == &entry.op {
-                    // Redelivery of one write. Idempotent wherever it lands.
-                    continue;
-                }
-                // One identity carrying two different canonical effects is a
-                // verification error or a §6.3.3 digest collision. The lattice
-                // must refuse rather than pick, exactly as `cas_heads` does.
-                let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
-                bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(bottom_details([
-                    ("current", current.clone().unwrap_or(Value::Null)),
-                    ("from", from.clone()),
-                    ("reason", json!("one_identity_two_effects")),
-                    ("to", to.clone()),
-                ]));
-                return CellState::Bottom(bottom);
-            }
-            applied.insert(entry.move_id.as_str().to_owned(), &entry.op);
-            // Whether the walk is standing where this transition starts. A
-            // `None` current is the first transition on a cell with no declared
-            // initial state, which starts wherever it says it does.
-            //
-            // Everything below hangs off this. `seen_transitions` alone cannot
-            // tell a replay from a *return*: a cell that legally came back to
-            // `from` is at the start of that transition again, and the same
-            // `(from, to)` pair is then a new occurrence rather than a repeat of
-            // the old one. Deciding by the pair alone is what made
-            // `A -> B -> A -> B` read `A`, and what made a registered self-loop
-            // turn the next legal transition into a phantom sibling conflict.
-            let at_from = current.as_ref().is_none_or(|cur| cur == from);
-            if !at_from {
-                if seen_transitions.get(&from_key) == Some(&to_key) {
-                    // A *different* Move carrying a transition already folded
-                    // in — two writers converging on one state. The walk has
-                    // moved on, so applying it again would rewind the cell.
-                    continue;
-                }
-                if seen_transitions.contains_key(&from_key) {
-                    // Two transitions out of one state that the walk never
-                    // returned to: genuine concurrent siblings.
-                    let mut bottom = Bottom::new(BottomKind::Conflict, vec![cell.clone()]);
-                    bottom.move_ids = vec![entry.move_id.clone()];
-                    bottom.details = Some(bottom_details([
-                        ("current", current.clone().unwrap_or(Value::Null)),
-                        ("from", from.clone()),
-                        ("reason", json!("same_from_different_to")),
-                        ("to", to.clone()),
-                    ]));
-                    return CellState::Bottom(bottom);
-                }
-                let cur = current.clone().unwrap_or(Value::Null);
-                let mut bottom = Bottom::new(BottomKind::InvalidTransition, vec![cell.clone()]);
-                bottom.move_ids = vec![entry.move_id.clone()];
-                bottom.details = Some(bottom_details([
-                    ("current", cur.clone()),
-                    ("expected_from", cur),
-                    ("from", from.clone()),
-                    ("to", to.clone()),
-                ]));
-                return CellState::Bottom(bottom);
-            }
-            seen_transitions.insert(from_key, to_key);
-            current = Some(to.clone());
         }
-        match current {
-            Some(v) => CellState::Value(v),
-            None => CellState::Value(Value::Null),
+        match fsm_heads(sealed_ops) {
+            Ok(heads) => settled_from_heads(cell, self.initial_state.as_ref(), &heads),
+            Err(mut bottom) => {
+                // One identity carrying two different `to` values is a
+                // verification error or a §6.3.3 digest collision. The lattice
+                // refuses rather than picks, exactly as `cas_heads` does.
+                bottom.cell_ids = vec![cell.clone()];
+                bottom.details = Some(bottom_details([(
+                    "reason",
+                    json!("one_identity_two_effects"),
+                )]));
+                CellState::Bottom(*bottom)
+            }
         }
     }
 }
@@ -350,33 +286,67 @@ mod tests {
         assert!(format!("{err}").contains("not in allowed_transitions"));
     }
 
+    /// A causal chain leaves exactly its terminal write as the head.
+    ///
+    /// `supersedes` is what says so — the reducer derives it from each write's
+    /// own verified basis (§9.3.1.7 item 4). The join never infers succession
+    /// from the order the ops arrive in.
     #[test]
-    fn join_walks_through_to_final_state() {
+    fn a_causal_chain_leaves_its_terminal_write_as_the_head() {
         let f = membership_fsm();
         let ops = vec![
             SealedOp::new(move_id(1), transition(json!("invited"), json!("join"))),
-            SealedOp::new(move_id(2), transition(json!("join"), json!("leave"))),
-            SealedOp::new(move_id(3), transition(json!("leave"), json!("join"))),
+            SealedOp::superseding(
+                move_id(2),
+                transition(json!("join"), json!("leave")),
+                vec![move_id(1)],
+            ),
+            SealedOp::superseding(
+                move_id(3),
+                transition(json!("leave"), json!("join")),
+                vec![move_id(2)],
+            ),
         ];
         assert_eq!(f.join(&cell(), &ops), CellState::Value(json!("join")));
+
+        // The same set in any other order is the same state. A sequential fold
+        // answers differently here; a causal one cannot.
+        let mut reversed = ops.clone();
+        reversed.reverse();
+        assert_eq!(f.join(&cell(), &reversed), f.join(&cell(), &ops));
     }
 
+    /// A `from` that does not match is an **admission** failure, not a join
+    /// outcome (§9.3.1.7 item 2).
+    ///
+    /// The join is given writes whose bases were already checked, so it does not
+    /// re-derive a walk to test `from` against. Here the two writes superseded
+    /// nothing and disagree on `to`, so they are concurrent siblings and the
+    /// cell is `⊥` — which is what §9.3.1.6 says, and it does not depend on
+    /// which of them arrived first.
     #[test]
-    fn join_rejects_op_when_from_doesnt_match_current() {
+    fn concurrent_writes_that_disagree_on_to_are_bottom_regardless_of_order() {
         let f = membership_fsm();
-        // After this sequence current=join. Next op claims from=leave -> mismatch.
         let ops = vec![
             SealedOp::new(move_id(1), transition(json!("invited"), json!("join"))),
             SealedOp::new(move_id(2), transition(json!("leave"), json!("join"))),
         ];
-        let state = f.join(&cell(), &ops);
-        match state {
-            CellState::Bottom(b) => {
-                assert_eq!(b.kind, BottomKind::InvalidTransition);
-                assert_eq!(b.move_ids, vec![move_id(2)]);
-            }
-            _ => panic!("expected Bottom"),
-        }
+        // Both write `to = "join"`, so they agree and both stay heads.
+        assert_eq!(f.join(&cell(), &ops), CellState::Value(json!("join")));
+
+        let divergent = vec![
+            SealedOp::new(move_id(1), transition(json!("invited"), json!("join"))),
+            SealedOp::new(move_id(2), transition(json!("join"), json!("leave"))),
+        ];
+        let CellState::Bottom(bottom) = f.join(&cell(), &divergent) else {
+            panic!("two concurrent writes with different `to` are bottom");
+        };
+        assert_eq!(bottom.kind, BottomKind::Conflict);
+        assert_eq!(bottom.move_ids, vec![move_id(1), move_id(2)]);
+
+        let mut swapped = divergent.clone();
+        swapped.reverse();
+        assert_eq!(f.join(&cell(), &swapped), f.join(&cell(), &divergent));
     }
 
     #[test]
@@ -476,15 +446,23 @@ mod causal_regression_tests {
         CellRef::new("ak:cell:ak.component.strand.lifecycle.v1:ak.strand.0196".to_owned()).unwrap()
     }
 
-    fn step(id: u8, from: Value, to: Value) -> SealedOp {
-        SealedOp::new(
-            crate::Hash::new(format!("sha256:{:064x}", id)).unwrap(),
+    fn move_of(id: u8) -> crate::Hash {
+        crate::Hash::new(format!("sha256:{:064x}", id)).unwrap()
+    }
+
+    /// One transition write, plus the head identities its own verified basis
+    /// observed. The reducer derives `supersedes` (§9.3.1.7 item 4); nothing
+    /// about it is inferred from the order these land in a list.
+    fn step(id: u8, from: Value, to: Value, saw: &[u8]) -> SealedOp {
+        SealedOp::superseding(
+            move_of(id),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
                 from: Some(from),
                 to: Some(to),
                 ..LatticeOp::empty()
             },
+            saw.iter().copied().map(move_of).collect(),
         )
     }
 
@@ -499,13 +477,20 @@ mod causal_regression_tests {
     #[test]
     fn a_reentered_transition_is_a_new_occurrence_not_a_replay() {
         let ops = vec![
-            step(1, json!("active"), json!("archived")),
-            step(2, json!("archived"), json!("active")),
-            step(3, json!("active"), json!("archived")),
+            step(1, json!("active"), json!("archived"), &[]),
+            step(2, json!("archived"), json!("active"), &[1]),
+            step(3, json!("active"), json!("archived"), &[2]),
         ];
         assert_eq!(
             reversible().join(&cell_ref(), &ops),
             CellState::Value(json!("archived")),
+        );
+
+        // The three-step chain and the two-step one differ only in the third
+        // write's identity; a `(from, to)` key cannot tell them apart.
+        assert_eq!(
+            reversible().join(&cell_ref(), &ops[..2]),
+            CellState::Value(json!("active")),
         );
     }
 
@@ -519,8 +504,8 @@ mod causal_regression_tests {
     #[test]
     fn a_redelivered_write_is_idempotent_wherever_it_lands() {
         let ops = vec![
-            step(1, json!("active"), json!("archived")),
-            step(1, json!("active"), json!("archived")),
+            step(1, json!("active"), json!("archived"), &[]),
+            step(1, json!("active"), json!("archived"), &[]),
         ];
         assert_eq!(
             reversible().join(&cell_ref(), &ops),
@@ -528,9 +513,9 @@ mod causal_regression_tests {
         );
 
         let returned = vec![
-            step(1, json!("active"), json!("archived")),
-            step(2, json!("archived"), json!("active")),
-            step(1, json!("active"), json!("archived")),
+            step(1, json!("active"), json!("archived"), &[]),
+            step(2, json!("archived"), json!("active"), &[1]),
+            step(1, json!("active"), json!("archived"), &[]),
         ];
         assert_eq!(
             reversible().join(&cell_ref(), &returned),
@@ -542,13 +527,16 @@ mod causal_regression_tests {
     #[test]
     fn two_writes_of_one_transition_converge() {
         let ops = vec![
-            step(1, json!("active"), json!("archived")),
-            step(2, json!("active"), json!("archived")),
+            step(1, json!("active"), json!("archived"), &[]),
+            step(2, json!("active"), json!("archived"), &[]),
         ];
         assert_eq!(
             reversible().join(&cell_ref(), &ops),
             CellState::Value(json!("archived")),
         );
+        // Two identities, one settled state: §9.3.1.6 keeps both heads, so a
+        // peer that only saw the first is still told about the second.
+        assert_eq!(fsm_heads(&ops).expect("both heads survive").len(), 2);
     }
 
     /// The shared membership fold answers the same three questions `join` does.
@@ -563,56 +551,68 @@ mod causal_regression_tests {
     fn the_shared_membership_fold_agrees_with_join() {
         use crate::lattice::ordered_log::IssuedOp;
 
-        fn issued(id: u8, from: &str, to: &str) -> IssuedOp {
+        fn issued(id: u8, from: &str, to: &str, saw: &[u8]) -> IssuedOp {
             IssuedOp {
                 issuer_id: arkret_wire::ActorId::service(
                     arkret_wire::DidCoreId::new("ak:did_core:web:fixture.example".to_owned())
                         .unwrap(),
                 ),
-                op: step(id, json!(from), json!(to)),
+                op: step(id, json!(from), json!(to), saw),
             }
         }
 
-        // Re-entry: `leave -> join -> leave -> join` reads `join`, and the head
-        // is the *last* write into it, not the first.
+        // Re-entry: `leave -> join -> leave -> join` resolves to `join`, and
+        // the head is the write that put it there — identified causally, not by
+        // being last in the list.
         let reentered = vec![
-            issued(1, "leave", "join"),
-            issued(2, "join", "leave"),
-            issued(3, "leave", "join"),
+            issued(1, "leave", "join", &[]),
+            issued(2, "join", "leave", &[1]),
+            issued(3, "leave", "join", &[2]),
         ];
         assert_eq!(
-            membership_transition_head_into(&reentered, "join").unwrap(),
-            Some(reentered[2].op.move_id.clone()),
+            membership_transition_heads_into(&reentered, "join").unwrap(),
+            vec![reentered[2].op.move_id.clone()],
         );
 
-        // Redelivery of one write stays a no-op even where its `from` matches
-        // again.
+        // The same set in any order is the same answer. That is the property
+        // the arrival-ordered fold could not offer.
+        let mut shuffled = reentered.clone();
+        shuffled.reverse();
+        assert_eq!(
+            membership_transition_heads_into(&shuffled, "join").unwrap(),
+            membership_transition_heads_into(&reentered, "join").unwrap(),
+        );
+
+        // Redelivery of one write stays a no-op.
         let mut redelivered = reentered.clone();
         redelivered.push(reentered[0].clone());
         assert_eq!(
-            membership_transition_head_into(&redelivered, "join").unwrap(),
-            Some(reentered[2].op.move_id.clone()),
+            membership_transition_heads_into(&redelivered, "join").unwrap(),
+            vec![reentered[2].op.move_id.clone()],
         );
 
-        // Two writers converging on one transition converge here too.
-        let converged = vec![issued(1, "leave", "join"), issued(2, "leave", "join")];
-        assert_eq!(
-            membership_transition_head_into(&converged, "join").unwrap(),
-            Some(converged[0].op.move_id.clone()),
-        );
+        // Two writers converging on one transition keep **both** identities:
+        // the state is one, the writes are two, and a caller that needs exactly
+        // one must fail closed rather than take the first.
+        let converged = vec![issued(1, "leave", "join", &[]), issued(2, "leave", "join", &[])];
+        assert_eq!(membership_transition_heads_into(&converged, "join").unwrap().len(), 2);
 
-        // A genuine sibling out of a state the walk never returned to still
-        // fails closed.
-        let sibling = vec![issued(1, "leave", "join"), issued(2, "leave", "ban")];
-        assert!(membership_transition_head_into(&sibling, "join").is_err());
+        // A genuine sibling with a different `to` puts the cell in `⊥`, so it
+        // resolves to no target at all.
+        let sibling = vec![issued(1, "leave", "join", &[]), issued(2, "leave", "ban", &[])];
+        assert!(
+            membership_transition_heads_into(&sibling, "join")
+                .unwrap()
+                .is_empty()
+        );
 
         // One identity with two effects fails closed, as it does in `join`.
-        let mut forked = vec![issued(1, "leave", "join")];
+        let mut forked = vec![issued(1, "leave", "join", &[])];
         forked.push(IssuedOp {
-            op: step(1, json!("leave"), json!("ban")),
+            op: step(1, json!("leave"), json!("ban"), &[]),
             ..forked[0].clone()
         });
-        assert!(membership_transition_head_into(&forked, "join").is_err());
+        assert!(membership_transition_heads_into(&forked, "join").is_err());
     }
 
     /// One identity carrying two different effects is a verification error or a
@@ -620,8 +620,8 @@ mod causal_regression_tests {
     #[test]
     fn one_identity_with_two_effects_fails_closed() {
         let ops = vec![
-            step(1, json!("active"), json!("archived")),
-            step(1, json!("active"), json!("tombstoned")),
+            step(1, json!("active"), json!("archived"), &[]),
+            step(1, json!("active"), json!("tombstoned"), &[]),
         ];
         let CellState::Bottom(bottom) = reversible().join(&cell_ref(), &ops) else {
             panic!("one identity with two effects must not resolve");
@@ -638,8 +638,8 @@ mod causal_regression_tests {
     #[test]
     fn a_self_loop_does_not_poison_the_next_transition() {
         let ops = vec![
-            step(1, json!("active"), json!("active")),
-            step(2, json!("active"), json!("tombstoned")),
+            step(1, json!("active"), json!("active"), &[]),
+            step(2, json!("active"), json!("tombstoned"), &[1]),
         ];
         assert_eq!(
             reversible().join(&cell_ref(), &ops),
@@ -653,8 +653,8 @@ mod causal_regression_tests {
     #[test]
     fn concurrent_siblings_still_conflict() {
         let ops = vec![
-            step(1, json!("active"), json!("archived")),
-            step(2, json!("active"), json!("tombstoned")),
+            step(1, json!("active"), json!("archived"), &[]),
+            step(2, json!("active"), json!("tombstoned"), &[]),
         ];
         let CellState::Bottom(bottom) = reversible().join(&cell_ref(), &ops) else {
             panic!("two transitions out of one unrevisited state must conflict");

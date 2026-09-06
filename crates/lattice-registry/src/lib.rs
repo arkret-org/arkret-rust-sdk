@@ -798,7 +798,12 @@ mod tests {
                 issuer_seq: None,
             },
         );
-        let accepted = SealedOp::new(
+        // The accept supersedes the pending write its own basis observed
+        // (§9.3.1.7 item 4). Without that edge the two are concurrent writes
+        // with different `to` and the cell reads `⊥` — which is the right answer
+        // for two writers who never saw each other, and the reason a chain has
+        // to say it is a chain.
+        let accepted = SealedOp::superseding(
             Hash::new(format!("sha256:{}", "13".repeat(32))).unwrap(),
             LatticeOp {
                 op_type: LatticeOpType::Transition,
@@ -809,6 +814,7 @@ mod tests {
                 reason: None,
                 issuer_seq: None,
             },
+            vec![pending.move_id.clone()],
         );
         assert_eq!(
             binding.lattice.join(&cell, &[pending, accepted]),

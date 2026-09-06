@@ -1313,15 +1313,7 @@ fn validate_state_witnesses(
         && lifecycle.seal.realm_id == snapshot.state.principal_control_realm_id
         && agent_lifecycle_cell_ref(context.signer_actor_id).ok()
             == Some(lifecycle.cell_ref.clone())
-        && verify_witness_branch(
-            &lifecycle.cell_ref,
-            &lifecycle_value,
-            &lifecycle.leaf_digest,
-            lifecycle.leaf_index,
-            lifecycle.leaf_count,
-            &lifecycle.inclusion_proof,
-            &lifecycle.state_root,
-        ))
+        && verify_lifecycle_branch(lifecycle, &lifecycle_value))
 }
 
 fn validate_seal_lineage(
@@ -1401,6 +1393,66 @@ fn seal_is_ancestor(
         );
     }
     Ok(false)
+}
+
+/// The §6.2.1 leaf of a causal-register cell, from its declared head set.
+///
+/// `ak.component.agent.status.v1` is an `fsm` (§9.3.1.5), so its leaf hashes
+/// `{"heads":[…]}`. [`verify_witness_branch`] stays as it is for the `or_set`
+/// key cells, whose leaf really is the value.
+fn verify_lifecycle_branch(
+    lifecycle: &AgentLifecycleWitness,
+    settled: &Value,
+) -> bool {
+    let Ok(cell_ref) = CellRef::new(lifecycle.cell_ref.as_str().to_owned()) else {
+        return false;
+    };
+    let Some((suite, _)) = lifecycle.state_root.as_str().split_once(':') else {
+        return false;
+    };
+    let Ok(digest_suite) = arkret_canonical::digest_suite(suite) else {
+        return false;
+    };
+    if lifecycle.cell_heads.is_empty() {
+        return false;
+    }
+    // The declared settled value has to be what the heads say, or the two
+    // halves of the witness could disagree and the authorization check would
+    // read one while the proof covered the other.
+    let first = &lifecycle.cell_heads[0].value;
+    if lifecycle.cell_heads.iter().any(|head| &head.value != first) {
+        return false;
+    }
+    if serde_json::to_value(first).ok().as_ref() != Some(settled) {
+        return false;
+    }
+    let heads: Vec<Value> = lifecycle
+        .cell_heads
+        .iter()
+        .map(|head| {
+            serde_json::json!({
+                "event_id": head.event_id.as_str(),
+                "value": head.value,
+            })
+        })
+        .collect();
+    let Ok(computed) = arkret_state::state::state_root::state_leaf_hash_from_state_object(
+        &cell_ref,
+        serde_json::json!({ "heads": heads }),
+        digest_suite,
+    ) else {
+        return false;
+    };
+    computed == lifecycle.leaf_digest
+        && arkret_state::verify_state_inclusion_proof(
+            &lifecycle.leaf_digest,
+            lifecycle.leaf_index,
+            lifecycle.leaf_count,
+            &lifecycle.inclusion_proof,
+            &lifecycle.state_root,
+            digest_suite,
+        )
+        .unwrap_or(false)
 }
 
 fn verify_witness_branch(

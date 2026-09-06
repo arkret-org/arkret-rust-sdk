@@ -107,7 +107,8 @@ pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
     REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,
     composite_subject, composite_subject_pipe, is_registered_cas_register_cell,
-    is_registered_cas_register_family, is_registered_cell, is_registered_cell_family,
+    is_registered_cas_register_family, is_registered_causal_register_cell,
+    is_registered_causal_register_family, is_registered_cell, is_registered_cell_family,
     null_subject_cell, string_set_digest_component, subject_cell, uri_cell_subject,
 };
 pub use consent_scope::*;

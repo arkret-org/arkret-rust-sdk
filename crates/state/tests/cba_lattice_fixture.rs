@@ -680,12 +680,12 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
             );
         }
         ("fsm", "reentered_transition_is_a_new_occurrence") => {
-            // A cell that legally returns to a state is standing at that
-            // state's outgoing edges again, so the same `(from, to)` pair is a
-            // new occurrence rather than a replay of the first one. Deciding
-            // from the pair alone folds the last step away and reads `draft` —
-            // the failure §9.3.1.4 names when it deletes the value-edge join
-            // for `cas_register`.
+            // A cell that legally returns to a state is written again by a
+            // new identity, so the same `(from, to)` pair is a new occurrence
+            // rather than a replay of the first one. Deduplicating on the pair
+            // folds the last step away and reads `draft` — the failure
+            // §9.3.1.4 names when it deletes the value-edge join for
+            // `cas_register`, and §9.3.1.5 inherits.
             let fsm = Fsm::new(vec![
                 (json!("draft"), json!("active")),
                 (json!("active"), json!("draft")),
@@ -696,13 +696,15 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                     move_id("aa"),
                     op_transition(json!("draft"), json!("active")),
                 ),
-                SealedOp::new(
+                SealedOp::superseding(
                     move_id("bb"),
                     op_transition(json!("active"), json!("draft")),
+                    vec![move_id("aa")],
                 ),
-                SealedOp::new(
+                SealedOp::superseding(
                     move_id("cc"),
                     op_transition(json!("draft"), json!("active")),
+                    vec![move_id("bb")],
                 ),
             ];
             assert_eq!(
@@ -710,14 +712,14 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                 json!("active"),
                 "a transition re-entered after the cell returned to its source must apply again"
             );
-            // The redelivery it must not be confused with: the walk has moved
-            // past this one, so replaying it stays a no-op.
+            // The redelivery it must not be confused with: it is the same
+            // identity, so it folds into the head it already is.
             let mut redelivered = ops.clone();
             redelivered.push(ops[1].clone());
             assert_eq!(
                 value_of(fsm.join(&cell(), &redelivered)),
                 json!("active"),
-                "redelivering a transition the walk has passed must not rewind the cell"
+                "redelivering one identity must not rewind the cell"
             );
         }
         ("fsm", "registered_self_loop_does_not_consume_its_state") => {
@@ -735,9 +737,10 @@ fn run_assertion(lattice_kind: &str, assertion: &str, case: &Value) {
                     move_id("aa"),
                     op_transition(json!("active"), json!("active")),
                 ),
-                SealedOp::new(
+                SealedOp::superseding(
                     move_id("bb"),
                     op_transition(json!("active"), json!("tombstoned")),
+                    vec![move_id("aa")],
                 ),
             ];
             assert_eq!(
@@ -983,12 +986,9 @@ fn dual_plane_vector_inventory_is_pinned() {
                 // and concurrent conflicting declarations are all state_root
                 // leaf-set invariants rather than per-domain reducer behaviour.
                 || vector_id == "ak.vector.event_kind.realm_alias_single_carrier.v1"
-                // `fsm` is a causal register (§9.3.1.5), so its state algebra is
-                // a `state_root` leaf-set invariant in the same way
+                // `fsm` is a causal register (§9.3.1.5), so its state algebra
+                // is a `state_root` leaf-set invariant in the same way
                 // `cas_register`'s is rather than per-domain reducer behaviour.
-                // The cases are registered and not yet executed: the SDK still
-                // folds `fsm` by arrival order, and R7 carries the migration
-                // (`arkret-work/review/spec-open/2026-09-06-1610` §8).
                 || vector_id == "ak.vector.lattice.fsm_causal_heads.v1",
             "unexpected vector id {vector_id}"
         );

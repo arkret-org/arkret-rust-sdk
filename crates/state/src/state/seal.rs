@@ -626,7 +626,7 @@ where
                 let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
                 binding.lattice.kind()
             };
-            let supersedes = if kind == crate::lattice::LatticeKind::CasRegister {
+            let supersedes = if is_causal_register(kind) {
                 let observed = head_identities(basis_heads.get(&effect.cell_id));
                 if event.seal_basis.is_some() {
                     let frozen = head_identities(pre_heads.get(&effect.cell_id));
@@ -983,19 +983,27 @@ pub async fn verify_recovery_witness(
         return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
     }
 
-    // §9.5.1: a `cas_register` recovery proves its target conflict from its own
+    // §9.5.1: a causal-register recovery proves its target conflict from its own
     // signed basis and its authority from its registered capability path. Those
     // are two separate proofs and neither is a witness to a pre-conflict value —
     // a cell that conflicted on its *first* write never had one, so requiring a
     // `state_witness` here would make exactly the case that most needs repair
     // unrepairable. The freshness window goes with it: a conflict left standing
     // for a week must not age out of a still-valid authority's reach.
+    //
+    // `fsm` joined this branch when §9.3.1.5-§9.3.1.8 gave it the identity-based
+    // supersession the argument rests on. Before that it had no way to say which
+    // heads a recovery replaced, so it needed a witness to a prior value
+    // instead. The three obligations 1610 names are all still checked: the
+    // divergence in the Move's own basis and the active capability here, the
+    // transition table through `validate_op`, and `H_c(B) = H_c(P)` in
+    // `apply_seal`.
     let reset_lattice = registry
         .resolve(realm_id, &reset.cell_id)
         .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?
         .lattice
         .kind();
-    if reset_lattice == crate::lattice::LatticeKind::CasRegister {
+    if is_causal_register(reset_lattice) {
         let basis = event
             .seal_basis
             .as_ref()
@@ -1008,6 +1016,7 @@ pub async fn verify_recovery_witness(
         // where the cell still resolved cleanly is repairing something it never
         // saw. (Item 3's `H_c(B) = H_c(P)` guard runs separately in `apply_seal`
         // and is what rejects a recovery whose branch set has since moved on.)
+        eprintln!("DEBUG basis cell = {:?}", basis_view.cells.get(&reset.cell_id));
         if !matches!(
             basis_view.cells.get(&reset.cell_id),
             Some(CellState::Bottom(_))
@@ -1667,6 +1676,30 @@ pub async fn effective_cas_heads_with_new_ops(
 /// The candidate ops are the same ones `apply_seal` layers onto the state: a
 /// durable backend may hide a cell op until its accepting Seal exists, so the
 /// post-state has to be assembled in memory rather than re-read.
+/// Whether a lattice keeps its state as active write identities (§9.3.1.1 /
+/// §9.3.1.5).
+///
+/// `cas_register` and `fsm` are the same causal register; they differ only in
+/// what a head carries and in what makes a write well-shaped. Everything in this
+/// module that derives `supersedes`, guards staleness or builds a head map
+/// applies to both, so it asks this rather than naming one of them.
+pub fn is_causal_register(kind: crate::lattice::LatticeKind) -> bool {
+    matches!(
+        kind,
+        crate::lattice::LatticeKind::CasRegister | crate::lattice::LatticeKind::Fsm
+    )
+}
+
+fn causal_heads_for_kind(
+    kind: crate::lattice::LatticeKind,
+    ops: &[SealedOp],
+) -> Result<Vec<crate::lattice::cas_register::CasHead>, Box<crate::Bottom>> {
+    match kind {
+        crate::lattice::LatticeKind::Fsm => crate::lattice::fsm::fsm_heads(ops),
+        _ => crate::lattice::cas_register::cas_heads(ops),
+    }
+}
+
 async fn cas_heads_for_covered_events(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
@@ -1690,7 +1723,7 @@ async fn cas_heads_for_covered_events(
             let binding = registry.resolve(realm_id, &cell)?;
             binding.lattice.kind()
         };
-        if kind != crate::lattice::LatticeKind::CasRegister {
+        if !is_causal_register(kind) {
             continue;
         }
         let mut ops: Vec<SealedOp> = cells
@@ -1719,7 +1752,7 @@ async fn cas_heads_for_covered_events(
         // indistinguishable from one that was never written, which is exactly
         // the reading `realm-state-snapshot-schema.md` §3 forbids. Both callers
         // are better served by the loud answer.
-        let heads = crate::lattice::cas_register::cas_heads(&ops).map_err(|bottom| {
+        let heads = causal_heads_for_kind(kind, &ops).map_err(|bottom| {
             SealReject::Store(format!(
                 "cas_register cell {cell} carries one write identity with two canonical effects:                  {bottom:?}"
             ))
@@ -1817,22 +1850,26 @@ async fn effective_joined_view_for_covered_events(
             join_cell_seal_batches(binding.lattice.as_ref(), &cell, &batches),
         );
         drop(binding);
-        if kind != crate::lattice::LatticeKind::CasRegister {
+        if !is_causal_register(kind) {
             continue;
         }
-        // The head half reads the same ops flat: §9.3.1.1 derives supersession
-        // from write identity, so batch boundaries carry no information for it.
+        // The head half reads the same ops flat: §9.3.1.1 / §9.3.1.5 derive
+        // supersession from write identity, so batch boundaries carry no
+        // information for it.
         let ops: Vec<SealedOp> = batches
             .into_iter()
             .flatten()
             .map(|issued| issued.op)
             .collect();
-        // A cell whose identities disagree is not a usable baseline: admission
-        // fails closed on the empty answer rather than silently proposing a
-        // guard the writer could satisfy by accident.
-        let Ok(heads) = crate::lattice::cas_register::cas_heads(&ops) else {
-            continue;
-        };
+        // One identity with two canonical effects is a store fault or a §6.3.3
+        // collision. Skipping the cell here used to read as failing closed; to
+        // `state_root_leaves` it reads as a cell that has a value and no heads,
+        // which is not a state §6.2.1 can encode.
+        let heads = causal_heads_for_kind(kind, &ops).map_err(|bottom| {
+            SealReject::Store(format!(
+                "causal register cell {cell} carries one write identity with two canonical                  effects: {bottom:?}"
+            ))
+        })?;
         if heads.is_empty() {
             continue;
         }
@@ -2108,11 +2145,23 @@ fn ops_since_last_recovery_reset(
 pub fn cas_heads_for_batches(
     batches: &[Vec<IssuedOp>],
 ) -> Vec<crate::lattice::cas_register::CasHead> {
+    causal_heads_for_batches(crate::lattice::LatticeKind::CasRegister, batches)
+}
+
+/// [`cas_heads_for_batches`] for whichever causal register the cell is.
+///
+/// `fsm` heads carry the transition's `to` rather than a written value
+/// (§9.3.1.5), so a caller that asked for `cas_register` heads on an `fsm` cell
+/// got an empty set — and an empty set is how §6.2.1 spells "never written".
+pub fn causal_heads_for_batches(
+    kind: crate::lattice::LatticeKind,
+    batches: &[Vec<IssuedOp>],
+) -> Vec<crate::lattice::cas_register::CasHead> {
     let ops: Vec<SealedOp> = batches
         .iter()
         .flat_map(|batch| batch.iter().map(|issued| issued.op.clone()))
         .collect();
-    crate::lattice::cas_register::cas_heads(&ops).unwrap_or_default()
+    causal_heads_for_kind(kind, &ops).unwrap_or_default()
 }
 
 /// Join accepted operations while preserving frozen-predecessor Seal batches.

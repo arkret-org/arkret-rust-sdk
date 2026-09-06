@@ -64,6 +64,30 @@ pub struct CasHead {
 /// canonical effects is a verification error or a §6.3.3 digest collision, and
 /// §9.3.1.1 forbids letting the lattice pick one.
 pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
+    causal_heads(
+        sealed_ops,
+        |op| CasRegister.validate_op(op).is_ok(),
+        |op| op.value.clone().unwrap_or(Value::Null),
+    )
+}
+
+/// The still-active writes of one causal-register cell, shared by
+/// `cas_register` (§9.3.1.1) and `fsm` (§9.3.1.5).
+///
+/// The two lattices differ only in what a head carries — a `cas_register` head
+/// carries the written value, an `fsm` head carries the transition's `to` — and
+/// in what makes a write well-shaped. Everything that decides *which* writes are
+/// active is the same, because §9.3.1.8's merge proof uses nothing but the union
+/// of identity sets. Keeping one implementation is what stops the two from
+/// drifting into two answers about the same question.
+///
+/// `accepts` screens malformed ops the way each lattice's `validate_op` does;
+/// `head_value` reads the head's carried value.
+pub(crate) fn causal_heads(
+    sealed_ops: &[SealedOp],
+    accepts: impl Fn(&LatticeOp) -> bool,
+    head_value: impl Fn(&LatticeOp) -> Value,
+) -> Result<Vec<CasHead>, Box<Bottom>> {
     // Insertion-ordered, with an index beside it. The order is what makes the
     // duplicate-identity diagnostic name the *first* write it saw; the index is
     // what keeps this linear. A cell that has been written a few thousand times
@@ -71,21 +95,17 @@ pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
     let mut writes: Vec<&SealedOp> = Vec::new();
     let mut by_identity: BTreeMap<&str, usize> = BTreeMap::new();
     for entry in sealed_ops {
-        if CasRegister.validate_op(&entry.op).is_err() {
+        if !accepts(&entry.op) {
             continue;
         }
         match by_identity.get(entry.move_id.as_str()) {
-            // Exact replay of one identity is idempotent (§9.3.1.1).
-            Some(&index) if writes[index].op.value == entry.op.value => continue,
+            // Exact replay of one identity is idempotent (§9.3.1.1 / §9.3.1.5).
+            Some(&index) if head_value(&writes[index].op) == head_value(&entry.op) => continue,
             Some(&index) => {
                 let mut bottom = Bottom::new(BottomKind::Conflict, Vec::new());
                 bottom.move_ids.push(entry.move_id.clone());
-                bottom
-                    .head_ids
-                    .push(writes[index].op.value.clone().unwrap_or(Value::Null));
-                bottom
-                    .head_ids
-                    .push(entry.op.value.clone().unwrap_or(Value::Null));
+                bottom.head_ids.push(head_value(&writes[index].op));
+                bottom.head_ids.push(head_value(&entry.op));
                 return Err(Box::new(bottom));
             }
             None => {
@@ -105,7 +125,7 @@ pub fn cas_heads(sealed_ops: &[SealedOp]) -> Result<Vec<CasHead>, Box<Bottom>> {
         .filter(|entry| !superseded.contains(entry.move_id.as_str()))
         .map(|entry| CasHead {
             move_id: entry.move_id.clone(),
-            value: entry.op.value.clone().unwrap_or(Value::Null),
+            value: head_value(&entry.op),
         })
         .collect();
     heads.sort_by_key(|head| head_order_key(&head.move_id));

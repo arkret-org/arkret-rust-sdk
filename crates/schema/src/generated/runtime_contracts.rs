@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-07.2;
-//! sha256=7d4a5d5f7bcf9e812692e97d19f34619d079d74ef03511f695c86cc110bbaa5f Input: registry/
-//! operation-registry.json; version=2026-09-07.1;
-//! sha256=80980055fb39d84087ef1507d45f10922784c90885347ebf327210a96799b07a Input: registry/
+//! contract-registry.json; version=2026-09-07.3;
+//! sha256=6b86d3bae4ef1dcf2aad9b49f1965f9993c9360a7a9ac99f403757501006c488 Input: registry/
+//! operation-registry.json; version=2026-09-07.4;
+//! sha256=c786d38dfbafa7749717bf8180f058773174b0d0362deaf28fe754a265e4f799 Input: registry/
 //! event-kind-registry.json; version=2026-09-07.2;
 //! sha256=4438899a3e016b3a4e8d85f0c79011fbc0cfddad9a610dd9a8a7ad5c23470071 Input: registry/
 //! schema-registry.json; version=2026-09-07.1;
@@ -782,6 +782,6 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-07.2";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-07.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-07.1";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-07.4";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-07.1";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

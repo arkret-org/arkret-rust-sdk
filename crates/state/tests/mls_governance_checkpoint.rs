@@ -123,24 +123,39 @@ fn expected_cas_heads(
 ) -> arkret_state::CasHeadsByCell {
     let mut out = arkret_state::CasHeadsByCell::new();
     for (cell, cell_state) in state {
-        if !arkret_wire::is_registered_cas_register_cell(cell.as_str()) {
+        // `fsm` is a causal register too (§9.3.1.5), so it needs its head set
+        // here as well; asking only about `cas_register` left every membership
+        // cell with a value-shaped leaf the builder no longer produces.
+        if !arkret_wire::is_registered_causal_register_cell(cell.as_str()) {
             continue;
         }
         let CellState::Value(value) = cell_state else {
             continue;
         };
-        let head = covered_events.iter().rev().find(|event| {
-            projection(event, SUITE)
+        // §9.3.1.7 item 4 reproduced, not copied: a write with a basis replaces
+        // the heads it observed, a basis-free anchor write joins them.
+        let mut heads: Vec<arkret_state::lattice::cas_register::CasHead> = Vec::new();
+        for event in covered_events {
+            if !projection(event, SUITE)
                 .is_ok_and(|writes| writes.iter().any(|write| &write.cell_id == cell))
+            {
+                continue;
+            }
+            if event.seal_basis.is_some() {
+                heads.clear();
+            }
+            heads.push(arkret_state::lattice::cas_register::CasHead {
+                move_id: digest(event),
+                value: value.clone(),
+            });
+        }
+        heads.sort_by_key(|head| {
+            arkret_wire::EventId::from_event_digest(&head.move_id)
+                .map(|id| id.token_bytes())
+                .unwrap_or([0_u8; 33])
         });
-        if let Some(event) = head {
-            out.insert(
-                cell.clone(),
-                vec![arkret_state::lattice::cas_register::CasHead {
-                    move_id: digest(event),
-                    value: value.clone(),
-                }],
-            );
+        if !heads.is_empty() {
+            out.insert(cell.clone(), heads);
         }
     }
     out
