@@ -371,29 +371,14 @@ where
             let binding = registry
                 .resolve(realm_id, &effect.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            // Section 9.3.1 requires an explicit whole-value CAS guard for a
-            // non-initial register. Checking only supplied predicates would
-            // admit a missing guard as another chain head and poison the cell.
-            if binding.lattice.kind() == crate::lattice::LatticeKind::CasRegister
-                && effect.op.op_type == LatticeOpType::Set
-                && !matches!(write.op, ProjectedOp::Reset { .. })
-            {
-                let observed = frozen_cell_value(&effect.cell_id, realm_id, pre_state, registry)?;
-                let initial = binding.lattice.initial_state().unwrap_or(Value::Null);
-                if observed != initial
-                    && !event.preconditions.iter().any(|precondition| {
-                        precondition.cell_id == effect.cell_id
-                            && precondition.predicate.op == PredicateOp::HeadEq
-                            && precondition.predicate.value.as_ref() == Some(&observed)
-                    })
-                {
-                    return Err(ControlMoveReject::FailedPrecondition {
-                        cell: effect.cell_id.to_string(),
-                        reason: "non-initial cas_register write requires whole-value head_eq"
-                            .to_owned(),
-                    });
-                }
-            }
+            // No generalized whole-value head_eq is required here. Section
+            // 9.3.1.3 item 1 forbids it outright -- the signed seal_basis
+            // already fixes the complete pre-state, so demanding the old
+            // business value on the wire is redundant, and it cannot express a
+            // claim/release/claim slot in the first place. The guard that does
+            // the work is the identity comparison H_c(B) = H_c(P) at Seal
+            // admission (item 3, `apply_seal`); registered business
+            // preconditions are still evaluated below like any other predicate.
             // A §9.5.1 recovery answers to its own shape rule: on `fsm` it is a
             // transition with no `from`, which the ordinary check rejects.
             let shape = if effect.recovery_reset {
@@ -1477,7 +1462,7 @@ mod tests {
     }
 
     #[test]
-    fn cas_replacement_requires_the_exact_frozen_head_before_any_write_is_returned() {
+    fn cas_replacement_needs_no_wire_head_eq_but_a_declared_one_is_still_enforced() {
         let cell = CellRef::new("ak:cell:ak.component.realm.policy.v1:null").unwrap();
         let old = json!({"disclosure": "disabled", "visibility": "members"});
         let mut op = LatticeOp::empty();
@@ -1503,20 +1488,50 @@ mod tests {
 
         let pre_state = BTreeMap::from([(cell.clone(), CellState::Value(old.clone()))]);
         let before = pre_state.clone();
-        let missing = verify_control_move(
-            &initial,
+        // Section 9.3.1.3 item 1: a replacement over a non-initial cell carries
+        // no wire head_eq. The signed seal_basis already fixes the pre-state,
+        // and the identity comparison H_c(B) = H_c(P) runs at Seal admission.
+        assert!(
+            verify_control_move(
+                &initial,
+                &realm(),
+                &pre_state,
+                &registry,
+                ok_proofs,
+                project(vec![
+                    transition_write(json!("invited"), json!("join")),
+                    write.clone(),
+                ]),
+            )
+            .is_ok()
+        );
+        assert_eq!(pre_state, before);
+
+        // A declared business head_eq is still evaluated, and a wrong one still
+        // rejects before any write is returned.
+        let stale_guard = control_move(
+            vec![Precondition {
+                cell_id: cell.clone(),
+                predicate: Predicate {
+                    op: PredicateOp::HeadEq,
+                    value: Some(json!({"disclosure": "something-else"})),
+                    values: None,
+                    predicate_id: None,
+                },
+            }],
+            vec![],
+        );
+        let mismatched = verify_control_move(
+            &stale_guard,
             &realm(),
             &pre_state,
             &registry,
             ok_proofs,
-            project(vec![
-                transition_write(json!("invited"), json!("join")),
-                write.clone(),
-            ]),
+            project(vec![write.clone()]),
         )
         .unwrap_err();
         assert!(matches!(
-            missing,
+            mismatched,
             ControlMoveReject::FailedPrecondition { .. }
         ));
         assert_eq!(pre_state, before);
