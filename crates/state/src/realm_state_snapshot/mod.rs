@@ -7,11 +7,11 @@
 //!
 //! The v1 snapshot model uses three primitives:
 //!
-//! - [`RealmStateRealmRealmStateSnapshotStateChunker`] — deterministically partitions a serialized
-//!   snapshot blob into fixed-size byte ranges, each addressable by an ordinal `chunk_id` starting
-//!   at 0. Boundaries are at exact byte offsets (`target_chunk_bytes`) so two implementations
-//!   always produce the same chunk layout for the same input.
-//! - [`RealmRealmStateSnapshotStateMerkleTree`] — a binary Merkle tree over chunk digests keyed by
+//! - [`RealmStateRealmStateSnapshotChunker`] — deterministically partitions a serialized snapshot
+//!   blob into fixed-size byte ranges, each addressable by an ordinal `chunk_id` starting at 0.
+//!   Boundaries are at exact byte offsets (`target_chunk_bytes`) so two implementations always
+//!   produce the same chunk layout for the same input.
+//! - [`RealmStateSnapshotMerkleTree`] — a binary Merkle tree over chunk digests keyed by
 //!   `chunk_id`. RFC 6962-style audit paths let receivers verify a single chunk's leaf hash against
 //!   the root using just `O(log n)` sibling hashes.
 //! - [`GeneratorProof`] — the generator's signed commitment to a snapshot frontier (`state_root` +
@@ -34,9 +34,7 @@ mod types;
 pub use chunking::*;
 pub use constants::*;
 pub use generator_proof::*;
-pub use merkle::{
-    RealmRealmStateSnapshotStateMerkleTree, format_hash, hash_leaf, hash_node, parse_sha256,
-};
+pub use merkle::{RealmStateSnapshotMerkleTree, format_hash, hash_leaf, hash_node, parse_sha256};
 pub use types::*;
 
 #[cfg(test)]

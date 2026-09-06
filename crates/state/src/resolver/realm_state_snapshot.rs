@@ -24,15 +24,15 @@ pub struct RealmStateSnapshotState {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tombstone_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub manifest: Option<RealmRealmStateSnapshotStateReducerManifest>,
+    pub manifest: Option<RealmStateSnapshotReducerManifest>,
 }
 
 /// Dev-only reducer snapshot container.
 ///
 /// Current production snapshot bootstrap uses
-/// `ak.schema.realm_state_snapshot.v1` [`crate::snapshot::RealmRealmStateSnapshotStateManifest`].
+/// `ak.schema.realm_state_snapshot.v1` [`crate::snapshot::RealmStateSnapshotManifest`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmRealmStateSnapshotStateReducerManifest {
+pub struct RealmStateSnapshotReducerManifest {
     pub schema: String,
     pub reducer_profile: String,
     pub realm_id: RealmId,
@@ -41,23 +41,23 @@ pub struct RealmRealmStateSnapshotStateReducerManifest {
     pub merkle_root: String,
     pub chunk_count: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub chunks: Vec<RealmStateRealmRealmStateSnapshotStateChunkManifest>,
+    pub chunks: Vec<RealmStateRealmStateSnapshotChunkManifest>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: chrono::DateTime<chrono::Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub signatures: Vec<RealmRealmStateSnapshotStateSignature>,
+    pub signatures: Vec<RealmStateSnapshotSignature>,
 }
 
 /// Dev-only reducer snapshot chunk descriptor.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmStateRealmRealmStateSnapshotStateChunkManifest {
+pub struct RealmStateRealmStateSnapshotChunkManifest {
     pub index: u32,
     pub digest: String,
     pub byte_len: usize,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmRealmStateSnapshotStateSignature {
+pub struct RealmStateSnapshotSignature {
     pub kind: String,
     pub signature_algorithm: String,
     pub verification_method: DidUrl,
@@ -73,15 +73,15 @@ pub struct RealmRealmStateSnapshotStateSignature {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum RealmStateRealmRealmStateSnapshotStateRestoreSource {
+pub enum RealmStateRealmStateSnapshotRestoreSource {
     Snapshot,
     RepoReplay,
 }
 
 #[derive(Clone, Debug)]
-pub struct RealmRealmStateSnapshotStateRestore {
+pub struct RealmStateSnapshotRestore {
     pub state: RealmState,
-    pub source: RealmStateRealmRealmStateSnapshotStateRestoreSource,
+    pub source: RealmStateRealmStateSnapshotRestoreSource,
     pub snapshot_error: Option<String>,
 }
 
@@ -198,7 +198,7 @@ impl RealmStateSnapshotState {
     pub fn chunk_manifest(
         &self,
         chunk_size: usize,
-    ) -> Result<Vec<RealmStateRealmRealmStateSnapshotStateChunkManifest>> {
+    ) -> Result<Vec<RealmStateRealmStateSnapshotChunkManifest>> {
         if chunk_size == 0 {
             return Err(WireError::Protocol(
                 "snapshot chunk size must be greater than zero".to_owned(),
@@ -208,22 +208,20 @@ impl RealmStateSnapshotState {
         Ok(bytes
             .chunks(chunk_size)
             .enumerate()
-            .map(
-                |(index, chunk)| RealmStateRealmRealmStateSnapshotStateChunkManifest {
-                    index: index as u32,
-                    digest: sha256_digest(chunk),
-                    byte_len: chunk.len(),
-                },
-            )
+            .map(|(index, chunk)| RealmStateRealmStateSnapshotChunkManifest {
+                index: index as u32,
+                digest: sha256_digest(chunk),
+                byte_len: chunk.len(),
+            })
             .collect())
     }
 
     /// Build the reducer snapshot manifest. Fail-closed: a Merkle-root
     /// computation failure is an error — a manifest carrying a placeholder
     /// root must never reach the signing path.
-    pub fn manifest(&self) -> Result<RealmRealmStateSnapshotStateReducerManifest> {
+    pub fn manifest(&self) -> Result<RealmStateSnapshotReducerManifest> {
         let merkle_root = self.state_merkle_root()?;
-        Ok(RealmRealmStateSnapshotStateReducerManifest {
+        Ok(RealmStateSnapshotReducerManifest {
             schema: REALM_STATE_SNAPSHOT_REDUCER_SCHEMA.to_owned(),
             reducer_profile: self.reducer_profile.clone(),
             realm_id: self.realm_id.clone(),
@@ -263,7 +261,7 @@ impl RealmStateSnapshotState {
     }
 }
 
-impl RealmRealmStateSnapshotStateReducerManifest {
+impl RealmStateSnapshotReducerManifest {
     pub fn verify_against_realm_state_snapshot(
         &self,
         snapshot: &RealmStateSnapshotState,
@@ -333,7 +331,7 @@ impl RealmRealmStateSnapshotStateReducerManifest {
 }
 
 pub fn verify_realm_state_snapshot_chunks<I, B>(
-    manifest: &RealmRealmStateSnapshotStateReducerManifest,
+    manifest: &RealmStateSnapshotReducerManifest,
     chunks: I,
 ) -> Result<()>
 where

@@ -1,4 +1,4 @@
-use super::types::RealmRealmStateSnapshotStateChunk;
+use super::types::RealmStateSnapshotChunk;
 use crate::{Hash, Result, WireError};
 
 /// RFC 6962 binary Merkle tree over snapshot chunk digests.
@@ -13,21 +13,21 @@ use crate::{Hash, Result, WireError};
 ///   ambiguity).
 /// - Single-leaf tree returns the domain-separated leaf hash as root.
 #[derive(Clone, Debug)]
-pub struct RealmRealmStateSnapshotStateMerkleTree {
+pub struct RealmStateSnapshotMerkleTree {
     leaves: Vec<Hash>,
     /// Per-level node lists from leaves up to root. `levels[0]` is the
     /// leaf level, `levels.last()` is `[root]`.
     levels: Vec<Vec<Hash>>,
 }
 
-impl RealmRealmStateSnapshotStateMerkleTree {
+impl RealmStateSnapshotMerkleTree {
     /// Build a tree from chunks. Chunks MUST be in `chunk_id` order;
     /// the caller is responsible for sorting if the source iteration
     /// order isn't already ascending.
-    pub fn build(chunks: &[RealmRealmStateSnapshotStateChunk]) -> Result<Self> {
+    pub fn build(chunks: &[RealmStateSnapshotChunk]) -> Result<Self> {
         if chunks.is_empty() {
             return Err(WireError::Protocol(
-                "RealmRealmStateSnapshotStateMerkleTree requires at least one chunk".to_owned(),
+                "RealmStateSnapshotMerkleTree requires at least one chunk".to_owned(),
             ));
         }
         // Verify ordering — fail closed instead of silently building a
@@ -35,7 +35,7 @@ impl RealmRealmStateSnapshotStateMerkleTree {
         for (i, chunk) in chunks.iter().enumerate() {
             if chunk.chunk_id as usize != i {
                 return Err(WireError::Protocol(format!(
-                    "RealmRealmStateSnapshotStateMerkleTree chunk {i} has chunk_id={} (expected {i})",
+                    "RealmStateSnapshotMerkleTree chunk {i} has chunk_id={} (expected {i})",
                     chunk.chunk_id
                 )));
             }

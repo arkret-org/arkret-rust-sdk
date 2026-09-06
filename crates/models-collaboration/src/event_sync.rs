@@ -1324,8 +1324,8 @@ impl<'de> Deserialize<'de> for EventsSubmitFederationRequestBody {
     }
 }
 
-// `RealmRealmStateSnapshotStateBootstrap` lives in `sync_frames::realm_state_snapshot` and reaches
-// the `arkret::RealmRealmStateSnapshotStateBootstrap` path via the `artifacts::sync` re-export.
+// `RealmStateSnapshotBootstrap` lives in `sync_frames::realm_state_snapshot` and reaches
+// the `arkret::RealmStateSnapshotBootstrap` path via the `artifacts::sync` re-export.
 
 #[cfg(test)]
 #[path = "event_sync/tests.rs"]

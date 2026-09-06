@@ -3,8 +3,8 @@
     {
       "repository": "inkson",
       "path": "src/models.rs",
-      "pattern": "struct\\s+RealmStateRealmRealmStateSnapshotStateBootstrapJson\\b",
-      "owner": "arkret_sdk::RealmRealmStateSnapshotStateBootstrap"
+      "pattern": "struct\\s+RealmStateRealmStateSnapshotBootstrapJson\\b",
+      "owner": "arkret_sdk::RealmStateSnapshotBootstrap"
     },
     {
       "repository": "inkson",

@@ -10692,12 +10692,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmRealmStateSnapshotStateEventSetCommitmentActorSeqRangesItem",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmStateSnapshotEventSetCommitmentActorSeqRangesItem",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs",
       "line": 17,
       "kind": "struct",
-      "value_kind": "RealmStateRealmRealmStateSnapshotStateEventSetCommitmentActorSeqRangesItem",
+      "value_kind": "RealmStateRealmStateSnapshotEventSetCommitmentActorSeqRangesItem",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -10705,12 +10705,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmRealmStateSnapshotStateEventSetCommitment",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotEventSetCommitment",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs",
       "line": 26,
       "kind": "struct",
-      "value_kind": "RealmRealmStateSnapshotStateEventSetCommitment",
+      "value_kind": "RealmStateSnapshotEventSetCommitment",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",
@@ -10718,12 +10718,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmRealmStateSnapshotStateWitnessAttestationItem",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateRealmStateSnapshotWitnessAttestationItem",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs",
       "line": 77,
       "kind": "struct",
-      "value_kind": "RealmStateRealmRealmStateSnapshotStateWitnessAttestationItem",
+      "value_kind": "RealmStateRealmStateSnapshotWitnessAttestationItem",
       "spec_pointer": "realm-state-snapshot.schema.json#/$defs/realm_state_snapshot_witness_attestation",
       "schema_openness": "closed",
       "classification": "B",
@@ -10731,12 +10731,12 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmRealmStateSnapshotStateAuthorityBinding",
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotAuthorityBinding",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs",
       "line": 84,
       "kind": "struct",
-      "value_kind": "RealmRealmStateSnapshotStateAuthorityBinding",
+      "value_kind": "RealmStateSnapshotAuthorityBinding",
       "spec_pointer": null,
       "schema_openness": "unresolved",
       "classification": "needs_review",

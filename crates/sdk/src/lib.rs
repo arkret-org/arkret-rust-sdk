@@ -521,10 +521,9 @@ pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "mls")]
 pub use mls::*;
 pub use resolver::{
-    REALM_STATE_SNAPSHOT_REDUCER_SCHEMA, RealmRealmStateSnapshotStateReducerManifest,
-    RealmRealmStateSnapshotStateRestore, RealmRealmStateSnapshotStateSignature, RealmState,
-    RealmStateRealmRealmStateSnapshotStateChunkManifest,
-    RealmStateRealmRealmStateSnapshotStateRestoreSource, RealmStateSnapshotState, merkle_root,
+    REALM_STATE_SNAPSHOT_REDUCER_SCHEMA, RealmState, RealmStateRealmStateSnapshotChunkManifest,
+    RealmStateRealmStateSnapshotRestoreSource, RealmStateSnapshotReducerManifest,
+    RealmStateSnapshotRestore, RealmStateSnapshotSignature, RealmStateSnapshotState, merkle_root,
     state_merkle_root, verify_realm_state_snapshot_chunks,
 };
 #[cfg(feature = "server")]
