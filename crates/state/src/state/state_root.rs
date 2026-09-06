@@ -31,7 +31,7 @@
 
 use std::collections::BTreeMap;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::lattice::CellState;
 use crate::lattice::cas_register::CasHead;
@@ -228,12 +228,18 @@ pub fn cas_leaf_hash(
     heads: &[CasHead],
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<[u8; 32], crate::WireError> {
+    leaf_hash_from_state_object(cell, cas_leaf_state_object(cell, heads)?, digest_suite)
+}
+
+/// The `{"heads":[…]}` half of a causal-register leaf.
+fn cas_leaf_state_object(cell: &CellRef, heads: &[CasHead]) -> Result<Value, crate::WireError> {
     let mut entries = Vec::with_capacity(heads.len());
     for head in heads {
         let event_id = arkret_wire::EventId::from_event_digest(&head.move_id).map_err(|error| {
             crate::WireError::Protocol(format!(
-                "cas_register head {} is not a recoverable Event identity: {error}",
-                head.move_id.as_str()
+                "causal register head {} of {} is not a recoverable Event identity: {error}",
+                head.move_id.as_str(),
+                cell.as_str()
             ))
         })?;
         entries.push(json!({
@@ -241,7 +247,90 @@ pub fn cas_leaf_hash(
             "value": head.value,
         }));
     }
-    leaf_hash_from_state_object(cell, json!({ "heads": entries }), digest_suite)
+    Ok(json!({ "heads": entries }))
+}
+
+/// The exact leaf preimage `state_root` hashes for one member cell.
+///
+/// Every producer of a portable branch — the MLS governance frontier witness,
+/// the invite capability bundle — has to ship the bytes the root actually
+/// committed to. A causal register's leaf is built from its active head set
+/// (§6.2.1), so spelling it `{"value":…}` commits to a leaf the `state_root`
+/// never contained and the receiver's digest check fails with nothing to
+/// point at. One definition here, used by both.
+pub fn state_leaf_canonical_preimage(
+    view: GovernanceView<'_>,
+    cell: &CellRef,
+) -> Result<Vec<u8>, crate::WireError> {
+    let state_object = state_leaf_state_object(view, cell)?;
+    arkret_canonical::canonical_json_bytes(&json!({
+        "cell": cell.as_str(),
+        "state": state_object,
+    }))
+    .map_err(Into::into)
+}
+
+/// The value a causal-register leaf's head set resolves to.
+///
+/// Mirrors `cas_register::join`: identical head values collapse to that value,
+/// and any disagreement is `Bottom`, which has no single value to publish. A
+/// receiver holding only the portable leaf has no op log to re-join, so this is
+/// the one rule it can apply to the bytes it was given.
+pub fn causal_register_leaf_value(heads: &Value) -> Result<Value, crate::WireError> {
+    let entries = heads.as_array().ok_or_else(|| {
+        crate::WireError::Protocol("state leaf heads must be an array".to_owned())
+    })?;
+    let mut resolved: Option<&Value> = None;
+    for entry in entries {
+        let value = entry.get("value").ok_or_else(|| {
+            crate::WireError::Protocol("state leaf head carries no value".to_owned())
+        })?;
+        match resolved {
+            Some(existing) if existing != value => {
+                return Err(crate::WireError::Protocol(
+                    "state leaf heads disagree; the cell is Bottom and has no single value"
+                        .to_owned(),
+                ));
+            }
+            _ => resolved = Some(value),
+        }
+    }
+    resolved.cloned().ok_or_else(|| {
+        crate::WireError::Protocol(
+            "state leaf heads are empty; the cell is not a state_root member".to_owned(),
+        )
+    })
+}
+
+/// The `state` half of a member cell's leaf, in the same shape and by the same
+/// membership rule as [`state_root_leaves`].
+fn state_leaf_state_object(
+    view: GovernanceView<'_>,
+    cell: &CellRef,
+) -> Result<Value, crate::WireError> {
+    if let Some(heads) = view.cas_heads.get(cell) {
+        if heads.is_empty() {
+            return Err(crate::WireError::Protocol(format!(
+                "causal register cell {} has no active head and is not a state_root member",
+                cell.as_str()
+            )));
+        }
+        return cas_leaf_state_object(cell, heads);
+    }
+    if arkret_wire::is_registered_causal_register_cell(cell.as_str()) {
+        return Err(crate::WireError::Protocol(format!(
+            "causal register cell {} resolved to a state without its active heads; \
+             §6.2.1 needs the head set to build its leaf",
+            cell.as_str()
+        )));
+    }
+    match view.cells.get(cell) {
+        Some(CellState::Value(value)) => Ok(json!({ "value": value })),
+        _ => Err(crate::WireError::Protocol(format!(
+            "cell {} has no concrete value and is not a state_root member",
+            cell.as_str()
+        ))),
+    }
 }
 
 /// Build the portable Merkle branch for `target_cell` in a resolved state map.

@@ -145,20 +145,71 @@ pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
 /// Applet-managed automation uses `Bot`.
 pub type EnvelopeActorKind = crate::ActorKind;
 
+/// RFC 6962 inclusion proof for one leaf under a Seal-signed root.
+///
+/// `event-envelope.schema.json#/$defs/semantic_ref_merkle_proof`. The proof
+/// names which of the two Seal roots it resolves against and carries the
+/// leaf's canonical preimage, so a receiver that holds neither the Realm's
+/// accepted state nor a dependency read face can recompute the leaf digest and
+/// the root from the proof alone. That is the only shape available to an
+/// `invite-addressing.md` §7 step 4 receiver, whose authority-root branch
+/// `capabilities.md` §3.2 requires to run off this proof rather than off a
+/// replayed Control Move.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SemanticRefProof {
     pub kind: SemanticRefProofKind,
+    pub root_field: SemanticRefProofRootField,
+    pub root_digest: Hash,
+    pub leaf_canonical_preimage_b64u: Base64UrlString,
     pub leaf_digest: Hash,
     pub audit_path: Vec<Hash>,
     pub leaf_index: u64,
     pub leaf_count: u64,
 }
 
+/// Maximum `audit_path` length (`semantic_ref_merkle_proof.audit_path.maxItems`).
+pub const MAX_SEMANTIC_REF_PROOF_AUDIT_PATH: usize = 64;
+
+impl SemanticRefProof {
+    /// Bounds and index/count coherence. Digest recomputation is the receiver's
+    /// step, not this one.
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.audit_path.len() > MAX_SEMANTIC_REF_PROOF_AUDIT_PATH {
+            return Err(WireError::Protocol(format!(
+                "semantic ref proof audit_path exceeds {MAX_SEMANTIC_REF_PROOF_AUDIT_PATH} entries"
+            )));
+        }
+        if self.leaf_count == 0 {
+            return Err(WireError::Protocol(
+                "semantic ref proof leaf_count MUST be at least 1".to_owned(),
+            ));
+        }
+        if self.leaf_index >= self.leaf_count {
+            return Err(WireError::Protocol(
+                "semantic ref proof leaf_index MUST be inside leaf_count".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SemanticRefProofKind {
     #[serde(rename = "rfc6962_merkle")]
     Rfc6962Merkle,
+}
+
+/// The Seal-signed root a [`SemanticRefProof`] resolves against.
+///
+/// A proof that does not say which root it is under can be replayed from the
+/// covered-event tree into the governance state tree, so the field is part of
+/// the signed shape rather than context the receiver supplies.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SemanticRefProofRootField {
+    StateRoot,
+    ControlEventSetRoot,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1336,6 +1387,24 @@ impl Event {
     ) -> Result<()> {
         self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
         self.validate_station_admission_binding(digest_suite)
+    }
+
+    /// Shape of an already-accepted Event carried as evidence rather than as a
+    /// submission, without the admission-binding digest step.
+    ///
+    /// `cba-profiles.md` §5 fixes the receiver's order as «structure, Realm,
+    /// count and canonical order → object id/digest/signature → ...», so the
+    /// container-level pass owns the proof-set *shape* — one producer proof
+    /// followed by one Station admission proof — while recomputing the digest
+    /// that binds them belongs to the next step, where the digest suite the
+    /// Seal roots name is available. Checking accepted evidence against the
+    /// caller-submission proof set instead would reject every object a Station
+    /// has actually accepted.
+    pub fn validate_for_accepted_structural(&self) -> Result<()> {
+        self.validate_structural_in_context(
+            EventSubmitContext::Standard,
+            EventProofSetRequirement::AcceptedEvent,
+        )
     }
 
     fn validate_structural_in_context(

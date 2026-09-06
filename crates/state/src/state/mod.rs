@@ -36,7 +36,8 @@ pub use seal::{
 };
 pub use state_root::{
     CasHeadsByCell, EMPTY_STATE_ROOT, GovernanceView, StateInclusionProof, cas_leaf_hash,
-    compute_state_root, leaf_hash, state_inclusion_proof, state_value_leaf_digest,
+    causal_register_leaf_value, compute_state_root, leaf_hash, state_inclusion_proof,
+    state_leaf_canonical_preimage, state_leaf_hash_from_state_object, state_value_leaf_digest,
     value_frontier_digest, verify_state_inclusion_proof,
 };
 pub use store::memory::{

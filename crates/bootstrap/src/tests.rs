@@ -11,13 +11,13 @@ use arkret_models_collaboration::events_payloads::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    ActorId, AuthorizationRef, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl, DigestSuiteCode,
-    Event, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc, NonEmptyString,
-    NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor, NotaryValue,
-    PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
-    SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, StationAdmissionProof,
-    StationAdmissionProofKind, TrustDomainId, WireError, composite_subject, project_did_to_core_id,
-    proof_kind,
+    ActorId, AuthorizationRef, Base64UrlString, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl,
+    DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc,
+    NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
+    NotaryValue, PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId,
+    ScopeRef, SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, SemanticRefProofRootField,
+    StationAdmissionProof, StationAdmissionProofKind, TrustDomainId, WireError, composite_subject,
+    project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -373,6 +373,12 @@ fn validation_rejects_a_non_self_realm_and_builder_rejects_indirect_inception_re
     let mut indirect = input();
     indirect.did_inception_ref.proof = Some(SemanticRefProof {
         kind: SemanticRefProofKind::Rfc6962Merkle,
+        root_field: SemanticRefProofRootField::ControlEventSetRoot,
+        root_digest: Hash::new(
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        )
+        .unwrap(),
+        leaf_canonical_preimage_b64u: Base64UrlString::new("Y2NjYw").unwrap(),
         leaf_digest: Hash::new(
             "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         )

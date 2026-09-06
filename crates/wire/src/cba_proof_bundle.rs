@@ -253,7 +253,10 @@ impl CbaProofBundle {
                         .to_owned(),
                 ));
             }
-            control_move.validate_for_submit_structural()?;
+            control_move.validate_for_accepted_structural()?;
+        }
+        for proof in &self.inclusion_proofs {
+            proof.validate_structural()?;
         }
         for receipt in &self.availability_proofs {
             receipt.validate_structural()?;

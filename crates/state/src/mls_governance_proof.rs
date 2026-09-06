@@ -36,7 +36,8 @@ use crate::state::store::memory::{MemoryCellStore, MemoryControlEventStore, Memo
 use crate::{
     CellRegistry, CellStore, ControlEventStore, SealDigestSuites, SealStore,
     apply_replayed_seal_in_context, control_event_completeness_root, effective_state_at,
-    state_value_leaf_digest, union_predecessor_covered_events, verify_state_inclusion_proof,
+    state_leaf_hash_from_state_object, state_value_leaf_digest, union_predecessor_covered_events,
+    verify_state_inclusion_proof,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1435,14 +1436,6 @@ struct FrontierValueState<'a> {
     value: &'a Value,
 }
 
-fn canonical_state_leaf_preimage(cell: &CellRef, value: &Value) -> arkret_wire::Result<Vec<u8>> {
-    arkret_canonical::canonical_json_bytes(&json!({
-        "cell": cell.as_str(),
-        "state": { "value": value },
-    }))
-    .map_err(Into::into)
-}
-
 #[allow(clippy::too_many_arguments)]
 async fn materialize_frontier_entry(
     cell: &CellRef,
@@ -1457,7 +1450,10 @@ async fn materialize_frontier_entry(
 ) -> arkret_wire::Result<MlsGovernanceFrontierCellEntry> {
     let value = cell_state.value;
     let proof = crate::state_inclusion_proof(state.as_governance_view(), cell, digest_suite)?;
-    let preimage = canonical_state_leaf_preimage(cell, value)?;
+    // The bytes the root actually committed to. A causal-register cell hashes
+    // its active head set, not the joined value, so building this from `value`
+    // emits a leaf the `state_root` never contained.
+    let preimage = crate::state_leaf_canonical_preimage(state.as_governance_view(), cell)?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
         .await
         .map_err(replay_reject_error)?;
@@ -2619,12 +2615,29 @@ async fn verify_frontier_entry(
     if state.len() != 1 {
         return frontier_rejected("state leaf preimage state is not closed");
     }
-    let value = state.get("value").ok_or_else(|| {
-        WireError::Protocol("state leaf preimage is Bottom or missing value".to_owned())
-    })?;
-    if state_value_leaf_digest(&entry.cell_id, value, digest_suite)? != witness.leaf_digest
-        || canonical_hash(value)? != entry.value_digest
-    {
+    // §6.2.1 has two leaf shapes. A causal register commits its active head
+    // set; everything else commits the joined value. The value the frontier
+    // entry claims is recovered from whichever shape the cell actually uses,
+    // and the leaf digest is recomputed under that same rule.
+    let (value, recomputed_leaf) = if let Some(heads) = state.get("heads") {
+        let value = crate::causal_register_leaf_value(heads)?;
+        let leaf = state_leaf_hash_from_state_object(
+            &entry.cell_id,
+            json!({ "heads": heads }),
+            digest_suite,
+        )?;
+        (value, leaf)
+    } else {
+        let value = state.get("value").ok_or_else(|| {
+            WireError::Protocol("state leaf preimage is Bottom or missing value".to_owned())
+        })?;
+        (
+            value.clone(),
+            state_value_leaf_digest(&entry.cell_id, value, digest_suite)?,
+        )
+    };
+    let value = &value;
+    if recomputed_leaf != witness.leaf_digest || canonical_hash(value)? != entry.value_digest {
         return frontier_rejected("frontier value digest does not bind the state leaf value");
     }
     let provenance = entry
@@ -3254,7 +3267,13 @@ mod tests {
                 .unwrap();
         let value = json!({"accepted_event_id": "ak:event:one"});
 
-        let preimage = canonical_state_leaf_preimage(&cell, &value).unwrap();
+        let cells = BTreeMap::from([(cell.clone(), CellState::Value(value.clone()))]);
+        let cas_heads = crate::CasHeadsByCell::new();
+        let preimage = crate::state_leaf_canonical_preimage(
+            crate::GovernanceView::new(&cells, &cas_heads),
+            &cell,
+        )
+        .unwrap();
         assert_eq!(
             preimage,
             br#"{"cell":"ak:cell:ak.component.member.state.v1:did.web.alice.example","state":{"value":{"accepted_event_id":"ak:event:one"}}}"#,
