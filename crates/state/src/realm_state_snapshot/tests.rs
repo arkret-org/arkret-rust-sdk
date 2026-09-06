@@ -1435,7 +1435,7 @@ fn restore_carries_bottom_cells_and_erasure_stubs() {
         .iter()
         .map(|c| c.canonical_bytes.clone())
         .collect::<Vec<_>>();
-    let (mut manifest, _, _) = manifest_for_items(items);
+    let (mut manifest, ..) = manifest_for_items(items);
     manifest.chunks = built.iter().map(|c| c.descriptor.clone()).collect();
     manifest.verification_hints = Some(RealmStateSnapshotVerificationHints {
         verification_profile: RealmStateSnapshotSecurityClass::Standard,
@@ -1522,7 +1522,7 @@ fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
         .iter()
         .map(|c| c.canonical_bytes.clone())
         .collect::<Vec<_>>();
-    let (mut manifest, _, _) = manifest_for_items(items);
+    let (mut manifest, ..) = manifest_for_items(items);
     manifest.chunks = built.iter().map(|c| c.descriptor.clone()).collect();
     manifest.verification_hints = Some(RealmStateSnapshotVerificationHints {
         verification_profile: RealmStateSnapshotSecurityClass::Standard,
@@ -1580,7 +1580,7 @@ fn restore_rejects_erasure_stubs_with_no_commitment() {
         .iter()
         .map(|c| c.canonical_bytes.clone())
         .collect::<Vec<_>>();
-    let (mut manifest, _, _) = manifest_for_items(items);
+    let (mut manifest, ..) = manifest_for_items(items);
     manifest.chunks = built.iter().map(|c| c.descriptor.clone()).collect();
     manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
     let transcript = manifest.unsigned_canonical_bytes().unwrap();
@@ -1604,7 +1604,7 @@ fn restore_rejects_erasure_stubs_with_no_commitment() {
 fn bootstrap_hint_must_name_the_manifest_it_is_bound_to() {
     use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
 
-    let (manifest, _, _) = restore_fixture();
+    let (manifest, ..) = restore_fixture();
     let bootstrap = RealmStateSnapshotBootstrap {
         realm_state_snapshot_ref: manifest.id.clone(),
         state_digest: manifest.state_digest.clone(),

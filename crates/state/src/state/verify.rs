@@ -1099,7 +1099,6 @@ fn evaluate_predicate(
 
 #[cfg(test)]
 mod tests {
-    use crate::lattice::Lattice;
     use arkret_wire::event_envelope::{EventRef, ScopeRef};
     use arkret_wire::{
         DidKey, DidUrl, EventProof, ProducerEventProof, StationAdmissionProof,
@@ -1109,7 +1108,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use crate::lattice::{CellState, SealedOp};
+    use crate::lattice::{CellState, Lattice, SealedOp};
     use crate::state::store::memory::MemoryCellRegistry;
     use crate::{
         CellRef, DidCoreId, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp,

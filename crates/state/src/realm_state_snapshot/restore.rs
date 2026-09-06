@@ -18,6 +18,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
 use chrono::{DateTime, Utc};
 
 use super::chunking::{event_set_root, state_digest_from_chunk_payloads};
@@ -36,8 +37,6 @@ use super::types::{
 use super::verify_realm_state_snapshot_chunk_bytes;
 use crate::lattice::cas_register::CasHead;
 use crate::state::CasHeadsByCell;
-use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
-
 use crate::{CellRef, DidUrl, EventId, Hash, RealmStateSnapshotId};
 
 type ValidationResult<T> = Result<T, RealmStateSnapshotValidationError>;
@@ -122,11 +121,11 @@ pub enum CoveredEventMembership {
 /// everything else, which is the §3 «hold» outcome rather than a wrong `false`.
 /// The two ways §3 allows to do better are both here:
 ///
-/// - [`CoveredEventSet::admit_committed_index`] — «保留共享 membership 索引»:
-///   hand back the whole committed entry list, checked by recomputing the root.
-///   Only then does an absent id become [`CoveredEventMembership::NotCovered`].
-/// - [`CoveredEventSet::admit_inclusion_proof`] — «按现有 root 取得有效证明»:
-///   one entry plus its `merkle_event_set_v1` audit path against that same root.
+/// - [`CoveredEventSet::admit_committed_index`] — «保留共享 membership 索引»: hand back the whole
+///   committed entry list, checked by recomputing the root. Only then does an absent id become
+///   [`CoveredEventMembership::NotCovered`].
+/// - [`CoveredEventSet::admit_inclusion_proof`] — «按现有 root 取得有效证明»: one entry plus its
+///   `merkle_event_set_v1` audit path against that same root.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoveredEventSet {
     algorithm: EventSetCommitmentAlgorithm,

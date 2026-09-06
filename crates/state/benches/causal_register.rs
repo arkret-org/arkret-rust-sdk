@@ -1,8 +1,8 @@
 //! Scale measurements for the causal-register recompute path.
 //!
-//! `arkret-work/review/spec-open/2026-09-05-1655-cas-causal-context-final-design-and-protocol-closure.md`
-//! §10 asks for 10³ / 10⁴ / 10⁵
-//! numbers on the register, because the whole design rests on recomputing a
+//! `arkret-work/review/spec-open/
+//! 2026-09-05-1655-cas-causal-context-final-design-and-protocol-closure.md` §10 asks for 10³ / 10⁴
+//! / 10⁵ numbers on the register, because the whole design rests on recomputing a
 //! cell's active head set from its op log on every view. If that recompute is
 //! superlinear, the design is only correct on paper.
 //!

@@ -1,11 +1,11 @@
 //! What a Seal actually costs: the whole-Realm view rebuild, not one prebuilt
 //! op array.
 //!
-//! `arkret-work/review/spec-open/2026-09-05-1655-cas-causal-context-final-design-and-protocol-closure.md`
-//! §8 says it plainly: "当前 SDK `state/seal.rs` 对已覆盖操作全量收集再 join,
-//! 必须一起改为共享 view/checkpoint 与 delta 更新, 否则即使新 join 是线性的,
-//! 每次全量重放仍可能造成总计二次成本." `causal_register.rs` measures the new
-//! join and finds it linear, which is the half that was never in doubt. This
+//! `arkret-work/review/spec-open/
+//! 2026-09-05-1655-cas-causal-context-final-design-and-protocol-closure.md` §8 says it plainly:
+//! "当前 SDK `state/seal.rs` 对已覆盖操作全量收集再 join, 必须一起改为共享 view/checkpoint 与 delta
+//! 更新, 否则即使新 join 是线性的, 每次全量重放仍可能造成总计二次成本." `causal_register.rs`
+//! measures the new join and finds it linear, which is the half that was never in doubt. This
 //! bench measures the half that is: [`effective_joined_view_at`] walks the Seal
 //! predecessor closure, lists every cell in the Realm, reads every sealed op
 //! batch of each, filters by the covered set and re-joins from scratch — on
@@ -15,12 +15,11 @@
 //! bench that only ever calls the join once cannot see that. Read the two
 //! groups together:
 //!
-//! - `seal_view_rebuild/chain_len` is one rebuild at the far end of an `n`-Seal
-//!   chain. Linear growth here is the per-Seal cost, and it is the term that
-//!   gets multiplied.
-//! - `seal_chain_total/chain_len` replays the whole chain the way a receiver
-//!   catching up does — one rebuild after each Seal. Its shape against `n` is
-//!   the total, and it is what a checkpoint + delta design has to flatten.
+//! - `seal_view_rebuild/chain_len` is one rebuild at the far end of an `n`-Seal chain. Linear
+//!   growth here is the per-Seal cost, and it is the term that gets multiplied.
+//! - `seal_chain_total/chain_len` replays the whole chain the way a receiver catching up does — one
+//!   rebuild after each Seal. Its shape against `n` is the total, and it is what a checkpoint +
+//!   delta design has to flatten.
 //!
 //! Run on demand with `cargo bench -p arkret-state --bench seal_view_rebuild`;
 //! never run in CI.
