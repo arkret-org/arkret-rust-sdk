@@ -2112,17 +2112,16 @@ pub fn join_cell(
 /// `rposition` slice specifically and forbids it, because slicing the log by
 /// arrival order makes the result depend on delivery.
 ///
-/// `fsm` still truncates here, and that is a known remaining non-conformance
-/// rather than a second permitted semantics: §9.5.1 says a state machine "MUST
-/// NOT directly apply this register's transition proof" and needs its own
-/// transition algebra before its reset can be expressed causally. Item 5 binds
-/// `fsm` too, so this slice goes away when that algebra lands; the migration is
-/// tracked in `arkret-work/work/active/2026-09-05-1030`.
+/// `fsm` is the same causal register (§9.3.1.5-§9.3.1.8), so it is exempt for
+/// the same reason: its recovery is an authorized new identity write that
+/// supersedes exactly the heads its own basis saw. What still truncates here is
+/// a `bottom=reject` lattice that is not causal -- today only `ordered_log` --
+/// whose recovery is still the §9.5 `state_witness` form.
 fn ops_since_last_recovery_reset(
     kind: crate::lattice::LatticeKind,
     ops: &[IssuedOp],
 ) -> &[IssuedOp] {
-    if kind == crate::lattice::LatticeKind::CasRegister {
+    if is_causal_register(kind) {
         return ops;
     }
     ops.iter()
@@ -2180,9 +2179,12 @@ pub fn join_cell_seal_batches(
     batches: &[Vec<IssuedOp>],
 ) -> CellState {
     // A §9.5 recovery reset ends the prior history for the lattices that still
-    // express recovery by truncation. `cas_register` is not one of them: its
-    // recovery is an ordinary identity write (§9.5.1), so every batch stays.
-    let batches = if lattice.kind() == crate::lattice::LatticeKind::CasRegister {
+    // express recovery by truncation. Neither causal register is one of them:
+    // their recovery is an ordinary identity write (§9.5.1), so every batch
+    // stays. Truncating them would make the answer depend on batch order --
+    // two concurrent recoveries with different values must stay two heads and
+    // conflict, not collapse to whichever arrived last.
+    let batches = if is_causal_register(lattice.kind()) {
         batches
     } else {
         batches

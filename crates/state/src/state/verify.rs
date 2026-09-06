@@ -449,7 +449,10 @@ fn verify_recovery_refs(
             reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
         });
     }
-    if lattice != crate::lattice::LatticeKind::CasRegister && !critical_ref("state_witness") {
+    // §9.5.1: a causal register's recovery proves its target conflict from its
+    // own signed basis, so it owes no pre-conflict `state_witness`. The witness
+    // family is still MUST for a `bottom=reject` lattice that is not causal.
+    if !crate::state::seal::is_causal_register(lattice) && !critical_ref("state_witness") {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
             reason: "recovery_witness_missing".to_owned(),
@@ -1829,14 +1832,18 @@ mod tests {
         .expect("a cas_register recovery needs only its capability ref");
     }
 
-    /// The other half of the same split: `fsm` still anchors on a pre-conflict
-    /// witness (§9.5 condition 1), because §9.5.1's register proof does not
-    /// carry over to a state machine — that needs its own transition algebra.
+    /// `fsm` is on the same side of the split as `cas_register`
+    /// (§9.3.1.5-§9.3.1.8 made it the same causal register), so its recovery
+    /// also proves its target conflict from its own signed basis and owes no
+    /// pre-conflict witness.
     ///
-    /// The anchor is a critical ref, not a payload field, so nothing in the
-    /// payload schema rejects its absence.
+    /// This test used to assert the opposite. It was right while §9.5.1 said a
+    /// state machine "MUST NOT directly apply this register's transition
+    /// proof"; that sentence is gone, and the witness family now applies to a
+    /// `bottom=reject` lattice that is *not* causal — see the `ordered_log`
+    /// case below, which is what still keeps the branch honest.
     #[test]
-    fn an_fsm_reset_without_a_state_witness_ref_is_rejected() {
+    fn an_fsm_reset_needs_only_its_capability_ref() {
         let event = control_move(
             vec![],
             vec![EventRef::new(
@@ -1865,7 +1872,58 @@ mod tests {
                 },
             }]),
         )
-        .expect_err("an fsm recovery Move without a state_witness must fail closed");
+        .expect_err("the fsm reset op shape is the remaining gap, see below");
+
+        // The witness guard no longer fires -- that is what this test pins.
+        // What stops the Move now is the *shape* of the derived write: a
+        // recovery still projects `set`, and `fsm` only accepts `transition`.
+        // §9.5.1's fsm paragraph says the recovery write owes a §9.3.1.7
+        // admission, which means it has to be projected as a transition
+        // carrying its own `from`. That projection does not exist yet, so an
+        // fsm cell cannot actually be recovered today; the gap is tracked in
+        // `arkret-work/review/spec-open/2026-09-06-1610-fsm-has-no-transition-algebra-and-its-join-is-arrival-ordered.md`.
+        assert!(
+            matches!(&error, ControlMoveReject::SchemaViolation(message)
+                if message.contains("set is not allowed for fsm")),
+            "expected the op-shape reject, not the witness one: {error:?}"
+        );
+    }
+
+    /// The branch the witness family still governs: a `bottom=reject` lattice
+    /// that is not a causal register. The registry binds the capability grant
+    /// family to `or_set` + `reject`, so its recovery still has to anchor on a
+    /// pre-conflict `state_witness` (§9.5 condition 1).
+    #[test]
+    fn a_non_causal_reject_reset_without_a_state_witness_ref_is_rejected() {
+        let event = control_move(
+            vec![],
+            vec![EventRef::new(
+                "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi",
+                "recovery_capability",
+            )],
+        );
+        let bottom_grant = BTreeMap::from([(
+            cell_capability_grant(),
+            CellState::Bottom(crate::Bottom::new(
+                BottomKind::Conflict,
+                vec![cell_capability_grant()],
+            )),
+        )]);
+
+        let error = verify_control_move(
+            &event,
+            &realm(),
+            &bottom_grant,
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![ProjectedCellWrite {
+                cell_id: cell_capability_grant(),
+                op: ProjectedOp::Reset {
+                    value: json!({"released": true}),
+                },
+            }]),
+        )
+        .expect_err("a non-causal recovery Move without a state_witness must fail closed");
 
         assert!(
             matches!(

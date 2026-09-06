@@ -1699,9 +1699,8 @@ pub struct MimiRequestConsentRequestBody {
     /// `consent-model.md` section 6.1 compares an ordinary peer by complete
     /// `ActorId` and forbids falling back to a bare principal, so a
     /// correlation frozen on a principal core could never be reconciled
-    /// without one side reducing dimensions. Ruling
-    /// `review/spec-done/2026-09-05-1240-mimi-consent-correlation-cannot-carry-the-consent-peer.
-    /// md`.
+    /// without one side reducing dimensions. Ruling:
+    /// `review/spec-done/2026-09-05-1240-mimi-consent-correlation-cannot-carry-the-consent-peer.md`.
     pub requester_actor_id: ActorId,
     /// Exact Account the request is addressed to, chosen and signed by the
     /// requester. It is not evidence that the holder exists, is visible or has

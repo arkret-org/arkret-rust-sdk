@@ -51,14 +51,15 @@ impl Fsm {
 /// The membership state machine is shared by `ak.component.member.state.v1` and
 /// `ak.component.circle.member.v1`, and its contract lives in
 /// `contract-registry.json` under `event_kind_registry.fsm_templates`. This
-/// constant exists because the two callers of
-/// [`membership_transition_head_into`] sit below the lattice registry that
+/// constant exists because the callers of
+/// [`membership_transition_heads_into`] sit below the lattice registry that
 /// resolves that contract, and repeating the literal at each of them is how
 /// three separate copies of this fold came to exist.
 ///
-/// It is a stopgap, not a design: the `fsm` transition algebra is unresolved
-/// (`arkret-work/review/spec-open/2026-09-06-1610`), and when it lands this fold
-/// and this constant both go away in favour of the resolved contract.
+/// The transition algebra itself is resolved (§9.3.1.5-§9.3.1.8, ruling in
+/// `arkret-work/review/spec-open/2026-09-06-1610-fsm-has-no-transition-algebra-and-its-join-is-arrival-ordered.md`),
+/// and the fold is gone: this is now the registry literal that one caller
+/// still reaches for, not a parallel state machine.
 pub const MEMBERSHIP_INITIAL_STATE: &str = "leave";
 
 /// The active head identities that put a membership cell in `target`
