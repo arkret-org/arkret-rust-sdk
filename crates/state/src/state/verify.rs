@@ -387,10 +387,26 @@ where
             // write, so only `ak.conflict.recovery` may move it. Every other
             // `cas_register` family heals through an authorized ordinary write,
             // so a Bottom target alone is not a rejection.
-            if binding.lattice.kind() == crate::lattice::LatticeKind::CasRegister
-                && effect.op.op_type == LatticeOpType::Set
+            //
+            // `fsm` needs no list: section 9.3.1.7 item 2 makes an ordinary
+            // transition's `from` equal the settled value, which does not exist
+            // under Bottom, so every fsm family is sole-recovery by
+            // construction. A `TransitionTo` projection derives `from` from the
+            // pre-state and so already fails closed there, but a Direct
+            // transition carries a producer-supplied `from` and would otherwise
+            // pass -- and it would then supersede the very heads that disagree,
+            // resolving a Bottom that only a recovery may resolve.
+            let blocked_by_bottom = match binding.lattice.kind() {
+                crate::lattice::LatticeKind::CasRegister => {
+                    effect.op.op_type == LatticeOpType::Set
+                        && is_sole_recovery_cell(effect.cell_id.as_str())
+                }
+                crate::lattice::LatticeKind::Fsm => effect.op.op_type == LatticeOpType::Transition,
+                _ => false,
+            };
+            if blocked_by_bottom
                 && !matches!(write.op, ProjectedOp::Reset { .. })
-                && is_sole_recovery_cell(effect.cell_id.as_str())
+                && binding.bottom_mode != BottomMode::Expose
                 && let Some(CellState::Bottom(bottom)) = pre_state.get(&effect.cell_id)
             {
                 return Err(ControlMoveReject::FailedBottom {
@@ -1657,6 +1673,44 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn an_fsm_transition_fails_closed_under_bottom_without_consulting_the_list() {
+        // Section 9.3.1.7 item 2: an ordinary transition's `from` must equal the
+        // settled value, which does not exist under Bottom, so every fsm family
+        // is sole-recovery by construction. That is why the registered list is
+        // the cas_register half only -- this path must reject without reading it.
+        let cell = cell_member();
+        assert!(
+            !crate::state::is_sole_recovery_cell(cell.as_str()),
+            "member.state is an fsm family and is deliberately not listed"
+        );
+        let pre_state = BTreeMap::from([(
+            cell.clone(),
+            CellState::Bottom(arkret_wire::Bottom {
+                kind: arkret_wire::BottomKind::Conflict,
+                cell_ids: vec![cell.clone()],
+                move_ids: Vec::new(),
+                seal_view: None,
+                head_ids: Vec::new(),
+                details: None,
+                escalated_at: None,
+            }),
+        )]);
+        let err = verify_control_move(
+            &control_move(vec![], vec![]),
+            &realm(),
+            &pre_state,
+            &MemoryCellRegistry::new(),
+            ok_proofs,
+            project(vec![transition_write(json!("invited"), json!("join"))]),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(err, ControlMoveReject::FailedBottom { .. }),
+            "{err:?}"
+        );
     }
 
     #[test]
