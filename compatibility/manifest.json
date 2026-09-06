@@ -279,6 +279,37 @@
       ]
     },
     {
+      "id": "cotest.api-only-migration",
+      "repository": "cotest",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "API-only Playwright ownership closed over Rust tests"
+      },
+      "working_directory": "cotest",
+      "command": [
+        "python",
+        "scripts/check_api_only_migration.py"
+      ]
+    },
+    {
+      "id": "cotest.e2e-coverage-inventory",
+      "repository": "cotest",
+      "category": "static",
+      "surface": {
+        "kind": "type",
+        "name": "generated E2E scenario inventory matches the tree"
+      },
+      "working_directory": "cotest",
+      "command": [
+        "pwsh",
+        "-NoProfile",
+        "-File",
+        "scripts/generate-e2e-coverage.ps1",
+        "-Check"
+      ]
+    },
+    {
       "id": "sdk.compile",
       "repository": "arkret-rust-sdk",
       "category": "compile",
