@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmissionReceipt;
 use arkret_wire::{
-    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, CbaProofBundle,
+    AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, CbsProofBundle,
     ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, DomainSeparationId, Event,
     EventFederationSubmission, EventId, EventInitialSubmission, Hash, IngressReceipt, MlsGroupId,
     MorphId, NonEmptyString, ObjectStage, PayloadProof, ProofContextId, RealmId, ReasonCode,
@@ -292,7 +292,7 @@ pub struct EventsSubmitRejectedRow {
     pub reason_code: ReasonCode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
-    /// Exact CBA shortfall, so the sender extends one bundle instead of
+    /// Exact CBS shortfall, so the sender extends one bundle instead of
     /// guessing. A bundle MAY be a bounded verifiable superset, so the receiver
     /// never asks for a byte-minimal one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2059,7 +2059,7 @@ pub struct MimiReportAbuseRequestBody {
     pub reporter_authority: MimiReporterAuthority,
     pub report_event: EventInitialSubmission,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

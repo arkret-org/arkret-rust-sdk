@@ -35,7 +35,7 @@ use crate::Result;
 ///
 /// `PartialEq` is the durable queue's semantic-drift guard: two attempts at the
 /// same user operation must compare equal here even though each one authors
-/// with a fresh actor frontier, HLC and CBA basis.
+/// with a fresh actor frontier, HLC and CBS basis.
 ///
 /// An intent has no identity to read, so nothing can be derived from one:
 ///
@@ -296,9 +296,9 @@ impl EventIntent {
         self
     }
 
-    /// Drop the per-attempt CBA basis so the frozen semantic intent does not
+    /// Drop the per-attempt CBS basis so the frozen semantic intent does not
     /// remember one attempt's Seal view.
-    pub fn without_cba_basis(mut self) -> Self {
+    pub fn without_cbs_basis(mut self) -> Self {
         self.seal_ref = None;
         self.auth_context = None;
         self.seal_basis = None;
@@ -435,11 +435,11 @@ impl EventIntent {
     /// record, or handed over fully signed — where the caller needs the intent
     /// but never held one. The authoring position (`actor_seq`, `hlc`,
     /// `prev_refs`), the derived identity, proofs and `unsigned` are not part of
-    /// an intent, and the CBA members come back unpinned so a later attempt may
+    /// an intent, and the CBS members come back unpinned so a later attempt may
     /// resolve them against a fresher Seal view.
     ///
     /// Prefer keeping the intent you authored from: this direction cannot know
-    /// whether the producer *chose* a CBA basis or merely stamped one.
+    /// whether the producer *chose* a CBS basis or merely stamped one.
     pub fn from_authored(event: &arkret_wire::Event) -> Self {
         Self {
             kind: event.kind.clone(),
@@ -471,7 +471,7 @@ impl EventIntent {
     /// - `actor_seq`, `hlc` and `prev_refs` are the authoring position and are re-read on every
     ///   attempt;
     /// - `event_id`, `proofs` and `unsigned` are derived or transport-only;
-    /// - a CBA member is per-attempt state *unless this intent pinned it*. A pre-join
+    /// - a CBS member is per-attempt state *unless this intent pinned it*. A pre-join
     ///   `ak.invite.accept` pins its join-candidate basis because the invitee cannot re-resolve the
     ///   membership-gated Seal view; an ordinary member-authored Event leaves it open and
     ///   re-resolves it each attempt.

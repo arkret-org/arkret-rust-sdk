@@ -1,7 +1,7 @@
 //! Event publication wrappers (`zh/authz/offline-publication.md` §2.1).
 //!
 //! The Event stays the only signed business fact. The lease, the ingress
-//! receipts and the CBA bundles travel beside it as independently verified
+//! receipts and the CBS bundles travel beside it as independently verified
 //! publication evidence; none of them is an Event field and none of them
 //! enters the Event digest. A service MUST NOT copy this transport evidence
 //! into the Event, and MUST NOT rewrite `received_at` because it happened to
@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::cba_proof_bundle::CbaProofBundle;
+use crate::cbs_proof_bundle::CbsProofBundle;
 use crate::control_proposal::ControlProposalAck;
 use crate::error::{Result, WireError};
 use crate::event_envelope::{Event, EventSubmitContext};
@@ -18,7 +18,7 @@ use crate::offline_publication::{
 };
 use crate::{DeviceId, EventId, Hash, RiskTier, ScopeRef};
 
-pub const MAX_SUBMISSION_CBA_BUNDLES: usize = 64;
+pub const MAX_SUBMISSION_CBS_BUNDLES: usize = 64;
 
 /// Mutually exclusive publication authority lanes. This selector describes
 /// where admission authority comes from; it is not serialized into an Event
@@ -343,7 +343,7 @@ pub struct EventInitialSubmission {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_lease: Option<AuthorizationLease>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_proposal_ack: Option<ControlProposalAck>,
     /// Present only for an `ak.member.state` compensation submission.
@@ -476,7 +476,7 @@ impl EventInitialSubmission {
         Self {
             event,
             authorization_lease: None,
-            cba_proof_bundles: Vec::new(),
+            cbs_proof_bundles: Vec::new(),
             control_proposal_ack: None,
             membership_compensation_evidence: None,
         }
@@ -488,7 +488,7 @@ impl EventInitialSubmission {
         Self {
             event,
             authorization_lease: Some(authorization_lease),
-            cba_proof_bundles: Vec::new(),
+            cbs_proof_bundles: Vec::new(),
             control_proposal_ack: None,
             membership_compensation_evidence: None,
         }
@@ -496,7 +496,7 @@ impl EventInitialSubmission {
 
     /// Structural gate an ingress runs before it will mint a receipt.
     ///
-    /// Key material, accepted CBA basis and Realm issuer policy are checked by
+    /// Key material, accepted CBS basis and Realm issuer policy are checked by
     /// the caller; this covers only what the wrapper alone can decide.
     pub fn validate_structural(&self, digest_suite: arkret_canonical::DigestSuite) -> Result<()> {
         self.validate_structural_in_context(EventSubmitContext::Standard, digest_suite)
@@ -528,12 +528,12 @@ impl EventInitialSubmission {
             &self.event,
             self.membership_compensation_evidence.as_ref(),
         )?;
-        if self.cba_proof_bundles.len() > MAX_SUBMISSION_CBA_BUNDLES {
+        if self.cbs_proof_bundles.len() > MAX_SUBMISSION_CBS_BUNDLES {
             return Err(WireError::Protocol(format!(
-                "submission exceeds {MAX_SUBMISSION_CBA_BUNDLES} CBA proof bundles"
+                "submission exceeds {MAX_SUBMISSION_CBS_BUNDLES} CBS proof bundles"
             )));
         }
-        for bundle in &self.cba_proof_bundles {
+        for bundle in &self.cbs_proof_bundles {
             bundle.validate_structural()?;
         }
         Ok(())

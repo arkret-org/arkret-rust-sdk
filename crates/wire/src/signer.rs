@@ -54,7 +54,7 @@ impl Seal {
     /// Build + single-sign a Seal with independently computed cumulative
     /// control-set and actor-sequence completeness roots.
     ///
-    /// Current CBA runtimes must use this form after resolving the covered
+    /// Current CBS runtimes must use this form after resolving the covered
     /// Events. The two roots use different Merkle domains and are not
     /// interchangeable even when the Seal has no predecessors.
     #[allow(clippy::too_many_arguments)]

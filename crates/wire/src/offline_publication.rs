@@ -14,7 +14,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::cba::SealBasis;
+use crate::cbs::SealBasis;
 use crate::error::{Result, WireError};
 use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
@@ -57,7 +57,7 @@ impl RiskTier {
     }
 }
 
-/// Immutable reference to the CBA authority-set policy resolved at `basis_ref`.
+/// Immutable reference to the CBS authority-set policy resolved at `basis_ref`.
 ///
 /// `authority_set_digest` binds the canonical policy bytes, so a later mutation
 /// of a registry entry cannot silently change which issuers a lease or receipt
@@ -402,7 +402,7 @@ impl AuthorizationLease {
     }
 
     /// Structural validation of the closed lease and its concrete authority
-    /// policy. Accepted-basis/CBA source rederivation and cryptographic
+    /// policy. Accepted-basis/CBS source rederivation and cryptographic
     /// signature verification remain caller responsibilities.
     pub fn validate_structural(&self) -> Result<()> {
         if let LeaseBasisRef::AnchorUnit(reference) = &self.basis_ref {

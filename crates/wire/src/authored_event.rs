@@ -5,7 +5,7 @@
 //! wrong type for *producing* an Event, because `event_id` is a function of the
 //! finished envelope (`zh/conformance/encoding.md` section 4.0) and a public
 //! mutable field lets a caller read a "final" id while `actor_seq`, `hlc` or the
-//! CBA basis are still missing. Anything derived from that premature id —
+//! CBS basis are still missing. Anything derived from that premature id —
 //! `retype(event_id)` object ids, dedupe keys, routes, storage keys — names an
 //! Event that will never exist.
 //!

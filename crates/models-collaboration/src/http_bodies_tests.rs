@@ -97,7 +97,7 @@ mod mimi_consent_tests {
                     requirements: EventRequirements::default(),
                 },
                 authorization_lease: None,
-                cba_proof_bundles: Vec::new(),
+                cbs_proof_bundles: Vec::new(),
                 control_proposal_ack: None,
                 membership_compensation_evidence: None,
             },
@@ -328,7 +328,7 @@ mod mimi_reporter_authority_tests {
                 proofs: Vec::new(),
             },
             authorization_lease: None,
-            cba_proof_bundles: Vec::new(),
+            cbs_proof_bundles: Vec::new(),
             control_proposal_ack: None,
             membership_compensation_evidence: None,
         };
@@ -351,7 +351,7 @@ mod mimi_reporter_authority_tests {
                 },
             },
             report_event,
-            cba_proof_bundles: Vec::new(),
+            cbs_proof_bundles: Vec::new(),
         };
         request.reporter_authority.proof.payload_digest = request.payload_digest().unwrap();
         request
@@ -570,7 +570,7 @@ mod device_pairing_tests {
             authorize_event: EventInitialSubmission {
                 event,
                 authorization_lease: None,
-                cba_proof_bundles: Vec::new(),
+                cbs_proof_bundles: Vec::new(),
                 control_proposal_ack: None,
                 membership_compensation_evidence: None,
             },

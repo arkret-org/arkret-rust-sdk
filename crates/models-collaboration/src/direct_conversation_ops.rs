@@ -10,7 +10,7 @@
 #[cfg(test)]
 use arkret_wire::Base64UrlString;
 use arkret_wire::{
-    ActorId, CbaProofBundle, CellRef, DidCoreId, Event, EventFederationSubmission, EventId,
+    ActorId, CbsProofBundle, CellRef, DidCoreId, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, IdempotencyKey, PredicateOp, ProtocolSignature, RealmId,
     ScopeRef, StrandId, TrustDomainId, canonical,
 };
@@ -71,7 +71,7 @@ pub struct DirectConversationFoundingUnitSubmission {
     pub events: [EventInitialSubmission; 4],
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 /// Const-valued discriminator used by both registered carrier branches.
@@ -93,7 +93,7 @@ pub struct DirectConversationFoundingFederationSubmission {
     pub source_acceptance_receipt: DirectConversationFoundingAcceptanceReceipt,
     pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -10,7 +10,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    AccountId, ActorId, CbaEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey,
+    AccountId, ActorId, CbsEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey,
     EventCellRuleOperator, EventCellWriteDescriptor, EventId, EventKind, LatticeOp, LatticeOpType,
     NULL_SUBJECT, Precondition, Predicate, PredicateOp, ProjectedCellWrite, ProjectedEventInput,
     ProjectedOp,
@@ -18,7 +18,7 @@ use arkret_wire::{
 use serde_json::Value;
 use thiserror::Error;
 
-/// Envelope context used while validating the registry-declared CBA plane.
+/// Envelope context used while validating the registry-declared CBS plane.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum EventCellContractContext {
     /// A post-genesis Event: control writes require `seal_basis`; data writes
@@ -27,7 +27,7 @@ pub enum EventCellContractContext {
     Standard,
     /// A follow-up in the closed ordinary Realm genesis transaction. There is
     /// no accepted Seal yet, so the control write MUST use the spec's
-    /// bootstrap exception and carry no CBA basis fields.
+    /// bootstrap exception and carry no CBS basis fields.
     OrdinaryRealmBootstrap,
     /// The exact four-Event Direct Conversation founding unit. Its two joins
     /// is a basis-free control write and its initial Strand is the one
@@ -43,7 +43,7 @@ pub enum EventCellContractError {
     UnregisteredReducerInput(String),
     #[error("event kind {0} has no single-target cell contract")]
     MissingCellContract(String),
-    #[error("event kind {kind} is routed through the wrong CBA plane; expected {expected}")]
+    #[error("event kind {kind} is routed through the wrong CBS plane; expected {expected}")]
     PlaneMismatch { kind: String, expected: String },
     #[error("event kind {kind} requires exactly one effect, got {actual}")]
     EffectCount { kind: String, actual: usize },
@@ -665,12 +665,12 @@ pub fn validate_registered_cell_writes(
     )
 }
 
-/// [`validate_registered_cell_writes`] plus the CBA plane check for the given
+/// [`validate_registered_cell_writes`] plus the CBS plane check for the given
 /// envelope context.
 ///
 /// The plane is read from the registry, never guessed from the kind name, and
 /// the ordinary-Realm bootstrap context is the only one in which a control
-/// write may carry no CBA basis at all.
+/// write may carry no CBS basis at all.
 pub fn validate_registered_cell_writes_in_context(
     event: &Event,
     context: EventCellContractContext,
@@ -680,7 +680,7 @@ pub fn validate_registered_cell_writes_in_context(
     project_registered_cell_writes(event, digest_suite).map(|_| ())
 }
 
-/// Validate only the registry-declared CBA plane for an Event.
+/// Validate only the registry-declared CBS plane for an Event.
 ///
 /// Admission lanes that evaluate `pre_state_requirements` from an
 /// authoritative, lock-protected snapshot must perform this shape-independent
@@ -692,7 +692,7 @@ pub fn validate_registered_cell_plane_in_context(
     context: EventCellContractContext,
 ) -> Result<(), EventCellContractError> {
     if event.kind.is_reducer_input() {
-        validate_plane(event, event.kind.cba_plane(), context)?;
+        validate_plane(event, event.kind.cbs_plane(), context)?;
     }
     Ok(())
 }
@@ -1738,22 +1738,22 @@ fn projection_error(kind: &str, message: &str) -> EventCellContractError {
 
 fn validate_plane(
     event: &Event,
-    plane: Option<CbaEffectPlane>,
+    plane: Option<CbsEffectPlane>,
     context: EventCellContractContext,
 ) -> Result<(), EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
     let matches = match (plane, context) {
-        (Some(CbaEffectPlane::Control), EventCellContractContext::Standard) => {
+        (Some(CbsEffectPlane::Control), EventCellContractContext::Standard) => {
             event.seal_basis.is_some() && event.seal_ref.is_none() && event.auth_context.is_none()
         }
-        (Some(CbaEffectPlane::Data), EventCellContractContext::Standard) => {
+        (Some(CbsEffectPlane::Data), EventCellContractContext::Standard) => {
             event.seal_basis.is_none() && event.seal_ref.is_some() && event.auth_context.is_some()
         }
-        (Some(CbaEffectPlane::Control), EventCellContractContext::OrdinaryRealmBootstrap) => {
+        (Some(CbsEffectPlane::Control), EventCellContractContext::OrdinaryRealmBootstrap) => {
             event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none()
         }
         (
-            Some(CbaEffectPlane::Control | CbaEffectPlane::Data),
+            Some(CbsEffectPlane::Control | CbsEffectPlane::Data),
             EventCellContractContext::DirectConversationFounding,
         ) => event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none(),
         _ => false,
@@ -1764,7 +1764,7 @@ fn validate_plane(
         Err(EventCellContractError::PlaneMismatch {
             kind,
             expected: plane
-                .map(CbaEffectPlane::as_str)
+                .map(CbsEffectPlane::as_str)
                 .unwrap_or("registered")
                 .to_owned(),
         })
@@ -2535,7 +2535,7 @@ mod tests {
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
             "prev_refs": [],
-            // `ak.rsvp.set` is registered on the data plane, so its CBA basis is
+            // `ak.rsvp.set` is registered on the data plane, so its CBS basis is
             // `seal_ref` plus `auth_context`, never a control `seal_basis`.
             "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "auth_context": {
@@ -4252,14 +4252,14 @@ mod tests {
 
         validate_plane(
             &event,
-            Some(CbaEffectPlane::Data),
+            Some(CbsEffectPlane::Data),
             EventCellContractContext::DirectConversationFounding,
         )
         .unwrap();
         assert_eq!(
             validate_plane(
                 &event,
-                Some(CbaEffectPlane::Data),
+                Some(CbsEffectPlane::Data),
                 EventCellContractContext::OrdinaryRealmBootstrap,
             )
             .unwrap_err()
@@ -4276,7 +4276,7 @@ mod tests {
         assert_eq!(
             validate_plane(
                 &event,
-                Some(CbaEffectPlane::Data),
+                Some(CbsEffectPlane::Data),
                 EventCellContractContext::DirectConversationFounding,
             )
             .unwrap_err()

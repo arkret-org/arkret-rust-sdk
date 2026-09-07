@@ -16841,9 +16841,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba.rs::SealBasis",
+      "rust_type": "crates/wire/src/cbs.rs::SealBasis",
       "crate": "wire",
-      "file": "crates/wire/src/cba.rs",
+      "file": "crates/wire/src/cbs.rs",
       "line": 27,
       "kind": "struct",
       "value_kind": "SealBasis",
@@ -16854,9 +16854,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba.rs::SealBasisWire",
+      "rust_type": "crates/wire/src/cbs.rs::SealBasisWire",
       "crate": "wire",
-      "file": "crates/wire/src/cba.rs",
+      "file": "crates/wire/src/cbs.rs",
       "line": 34,
       "kind": "struct",
       "value_kind": "SealBasisWire",
@@ -16867,9 +16867,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba.rs::DeviceReanchorPreFenceSealFrontier",
+      "rust_type": "crates/wire/src/cbs.rs::DeviceReanchorPreFenceSealFrontier",
       "crate": "wire",
-      "file": "crates/wire/src/cba.rs",
+      "file": "crates/wire/src/cbs.rs",
       "line": 90,
       "kind": "struct",
       "value_kind": "DeviceReanchorPreFenceSealFrontier",
@@ -16880,9 +16880,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba.rs::DeviceReanchorPreFenceSealFrontierWire",
+      "rust_type": "crates/wire/src/cbs.rs::DeviceReanchorPreFenceSealFrontierWire",
       "crate": "wire",
-      "file": "crates/wire/src/cba.rs",
+      "file": "crates/wire/src/cbs.rs",
       "line": 101,
       "kind": "struct",
       "value_kind": "DeviceReanchorPreFenceSealFrontierWire",
@@ -16893,9 +16893,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba.rs::Precondition",
+      "rust_type": "crates/wire/src/cbs.rs::Precondition",
       "crate": "wire",
-      "file": "crates/wire/src/cba.rs",
+      "file": "crates/wire/src/cbs.rs",
       "line": 143,
       "kind": "struct",
       "value_kind": "Precondition",
@@ -16906,9 +16906,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba.rs::ProjectionEffect",
+      "rust_type": "crates/wire/src/cbs.rs::ProjectionEffect",
       "crate": "wire",
-      "file": "crates/wire/src/cba.rs",
+      "file": "crates/wire/src/cbs.rs",
       "line": 191,
       "kind": "struct",
       "value_kind": "ProjectionEffect",
@@ -16919,9 +16919,9 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba_proof_bundle.rs::AvailabilityReceipt",
+      "rust_type": "crates/wire/src/cbs_proof_bundle.rs::AvailabilityReceipt",
       "crate": "wire",
-      "file": "crates/wire/src/cba_proof_bundle.rs",
+      "file": "crates/wire/src/cbs_proof_bundle.rs",
       "line": 39,
       "kind": "struct",
       "value_kind": "AvailabilityReceipt",
@@ -16932,13 +16932,13 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/wire/src/cba_proof_bundle.rs::CbaProofBundle",
+      "rust_type": "crates/wire/src/cbs_proof_bundle.rs::CbsProofBundle",
       "crate": "wire",
-      "file": "crates/wire/src/cba_proof_bundle.rs",
+      "file": "crates/wire/src/cbs_proof_bundle.rs",
       "line": 151,
       "kind": "struct",
-      "value_kind": "CbaProofBundle",
-      "spec_pointer": "cba-proof-bundle.schema.json",
+      "value_kind": "CbsProofBundle",
+      "spec_pointer": "cbs-proof-bundle.schema.json",
       "schema_openness": "closed",
       "classification": "B",
       "cfg_gated": false,

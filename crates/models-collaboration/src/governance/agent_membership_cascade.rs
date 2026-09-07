@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, CbaProofBundle, Event, EventFederationSubmission, EventId,
+    AccountId, ActorId, CbsProofBundle, Event, EventFederationSubmission, EventId,
     EventInitialSubmission, Hash, RealmId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
@@ -17,7 +17,7 @@ use crate::event_sync::FederationServiceBindingRef;
 use crate::governance::membership_invite::{MembershipPayload, MembershipPayloadState};
 
 pub const MAX_AGENT_MEMBERSHIP_CASCADE_TRANSITIONS: usize = 256;
-pub const MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES: usize = 64;
+pub const MAX_AGENT_MEMBERSHIP_CASCADE_CBS_BUNDLES: usize = 64;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -213,17 +213,17 @@ pub struct AgentMembershipCascadeFederationSubmission {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cleanup_intent_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 impl AgentMembershipCascadeFederationSubmission {
     pub fn validate(&self) -> Result<()> {
-        if self.cba_proof_bundles.len() > MAX_AGENT_MEMBERSHIP_CASCADE_CBA_BUNDLES {
+        if self.cbs_proof_bundles.len() > MAX_AGENT_MEMBERSHIP_CASCADE_CBS_BUNDLES {
             return Err(WireError::Protocol(
-                "agent membership cascade exceeds 64 CBA proof bundles".to_owned(),
+                "agent membership cascade exceeds 64 CBS proof bundles".to_owned(),
             ));
         }
-        for bundle in &self.cba_proof_bundles {
+        for bundle in &self.cbs_proof_bundles {
             bundle.validate_structural()?;
         }
         if self.controller_transition.event.realm_id != self.service_binding_ref.realm_id

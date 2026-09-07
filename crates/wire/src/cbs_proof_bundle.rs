@@ -1,6 +1,6 @@
-//! CBA dependency evidence: [`AvailabilityReceipt`] and [`CbaProofBundle`].
+//! CBS dependency evidence: [`AvailabilityReceipt`] and [`CbsProofBundle`].
 //!
-//! `zh/authz/cba-profiles.md`, `zh/authz/event-auth-state-resolution.md` §8.
+//! `zh/authz/cbs-profiles.md`, `zh/authz/event-auth-state-resolution.md` §8.
 //!
 //! The bundle is an unsigned container. It is transport evidence, never an
 //! Event field, and it is not authoritative on its own: a receiver
@@ -33,7 +33,7 @@ pub const MAX_BUNDLE_DEPENDENCY_DEPTH: usize = 4096;
 /// `retention_expires_at`.
 ///
 /// Digest membership roots prove that a digest is covered, never that anyone
-/// still holds the bytes, so CBA models availability as its own signed fact.
+/// still holds the bytes, so CBS models availability as its own signed fact.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -149,7 +149,7 @@ impl AvailabilityReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CbaProofBundle {
+pub struct CbsProofBundle {
     pub target_seal_ref: SealId,
     pub seals: Vec<Seal>,
     /// Control Moves are ordinary signed Events carrying `seal_basis`.
@@ -160,7 +160,7 @@ pub struct CbaProofBundle {
     pub availability_proofs: Vec<AvailabilityReceipt>,
 }
 
-impl CbaProofBundle {
+impl CbsProofBundle {
     /// Bound and shape checks only.
     ///
     /// This deliberately stops short of asserting closure: whether the bundle
@@ -171,54 +171,54 @@ impl CbaProofBundle {
     pub fn validate_structural(&self) -> Result<()> {
         if canonical::canonical_json_bytes(self)?.len() > MAX_BUNDLE_CANONICAL_BYTES {
             return Err(WireError::Protocol(format!(
-                "CBA proof bundle exceeds {MAX_BUNDLE_CANONICAL_BYTES} canonical bytes"
+                "CBS proof bundle exceeds {MAX_BUNDLE_CANONICAL_BYTES} canonical bytes"
             )));
         }
         if self.seals.is_empty() || self.seals.len() > MAX_BUNDLE_SEALS {
             return Err(WireError::Protocol(format!(
-                "CBA proof bundle requires 1..={MAX_BUNDLE_SEALS} seals"
+                "CBS proof bundle requires 1..={MAX_BUNDLE_SEALS} seals"
             )));
         }
         if self.control_moves.len() > MAX_BUNDLE_CONTROL_MOVES {
             return Err(WireError::Protocol(format!(
-                "CBA proof bundle exceeds {MAX_BUNDLE_CONTROL_MOVES} control moves"
+                "CBS proof bundle exceeds {MAX_BUNDLE_CONTROL_MOVES} control moves"
             )));
         }
         if self.inclusion_proofs.len() > MAX_BUNDLE_INCLUSION_PROOFS {
             return Err(WireError::Protocol(format!(
-                "CBA proof bundle exceeds {MAX_BUNDLE_INCLUSION_PROOFS} inclusion proofs"
+                "CBS proof bundle exceeds {MAX_BUNDLE_INCLUSION_PROOFS} inclusion proofs"
             )));
         }
         if self.availability_proofs.len() > MAX_BUNDLE_AVAILABILITY_PROOFS {
             return Err(WireError::Protocol(format!(
-                "CBA proof bundle exceeds {MAX_BUNDLE_AVAILABILITY_PROOFS} availability proofs"
+                "CBS proof bundle exceeds {MAX_BUNDLE_AVAILABILITY_PROOFS} availability proofs"
             )));
         }
         if self.inclusion_proofs.len() + self.availability_proofs.len() > MAX_BUNDLE_PROOFS {
             return Err(WireError::Protocol(format!(
-                "CBA proof bundle exceeds {MAX_BUNDLE_PROOFS} combined proofs"
+                "CBS proof bundle exceeds {MAX_BUNDLE_PROOFS} combined proofs"
             )));
         }
         ensure_strictly_sorted(
-            "CBA proof bundle seals",
+            "CBS proof bundle seals",
             self.seals
                 .iter()
                 .map(|seal| Ok(seal.id.as_str().as_bytes().to_vec())),
         )?;
         ensure_strictly_sorted(
-            "CBA proof bundle control_moves",
+            "CBS proof bundle control_moves",
             self.control_moves
                 .iter()
                 .map(|event| Ok(event.event_id.as_str().as_bytes().to_vec())),
         )?;
         ensure_strictly_sorted(
-            "CBA proof bundle inclusion_proofs",
+            "CBS proof bundle inclusion_proofs",
             self.inclusion_proofs
                 .iter()
                 .map(|proof| canonical::canonical_json_bytes(proof).map_err(Into::into)),
         )?;
         ensure_strictly_sorted(
-            "CBA proof bundle availability_proofs",
+            "CBS proof bundle availability_proofs",
             self.availability_proofs
                 .iter()
                 .map(AvailabilityReceipt::canonical_receipt_bytes),
@@ -231,7 +231,7 @@ impl CbaProofBundle {
             .collect::<BTreeMap<_, _>>();
         let Some(target) = seals_by_id.get(&self.target_seal_ref) else {
             return Err(WireError::Protocol(
-                "CBA proof bundle must contain its target_seal_ref".to_owned(),
+                "CBS proof bundle must contain its target_seal_ref".to_owned(),
             ));
         };
         let target_realm = &target.realm_id;
@@ -239,7 +239,7 @@ impl CbaProofBundle {
             seal.validate_structural()?;
             if &seal.realm_id != target_realm {
                 return Err(WireError::Protocol(
-                    "CBA proof bundle contains a cross-Realm Seal".to_owned(),
+                    "CBS proof bundle contains a cross-Realm Seal".to_owned(),
                 ));
             }
         }
@@ -249,7 +249,7 @@ impl CbaProofBundle {
                 || control_move.seal_basis.is_none()
             {
                 return Err(WireError::Protocol(
-                    "CBA proof bundle control_moves must be same-Realm Control Events with seal_basis"
+                    "CBS proof bundle control_moves must be same-Realm Control Events with seal_basis"
                         .to_owned(),
                 ));
             }
@@ -262,7 +262,7 @@ impl CbaProofBundle {
             receipt.validate_structural()?;
             if receipt.realm_id != *target_realm {
                 return Err(WireError::Protocol(
-                    "CBA proof bundle contains a cross-Realm availability proof".to_owned(),
+                    "CBS proof bundle contains a cross-Realm availability proof".to_owned(),
                 ));
             }
         }
@@ -272,7 +272,7 @@ impl CbaProofBundle {
         while let Some((seal_id, depth)) = pending.pop() {
             if depth > MAX_BUNDLE_DEPENDENCY_DEPTH {
                 return Err(WireError::Protocol(format!(
-                    "CBA proof bundle dependency path exceeds {MAX_BUNDLE_DEPENDENCY_DEPTH}"
+                    "CBS proof bundle dependency path exceeds {MAX_BUNDLE_DEPENDENCY_DEPTH}"
                 )));
             }
             if !reachable.insert(seal_id.clone()) {
@@ -290,7 +290,7 @@ impl CbaProofBundle {
         }
         if reachable.len() != self.seals.len() {
             return Err(WireError::Protocol(
-                "CBA proof bundle contains a Seal unreachable from target_seal_ref".to_owned(),
+                "CBS proof bundle contains a Seal unreachable from target_seal_ref".to_owned(),
             ));
         }
         let covered_control_digests = self
@@ -316,7 +316,7 @@ impl CbaProofBundle {
             });
             if !reachable {
                 return Err(WireError::Protocol(
-                    "CBA proof bundle contains a Control Move unreachable from target Seal coverage"
+                    "CBS proof bundle contains a Control Move unreachable from target Seal coverage"
                         .to_owned(),
                 ));
             }

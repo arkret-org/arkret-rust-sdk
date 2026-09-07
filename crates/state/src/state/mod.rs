@@ -1,6 +1,6 @@
 //! Arkret v1 control-plane Event / Seal / Lattice state resolution.
 //!
-//! This module hosts the SDK-side runtime for the CBA control plane. It
+//! This module hosts the SDK-side runtime for the CBS control plane. It
 //! provides:
 //!
 //! - [`store`] — `ControlEventStore` / `SealStore` / `CellStore` / `CellRegistry` trait contracts,

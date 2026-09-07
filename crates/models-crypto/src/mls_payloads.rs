@@ -321,7 +321,7 @@ impl MlsGovernanceBindingPayload {
         }
         if self.reducer_profile != expected.reducer_profile {
             return Err(WireError::Protocol(format!(
-                "mls_governance_binding.reducer_profile does not match the CBA-resolved Realm profile: expected {} got {} (unsupported_profile)",
+                "mls_governance_binding.reducer_profile does not match the CBS-resolved Realm profile: expected {} got {} (unsupported_profile)",
                 expected.reducer_profile, self.reducer_profile
             )));
         }

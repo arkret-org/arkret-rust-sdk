@@ -165,7 +165,7 @@ where
     )
 }
 
-/// Verify a Control Move under an explicit CBA envelope context.
+/// Verify a Control Move under an explicit CBS envelope context.
 ///
 /// `AnchorUnit` is only valid after the caller has validated one of the
 /// protocol's closed bootstrap/re-anchor units. It permits the unit's
@@ -191,7 +191,7 @@ where
 }
 
 /// Verify a Control Move after its origin Station has appended the
-/// mandatory admission proof. The remaining CBA checks are identical to the
+/// mandatory admission proof. The remaining CBS checks are identical to the
 /// producer-submission path, but the closed proof set is Producer + Admission.
 pub fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
@@ -260,7 +260,7 @@ where
         submit_context: context,
     } = verification;
     // Step 1: structural. `validate_for_submit_structural` also enforces the
-    // CBA envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
+    // CBS envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
     // Event with neither basis cannot reach the control-plane reducer here.
     match proof_regime {
         StructuralProofRegime::ProducerSubmission => event
@@ -2083,7 +2083,7 @@ mod tests {
     }
 
     /// The `refs[]` §9.5 condition 1 requires on every recovery Move, matching
-    /// `cba-lattice-fixture.json`'s `conflict_recovery_move` vector.
+    /// `cbs-lattice-fixture.json`'s `conflict_recovery_move` vector.
     fn recovery_refs() -> Vec<EventRef> {
         vec![
             EventRef::new(

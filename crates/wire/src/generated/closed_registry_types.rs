@@ -4,8 +4,8 @@
 //! sha256=072eb59c45ee84bd25cc299c7bcd052d29732c59a568e7483273d529672a7a1b Input: registry/
 //! binding-kind-registry.json; version=2026-08-27.6;
 //! sha256=84532b111d582cf916583e6d3ab0e5bc23baa1bcf766679e4ce31c12e41dcfbe Input: registry/
-//! authority-set-policy-registry.json; version=2026-08-23.1;
-//! sha256=cc421f88133d643d2c52757597cf49340d6ad4510e9ea8c2a487ca8001ae7236 Entries: track_names=2,
+//! authority-set-policy-registry.json; version=2026-09-08.1;
+//! sha256=f62f00479445688aa4c3aad1b898a06b36a342900f7a9c8d17b626bc6271c71e Entries: track_names=2,
 //! binding_kinds=3, authority_policy_kinds=3, authority_source_kinds=2
 
 use serde::{Deserialize, Serialize};

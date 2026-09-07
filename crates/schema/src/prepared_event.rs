@@ -4,9 +4,9 @@
 //! optional fields so it can deserialize every protocol plane. Producers must
 //! not treat that representation as proof that an Event is ready to publish.
 //! The types in this module consume and validate an Event, then expose it only
-//! immutably so the CBA shape cannot be invalidated before submission.
+//! immutably so the CBS shape cannot be invalidated before submission.
 
-use arkret_wire::{CbaEffectPlane, Event};
+use arkret_wire::{CbsEffectPlane, Event};
 
 use crate::{Result, SchemaError, validate_event_for_submit};
 
@@ -91,14 +91,14 @@ impl TryFrom<Event> for PreparedNonReducerEvent {
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
         if event.kind.is_reducer_input()
-            || event.kind.cba_plane().is_some()
+            || event.kind.cbs_plane().is_some()
             || event.seal_ref.is_some()
             || event.auth_context.is_some()
             || event.seal_basis.is_some()
             || !event.preconditions.is_empty()
         {
             return Err(SchemaError::Protocol(
-                "prepared non-reducer Event forbids all CBA reducer fields".to_owned(),
+                "prepared non-reducer Event forbids all CBS reducer fields".to_owned(),
             ));
         }
         Ok(Self(event))
@@ -107,7 +107,7 @@ impl TryFrom<Event> for PreparedNonReducerEvent {
 
 /// A schema-validated Event in one of the ordinary (non-anchor) submission
 /// planes. Anchor units remain an explicit ordered-batch protocol and cannot
-/// be inferred from an Event with missing CBA fields.
+/// be inferred from an Event with missing CBS fields.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreparedStandardEvent {
     Data(PreparedDataEvent),
@@ -149,11 +149,11 @@ impl TryFrom<Event> for PreparedStandardEvent {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        match event.kind.cba_plane() {
-            Some(CbaEffectPlane::Data) => Ok(Self::Data(PreparedDataEvent(event))),
-            Some(CbaEffectPlane::Control) => Ok(Self::Control(PreparedControlMove(event))),
+        match event.kind.cbs_plane() {
+            Some(CbsEffectPlane::Data) => Ok(Self::Data(PreparedDataEvent(event))),
+            Some(CbsEffectPlane::Control) => Ok(Self::Control(PreparedControlMove(event))),
             None if event.kind.is_reducer_input() => Err(SchemaError::Protocol(format!(
-                "reducer-input Event kind {} has no registered CBA plane",
+                "reducer-input Event kind {} has no registered CBS plane",
                 event.kind
             ))),
             None => Ok(Self::NonReducer(PreparedNonReducerEvent(event))),

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-07.1;
-//! sha256=c8b2ab4dbf79d90e837c456adf00b00958c708d39f35fb6b54c6ad9bc7e41799 Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-09-08.1;
+//! sha256=e4682f05a4575b7200787da0202ec4341e92795cd7387f93a2a9201592dc63c9 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -2617,7 +2617,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBA lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md §13; MUST NOT be reported as cas_conflict.",
+        description: "CBS lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md §13; MUST NOT be reported as cas_conflict.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
@@ -2627,7 +2627,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBA plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a DataEvent targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
+        description: "CBS plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a DataEvent targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,
@@ -2747,7 +2747,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The first Seal of a Realm did not atomically cover and materialize the complete registered bootstrap unit, or it declared an empty covered set or an empty control_event_set_root. The five ak.realm.create writes are genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots in the same unit. For MLS-backed scope, epoch-0 binding is instead required on the first successor Seal covering ak.mls.genesis, whose seal_basis is the accepted Genesis Seal. Omitted founding state is never repairable by later Seals. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover and materialize the complete registered bootstrap unit, or it declared an empty covered set or an empty control_event_set_root. The five ak.realm.create writes are genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots in the same unit. For MLS-backed scope, epoch-0 binding is instead required on the first successor Seal covering ak.mls.genesis, whose seal_basis is the accepted Genesis Seal. Omitted founding state is never repairable by later Seals. See zh/authz/cbs-profiles.md section 3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GovernanceKeyInvalid,

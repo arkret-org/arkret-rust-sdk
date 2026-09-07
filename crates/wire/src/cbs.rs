@@ -1,4 +1,4 @@
-//! CBA control-plane wire fragments and the reducer's internal projection type.
+//! CBS control-plane wire fragments and the reducer's internal projection type.
 //!
 //! v1 has no standalone Move object and no producer-authored cell-write
 //! channel. A Control Move is an [`crate::Event`] that carries [`SealBasis`]

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-07.12;
-//! sha256=bd9e9683c3f1f26f685426a3be20e8c877fdc33005fff707f127a384ac150d2b
+//! Input: registry/contract-registry.json; version=2026-09-08.1;
+//! sha256=819dba54cb38a1208e5cf2c4d6a94e3ca8b8f14fee9d0059988cca2cf31afc61
 //! Entries: sole_recovery_families=7
 
 use arkret_wire::CellFamilyId;

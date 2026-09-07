@@ -35,8 +35,8 @@ pub mod applet_revoke_mode;
 pub mod authored_event;
 pub mod authorization_lease_issuance_fixture;
 pub mod bottom;
-pub mod cba;
-pub mod cba_proof_bundle;
+pub mod cbs;
+pub mod cbs_proof_bundle;
 pub mod cell;
 pub mod consent_scope;
 pub mod constants;
@@ -98,12 +98,12 @@ pub use authorization_lease_issuance_fixture::{
     AuthorizationLeaseIssuanceProjection, run_authorization_lease_issuance_fixture,
 };
 pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
-pub use cba::{
+pub use cbs::{
     DeviceReanchorPreFenceSealFrontier, LatticeOp, LatticeOpType, ObservedRemoveMatch,
     Precondition, Predicate, PredicateOp, ProjectedCellWrite, ProjectedOp, ProjectionEffect,
     SealBasis,
 };
-pub use cba_proof_bundle::{AvailabilityReceipt, CbaProofBundle};
+pub use cbs_proof_bundle::{AvailabilityReceipt, CbsProofBundle};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
     REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,

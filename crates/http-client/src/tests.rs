@@ -533,7 +533,7 @@ mod events_submit_tests {
             authorization_lease: Some(authorization_lease),
             // Optional receiver-relative dependency evidence; the fixture
             // Event cites no seal_ref / seal_basis, so it needs none.
-            cba_proof_bundles: Vec::new(),
+            cbs_proof_bundles: Vec::new(),
             control_proposal_ack: None,
             membership_compensation_evidence: None,
         }
@@ -1386,7 +1386,7 @@ mod events_submit_tests {
                 },
             },
             report_event: fixture_submission("mimi moderation report"),
-            cba_proof_bundles: Vec::new(),
+            cbs_proof_bundles: Vec::new(),
         };
 
         let response = client.mimi_report_abuse(&request).await.unwrap();

@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
-    ActorId, CbaEffectPlane, CbaProofBundle, ControlProposalAck, ControlProposalDecision,
+    ActorId, CbsEffectPlane, CbsProofBundle, ControlProposalAck, ControlProposalDecision,
     ControlProposalDecisionPolicy, DidCoreId, Event, EventFederationSubmission, EventId, Hash,
     MAX_ACTOR_SEQ_TOTAL_SIBLINGS, RealmId, Result, Seal, SealBasis, SealId, WireError,
 };
@@ -878,7 +878,7 @@ pub const MAX_FEDERATED_EVENTS: usize = 500;
 /// service forwards events from another Station. MUST carry
 /// the full [`FederationServiceBindingRef`] so the receiver can verify
 /// origin policy and delivery state. The reducer profile is resolved from
-/// each Event's authenticated CBA and is never declared by the transport.
+/// each Event's authenticated CBS and is never declared by the transport.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -887,7 +887,7 @@ pub struct EventsSubmitFederationBatchRequestBody {
     /// Each transported Event travels with the lease and the original ingress
     /// receipts that authorized its first publication.
     pub events: Vec<EventFederationSubmission>,
-    /// Receiver-relative CBA dependency bundles rooted at the transported
+    /// Receiver-relative CBS dependency bundles rooted at the transported
     /// Events' `seal_ref` or `seal_basis` leaves.
     ///
     /// These are transport prerequisites, not Events and not an alternate
@@ -895,7 +895,7 @@ pub struct EventsSubmitFederationBatchRequestBody {
     /// receivers independently verify every embedded object and project a
     /// Seal only after its covered Control Events are accepted.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 impl EventsSubmitFederationBatchRequestBody {
@@ -904,7 +904,7 @@ impl EventsSubmitFederationBatchRequestBody {
         self.events.iter().map(|submission| &submission.event)
     }
 
-    /// Every Seal disclosed by the request's CBA proof bundles.
+    /// Every Seal disclosed by the request's CBS proof bundles.
     ///
     /// Bundles are receiver-relative and MAY overlap, so the same Seal may be
     /// listed by more than one bundle. It is disclosed once here; the
@@ -912,7 +912,7 @@ impl EventsSubmitFederationBatchRequestBody {
     fn transported_seals(&self) -> Result<Vec<&Seal>> {
         let mut seen = BTreeSet::new();
         let mut seals = Vec::new();
-        for bundle in &self.cba_proof_bundles {
+        for bundle in &self.cbs_proof_bundles {
             bundle.validate_structural()?;
             for seal in &bundle.seals {
                 if seen.insert(seal.id.clone()) {
@@ -964,11 +964,11 @@ impl EventsSubmitFederationBatchRequestBody {
         for (submission, digest_suite) in self.events.iter().zip(digest_suites.iter().copied()) {
             submission.validate_structural_in_context(submit_context, digest_suite)?;
         }
-        if self.cba_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
+        if self.cbs_proof_bundles.len() > arkret_wire::event_submission::MAX_SUBMISSION_CBS_BUNDLES
         {
             return Err(WireError::Protocol(format!(
-                "federation request exceeds {} CBA proof bundles",
-                arkret_wire::event_submission::MAX_SUBMISSION_CBA_BUNDLES
+                "federation request exceeds {} CBS proof bundles",
+                arkret_wire::event_submission::MAX_SUBMISSION_CBS_BUNDLES
             )));
         }
         let required_targets = self
@@ -984,18 +984,18 @@ impl EventsSubmitFederationBatchRequestBody {
             .cloned()
             .collect::<BTreeSet<_>>();
         let mut previous_target: Option<&str> = None;
-        for bundle in &self.cba_proof_bundles {
+        for bundle in &self.cbs_proof_bundles {
             bundle.validate_structural()?;
             if previous_target.is_some_and(|previous| previous >= bundle.target_seal_ref.as_str()) {
                 return Err(WireError::Protocol(
-                    "federation CBA proof bundles must be strictly sorted by target_seal_ref"
+                    "federation CBS proof bundles must be strictly sorted by target_seal_ref"
                         .to_owned(),
                 ));
             }
             previous_target = Some(bundle.target_seal_ref.as_str());
             if !required_targets.contains(&bundle.target_seal_ref) {
                 return Err(WireError::Protocol(
-                    "federation CBA proof bundle target is unrelated to transported Events"
+                    "federation CBS proof bundle target is unrelated to transported Events"
                         .to_owned(),
                 ));
             }
@@ -1008,18 +1008,18 @@ impl EventsSubmitFederationBatchRequestBody {
                     "federation Event belongs to another Realm".to_owned(),
                 ));
             }
-            match event.kind.cba_plane() {
-                Some(CbaEffectPlane::Control) => {
+            match event.kind.cbs_plane() {
+                Some(CbsEffectPlane::Control) => {
                     if saw_data_event {
                         return Err(WireError::Protocol(
                             "federation Control Events must precede DataEvents".to_owned(),
                         ));
                     }
                 }
-                Some(CbaEffectPlane::Data) => saw_data_event = true,
+                Some(CbsEffectPlane::Data) => saw_data_event = true,
                 _ => {
                     return Err(WireError::Protocol(
-                        "federation Event kind has no registered CBA plane".to_owned(),
+                        "federation Event kind has no registered CBS plane".to_owned(),
                     ));
                 }
             }
@@ -1029,7 +1029,7 @@ impl EventsSubmitFederationBatchRequestBody {
         for seal in &seals {
             if !seal_ids.insert(seal.id.clone()) {
                 return Err(WireError::Protocol(
-                    "federation CBA proof bundles contain a duplicate Seal id".to_owned(),
+                    "federation CBS proof bundles contain a duplicate Seal id".to_owned(),
                 ));
             }
             seal.validate_structural()?;
@@ -1080,7 +1080,7 @@ impl EventsSubmitFederationBatchRequestBody {
         }
         if reachable.len() != seals.len() {
             return Err(WireError::Protocol(
-                "federation CBA proof bundles contain Seals unrelated to transported Events"
+                "federation CBS proof bundles contain Seals unrelated to transported Events"
                     .to_owned(),
             ));
         }

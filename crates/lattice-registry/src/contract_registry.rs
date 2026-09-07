@@ -193,7 +193,7 @@ impl ActorPrivateRegistry {
         for forbidden in ["effects", "preconditions", "seal_basis", "realm_id"] {
             if object.contains_key(forbidden) {
                 return Err(ContractRegistryError::Invalid(format!(
-                    "actor-private event {kind} carries shared CBA field {forbidden}"
+                    "actor-private event {kind} carries shared CBS field {forbidden}"
                 )));
             }
         }

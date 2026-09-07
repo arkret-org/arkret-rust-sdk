@@ -4,8 +4,8 @@
 //! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0 Input: registry/
 //! capability-action-registry.json; version=2026-09-07.1;
 //! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Input: registry/
-//! schema-registry.json; version=2026-09-07.1;
-//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Input: registry/
+//! schema-registry.json; version=2026-09-08.1;
+//! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.2;
 //! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
 //! special_forms=14, actions=162, schemas=205, account_data_patterns=24
@@ -3258,8 +3258,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/capability-grant.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CBA_PROOF_BUNDLE_V1,
-        file: "schemas/cba-proof-bundle.schema.json",
+        schema_id: SchemaId::CBS_PROOF_BUNDLE_V1,
+        file: "schemas/cbs-proof-bundle.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CIRCLE_V1,

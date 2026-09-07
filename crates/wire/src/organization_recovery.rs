@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::cba::SealBasis;
+use crate::cbs::SealBasis;
 use crate::error::{Result, WireError};
 use crate::event_envelope::HistoryEffectiveScope;
 use crate::{DidCoreId, DidUrl, EventId, Hash};

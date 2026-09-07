@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-07.1;
-//! sha256=c8b2ab4dbf79d90e837c456adf00b00958c708d39f35fb6b54c6ad9bc7e41799
+//! Input: registry/error-code-registry.json; version=2026-09-08.1;
+//! sha256=e4682f05a4575b7200787da0202ec4341e92795cd7387f93a2a9201592dc63c9
 //! Entries: reason_codes=431
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2496,7 +2496,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::COVERED_SET_MISMATCH,
         applies_to: &["event_auth_state", "state_resolution"],
-        description: "A compaction Seal's covered set does not match the deterministic control view of the interval it claims to compact. Mismatched coverage MUST reject; only full-coverage compaction within seal_compaction_max_interval_ms enables bootstrap. See authz/event-auth-state-resolution.md and fixtures/cba-lattice-fixture.json.",
+        description: "A compaction Seal's covered set does not match the deterministic control view of the interval it claims to compact. Mismatched coverage MUST reject; only full-coverage compaction within seal_compaction_max_interval_ms enables bootstrap. See authz/event-auth-state-resolution.md and fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CREATED_AT_BEFORE_BASIS_SEAL,
@@ -2570,7 +2570,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DELTA_CONTAINS_DATA_EVENT,
         applies_to: &["event_auth_state", "state_resolution"],
-        description: "A Seal delta contained a data-plane (DataEvent) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a DataEvent digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cba-lattice-fixture.json.",
+        description: "A Seal delta contained a data-plane (DataEvent) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a DataEvent digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEPENDENCY_MISSING,
@@ -2785,7 +2785,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::FORENSIC_ATTRIBUTION_MISMATCH,
         applies_to: &["event_auth_state", "state_resolution"],
-        description: "A threshold-notary Seal's declared forensic_attribution mode (e.g. waived or quorum_intersection) does not satisfy the Realm's forensic-attribution obligation for the signer set. The Seal MUST reject. See fixtures/cba-lattice-fixture.json.",
+        description: "A threshold-notary Seal's declared forensic_attribution mode (e.g. waived or quorum_intersection) does not satisfy the Realm's forensic-attribution obligation for the signer set. The Seal MUST reject. See fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
@@ -2800,7 +2800,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::GENESIS_SEAL_INVALID,
         applies_to: &["seal", "state_resolution"],
-        description: "The first Seal of a Realm did not atomically cover the complete registered bootstrap unit (create writes genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cba-profiles.md section 3.",
+        description: "The first Seal of a Realm did not atomically cover the complete registered bootstrap unit (create writes genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots), or used an empty covered set or empty control_event_set_root. MLS epoch-0 binding is checked on the first successor Seal covering ak.mls.genesis. See zh/authz/cbs-profiles.md section 3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GOVERNANCE_BINDING_MISMATCH,
@@ -3699,7 +3699,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RELATION_CONFLICT_FANOUT_EXCEEDED,
         applies_to: &["state_resolution"],
-        description: "The number of concurrent candidates (winner + losers) under a single Relation dedupe key exceeded the conflict fanout limit (v1 public profile: 16, aligned with the sibling fork limit in zh/models/event-and-patch.md §2.6). The reducer rejects the whole candidate group rather than retaining unbounded loser records; reconvergence requires a repair Event/Control Move on the latest CBA query basis. See zh/models/relation.md §6.",
+        description: "The number of concurrent candidates (winner + losers) under a single Relation dedupe key exceeded the conflict fanout limit (v1 public profile: 16, aligned with the sibling fork limit in zh/models/event-and-patch.md §2.6). The reducer rejects the whole candidate group rather than retaining unbounded loser records; reconvergence requires a repair Event/Control Move on the latest CBS query basis. See zh/models/relation.md §6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RELATION_KIND_CONTAINS_DERIVED,
@@ -3968,7 +3968,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_PARENT_CHAIN_IN_BOTTOM_STATE,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A `match_scope=subtree` / `children` selector required resolving the target Space's ancestor chain under the authorizing operation's CBA basis, but the `ak.space.parent` cell was in a multi-head / bottom (⊥) state. The subtree authorization branch MUST fail closed rather than pick an arbitrary head, otherwise the same grant could authorize divergently across receivers (split authz). See zh/authz/resource-selector-grammar.md §6.",
+        description: "A `match_scope=subtree` / `children` selector required resolving the target Space's ancestor chain under the authorizing operation's CBS basis, but the `ak.space.parent` cell was in a multi-head / bottom (⊥) state. The subtree authorization branch MUST fail closed rather than pick an arbitrary head, otherwise the same grant could authorize divergently across receivers (split authz). See zh/authz/resource-selector-grammar.md §6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_PARENT_CYCLE,

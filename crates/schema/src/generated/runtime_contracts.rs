@@ -2,14 +2,14 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-07.12;
-//! sha256=bd9e9683c3f1f26f685426a3be20e8c877fdc33005fff707f127a384ac150d2b Input: registry/
-//! operation-registry.json; version=2026-09-07.4;
-//! sha256=c786d38dfbafa7749717bf8180f058773174b0d0362deaf28fe754a265e4f799 Input: registry/
-//! event-kind-registry.json; version=2026-09-07.11;
-//! sha256=6479a6fe9d310c136cac2fb9d0b8c44dfb26cb5c34a382dd244e692abbd1636c Input: registry/
-//! schema-registry.json; version=2026-09-07.1;
-//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Input: registry/
+//! contract-registry.json; version=2026-09-08.1;
+//! sha256=819dba54cb38a1208e5cf2c4d6a94e3ca8b8f14fee9d0059988cca2cf31afc61 Input: registry/
+//! operation-registry.json; version=2026-09-08.1;
+//! sha256=cfaafa428428c03c915237684eb3ea18908a44829e2b06c464a9794c6eafb426 Input: registry/
+//! event-kind-registry.json; version=2026-09-07.12;
+//! sha256=e5fedce013a617ac0ffb36d7fcf151c10f9e381bebee8c6232e46c73370da573 Input: registry/
+//! schema-registry.json; version=2026-09-08.1;
+//! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Input: registry/
 //! id-kind-registry.json; version=2026-09-07.1;
 //! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -780,8 +780,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-07.11";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-07.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-07.4";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-07.12";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-08.1";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-08.1";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-07.1";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

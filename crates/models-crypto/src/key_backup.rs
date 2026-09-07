@@ -8,7 +8,7 @@ use arkret_canonical::{
 use arkret_wire::{
     AccountId, ActorId, AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole,
     AuthorizationLease, BackupId, BackupObjectRef, BackupRotationBinding, BackupRotationKind,
-    BackupSeriesId, Base64UrlString, CbaProofBundle, ControlProposalAck, Cursor, DeviceId,
+    BackupSeriesId, Base64UrlString, CbsProofBundle, ControlProposalAck, Cursor, DeviceId,
     DidCoreId, DidUrl, EpochRange, Event, EventId, EventInitialSubmission, EventKind,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, HistoryEffectiveScope, LeaseBasisRef,
     NonEmptyString, PayloadProof, PolicyId, ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE,
@@ -284,7 +284,7 @@ pub struct BackupSeriesEraseRequestBody {
     pub series: Vec<BackupRotationBinding>,
     pub authorization_lease: AuthorizationLease,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -407,12 +407,12 @@ impl BackupSeriesEraseRequestBody {
                 "backup-series erase requires the exact erase authorization action".to_owned(),
             ));
         }
-        if self.cba_proof_bundles.len() > 64 {
+        if self.cbs_proof_bundles.len() > 64 {
             return Err(WireError::Protocol(
-                "backup-series erase exceeds 64 CBA proof bundles".to_owned(),
+                "backup-series erase exceeds 64 CBS proof bundles".to_owned(),
             ));
         }
-        for bundle in &self.cba_proof_bundles {
+        for bundle in &self.cbs_proof_bundles {
             bundle.validate_structural()?;
         }
         Ok(())
@@ -2347,7 +2347,7 @@ pub struct RecoveryPolicyPublishRequest {
     pub event: Event,
     pub authorization_lease: AuthorizationLease,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control_proposal_ack: Option<ControlProposalAck>,
 }
@@ -2381,7 +2381,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
         Self {
             event: value.event,
             authorization_lease: Some(value.authorization_lease),
-            cba_proof_bundles: value.cba_proof_bundles,
+            cbs_proof_bundles: value.cbs_proof_bundles,
             control_proposal_ack: value.control_proposal_ack,
             membership_compensation_evidence: None,
         }

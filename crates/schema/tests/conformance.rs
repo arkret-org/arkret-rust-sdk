@@ -223,14 +223,14 @@ fn conformance_fixture_set_loads_and_reports_external_json() {
 }
 
 #[test]
-fn federation_fixture_resolves_reducer_profile_from_cba() {
+fn federation_fixture_resolves_reducer_profile_from_cbs() {
     let fixture = spec_json_artifact("fixtures/federation-fixture.json").unwrap();
     let case = fixture["cases"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|case| case["name"].as_str() == Some("ordinary_event_uses_cba_reducer_profile_cell"))
-        .expect("federation CBA reducer-profile vector missing");
+        .find(|case| case["name"].as_str() == Some("ordinary_event_uses_cbs_reducer_profile_cell"))
+        .expect("federation CBS reducer-profile vector missing");
     let profile_id = case["input"]["settled_reducer_profile"]
         .as_str()
         .expect("federation reducer-profile id missing");

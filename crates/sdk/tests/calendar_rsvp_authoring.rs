@@ -1,6 +1,6 @@
 //! The authoring helper is the only supported RSVP producer path, so these
 //! tests pin the two failures the closure review called out: an effect-less
-//! RSVP that never reaches its CBA cell, and a basis the envelope does not
+//! RSVP that never reaches its CBS cell, and a basis the envelope does not
 //! causally carry.
 
 use arkret::calendar::build_rsvp_set_intent;

@@ -168,7 +168,7 @@ impl PolicyRule {
 /// `realm_id`, `inviter`, `state`, `expires_at`, `created_at`).
 ///
 /// There is deliberately no materialized join-rule snapshot: the admission
-/// basis is the create Event's own CBA governance basis, reachable by retyping
+/// basis is the create Event's own CBS governance basis, reachable by retyping
 /// the Invite id back to that Event (`governance-objects.md` §5.3). Private
 /// delivery material never reaches this object either — only the
 /// `introduction_evidence_digest` commitment.

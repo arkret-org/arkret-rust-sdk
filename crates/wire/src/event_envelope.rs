@@ -36,10 +36,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::cba::{Precondition, SealBasis};
+use crate::cbs::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
-use crate::events::kinds::{CbaEffectPlane, EventKind};
+use crate::events::kinds::{CbsEffectPlane, EventKind};
 use crate::primitives::{
     ActorId, Audience, CriticalExtension, EventProof, ProofBindingRequirements,
     SignatureBindingPayload,
@@ -1154,7 +1154,7 @@ mod scope_mls_group_id_tests {
     }
 }
 
-/// CBA context a structural submit check runs under.
+/// CBS context a structural submit check runs under.
 ///
 /// `Standard` is the fail-closed default: every reducer-input Event must be a
 /// DataEvent or a Control Move. `AnchorUnit` additionally admits the two closed
@@ -1249,7 +1249,7 @@ impl Event {
 
     /// Refresh the content-bound Event id after authoring has finished.
     ///
-    /// Producers commonly have to attach actor-chain, HLC, CBA and requirement
+    /// Producers commonly have to attach actor-chain, HLC, CBS and requirement
     /// fields after constructing the initial typed payload. All of those fields
     /// are in the Event digest preimage, so the id must be derived only after
     /// they are final. A Realm genesis additionally keeps its in-memory derived
@@ -1333,7 +1333,7 @@ impl Event {
     ///
     /// Covers every wire-level check that does not need a schema registry:
     /// reducer-stamped field rejection, applet provenance invariants, proof
-    /// presence, critical-extension fail-closed flags, and CBA field shape.
+    /// presence, critical-extension fail-closed flags, and CBS field shape.
     /// It deliberately does NOT run event-payload schema validation — the
     /// submit gate for callers is `arkret_schema::validate_event_for_submit`,
     /// which layers registry-backed schema validation on top of this check.
@@ -1362,7 +1362,7 @@ impl Event {
         producer.validate_direct_signer_resolution_evidence()
     }
 
-    /// [`Event::validate_for_submit_structural`] under an explicit CBA context.
+    /// [`Event::validate_for_submit_structural`] under an explicit CBS context.
     ///
     /// Use [`EventSubmitContext::AnchorUnit`] only for the two closed
     /// `seal_basis`-exempt anchor units of `event-auth-state-resolution.md` §5:
@@ -1397,7 +1397,7 @@ impl Event {
     /// Shape of an already-accepted Event carried as evidence rather than as a
     /// submission, without the admission-binding digest step.
     ///
-    /// `cba-profiles.md` §5 fixes the receiver's order as «structure, Realm,
+    /// `cbs-profiles.md` §5 fixes the receiver's order as «structure, Realm,
     /// count and canonical order → object id/digest/signature → ...», so the
     /// container-level pass owns the proof-set *shape* — one producer proof
     /// followed by one Station admission proof — while recomputing the digest
@@ -1500,21 +1500,21 @@ impl Event {
             // frontier in the payload's `pre_fence_seal_frontier`. A bootstrap Event
             // may still carry a precondition, which is evaluated against the
             // unit's empty frozen predecessor state; only the three mutually
-            // exclusive CBA basis fields participate in this shape test.
+            // exclusive CBS basis fields participate in this shape test.
             let is_anchor_unit = context == EventSubmitContext::AnchorUnit
                 && self.seal_ref.is_none()
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
-            match self.kind.cba_plane() {
-                Some(CbaEffectPlane::Data) if is_data_event || is_anchor_unit => {}
-                Some(CbaEffectPlane::Control) if is_control_move || is_anchor_unit => {}
-                Some(CbaEffectPlane::Data) => {
+            match self.kind.cbs_plane() {
+                Some(CbsEffectPlane::Data) if is_data_event || is_anchor_unit => {}
+                Some(CbsEffectPlane::Control) if is_control_move || is_anchor_unit => {}
+                Some(CbsEffectPlane::Data) => {
                     return Err(WireError::Protocol(format!(
                         "data-plane Event kind {} requires seal_ref + auth_context and forbids seal_basis",
                         self.kind
                     )));
                 }
-                Some(CbaEffectPlane::Control) => {
+                Some(CbsEffectPlane::Control) => {
                     return Err(WireError::Protocol(format!(
                         "control-plane Event kind {} requires seal_basis and forbids seal_ref + auth_context",
                         self.kind
@@ -1522,7 +1522,7 @@ impl Event {
                 }
                 None => {
                     return Err(WireError::Protocol(format!(
-                        "reducer-input Event kind {} has no registered CBA plane",
+                        "reducer-input Event kind {} has no registered CBS plane",
                         self.kind
                     )));
                 }
@@ -1533,7 +1533,7 @@ impl Event {
             || !self.preconditions.is_empty()
         {
             return Err(WireError::Protocol(
-                "non-reducer events must not carry CBA reducer fields".to_owned(),
+                "non-reducer events must not carry CBS reducer fields".to_owned(),
             ));
         }
         Ok(())
@@ -2225,7 +2225,7 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn every_registered_kind_accepts_only_its_declared_cba_shape() {
+    fn every_registered_kind_accepts_only_its_declared_cbs_shape() {
         let seal_id = SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap();
         for kind in EventKind::ALL {
             let mut matching = base_event();
@@ -2238,8 +2238,8 @@ mod event_wire_surface_tests {
             if *kind == EventKind::RealmCreate {
                 matching.scope_ref = ScopeRef::RealmGenesis;
             }
-            match kind.cba_plane() {
-                Some(CbaEffectPlane::Data) => {
+            match kind.cbs_plane() {
+                Some(CbsEffectPlane::Data) => {
                     matching.seal_ref = Some(seal_id.clone());
                     matching.auth_context = Some(AuthContext {
                         key_id: OpaqueLocalId::new("device").unwrap(),
@@ -2247,7 +2247,7 @@ mod event_wire_surface_tests {
                         credential_epoch: None,
                     });
                 }
-                Some(CbaEffectPlane::Control) => {
+                Some(CbsEffectPlane::Control) => {
                     matching.seal_basis = Some(SealBasis {
                         leaves: vec![seal_id.clone()],
                     });
@@ -2259,8 +2259,8 @@ mod event_wire_surface_tests {
                 .unwrap_or_else(|error| panic!("matching shape rejected for {kind}: {error}"));
 
             let mut mismatched = matching;
-            let expected_error = match kind.cba_plane() {
-                Some(CbaEffectPlane::Data) => {
+            let expected_error = match kind.cbs_plane() {
+                Some(CbsEffectPlane::Data) => {
                     mismatched.seal_ref = None;
                     mismatched.auth_context = None;
                     mismatched.seal_basis = Some(SealBasis {
@@ -2268,7 +2268,7 @@ mod event_wire_surface_tests {
                     });
                     "data-plane Event kind"
                 }
-                Some(CbaEffectPlane::Control) => {
+                Some(CbsEffectPlane::Control) => {
                     mismatched.seal_basis = None;
                     mismatched.seal_ref = Some(seal_id.clone());
                     mismatched.auth_context = Some(AuthContext {
@@ -2294,7 +2294,7 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn anchor_unit_allows_preconditions_without_any_cba_basis_field() {
+    fn anchor_unit_allows_preconditions_without_any_cbs_basis_field() {
         let mut event = base_event();
         event.kind = EventKind::RealmCreate;
         // A Realm genesis carries the closed `realm_genesis` scope and no
@@ -2303,8 +2303,8 @@ mod event_wire_surface_tests {
         event.preconditions.push(Precondition {
             cell_id: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
                 .unwrap(),
-            predicate: crate::cba::Predicate {
-                op: crate::cba::PredicateOp::HeadEq,
+            predicate: crate::cbs::Predicate {
+                op: crate::cbs::PredicateOp::HeadEq,
                 value: Some(Value::Null),
                 values: None,
                 predicate_id: None,

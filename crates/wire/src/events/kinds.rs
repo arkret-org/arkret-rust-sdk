@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::generated::EventWireScope;
 pub use crate::generated::event_kinds::{
-    CbaEffectPlane, EVENT_KIND_COUNT, EventCellBottom, EventCellLattice, EventCellWriteDescriptor,
-    EventKind, EventKindDescriptor, EventRegistryCategory, cba_cell_family_plane,
+    CbsEffectPlane, EVENT_KIND_COUNT, EventCellBottom, EventCellLattice, EventCellWriteDescriptor,
+    EventKind, EventKindDescriptor, EventRegistryCategory, cbs_cell_family_plane,
 };
 
 /// Object-only schema id; this is not an Event.kind.

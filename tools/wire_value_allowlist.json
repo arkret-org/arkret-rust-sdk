@@ -84,7 +84,7 @@
       "lifecycle": "retained_boundary",
       "decision": "independent",
       "adjudication": "manual",
-      "authority": "arkret_wire::cba::LatticeOp plus cell-family registry",
+      "authority": "arkret_wire::cbs::LatticeOp plus cell-family registry",
       "owner_repository": "soland",
       "action": "Retain this exact symbol; the adjacent value does not select the data shape.",
       "test": "python tools/wire_value_audit.py --check",
@@ -2610,7 +2610,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/wire/src/cba.rs::LatticeOp.from",
+      "finding": "crates/wire/src/cbs.rs::LatticeOp.from",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2621,7 +2621,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/wire/src/cba.rs::LatticeOp.to",
+      "finding": "crates/wire/src/cbs.rs::LatticeOp.to",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2632,7 +2632,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/wire/src/cba.rs::LatticeOp.value",
+      "finding": "crates/wire/src/cbs.rs::LatticeOp.value",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2643,7 +2643,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/wire/src/cba.rs::ObservedRemoveMatch.expected",
+      "finding": "crates/wire/src/cbs.rs::ObservedRemoveMatch.expected",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2654,7 +2654,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/wire/src/cba.rs::Predicate.value",
+      "finding": "crates/wire/src/cbs.rs::Predicate.value",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
       "decision": "open",
@@ -2666,7 +2666,7 @@
       "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/value"
     },
     {
-      "finding": "crates/wire/src/cba.rs::Predicate.values",
+      "finding": "crates/wire/src/cbs.rs::Predicate.values",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
       "decision": "open",

@@ -38,7 +38,7 @@ fn project_governance_cell_writes(
     event: &Event,
     digest_suite: arkret_canonical::DigestSuite,
     authority_audits: &arkret_schema::CapabilityAuthorityAuditIndex,
-) -> Result<Vec<arkret_wire::cba::ProjectedCellWrite>, String> {
+) -> Result<Vec<arkret_wire::cbs::ProjectedCellWrite>, String> {
     arkret_schema::project_registered_cell_writes_with_authority_resolver(
         event,
         digest_suite,

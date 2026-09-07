@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-07.1;
-//! sha256=ff17a79facc7a108a2a8f21dfdb78ce0fe0fc2748654677b437c77fc42c47f40 Entries: schema_ids=205,
+//! Input: registry/schema-registry.json; version=2026-09-08.1;
+//! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Entries: schema_ids=205,
 //! active=205
 
 use serde::{Deserialize, Serialize};
@@ -66,7 +66,7 @@ pub enum SchemaId {
     CallRecordingArtifactV1,
     CallSignalPlaintextV1,
     CapabilityV1,
-    CbaProofBundleV1,
+    CbsProofBundleV1,
     CircleV1,
     CircleOperationsV1,
     CollisionVariantRecordV1,
@@ -275,7 +275,7 @@ impl SchemaId {
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
-        Self::CbaProofBundleV1,
+        Self::CbsProofBundleV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
         Self::CollisionVariantRecordV1,
@@ -484,7 +484,7 @@ impl SchemaId {
         Self::CallRecordingArtifactV1,
         Self::CallSignalPlaintextV1,
         Self::CapabilityV1,
-        Self::CbaProofBundleV1,
+        Self::CbsProofBundleV1,
         Self::CircleV1,
         Self::CircleOperationsV1,
         Self::CollisionVariantRecordV1,
@@ -782,7 +782,7 @@ impl SchemaId {
     /// AvailabilityReceipt signature verification.
     pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
         "ak.schema.authenticated_signer_resolution_evidence.v1";
-    /// Canonical concrete authority policy rederived from accepted CBA control state and bound by
+    /// Canonical concrete authority policy rederived from accepted CBS control state and bound by
     /// AuthoritySetRef.
     pub const AUTHORITY_SET_POLICY_V1: &'static str = "ak.schema.authority_set_policy.v1";
     /// Closed response DTO bundle for authorization query operations.
@@ -810,8 +810,8 @@ impl SchemaId {
     /// validation defined by the WebRTC signaling profile.
     pub const CALL_SIGNAL_PLAINTEXT_V1: &'static str = "ak.schema.call_signal_plaintext.v1";
     pub const CAPABILITY_V1: &'static str = "ak.schema.capability.v1";
-    /// Unsigned, independently verified CBA dependency bundle.
-    pub const CBA_PROOF_BUNDLE_V1: &'static str = "ak.schema.cba_proof_bundle.v1";
+    /// Unsigned, independently verified CBS dependency bundle.
+    pub const CBS_PROOF_BUNDLE_V1: &'static str = "ak.schema.cbs_proof_bundle.v1";
     /// Circle — intra-Realm scoped event/message boundary. Subset membership, independent history
     /// visibility, delivery/query/projection boundary, and optional independent MLS group. Does NOT
     /// carry federation identity. see zh/models/circle.md.
@@ -1282,7 +1282,7 @@ impl SchemaId {
             Self::CallRecordingArtifactV1 => Self::CALL_RECORDING_ARTIFACT_V1,
             Self::CallSignalPlaintextV1 => Self::CALL_SIGNAL_PLAINTEXT_V1,
             Self::CapabilityV1 => Self::CAPABILITY_V1,
-            Self::CbaProofBundleV1 => Self::CBA_PROOF_BUNDLE_V1,
+            Self::CbsProofBundleV1 => Self::CBS_PROOF_BUNDLE_V1,
             Self::CircleV1 => Self::CIRCLE_V1,
             Self::CircleOperationsV1 => Self::CIRCLE_OPERATIONS_V1,
             Self::CollisionVariantRecordV1 => Self::COLLISION_VARIANT_RECORD_V1,
@@ -1532,7 +1532,7 @@ impl SchemaId {
             Self::CallRecordingArtifactV1 => "schemas/call-recording-artifact.schema.json",
             Self::CallSignalPlaintextV1 => "schemas/call-signal-plaintext.schema.json",
             Self::CapabilityV1 => "schemas/capability-grant.schema.json",
-            Self::CbaProofBundleV1 => "schemas/cba-proof-bundle.schema.json",
+            Self::CbsProofBundleV1 => "schemas/cbs-proof-bundle.schema.json",
             Self::CircleV1 => "schemas/circle.schema.json",
             Self::CircleOperationsV1 => "schemas/circle-operations.schema.json",
             Self::CollisionVariantRecordV1 => "schemas/collision-variant-record.schema.json",
@@ -1782,7 +1782,7 @@ impl SchemaId {
             Self::CALL_RECORDING_ARTIFACT_V1 => Some(Self::CallRecordingArtifactV1),
             Self::CALL_SIGNAL_PLAINTEXT_V1 => Some(Self::CallSignalPlaintextV1),
             Self::CAPABILITY_V1 => Some(Self::CapabilityV1),
-            Self::CBA_PROOF_BUNDLE_V1 => Some(Self::CbaProofBundleV1),
+            Self::CBS_PROOF_BUNDLE_V1 => Some(Self::CbsProofBundleV1),
             Self::CIRCLE_V1 => Some(Self::CircleV1),
             Self::CIRCLE_OPERATIONS_V1 => Some(Self::CircleOperationsV1),
             Self::COLLISION_VARIANT_RECORD_V1 => Some(Self::CollisionVariantRecordV1),

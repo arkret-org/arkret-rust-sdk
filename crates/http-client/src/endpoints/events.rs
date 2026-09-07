@@ -335,7 +335,7 @@ impl Client {
             let mut submission = EventInitialSubmission {
                 event: event.clone(),
                 authorization_lease: Some(lease),
-                cba_proof_bundles: Vec::new(),
+                cbs_proof_bundles: Vec::new(),
                 control_proposal_ack: None,
                 membership_compensation_evidence: None,
             };
@@ -347,7 +347,7 @@ impl Client {
                         .authorization_lease
                         .clone()
                         .expect("delayed submission was constructed with a lease"),
-                    cba_proof_bundles: Vec::new(),
+                    cbs_proof_bundles: Vec::new(),
                 };
                 submission.control_proposal_ack = Some(
                     if let Some((authority_clients, notary, policy)) = collector {
@@ -420,7 +420,7 @@ impl Client {
     /// Prepare one schema-validated, non-anchor Event for first publication.
     ///
     /// Callers that author Events should prefer this API: possession of the
-    /// wrapper proves the Event has one valid ordinary CBA plane and prevents
+    /// wrapper proves the Event has one valid ordinary CBS plane and prevents
     /// mutation between validation and publication-evidence issuance.
     pub async fn prepare_initial_standard_submission(
         &self,
@@ -1040,11 +1040,11 @@ impl Client {
 }
 
 /// Classify the publication unit before making any network request and run
-/// the wire-level submit gate in the matching CBA context.
+/// the wire-level submit gate in the matching CBS context.
 ///
 /// A missing DataEvent basis must never be inferred to mean "anchor unit".
 /// The latter is a closed protocol exception and is recognizable by its first
-/// Event kind; treating every all-empty CBA tuple as an anchor lets malformed
+/// Event kind; treating every all-empty CBS tuple as an anchor lets malformed
 /// ordinary Events reach the authorization issuer.
 fn initial_submission_context(events: &[Event]) -> Result<EventSubmitContext> {
     Ok(arkret_wire::classify_event_submit_context(events)?)

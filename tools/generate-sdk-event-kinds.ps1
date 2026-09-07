@@ -202,7 +202,7 @@ foreach ($entry in $entries) {
             throw "reducer-input event kind '$($entry.Kind)' must declare plane=data|control"
         }
     } elseif ($null -ne $entry.Plane) {
-        throw "non-reducer event kind '$($entry.Kind)' must not declare a CBA plane"
+        throw "non-reducer event kind '$($entry.Kind)' must not declare a CBS plane"
     }
 }
 
@@ -235,7 +235,7 @@ foreach ($entry in $entries) {
         }
     }
 }
-# `cba_cell_family_plane` binary-searches this table, so it MUST be sorted in
+# `cbs_cell_family_plane` binary-searches this table, so it MUST be sorted in
 # encoded UTF-8 byte order. Culture-aware sorting can reorder punctuation and
 # silently break the lookup for families that land on the wrong side.
 $cellFamilyNames = @($cellFamilyPlaneByFamily.Keys | ForEach-Object { [string]$_ })
@@ -293,14 +293,14 @@ foreach ($category in $categories) {
 & $add "    Custom,"
 & $add "}"
 & $add ""
-& $add "/// Closed CBA plane assigned to a registered cell family."
+& $add "/// Closed CBS plane assigned to a registered cell family."
 & $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum CbaEffectPlane {"
+& $add "pub enum CbsEffectPlane {"
 & $add "    Data,"
 & $add "    Control,"
 & $add "}"
 & $add ""
-& $add "impl CbaEffectPlane {"
+& $add "impl CbsEffectPlane {"
 & $add "    pub const fn as_str(self) -> &'static str {"
 & $add "        match self {"
 & $add '            Self::Data => "data",'
@@ -545,11 +545,11 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub derived_members_rule: Option<EventCellRule>,"
 & $add "}"
 & $add ""
-& $add "/// Registry-owned CBA plane for one cell family."
+& $add "/// Registry-owned CBS plane for one cell family."
 & $add "#[derive(Clone, Copy, Debug, PartialEq, Eq)]"
 & $add "pub struct CellFamilyPlaneDescriptor {"
 & $add "    pub cell_family: &'static str,"
-& $add "    pub plane: CbaEffectPlane,"
+& $add "    pub plane: CbsEffectPlane,"
 & $add "}"
 & $add ""
 & $add "/// Complete generated metadata for one active standard event kind."
@@ -571,7 +571,7 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub value_projection_rule: Option<EventCellRule>,"
 & $add "    pub lattice: Option<&'static str>,"
 & $add "    pub bottom: Option<&'static str>,"
-& $add "    plane: Option<CbaEffectPlane>,"
+& $add "    plane: Option<CbsEffectPlane>,"
 & $add "    pub sealed: bool,"
 & $add "}"
 & $add ""
@@ -684,22 +684,22 @@ foreach ($e in $entries) {
 & $add "            .is_some_and(|descriptor| descriptor.reducer_input)"
 & $add "    }"
 & $add ""
-& $add "    /// Registry-declared CBA plane for reducer-input kinds."
+& $add "    /// Registry-declared CBS plane for reducer-input kinds."
 & $add "    ///"
 & $add "    /// Non-reducer and unknown kinds return ``None``. The generator rejects"
 & $add "    /// any registered reducer-input kind without exactly one closed plane."
-& $add "    pub fn cba_plane(&self) -> Option<CbaEffectPlane> {"
+& $add "    pub fn cbs_plane(&self) -> Option<CbsEffectPlane> {"
 & $add "        self.descriptor().and_then(|descriptor| descriptor.plane)"
 & $add "    }"
 & $add ""
 & $add "    /// Whether the registry declares this reducer-input kind on the Data plane."
 & $add "    pub fn is_data_plane(&self) -> bool {"
-& $add "        self.cba_plane() == Some(CbaEffectPlane::Data)"
+& $add "        self.cbs_plane() == Some(CbsEffectPlane::Data)"
 & $add "    }"
 & $add ""
 & $add "    /// Whether the registry declares this reducer-input kind on the Control plane."
 & $add "    pub fn is_control_plane(&self) -> bool {"
-& $add "        self.cba_plane() == Some(CbaEffectPlane::Control)"
+& $add "        self.cbs_plane() == Some(CbsEffectPlane::Control)"
 & $add "    }"
 & $add "}"
 & $add ""
@@ -813,20 +813,20 @@ foreach ($e in $entries) {
 }
 & $add "];"
 & $add ""
-& $add "/// Return the registry-owned CBA plane for a cell family."
-& $add "pub fn cba_cell_family_plane(cell_family: &str) -> Option<CbaEffectPlane> {"
+& $add "/// Return the registry-owned CBS plane for a cell family."
+& $add "pub fn cbs_cell_family_plane(cell_family: &str) -> Option<CbsEffectPlane> {"
 & $add "    CELL_FAMILY_PLANE_DESCRIPTORS"
 & $add "        .binary_search_by_key(&cell_family, |descriptor| descriptor.cell_family)"
 & $add "        .ok()"
 & $add "        .map(|index| CELL_FAMILY_PLANE_DESCRIPTORS[index].plane)"
 & $add "}"
 & $add ""
-& $add "/// Unique registered cell families and their CBA planes, sorted by family."
+& $add "/// Unique registered cell families and their CBS planes, sorted by family."
 & $add "pub const CELL_FAMILY_PLANE_DESCRIPTORS: &[CellFamilyPlaneDescriptor] = &["
 foreach ($entry in $cellFamilyPlanes) {
     & $add "    CellFamilyPlaneDescriptor {"
     & $add "        cell_family: CellFamilyId::$($entry.AssociatedName),"
-    & $add "        plane: CbaEffectPlane::$($entry.PlaneVariant),"
+    & $add "        plane: CbsEffectPlane::$($entry.PlaneVariant),"
     & $add "    },"
 }
 & $add "];"
@@ -852,7 +852,7 @@ foreach ($e in $entries) {
     $plane = if ($null -eq $e.Plane) {
         "None"
     } else {
-        "Some(CbaEffectPlane::$(ConvertTo-SimpleVariant -Value $e.Plane))"
+        "Some(CbsEffectPlane::$(ConvertTo-SimpleVariant -Value $e.Plane))"
     }
     $sealed = if ($e.Sealed) { "true" } else { "false" }
     $concurrencyClass = if ($null -eq $e.ConcurrencyClass) { "None" } else { "Some(`"$($e.ConcurrencyClass)`")" }
@@ -930,7 +930,7 @@ foreach ($e in $entries) {
 & $add "            }"
 & $add "            for cell_family in families {"
 & $add "                assert_eq!("
-& $add "                    cba_cell_family_plane(cell_family),"
+& $add "                    cbs_cell_family_plane(cell_family),"
 & $add "                    descriptor.plane,"
 & $add '                    "cell family {cell_family} drifted from its event descriptor",'
 & $add "                );"
@@ -942,9 +942,9 @@ foreach ($e in $entries) {
 & $add "    fn every_reducer_input_has_exactly_one_typed_plane() {"
 & $add "        for kind in EventKind::ALL {"
 & $add "            let descriptor = kind.descriptor().expect(`"registered kind`");"
-& $add "            assert_eq!(kind.cba_plane().is_some(), descriptor.reducer_input, `"{}`", kind.as_str());"
-& $add "            assert_eq!(kind.is_data_plane(), kind.cba_plane() == Some(CbaEffectPlane::Data));"
-& $add "            assert_eq!(kind.is_control_plane(), kind.cba_plane() == Some(CbaEffectPlane::Control));"
+& $add "            assert_eq!(kind.cbs_plane().is_some(), descriptor.reducer_input, `"{}`", kind.as_str());"
+& $add "            assert_eq!(kind.is_data_plane(), kind.cbs_plane() == Some(CbsEffectPlane::Data));"
+& $add "            assert_eq!(kind.is_control_plane(), kind.cbs_plane() == Some(CbsEffectPlane::Control));"
 & $add "            assert!(!(kind.is_data_plane() && kind.is_control_plane()));"
 & $add "        }"
 & $add "    }"

@@ -1,5 +1,5 @@
 //! Executable consumer for the spec fixture
-//! `fixtures/cba-lattice-fixture.json`.
+//! `fixtures/cbs-lattice-fixture.json`.
 //!
 //! Coverage split (mirrors the fixture's own `lattice_round_trip` metadata):
 //!
@@ -7,7 +7,7 @@
 //!   join semantics are implemented directly by [`arkret_state::lattice`]. This test executes every
 //!   declared assertion of those cases against the SDK lattice types, so a join-semantics drift
 //!   fails in the SDK's own CI.
-//! * Most `vectors` entries are dual-plane CBA scenarios (DataEvent vs control Move, seal coverage,
+//! * Most `vectors` entries are dual-plane CBS scenarios (DataEvent vs control Move, seal coverage,
 //!   quarantine, notary faults). The cotest state-resolution harness remains their end-to-end
 //!   executable owner. The SDK also directly executes the conflict-recovery vector, because its
 //!   verifier and Seal/lattice materializer now own that normative behavior.
@@ -30,10 +30,10 @@ use arkret_wire::{
 };
 use serde_json::{Value, json};
 
-const FIXTURE_PATH: &str = "fixtures/cba-lattice-fixture.json";
+const FIXTURE_PATH: &str = "fixtures/cbs-lattice-fixture.json";
 
 fn fixture() -> Value {
-    spec_json_artifact(FIXTURE_PATH).expect("embedded cba-lattice fixture must load")
+    spec_json_artifact(FIXTURE_PATH).expect("embedded cbs-lattice fixture must load")
 }
 
 fn cell() -> CellRef {
@@ -942,10 +942,10 @@ fn lattice_round_trip_cases_execute_against_sdk_lattices() {
     );
 }
 
-/// Inventory gate over the dual-plane CBA scenario vectors plus the actor-chain
+/// Inventory gate over the dual-plane CBS scenario vectors plus the actor-chain
 /// Realm-scoping vector carried by the same fixture. Their
 /// full semantics (DataEvent vs control Move planes, seal coverage,
-/// quarantine, notary faults) require the CBA reducer + seal pipeline and
+/// quarantine, notary faults) require the CBS reducer + seal pipeline and
 /// are executed by the cotest state-resolution harness; the SDK pins the
 /// vector inventory and the invariants it CAN check so fixture renames or
 /// shape changes surface here.
@@ -954,11 +954,11 @@ fn dual_plane_vector_inventory_is_pinned() {
     let fixture = fixture();
     assert_eq!(
         fixture["profile"].as_str(),
-        Some("ak.vector_group.cba_lattice.v1")
+        Some("ak.vector_group.cbs_lattice.v1")
     );
     let vectors = fixture["vectors"]
         .as_array()
-        .expect("cba-lattice fixture missing vectors");
+        .expect("cbs-lattice fixture missing vectors");
     assert!(
         vectors.len() >= 16,
         "dual-plane vector inventory shrank: {}",
@@ -969,13 +969,13 @@ fn dual_plane_vector_inventory_is_pinned() {
             .as_str()
             .expect("dual-plane vector missing vector_id");
         assert!(
-            vector_id.starts_with("ak.vector.cba_lattice.")
+            vector_id.starts_with("ak.vector.cbs_lattice.")
                 || vector_id == "ak.vector.actor_chain.realm_scope.v1"
                 || vector_id == "ak.vector.seal.same_batch_bottom_reject_serialization.v1"
                 // Genesis state_root closure: the receiver projects all four
                 // registered ak.realm.create writes from its payload, and every
                 // cell_subject: null family uses the literal `null` wire
-                // segment. Both land in the CBA lattice fixture because they are
+                // segment. Both land in the CBS lattice fixture because they are
                 // state_root leaf-set invariants, not per-domain reducer
                 // behaviour.
                 || vector_id == "ak.vector.event_kind.realm_create_projection_closure.v1"
@@ -1024,7 +1024,7 @@ fn dual_plane_vector_inventory_is_pinned() {
             "{vector_id} carries no executable expectation"
         );
         // Every embedded event must carry a plane marker consistent with the
-        // CBA dual-plane notes (data / control) when present.
+        // CBS dual-plane notes (data / control) when present.
         if let Some(event) = vector.get("event")
             && let Some(plane) = event.get("plane").and_then(Value::as_str)
         {
@@ -1046,7 +1046,7 @@ fn cas_recovery_fixture_leaves_bottom_with_the_signed_value() {
         .unwrap()
         .iter()
         .find(|vector| {
-            vector["vector_id"].as_str() == Some("ak.vector.cba_lattice.conflict_recovery_move.v1")
+            vector["vector_id"].as_str() == Some("ak.vector.cbs_lattice.conflict_recovery_move.v1")
         })
         .expect("conflict-recovery vector must exist");
     let target = CellRef::new(vector["cas_register_recovery"]["cell"].as_str().unwrap()).unwrap();

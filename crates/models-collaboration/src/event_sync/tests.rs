@@ -518,7 +518,7 @@ fn federation_request(events: Vec<Event>) -> EventsSubmitFederationBatchRequestB
             destination_kind: "station".to_owned(),
         },
         events: events.into_iter().map(federation_submission).collect(),
-        cba_proof_bundles: Vec::new(),
+        cbs_proof_bundles: Vec::new(),
     }
 }
 
@@ -615,15 +615,15 @@ fn federation_transport_enforces_event_limit_and_header_only_idempotency() {
 
 #[test]
 fn federation_transport_seal_closure_is_rooted_at_control_basis_leaves() {
-    // The federation body no longer carries a bare `seals[]`: CBA
-    // prerequisites travel inside `cba_proof_bundles`, and the closure rule
+    // The federation body no longer carries a bare `seals[]`: CBS
+    // prerequisites travel inside `cbs_proof_bundles`, and the closure rule
     // is unchanged — every disclosed Seal must be reachable from a
     // transported DataEvent `seal_ref` or Control Move `seal_basis` leaf.
     let seal = federation_prerequisite_seal();
     let control = control_move_over(&seal);
 
     let mut request = federation_request(vec![control]);
-    request.cba_proof_bundles = vec![CbaProofBundle {
+    request.cbs_proof_bundles = vec![CbsProofBundle {
         target_seal_ref: seal.id.clone(),
         seals: vec![seal],
         control_moves: Vec::new(),
@@ -641,7 +641,7 @@ fn federation_transport_rejects_a_seal_no_transported_event_roots() {
     // reachable from any transported Event is unrelated disclosure.
     let seal = federation_prerequisite_seal();
     let mut request = federation_request(vec![event_with_device_proof()]);
-    request.cba_proof_bundles = vec![CbaProofBundle {
+    request.cbs_proof_bundles = vec![CbsProofBundle {
         target_seal_ref: seal.id.clone(),
         seals: vec![seal],
         control_moves: Vec::new(),

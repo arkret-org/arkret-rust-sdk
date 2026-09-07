@@ -110,7 +110,7 @@ pub struct RealmPreauthPolicy {
     /// When true, every invite into this Realm MUST pass the holder consent
     /// admission gate in `identity/consent-model.md` §6.1 before the invite
     /// Control Move is submitted. It MUST NOT be read as permission for a
-    /// cross-Realm CBA precondition.
+    /// cross-Realm CBS precondition.
     pub consent_required: bool,
 }
 

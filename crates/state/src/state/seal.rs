@@ -176,7 +176,7 @@ impl From<super::store::StoreError> for SealReject {
     }
 }
 
-/// Apply a Seal under an explicit CBA envelope context.
+/// Apply a Seal under an explicit CBS envelope context.
 ///
 /// `AnchorUnit` is only valid for a first Seal after the caller has validated
 /// the complete closed anchor unit. This layer cannot own that registry-backed
@@ -293,7 +293,7 @@ where
 /// Apply a retained Seal whose Events may use either the historical
 /// sole-Producer direct regime or the Producer + Admission federation regime.
 /// The selected structural contract is derived from each exact Event proof
-/// set; all remaining CBA, reducer, recovery, and state-root checks are shared.
+/// set; all remaining CBS, reducer, recovery, and state-root checks are shared.
 #[allow(clippy::too_many_arguments)]
 pub async fn apply_replayed_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,

@@ -1,4 +1,4 @@
-//! Bounded decisions for acknowledged CBA Control Move proposals.
+//! Bounded decisions for acknowledged CBS Control Move proposals.
 //!
 //! A Control Proposal Ack commits the first decision deadline and an immutable
 //! absolute deadline. Signed reject and signed defer are verifiable authority
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Result, WireError};
 use crate::notary::NotaryValue;
 use crate::{
-    AuthorizationLease, CbaProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
+    AuthorizationLease, CbsProofBundle, Did, Event, EventSubmitContext, Hash, PayloadSignature,
     PayloadSigner, RealmId, SealId, canonical,
 };
 
@@ -129,7 +129,7 @@ pub struct ControlProposalAckIssueRequest {
     pub event: Event,
     pub authorization_lease: AuthorizationLease,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cba_proof_bundles: Vec<CbaProofBundle>,
+    pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -245,12 +245,12 @@ impl ControlProposalAckIssueRequest {
                 "Control Proposal Ack authorization lease does not bind the Event".to_owned(),
             ));
         }
-        if self.cba_proof_bundles.len() > 64 {
+        if self.cbs_proof_bundles.len() > 64 {
             return Err(WireError::Protocol(
-                "Control Proposal Ack issuance exceeds 64 CBA proof bundles".to_owned(),
+                "Control Proposal Ack issuance exceeds 64 CBS proof bundles".to_owned(),
             ));
         }
-        for bundle in &self.cba_proof_bundles {
+        for bundle in &self.cbs_proof_bundles {
             bundle.validate_structural()?;
         }
         Ok(())
