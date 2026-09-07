@@ -3,7 +3,75 @@ use arkret_models_crypto::{
     EncryptedEnvelope, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
 };
 use arkret_schema_conformance::{event_payload_validator_catalog, spec_json_artifact};
-use arkret_wire::{EventId, Hash, ProfileId, RealmId};
+use arkret_wire::{EncryptedPayloadScheme, EventId, Hash, ProfileId, RealmId, ScopeRef};
+
+fn encrypted_envelope_wire() -> serde_json::Value {
+    serde_json::json!({
+        "version": "1.0",
+        "content_type": "application/vnd.arkret.strand.patch-value+json",
+        "encryption_context": {
+            "epoch": 1,
+            "group_state_ref": EventId::from_event_digest(
+                &Hash::new(canonical::sha256_digest(b"winning-state")).unwrap()
+            ).unwrap()
+        },
+        "ciphertext": "AA"
+    })
+}
+
+#[test]
+fn encrypted_envelope_wire_preserves_scheme_branch_and_full_width_counter() {
+    for counter in [None, Some(0), Some(1), Some(u64::MAX)] {
+        let mut wire = encrypted_envelope_wire();
+        if let Some(counter) = counter {
+            wire["encryption_context"]["counter"] = counter.into();
+        }
+        let decoded: EncryptedEnvelope = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(decoded.encryption_context.counter(), counter);
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), wire);
+        let scope = ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
+                .unwrap(),
+        };
+        let scheme = if counter.is_some() {
+            EncryptedPayloadScheme::MlsExporterAeadV1
+        } else {
+            EncryptedPayloadScheme::MlsRfc9420
+        };
+        let header = decoded
+            .reconstruct_pre_encryption_header(
+                scheme,
+                scope,
+                "ak.strand.update",
+                "sender.example",
+                None,
+            )
+            .unwrap();
+        assert_eq!(header.counter, counter);
+    }
+}
+
+#[test]
+fn encrypted_envelope_invalid_counter_cannot_fall_back_to_standard_mls() {
+    for invalid in [
+        serde_json::Value::Null,
+        serde_json::json!("0"),
+        serde_json::json!(-1),
+        serde_json::json!(0.5),
+    ] {
+        let mut wire = encrypted_envelope_wire();
+        wire["encryption_context"]["counter"] = invalid;
+        assert!(serde_json::from_value::<EncryptedEnvelope>(wire).is_err());
+    }
+    for counter in [None, Some(0)] {
+        let mut wire = encrypted_envelope_wire();
+        if let Some(counter) = counter {
+            wire["encryption_context"]["counter"] = counter.into();
+        }
+        wire["encryption_context"]["unknown"] = true.into();
+        assert!(serde_json::from_value::<EncryptedEnvelope>(wire).is_err());
+    }
+}
 
 fn encoding_vector(vector_id: &str) -> serde_json::Value {
     let fixture = spec_json_artifact("fixtures/encoding-fixture.json").unwrap();

@@ -28,7 +28,7 @@ pub use self_principal::{
 };
 pub use self_principal_seal::{
     build_self_principal_bootstrap_seal, build_self_principal_event_seal,
-    build_self_principal_first_successor_seal, build_self_principal_linear_successor_seal,
+    build_self_principal_linear_successor_seal,
 };
 
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";

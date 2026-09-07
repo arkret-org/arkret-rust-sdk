@@ -1670,6 +1670,9 @@ mod tests {
         let plaintext = br#"{"body":"hello encrypted discussion"}"#;
         let payload = group.encrypt_payload(header.clone(), plaintext).unwrap();
         let envelope = encrypted_envelope_from_payload(&payload).unwrap();
+        let wire = serde_json::to_vec(&envelope).unwrap();
+        let envelope: arkret_models_crypto::EncryptedEnvelope =
+            serde_json::from_slice(&wire).unwrap();
 
         // Conformance with ak.schema.encrypted_envelope.v1: the wire is the
         // minimal four-field object and does not duplicate reconstructible
@@ -1797,12 +1800,43 @@ mod tests {
         assert_eq!(payload.scheme, EncryptedPayloadScheme::MlsExporterAeadV1);
 
         let envelope = encrypted_envelope_from_payload(&payload).unwrap();
+        let wire = serde_json::to_vec(&envelope).unwrap();
+        let envelope: arkret_models_crypto::EncryptedEnvelope =
+            serde_json::from_slice(&wire).unwrap();
         assert!(matches!(
             envelope.encryption_context,
             EncryptedEnvelopeEncryptionContext::ExporterMls { .. }
         ));
         assert_eq!(envelope.encryption_context.counter(), payload.counter);
         envelope.validate().unwrap();
+        let original_header = &payload.pre_encryption_header;
+        let header = envelope
+            .reconstruct_pre_encryption_header(
+                payload.scheme.clone(),
+                original_header.effective_scope.clone(),
+                original_header.event_kind.clone(),
+                original_header.sender_domain.clone(),
+                None,
+            )
+            .unwrap();
+        assert_eq!(&header, original_header);
+        let decoded =
+            encrypted_envelope_to_payload_with_verified_header(&envelope, header).unwrap();
+        assert_eq!(decoded.payload_digest, payload.payload_digest);
+        let history_secret = group
+            .derive_and_retain_history_secret(HISTORY_REALM)
+            .unwrap();
+        let ciphertext =
+            arkret_canonical::base64url::base64url_decode(&decoded.ciphertext).unwrap();
+        let plaintext = group
+            .decrypt_content_exporter_aead(
+                &history_secret,
+                HISTORY_SENDER_DEVICE.as_bytes(),
+                &decoded.pre_encryption_header,
+                &ciphertext,
+            )
+            .unwrap();
+        assert_eq!(plaintext, b"hello encrypted history");
     }
 
     #[test]

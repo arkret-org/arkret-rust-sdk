@@ -434,6 +434,7 @@ fn realm_seal_frontier_distinguishes_protocol_bounds_from_exact_policy() {
     let health = ControlGovernanceHealth {
         status: ControlGovernanceHealthStatus::Healthy,
         pending_proposals: vec![PendingControlProposal {
+            device_revocation_state: None,
             decision_state: ControlProposalDecisionState::Pending,
             fault_reason: None,
             control_proposal_ack: ack,
@@ -460,6 +461,45 @@ fn realm_seal_frontier_distinguishes_protocol_bounds_from_exact_policy() {
     frontier
         .validate_with_policy(ControlProposalDecisionPolicy::default())
         .expect("the same frontier matches the effective default Realm policy");
+    let mut revocation_health = frontier.governance_health.clone();
+    let pending = &mut revocation_health.pending_proposals[0];
+    let ack = &pending.control_proposal_ack;
+    pending.device_revocation_state = Some(arkret_wire::DeviceRevocationPendingState {
+        schema: arkret_wire::DeviceRevocationStateSchema::V1,
+        account_id: AccountId::new(
+            "ak:did_core:web:alice.example".parse().unwrap(),
+            "ak:did_core:web:server.test".parse().unwrap(),
+        ),
+        device_id: "ak:device:01904100-0000-7000-8000-000000000001"
+            .parse()
+            .unwrap(),
+        target_device_authorize_event_id: EventId::from_digest(DigestSuite::Sha256, [9; 32]),
+        target_device_generation_ref: 1,
+        proposal_event_id: EventId::from_event_digest(&ack.proposal_digest).unwrap(),
+        accepted_at: ack.received_at,
+        acceptance_seq: 1,
+        control_proposal_ack: ack.clone(),
+        status: arkret_wire::DeviceRevocationPendingStatus::RevocationPending,
+        decision_state: arkret_wire::DeviceRevocationDecisionState::Pending,
+        denied_actions: arkret_wire::DEVICE_REVOCATION_DENIED_ACTIONS,
+        decisions: None,
+        fault_reason: None,
+    });
+    revocation_health.validate_protocol_bounds().unwrap();
+    let roundtrip: ControlGovernanceHealth =
+        serde_json::from_value(serde_json::to_value(&revocation_health).unwrap()).unwrap();
+    assert_eq!(roundtrip, revocation_health);
+    let revocation = revocation_health.pending_proposals[0]
+        .device_revocation_state
+        .as_mut()
+        .unwrap();
+    revocation.decision_state = arkret_wire::DeviceRevocationDecisionState::Overdue;
+    revocation.fault_reason =
+        Some(arkret_wire::DeviceRevocationFaultReason::ControlProposalDecisionOverdue);
+    assert!(
+        revocation_health.validate_protocol_bounds().is_err(),
+        "nested revocation cannot contradict the outer snapshot"
+    );
     assert!(
         frontier
             .validate_with_policy(ControlProposalDecisionPolicy::protocol_maximum())

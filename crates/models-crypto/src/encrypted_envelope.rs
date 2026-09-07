@@ -157,7 +157,7 @@ impl EventContentPreEncryptionHeader {
 /// on the wire.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum EncryptedEnvelopeEncryptionContext {
     StandardMls {
         epoch: u64,

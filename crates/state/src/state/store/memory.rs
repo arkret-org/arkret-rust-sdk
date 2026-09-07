@@ -67,6 +67,7 @@ struct MemoryControlSealSchedule {
     claim_until_ms: Option<i64>,
     consecutive_failures: u32,
     last_outcome: Option<String>,
+    scan_cursor: Option<Hash>,
 }
 
 impl MemoryControlEventStore {
@@ -121,6 +122,7 @@ impl MemoryControlEventStore {
                 claim_until_ms: None,
                 consecutive_failures: 0,
                 last_outcome: None,
+                scan_cursor: None,
             });
         if generation > schedule.generation {
             schedule.generation = generation;
@@ -552,11 +554,15 @@ impl ControlEventStore for MemoryControlEventStore {
                 .control_seal_schedule
                 .get_mut(&realm_id)
                 .expect("selected Control Seal schedule exists");
+            let isolate_candidates =
+                schedule.consecutive_failures > 0 || schedule.claim_holder.is_some();
             schedule.claim_fence = schedule.claim_fence.saturating_add(1);
             schedule.claim_holder = Some(holder.to_owned());
             schedule.claim_until_ms = Some(claim_until_ms);
             schedule.last_attempt_at_ms = Some(now_ms);
             claims.push(ControlSealScheduleClaim {
+                scan_cursor: schedule.scan_cursor.clone(),
+                isolate_candidates,
                 realm_id,
                 generation: schedule.generation,
                 holder: holder.to_owned(),
@@ -566,6 +572,39 @@ impl ControlEventStore for MemoryControlEventStore {
             });
         }
         Ok(claims)
+    }
+
+    async fn advance_control_seal_scan(
+        &self,
+        claim: &ControlSealScheduleClaim,
+        cursor: Option<&Hash>,
+        observed_at_ms: i64,
+    ) -> StoreResult<bool> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(cursor) = cursor
+            && inner
+                .events
+                .get(cursor.as_str())
+                .is_none_or(|event| event.realm_id != claim.realm_id)
+        {
+            return Ok(false);
+        }
+        let Some(schedule) = inner.control_seal_schedule.get_mut(&claim.realm_id) else {
+            return Ok(false);
+        };
+        if schedule.claim_holder.as_deref() != Some(claim.holder.as_str())
+            || schedule.claim_fence != claim.fence
+            || schedule
+                .claim_until_ms
+                .is_none_or(|until| until <= observed_at_ms)
+        {
+            return Ok(false);
+        }
+        schedule.scan_cursor = cursor.cloned();
+        Ok(true)
     }
 
     async fn complete_control_seal_attempt(
@@ -2230,6 +2269,13 @@ mod tests {
             .pop()
             .unwrap();
         assert_eq!(first_claim.generation, 1);
+        let first_digest = control_event_digest(&first, SUITE).unwrap();
+        assert!(
+            store
+                .advance_control_seal_scan(&first_claim, Some(&first_digest), 101)
+                .await
+                .unwrap()
+        );
 
         let second = control_move(2);
         store
@@ -2254,6 +2300,13 @@ mod tests {
             .pop()
             .unwrap();
         assert_eq!(second_claim.generation, 2);
+        assert_eq!(second_claim.scan_cursor, Some(first_digest.clone()));
+        assert!(
+            !store
+                .advance_control_seal_scan(&first_claim, None, 201)
+                .await
+                .unwrap()
+        );
         assert_eq!(second_claim.fence, 2);
         assert_eq!(
             store
@@ -2266,6 +2319,79 @@ mod tests {
                 .unwrap(),
             ControlSealAttemptCompletion::StaleClaim
         );
+    }
+
+    #[tokio::test]
+    async fn control_seal_scan_visits_ten_thousand_pending_items_despite_failed_pages() {
+        let store = MemoryControlEventStore::default();
+        for seq in 1..=10_000 {
+            store
+                .put_pending_with_ingress(&control_move(seq), &ackless_ingress(), SUITE)
+                .await
+                .unwrap();
+        }
+        let mut seen = BTreeSet::new();
+        let mut now_ms = 1_000;
+        while seen.len() < 10_000 {
+            let claim = store
+                .claim_due_control_seal_realms("worker", now_ms, now_ms + 1_000, 1)
+                .await
+                .unwrap()
+                .pop()
+                .unwrap();
+            let page = store
+                .list_pending_for_notary(&realm(), claim.scan_cursor.as_ref(), 128)
+                .await
+                .unwrap();
+            assert!(
+                !page.is_empty(),
+                "finite backlog must advance before wrapping"
+            );
+            for event in &page {
+                assert!(seen.insert(event.event_id.clone()));
+            }
+            let last = page.last().unwrap().event_id.event_digest();
+            assert!(
+                store
+                    .advance_control_seal_scan(&claim, Some(&last), now_ms + 1)
+                    .await
+                    .unwrap()
+            );
+            assert!(
+                !store
+                    .advance_control_seal_scan(&claim, None, now_ms + 1_000)
+                    .await
+                    .unwrap()
+            );
+            store
+                .complete_control_seal_attempt(
+                    &claim,
+                    &ControlSealAttemptOutcome::SigningFailed,
+                    now_ms + 2,
+                )
+                .await
+                .unwrap();
+            now_ms += 61_000;
+        }
+        let claim = store
+            .claim_due_control_seal_realms("restarted-worker", now_ms, now_ms + 1_000, 1)
+            .await
+            .unwrap()
+            .pop()
+            .unwrap();
+        assert!(
+            store
+                .list_pending_for_notary(&realm(), claim.scan_cursor.as_ref(), 128)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let wrapped = store
+            .list_pending_for_notary(&realm(), None, 128)
+            .await
+            .unwrap();
+        assert_eq!(wrapped.len(), 128);
+        assert!(wrapped.iter().all(|event| seen.contains(&event.event_id)));
     }
 
     #[tokio::test]
@@ -2304,6 +2430,7 @@ mod tests {
             .unwrap()
             .pop()
             .unwrap();
+        assert!(!first.isolate_candidates);
         assert_eq!(
             store.control_seal_schedule_stats(199).await.unwrap(),
             ControlSealScheduleStats {
@@ -2340,6 +2467,7 @@ mod tests {
             .pop()
             .unwrap();
         assert_eq!(replacement.fence, first.fence + 1);
+        assert!(replacement.isolate_candidates);
         let reclaimed_stats = store.control_seal_schedule_stats(200).await.unwrap();
         assert_eq!(reclaimed_stats.claimed, 1);
         assert_eq!(reclaimed_stats.expired_claims, 0);
@@ -2354,6 +2482,38 @@ mod tests {
                 .unwrap(),
             ControlSealAttemptCompletion::StaleClaim
         );
+    }
+
+    #[tokio::test]
+    async fn control_seal_schedule_timeout_isolates_until_progress_resumes() {
+        let store = MemoryControlEventStore::default();
+        store
+            .put_pending_with_ingress(&control_move(1), &ackless_ingress(), SUITE)
+            .await
+            .unwrap();
+        let mut now = 100;
+        for (expected_isolation, outcome) in [
+            (false, ControlSealAttemptOutcome::PassTimedOut),
+            (true, ControlSealAttemptOutcome::SigningFailed),
+            (true, ControlSealAttemptOutcome::ProgressPublished),
+            (false, ControlSealAttemptOutcome::NoAcceptedMoves),
+        ] {
+            let claim = store
+                .claim_due_control_seal_realms("worker", now, now + 1_000, 1)
+                .await
+                .unwrap()
+                .pop()
+                .unwrap();
+            assert_eq!(claim.isolate_candidates, expected_isolation);
+            assert_eq!(
+                store
+                    .complete_control_seal_attempt(&claim, &outcome, now)
+                    .await
+                    .unwrap(),
+                ControlSealAttemptCompletion::Applied
+            );
+            now += 61_000;
+        }
     }
 
     #[tokio::test]

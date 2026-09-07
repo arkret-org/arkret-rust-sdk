@@ -359,6 +359,8 @@ pub struct PendingControlProposal {
     pub decision_state: ControlProposalDecisionState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fault_reason: Option<ControlProposalFaultReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_revocation_state: Option<arkret_wire::DeviceRevocationPendingState>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -405,6 +407,28 @@ impl ControlGovernanceHealth {
         let mut previous_key: Option<(DateTime<Utc>, &str)> = None;
         let mut has_overdue = false;
         for pending in &self.pending_proposals {
+            if let Some(revocation) = &pending.device_revocation_state {
+                revocation.validate()?;
+                let decision_state = match revocation.decision_state {
+                    arkret_wire::DeviceRevocationDecisionState::Pending => {
+                        ControlProposalDecisionState::Pending
+                    }
+                    arkret_wire::DeviceRevocationDecisionState::Deferred => {
+                        ControlProposalDecisionState::Deferred
+                    }
+                    arkret_wire::DeviceRevocationDecisionState::Overdue => {
+                        ControlProposalDecisionState::Overdue
+                    }
+                };
+                if revocation.control_proposal_ack != pending.control_proposal_ack
+                    || revocation.decisions.as_deref().unwrap_or_default() != pending.decisions
+                    || decision_state != pending.decision_state
+                {
+                    return Err(WireError::Protocol(
+                        "pending device revocation must match its enclosing proposal".to_owned(),
+                    ));
+                }
+            }
             if let Some(policy) = policy {
                 pending.control_proposal_ack.validate_structural(policy)?;
             } else {

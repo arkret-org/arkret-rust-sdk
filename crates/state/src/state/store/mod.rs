@@ -176,6 +176,10 @@ pub struct ControlSealScheduleClaim {
     pub fence: u64,
     pub claimed_at_ms: i64,
     pub claim_until_ms: i64,
+    pub scan_cursor: Option<Hash>,
+    /// A failed or interrupted attempt must probe individual ordinary
+    /// candidates before returning to batching; Genesis remains indivisible.
+    pub isolate_candidates: bool,
 }
 
 /// Durable classification of one bounded Control Seal attempt.
@@ -391,6 +395,15 @@ pub trait ControlEventStore: Send + Sync {
         outcome: &ControlSealAttemptOutcome,
         observed_at_ms: i64,
     ) -> StoreResult<ControlSealAttemptCompletion>;
+
+    /// Persist page progress before attempting work. Expired or replaced
+    /// claims cannot move the cursor; newer ingress does not reset progress.
+    async fn advance_control_seal_scan(
+        &self,
+        claim: &ControlSealScheduleClaim,
+        cursor: Option<&Hash>,
+        observed_at_ms: i64,
+    ) -> StoreResult<bool>;
 
     /// Run one bounded page of the always-on repair scan over authoritative
     /// pending Event state.
