@@ -106,7 +106,7 @@ jobs:
 
       - name: Preserve train evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: compatibility-train-${{ inputs.phase }}-${{ inputs.run_id }}
           path: train-evidence/
