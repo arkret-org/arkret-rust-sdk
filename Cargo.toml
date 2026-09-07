@@ -136,7 +136,7 @@ hmac = { version = "0.13.0", default-features = false }
 # already pulled in by the OpenMLS stack, so this adds no new version churn.
 hpke = { version = "0.14", default-features = false, features = ["alloc", "chacha", "getrandom", "x25519"] }
 idna = { version = "1.1.0", default-features = true }
-jsonschema = { version = "0.52.1", default-features = false }
+jsonschema = { version = "0.53.0", default-features = false }
 # Use the latest stable, mutually compatible OpenMLS releases from crates.io.
 openmls = { version = "0.9.0", default-features = false }
 openmls_basic_credential = { version = "0.6.0", default-features = false }
