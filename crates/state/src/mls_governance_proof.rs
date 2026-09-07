@@ -2636,8 +2636,7 @@ async fn verify_frontier_entry(
             state_value_leaf_digest(&entry.cell_id, value, digest_suite)?,
         )
     };
-    let value = &value;
-    if recomputed_leaf != witness.leaf_digest || canonical_hash(value)? != entry.value_digest {
+    if recomputed_leaf != witness.leaf_digest || canonical_hash(&value)? != entry.value_digest {
         return frontier_rejected("frontier value digest does not bind the state leaf value");
     }
     let provenance = entry
@@ -2662,7 +2661,7 @@ async fn verify_frontier_entry(
     let Some(CellState::Value(reduced)) = root_state.get(&entry.cell_id) else {
         return frontier_rejected("replayed root has no concrete value for the frontier cell");
     };
-    if reduced != value {
+    if reduced != &value {
         return frontier_rejected(
             "ordinary reducer projection disagrees with the signed state leaf",
         );
@@ -3260,12 +3259,60 @@ mod tests {
         );
     }
 
+    /// The leaf a `cas_register` cell actually contributes to `state_root` is
+    /// built from its active head set, so the witness preimage has to be too.
+    /// This test used to pin the opposite — a `{"value":…}` preimage for
+    /// `ak.component.member.state.v1`, which is a causal register — and that
+    /// is exactly the pairing the receiver reported as
+    /// `MLS governance Merkle leaf digest mismatch`.
     #[tokio::test]
-    async fn materializer_state_leaf_preimage_matches_state_root_contract() {
+    async fn materializer_leaf_preimage_of_a_causal_register_carries_its_heads() {
         let cell =
             CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
                 .unwrap();
         let value = json!({"accepted_event_id": "ak:event:one"});
+        let head = crate::lattice::cas_register::CasHead {
+            move_id: Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
+            value: value.clone(),
+        };
+        let heads = vec![head.clone()];
+
+        let cells = BTreeMap::from([(cell.clone(), CellState::Value(value.clone()))]);
+        let cas_heads = crate::CasHeadsByCell::from([(cell.clone(), heads.clone())]);
+        let view = crate::GovernanceView::new(&cells, &cas_heads);
+        let preimage = crate::state_leaf_canonical_preimage(view, &cell).unwrap();
+
+        let mut leaf_input = vec![0];
+        leaf_input.extend_from_slice(&preimage);
+        let emitted_leaf_digest =
+            Hash::new(arkret_canonical::digest(DigestSuite::Sha256, &leaf_input)).unwrap();
+        // A single-leaf `state_root` is that leaf's own `H(0x00 || preimage)`
+        // (§6.2.2), so this pins the witness bytes against the root the Seal
+        // signs rather than against a second copy of the same formula.
+        let contract_leaf_digest = crate::compute_state_root(view, DigestSuite::Sha256).unwrap();
+        assert_eq!(emitted_leaf_digest, contract_leaf_digest);
+        assert_ne!(
+            emitted_leaf_digest,
+            state_value_leaf_digest(&cell, &value, DigestSuite::Sha256).unwrap(),
+            "a head-shaped leaf must not collide with the value-shaped one"
+        );
+
+        // And the receiver recovers the same value from those heads.
+        let decoded: Value = serde_json::from_slice(&preimage).unwrap();
+        let recovered =
+            crate::causal_register_leaf_value(decoded.pointer("/state/heads").unwrap()).unwrap();
+        assert_eq!(recovered, value);
+    }
+
+    /// The other §6.2.1 shape, unchanged: a non-causal-register cell commits
+    /// its joined value.
+    #[tokio::test]
+    async fn materializer_leaf_preimage_of_an_ordinary_cell_carries_its_value() {
+        let cell = CellRef::new(
+            "ak:cell:ak.component.strand.metadata.v1:AQ9vwMrZNs64XfX4CVfhG2FPvja".to_owned(),
+        )
+        .unwrap();
+        let value = json!({"title": "one"});
 
         let cells = BTreeMap::from([(cell.clone(), CellState::Value(value.clone()))]);
         let cas_heads = crate::CasHeadsByCell::new();
@@ -3276,7 +3323,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             preimage,
-            br#"{"cell":"ak:cell:ak.component.member.state.v1:did.web.alice.example","state":{"value":{"accepted_event_id":"ak:event:one"}}}"#,
+            br#"{"cell":"ak:cell:ak.component.strand.metadata.v1:AQ9vwMrZNs64XfX4CVfhG2FPvja","state":{"value":{"title":"one"}}}"#,
         );
 
         let mut leaf_input = vec![0];
