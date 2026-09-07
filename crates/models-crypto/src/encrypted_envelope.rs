@@ -14,6 +14,36 @@ use serde_json::Value;
 /// Purpose fixed by `encryption-and-audit.md` §2.3 for both content schemes.
 pub const EVENT_CONTENT_ENCRYPTION_PURPOSE: &str = "arkret_event_content";
 
+/// Canonical JSON numbers are bounded by encoding.md §1. Nonce byte width
+/// does not enlarge the integer range of the envelope's JSON carrier.
+pub const MAX_EVENT_CONTENT_INTEGER: u64 = 9_007_199_254_740_991;
+
+mod content_integer {
+    use super::*;
+    pub fn serialize<S: serde::Serializer>(
+        value: &u64,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        if *value > MAX_EVENT_CONTENT_INTEGER {
+            return Err(serde::ser::Error::custom(
+                "content integer exceeds the canonical JSON range",
+            ));
+        }
+        serializer.serialize_u64(*value)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<u64, D::Error> {
+        let value = u64::deserialize(deserializer)?;
+        if value > MAX_EVENT_CONTENT_INTEGER {
+            return Err(serde::de::Error::custom(
+                "content integer exceeds the canonical JSON range",
+            ));
+        }
+        Ok(value)
+    }
+}
+
 /// Reaction-only routing fields carried by the minimal encrypted envelope.
 ///
 /// The reaction kind and hourly routing window are derived from the signed
@@ -160,14 +190,17 @@ impl EventContentPreEncryptionHeader {
 #[serde(untagged, deny_unknown_fields)]
 pub enum EncryptedEnvelopeEncryptionContext {
     StandardMls {
+        #[serde(with = "content_integer")]
         epoch: u64,
         group_state_ref: EventId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         routing_context: Option<EncryptedEnvelopeRoutingContext>,
     },
     ExporterMls {
+        #[serde(with = "content_integer")]
         epoch: u64,
         group_state_ref: EventId,
+        #[serde(with = "content_integer")]
         counter: u64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         routing_context: Option<EncryptedEnvelopeRoutingContext>,
@@ -242,6 +275,16 @@ pub struct EncryptedEnvelope {
 impl EncryptedEnvelope {
     pub const SCHEMA: &'static str = SchemaId::ENCRYPTED_ENVELOPE_V1;
     pub fn validate(&self) -> Result<()> {
+        if self.encryption_context.epoch() > MAX_EVENT_CONTENT_INTEGER
+            || self
+                .encryption_context
+                .counter()
+                .is_some_and(|counter| counter > MAX_EVENT_CONTENT_INTEGER)
+        {
+            return Err(WireError::Protocol(
+                "content integer exceeds the canonical JSON range".to_owned(),
+            ));
+        }
         if self.version != "1.0" {
             return Err(WireError::Protocol(
                 "encrypted envelope version must equal 1.0".to_owned(),

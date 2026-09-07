@@ -113,6 +113,24 @@ pub fn verify_device_projection_attestation(
         })
 }
 
+pub fn verify_device_projection_with_key_material(
+    attestation: &DeviceProjectionAttestation,
+    station_key: &crate::proof::PublicKeyMaterial,
+    at: DateTime<Utc>,
+) -> arkret_wire::Result<()> {
+    if at < attestation.attestation.attested_at {
+        return Err(arkret_wire::WireError::Protocol(
+            "device projection attestation is not yet effective".to_owned(),
+        ));
+    }
+    let bytes = station_key
+        .ed25519_bytes()
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+    let key = VerifyingKey::from_bytes(&bytes)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+    verify_device_projection_attestation(attestation, &key, at)
+}
+
 fn proof_controller(verification_method: &DidUrl) -> arkret_wire::Result<DidCoreId> {
     let (bare, _) = verification_method
         .as_str()
@@ -256,5 +274,43 @@ mod tests {
             .is_err(),
             "a cache must not extend the hard freshness bound"
         );
+    }
+
+    #[test]
+    fn historical_device_proof_uses_signed_time_and_exact_station_key() {
+        let signing_key = SigningKey::from_bytes(&[15_u8; 32]);
+        let core = core();
+        let at = core.attested_at;
+        let expiry = core.expires_at;
+        let attestation =
+            sign_device_projection_attestation(core, verification_method(), &signing_key).unwrap();
+        let material = crate::proof::PublicKeyMaterial::Ed25519Raw {
+            bytes: signing_key.verifying_key().to_bytes().to_vec(),
+        };
+        super::verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
+        assert!(
+            super::verify_device_projection_with_key_material(
+                &attestation,
+                &material,
+                at - chrono::Duration::seconds(1)
+            )
+            .is_err()
+        );
+        assert!(
+            super::verify_device_projection_with_key_material(&attestation, &material, expiry)
+                .is_err()
+        );
+        let foreign_key = crate::proof::PublicKeyMaterial::Ed25519Raw {
+            bytes: SigningKey::from_bytes(&[16_u8; 32])
+                .verifying_key()
+                .to_bytes()
+                .to_vec(),
+        };
+        assert!(
+            super::verify_device_projection_with_key_material(&attestation, &foreign_key, at)
+                .is_err()
+        );
+        // Replaying later uses the immutable response's signing instant, not wall time.
+        super::verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
     }
 }

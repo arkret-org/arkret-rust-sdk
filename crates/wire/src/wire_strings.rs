@@ -326,6 +326,7 @@ validated_wire_string!(
 
 fn is_authorization_ref(value: &str) -> bool {
     value == crate::REALM_AUTHORITY_ROOT_CELL
+        || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
         || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1
         || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()

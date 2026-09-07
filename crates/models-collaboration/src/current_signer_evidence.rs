@@ -222,6 +222,7 @@ impl CurrentSignerEvidenceQueryRequestBody {
 #[allow(clippy::large_enum_variant)]
 pub enum CurrentSignerEvidenceItem {
     AccountDevice {
+        signer_evidence_ref: arkret_wire::SignerEvidenceRef,
         account_id: AccountId,
         device_id: DeviceId,
         device_projection_attestation: DeviceProjectionAttestation,
@@ -274,6 +275,7 @@ impl CurrentSignerEvidenceItem {
                 account_id,
                 device_id,
                 device_projection_attestation,
+                ..
             } => {
                 let core = &device_projection_attestation.attestation;
                 if &core.account_id != account_id
@@ -370,6 +372,11 @@ fn validate_agent_dependency_closure(
     ) -> arkret_wire::Result<Vec<Hash>> {
         Ok(match evidence {
             AuthenticatedSignerResolutionEvidence::Service { .. } => Vec::new(),
+            AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+                return Err(WireError::Protocol(
+                    "device history evidence is not an Agent authority dependency".to_owned(),
+                ));
+            }
             AuthenticatedSignerResolutionEvidence::Principal {
                 attester_signer_evidence_ref,
                 ..

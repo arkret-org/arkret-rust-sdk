@@ -282,6 +282,9 @@ pub(crate) fn authenticated_document_key(
             )?;
             normalized_did_document.clone()
         }
+        AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+            return Err(WireError::Protocol("account device history evidence cannot authorize a document or Control Event signature".to_owned()));
+        }
         AuthenticatedSignerResolutionEvidence::Agent { .. } => {
             return Err(WireError::Protocol(
                 "Agent signer evidence requires the explicit historical-authority verifier"

@@ -770,7 +770,8 @@ impl Client {
     }
 
     /// Resolve one exact same-service governance dependency selector set.
-    /// Missing selectors are a hard failure for replay consumers.
+    /// Returns the validated partition of available and missing selectors.
+    /// Replay consumers must require their selected dependency closure in full.
     pub async fn governance_dependencies_resolve(
         &self,
         request: &SelfGovernanceDependencyResolveRequest,
@@ -780,11 +781,6 @@ impl Client {
             .post("/_arkret/self/seals/governance-dependencies", request)
             .await?;
         outcome.validate_for_self_request(request)?;
-        if !outcome.missing_selectors.is_empty() {
-            return Err(Error::Protocol(
-                "governance dependency resolution is incomplete".to_owned(),
-            ));
-        }
         Ok(outcome)
     }
 

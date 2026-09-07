@@ -228,7 +228,7 @@ pub struct ArkretMlsGroup {
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMemberResult {
-    pub proposal: MlsProposalEnvelope,
+    pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
     pub welcome: MlsWelcomeEnvelope,
 }
@@ -1138,10 +1138,11 @@ impl ArkretMlsGroup {
     /// state. This is the author-side input to the governance proof request;
     /// callers must not predict leaf positions from claim arrival order or by
     /// scanning for a locally assumed blank index.
-    pub fn preview_add_members_security_frontier(
+    pub fn preview_member_admission_security_frontier(
         &self,
         member_key_packages: &[MlsKeyPackageRecord],
         member_actor_ids: &[ActorId],
+        replace_existing_endpoints: bool,
     ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
         if member_key_packages.is_empty() || member_key_packages.len() != member_actor_ids.len() {
             return Err(Error::Protocol(
@@ -1152,12 +1153,23 @@ impl ArkretMlsGroup {
 
         let state = self.export_state_record()?;
         let mut preview = Self::restore_from_state_record(&state)?;
-        preview.add_members(member_key_packages)?;
+        preview.add_members_with_optional_governance_binding(
+            member_key_packages,
+            None,
+            if replace_existing_endpoints { member_actor_ids } else { &[] },
+        )?;
         let post_leaves = preview.active_author_leaves();
 
         let mut result = Vec::with_capacity(post_leaves.len());
         let mut attributed_indices = std::collections::BTreeSet::new();
         for binding in self.leaf_bindings.values() {
+            if replace_existing_endpoints && member_actor_ids.contains(&binding.actor_id)
+                && member_key_packages
+                    .iter()
+                    .any(|record| record.endpoint == binding.endpoint)
+            {
+                continue;
+            }
             let leaf = post_leaves
                 .iter()
                 .find(|leaf| leaf.leaf_index == binding.leaf_index)
@@ -1439,6 +1451,7 @@ impl ArkretMlsGroup {
         let result = self.add_members_with_optional_governance_binding(
             std::slice::from_ref(member_key_package),
             governance_binding,
+            &[],
         )?;
         let welcome = result
             .welcomes
@@ -1446,11 +1459,7 @@ impl ArkretMlsGroup {
             .next()
             .ok_or_else(|| Error::Protocol("MLS add_member returned no Welcome".to_owned()))?;
         Ok(MlsAddMemberResult {
-            proposal: result
-                .proposals
-                .into_iter()
-                .next()
-                .ok_or_else(|| Error::Protocol("MLS add_member returned no Proposal".to_owned()))?,
+            proposals: result.proposals,
             commit: result.commit,
             welcome,
         })
@@ -1460,13 +1469,43 @@ impl ArkretMlsGroup {
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
     ) -> Result<MlsAddMembersResult> {
-        self.add_members_with_optional_governance_binding(member_key_packages, None)
+        self.add_members_with_optional_governance_binding(member_key_packages, None, &[])
+    }
+
+    pub fn replace_member_endpoint(
+        &mut self,
+        package: &MlsKeyPackageRecord,
+        actor: &ActorId,
+        binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsAddMemberResult> {
+        if !self
+            .leaf_bindings
+            .values()
+            .any(|leaf| leaf.actor_id == *actor && leaf.endpoint == package.endpoint)
+        {
+            return Err(Error::Protocol(
+                "endpoint replacement requires the exact current Account ActorId".to_owned(),
+            ));
+        }
+        let result = self.add_members_with_optional_governance_binding(
+            std::slice::from_ref(package),
+            binding,
+            std::slice::from_ref(actor),
+        )?;
+        Ok(MlsAddMemberResult {
+            proposals: result.proposals,
+            commit: result.commit,
+            welcome: result.welcomes.into_iter().next().ok_or_else(|| {
+                Error::Protocol("endpoint replacement produced no Welcome".to_owned())
+            })?,
+        })
     }
 
     pub(crate) fn add_members_with_optional_governance_binding(
         &mut self,
         member_key_packages: &[MlsKeyPackageRecord],
         governance_binding: Option<&MlsGovernanceBindingPayload>,
+        replace_actors: &[ActorId],
     ) -> Result<MlsAddMembersResult> {
         if member_key_packages.is_empty() {
             return Err(Error::Protocol(
@@ -1477,6 +1516,12 @@ impl ArkretMlsGroup {
         let test_endpoints = self
             .leaf_bindings
             .values()
+            .filter(|binding| {
+                !(replace_actors.contains(&binding.actor_id)
+                    && member_key_packages
+                        .iter()
+                        .any(|record| record.endpoint == binding.endpoint))
+            })
             .map(|binding| binding.endpoint.clone())
             .chain(
                 member_key_packages
@@ -1503,6 +1548,40 @@ impl ArkretMlsGroup {
         let base_epoch = self.epoch();
         let ratchet_tree = Some(self.ratchet_tree()?);
         let mut proposals = Vec::with_capacity(keypackages.len());
+        // A fresh package for an existing endpoint repairs that endpoint in
+        // the same winning Commit. Keeping both leaves would give one device
+        // two incarnations and leave the abandoned package in the frontier.
+        let replacements: Vec<_> = self
+            .leaf_bindings
+            .values()
+            .filter(|binding| {
+                replace_actors.contains(&binding.actor_id)
+                    && member_key_packages
+                        .iter()
+                        .any(|record| record.endpoint == binding.endpoint)
+            })
+            .map(|binding| LeafNodeIndex::new(binding.leaf_index))
+            .collect();
+        if replacements.contains(&self.group.own_leaf_index()) {
+            return Err(Error::Protocol(
+                "an MLS sender cannot replace its own endpoint via Add".to_owned(),
+            ));
+        }
+        for leaf in replacements {
+            let (message, _) = self
+                .group
+                .propose_remove_member(&self.identity.provider, &self.identity.signer, leaf)
+                .map_err(mls_error)?;
+            let bytes = message.tls_serialize_detached().map_err(mls_error)?;
+            proposals.push(MlsProposalEnvelope {
+                group_id: self.group_id(),
+                epoch: base_epoch,
+                proposal_type: "remove".to_owned(),
+                proposal: encode(&bytes),
+                proposal_digest: Hash::new(canonical::sha256_digest(&bytes))?,
+                ratchet_tree: ratchet_tree.clone(),
+            });
+        }
         for key_package in &keypackages {
             let (proposal_message, _proposal_ref) = self
                 .group

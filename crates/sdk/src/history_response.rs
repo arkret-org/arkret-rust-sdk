@@ -550,6 +550,55 @@ where
                     }
                     Ok(verified)
                 }
+                AuthenticatedSignerResolutionEvidence::AccountDevice {
+                    device_projection_attestation,
+                    attester_signer_evidence_ref,
+                    ..
+                } => {
+                    let core = &device_projection_attestation.attestation;
+                    let at = source.source_proof.created_at;
+                    if source.source_actor_id.as_account_id() != Some(&core.account_id)
+                        || source.source_sender_domain != core.device_id.as_str()
+                        || at < core.attested_at
+                        || at >= core.expires_at
+                    {
+                        return invalid(
+                            "device history source does not bind the exact account, device and signed validity interval",
+                        );
+                    }
+                    let attester = super::mls_governance::bound_evidence_by_ref(
+                        dependencies,
+                        attester_signer_evidence_ref,
+                        &core.account_id.station_id,
+                        &device_projection_attestation.proof.verification_method,
+                    )?;
+                    if !matches!(
+                        attester,
+                        AuthenticatedSignerResolutionEvidence::Service { .. }
+                    ) {
+                        return invalid("device history attester must be its origin Station");
+                    }
+                    let material = super::mls_governance::authenticated_document_key(
+                        attester,
+                        dependencies,
+                        at,
+                    )?;
+                    arkret_signatures::device_projection::verify_device_projection_with_key_material(
+                        device_projection_attestation, &material, at,
+                    )?;
+                    let value = core
+                        .device_signing_key_did
+                        .as_str()
+                        .strip_prefix("did:key:")
+                        .ok_or_else(|| {
+                            WireError::Protocol("device signing key must be did:key".to_owned())
+                        })?
+                        .to_owned();
+                    let key = PublicKeyMaterial::Ed25519Multibase { value };
+                    key.ed25519_bytes()
+                        .map_err(|error| WireError::Protocol(error.to_string()))?;
+                    Ok(key)
+                }
                 _ => super::mls_governance::authenticated_document_key(
                     evidence,
                     dependencies,
@@ -793,6 +842,9 @@ fn verify_release_attestation(
         (
             Some(AuthorProfile::OrdinaryHuman),
             SourceEvidenceKind::Principal
+        ) | (
+            Some(AuthorProfile::OrdinaryHuman),
+            SourceEvidenceKind::AccountDevice
         ) | (Some(AuthorProfile::Agent), SourceEvidenceKind::Agent)
             | (
                 Some(AuthorProfile::MinimalMetadata),
@@ -845,6 +897,7 @@ fn verify_release_attestation(
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SourceEvidenceKind {
     Principal,
+    AccountDevice,
     Agent,
     MinimalMetadata,
 }
@@ -871,6 +924,7 @@ fn source_evidence_kind(
                     AuthenticatedSignerResolutionEvidence::Principal { .. } => {
                         SourceEvidenceKind::Principal
                     }
+                    AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => SourceEvidenceKind::AccountDevice,
                     AuthenticatedSignerResolutionEvidence::Agent { .. } => {
                         SourceEvidenceKind::Agent
                     }
@@ -908,6 +962,49 @@ pub struct VerifiedHistoryEpochSuite {
     pub epoch: u64,
     pub cipher_suite: String,
     pub kdf_nh: u16,
+}
+
+/// Read the effective scope's own winning history policy from verified replay.
+/// A Circle never inherits its parent Realm's history policy.
+pub async fn history_access_from_verified_checkpoint(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    scope: &HistoryEffectiveScope,
+) -> Result<arkret_wire::HistoryAccess, WireError> {
+    checkpoint.validate_checkpoint()?;
+    let (realm_id, cell) = match scope {
+        HistoryEffectiveScope::Realm { realm_id } => (
+            realm_id,
+            arkret_wire::cell::null_subject_cell(
+                arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1,
+            ),
+        ),
+        HistoryEffectiveScope::Circle {
+            realm_id,
+            circle_id,
+        } => (
+            realm_id,
+            arkret_wire::subject_cell(
+                arkret_wire::CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
+                circle_id.as_str(),
+            ),
+        ),
+    };
+    if &checkpoint.realm_id != realm_id {
+        return invalid("history policy checkpoint belongs to another Realm");
+    }
+    let cell = arkret_wire::CellRef::new(cell)?;
+    let registry = arkret_lattice_registry::try_build_sdk_cell_registry()
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
+    let audits =
+        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
+    let value = arkret_state::mls_governance_proof::materialize_registered_cell_value_from_verified_checkpoint(
+        checkpoint, &cell, &registry,
+        |event, digest_suite| arkret_schema::project_registered_cell_writes_with_authority_resolver(
+            event, digest_suite, &|grant_id| audits.resolve(grant_id),
+        ).map_err(|error| error.to_string()),
+    ).await?;
+    serde_json::from_value(value)
+        .map_err(|error| WireError::Protocol(format!("winning history policy is invalid: {error}")))
 }
 
 /// Extract the exact registered MLS suite and `KDF.Nh` for every requested

@@ -513,6 +513,7 @@ mod tests {
             .add_members_with_optional_governance_binding(
                 &[bob_key_package, carol_key_package],
                 Some(&add_binding),
+                &[],
             )
             .unwrap();
         let carol_welcome = add
@@ -931,6 +932,63 @@ mod tests {
     }
 
     #[test]
+    fn endpoint_repair_replaces_the_old_leaf_in_one_commit_without_resetting_group() {
+        let endpoint = || {
+            ArkretMlsIdentity::new_test_human_device(
+                DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
+                DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+            )
+            .unwrap()
+        };
+        let alice = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
+        )
+        .unwrap();
+        let mut group = alice
+            .create_group(b"ak:realm:AdmAewBnEWLWSp60CpdI_JXwYiZGNCIDYLEnjYTgaNz3")
+            .unwrap();
+        let group_id = group.group_id();
+        group
+            .add_member(&endpoint().key_package_record().unwrap())
+            .unwrap();
+        let replacement = endpoint();
+        let package = replacement.key_package_record().unwrap();
+        let actor = group
+            .verified_leaf_bindings()
+            .unwrap()
+            .into_iter()
+            .find(|binding| binding.endpoint == package.endpoint)
+            .unwrap()
+            .actor_id;
+        let preview = group
+            .preview_member_admission_security_frontier(
+                std::slice::from_ref(&package),
+                std::slice::from_ref(&actor),
+                true,
+            )
+            .unwrap();
+        let repaired = group
+            .replace_member_endpoint(&package, &actor, None)
+            .unwrap();
+        assert_eq!(
+            repaired
+                .proposals
+                .iter()
+                .map(|p| p.proposal_type.as_str())
+                .collect::<Vec<_>>(),
+            ["remove", "add"]
+        );
+        assert_eq!(group.group_id(), group_id);
+        assert_eq!(group.epoch(), 2);
+        assert_eq!(preview.len(), 2);
+        assert_eq!(group.verified_leaf_bindings().unwrap().len(), 2);
+        let joined = ArkretMlsGroup::join_from_welcome(replacement, &repaired.welcome).unwrap();
+        assert_eq!(joined.group_id(), group_id);
+        assert_eq!(joined.epoch(), 2);
+    }
+
+    #[test]
     fn openmls_group_can_add_multiple_members_in_one_commit() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
@@ -1161,12 +1219,13 @@ mod tests {
 
         let epoch_before_preview = group.epoch();
         let preview = group
-            .preview_add_members_security_frontier(
+            .preview_member_admission_security_frontier(
                 &[dave_key_package.clone(), eve_key_package.clone()],
                 &[
                     test_actor_for_endpoint(&dave_key_package.endpoint),
                     test_actor_for_endpoint(&eve_key_package.endpoint),
                 ],
+                false,
             )
             .unwrap();
         assert_eq!(group.epoch(), epoch_before_preview);
@@ -1203,15 +1262,15 @@ mod tests {
         let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add_bob.welcome).unwrap();
 
         let add_carol = alice_group.add_member(&carol_key_package).unwrap();
-        assert_eq!(add_carol.proposal.proposal_type, "add");
-        assert_eq!(add_carol.proposal.epoch + 1, add_carol.commit.epoch);
+        assert_eq!(add_carol.proposals[0].proposal_type, "add");
+        assert_eq!(add_carol.proposals[0].epoch + 1, add_carol.commit.epoch);
         assert_eq!(
-            add_carol.proposal.proposal_digest.as_str(),
+            add_carol.proposals[0].proposal_digest.as_str(),
             arkret_canonical::sha256_digest(
-                arkret_canonical::base64url_decode(&add_carol.proposal.proposal).unwrap()
+                arkret_canonical::base64url_decode(&add_carol.proposals[0].proposal).unwrap()
             )
         );
-        bob_group.apply_proposal(&add_carol.proposal).unwrap();
+        bob_group.apply_proposal(&add_carol.proposals[0]).unwrap();
         bob_group.apply_commit(&add_carol.commit).unwrap();
 
         assert_eq!(bob_group.epoch(), alice_group.epoch());

@@ -208,6 +208,8 @@ impl DeviceProjectionAttestation {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct QueryDeviceRecord {
+    /// Content-addressed retained device evidence and its Station attester closure.
+    pub signer_evidence_ref: arkret_wire::SignerEvidenceRef,
     /// Prekey bundle keyed by algorithm name. The demo projection carries the
     /// opaque uploaded key payload here; each value matches the schema
     /// `key_record` once real prekey records are published.
@@ -251,6 +253,7 @@ impl QueryDeviceRecord {
         account_id: &AccountId,
         device_id: &DeviceId,
     ) -> arkret_wire::Result<()> {
+        self.signer_evidence_ref.content_digest()?;
         let core = &self.device_projection_attestation.attestation;
         if &core.account_id != account_id || &core.device_id != device_id {
             return Err(arkret_wire::WireError::Protocol(

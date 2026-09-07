@@ -1,12 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/authority-source-registry.json; version=2026-08-30.2;
-//! sha256=184dea0702cb8456e9129711577ff67af8a4cf26500ee1a24984b2e3bd412e7d Entries: registered=4
+//! Input: registry/authority-source-registry.json; version=2026-09-07.11;
+//! sha256=81d7927b5b24f9e10ab3a0b3f17c3a8204e602ab1173f6c2a39124d967e764d6 Entries: registered=5
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AuthoritySourceId {
+    DirectConversationBootstrapParticipantV1,
     DirectConversationParticipantV1,
     DirectConversationRepairV1,
     MembershipCompensationV1,
@@ -15,12 +16,15 @@ pub enum AuthoritySourceId {
 
 impl AuthoritySourceId {
     pub const ALL: &'static [Self] = &[
+        Self::DirectConversationBootstrapParticipantV1,
         Self::DirectConversationParticipantV1,
         Self::DirectConversationRepairV1,
         Self::MembershipCompensationV1,
         Self::SidecarParentBootstrapV1,
     ];
 
+    pub const DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1: &'static str =
+        "ak.authority.direct_conversation_bootstrap_participant.v1";
     pub const DIRECT_CONVERSATION_PARTICIPANT_V1: &'static str =
         "ak.authority.direct_conversation_participant.v1";
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
@@ -31,6 +35,9 @@ impl AuthoritySourceId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::DirectConversationBootstrapParticipantV1 => {
+                Self::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
+            }
             Self::DirectConversationParticipantV1 => Self::DIRECT_CONVERSATION_PARTICIPANT_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::MembershipCompensationV1 => Self::MEMBERSHIP_COMPENSATION_V1,
@@ -40,6 +47,9 @@ impl AuthoritySourceId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1 => {
+                Some(Self::DirectConversationBootstrapParticipantV1)
+            }
             Self::DIRECT_CONVERSATION_PARTICIPANT_V1 => Some(Self::DirectConversationParticipantV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::MEMBERSHIP_COMPENSATION_V1 => Some(Self::MembershipCompensationV1),

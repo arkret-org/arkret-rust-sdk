@@ -529,6 +529,7 @@ version = "0.3.0"
 dependencies = [
  "arkret-canonical",
  "arkret-locale",
+ "arkret-models-crypto",
  "arkret-schema",
  "arkret-schema-conformance",
  "arkret-wire",

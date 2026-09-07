@@ -8,7 +8,7 @@ use arkret_models_collaboration::history_key::{
     OrganizationRecoveryArchiveListQuery,
 };
 use reqwest::Method;
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, HeaderValue};
+use reqwest::header::{AUTHORIZATION, HeaderValue};
 
 use crate::{Client, Error, Result};
 
@@ -117,8 +117,7 @@ impl Client {
             .header(
                 AUTHORIZATION,
                 history_response_authorization(capability_b64u)?,
-            )
-            .header(CONTENT_TYPE, "application/json");
+            );
         let builder = self.canonical_json_body(builder, request)?;
         let outcome: HistoryKeyResponseAckOutcome = self.send_json(builder).await?;
         outcome.validate()?;
@@ -157,5 +156,65 @@ impl Client {
             ));
         }
         Ok(outcome)
+    }
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn history_ack_sends_one_json_content_type() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut bytes = Vec::new();
+            let mut buffer = [0_u8; 4096];
+            while !bytes.windows(4).any(|part| part == b"\r\n\r\n") {
+                let read = socket.read(&mut buffer).await.unwrap();
+                assert_ne!(read, 0);
+                bytes.extend_from_slice(&buffer[..read]);
+            }
+            let body = r#"{"acked_through_cursor":"test-cursor"}"#;
+            socket.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).as_bytes()).await.unwrap();
+            String::from_utf8(bytes).unwrap()
+        });
+        let client = Client::builder(format!("http://{address}/").parse().unwrap())
+            .allow_insecure_localhost()
+            .build()
+            .unwrap();
+        let request: HistoryKeyResponseAckRequest = serde_json::from_value(serde_json::json!({
+            "ack_token": "test-ack",
+            "high_water_cursor": "test-cursor",
+            "entries": [{
+                "kind": "record", "sequence": 1,
+                "response_id": "ak:history_response:01a07d1e-6910-7952-923c-2cbcd3ce6b1d",
+                "record_digest": format!("sha256:{}", "a".repeat(64)),
+                "status": "installed"
+            }]
+        }))
+        .unwrap();
+        client
+            .history_key_response_ack(
+                &arkret_canonical::base64url::base64url_encode(&[7; 32]),
+                &request,
+            )
+            .await
+            .unwrap();
+        let captured = server.await.unwrap();
+        let headers = captured.split("\r\n\r\n").next().unwrap();
+        assert!(headers.starts_with("POST /_arkret/self/history-key-responses/ack "));
+        let content_types = headers
+            .lines()
+            .filter_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case("content-type")
+                    .then_some(value.trim())
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(content_types, vec!["application/json"]);
     }
 }

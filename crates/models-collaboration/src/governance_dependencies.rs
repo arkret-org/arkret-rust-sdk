@@ -333,6 +333,10 @@ where
             AuthenticatedSignerResolutionEvidence::Principal {
                 attester_signer_evidence_ref,
                 ..
+            }
+            | AuthenticatedSignerResolutionEvidence::AccountDevice {
+                attester_signer_evidence_ref,
+                ..
             } => selectors.push(
                 GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
                     content_digest: attester_signer_evidence_ref.content_digest()?,
@@ -535,6 +539,10 @@ fn validate_authenticated_evidence_reachability(
             AuthenticatedSignerResolutionEvidence::Principal {
                 attester_signer_evidence_ref,
                 ..
+            }
+            | AuthenticatedSignerResolutionEvidence::AccountDevice {
+                attester_signer_evidence_ref,
+                ..
             } => pending.push(attester_signer_evidence_ref.content_digest()?),
             AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_ref,
@@ -670,7 +678,8 @@ pub fn history_source_signer_dependency_closure(
                     attester_signer_evidence_ref,
                     ..
                 } => pending.push(attester_signer_evidence_ref.content_digest()?),
-                AuthenticatedSignerResolutionEvidence::Agent { .. } => {
+                AuthenticatedSignerResolutionEvidence::Agent { .. }
+                | AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
                     return Err(WireError::Protocol(
                         "minimal-metadata IdentityLink signer closure contains Agent evidence"
                             .to_owned(),
@@ -701,6 +710,10 @@ pub fn history_source_signer_dependency_closure(
             match evidence.as_ref() {
                 AuthenticatedSignerResolutionEvidence::Service { .. } => {}
                 AuthenticatedSignerResolutionEvidence::Principal {
+                    attester_signer_evidence_ref,
+                    ..
+                }
+                | AuthenticatedSignerResolutionEvidence::AccountDevice {
                     attester_signer_evidence_ref,
                     ..
                 } => pending.push(attester_signer_evidence_ref.content_digest()?),

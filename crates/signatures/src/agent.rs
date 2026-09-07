@@ -632,6 +632,7 @@ mod tests {
         let agent_did = Did::new("did:webvh:z6mkfixture:runtime-builder.agent.example").unwrap();
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             agent_id,
@@ -682,6 +683,7 @@ mod tests {
         let agent_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
         let pairing_expires_at = Utc::now() + chrono::Duration::minutes(10);
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             agent_id,
@@ -715,6 +717,7 @@ mod tests {
         let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
         let agent_id = DidCoreId::new("ak:did_core:web:agent.example").unwrap();
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:web:arkret.example").unwrap(),
             agent_id,
@@ -750,6 +753,7 @@ mod tests {
     fn runtime_key_request_builder_rejects_method_for_another_agent() {
         let signing_key = SigningKey::from_bytes(&[7_u8; 32]);
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: DidCoreId::new("ak:did_core:web:arkret.example").unwrap(),
             agent_id: DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
@@ -820,6 +824,7 @@ mod tests {
         tampered_disclosure.requested_scope.actions.clear();
         assert!(tampered_disclosure.validate().is_err());
         let bootstrap = AgentPairingBootstrap {
+            runtime_identity: None,
             arkret_base_url: "https://arkret.example".to_owned(),
             service_id: service_id.clone(),
             agent_id: agent_actor_id.clone(),

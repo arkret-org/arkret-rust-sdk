@@ -399,9 +399,10 @@ pub use arkret_wire::{
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,
     VerifiedHistoryChunk, VerifiedHistoryEpochSuite, VerifiedHistoryManifest,
-    VerifiedHistoryResponseRecord, registered_mls_ciphersuite_kdf_nh,
-    verify_history_response_lost_record, verify_history_response_record,
-    verify_history_source_proof, verify_minimal_metadata_history_source_local_state,
+    VerifiedHistoryResponseRecord, history_access_from_verified_checkpoint,
+    registered_mls_ciphersuite_kdf_nh, verify_history_response_lost_record,
+    verify_history_response_record, verify_history_source_proof,
+    verify_minimal_metadata_history_source_local_state,
     verify_minimal_metadata_identity_link_signature,
     winning_history_epoch_suites_from_verified_checkpoint,
 };
