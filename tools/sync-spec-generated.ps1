@@ -112,11 +112,17 @@ try {
         foreach ($relative in $declaredOutputs) {
             $generated = Join-Path $targetRoot $relative
             $tracked = Join-Path $repoRoot $relative
+            $generatedBytes = [System.IO.File]::ReadAllBytes($generated)
+            if ((Test-Path -LiteralPath $tracked) -and
+                [System.Linq.Enumerable]::SequenceEqual(
+                    $generatedBytes,
+                    [System.IO.File]::ReadAllBytes($tracked)
+                )) {
+                # Keep unchanged output timestamps stable for downstream build gates.
+                continue
+            }
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $tracked) | Out-Null
-            [System.IO.File]::WriteAllBytes(
-                $tracked,
-                [System.IO.File]::ReadAllBytes($generated)
-            )
+            [System.IO.File]::WriteAllBytes($tracked, $generatedBytes)
         }
     }
 

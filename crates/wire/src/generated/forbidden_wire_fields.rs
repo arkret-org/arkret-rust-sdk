@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=dc0be4fa2d0cb1280cd7f3c47d1e8d7efbcfca1aa2cb3004409fd470b2aba90d
+//! sha256=dcf25460086c140afb10f604098d6a710b1a5789d34efaadaae0c62b57650194
 //! Entries: forbidden_wire_fields=261
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3321,7 +3321,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             match_scope: "root",
         }],
         match_kind: "patch_path",
-        match_values: &["stage"],
+        match_values: &["stage", "stage_changed_at"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -4175,7 +4175,7 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             match_scope: "root",
         }],
         match_kind: "patch_path",
-        match_values: &["stage"],
+        match_values: &["stage", "stage_changed_at"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

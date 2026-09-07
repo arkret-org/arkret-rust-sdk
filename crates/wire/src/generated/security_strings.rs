@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-07.2;
-//! sha256=8423e0f3f54d1d1b2bbd170975869653b7e5d566e752ab79b1e92fd5b58a4378 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-07.4;
+//! sha256=5130c18f39d4cac08db61f54e2a3d0b6eb471f3b3f67a1fef99669fb52e1acfc Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -16,8 +16,8 @@
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=74, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=39, aead_profiles=2
+//! Entries: proof_contexts=72, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=41, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -32,8 +32,6 @@ pub enum ProofContextId {
     AgentRuntimeKeyPossessionProofV1,
     AgentSelectorClaimProofV1,
     AgentSessionRefreshProofV1,
-    AppletManagedActorAuthoringRequestProofV1,
-    AppletManagedActorBundleProofV1,
     AppletPackageProofV1,
     AuditReleaseAttestationProofV1,
     AuditRywReceiptProofV1,
@@ -110,8 +108,6 @@ impl ProofContextId {
         Self::AgentRuntimeKeyPossessionProofV1,
         Self::AgentSelectorClaimProofV1,
         Self::AgentSessionRefreshProofV1,
-        Self::AppletManagedActorAuthoringRequestProofV1,
-        Self::AppletManagedActorBundleProofV1,
         Self::AppletPackageProofV1,
         Self::AuditReleaseAttestationProofV1,
         Self::AuditRywReceiptProofV1,
@@ -192,10 +188,6 @@ impl ProofContextId {
         "ak.agent_runtime_key_possession_proof.v1";
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent_selector_claim_proof.v1";
     pub const AGENT_SESSION_REFRESH_PROOF_V1: &'static str = "ak.agent_session_refresh_proof.v1";
-    pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
-        "ak.applet_managed_actor_authoring_request_proof.v1";
-    pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
-        "ak.applet_managed_actor_bundle_proof.v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet_package_proof.v1";
     pub const AUDIT_RELEASE_ATTESTATION_PROOF_V1: &'static str =
         "ak.audit_release_attestation_proof.v1";
@@ -317,10 +309,6 @@ impl ProofContextId {
             Self::AgentRuntimeKeyPossessionProofV1 => Self::AGENT_RUNTIME_KEY_POSSESSION_PROOF_V1,
             Self::AgentSelectorClaimProofV1 => Self::AGENT_SELECTOR_CLAIM_PROOF_V1,
             Self::AgentSessionRefreshProofV1 => Self::AGENT_SESSION_REFRESH_PROOF_V1,
-            Self::AppletManagedActorAuthoringRequestProofV1 => {
-                Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1
-            }
-            Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
             Self::AppletPackageProofV1 => Self::APPLET_PACKAGE_PROOF_V1,
             Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
             Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
@@ -446,12 +434,6 @@ impl ProofContextId {
             }
             Self::AGENT_SELECTOR_CLAIM_PROOF_V1 => Some(Self::AgentSelectorClaimProofV1),
             Self::AGENT_SESSION_REFRESH_PROOF_V1 => Some(Self::AgentSessionRefreshProofV1),
-            Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1 => {
-                Some(Self::AppletManagedActorAuthoringRequestProofV1)
-            }
-            Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1 => {
-                Some(Self::AppletManagedActorBundleProofV1)
-            }
             Self::APPLET_PACKAGE_PROOF_V1 => Some(Self::AppletPackageProofV1),
             Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
             Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
@@ -589,6 +571,8 @@ pub enum DomainSeparationId {
     AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
     AppletDeliveryAuthenticationRecordDigestV1,
+    AppletManagedActorAuthoringRequestProofV1,
+    AppletManagedActorBundleProofV1,
     ContactGlareUnconsumedSlotV1,
     ContactNoOutgoingSlotV1,
     ContactRequestAcceptanceCoreV1,
@@ -632,6 +616,8 @@ impl DomainSeparationId {
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
         Self::AppletDeliveryAuthenticationRecordDigestV1,
+        Self::AppletManagedActorAuthoringRequestProofV1,
+        Self::AppletManagedActorBundleProofV1,
         Self::ContactGlareUnconsumedSlotV1,
         Self::ContactNoOutgoingSlotV1,
         Self::ContactRequestAcceptanceCoreV1,
@@ -676,6 +662,10 @@ impl DomainSeparationId {
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.agent_signer_evidence.v1";
     pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
         "ak.applet.delivery_authentication_record_digest.v1";
+    pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
+        "ak.applet_managed_actor_authoring_request_proof.v1";
+    pub const APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1: &'static str =
+        "ak.applet_managed_actor_bundle_proof.v1";
     pub const CONTACT_GLARE_UNCONSUMED_SLOT_V1: &'static str =
         "ak.contact.glare_unconsumed_slot.v1";
     pub const CONTACT_NO_OUTGOING_SLOT_V1: &'static str = "ak.contact.no_outgoing_slot.v1";
@@ -739,6 +729,10 @@ impl DomainSeparationId {
             Self::AppletDeliveryAuthenticationRecordDigestV1 => {
                 Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
             }
+            Self::AppletManagedActorAuthoringRequestProofV1 => {
+                Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1
+            }
+            Self::AppletManagedActorBundleProofV1 => Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1,
             Self::ContactGlareUnconsumedSlotV1 => Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1,
             Self::ContactNoOutgoingSlotV1 => Self::CONTACT_NO_OUTGOING_SLOT_V1,
             Self::ContactRequestAcceptanceCoreV1 => Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
@@ -804,6 +798,12 @@ impl DomainSeparationId {
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
             Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
                 Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
+            }
+            Self::APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1 => {
+                Some(Self::AppletManagedActorAuthoringRequestProofV1)
+            }
+            Self::APPLET_MANAGED_ACTOR_BUNDLE_PROOF_V1 => {
+                Some(Self::AppletManagedActorBundleProofV1)
             }
             Self::CONTACT_GLARE_UNCONSUMED_SLOT_V1 => Some(Self::ContactGlareUnconsumedSlotV1),
             Self::CONTACT_NO_OUTGOING_SLOT_V1 => Some(Self::ContactNoOutgoingSlotV1),
@@ -1210,34 +1210,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/AgentSessionRefreshProof",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::AppletManagedActorAuthoringRequestProofV1,
-        context: "ak.applet_managed_actor_authoring_request_proof.v1",
-        object_family: "applet_managed_actor_authoring_request",
-        consumer_operation: None,
-        binding_fields: &[
-            "context",
-            "payload_digest",
-            "verification_method",
-            "created_at",
-            "audience",
-        ],
-        schema_ref: "schemas/applet-install-authoring.schema.json#/$defs/authoring_request",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::AppletManagedActorBundleProofV1,
-        context: "ak.applet_managed_actor_bundle_proof.v1",
-        object_family: "applet_managed_actor_bundle",
-        consumer_operation: None,
-        binding_fields: &[
-            "context",
-            "payload_digest",
-            "verification_method",
-            "created_at",
-            "audience",
-        ],
-        schema_ref: "schemas/applet-install-authoring.schema.json#/$defs/managed_actor_bundle",
     },
     ProofContextDescriptor {
         id: ProofContextId::AppletPackageProofV1,

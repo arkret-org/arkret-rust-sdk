@@ -718,6 +718,22 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         managed_actor_bundle: managed_actor_bundle.clone(),
     }));
     let value = serde_json::to_value(&request).unwrap();
+    let binding: Value =
+        serde_json::from_slice(&managed_actor_bundle.proof_binding_bytes().unwrap()).unwrap();
+    assert_eq!(
+        value["managed_actor_bundle"]["proof"]["audience_id"],
+        json!(actor("station"))
+    );
+    assert_eq!(binding["audience_id"], json!(actor("station")));
+    assert!(binding.get("audience").is_none());
+    let mut legacy_proof = value["managed_actor_bundle"]["proof"].clone();
+    let audience_id = legacy_proof
+        .as_object_mut()
+        .unwrap()
+        .remove("audience_id")
+        .unwrap();
+    legacy_proof["audience"] = audience_id;
+    assert!(serde_json::from_value::<AppletManagedActorProof>(legacy_proof).is_err());
     assert_eq!(
         value["authoring_request"]["basis"]["registration_event"]["kind"],
         json!("ak.applet.registration")
@@ -956,4 +972,21 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     );
     first.validate_bindings().unwrap();
     second.validate_bindings().unwrap();
+
+    // The dedicated managed-actor proof schema spells this field `audience_id`.
+    // Check signed bytes as well as serialization so both cannot drift together.
+    let wire = serde_json::to_value(&first).unwrap();
+    let binding: Value = serde_json::from_slice(&first.proof_binding_bytes().unwrap()).unwrap();
+    assert_eq!(wire["proof"]["audience_id"], json!(service("slackbridge")));
+    assert_eq!(binding["audience_id"], wire["proof"]["audience_id"]);
+    assert!(wire["proof"].get("audience").is_none());
+    assert!(binding.get("audience").is_none());
+    let mut legacy = wire;
+    let proof = legacy["proof"].as_object_mut().unwrap();
+    let audience_id = proof.remove("audience_id").unwrap();
+    proof.insert("audience".to_owned(), audience_id);
+    assert!(serde_json::from_value::<AppletManagedActorAuthoringRequest>(legacy).is_err());
+    let mut wrong_audience_id = first;
+    wrong_audience_id.proof.audience_id = actor("station");
+    assert!(wrong_audience_id.validate_bindings().is_err());
 }
