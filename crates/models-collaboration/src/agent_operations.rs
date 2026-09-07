@@ -605,10 +605,51 @@ pub struct AgentPairingBootstrap {
     pub pairing_code: String,
     #[serde(with = "canonical_timestamp")]
     pub pairing_expires_at: DateTime<Utc>,
+    /// Resolver-supplied identity context, not key authorization. Older stored
+    /// bootstraps may omit it; a new link-only pairing requires it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_identity: Option<AgentPairingRuntimeIdentity>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentPairingRuntimeIdentity {
+    pub controller_account_id: AccountId,
+    pub verification_method: DidUrl,
 }
 
 impl AgentPairingBootstrap {
     pub const SCHEMA: &'static str = SchemaId::AGENT_PAIRING_BOOTSTRAP_V1;
+
+    /// Validate identity context without treating pairing material as authority.
+    pub fn validated_runtime_identity(
+        &self,
+    ) -> std::result::Result<&AgentPairingRuntimeIdentity, String> {
+        let identity = self.runtime_identity.as_ref().ok_or_else(|| {
+            "Pairing service did not provide runtime identity. Upgrade the Arkret pairing service and resolve a new Inkson pairing link.".to_owned()
+        })?;
+        identity
+            .controller_account_id
+            .validate()
+            .map_err(|error| error.to_string())?;
+        let (controller, _) = identity
+            .verification_method
+            .as_str()
+            .rsplit_once('#')
+            .filter(|(_, fragment)| !fragment.is_empty())
+            .ok_or_else(|| {
+                "Pairing runtime verification method must be a complete DID URL.".to_owned()
+            })?;
+        let did = Did::new(controller.to_owned()).map_err(|error| error.to_string())?;
+        if project_did_to_core_id(&did).map_err(|error| error.to_string())? != self.agent_id {
+            return Err(
+                "Pairing runtime verification method does not belong to the paired Agent."
+                    .to_owned(),
+            );
+        }
+        Ok(identity)
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2111,6 +2152,54 @@ mod tests {
     use chrono::{TimeZone, Timelike};
 
     use super::*;
+
+    #[test]
+    fn pairing_runtime_identity_checks_complete_account_and_agent_binding() {
+        let value = serde_json::json!({
+            "arkret_base_url": "https://station.example",
+            "service_id": "ak:did_core:web:station.example",
+            "agent_id": "ak:did_core:webvh:z6mkfixture",
+            "pairing_request_id": "pair-1",
+            "pairing_code": "12345678",
+            "pairing_expires_at": "2026-09-08T00:00:00.000Z",
+            "runtime_identity": {
+                "controller_account_id": {
+                    "principal_id": "ak:did_core:web:controller.example",
+                    "station_id": "ak:did_core:web:station.example"
+                },
+                "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-pair-1"
+            }
+        });
+        let bootstrap: AgentPairingBootstrap = serde_json::from_value(value.clone()).unwrap();
+        assert!(bootstrap.validated_runtime_identity().is_ok());
+        let mut foreign = value.clone();
+        foreign["runtime_identity"]["verification_method"] =
+            serde_json::json!("did:web:other.example#runtime-1");
+        assert!(
+            serde_json::from_value::<AgentPairingBootstrap>(foreign)
+                .unwrap()
+                .validated_runtime_identity()
+                .is_err()
+        );
+        let mut legacy = value.clone();
+        legacy.as_object_mut().unwrap().remove("runtime_identity");
+        assert!(
+            serde_json::from_value::<AgentPairingBootstrap>(legacy)
+                .unwrap()
+                .validated_runtime_identity()
+                .unwrap_err()
+                .contains("Upgrade")
+        );
+        let mut incomplete = value.clone();
+        incomplete["runtime_identity"]["controller_account_id"]
+            .as_object_mut()
+            .unwrap()
+            .remove("station_id");
+        assert!(serde_json::from_value::<AgentPairingBootstrap>(incomplete).is_err());
+        let mut unknown = value;
+        unknown["runtime_identity"]["scope"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<AgentPairingBootstrap>(unknown).is_err());
+    }
 
     #[test]
     fn agent_provision_outcome_serializes_allocated_did() {
