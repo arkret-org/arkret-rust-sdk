@@ -190,6 +190,11 @@ impl SemanticRefProof {
                 "semantic ref proof leaf_index MUST be inside leaf_count".to_owned(),
             ));
         }
+        if self.leaf_canonical_preimage_b64u.as_str().is_empty() {
+            return Err(WireError::Protocol(
+                "semantic ref proof requires a leaf preimage".to_owned(),
+            ));
+        }
         Ok(())
     }
 }
@@ -1430,6 +1435,11 @@ impl Event {
             return Err(WireError::Protocol(
                 ReasonCode::ACTOR_KIND_REDUCER_MANAGED.to_owned(),
             ));
+        }
+        for reference in &self.refs {
+            if let Some(proof) = &reference.proof {
+                proof.validate_structural()?;
+            }
         }
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;

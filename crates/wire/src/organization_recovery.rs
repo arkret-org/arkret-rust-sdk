@@ -171,28 +171,9 @@ impl OrganizationRecoveryArchive {
 
 /// `common-ids.schema.json#/$defs/recovery_key_id`: `ak:recovery_key:<uuid-v7>`.
 pub fn validate_recovery_key_id(value: &str) -> Result<()> {
-    const PREFIX: &str = "ak:recovery_key:";
-    let Some(uuid) = value.strip_prefix(PREFIX) else {
-        return Err(WireError::Protocol(
-            "recovery_key_id must start with ak:recovery_key:".to_owned(),
-        ));
-    };
-    let bytes = uuid.as_bytes();
-    let shaped = bytes.len() == 36
-        && [8, 13, 18, 23].iter().all(|index| bytes[*index] == b'-')
-        && bytes[14] == b'7'
-        && matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
-        && bytes.iter().enumerate().all(|(index, byte)| {
-            [8, 13, 18, 23].contains(&index)
-                || byte.is_ascii_digit()
-                || (b'a'..=b'f').contains(byte)
-        });
-    if !shaped {
-        return Err(WireError::Protocol(
-            "recovery_key_id must carry a canonical lowercase UUIDv7".to_owned(),
-        ));
-    }
-    Ok(())
+    crate::RecoveryKeyId::new(value)
+        .map(|_| ())
+        .map_err(Into::into)
 }
 
 /// `mls_group_id` MUST equal the canonical derivation from the effective scope.

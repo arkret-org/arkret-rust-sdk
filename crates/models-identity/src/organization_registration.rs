@@ -201,10 +201,7 @@ impl OrganizationRegistrationChallenge {
                 "organization registration challenge binding mismatch".to_owned(),
             ));
         }
-        if !self
-            .challenge_id
-            .strip_prefix("ak:organization_registration_challenge:")
-            .is_some_and(is_lower_hex_sha256)
+        if arkret_wire::OrganizationRegistrationChallengeId::new(&self.challenge_id).is_err()
             || self.nonce.len() < 22
             || self.nonce.len() > 128
             || !self
@@ -274,10 +271,7 @@ impl OrganizationRegistrationEnsureRequestBody {
         if self.version_id.is_empty()
             || project_did_to_core_id(&self.organization_did)?.as_str()
                 != self.organization_id.as_str()
-            || !self
-                .challenge_id
-                .strip_prefix("ak:organization_registration_challenge:")
-                .is_some_and(is_lower_hex_sha256)
+            || arkret_wire::OrganizationRegistrationChallengeId::new(&self.challenge_id).is_err()
         {
             return Err(WireError::Protocol(
                 "organization registration ensure has an invalid challenge or version".to_owned(),
@@ -358,10 +352,7 @@ impl OrganizationRegistrationRefreshRequestBody {
         if self.version_id.is_empty()
             || project_did_to_core_id(&self.organization_did)?.as_str()
                 != self.organization_id.as_str()
-            || !self
-                .challenge_id
-                .strip_prefix("ak:organization_registration_challenge:")
-                .is_some_and(is_lower_hex_sha256)
+            || arkret_wire::OrganizationRegistrationChallengeId::new(&self.challenge_id).is_err()
         {
             return Err(WireError::Protocol(
                 "organization registration refresh has an invalid challenge or version".to_owned(),
@@ -526,6 +517,8 @@ impl OrganizationRegistrationReceipt {
             || project_did_to_core_id(&self.organization_did)?.as_str()
                 != self.organization_id.as_str()
             || self.expires_at <= self.issued_at
+            || arkret_wire::OrganizationRegistrationReceiptId::new(&self.registration_receipt_id)
+                .is_err()
             || self.registration_receipt_id != self.expected_receipt_id()?
             || self.proof.payload_digest != self.expected_payload_digest()?
             || self.proof.created_at != self.issued_at
@@ -632,13 +625,6 @@ pub fn next_organization_registration_generation(current_generation: Option<u64>
             WireError::Protocol("organization registration generation overflow".to_owned())
         }),
     }
-}
-
-fn is_lower_hex_sha256(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
 }
 
 fn project_verification_method_to_core(

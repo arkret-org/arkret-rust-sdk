@@ -21,7 +21,7 @@ itself lives at `.githooks/pre-commit`.
 Run the standard checks before sending changes:
 
 ```sh
-cargo fmt --check
+cargo +nightly fmt --check
 cargo check
 cargo test
 ```
@@ -67,8 +67,9 @@ time, not of the current spec, so recompute it against the spec file rather than
 trusting the `version:` line.
 
 Nothing above runs in the pre-commit hook (it needs a spec checkout the hook
-cannot assume), so the enforcement is the `spec-drift` CI job. Run the checks
-yourself before claiming a surface is synchronized.
+cannot assume). GitHub Actions are currently disabled by workspace decision;
+run both generated-surface synchronization and the coverage drift report
+locally before claiming a surface is synchronized.
 
 ### Coverage gates layered on top
 

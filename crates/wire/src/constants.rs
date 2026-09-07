@@ -2,6 +2,9 @@ use crate::{CapabilityActionId, DomainSeparationId, ReducerProfileId};
 
 pub const PROTOCOL_VERSION: &str = "1.0";
 
+/// Exact canonical MLS governance proof response bound in Arkret v1.
+pub const MLS_GOVERNANCE_PROOF_MAX_BYTES: u32 = 1_048_576;
+
 /// Classify a protocol-family bootstrap discriminator before a v1-specific
 /// response is interpreted.
 pub fn protocol_version_bootstrap_error(value: &str) -> Option<crate::ErrorCode> {

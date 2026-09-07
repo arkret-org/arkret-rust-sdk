@@ -563,6 +563,12 @@ impl ServiceRegistrationReceipt {
     /// Provider DID verification method.
     pub fn validate_proof_binding(&self) -> Result<()> {
         self.proof.validate_production()?;
+        self.validate_unsigned_proof_binding()
+    }
+
+    /// Validate claims and unsigned proof metadata before producing a JWS.
+    pub fn validate_unsigned_proof_binding(&self) -> Result<()> {
+        self.proof.unsigned().validate_production()?;
         if self.registration_receipt_id != self.expected_registration_receipt_id()?
             || self.proof.payload_digest != self.expected_payload_digest()?
             || self.proof.created_at != self.issued_at

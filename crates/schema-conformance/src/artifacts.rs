@@ -651,7 +651,7 @@ pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
 /// Typed `ak:<kind>:<uuid>` id kinds the SDK ships a Rust type for.
 ///
 /// This list is not free-form: `crates/schema/tests/id_kind_coverage.rs`
-/// pins it to the identifiers crate's UUID and Event-token declarations in both
+/// pins it to the identifiers crate's producer-allocated and Event-token declarations in both
 /// directions, so an entry here means a real newtype exists and a missing
 /// entry fails the build rather than silently narrowing spec coverage.
 /// `drift_report` then checks the same set against the live
@@ -684,6 +684,8 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "filter",
     "frame",
     "grant",
+    "history_request",
+    "history_response",
     "invite",
     "invite_locator",
     "key_event",
@@ -692,17 +694,20 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "moderation_queue_item",
     "morph",
     "notification",
+    "operation",
     "policy",
     "presentation",
     "realm",
     "realm_state_snapshot",
     "receipt",
+    "recovery_key",
     "recovery_session",
     "relation",
     "report",
     "request",
     "rtc_participant",
     "scheduled_send",
+    "service_route_handover",
     "session_grant",
     "sidecar",
     "space",
@@ -719,7 +724,8 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
 ///
 /// Like [`SUPPORTED_ID_KINDS`], this list is not free-form:
 /// `crates/schema/tests/id_kind_coverage.rs` pins it to
-/// [`arkret_identifiers::DECLARED_SPECIAL_FORM_ID_KINDS`] in both directions.
+/// the identifiers declarations and wire-owned signer/delegation reference types
+/// in both directions.
 /// Until that gate existed the list claimed four kinds with no type behind them
 /// — `mls` and `pseudonym` (both `profile_extension`, validated by the E2EE
 /// profile), `plan` and `service_registration_receipt` (both active, and now
@@ -728,9 +734,14 @@ pub const SUPPORTED_SPECIAL_FORM_ID_KINDS: &[&str] = &[
     "blob",
     "cell",
     "cursor",
+    "did_core",
+    "membership_compensation_delegation",
+    "organization_registration_challenge",
+    "organization_registration_receipt",
     "plan",
     "seal",
     "service_registration_receipt",
+    "signer_evidence",
     "trust_domain",
 ];
 
@@ -770,6 +781,8 @@ pub fn schema_registry_from_spec_artifacts(
         })?;
         let schema_path = artifacts_dir.join(file);
         let schema = read_json_artifact(&schema_path)?;
+        registry
+            .register_reference_document_from(schema.clone(), schema_path.display().to_string())?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
             registry.register_fragment(schema_id, schema, fragment)?;
         } else {
@@ -799,6 +812,7 @@ pub fn schema_registry_from_configured_spec_artifacts() -> Result<ProtocolSchema
             SchemaError::Protocol(format!("schema artifact {schema_id} has no file"))
         })?;
         let schema = read_spec_json_artifact(file)?;
+        registry.register_reference_document_from(schema.clone(), file)?;
         if let Some(fragment) = entry.get("fragment").and_then(Value::as_str) {
             registry.register_fragment(schema_id, schema, fragment)?;
         } else {
@@ -807,7 +821,7 @@ pub fn schema_registry_from_configured_spec_artifacts() -> Result<ProtocolSchema
     }
     for (path, schema) in spec_artifacts()? {
         if path.starts_with("schemas/") && path.ends_with(".json") && schema.get("$id").is_some() {
-            registry.register_reference_document(schema.clone())?;
+            registry.register_reference_document_from(schema.clone(), path)?;
         }
     }
     Ok(registry)
@@ -836,7 +850,7 @@ fn register_schema_documents_from_dir(
         } else if path.extension().and_then(|extension| extension.to_str()) == Some("json") {
             let schema = read_json_artifact(&path)?;
             if schema.get("$id").is_some() {
-                registry.register_reference_document(schema)?;
+                registry.register_reference_document_from(schema, path.display().to_string())?;
             }
         }
     }

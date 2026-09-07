@@ -347,7 +347,7 @@ mod mimi_reporter_authority_tests {
                     domain: Some("ak:trust_domain:example.com".to_owned()),
                     audience: Some(Audience::Single(source_provider_id.to_string())),
                     proof_purpose: None,
-                    jws: "e30..c2ln".to_owned(),
+                    jws: String::new(),
                 },
             },
             report_event,
@@ -361,7 +361,11 @@ mod mimi_reporter_authority_tests {
     fn transcript_covers_compact_request_and_authority_state_refs() {
         let request = request();
         let transcript: serde_json::Value = arkret_canonical::from_canonical_json_slice(
-            &request.reporter_authority_binding_bytes().unwrap(),
+            &request
+                .unsigned_reporter_authority_binding_bytes(
+                    &request.reporter_authority.proof.unsigned(),
+                )
+                .unwrap(),
         )
         .unwrap();
         assert_eq!(transcript["context"], "ak.mimi_reporter_authority_proof.v1");
@@ -388,18 +392,36 @@ mod mimi_reporter_authority_tests {
             DidCoreId::new("ak:did_core:web:mallory.example").unwrap(),
             DidCoreId::new("ak:did_core:web:other-station.example").unwrap(),
         ));
-        assert!(other_actor.reporter_authority_binding_bytes().is_err());
+        assert!(
+            other_actor
+                .unsigned_reporter_authority_binding_bytes(
+                    &other_actor.reporter_authority.proof.unsigned()
+                )
+                .is_err()
+        );
 
         let mut mutated = valid.clone();
         mutated.report_event.event.payload.insert(
             "target_ref".to_owned(),
             serde_json::json!("ak:realm:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
         );
-        assert!(mutated.reporter_authority_binding_bytes().is_err());
+        assert!(
+            mutated
+                .unsigned_reporter_authority_binding_bytes(
+                    &mutated.reporter_authority.proof.unsigned()
+                )
+                .is_err()
+        );
 
         let mut stale = valid;
         stale.reporter_authority.expires_at = stale.reporter_authority.proof.created_at;
-        assert!(stale.reporter_authority_binding_bytes().is_err());
+        assert!(
+            stale
+                .unsigned_reporter_authority_binding_bytes(
+                    &stale.reporter_authority.proof.unsigned()
+                )
+                .is_err()
+        );
     }
 }
 

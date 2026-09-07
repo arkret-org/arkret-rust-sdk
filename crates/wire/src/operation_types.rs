@@ -188,6 +188,7 @@ pub enum MembershipCompensationAction {
 pub struct MembershipCompensationDelegationRef(String);
 
 impl MembershipCompensationDelegationRef {
+    pub const ID_KIND: &'static str = "membership_compensation_delegation";
     pub fn new(value: impl Into<String>) -> Result<Self, &'static str> {
         let value = value.into();
         let suffix = value

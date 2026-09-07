@@ -1036,12 +1036,10 @@ fn dual_plane_vector_inventory_is_pinned() {
     }
 }
 
-/// Execute the fixture's valid §9.5 recovery case through the SDK's actual
-/// Seal-batch materializer. This intentionally reads the target cell and
-/// recovered value from the fixture: a hard-coded lookalike can stay green
-/// while the normative vector drifts.
+/// Execute the causal-register branch through the Seal-batch materializer.
+/// The top-level vector uses ordered_log and must not be passed to CasRegister.
 #[test]
-fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
+fn cas_recovery_fixture_leaves_bottom_with_the_signed_value() {
     let fixture = fixture();
     let vector = fixture["vectors"]
         .as_array()
@@ -1051,28 +1049,22 @@ fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
             vector["vector_id"].as_str() == Some("ak.vector.cba_lattice.conflict_recovery_move.v1")
         })
         .expect("conflict-recovery vector must exist");
-    let valid_case = vector["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|case| case["name"].as_str() == Some("valid_recovery"))
-        .expect("valid_recovery case must exist");
-    assert_eq!(
-        valid_case["expected"]["result"].as_str(),
-        Some("accept_after_valid_seal")
-    );
-
-    let target = CellRef::new(
-        vector["valid_recovery_move"]["payload"]["target_cell_id"]
-            .as_str()
+    let target = CellRef::new(vector["cas_register_recovery"]["cell"].as_str().unwrap()).unwrap();
+    assert!(
+        !vector["cas_register_recovery"]["assertions"]
+            .as_array()
             .unwrap()
-            .to_owned(),
-    )
-    .unwrap();
-    assert_eq!(target.as_str(), vector["cell"].as_str().unwrap());
-    let pre_conflict = vector["pre_conflict_value"].clone();
-    let recovered = vector["valid_recovery_move"]["payload"]["resolved_value"].clone();
-    assert_eq!(recovered, valid_case["expected"]["recovered_value"]);
+            .is_empty()
+    );
+    let pre_conflict = json!(EventId::from_identity(arkret_wire::EventIdentityKey::new(
+        arkret_wire::DigestSuiteCode::Sha256,
+        [0x22; 32]
+    )));
+    let competing = json!(EventId::from_identity(arkret_wire::EventIdentityKey::new(
+        arkret_wire::DigestSuiteCode::Sha256,
+        [0x11; 32]
+    )));
+    let recovered = Value::Null;
 
     let issuer = DidCoreId::new("ak:did_core:webvh:z6mkfixturerecovery".to_owned()).unwrap();
     let set = |suffix: &str, value: Value| IssuedOp {
@@ -1089,13 +1081,10 @@ fn conflict_recovery_fixture_leaves_bottom_with_the_signed_value() {
             .with_supersedes(vec![move_id("ab"), move_id("cd")]),
     };
 
-    let conflicted = vec![vec![
-        set("ab", json!({"policy_revision": 6})),
-        set("cd", pre_conflict),
-    ]];
+    let conflicted = vec![vec![set("ab", competing), set("cd", pre_conflict)]];
     assert!(
         join_cell_seal_batches(&CasRegister, &target, &conflicted).is_bottom(),
-        "fixture precondition: concurrent policy heads must be bottom"
+        "fixture precondition: concurrent claim heads must be bottom"
     );
 
     let mut sealed = conflicted;

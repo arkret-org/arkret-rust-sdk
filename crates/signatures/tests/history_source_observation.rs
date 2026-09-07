@@ -22,9 +22,10 @@ fn observation_input() -> HistorySourceAgentObservationInput {
             realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
                 .unwrap(),
         },
-        source_actor_id: ActorId::service(
-            DidCoreId::new("ak:did_core:key:z6MkfixtureAgent").unwrap(),
-        ),
+        source_actor_id: ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        )),
         source_sender_domain: "history.example".to_owned(),
         request_digest: digest("1"),
         request_receipt_digest: digest("2"),
@@ -57,7 +58,7 @@ fn agent_observation_digest_precedes_evidence_and_complete_source_proof() {
     let evidence_digest = digest("a");
     let evidence_ref =
         SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence_digest}")).unwrap();
-    let verification_method = DidUrl::new("did:key:z6MkfixtureAgent#response-1").unwrap();
+    let verification_method = DidUrl::new("did:web:agent.example#response-1").unwrap();
     let source = HistoryKeyResponseSendRequest::build_signed_proof(
         verification_method,
         observation.expires_at - chrono::Duration::minutes(1),
@@ -73,7 +74,13 @@ fn agent_observation_digest_precedes_evidence_and_complete_source_proof() {
             content: observation.content.clone(),
             source_proof,
         },
-        |_| Ok("signed-after-evidence-was-built".to_owned()),
+        |bytes| {
+            arkret_signatures::jws::sign_jws_ed25519(
+                bytes,
+                &ed25519_dalek::SigningKey::from_bytes(&[17; 32]),
+            )
+            .map_err(arkret_wire::WireError::Protocol)
+        },
     )
     .unwrap();
 

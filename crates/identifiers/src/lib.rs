@@ -373,7 +373,7 @@ macro_rules! declare_special_form_id_kinds {
         /// Cross-checked against the spec `id-kind-registry.json` and
         /// `arkret_schema::SUPPORTED_SPECIAL_FORM_ID_KINDS` by
         /// `arkret-schema`'s `id_kind_coverage` test.
-        pub const DECLARED_SPECIAL_FORM_ID_KINDS: &[&str] = &[$($kind),*];
+        pub const DECLARED_SPECIAL_FORM_ID_KINDS: &[&str] = &[DidCoreId::ID_KIND, $($kind),*];
     };
 }
 
@@ -549,7 +549,11 @@ pub fn is_plan_id(value: &str) -> bool {
 /// service-operation-dtos.schema.json
 /// `^ak:service_registration_receipt:[0-9a-f]{64}$`.
 pub fn is_service_registration_receipt_id(value: &str) -> bool {
-    match value.strip_prefix("ak:service_registration_receipt:") {
+    is_hex_identifier(value, "ak:service_registration_receipt:")
+}
+
+fn is_hex_identifier(value: &str, prefix: &str) -> bool {
+    match value.strip_prefix(prefix) {
         Some(digest) => {
             digest.len() == 64
                 && digest
@@ -850,6 +854,7 @@ mod diesel_support;
 pub use diesel_support::parse_text_identifier as __parse_text_identifier;
 
 impl DidCoreId {
+    pub const ID_KIND: &'static str = "did_core";
     /// Borrow this already-normalized identity core.
     ///
     /// This is a shape-neutral convenience for APIs that also accept projected
@@ -1128,6 +1133,10 @@ declare_special_form_id_kinds! {
     BlobRef, "blob", is_blob_ref;
     CellRef, "cell", is_cell_ref;
     Cursor, "cursor", has_prefix("ak:cursor:");
+    OrganizationRegistrationChallengeId, "organization_registration_challenge",
+        |value: &str| is_hex_identifier(value, "ak:organization_registration_challenge:");
+    OrganizationRegistrationReceiptId, "organization_registration_receipt",
+        |value: &str| is_hex_identifier(value, "ak:organization_registration_receipt:");
     PlanId, "plan", is_plan_id;
     SealId, "seal", is_content_addressed("ak:seal:");
     ServiceRegistrationReceiptId,
@@ -1138,25 +1147,32 @@ declare_special_form_id_kinds! {
     TrustDomainId, "trust_domain", is_trust_domain;
 }
 
-// `id-kind-registry.json` gives `operation` `wire_form: ak:operation:<uuid>`
-// and `id_form: producer_allocated`, and it is not a `special_forms` row — the
-// content-addressed kinds (`blob`, `seal`, `service_registration_receipt`,
-// `membership_compensation_delegation`) all are. So a bare digest is not an
-// Operation id: accepting one here was permissiveness no producer emitted and
-// no consumer relied on. It stays a text `id_type!` because there is no bare
-// uuid form.
-id_type!(OperationId, |value: &str| is_strict_typed_id(
-    value,
-    "ak:operation:",
-    UUID_VERSION_PRODUCER_ALLOCATED
-));
-
-impl OperationId {
-    /// Mint the UUIDv7 form of an Operation id at an explicit Unix timestamp.
-    pub fn new_v7_at(unix_ms: u64) -> Self {
-        Self(format!("ak:operation:{}", uuid_v7_at(unix_ms)))
-    }
+// Producer-allocated UUIDv7 identifiers with no implicit database conversion.
+macro_rules! declare_producer_allocated_ids {
+    ($($name:ident, $prefix:literal;)*) => {
+        $(
+            id_type!($name, |value: &str| is_strict_typed_id(
+                value, $prefix, UUID_VERSION_PRODUCER_ALLOCATED
+            ));
+            impl $name {
+                pub const KIND_PREFIX: &'static str = $prefix;
+                pub fn new_v7_at(unix_ms: u64) -> Self {
+                    Self(format!("{}{}", $prefix, uuid_v7_at(unix_ms)))
+                }
+            }
+        )*
+        pub const DECLARED_PRODUCER_ALLOCATED_ID_KIND_PREFIXES: &[&str] = &[$($prefix),*];
+    };
 }
+
+declare_producer_allocated_ids! {
+    HistoryRequestId, "ak:history_request:";
+    HistoryResponseId, "ak:history_response:";
+    OperationId, "ak:operation:";
+    RecoveryKeyId, "ak:recovery_key:";
+    ServiceRouteHandoverId, "ak:service_route_handover:";
+}
+
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
 
 impl MessageId {

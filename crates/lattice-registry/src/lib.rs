@@ -253,6 +253,58 @@ mod tests {
     }
 
     #[test]
+    fn object_creation_and_updates_share_the_registered_subject() {
+        let registry = default_lattice_registry();
+        let event_id = arkret_wire::EventId::from_event_digest(
+            &Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+        )
+        .unwrap();
+        for (family, create, updates, field, subject) in [
+            (
+                arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
+                arkret_wire::event_kind_str::STRAND_CREATE,
+                vec![
+                    arkret_wire::event_kind_str::STRAND_UPDATE,
+                    arkret_wire::event_kind_str::STRAND_TRACKS_UPDATE,
+                ],
+                "target_ref",
+                arkret_wire::StrandId::from_event_id(&event_id).to_string(),
+            ),
+            (
+                arkret_wire::CellFamilyId::VIEW_V1,
+                arkret_wire::event_kind_str::VIEW_CREATE,
+                vec![
+                    arkret_wire::event_kind_str::VIEW_UPDATE,
+                    arkret_wire::event_kind_str::VIEW_RECONCILE,
+                ],
+                "view_id",
+                arkret_wire::ViewId::from_event_id(&event_id).to_string(),
+            ),
+        ] {
+            let adapter = registry.lookup(family).unwrap();
+            assert_eq!(
+                adapter
+                    .subject_for_event(create, &event_id, &json!({}))
+                    .unwrap(),
+                Some(subject.clone())
+            );
+            for update in updates {
+                assert_eq!(
+                    adapter
+                        .subject_for_event(update, &event_id, &json!({field: subject}))
+                        .unwrap(),
+                    Some(subject.clone())
+                );
+                assert!(
+                    adapter
+                        .subject_for_event(update, &event_id, &json!({}))
+                        .is_err()
+                );
+            }
+        }
+    }
+
+    #[test]
     fn strand_object_exposes_distinct_concurrent_heads_and_deduplicates_replay() {
         let strand_id = "ak:strand:0196419b-0000-7000-8000-000000000901";
         let typed = default_lattice_registry();
@@ -689,34 +741,6 @@ mod tests {
                 "{family}"
             );
         }
-    }
-
-    #[test]
-    fn strand_object_resolves_patch_subjects_and_leaves_the_create_to_the_envelope() {
-        assert_eq!(
-            StrandObject::CELL_FAMILY,
-            arkret_wire::CellFamilyId::STRAND_OBJECT_V1
-        );
-        let strand_id = "ak:strand:0196419b-0000-7000-8000-000000000902";
-        let registry = default_lattice_registry();
-        let kind = registry
-            .lookup(arkret_wire::CellFamilyId::STRAND_OBJECT_V1)
-            .unwrap();
-        // `ak.strand.update` and `ak.strand.tracks.update` both patch this
-        // family and both name their Strand in `target_ref`.
-        assert_eq!(
-            kind.subject_for_effect(&json!({"target_ref": strand_id}))
-                .unwrap()
-                .as_deref(),
-            Some(strand_id)
-        );
-        // `ak.strand.create` mints the subject from the envelope Event id, so
-        // the effect payload carries no subject field to read.
-        assert_eq!(
-            kind.subject_for_effect(&json!({"object": {"title": "kickoff"}}))
-                .unwrap(),
-            None
-        );
     }
 
     #[test]

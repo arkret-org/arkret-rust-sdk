@@ -1572,6 +1572,15 @@ impl MimiKeyMaterialRequestBody {
     }
 
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    /// Construct the signing preimage before a signature exists.
+    pub fn unsigned_proof_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_KEY_MATERIAL_REQUEST_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
@@ -1611,6 +1620,15 @@ impl MimiKeyMaterialOutcome {
     /// Outcome families carry no wire issuer field: the signer identity is
     /// borne only by `verification_method` (`mimi-interop.md` §5.1).
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    /// Construct the signing preimage before a signature exists.
+    pub fn unsigned_proof_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_KEY_MATERIAL_OUTCOME_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_EXCHANGE_REQUEST_KEY_MATERIAL_V1,
@@ -1730,6 +1748,15 @@ impl MimiRequestConsentRequestBody {
     }
 
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    /// Construct the signing preimage before a signature exists.
+    pub fn unsigned_proof_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_REQUEST_CONSENT_REQUEST_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_COMMAND_REQUEST_CONSENT_V1,
@@ -1828,6 +1855,15 @@ impl MimiUpdateConsentRequestBody {
     /// Canonical `ak.mimi_update_consent_request_proof.v1` transcript shared by
     /// MIMI consent proof producers and verifiers.
     pub fn signature_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.signature.validate_production()?;
+        self.unsigned_signature_binding_bytes(&self.signature.unsigned())
+    }
+
+    /// Bind unsigned proof metadata before finalizing the request signature.
+    pub fn unsigned_signature_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_UPDATE_CONSENT_REQUEST_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_COMMAND_UPDATE_CONSENT_V1,
@@ -1837,7 +1873,7 @@ impl MimiUpdateConsentRequestBody {
                 ("decision", serde_json::to_value(self.decision)?),
             ],
             &self.payload_digest()?,
-            &self.signature,
+            proof,
         )
     }
 }
@@ -1873,7 +1909,7 @@ fn mimi_proof_binding_bytes(
     issuer: Option<Value>,
     targets: Vec<(&'static str, Value)>,
     payload_digest: &Hash,
-    proof: &PayloadProof,
+    proof: &arkret_wire::UnsignedPayloadProof,
 ) -> Result<Vec<u8>> {
     proof.validate_production()?;
     if proof.proof_purpose.is_some() {
@@ -1952,6 +1988,15 @@ impl MimiIdentifierQueryRequestBody {
     /// `requester` may be absent; the transcript then omits `issuer` entirely
     /// rather than encoding a null (`mimi-interop.md` §5.1).
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    /// Construct the signing preimage before a signature exists.
+    pub fn unsigned_proof_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         let issuer = match &self.requester_id {
             Some(requester) => Some(serde_json::to_value(requester)?),
             None => None,
@@ -1987,6 +2032,15 @@ impl MimiIdentifierQueryOutcome {
     }
 
     pub fn proof_binding_bytes(&self, proof: &PayloadProof) -> Result<Vec<u8>> {
+        proof.validate_production()?;
+        self.unsigned_proof_binding_bytes(&proof.unsigned())
+    }
+
+    /// Construct the signing preimage before a signature exists.
+    pub fn unsigned_proof_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         mimi_proof_binding_bytes(
             ProofContextId::MIMI_IDENTIFIER_QUERY_OUTCOME_PROOF_V1,
             ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
@@ -2065,9 +2119,18 @@ impl MimiReportAbuseRequestBody {
     }
 
     pub fn reporter_authority_binding_bytes(&self) -> Result<Vec<u8>> {
+        self.reporter_authority.proof.validate_production()?;
+        self.unsigned_reporter_authority_binding_bytes(&self.reporter_authority.proof.unsigned())
+    }
+
+    /// Bind reporter authority metadata before its signature exists.
+    pub fn unsigned_reporter_authority_binding_bytes(
+        &self,
+        proof: &arkret_wire::UnsignedPayloadProof,
+    ) -> Result<Vec<u8>> {
         let authority = &self.reporter_authority;
         self.report_payload()?;
-        if authority.expires_at <= authority.proof.created_at {
+        if authority.expires_at <= proof.created_at {
             return Err(WireError::Protocol(
                 "MIMI reporter authority expiry must follow proof creation".to_owned(),
             ));
@@ -2091,7 +2154,7 @@ impl MimiReportAbuseRequestBody {
                 ),
             ],
             &self.payload_digest()?,
-            &authority.proof,
+            proof,
         )
     }
 }

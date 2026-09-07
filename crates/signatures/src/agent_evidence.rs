@@ -11,9 +11,10 @@ use arkret_models_identity::agent_signer_evidence::{
     AGENT_KEY_COMPONENT, AGENT_SIGNING_KEY_BINDING_CONTEXT, AGENT_STATUS_COMPONENT,
     AgentAdmissionEvidence, AgentAuthorizationStatus, AgentControllerProof,
     AgentCurrentObservation, AgentDetachedJws, AgentEventAdmissionReceipt,
-    AgentEvidenceOuterAttestation, AgentHistoricalEvidenceOuterAttestation, AgentLifecycleStatus,
-    AgentLifecycleWitness, AgentSignerEvidence, AgentSigningKeyBinding, AgentSigningKeyBindingCore,
-    AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
+    AgentEvidenceOuterAttestation, AgentHistoricalEvidenceOuterAttestation,
+    AgentLifecycleProvenance, AgentLifecycleStatus, AgentLifecycleWitness, AgentSignerEvidence,
+    AgentSigningKeyBinding, AgentSigningKeyBindingCore, AgentSigningPublicKey,
+    ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
     ActorId, CellRef, Did, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString,
@@ -1117,7 +1118,6 @@ fn validate_common_evidence(
             .expires_at
             .is_some_and(|expires_at| basis_time >= expires_at)
         || core.key_transition_witness.is_some()
-        || lifecycle.status != AgentLifecycleStatus::Active
         || lifecycle.cell_value != AgentLifecycleStatus::Active
         || gate.schema.as_str() != SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
         || gate.principal_id.as_str() != context.controller_principal_id.as_str()
@@ -1313,7 +1313,172 @@ fn validate_state_witnesses(
         && lifecycle.seal.realm_id == snapshot.state.principal_control_realm_id
         && agent_lifecycle_cell_ref(context.signer_actor_id).ok()
             == Some(lifecycle.cell_ref.clone())
-        && verify_lifecycle_branch(lifecycle, &lifecycle_value))
+        && verify_lifecycle_branch(lifecycle, &lifecycle_value)
+        && lifecycle_provenance_matches(lifecycle, &snapshot.state.seal_lineages))
+}
+
+/// Verify an accepted lifecycle Event using the Station-authenticated frozen
+/// producer key. The resolver supplies trusted Station verification keys.
+pub fn verify_agent_lifecycle_event_signature(
+    witness: &AgentLifecycleWitness,
+    resolve_key: &dyn Fn(&DidUrl) -> Option<PublicKeyMaterial>,
+) -> Result<(), AgentEvidenceRejectedReason> {
+    let reject = || AgentEvidenceRejectedReason::SigningKeyMismatch;
+    let event = &witness.accepted_status_event;
+    let controller = event.executed_by.as_ref().ok_or_else(reject)?;
+    let suite = event
+        .event_id
+        .event_digest()
+        .digest_suite()
+        .map_err(|_| reject())?;
+    event
+        .validate_station_admission_binding(suite)
+        .map_err(|_| reject())?;
+    let [
+        arkret_wire::EventProof::Producer(producer),
+        arkret_wire::EventProof::StationAdmission(admission),
+    ] = event.proofs.as_slice()
+    else {
+        return Err(reject());
+    };
+    if did_url_controller_core_id(&producer.verification_method)
+        .ok()
+        .as_ref()
+        != Some(controller.signing_principal_id())
+    {
+        return Err(reject());
+    }
+    let station_key = resolve_key(&admission.verification_method).ok_or_else(reject)?;
+    let admission_bytes = admission.canonical_binding_bytes().map_err(|_| reject())?;
+    Ed25519DetachedJwsVerifier::new()
+        .verify_detached_jws(&admission.jws, &admission_bytes, &station_key)
+        .map_err(|_| reject())?;
+    let multibase = admission
+        .producer_signing_key_did
+        .as_str()
+        .strip_prefix("did:key:")
+        .ok_or_else(reject)?;
+    let key = arkret_canonical::decode_ed25519_multibase(multibase).map_err(|_| reject())?;
+    let payload = event.digest_payload().map_err(|_| reject())?;
+    let bytes = arkret_canonical::canonical_json_bytes(&payload).map_err(|_| reject())?;
+    crate::verify_ed25519_detached_jws_proof_with_digest_suite(
+        producer,
+        &bytes,
+        &event.actor_id,
+        &PublicKeyMaterial::Ed25519Raw {
+            bytes: key.to_vec(),
+        },
+        suite,
+    )
+    .map_err(|_| reject())
+}
+
+/// Cross-bind the reducer head to the exact lifecycle Event and its accepted
+/// ancestry. Signature/lineage verification remains mandatory in the caller.
+fn lifecycle_provenance_matches(witness: &AgentLifecycleWitness, lineage: &[Seal]) -> bool {
+    let event = &witness.accepted_status_event;
+    if event.realm_id != witness.seal.realm_id
+        || !witness
+            .cell_heads
+            .iter()
+            .any(|head| head.event_id == event.event_id && head.value == witness.cell_value)
+    {
+        return false;
+    }
+    let digest = event.event_id.event_digest();
+    let Ok(suite) = digest.digest_suite() else {
+        return false;
+    };
+    if event.event_digest_with_digest_suite(suite).ok().as_deref() != Some(digest.as_str()) {
+        return false;
+    }
+    let Ok(writes) = arkret_schema::project_registered_cell_writes(event, suite) else {
+        return false;
+    };
+    let mut status_writes = writes
+        .iter()
+        .filter(|write| write.cell_id.as_str() == witness.cell_ref.as_str());
+    let Some(write) = status_writes.next() else {
+        return false;
+    };
+    let Ok(expected) = serde_json::to_value(witness.cell_value) else {
+        return false;
+    };
+    let matches = match &write.op {
+        arkret_wire::ProjectedOp::Direct(op) => {
+            op.op_type == arkret_wire::LatticeOpType::Transition
+                && op.to.as_ref() == Some(&expected)
+        }
+        arkret_wire::ProjectedOp::TransitionTo { to } => to == &expected,
+        _ => false,
+    };
+    if !matches || status_writes.next().is_some() {
+        return false;
+    }
+    let seals = lineage
+        .iter()
+        .map(|seal| (seal.id.to_string(), seal))
+        .collect::<BTreeMap<_, _>>();
+    if !lineage.iter().any(|seal| {
+        (seal.delta.contains(&digest) || seal.covered_event_digests.contains(&digest))
+            && seal_is_ancestor(&seals, seal.id.as_str(), witness.seal_id.as_str()).unwrap_or(false)
+    }) {
+        return false;
+    }
+    match (&witness.cell_value, &witness.provenance) {
+        (
+            AgentLifecycleStatus::Active,
+            AgentLifecycleProvenance::DelegatedPcrGenesis {
+                realm_create_event_id,
+            },
+        ) => {
+            event.kind == arkret_wire::EventKind::RealmCreate
+                && event
+                    .payload
+                    .get("object")
+                    .and_then(|object| object.get("purpose"))
+                    .and_then(Value::as_str)
+                    == Some("agent_control")
+                && event.event_id == *realm_create_event_id
+                && !event
+                    .refs
+                    .iter()
+                    .any(|reference| reference.role == "agent_provision")
+        }
+        (
+            AgentLifecycleStatus::Paused,
+            AgentLifecycleProvenance::PauseAccepted { pause_event_id },
+        ) => {
+            event.kind == arkret_wire::EventKind::SelfAgentPause
+                && event.event_id == *pause_event_id
+                && event.payload.get("transition").and_then(Value::as_str) == Some("pause")
+                && event.payload.get("previous_status").and_then(Value::as_str) == Some("active")
+        }
+        (
+            AgentLifecycleStatus::Active,
+            AgentLifecycleProvenance::ResumeAccepted { resume_event_id },
+        ) => {
+            event.kind == arkret_wire::EventKind::SelfAgentResume
+                && event.event_id == *resume_event_id
+                && event.payload.get("transition").and_then(Value::as_str) == Some("resume")
+                && event.payload.get("previous_status").and_then(Value::as_str) == Some("paused")
+        }
+        (
+            AgentLifecycleStatus::Deactivated,
+            AgentLifecycleProvenance::DeactivateAccepted {
+                deactivate_event_id,
+            },
+        ) => {
+            event.kind == arkret_wire::EventKind::SelfAgentDeactivate
+                && event.event_id == *deactivate_event_id
+                && event.payload.get("transition").and_then(Value::as_str) == Some("deactivate")
+                && matches!(
+                    event.payload.get("previous_status").and_then(Value::as_str),
+                    Some("active" | "paused")
+                )
+        }
+        _ => false,
+    }
 }
 
 fn validate_seal_lineage(
@@ -1501,6 +1666,8 @@ pub fn agent_signing_public_key_digest(
     if arkret_canonical::base64url_encode(raw) != public_key.key.as_str() {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
+    ed25519_dalek::VerifyingKey::from_bytes(&raw)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     Hash::new(canonical::sha256_digest(raw))
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
@@ -1747,6 +1914,29 @@ fn authorization_record_fields_match(
 #[cfg(test)]
 mod digest_domain_tests {
     use super::*;
+
+    #[test]
+    fn agent_key_digest_domains_reject_non_curve_points() {
+        let verification_method = DidUrl::new("did:web:agent.example#runtime-key-1").unwrap();
+        let valid = SigningKey::from_bytes(&[7; 32]).verifying_key().to_bytes();
+        for (raw, accepted) in [([7_u8; 32], false), (valid, true)] {
+            let public_key = AgentSigningPublicKey {
+                kty: NonEmptyString::new("OKP").unwrap(),
+                algorithm: NonEmptyString::new("Ed25519").unwrap(),
+                key: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(raw))
+                    .unwrap(),
+            };
+            assert_eq!(
+                agent_signing_public_key_digest(&public_key).is_ok(),
+                accepted
+            );
+            assert_eq!(
+                agent_signing_public_key_runtime_request_digest(&verification_method, &public_key)
+                    .is_ok(),
+                accepted
+            );
+        }
+    }
 
     #[test]
     fn authorization_digest_hashes_raw_key_not_runtime_jwk() {

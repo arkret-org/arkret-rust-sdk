@@ -219,22 +219,10 @@ pub enum AgentLifecycleStatus {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentLifecycleProvenance {
-    DelegatedPcrGenesis {
-        realm_create_event_id: EventId,
-        agent_provision_event_id: EventId,
-    },
-    PauseAccepted {
-        pause_event_id: EventId,
-        predecessor_active_event_id: EventId,
-    },
-    ResumeAccepted {
-        resume_event_id: EventId,
-        predecessor_pause_event_id: EventId,
-    },
-    DeactivateAccepted {
-        deactivate_event_id: EventId,
-        predecessor_status_event_id: EventId,
-    },
+    DelegatedPcrGenesis { realm_create_event_id: EventId },
+    PauseAccepted { pause_event_id: EventId },
+    ResumeAccepted { resume_event_id: EventId },
+    DeactivateAccepted { deactivate_event_id: EventId },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -243,7 +231,6 @@ pub enum AgentLifecycleProvenance {
 pub struct AgentLifecycleWitness {
     pub component: NonEmptyString,
     pub agent_id: DidCoreId,
-    pub status: AgentLifecycleStatus,
     pub provenance: AgentLifecycleProvenance,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub accepted_status_event: Event,

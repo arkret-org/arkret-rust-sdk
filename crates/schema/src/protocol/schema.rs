@@ -133,16 +133,27 @@ impl Retrieve for InMemorySchemaRetriever {
 }
 
 /// Protocol JSON Schema registry.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProtocolSchemaRegistry {
     schemas: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     documents: BTreeMap<String, Value>,
+    #[serde(skip, default)]
+    document_sources: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     fragments: BTreeMap<String, String>,
     trusted_extension_prefixes: Vec<String>,
     #[serde(skip, default)]
     validator_cache: ValidatorCache,
+}
+
+impl PartialEq for ProtocolSchemaRegistry {
+    fn eq(&self, other: &Self) -> bool {
+        self.schemas == other.schemas
+            && self.documents == other.documents
+            && self.fragments == other.fragments
+            && self.trusted_extension_prefixes == other.trusted_extension_prefixes
+    }
 }
 
 /// JSON value type rule extracted from a supported JSON Schema document.
@@ -199,6 +210,7 @@ impl ProtocolSchemaRegistry {
         Self {
             schemas: BTreeMap::new(),
             documents: BTreeMap::new(),
+            document_sources: BTreeMap::new(),
             fragments: BTreeMap::new(),
             trusted_extension_prefixes: Vec::new(),
             validator_cache: ValidatorCache::default(),
@@ -240,6 +252,16 @@ impl ProtocolSchemaRegistry {
 
     /// Register a schema document that exists only to satisfy `$ref` targets.
     pub fn register_reference_document(&mut self, schema: Value) -> Result<()> {
+        self.register_reference_document_from(schema, "in-memory reference document")
+    }
+
+    /// Register a reference document with its source for conflict diagnostics.
+    pub fn register_reference_document_from(
+        &mut self,
+        schema: Value,
+        source: impl Into<String>,
+    ) -> Result<()> {
+        let source = source.into();
         let document_id = schema
             .get("$id")
             .and_then(Value::as_str)
@@ -253,10 +275,20 @@ impl ProtocolSchemaRegistry {
         if let Some(previous) = self.documents.get(&document_id)
             && previous != &schema
         {
-            return Err(SchemaError::Protocol(format!(
-                "conflicting schema documents declare $id '{document_id}'"
-            )));
+            return Err(schema_document_conflict(
+                &document_id,
+                self.document_sources
+                    .get(&document_id)
+                    .map(String::as_str)
+                    .unwrap_or("deserialized reference document"),
+                previous,
+                &source,
+                &schema,
+            ));
         }
+        self.document_sources
+            .entry(document_id.clone())
+            .or_insert(source);
         self.documents.insert(document_id, schema);
         self.clear_validator_cache();
         Ok(())
@@ -588,16 +620,29 @@ impl ProtocolSchemaRegistry {
 
         let mut retriever_schemas = BTreeMap::new();
         retriever_schemas.extend(self.documents.clone());
+        let mut sources = self.document_sources.clone();
         for (logical_id, document) in &self.schemas {
             if let Some(document_id) = document.get("$id").and_then(Value::as_str)
                 && document_id.contains(':')
-                && let Some(previous) =
-                    retriever_schemas.insert(document_id.to_owned(), document.clone())
-                && previous != *document
             {
-                return Err(SchemaError::Protocol(format!(
-                    "conflicting schema documents declare $id '{document_id}'"
-                )));
+                if let Some(previous) = retriever_schemas.get(document_id)
+                    && previous != document
+                {
+                    return Err(schema_document_conflict(
+                        document_id,
+                        sources
+                            .get(document_id)
+                            .map(String::as_str)
+                            .unwrap_or("deserialized reference document"),
+                        previous,
+                        logical_id,
+                        document,
+                    ));
+                }
+                retriever_schemas.insert(document_id.to_owned(), document.clone());
+                sources
+                    .entry(document_id.to_owned())
+                    .or_insert_with(|| logical_id.clone());
             }
             if logical_id.contains(':') {
                 retriever_schemas.insert(logical_id.clone(), document.clone());
@@ -634,6 +679,51 @@ impl ProtocolSchemaRegistry {
         }
         Ok(())
     }
+}
+
+fn schema_document_conflict(
+    document_id: &str,
+    previous_source: &str,
+    previous: &Value,
+    source: &str,
+    schema: &Value,
+) -> SchemaError {
+    let pointer = first_different_json_pointer(previous, schema, String::new());
+    SchemaError::Protocol(format!(
+        "conflicting schema documents declare $id '{document_id}': sources \
+         '{previous_source}' and '{source}', first differing JSON pointer '{pointer}'"
+    ))
+}
+
+fn first_different_json_pointer(left: &Value, right: &Value, pointer: String) -> String {
+    match (left, right) {
+        (Value::Object(left), Value::Object(right)) => {
+            for key in left.keys().chain(right.keys()).collect::<BTreeSet<_>>() {
+                let child = format!("{pointer}/{}", key.replace('~', "~0").replace('/', "~1"));
+                match (left.get(key), right.get(key)) {
+                    (Some(left), Some(right)) if left != right => {
+                        return first_different_json_pointer(left, right, child);
+                    }
+                    (None, _) | (_, None) => return child,
+                    _ => {}
+                }
+            }
+        }
+        (Value::Array(left), Value::Array(right)) => {
+            for index in 0..left.len().max(right.len()) {
+                let child = format!("{pointer}/{index}");
+                match (left.get(index), right.get(index)) {
+                    (Some(left), Some(right)) if left != right => {
+                        return first_different_json_pointer(left, right, child);
+                    }
+                    (None, _) | (_, None) => return child,
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+    pointer
 }
 
 fn duration_micros(started: Instant) -> u64 {

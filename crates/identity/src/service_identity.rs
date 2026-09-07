@@ -691,6 +691,11 @@ mod tests {
         };
         receipt.registration_receipt_id = receipt.expected_registration_receipt_id().unwrap();
         receipt.proof.payload_digest = receipt.expected_payload_digest().unwrap();
+        receipt.proof = arkret_signatures::service_identity::sign_registration_receipt_proof(
+            &receipt,
+            &ed25519_dalek::SigningKey::from_bytes(&[11; 32]),
+        )
+        .unwrap();
         receipt
     }
 

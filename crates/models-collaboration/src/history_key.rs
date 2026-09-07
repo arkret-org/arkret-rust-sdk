@@ -1,7 +1,5 @@
 //! Private history-key recovery and direct governance-traversal wire objects.
 
-use std::fmt;
-
 use arkret_models_identity::{AgentLifecycleStatus, AgentSignerEvidence};
 use arkret_wire::{
     ActorId, Base64UrlString, CircleId, DeviceId, DidCoreId, DidUrl, EventId, Hash, HistoryAccess,
@@ -11,83 +9,11 @@ use arkret_wire::{
 pub use arkret_wire::{
     DirectorySourceRefAccess, DirectorySourceRefAccessKind, EpochRange, EventCandidateBinding,
     EventCandidateBindingKey, EventCandidateBindingOutcome, HistoryCandidateMaterialKey,
-    HistoryCandidateMaterialRecord, HistorySecretRange, LocalAuthoritativeHistorySecret,
-    validate_canonical_ranges,
+    HistoryCandidateMaterialRecord, HistoryRequestId, HistoryResponseId, HistorySecretRange,
+    LocalAuthoritativeHistorySecret, validate_canonical_ranges,
 };
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
-
-macro_rules! history_id {
-    ($name:ident, $prefix:literal, $validate:expr) => {
-        #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub struct $name(String);
-
-        impl $name {
-            pub fn new(value: impl Into<String>) -> Result<Self> {
-                let value = value.into();
-                if !$validate(&value) {
-                    return Err(WireError::Protocol(format!(
-                        "invalid {}",
-                        stringify!($name)
-                    )));
-                }
-                Ok(Self(value))
-            }
-
-            pub fn as_str(&self) -> &str {
-                &self.0
-            }
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                formatter.write_str(&self.0)
-            }
-        }
-
-        impl Serialize for $name {
-            fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                serializer.serialize_str(&self.0)
-            }
-        }
-
-        impl<'de> Deserialize<'de> for $name {
-            fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                Self::new(String::deserialize(deserializer)?).map_err(de::Error::custom)
-            }
-        }
-    };
-}
-
-fn uuid_v7_suffix(value: &str, prefix: &str) -> bool {
-    let Some(value) = value.strip_prefix(prefix) else {
-        return false;
-    };
-    let bytes = value.as_bytes();
-    bytes.len() == 36
-        && [8, 13, 18, 23].iter().all(|index| bytes[*index] == b'-')
-        && bytes[14] == b'7'
-        && matches!(bytes[19], b'8' | b'9' | b'a' | b'b')
-        && bytes.iter().enumerate().all(|(index, byte)| {
-            [8, 13, 18, 23].contains(&index)
-                || byte.is_ascii_digit()
-                || (b'a'..=b'f').contains(byte)
-        })
-}
-
-history_id!(HistoryRequestId, "ak:history_request:", |value: &str| {
-    uuid_v7_suffix(value, "ak:history_request:")
-});
-history_id!(HistoryResponseId, "ak:history_response:", |value: &str| {
-    uuid_v7_suffix(value, "ak:history_response:")
-});
+use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -374,7 +300,8 @@ impl HistoryCandidateOriginAttribution {
                 origin_ref,
                 ..
             } => {
-                if !uuid_v7_suffix(&origin_quota_domain.backup_series_id, "ak:backup_series:") {
+                if arkret_wire::BackupSeriesId::new(&origin_quota_domain.backup_series_id).is_err()
+                {
                     return Err(WireError::Protocol(
                         "history backup series id is invalid".to_owned(),
                     ));
@@ -385,7 +312,7 @@ impl HistoryCandidateOriginAttribution {
                     .ok_or_else(|| {
                         WireError::Protocol("history backup origin id is invalid".to_owned())
                     })?;
-                if !(uuid_v7_suffix(backup_id, "ak:backup:")
+                if !(arkret_wire::BackupId::new(backup_id).is_ok()
                     || backup_id.strip_prefix("sha256:").is_some_and(|hex| {
                         hex.len() == 64
                             && hex
@@ -2097,7 +2024,7 @@ impl AgentEvidenceViewLocator {
         let expected_basis = SealBasis {
             leaves: vec![authority_state.frontier_seal_id.clone()],
         };
-        if lifecycle.status != AgentLifecycleStatus::Active
+        if lifecycle.cell_value != AgentLifecycleStatus::Active
             || self.agent_id != binding.agent_id
             || self.verification_method != binding.verification_method
             || self.agent_key_authorize_event_id != binding.agent_key_authorize_event_id
@@ -3019,6 +2946,16 @@ fn proof_payload_and_binding_bytes(
     proof: &PayloadProof,
 ) -> Result<(Hash, Vec<u8>)> {
     proof.validate_production()?;
+    unsigned_proof_payload_and_binding_bytes(value, proof_field, context, &proof.unsigned())
+}
+
+fn unsigned_proof_payload_and_binding_bytes(
+    value: &impl Serialize,
+    proof_field: &str,
+    context: &'static str,
+    proof: &arkret_wire::UnsignedPayloadProof,
+) -> Result<(Hash, Vec<u8>)> {
+    proof.validate_production()?;
     if proof.domain.is_some() || proof.audience.is_some() || proof.proof_purpose.is_some() {
         return Err(WireError::Protocol(
             "history proof contains fields outside its registered transcript".to_owned(),
@@ -3105,10 +3042,13 @@ where
         jws: "pending".to_owned(),
     };
     let carrier = build(proof.clone());
-    let (_, binding_bytes) =
-        proof_payload_and_binding_bytes(&carrier, proof_field, context, &proof)?;
-    proof.jws = sign(&binding_bytes)?;
-    proof.validate_production()?;
+    let (_, binding_bytes) = unsigned_proof_payload_and_binding_bytes(
+        &carrier,
+        proof_field,
+        context,
+        &proof.unsigned(),
+    )?;
+    proof = proof.unsigned().finalize(sign(&binding_bytes)?)?;
     let carrier = build(proof.clone());
     proof_payload_and_binding_bytes(&carrier, proof_field, context, &proof)?;
     Ok(carrier)

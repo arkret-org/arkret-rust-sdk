@@ -2444,6 +2444,12 @@ fn validate_staged_commit_capability_floor(
         })?;
     let required = decode_keypackage_capability_extension(&extension.0)
         .map_err(|error| Error::Protocol(error.to_string()))?;
+    // OpenMLS keeps only public state when this authenticated Commit removes
+    // the local member. There is no prospective member tree to inspect; merge
+    // the removal so subsequent content operations observe an inactive group.
+    if staged.self_removed() {
+        return Ok(());
+    }
     let original_tree = current_group.export_ratchet_tree();
     let prospective_tree = staged
         .export_ratchet_tree(provider.crypto(), original_tree)

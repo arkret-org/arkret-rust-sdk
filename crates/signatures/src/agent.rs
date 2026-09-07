@@ -425,6 +425,9 @@ fn parse_agent_runtime_public_key(
             "agent runtime public_key.key must use canonical unpadded base64url".to_owned(),
         ));
     }
+    ed25519_dalek::VerifyingKey::from_bytes(&raw_public_key).map_err(|_| {
+        Error::Protocol("agent runtime public_key.key must be an Ed25519 curve point".to_owned())
+    })?;
     let runtime_request_digest =
         Hash::new(canonical::canonical_sha256(&public_key)?).map_err(Error::from)?;
     let authorization_digest =

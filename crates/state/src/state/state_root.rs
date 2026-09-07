@@ -276,30 +276,35 @@ pub fn state_leaf_canonical_preimage(
 /// and any disagreement is `Bottom`, which has no single value to publish. A
 /// receiver holding only the portable leaf has no op log to re-join, so this is
 /// the one rule it can apply to the bytes it was given.
-pub fn causal_register_leaf_value(heads: &Value) -> Result<Value, crate::WireError> {
-    let entries = heads.as_array().ok_or_else(|| {
-        crate::WireError::Protocol("state leaf heads must be an array".to_owned())
-    })?;
-    let mut resolved: Option<&Value> = None;
-    for entry in entries {
-        let value = entry.get("value").ok_or_else(|| {
-            crate::WireError::Protocol("state leaf head carries no value".to_owned())
-        })?;
-        match resolved {
-            Some(existing) if existing != value => {
-                return Err(crate::WireError::Protocol(
-                    "state leaf heads disagree; the cell is Bottom and has no single value"
-                        .to_owned(),
-                ));
-            }
-            _ => resolved = Some(value),
-        }
+pub fn causal_register_leaf_value(
+    heads: &serde_json::Value,
+) -> Result<serde_json::Value, crate::WireError> {
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Head {
+        event_id: arkret_wire::EventId,
+        value: serde_json::Value,
     }
-    resolved.cloned().ok_or_else(|| {
-        crate::WireError::Protocol(
-            "state leaf heads are empty; the cell is not a state_root member".to_owned(),
-        )
-    })
+    let heads: Vec<Head> = serde_json::from_value(heads.clone()).map_err(|error| {
+        crate::WireError::Protocol(format!("invalid causal leaf heads: {error}"))
+    })?;
+    let first = heads.first().ok_or_else(|| {
+        crate::WireError::Protocol("causal leaf heads must not be empty".to_owned())
+    })?;
+    if heads
+        .windows(2)
+        .any(|pair| pair[0].event_id.token_bytes() >= pair[1].event_id.token_bytes())
+    {
+        return Err(crate::WireError::Protocol(
+            "causal leaf heads must have unique, ordered Event identities".to_owned(),
+        ));
+    }
+    if heads.iter().any(|head| head.value != first.value) {
+        return Err(crate::WireError::Protocol(
+            "causal leaf heads are in Bottom".to_owned(),
+        ));
+    }
+    Ok(first.value.clone())
 }
 
 /// The `state` half of a member cell's leaf, in the same shape and by the same

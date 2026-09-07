@@ -3356,15 +3356,15 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/state/src/mls_governance_proof.rs::canonical_state_leaf_preimage:e42786466aa24ecd",
+      "finding": "json_authoring:crates/state/src/state/state_root.rs::cas_leaf_state_object:60b74f869c1b4d49",
       "classification": "closed_discriminated",
       "lifecycle": "pending_migration",
       "decision": "closed",
-      "authority": "arkret-spec closed union selected by state",
+      "authority": "arkret-spec zh/authz/event-auth-state-resolution.md section 6.2.1 causal register leaf heads",
       "owner_repository": "arkret-rust-sdk",
       "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
+      "reason": "The existing raw state-root head serialization moved to a shared helper. Its typed canonical-preimage migration remains open; this move does not discharge it."
     },
     {
       "finding": "json_authoring:inkson/src/bootstrap.rs::merge_accepted_welcome_candidates_for_local_endpoint:51a0e3d412c8f99b",

@@ -2474,6 +2474,15 @@ mod tests {
     fn sidecar_exchange_projection_is_a_local_fold_cache_and_fail_closed() {
         let projection = fixture_exchange_projection();
         projection.validate().unwrap();
+        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
+            .unwrap()
+            .expect("spec artifacts are required");
+        registry
+            .validate_value(
+                SchemaId::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
+                &serde_json::to_value(&projection).unwrap(),
+            )
+            .unwrap();
 
         assert_eq!(
             AgentSidecarExchangeProjection::ORIGIN,
@@ -2487,6 +2496,11 @@ mod tests {
             let mut echoed = serde_json::to_value(&projection).unwrap();
             assert!(echoed.get(member).is_none());
             echoed[member] = serde_json::json!("source_track_routed");
+            assert!(
+                registry
+                    .validate_value(SchemaId::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1, &echoed,)
+                    .is_err()
+            );
             assert!(
                 serde_json::from_value::<AgentSidecarExchangeProjection>(echoed).is_err(),
                 "the exchange projection schema is closed and injects {member} from schema identity"

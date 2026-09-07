@@ -700,6 +700,7 @@ pub struct ServiceRouteHandoverNoticeCore {
 
 impl ServiceRouteHandoverNoticeCore {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        arkret_wire::ServiceRouteHandoverId::new(&self.handover_id)?;
         let valid_chain = (self.notice_revision == 0 && self.previous_notice_digest.is_none())
             || (self.notice_revision > 0 && self.previous_notice_digest.is_some());
         let valid_state = match self.state {

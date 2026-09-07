@@ -15,7 +15,7 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 
 pub const MLS_GOVERNANCE_PROOF_MIN_BYTES: u32 = 65_536;
-pub const MLS_GOVERNANCE_PROOF_MAX_BYTES: u32 = 1_048_576;
+pub use arkret_wire::constants::MLS_GOVERNANCE_PROOF_MAX_BYTES;
 pub const MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES: usize = 8_388_608;
 pub const MLS_GOVERNANCE_PROOF_MAX_LEAVES: usize = 65_536;
 pub const MLS_GOVERNANCE_PROOF_MAX_SIBLINGS: usize = 64;

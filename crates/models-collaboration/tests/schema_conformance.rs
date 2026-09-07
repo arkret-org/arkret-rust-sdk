@@ -35,6 +35,72 @@ use arkret_wire::SchemaId;
 use models::*;
 
 #[test]
+fn call_recording_artifact_serialization_matches_its_closed_schema() {
+    use arkret_models_collaboration::events_payloads::call::*;
+    use arkret_wire::{BlobRef, CallId, ExporterLabelId, GrantId};
+
+    let realm_id = RealmId::new(FIXTURE_REALM_ID).unwrap();
+    let call_id = CallId::new("ak:call:AY6DJbBwavsGTQuBZZiqqw9MVcqPZ8QX8invQ3i2kpi7").unwrap();
+    let event_id = EventId::new("ak:event:AQ_TuICTz2cVFhqtuEZTue46AK_LsqKsKlTPixxkuedX").unwrap();
+    let recording_id = CallRecordingId::new("capture-1").unwrap();
+    let recorder = DidCoreId::new("ak:did_core:web:recorder.example").unwrap();
+    let artifact = CallRecordingArtifact {
+        schema: CallRecordingArtifact::SCHEMA.to_owned(),
+        realm_id: realm_id.clone(),
+        call_id: call_id.clone(),
+        recording_id: recording_id.clone(),
+        recording_start_event_id: event_id.clone(),
+        blob_ref: BlobRef::new(format!("ak:blob:sha256:{}", "11".repeat(32))).unwrap(),
+        size_bytes: 1024,
+        duration_ms: 1000,
+        media_type: "video/mp4".to_owned(),
+        encryption: CallRecordingEncryption {
+            encryption_algorithm:
+                CallRecordingEncryptionAlgorithm::MlsExporterAeadXchacha20poly1305Stream,
+            exporter_label: ExporterLabelId::RTC_RECORDING_KEY_V1.to_owned(),
+            context: CallRecordingEncryptionContext {
+                realm_id,
+                call_id,
+                focus_id: "recorder-1".to_owned(),
+                recording_id,
+                media_service_id: recorder.clone(),
+                recording_start_event_id: event_id,
+            },
+        },
+        retention_policy_id: None,
+        retention: CallRecordingRetention {
+            retention_expires_at: Some("2026-09-08T00:00:00.000Z".parse().unwrap()),
+            deletion_trigger: Some(CallRecordingDeletionTrigger::RetentionExpiry),
+            audit_lock: Some(false),
+            consent_confirmed: Some(true),
+        },
+        produced_by: recorder,
+        recording_initiator_capability_ref: GrantId::new(
+            "ak:grant:AY8a0-KhSVbHOk2IStjbvFlEdGofW0ZyqMsOoZu6_Cqv",
+        )
+        .unwrap(),
+        created_at: "2026-09-07T00:00:00.000Z".parse().unwrap(),
+        deletion_audit: None,
+    };
+    artifact.validate().unwrap();
+    let registry = schema_registry_from_default_spec_artifacts()
+        .unwrap()
+        .expect("spec artifacts are required");
+    let mut wire = serde_json::to_value(&artifact).unwrap();
+    registry
+        .validate_value(CallRecordingArtifact::SCHEMA, &wire)
+        .unwrap();
+    assert!(wire.get("artifact_kind").is_none());
+    wire["artifact_kind"] = json!("recording");
+    assert!(
+        registry
+            .validate_value(CallRecordingArtifact::SCHEMA, &wire)
+            .is_err()
+    );
+    assert!(serde_json::from_value::<CallRecordingArtifact>(wire).is_err());
+}
+
+#[test]
 fn moderation_decision_rejects_retired_policy_server_field() {
     use arkret_models_collaboration::events_payloads::moderation::ModerationDecisionPayload;
 
@@ -697,4 +763,33 @@ fn typed_patch_payloads_match_registered_event_payload_schemas() {
         empty_patch["patch"] = json!({});
         assert!(catalog.validate_payload(kind, &empty_patch).is_err());
     }
+}
+
+#[test]
+fn semantic_ref_proof_carries_the_closed_root_and_preimage_contract() {
+    let registry = schema_registry_from_default_spec_artifacts()
+        .unwrap()
+        .expect("spec artifacts are required");
+    let wire = json!({
+        "kind": "rfc6962_merkle", "root_field": "state_root",
+        "root_digest": format!("sha256:{}", "11".repeat(32)),
+        "leaf_canonical_preimage_b64u": "e30",
+        "leaf_digest": format!("sha256:{}", "11".repeat(32)),
+        "audit_path": [], "leaf_index": 0, "leaf_count": 1
+    });
+    let proof: arkret_wire::SemanticRefProof = serde_json::from_value(wire.clone()).unwrap();
+    proof.validate_structural().unwrap();
+    assert_eq!(serde_json::to_value(proof).unwrap(), wire);
+    const SCHEMA: &str = "ak.schema.event.v1#/$defs/semantic_ref_merkle_proof";
+    registry.validate_value(SCHEMA, &wire).unwrap();
+    for field in ["root_field", "root_digest", "leaf_canonical_preimage_b64u"] {
+        let mut missing = wire.clone();
+        missing.as_object_mut().unwrap().remove(field);
+        assert!(serde_json::from_value::<arkret_wire::SemanticRefProof>(missing.clone()).is_err());
+        assert!(registry.validate_value(SCHEMA, &missing).is_err());
+    }
+    let mut unknown = wire;
+    unknown["root_field"] = json!("unknown_root");
+    assert!(serde_json::from_value::<arkret_wire::SemanticRefProof>(unknown.clone()).is_err());
+    assert!(registry.validate_value(SCHEMA, &unknown).is_err());
 }

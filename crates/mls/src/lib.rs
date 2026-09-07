@@ -1405,6 +1405,39 @@ mod tests {
     }
 
     #[test]
+    fn removed_recipient_merges_public_state_and_becomes_inactive() {
+        let alice = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000006").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000000e").unwrap(),
+        )
+        .unwrap();
+        let target = test_account_actor(bob.endpoint_identity().actor_id());
+        let mut author = alice
+            .create_group(b"ak:realm:Abv-DTiqqItOdVuCsiERm9HxIf_JwLqRfx9WfkG_eVld")
+            .unwrap();
+        let add = author
+            .add_member(&bob.key_package_record().unwrap())
+            .unwrap();
+        let mut recipient = ArkretMlsGroup::join_from_welcome(bob, &add.welcome).unwrap();
+        assert!(recipient.is_active());
+        let remove = author.remove_members_by_actor(&[target]).unwrap();
+        for proposal in &remove.proposals {
+            recipient.apply_proposal(proposal).unwrap();
+        }
+        assert_eq!(
+            recipient.apply_commit(&remove.commit).unwrap(),
+            remove.commit.epoch
+        );
+        assert!(!recipient.is_active());
+        assert!(author.is_active());
+    }
+
+    #[test]
     fn remove_members_by_actor_batches_one_commit() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),

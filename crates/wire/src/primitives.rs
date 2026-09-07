@@ -1353,9 +1353,9 @@ impl PayloadProof {
                 "proof kind must not be empty".to_owned(),
             ));
         }
-        if self.jws.is_empty() {
+        if !is_compact_jws(&self.jws) {
             return Err(WireError::Protocol(
-                "proof JWS must not be empty".to_owned(),
+                "proof JWS must use compact JWS syntax".to_owned(),
             ));
         }
         if self

@@ -3032,6 +3032,25 @@ mod tests {
     }
 
     #[test]
+    fn accountability_record_projection_normalizes_scopes_without_rewriting_payload() {
+        for (left, right) in [
+            (json!("employment"), json!(["employment"])),
+            (
+                json!(["employment", "agent_operator"]),
+                json!(["agent_operator", "employment"]),
+            ),
+        ] {
+            let event = accountability_event(left, "active");
+            let mut equivalent = accountability_event(right.clone(), "active");
+            equivalent
+                .payload
+                .insert("proof".into(), json!({"source": "must not enter the cell"}));
+            assert_eq!(project(&event), project(&equivalent));
+            assert_eq!(equivalent.payload.get("accountability_scope"), Some(&right));
+        }
+    }
+
+    #[test]
     fn accountability_string_set_subject_fails_closed() {
         for invalid in [
             json!([]),

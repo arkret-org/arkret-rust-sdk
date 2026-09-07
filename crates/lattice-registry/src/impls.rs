@@ -1138,18 +1138,58 @@ impl LatticeKind for AgentSelectorClaim {
     }
 }
 
-// `ak.view.create`, `ak.view.update` and `ak.view.reconcile` all write
-// `ak.component.view.v1`: the registry gives create an `id:view` subject minted
-// from the envelope Event id and gives the other two the same `id:view` subject
-// read from `payload.view_id`, so the patch and the reconcile resolve onto the
-// cell the create set. The three per-write families they used to carry never
-// held a second business object.
-per_subject_lattice!(
-    View,
-    arkret_wire::CellFamilyId::VIEW_V1,
-    Criticality::Required,
-    "view_id"
-);
+pub struct View;
+impl View {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::VIEW_V1;
+}
+impl LatticeKind for View {
+    fn cell_family(&self) -> &'static str {
+        Self::CELL_FAMILY
+    }
+    fn lattice(&self) -> SdkLatticeKind {
+        generated_lattice(Self::CELL_FAMILY)
+    }
+    fn bottom_policy(&self) -> BottomPolicy {
+        generated_bottom_policy(Self::CELL_FAMILY)
+    }
+    fn component(&self) -> ComponentDescriptor {
+        ComponentDescriptor {
+            component_type: Self::CELL_FAMILY,
+            component_version: 1,
+            criticality: Criticality::Required,
+        }
+    }
+    fn subject_for_effect(&self, payload: &Value) -> Result<Option<String>, LatticeKindError> {
+        payload
+            .get("view_id")
+            .and_then(Value::as_str)
+            .map(|id| Some(id.to_owned()))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: Self::CELL_FAMILY,
+                field: "view_id",
+            })
+    }
+    fn subject_for_event(
+        &self,
+        kind: &str,
+        event_id: &arkret_wire::EventId,
+        payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        match kind {
+            arkret_wire::event_kind_str::VIEW_CREATE => Ok(Some(
+                arkret_wire::ViewId::from_event_id(event_id)
+                    .as_str()
+                    .to_owned(),
+            )),
+            arkret_wire::event_kind_str::VIEW_UPDATE
+            | arkret_wire::event_kind_str::VIEW_RECONCILE => self.subject_for_effect(payload),
+            observed => Err(LatticeKindError::UnknownEventKind {
+                observed: observed.to_owned(),
+                cell_family: Self::CELL_FAMILY,
+            }),
+        }
+    }
+}
 
 /// `ak.component.mimi.room_binding.v1` is the one v1 family whose registry
 /// `cell_subject.kind` is `uri`, so its subject is not the raw payload scalar:
@@ -1397,18 +1437,7 @@ singleton_lattice!(
     Criticality::Required
 );
 
-// `ak.strand.create` writes the strand object cell. Without this registration
-// a governance proof over a realm whose accepted history carries a drafted
-// strand-create cell (e.g. the direct-conversation materialization) fails with
-// `no lattice registered for governance cell`.
-//
-// `ak.strand.update` and `ak.strand.tracks.update` patch the same family: the
-// retired `ak.component.strand.metadata.v1` and `ak.component.strand.tracks.v1`
-// had no create write to produce a base value for their patch, and both
-// Events already address the whole-object root. Their subject arrives as
-// `payload.target_ref`, while the create's subject is minted from the envelope
-// Event id and so is not readable from the effect payload at all - that is the
-// one case that resolves to `None` here.
+// Strand create and patch operations share the complete object cell.
 pub struct StrandObject;
 impl StrandObject {
     pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::STRAND_OBJECT_V1;
@@ -1430,14 +1459,34 @@ impl LatticeKind for StrandObject {
             criticality: Criticality::Required,
         }
     }
-    fn subject_for_effect(
-        &self,
-        effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
-        Ok(effect_payload
+    fn subject_for_effect(&self, payload: &Value) -> Result<Option<String>, LatticeKindError> {
+        payload
             .get("target_ref")
-            .or_else(|| effect_payload.get("strand_id"))
             .and_then(Value::as_str)
-            .map(str::to_owned))
+            .map(|id| Some(id.to_owned()))
+            .ok_or(LatticeKindError::MissingSubjectField {
+                cell_family: Self::CELL_FAMILY,
+                field: "target_ref",
+            })
+    }
+    fn subject_for_event(
+        &self,
+        kind: &str,
+        event_id: &arkret_wire::EventId,
+        payload: &Value,
+    ) -> Result<Option<String>, LatticeKindError> {
+        match kind {
+            arkret_wire::event_kind_str::STRAND_CREATE => Ok(Some(
+                arkret_wire::StrandId::from_event_id(event_id)
+                    .as_str()
+                    .to_owned(),
+            )),
+            arkret_wire::event_kind_str::STRAND_UPDATE
+            | arkret_wire::event_kind_str::STRAND_TRACKS_UPDATE => self.subject_for_effect(payload),
+            observed => Err(LatticeKindError::UnknownEventKind {
+                observed: observed.to_owned(),
+                cell_family: Self::CELL_FAMILY,
+            }),
+        }
     }
 }

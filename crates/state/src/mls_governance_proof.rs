@@ -32,12 +32,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::lattice::CellState;
+use crate::state::state_root::state_leaf_canonical_preimage;
 use crate::state::store::memory::{MemoryCellStore, MemoryControlEventStore, MemorySealStore};
 use crate::{
     CellRegistry, CellStore, ControlEventStore, SealDigestSuites, SealStore,
     apply_replayed_seal_in_context, control_event_completeness_root, effective_state_at,
-    state_leaf_hash_from_state_object, state_value_leaf_digest, union_predecessor_covered_events,
-    verify_state_inclusion_proof,
+    union_predecessor_covered_events, verify_state_inclusion_proof,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -1450,10 +1450,7 @@ async fn materialize_frontier_entry(
 ) -> arkret_wire::Result<MlsGovernanceFrontierCellEntry> {
     let value = cell_state.value;
     let proof = crate::state_inclusion_proof(state.as_governance_view(), cell, digest_suite)?;
-    // The bytes the root actually committed to. A causal-register cell hashes
-    // its active head set, not the joined value, so building this from `value`
-    // emits a leaf the `state_root` never contained.
-    let preimage = crate::state_leaf_canonical_preimage(state.as_governance_view(), cell)?;
+    let preimage = state_leaf_canonical_preimage(state.as_governance_view(), cell)?;
     let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
         .await
         .map_err(replay_reject_error)?;
@@ -2596,49 +2593,6 @@ async fn verify_frontier_entry(
     }
     let preimage =
         arkret_canonical::base64url_decode(witness.leaf_canonical_preimage_b64u.as_str())?;
-    let preimage_value: Value = serde_json::from_slice(&preimage).map_err(|error| {
-        WireError::Protocol(format!("invalid state leaf preimage JSON: {error}"))
-    })?;
-    if arkret_canonical::canonical_json_bytes(&preimage_value)? != preimage {
-        return frontier_rejected("state leaf preimage is not RFC 8785 canonical JSON");
-    }
-    let object = preimage_value
-        .as_object()
-        .ok_or_else(|| WireError::Protocol("state leaf preimage must be an object".to_owned()))?;
-    if object.len() != 2 || object.get("cell") != Some(&json!(entry.cell_id.as_str())) {
-        return frontier_rejected("state leaf preimage names a different cell");
-    }
-    let state = object
-        .get("state")
-        .and_then(Value::as_object)
-        .ok_or_else(|| WireError::Protocol("state leaf preimage has no state object".to_owned()))?;
-    if state.len() != 1 {
-        return frontier_rejected("state leaf preimage state is not closed");
-    }
-    // §6.2.1 has two leaf shapes. A causal register commits its active head
-    // set; everything else commits the joined value. The value the frontier
-    // entry claims is recovered from whichever shape the cell actually uses,
-    // and the leaf digest is recomputed under that same rule.
-    let (value, recomputed_leaf) = if let Some(heads) = state.get("heads") {
-        let value = crate::causal_register_leaf_value(heads)?;
-        let leaf = state_leaf_hash_from_state_object(
-            &entry.cell_id,
-            json!({ "heads": heads }),
-            digest_suite,
-        )?;
-        (value, leaf)
-    } else {
-        let value = state.get("value").ok_or_else(|| {
-            WireError::Protocol("state leaf preimage is Bottom or missing value".to_owned())
-        })?;
-        (
-            value.clone(),
-            state_value_leaf_digest(&entry.cell_id, value, digest_suite)?,
-        )
-    };
-    if recomputed_leaf != witness.leaf_digest || canonical_hash(&value)? != entry.value_digest {
-        return frontier_rejected("frontier value digest does not bind the state leaf value");
-    }
     let provenance = entry
         .provenance_event_refs
         .iter()
@@ -2649,7 +2603,7 @@ async fn verify_frontier_entry(
         })
         .collect::<arkret_wire::Result<Vec<_>>>()?;
 
-    let root_state = effective_state_at(
+    let root_state = crate::state::effective_joined_view_at(
         std::slice::from_ref(&witness.root_seal_ref),
         &seal.realm_id,
         seal_store,
@@ -2658,10 +2612,12 @@ async fn verify_frontier_entry(
     )
     .await
     .map_err(replay_reject_error)?;
-    let Some(CellState::Value(reduced)) = root_state.get(&entry.cell_id) else {
+    let Some(CellState::Value(reduced)) = root_state.cells.get(&entry.cell_id) else {
         return frontier_rejected("replayed root has no concrete value for the frontier cell");
     };
-    if reduced != &value {
+    if state_leaf_canonical_preimage(root_state.as_governance_view(), &entry.cell_id)? != preimage
+        || canonical_hash(reduced)? != entry.value_digest
+    {
         return frontier_rejected(
             "ordinary reducer projection disagrees with the signed state leaf",
         );
@@ -3259,57 +3215,85 @@ mod tests {
         );
     }
 
-    /// The leaf a `cas_register` cell actually contributes to `state_root` is
-    /// built from its active head set, so the witness preimage has to be too.
-    /// This test used to pin the opposite — a `{"value":…}` preimage for
-    /// `ak.component.member.state.v1`, which is a causal register — and that
-    /// is exactly the pairing the receiver reported as
-    /// `MLS governance Merkle leaf digest mismatch`.
-    #[tokio::test]
-    async fn materializer_leaf_preimage_of_a_causal_register_carries_its_heads() {
-        let cell =
-            CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
+    #[test]
+    fn materializer_state_leaf_preimage_matches_state_root_contract() {
+        use crate::lattice::cas_register::CasHead;
+        use crate::state::JoinedView;
+
+        for family in [
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+            arkret_wire::CellFamilyId::REALM_PROFILE_V1,
+        ] {
+            let cell = CellRef::new(format!("ak:cell:{family}:fixture")).unwrap();
+            let value = json!("joined");
+            let head = CasHead {
+                move_id: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
+                value: value.clone(),
+            };
+            let view = JoinedView {
+                cells: BTreeMap::from([(cell.clone(), CellState::Value(value.clone()))]),
+                cas_heads: BTreeMap::from([(cell.clone(), vec![head])]),
+            };
+            let preimage = state_leaf_canonical_preimage(view.as_governance_view(), &cell).unwrap();
+            let decoded: Value = serde_json::from_slice(&preimage).unwrap();
+            assert_eq!(decoded["state"]["heads"][0]["value"], value);
+            assert!(decoded["state"].get("value").is_none());
+            let proof =
+                crate::state_inclusion_proof(view.as_governance_view(), &cell, DigestSuite::Sha256)
+                    .unwrap();
+            let root = view.state_root(DigestSuite::Sha256).unwrap();
+            let mut witness = MlsGovernanceMerkleMembershipWitness {
+                proof_kind: MlsGovernanceMerkleProofKind::StateMembership,
+                root_seal_ref: SealId::new(format!("ak:seal:{root}")).unwrap(),
+                root_field: MlsGovernanceMerkleRootField::StateRoot,
+                root_digest: root,
+                leaf_canonical_preimage_b64u: Base64UrlString::new(
+                    arkret_canonical::base64url_encode(&preimage),
+                )
+                .unwrap(),
+                leaf_digest: proof.leaf_digest,
+                leaf_index: proof.leaf_index,
+                leaf_count: proof.leaf_count,
+                siblings: proof.inclusion_proof,
+            };
+            witness.validate().unwrap();
+            assert!(
+                verify_state_inclusion_proof(
+                    &witness.leaf_digest,
+                    witness.leaf_index,
+                    witness.leaf_count,
+                    &witness.siblings,
+                    &witness.root_digest,
+                    DigestSuite::Sha256
+                )
+                .unwrap()
+            );
+
+            // The retired value-shaped preimage must fail even if its business value agrees.
+            witness.leaf_canonical_preimage_b64u =
+                Base64UrlString::new(arkret_canonical::base64url_encode(
+                    arkret_canonical::canonical_json_bytes(
+                        &json!({"cell": cell, "state": {"value": value}}),
+                    )
+                    .unwrap(),
+                ))
                 .unwrap();
-        let value = json!({"accepted_event_id": "ak:event:one"});
-        let head = crate::lattice::cas_register::CasHead {
-            move_id: Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap(),
-            value: value.clone(),
-        };
-        let heads = vec![head.clone()];
-
-        let cells = BTreeMap::from([(cell.clone(), CellState::Value(value.clone()))]);
-        let cas_heads = crate::CasHeadsByCell::from([(cell.clone(), heads.clone())]);
-        let view = crate::GovernanceView::new(&cells, &cas_heads);
-        let preimage = crate::state_leaf_canonical_preimage(view, &cell).unwrap();
-
-        let mut leaf_input = vec![0];
-        leaf_input.extend_from_slice(&preimage);
-        let emitted_leaf_digest =
-            Hash::new(arkret_canonical::digest(DigestSuite::Sha256, &leaf_input)).unwrap();
-        // A single-leaf `state_root` is that leaf's own `H(0x00 || preimage)`
-        // (§6.2.2), so this pins the witness bytes against the root the Seal
-        // signs rather than against a second copy of the same formula.
-        let contract_leaf_digest = crate::compute_state_root(view, DigestSuite::Sha256).unwrap();
-        assert_eq!(emitted_leaf_digest, contract_leaf_digest);
-        assert_ne!(
-            emitted_leaf_digest,
-            state_value_leaf_digest(&cell, &value, DigestSuite::Sha256).unwrap(),
-            "a head-shaped leaf must not collide with the value-shaped one"
-        );
-
-        // And the receiver recovers the same value from those heads.
-        let decoded: Value = serde_json::from_slice(&preimage).unwrap();
-        let recovered =
-            crate::causal_register_leaf_value(decoded.pointer("/state/heads").unwrap()).unwrap();
-        assert_eq!(recovered, value);
+            assert!(witness.validate().is_err());
+            assert!(
+                state_leaf_canonical_preimage(
+                    crate::state::GovernanceView::values_only(&view.cells),
+                    &cell
+                )
+                .is_err()
+            );
+        }
     }
-
     /// The other §6.2.1 shape, unchanged: a non-causal-register cell commits
     /// its joined value.
     #[tokio::test]
     async fn materializer_leaf_preimage_of_an_ordinary_cell_carries_its_value() {
         let cell = CellRef::new(
-            "ak:cell:ak.component.strand.metadata.v1:AQ9vwMrZNs64XfX4CVfhG2FPvja".to_owned(),
+            "ak:cell:ak.component.strand.object.v1:AQ9vwMrZNs64XfX4CVfhG2FPvja".to_owned(),
         )
         .unwrap();
         let value = json!({"title": "one"});
@@ -3323,7 +3307,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             preimage,
-            br#"{"cell":"ak:cell:ak.component.strand.metadata.v1:AQ9vwMrZNs64XfX4CVfhG2FPvja","state":{"value":{"title":"one"}}}"#,
+            br#"{"cell":"ak:cell:ak.component.strand.object.v1:AQ9vwMrZNs64XfX4CVfhG2FPvja","state":{"value":{"title":"one"}}}"#,
         );
 
         let mut leaf_input = vec![0];
@@ -3332,7 +3316,7 @@ mod tests {
             Hash::new(arkret_canonical::digest(DigestSuite::Sha256, &leaf_input)).unwrap();
         assert_eq!(
             emitted_leaf_digest,
-            state_value_leaf_digest(&cell, &value, DigestSuite::Sha256).unwrap(),
+            crate::state_value_leaf_digest(&cell, &value, DigestSuite::Sha256).unwrap(),
         );
     }
 }

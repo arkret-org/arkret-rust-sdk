@@ -34,6 +34,34 @@ fn valid_proof() -> ProducerEventProof {
 }
 
 #[test]
+fn payload_proof_uses_the_same_compact_jws_syntax_as_event_proof() {
+    let event = valid_proof();
+    let mut proof = arkret_wire::PayloadProof {
+        kind: event.kind,
+        verification_method: event.verification_method,
+        payload_digest: event.event_digest,
+        created_at: event.created_at,
+        domain: None,
+        audience: None,
+        proof_purpose: None,
+        jws: String::new(),
+    };
+    for (jws, accepted) in [
+        ("test-detached-jws", false),
+        ("", false),
+        ("header.signature", false),
+        ("header..signature.extra", false),
+        ("header..signature=", false),
+        ("header..signature", true),
+        ("header.payload.signature", true),
+    ] {
+        proof.jws = jws.to_owned();
+        assert_eq!(proof.validate().is_ok(), accepted, "{jws}");
+        assert_eq!(proof.validate_production().is_ok(), accepted, "{jws}");
+    }
+}
+
+#[test]
 fn proof_validate_rejects_empty_fields() {
     // `verification_method` is a `DidUrl`; an empty value is unrepresentable,
     // so the runtime emptiness check was removed with the migration. See
