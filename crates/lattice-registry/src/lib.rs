@@ -253,11 +253,11 @@ mod tests {
     }
 
     #[test]
-    fn strand_tracks_exposes_distinct_concurrent_heads_and_deduplicates_replay() {
+    fn strand_object_exposes_distinct_concurrent_heads_and_deduplicates_replay() {
         let strand_id = "ak:strand:0196419b-0000-7000-8000-000000000901";
         let typed = default_lattice_registry();
         let adapter = typed
-            .lookup(arkret_wire::CellFamilyId::STRAND_TRACKS_V1)
+            .lookup(arkret_wire::CellFamilyId::STRAND_OBJECT_V1)
             .unwrap();
         assert_eq!(adapter.lattice(), SdkLatticeKind::MvRegister);
         assert_eq!(adapter.bottom_policy(), BottomPolicy::Expose);
@@ -274,7 +274,7 @@ mod tests {
                 .unwrap();
         let cell = CellRef::new(format!(
             "ak:cell:{}:{strand_id}",
-            arkret_wire::CellFamilyId::STRAND_TRACKS_V1
+            arkret_wire::CellFamilyId::STRAND_OBJECT_V1
         ))
         .unwrap();
         let runtime = build_sdk_cell_registry();
@@ -692,10 +692,30 @@ mod tests {
     }
 
     #[test]
-    fn strand_metadata_exposes_its_registered_cell_family() {
+    fn strand_object_resolves_patch_subjects_and_leaves_the_create_to_the_envelope() {
         assert_eq!(
-            StrandMetadata::CELL_FAMILY,
-            arkret_wire::CellFamilyId::STRAND_METADATA_V1
+            StrandObject::CELL_FAMILY,
+            arkret_wire::CellFamilyId::STRAND_OBJECT_V1
+        );
+        let strand_id = "ak:strand:0196419b-0000-7000-8000-000000000902";
+        let registry = default_lattice_registry();
+        let kind = registry
+            .lookup(arkret_wire::CellFamilyId::STRAND_OBJECT_V1)
+            .unwrap();
+        // `ak.strand.update` and `ak.strand.tracks.update` both patch this
+        // family and both name their Strand in `target_ref`.
+        assert_eq!(
+            kind.subject_for_effect(&json!({"target_ref": strand_id}))
+                .unwrap()
+                .as_deref(),
+            Some(strand_id)
+        );
+        // `ak.strand.create` mints the subject from the envelope Event id, so
+        // the effect payload carries no subject field to read.
+        assert_eq!(
+            kind.subject_for_effect(&json!({"object": {"title": "kickoff"}}))
+                .unwrap(),
+            None
         );
     }
 
@@ -1191,9 +1211,7 @@ mod tests {
         let registry = default_lattice_registry();
         for family in [
             arkret_wire::CellFamilyId::PROFILE_CREATE_V1,
-            arkret_wire::CellFamilyId::VIEW_CREATE_V1,
-            arkret_wire::CellFamilyId::VIEW_UPDATE_V1,
-            arkret_wire::CellFamilyId::VIEW_RECONCILE_V1,
+            arkret_wire::CellFamilyId::VIEW_V1,
             arkret_wire::CellFamilyId::MIMI_ROOM_BINDING_V1,
         ] {
             let kind = registry

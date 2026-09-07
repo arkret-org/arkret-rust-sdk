@@ -795,8 +795,19 @@ fn agent_provision_event_projects_the_registered_atomic_cells() {
             ),
             format!(
                 "ak:cell:ak.component.identity.accountability.v1:{}",
-                composite_subject(&[controller.as_str(), agent.as_str(), "agent_operator"])
-                    .unwrap()
+                // The accountability record is keyed by the digested scope set,
+                // not by the raw scope string, so a provision and a standalone
+                // grant of the same endorsement address one cell.
+                composite_subject(&[
+                    controller.as_str(),
+                    agent.as_str(),
+                    &arkret_wire::string_set_digest_component(
+                        &["agent_operator".to_owned()],
+                        arkret_wire::DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1,
+                    )
+                    .unwrap(),
+                ])
+                .unwrap()
             ),
             format!(
                 "ak:cell:ak.component.agent.selector_claim.v1:{}",

@@ -212,7 +212,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     };
     realm.revocation_freshness_window_ms = Some(60_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
-        cell_family: arkret_wire::CellFamilyId::STRAND_TRACKS_V1.to_owned(),
+        cell_family: arkret_wire::CellFamilyId::STRAND_OBJECT_V1.to_owned(),
         lattice: "cas_register".to_owned(),
         bottom: Some("reject".to_owned()),
     });
@@ -238,7 +238,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(realm.cell_lattices.len(), 1);
     assert_eq!(
         realm.cell_lattices[0].cell_family,
-        arkret_wire::CellFamilyId::STRAND_TRACKS_V1
+        arkret_wire::CellFamilyId::STRAND_OBJECT_V1
     );
     assert_eq!(realm.cell_lattices[0].lattice, "cas_register");
     assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
@@ -259,7 +259,7 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     );
     assert_eq!(
         json["cell_lattices"][0]["cell_family"],
-        arkret_wire::CellFamilyId::STRAND_TRACKS_V1
+        arkret_wire::CellFamilyId::STRAND_OBJECT_V1
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
@@ -530,7 +530,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
-        cell_family: arkret_wire::CellFamilyId::STRAND_TRACKS_V1.to_owned(),
+        cell_family: arkret_wire::CellFamilyId::STRAND_OBJECT_V1.to_owned(),
         lattice: "cas_register".to_owned(),
         bottom: Some("reject".to_owned()),
     });

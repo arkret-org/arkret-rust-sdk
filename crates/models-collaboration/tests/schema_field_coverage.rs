@@ -237,7 +237,7 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "max_authority_lifetime_ms": 86400000,
             "bottom_escalation_after_ms": 60000,
             "cell_lattices": [{
-                "cell_family": arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
+                "cell_family": arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
                 "lattice": "cas_register",
                 "bottom": "reject"
             }],

@@ -84,15 +84,11 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(RealmTombstone);
     registry.register(SidecarCreate);
     registry.register(SpaceParent);
-    registry.register(StrandMetadata);
     registry.register(StrandObject);
     registry.register(StrandPosition);
     registry.register(StrandStage);
-    registry.register(StrandTracks);
     registry.register(StrandWatch);
-    registry.register(ViewCreate);
-    registry.register(ViewReconcile);
-    registry.register(ViewUpdate);
+    registry.register(View);
 
     registry
 }

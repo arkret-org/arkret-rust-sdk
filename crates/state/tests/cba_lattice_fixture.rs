@@ -989,7 +989,19 @@ fn dual_plane_vector_inventory_is_pinned() {
                 // `fsm` is a causal register (§9.3.1.5), so its state algebra
                 // is a `state_root` leaf-set invariant in the same way
                 // `cas_register`'s is rather than per-domain reducer behaviour.
-                || vector_id == "ak.vector.lattice.fsm_causal_heads.v1",
+                || vector_id == "ak.vector.lattice.fsm_causal_heads.v1"
+                // Whether an `apply_patch` has a real object base is a lattice
+                // question, not a domain one: no family declares an initial
+                // value, so a patch without a registered `set` on the same
+                // family and subject reaches no base at all.
+                || vector_id == "ak.vector.lattice.apply_patch_base.v1"
+                // `ak.component.identity.accountability.v1` has two registered
+                // writers — the standalone grant and the atomic
+                // `ak.agent.provision` projection. That they key one cell and
+                // project one value is a `cas_register` identity invariant: were
+                // they to disagree, the same endorsement would fork the record
+                // or drive a `bottom=reject` cell into conflict.
+                || vector_id == "ak.vector.identity.accountability_record_sources.v1",
             "unexpected vector id {vector_id}"
         );
         // Expectations are carried either as a top-level `expected*` block,

@@ -1138,23 +1138,15 @@ impl LatticeKind for AgentSelectorClaim {
     }
 }
 
+// `ak.view.create`, `ak.view.update` and `ak.view.reconcile` all write
+// `ak.component.view.v1`: the registry gives create an `id:view` subject minted
+// from the envelope Event id and gives the other two the same `id:view` subject
+// read from `payload.view_id`, so the patch and the reconcile resolve onto the
+// cell the create set. The three per-write families they used to carry never
+// held a second business object.
 per_subject_lattice!(
-    ViewCreate,
-    arkret_wire::CellFamilyId::VIEW_CREATE_V1,
-    Criticality::Required,
-    "view_id"
-);
-
-per_subject_lattice!(
-    ViewUpdate,
-    arkret_wire::CellFamilyId::VIEW_UPDATE_V1,
-    Criticality::Required,
-    "view_id"
-);
-
-per_subject_lattice!(
-    ViewReconcile,
-    arkret_wire::CellFamilyId::VIEW_RECONCILE_V1,
+    View,
+    arkret_wire::CellFamilyId::VIEW_V1,
     Criticality::Required,
     "view_id"
 );
@@ -1409,27 +1401,27 @@ singleton_lattice!(
 // a governance proof over a realm whose accepted history carries a drafted
 // strand-create cell (e.g. the direct-conversation materialization) fails with
 // `no lattice registered for governance cell`.
-singleton_lattice!(
-    StrandObject,
-    arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
-    Criticality::Required
-);
-
-// ── Strand facet families (per-subject by Strand id) ──
-
-pub struct StrandMetadata;
-impl StrandMetadata {
-    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::STRAND_METADATA_V1;
+//
+// `ak.strand.update` and `ak.strand.tracks.update` patch the same family: the
+// retired `ak.component.strand.metadata.v1` and `ak.component.strand.tracks.v1`
+// had no create write to produce a base value for their patch, and both
+// Events already address the whole-object root. Their subject arrives as
+// `payload.target_ref`, while the create's subject is minted from the envelope
+// Event id and so is not readable from the effect payload at all - that is the
+// one case that resolves to `None` here.
+pub struct StrandObject;
+impl StrandObject {
+    pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::STRAND_OBJECT_V1;
 }
-impl LatticeKind for StrandMetadata {
+impl LatticeKind for StrandObject {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
     fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+        generated_lattice(Self::CELL_FAMILY)
     }
     fn bottom_policy(&self) -> BottomPolicy {
-        generated_bottom_policy(self.cell_family())
+        generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
@@ -1442,21 +1434,10 @@ impl LatticeKind for StrandMetadata {
         &self,
         effect_payload: &Value,
     ) -> Result<Option<String>, LatticeKindError> {
-        effect_payload
+        Ok(effect_payload
             .get("target_ref")
             .or_else(|| effect_payload.get("strand_id"))
             .and_then(Value::as_str)
-            .map(|s| Some(s.to_owned()))
-            .ok_or(LatticeKindError::MissingSubjectField {
-                cell_family: Self::CELL_FAMILY,
-                field: "target_ref",
-            })
+            .map(str::to_owned))
     }
 }
-
-per_subject_lattice!(
-    StrandTracks,
-    arkret_wire::CellFamilyId::STRAND_TRACKS_V1,
-    Criticality::Required,
-    "target_ref"
-);

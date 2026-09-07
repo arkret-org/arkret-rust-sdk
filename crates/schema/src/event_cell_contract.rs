@@ -1608,6 +1608,8 @@ fn derive_value_projection_value(
             .and_then(EventCellRule::as_str)
         {
             member_derivation(event, derivation, &kind)?
+        } else if let Some(descriptor) = member.field(EventCellRuleKey::NormalizedStringSet) {
+            normalized_string_set_member(event, descriptor, &kind)?
         } else {
             return Err(projection_error(
                 &kind,
@@ -1660,6 +1662,66 @@ fn member_derivation(
             &format!("unsupported value projection derivation {derivation}"),
         )),
     }
+}
+
+/// Project a registered closed string set as its canonical array value.
+///
+/// The normalization is the one [`string_set_digest_component_value`] applies to
+/// a cell subject (`conformance/encoding.md` section 9.5.1), and that is the
+/// whole point of registering the member: `ak.component.identity.accountability.v1`
+/// keys its cell by the digested scope set and carries the same set in the
+/// value, so the two registered writers of that cell — the standalone
+/// `ak.identity.accountability_grant` and the atomic `ak.agent.provision`
+/// projection — cannot disagree about what the set is. A bare string is the
+/// one-element set, so `"agent_operator"` and `["agent_operator"]` project one
+/// value into one cell.
+fn normalized_string_set_member(
+    event: &ProjectedEventInput,
+    descriptor: EventCellRule,
+    kind: &str,
+) -> Result<Option<Value>, EventCellContractError> {
+    let object = descriptor
+        .as_object()
+        .ok_or_else(|| projection_error(kind, "normalized_string_set must be an object"))?;
+    if object.len() != 2
+        || descriptor.field(EventCellRuleKey::Field).is_none()
+        || descriptor.field(EventCellRuleKey::Context).is_none()
+    {
+        return Err(projection_error(
+            kind,
+            "normalized_string_set must contain only field and context",
+        ));
+    }
+    let path = descriptor
+        .field(EventCellRuleKey::Field)
+        .and_then(EventCellRule::as_str)
+        .filter(|path| path.starts_with("payload."))
+        .ok_or_else(|| {
+            projection_error(
+                kind,
+                "normalized_string_set field must be an explicit payload path",
+            )
+        })?;
+    // The normalization contexts are closed. An unregistered one would claim a
+    // set-equality domain no cell subject actually keys by, which is exactly the
+    // divergence between subject and value this member exists to prevent.
+    if descriptor
+        .field(EventCellRuleKey::Context)
+        .and_then(EventCellRule::as_str)
+        != Some(arkret_wire::DomainSeparationId::ACCOUNTABILITY_SCOPE_SET_V1)
+    {
+        return Err(projection_error(
+            kind,
+            "normalized_string_set context is not registered",
+        ));
+    }
+    let Some(value) = field_value(event, path) else {
+        return Ok(None);
+    };
+    let values = canonical_string_set(value).map_err(|message| projection_error(kind, &message))?;
+    Ok(Some(Value::Array(
+        values.into_iter().map(Value::String).collect(),
+    )))
 }
 
 fn projection_error(kind: &str, message: &str) -> EventCellContractError {
@@ -2047,23 +2109,8 @@ fn string_set_digest_component_value(
     }
     let value = subject_field_value(event, path)
         .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
-    let values = match value.as_ref() {
-        Value::String(value) => vec![value.clone()],
-        Value::Array(values) => values
-            .iter()
-            .map(|value| {
-                value.as_str().map(str::to_owned).ok_or_else(|| {
-                    subject_error(kind, "string_set_digest array elements must be strings")
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?,
-        _ => {
-            return Err(subject_error(
-                kind,
-                "string_set_digest source must be a string or string array",
-            ));
-        }
-    };
+    let values =
+        canonical_string_set(value.as_ref()).map_err(|message| subject_error(kind, &message))?;
     if kind == arkret_wire::event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT
         && values.iter().any(|value| {
             !matches!(
@@ -2080,6 +2127,39 @@ fn string_set_digest_component_value(
     arkret_wire::string_set_digest_component(&values, context)
         .map(Value::String)
         .map_err(|error| subject_error(kind, &error.to_string()))
+}
+
+/// The single normalization of a registered closed string set, shared by the
+/// `string_set_digest` cell-subject component and the `normalized_string_set`
+/// value-projection member.
+///
+/// A bare string is the one-element set; an array is a non-empty duplicate-free
+/// set of strings; the canonical order is ascending raw UTF-8 bytes. Array order
+/// carries no meaning on the wire, so equivalent spellings must normalize to one
+/// sequence — otherwise the same endorsement would key two cells, or key one
+/// cell with two values.
+fn canonical_string_set(value: &Value) -> Result<Vec<String>, String> {
+    let mut values = match value {
+        Value::String(value) => vec![value.clone()],
+        Value::Array(values) => values
+            .iter()
+            .map(|value| {
+                value
+                    .as_str()
+                    .map(str::to_owned)
+                    .ok_or_else(|| "string set elements must be strings".to_owned())
+            })
+            .collect::<Result<Vec<_>, String>>()?,
+        _ => return Err("string set source must be a string or string array".to_owned()),
+    };
+    if values.is_empty() {
+        return Err("string set must not be empty".to_owned());
+    }
+    if values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+        return Err("string set must contain unique values".to_owned());
+    }
+    values.sort_by(|left, right| left.as_bytes().cmp(right.as_bytes()));
+    Ok(values)
 }
 
 /// Evaluate a `select` component and return the selected field path.
@@ -2850,6 +2930,7 @@ mod tests {
                 "issuer_id": "ak:did_core:web:issuer.example",
                 "subject_id": "ak:did_core:web:subject.example",
                 "accountability_scope": scope,
+                "not_before": "2026-07-26T01:00:00.000Z",
                 "grant_status": status
             },
             "proofs": []
@@ -2995,13 +3076,106 @@ mod tests {
 
         // The producer cannot name a grant cell of its own: the target follows
         // from the issuer, the subject and the exact accountability-scope set,
-        // and the register value is the whole signed payload.
+        // and the register value is the closed projection — not the raw payload,
+        // so the same endorsement written by `ak.agent.provision` lands one
+        // identical value on the same cell.
         assert_eq!(
             project(&event),
             vec![write(
                 "ak:cell:ak.component.identity.accountability.v1:W6mzmx7aBvbnvJN6X3mC07gxG-W_hGxxlfLoaSmaxD8",
-                set_op(serde_json::to_value(&event.payload).unwrap()),
+                set_op(json!({
+                    "issuer_id": "ak:did_core:web:issuer.example",
+                    "subject_id": "ak:did_core:web:subject.example",
+                    "accountability_scope": ["employment"],
+                    "not_before": "2026-07-26T01:00:00.000Z",
+                    "grant_status": "active"
+                })),
             )]
+        );
+    }
+
+    fn agent_provision_event(created_at: &str) -> Event {
+        serde_json::from_value(json!({
+            "event_id": "ak:event:AbTm4abxkmMcE7rkV-Wz8Uk_vFh-cUlesAd-EsJX395Z",
+            "kind": EventKind::AgentProvision,
+            "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
+            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
+            "actor_id": {"kind": "account", "account_id": {
+                "principal_id": "ak:did_core:web:issuer.example",
+                "station_id": "ak:did_core:web:principal.example"
+            }},
+            "actor_seq": 4,
+            "created_at": created_at,
+            "hlc": "019f9e500000-0000-aabbccdd",
+            "prev_refs": [],
+            "seal_basis": {
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+            },
+            "payload": {
+                "schema": "ak.agent.provision.v1",
+                "agent_id": "ak:did_core:web:subject.example",
+                "controller_principal_id": "ak:did_core:web:issuer.example",
+                "principal_control_realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
+                "controller_authorization_ref": "did:web:issuer.example#controller-1",
+                "agent_slug": "scheduler",
+                "accountability_scope": "agent_operator",
+                "selector_visibility": "public",
+                "created_at": created_at
+            },
+            "proofs": []
+        }))
+        .unwrap()
+    }
+
+    fn accountability_record(event: &Event) -> ProjectedCellWrite {
+        let mut records = project(event)
+            .into_iter()
+            .filter(|write| {
+                write
+                    .cell_id
+                    .as_str()
+                    .starts_with("ak:cell:ak.component.identity.accountability.v1:")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            records.len(),
+            1,
+            "{} must project exactly one accountability record",
+            event.kind.as_str()
+        );
+        records.pop().expect("length checked")
+    }
+
+    /// `ak.vector.identity.accountability_record_sources.v1`: the standalone
+    /// `ak.identity.accountability_grant` and the atomic `ak.agent.provision`
+    /// projection are the two registered writers of one accountability record.
+    ///
+    /// Both key the cell by issuer principal, subject principal and the digested
+    /// scope set, and both project the same closed value — the provision reading
+    /// `not_before` off its envelope and pinning `grant_status` to `active`, the
+    /// grant reading both from its signed payload. A bare string and a
+    /// one-element array are the same set, so the spelling cannot fork the record
+    /// either. Were the two to disagree on subject or on value, the same
+    /// endorsement would address two cells, or drive one `bottom=reject` cell
+    /// into conflict.
+    #[test]
+    fn provision_and_grant_project_one_accountability_record() {
+        const CREATED_AT: &str = "2026-07-26T01:00:00.000Z";
+        let provisioned = accountability_record(&agent_provision_event(CREATED_AT));
+        let granted =
+            accountability_record(&accountability_event(json!(["agent_operator"]), "active"));
+
+        assert_eq!(provisioned.cell_id, granted.cell_id);
+        assert_eq!(provisioned.op, granted.op);
+        assert_eq!(
+            provisioned.op,
+            set_op(json!({
+                "issuer_id": "ak:did_core:web:issuer.example",
+                "subject_id": "ak:did_core:web:subject.example",
+                "accountability_scope": ["agent_operator"],
+                "not_before": CREATED_AT,
+                "grant_status": "active"
+            })),
         );
     }
 
