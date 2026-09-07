@@ -129,6 +129,7 @@ macro_rules! event_payload_accessors {
             kind: &arkret_wire::EventKind,
             payload: &Value,
         ) -> Result<()> {
+            arkret_wire::forbidden_wire::validate_event_payload_forbidden_fields(kind, payload)?;
             $(
                 if *kind == <$marker>::KIND {
                     let typed: <$marker as EventSpec>::Payload =

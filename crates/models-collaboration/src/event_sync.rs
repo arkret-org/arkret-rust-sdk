@@ -354,14 +354,8 @@ pub enum ControlProposalDecisionState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PendingControlProposal {
-    pub proposal_digest: Hash,
     pub control_proposal_ack: ControlProposalAck,
     pub decisions: Vec<ControlProposalDecision>,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub current_decision_due_at: DateTime<Utc>,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub absolute_due_at: DateTime<Utc>,
-    pub defer_count: u8,
     pub decision_state: ControlProposalDecisionState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fault_reason: Option<ControlProposalFaultReason>,
@@ -380,20 +374,7 @@ pub enum ControlProposalFaultReason {
 pub struct ControlGovernanceHealth {
     pub status: ControlGovernanceHealthStatus,
     pub pending_proposals: Vec<PendingControlProposal>,
-    pub retained_faults: Vec<RetainedControlProposalFault>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RetainedControlProposalFault {
-    pub proposal_digest: Hash,
-    pub control_proposal_ack: ControlProposalAck,
-    pub decisions: Vec<ControlProposalDecision>,
-    pub accepted_seal_id: SealId,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    pub fault_reason: ControlProposalFaultReason,
+    pub pending_proposals_complete: bool,
 }
 
 impl ControlGovernanceHealth {
@@ -403,7 +384,7 @@ impl ControlGovernanceHealth {
         Self {
             status: ControlGovernanceHealthStatus::Healthy,
             pending_proposals: Vec::new(),
-            retained_faults: Vec::new(),
+            pending_proposals_complete: true,
         }
     }
 
@@ -421,11 +402,6 @@ impl ControlGovernanceHealth {
                 "control governance health exceeds 128 pending proposals".to_owned(),
             ));
         }
-        if self.retained_faults.len() > Self::MAX_PENDING_PROPOSALS {
-            return Err(WireError::Protocol(
-                "control governance health exceeds 128 retained faults".to_owned(),
-            ));
-        }
         let mut previous_key: Option<(DateTime<Utc>, &str)> = None;
         let mut has_overdue = false;
         for pending in &self.pending_proposals {
@@ -433,15 +409,6 @@ impl ControlGovernanceHealth {
                 pending.control_proposal_ack.validate_structural(policy)?;
             } else {
                 pending.control_proposal_ack.validate_protocol_bounds()?;
-            }
-            if pending.proposal_digest != pending.control_proposal_ack.proposal_digest
-                || pending.absolute_due_at != pending.control_proposal_ack.absolute_due_at
-                || usize::from(pending.defer_count) != pending.decisions.len()
-            {
-                return Err(WireError::Protocol(
-                    "pending control proposal does not preserve Control Proposal Ack / decision binding"
-                        .to_owned(),
-                ));
             }
             let mut verified_defers = Vec::with_capacity(pending.decisions.len());
             for decision in &pending.decisions {
@@ -464,16 +431,6 @@ impl ControlGovernanceHealth {
                 }
                 verified_defers.push(decision.clone());
             }
-            let expected_due_at = verified_defers
-                .last()
-                .map(ControlProposalDecision::decision_due_at)
-                .unwrap_or(pending.control_proposal_ack.decision_due_at);
-            if pending.current_decision_due_at != expected_due_at {
-                return Err(WireError::Protocol(
-                    "pending proposal current_decision_due_at does not match its decision chain"
-                        .to_owned(),
-                ));
-            }
             let overdue = pending.decision_state == ControlProposalDecisionState::Overdue;
             if overdue
                 != (pending.fault_reason
@@ -494,7 +451,10 @@ impl ControlGovernanceHealth {
                 ));
             }
             has_overdue |= overdue;
-            let key = (pending.absolute_due_at, pending.proposal_digest.as_str());
+            let key = (
+                pending.control_proposal_ack.absolute_due_at,
+                pending.control_proposal_ack.proposal_digest.as_str(),
+            );
             if previous_key.is_some_and(|previous| previous >= key) {
                 return Err(WireError::Protocol(
                     "pending proposals are not in canonical deadline/digest order".to_owned(),
@@ -502,62 +462,7 @@ impl ControlGovernanceHealth {
             }
             previous_key = Some(key);
         }
-        let mut previous_fault_key: Option<(DateTime<Utc>, &str)> = None;
-        for fault in &self.retained_faults {
-            if let Some(policy) = policy {
-                fault.control_proposal_ack.validate_structural(policy)?;
-            } else {
-                fault.control_proposal_ack.validate_protocol_bounds()?;
-            }
-            if fault.proposal_digest != fault.control_proposal_ack.proposal_digest
-                || fault.fault_reason != ControlProposalFaultReason::ControlProposalDecisionOverdue
-            {
-                return Err(WireError::Protocol(
-                    "retained control proposal fault does not preserve its Control Proposal Ack binding"
-                        .to_owned(),
-                ));
-            }
-            let mut verified_defers = Vec::with_capacity(fault.decisions.len());
-            let mut previous_due_at = fault.control_proposal_ack.decision_due_at;
-            let mut missed_deadline = false;
-            for decision in &fault.decisions {
-                if decision.is_reject() {
-                    return Err(WireError::Protocol(
-                        "signed_reject cannot precede an accepted Seal".to_owned(),
-                    ));
-                }
-                if let Some(policy) = policy {
-                    decision.validate_chain(
-                        &fault.control_proposal_ack,
-                        &verified_defers,
-                        policy,
-                    )?;
-                } else {
-                    decision.validate_chain_protocol_bounds(
-                        &fault.control_proposal_ack,
-                        &verified_defers,
-                    )?;
-                }
-                missed_deadline |= !decision.satisfied_current_deadline(previous_due_at);
-                previous_due_at = decision.decision_due_at();
-                verified_defers.push(decision.clone());
-            }
-            missed_deadline |= fault.accepted_at > previous_due_at;
-            if !missed_deadline {
-                return Err(WireError::Protocol(
-                    "retained proposal fault has no missed signed deadline".to_owned(),
-                ));
-            }
-            let key = (fault.accepted_at, fault.proposal_digest.as_str());
-            if previous_fault_key.is_some_and(|previous| previous >= key) {
-                return Err(WireError::Protocol(
-                    "retained proposal faults are not in canonical accepted-at/digest order"
-                        .to_owned(),
-                ));
-            }
-            previous_fault_key = Some(key);
-        }
-        let expected_status = if has_overdue || !self.retained_faults.is_empty() {
+        let expected_status = if has_overdue || !self.pending_proposals_complete {
             ControlGovernanceHealthStatus::Degraded
         } else {
             ControlGovernanceHealthStatus::Healthy

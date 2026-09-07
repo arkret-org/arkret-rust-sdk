@@ -469,6 +469,7 @@ where
         Vec::with_capacity(ordered.len());
     let mut staged_anchor_state = pre_state.cells.clone();
     let mut staged_anchor_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
+    let mut ordinary_batch = arkret_wire::control_seal_batch::ControlSealBatch::default();
     for (digest, event) in ordered {
         let event_digest_suite = event_digest_suite_for_seal(&event, seal, digest_suites);
         if event.seal_basis.is_some() || context == EventSubmitContext::Standard {
@@ -567,6 +568,14 @@ where
                             join_cell(binding.lattice.as_ref(), &effect.cell_id, cell_ops),
                         );
                     }
+                }
+                if context == EventSubmitContext::Standard {
+                    ordinary_batch
+                        .try_insert(
+                            &event.kind,
+                            effects.iter().map(|effect| effect.cell_id.as_str()),
+                        )
+                        .map_err(|error| SealReject::Structural(error.to_owned()))?;
                 }
                 accepted.push((digest, event, effects));
             }

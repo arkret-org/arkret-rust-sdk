@@ -458,7 +458,7 @@ impl ControlEventStore for MemoryControlEventStore {
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        Ok(inner
+        let mut records = inner
             .insertion_order
             .iter()
             .filter(|digest| !inner.sealed.contains_key(*digest))
@@ -488,8 +488,23 @@ impl ControlEventStore for MemoryControlEventStore {
                     ingress_class,
                 })
             })
-            .take(limit)
-            .collect())
+            .collect::<Vec<_>>();
+        records.sort_by(|left, right| {
+            let key = |row: &PendingControlEventRecord| {
+                (
+                    row.control_proposal_ack
+                        .as_ref()
+                        .map(|ack| ack.absolute_due_at),
+                    row.control_proposal_ack.as_ref().map_or_else(
+                        || row.event.event_id.to_string(),
+                        |ack| ack.proposal_digest.to_string(),
+                    ),
+                )
+            };
+            key(left).cmp(&key(right))
+        });
+        records.truncate(limit);
+        Ok(records)
     }
 
     async fn claim_due_control_seal_realms(
@@ -801,20 +816,6 @@ impl ControlEventStore for MemoryControlEventStore {
             }
         }
         Ok(out)
-    }
-
-    async fn list_retained_faults(
-        &self,
-        realm_id: &RealmId,
-        limit: usize,
-    ) -> StoreResult<Vec<SealedControlEventRecord>> {
-        Ok(self
-            .list_sealed(realm_id, None, usize::MAX)
-            .await?
-            .into_iter()
-            .filter(|record| record.decision_overdue)
-            .take(limit)
-            .collect())
     }
 }
 

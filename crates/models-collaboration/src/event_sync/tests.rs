@@ -434,16 +434,12 @@ fn realm_seal_frontier_distinguishes_protocol_bounds_from_exact_policy() {
     let health = ControlGovernanceHealth {
         status: ControlGovernanceHealthStatus::Healthy,
         pending_proposals: vec![PendingControlProposal {
-            proposal_digest: ack.proposal_digest.clone(),
-            current_decision_due_at: ack.decision_due_at,
-            absolute_due_at: ack.absolute_due_at,
-            defer_count: 0,
             decision_state: ControlProposalDecisionState::Pending,
             fault_reason: None,
             control_proposal_ack: ack,
             decisions: Vec::new(),
         }],
-        retained_faults: Vec::new(),
+        pending_proposals_complete: true,
     };
     let frontier = RealmSealFrontierView::new(
         event.realm_id,
@@ -661,4 +657,15 @@ fn federation_transport_requires_publication_evidence_bound_to_each_event() {
             .validate_federation_transport(&[DigestSuite::Sha256])
             .is_err()
     );
+}
+
+#[test]
+fn incomplete_pending_sample_cannot_claim_healthy() {
+    let mut health = ControlGovernanceHealth::healthy();
+    health.pending_proposals_complete = false;
+    assert!(health.validate_protocol_bounds().is_err());
+    health.status = ControlGovernanceHealthStatus::Degraded;
+    health.validate_protocol_bounds().unwrap();
+    let wire = serde_json::to_value(health).unwrap();
+    assert!(wire.get("retained_faults").is_none());
 }

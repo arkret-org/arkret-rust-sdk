@@ -2140,14 +2140,51 @@ fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutpu
         &[&artifact.source],
         &format!("forbidden_wire_fields={}", entries.len()),
     );
-    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireFieldDescriptor {\n    pub id: &'static str,\n    pub context: &'static str,\n    pub rejection_level: &'static str,\n}\n\n/// Canonical projection of `registry/forbidden-wire-fields.json`: field\n/// names that MUST NOT appear on the current v1 wire in the listed context.\n/// Patch-context entries carry the registry's `patch:` prefix on their id\n/// (for example `patch:stage`). Consumers query this table through\n/// `arkret_wire::forbidden_wire` and never spell their own list.\npub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[\n");
+    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireSelector {\n    pub document_kind: &'static str,\n    pub schema_ref: &'static str,\n    pub instance_pointer: &'static str,\n    pub match_scope: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ForbiddenWireFieldDescriptor {\n    pub id: &'static str,\n    pub context: &'static str,\n    pub rejection_level: &'static str,\n    pub selectors: &'static [ForbiddenWireSelector],\n    pub match_kind: &'static str,\n    pub match_values: &'static [&'static str],\n    pub value_pointer: &'static str,\n}\n\npub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[\n");
+    let definitions = artifact
+        .value
+        .get("context_definitions")
+        .and_then(Value::as_object)
+        .context("missing context_definitions")?;
     for row in entries {
+        let context = string(row, "context")?;
+        let selectors = definitions
+            .get(context)
+            .and_then(|v| v.get("selectors"))
+            .and_then(Value::as_array)
+            .with_context(|| format!("undefined context {context}"))?;
+        let matcher = field(row, "match")?
+            .as_object()
+            .context("missing matcher")?;
         writeln!(
             output,
-            "    ForbiddenWireFieldDescriptor {{\n        id: {},\n        context: {},\n        rejection_level: {},\n    }},",
+            "    ForbiddenWireFieldDescriptor {{ id: {}, context: {}, rejection_level: {}, selectors: &[",
             rust_string(string(row, "id")?),
-            rust_string(string(row, "context")?),
+            rust_string(context),
             rust_string(string(row, "rejection_level")?)
+        )?;
+        for selector in selectors {
+            let selector = selector.as_object().context("invalid selector")?;
+            writeln!(
+                output,
+                "        ForbiddenWireSelector {{ document_kind: {}, schema_ref: {}, instance_pointer: {}, match_scope: {} }},",
+                rust_string(string(selector, "document_kind")?),
+                rust_string(string(selector, "schema_ref")?),
+                rust_string(string(selector, "instance_pointer")?),
+                rust_string(string(selector, "match_scope")?)
+            )?;
+        }
+        writeln!(
+            output,
+            "    ], match_kind: {}, match_values: {}, value_pointer: {} }},",
+            rust_string(string(matcher, "kind")?),
+            string_slice(&strings(matcher, "values")?),
+            rust_string(
+                matcher
+                    .get("value_pointer")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+            )
         )?;
     }
     output.push_str("];\n");

@@ -1127,6 +1127,7 @@ pub struct EventKindDescriptor {
     pub reducer_input: bool,
     pub admission: Option<&'static str>,
     pub payload_schema_ref: Option<&'static str>,
+    pub concurrency_class: Option<&'static str>,
     pub cell_writes: &'static [EventCellWriteDescriptor],
     pub cell_family: Option<&'static str>,
     /// Cell-subject rule; `None` means the envelope `realm_id`.
@@ -4767,6 +4768,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/account_blocklist_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -4785,6 +4787,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/account_data_set_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -4803,6 +4806,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/actor_discovery_state_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ActorDiscoveryV1),
             cell_ref_rule: None,
@@ -4861,6 +4865,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_action_approve_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -4879,6 +4884,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_action_reject_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -4897,6 +4903,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_action_request_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -4915,6 +4922,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_draft_propose_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -4933,6 +4941,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentKeyV1),
@@ -5020,6 +5029,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_key_revoke_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentKeyV1),
@@ -5105,6 +5115,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/agent-provision.schema.json"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AgentProvisionV1),
@@ -5345,6 +5356,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/agent-selector-claim.schema.json"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentSelectorClaimV1),
             cell_ref_rule: None,
@@ -5397,6 +5409,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SidecarExchangeV1),
             cell_ref_rule: None,
@@ -5453,6 +5466,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_bridge_error_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletBridgeErrorV1),
             cell_ref_rule: None,
@@ -5509,6 +5523,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_discovery_state_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletDiscoveryV1),
             cell_ref_rule: None,
@@ -5558,6 +5573,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_managed_actor_provision_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletManagedActorProvisionV1),
             cell_ref_rule: None,
@@ -5616,6 +5632,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_registration_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AppletRegistrationV1),
             cell_ref_rule: None,
@@ -5663,6 +5680,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/audit_accessed_payload"),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditAccessLogV1),
             cell_ref_rule: None,
@@ -5719,6 +5737,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/audit_applet_binding_create_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::AuditBindingV1),
@@ -5809,6 +5828,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/audit_applet_binding_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditBindingStateV1),
             cell_ref_rule: None,
@@ -5865,6 +5885,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/erasure_receipt_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -5881,6 +5902,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/audit_release_payload"),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditReleaseV1),
             cell_ref_rule: None,
@@ -5935,6 +5957,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: false,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/audit_payload"),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -5953,6 +5976,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/audit_session_authorize_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
@@ -6002,6 +6026,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/audit_session_close_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
@@ -6051,6 +6076,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/audit_session_notice_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
@@ -6100,6 +6126,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/audit_session_request_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AuditSessionV1),
             cell_ref_rule: None,
@@ -6147,6 +6174,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/call_create_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CallStateV1),
             cell_ref_rule: None,
@@ -6203,6 +6231,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/call_recording_start_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallRecordingV1),
@@ -6426,6 +6455,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/call_state_payload"),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CallStateV1),
@@ -6950,6 +6980,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/call_summary_payload"),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CallSummaryV1),
             cell_ref_rule: None,
@@ -6999,6 +7030,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_derived_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityDerivedV1),
             cell_ref_rule: None,
@@ -7055,6 +7087,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_grant_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityGrantV1),
             cell_ref_rule: None,
@@ -7132,6 +7165,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_relinquish_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityGrantV1),
             cell_ref_rule: None,
@@ -7172,6 +7206,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_revoke_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CapabilityGrantV1),
             cell_ref_rule: None,
@@ -7212,6 +7247,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleLifecycleV1),
             cell_ref_rule: None,
@@ -7266,6 +7302,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/circle_create_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::CircleCreateV1),
@@ -7386,6 +7423,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/circle_history_access_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleHistoryAccessV1),
             cell_ref_rule: None,
@@ -7442,6 +7480,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/circle_member_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleMemberV1),
             cell_ref_rule: None,
@@ -7505,6 +7544,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleLifecycleV1),
             cell_ref_rule: None,
@@ -7561,6 +7601,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/circle_seal_commit_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -7579,6 +7620,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleTombstoneV1),
             cell_ref_rule: None,
@@ -7626,6 +7668,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/circle_patch_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CircleMetadataV1),
             cell_ref_rule: None,
@@ -7682,6 +7725,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/state_conflict_recovery_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: None,
             cell_ref_rule: Some(EventCellRule::Object(&[
@@ -7729,6 +7773,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/consent_grant_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ConsentGrantV1),
             cell_ref_rule: None,
@@ -7783,6 +7828,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/consent_revoke_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ConsentGrantV1),
             cell_ref_rule: None,
@@ -7832,6 +7878,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_accepted_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
@@ -7897,6 +7944,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_rejected_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
@@ -7962,6 +8010,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_requested_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
@@ -8027,6 +8076,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_scope_update_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
@@ -8092,6 +8142,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_tombstoned_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContactFactLogV1),
             cell_ref_rule: None,
@@ -8157,6 +8208,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/container_move_item_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContainerPositionV1),
             cell_ref_rule: None,
@@ -8209,6 +8261,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/container_rebalance_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ContainerOrderV1),
             cell_ref_rule: None,
@@ -8258,6 +8311,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceAuthorizationV1),
             cell_ref_rule: None,
@@ -8328,6 +8382,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_list_update_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceListUpdateV1),
             cell_ref_rule: None,
@@ -8393,6 +8448,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_push_route_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -8411,6 +8467,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_reanchor_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceReanchorV1),
             cell_ref_rule: None,
@@ -8474,6 +8531,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/device_revoke_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DeviceAuthorizationV1),
             cell_ref_rule: None,
@@ -8528,6 +8586,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/direct_conversation_bound_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::DirectConversationBindingV1),
             cell_ref_rule: None,
@@ -8584,6 +8643,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/fork_resolution_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ForkResolutionV1),
             cell_ref_rule: None,
@@ -8682,6 +8742,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/handle_discovery_state_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::HandleDiscoveryV1),
             cell_ref_rule: None,
@@ -8729,6 +8790,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/accountability-grant.schema.json"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityAccountabilityV1),
             cell_ref_rule: None,
@@ -8884,6 +8946,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/identity_disclosure_policy_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityDisclosurePolicyV1),
             cell_ref_rule: None,
@@ -8933,6 +8996,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/identity_disclosure_receipt_state_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityDisclosureReceiptV1),
             cell_ref_rule: None,
@@ -8989,6 +9053,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/identity_presentation_request_state_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityPresentationV1),
             cell_ref_rule: None,
@@ -9045,6 +9110,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/identity_presentation_response_state_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityPresentationV1),
             cell_ref_rule: None,
@@ -9101,6 +9167,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/identity_resolution_update_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::IdentityResolutionV1),
             cell_ref_rule: None,
@@ -9199,6 +9266,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_accept_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
@@ -9343,6 +9411,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_cancel_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
@@ -9435,6 +9504,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_claim_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
@@ -9544,6 +9614,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_create_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
@@ -9643,6 +9714,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_revoke_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::InviteLifecycleV1),
@@ -9746,6 +9818,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/invite_third_party_create_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::InviteLifecycleV1),
             cell_ref_rule: None,
@@ -9802,6 +9875,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/key_backup_active_series_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::KeyBackupActiveSeriesV1),
             cell_ref_rule: None,
@@ -9882,6 +9956,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/member_identity_update_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MemberIdentityV1),
             cell_ref_rule: None,
@@ -9951,6 +10026,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("capability_gated"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/membership_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MemberStateV1),
             cell_ref_rule: None,
@@ -10007,6 +10083,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/message_create_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandDiscussionTimelineV1),
             cell_ref_rule: None,
@@ -10061,6 +10138,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/message_redact_payload"),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ObjectRedactionV1),
             cell_ref_rule: None,
@@ -10115,6 +10193,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/message_revise_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MessageRevisionV1),
             cell_ref_rule: None,
@@ -10164,6 +10243,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/mimi_room_binding_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MimiRoomBindingV1),
             cell_ref_rule: None,
@@ -10211,6 +10291,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_commit_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsEpochV1),
@@ -10482,6 +10563,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/mls_commit_failed_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsFailureLogV1),
             cell_ref_rule: None,
@@ -10580,6 +10662,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_genesis_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsEpochV1),
@@ -10841,6 +10924,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_keypackage_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsKeypackageV1),
             cell_ref_rule: None,
@@ -10892,6 +10976,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_proposal_payload"),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MlsProposalV1),
             cell_ref_rule: None,
@@ -10992,6 +11077,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_welcome_payload"),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::MlsWelcomeV1),
@@ -11256,6 +11342,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/moderation_decision_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationStateV1),
             cell_ref_rule: None,
@@ -11312,6 +11399,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/moderation_decision_lift_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationStateV1),
             cell_ref_rule: None,
@@ -11359,6 +11447,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("crypto_verifiable"),
         payload_schema_ref: Some("schemas/moderation-evidence.schema.json#/$defs/franking_proof"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationFrankingProofV1),
             cell_ref_rule: None,
@@ -11415,6 +11504,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphLifecycleV1),
             cell_ref_rule: None,
@@ -11469,6 +11559,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/morph_create_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphV1),
             cell_ref_rule: None,
@@ -11518,6 +11609,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphLifecycleV1),
             cell_ref_rule: None,
@@ -11574,6 +11666,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/morph_stage_set_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphStageV1),
             cell_ref_rule: None,
@@ -11621,6 +11714,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/morph_update_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MorphV1),
             cell_ref_rule: None,
@@ -11677,6 +11771,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/notary_fault_censorship_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::NotaryFaultV1),
             cell_ref_rule: None,
@@ -11746,6 +11841,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/notary_fault_equivocation_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::NotaryFaultV1),
             cell_ref_rule: None,
@@ -11815,6 +11911,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/organization_discovery_state_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::OrganizationDiscoveryV1),
             cell_ref_rule: None,
@@ -11864,6 +11961,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/organization_moderation_policy_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::OrganizationModerationPolicyV1),
             cell_ref_rule: None,
@@ -11911,6 +12009,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/pin_add_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PinV1),
             cell_ref_rule: None,
@@ -11965,6 +12064,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/pin_remove_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PinV1),
             cell_ref_rule: None,
@@ -12019,6 +12119,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/pin_reorder_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PinV1),
             cell_ref_rule: None,
@@ -12075,6 +12176,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/policy_action_state_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PolicyActionLogV1),
             cell_ref_rule: None,
@@ -12134,6 +12236,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/policy_rule_state_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PolicyRuleV1),
             cell_ref_rule: None,
@@ -12190,6 +12293,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/policy_set_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::PolicyDefinitionV1),
             cell_ref_rule: None,
@@ -12239,6 +12343,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/actor_profile_create_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ProfileCreateV1),
             cell_ref_rule: None,
@@ -12288,6 +12393,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/profile_realm_override_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ProfileRealmOverrideV1),
             cell_ref_rule: None,
@@ -12340,6 +12446,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/actor_profile_update_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ProfileCreateV1),
             cell_ref_rule: None,
@@ -12394,6 +12501,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/reaction_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MessageReactionsV1),
             cell_ref_rule: None,
@@ -12448,6 +12556,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/reaction_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::MessageReactionsV1),
             cell_ref_rule: None,
@@ -12502,6 +12611,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: false,
         admission: None,
         payload_schema_ref: Some("schemas/read-cursor.schema.json"),
+        concurrency_class: None,
         cell_writes: &[],
         cell_family: None,
         cell_subject_rule: None,
@@ -12518,6 +12628,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_alias_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmAliasV1),
             cell_ref_rule: None,
@@ -12556,6 +12667,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_archive_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmArchiveV1),
             cell_ref_rule: None,
@@ -12596,6 +12708,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_asset_privacy_policy_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmAssetPrivacyPolicyV1),
             cell_ref_rule: None,
@@ -12636,6 +12749,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_authority_reset_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmAuthorityRootV1),
             cell_ref_rule: None,
@@ -12678,6 +12792,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_create_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::RealmGenesisV1),
@@ -13198,6 +13313,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_destroy_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmDestroyV1),
             cell_ref_rule: None,
@@ -13238,6 +13354,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_digest_suite_transition_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmDigestSuiteV1),
             cell_ref_rule: None,
@@ -13278,6 +13395,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_discovery_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmDiscoveryV1),
             cell_ref_rule: None,
@@ -13316,6 +13434,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_freeze_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmFreezeV1),
             cell_ref_rule: None,
@@ -13354,6 +13473,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/history_access_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmHistoryAccessV1),
             cell_ref_rule: None,
@@ -13401,6 +13521,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_inheritance_policy_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmInheritancePolicyV1),
             cell_ref_rule: None,
@@ -13450,6 +13571,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_join_rule_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmJoinRuleV1),
             cell_ref_rule: None,
@@ -13488,6 +13610,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_link_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmLinkV1),
             cell_ref_rule: None,
@@ -13566,6 +13689,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_media_service_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmMediaServiceV1),
             cell_ref_rule: None,
@@ -13604,6 +13728,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_notary_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::NotaryV1),
             cell_ref_rule: None,
@@ -13644,6 +13769,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_organization_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmOrganizationV1),
             cell_ref_rule: None,
@@ -13722,6 +13848,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/organization_recovery_key_register_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmOrganizationRecoveryKeyV1),
             cell_ref_rule: None,
@@ -13802,6 +13929,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/organization_recovery_key_rotate_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmOrganizationRecoveryKeyV1),
             cell_ref_rule: None,
@@ -13882,6 +14010,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_owner_transfer_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmAuthorityRootV1),
             cell_ref_rule: None,
@@ -13933,6 +14062,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/plaintext_visible_services_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmPlaintextVisibleServicesV1),
             cell_ref_rule: None,
@@ -13971,6 +14101,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_policy_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmPolicyV1),
             cell_ref_rule: None,
@@ -14011,6 +14142,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmPolicyBundleV1),
             cell_ref_rule: None,
@@ -14049,6 +14181,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/preview_policy_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmPreviewPolicyV1),
             cell_ref_rule: None,
@@ -14087,6 +14220,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_profile_payload"),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmProfileV1),
             cell_ref_rule: None,
@@ -14127,6 +14261,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/read_receipt_policy_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmReadReceiptPolicyV1),
             cell_ref_rule: None,
@@ -14165,6 +14300,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_schema_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmSchemaV1),
             cell_ref_rule: None,
@@ -14205,6 +14341,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_search_policy_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmSearchPolicyV1),
             cell_ref_rule: None,
@@ -14245,6 +14382,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_set_default_strand_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmSetDefaultStrandV1),
             cell_ref_rule: None,
@@ -14285,6 +14423,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_tombstone_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmTombstoneV1),
             cell_ref_rule: None,
@@ -14325,6 +14464,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_upgrade_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RealmReducerProfileV1),
             cell_ref_rule: None,
@@ -14365,6 +14505,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload",
         ),
+        concurrency_class: Some("merge_safe"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ObjectRedactionV1),
             cell_ref_rule: None,
@@ -14421,6 +14562,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_create_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RelationV1),
             cell_ref_rule: None,
@@ -14470,6 +14612,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_tombstone_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RelationLifecycleV1),
             cell_ref_rule: None,
@@ -14519,6 +14662,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_update_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::RelationV1),
             cell_ref_rule: None,
@@ -14573,6 +14717,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/rsvp_set_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::CalendarRsvpV1),
             cell_ref_rule: None,
@@ -14637,6 +14782,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/schema_define_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SchemaDefinitionV1),
             cell_ref_rule: None,
@@ -14686,6 +14832,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_deactivate_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentStatusV1),
             cell_ref_rule: None,
@@ -14749,6 +14896,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/agent_pause_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentStatusV1),
             cell_ref_rule: None,
@@ -14812,6 +14960,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/agent_resume_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::AgentStatusV1),
             cell_ref_rule: None,
@@ -14877,6 +15026,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/moderation_report_payload",
         ),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ModerationReportV1),
             cell_ref_rule: None,
@@ -14933,6 +15083,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/sidecar_context_attach_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SidecarContextV1),
             cell_ref_rule: None,
@@ -14987,6 +15138,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: Some("sidecar_account_self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/sidecar_create_payload"),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SidecarCreateV1),
             cell_ref_rule: None,
@@ -15043,6 +15195,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/sovereign_did_policy_state_payload",
         ),
+        concurrency_class: Some("security_barrier"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SovereignDidPolicyV1),
             cell_ref_rule: None,
@@ -15092,6 +15245,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/space_state_transition_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceLifecycleV1),
             cell_ref_rule: None,
@@ -15146,6 +15300,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/space_create_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceMetadataV1),
             cell_ref_rule: None,
@@ -15193,6 +15348,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/space_parent_payload"),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceParentV1),
             cell_ref_rule: None,
@@ -15242,6 +15398,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/space_state_transition_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceLifecycleV1),
             cell_ref_rule: None,
@@ -15298,6 +15455,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/space_object_tombstone_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceLifecycleV1),
             cell_ref_rule: None,
@@ -15345,6 +15503,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/space_patch_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::SpaceMetadataV1),
             cell_ref_rule: None,
@@ -15401,6 +15560,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandLifecycleV1),
             cell_ref_rule: None,
@@ -15455,6 +15615,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_create_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandObjectV1),
             cell_ref_rule: None,
@@ -15502,6 +15663,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_move_payload"),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandPositionV1),
             cell_ref_rule: None,
@@ -15608,6 +15770,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_reorder_payload"),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandPositionV1),
             cell_ref_rule: None,
@@ -15716,6 +15879,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandLifecycleV1),
             cell_ref_rule: None,
@@ -15772,6 +15936,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/strand_stage_set_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandStageV1),
             cell_ref_rule: None,
@@ -15819,6 +15984,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_patch_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandObjectV1),
             cell_ref_rule: None,
@@ -15873,6 +16039,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_patch_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::StrandObjectV1),
             cell_ref_rule: None,
@@ -15929,6 +16096,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/strand_watch_set_payload",
         ),
+        concurrency_class: Some("exclusive"),
         cell_writes: &[
             EventCellWriteDescriptor {
                 cell_family: Some(CellFamilyId::StrandWatchV1),
@@ -16124,6 +16292,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/view_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ViewV1),
             cell_ref_rule: None,
@@ -16171,6 +16340,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/view_reconcile_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ViewV1),
             cell_ref_rule: None,
@@ -16218,6 +16388,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         reducer_input: true,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/view_payload"),
+        concurrency_class: None,
         cell_writes: &[EventCellWriteDescriptor {
             cell_family: Some(CellFamilyId::ViewV1),
             cell_ref_rule: None,

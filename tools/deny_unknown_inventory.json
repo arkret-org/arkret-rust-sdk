@@ -1,14 +1,14 @@
 {
   "summary": {
-    "total": 1433,
+    "total": 1432,
     "by_classification": {
       "A": 8,
       "B": 797,
-      "needs_review": 628
+      "needs_review": 627
     },
     "by_openness": {
       "closed": 805,
-      "unresolved": 620,
+      "unresolved": 619,
       "unspecified": 8
     },
     "by_crate": {
@@ -16,7 +16,7 @@
       "event-draft": 3,
       "identity": 16,
       "mls": 4,
-      "models-collaboration": 815,
+      "models-collaboration": 814,
       "models-crypto": 127,
       "models-discovery": 54,
       "models-identity": 154,
@@ -2219,7 +2219,7 @@
       "rust_type": "crates/models-collaboration/src/event_sync.rs::ControlGovernanceHealth",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/event_sync.rs",
-      "line": 379,
+      "line": 373,
       "kind": "struct",
       "value_kind": "ControlGovernanceHealth",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/ControlGovernanceHealth",
@@ -2229,23 +2229,10 @@
       "flatten_extra": false
     },
     {
-      "rust_type": "crates/models-collaboration/src/event_sync.rs::RetainedControlProposalFault",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/event_sync.rs",
-      "line": 388,
-      "kind": "struct",
-      "value_kind": "RetainedControlProposalFault",
-      "spec_pointer": null,
-      "schema_openness": "unresolved",
-      "classification": "needs_review",
-      "cfg_gated": false,
-      "flatten_extra": false
-    },
-    {
       "rust_type": "crates/models-collaboration/src/event_sync.rs::RealmSealFrontierObservationCoordinate",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/event_sync.rs",
-      "line": 582,
+      "line": 487,
       "kind": "struct",
       "value_kind": "RealmSealFrontierObservationCoordinate",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/RealmSealFrontierView",
@@ -2258,7 +2245,7 @@
       "rust_type": "crates/models-collaboration/src/event_sync.rs::RealmSealFrontierView",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/event_sync.rs",
-      "line": 600,
+      "line": 505,
       "kind": "struct",
       "value_kind": "RealmSealFrontierView",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/RealmSealFrontierView",
@@ -2271,7 +2258,7 @@
       "rust_type": "crates/models-collaboration/src/event_sync.rs::EventsFrontierFederationPeerState",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/event_sync.rs",
-      "line": 666,
+      "line": 571,
       "kind": "struct",
       "value_kind": "EventsFrontierFederationPeerState",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsFrontierFederationPeerState",
@@ -2284,7 +2271,7 @@
       "rust_type": "crates/models-collaboration/src/event_sync.rs::EventsSubmitFederationBatchRequestBody",
       "crate": "models-collaboration",
       "file": "crates/models-collaboration/src/event_sync.rs",
-      "line": 955,
+      "line": 860,
       "kind": "struct",
       "value_kind": "EventsSubmitFederationBatchRequestBody",
       "spec_pointer": "service-operation-dtos.schema.json#/$defs/EventsSubmitFederationBatchRequestBody",

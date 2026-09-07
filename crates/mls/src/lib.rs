@@ -988,6 +988,134 @@ mod tests {
     }
 
     #[test]
+    fn restored_members_exchange_messages_and_removed_member_loses_new_keys() {
+        let realm = "ak:realm:AV7nJulkpf6nOMIJK3BgQk9k47SVPYURKMguZQZNofn9";
+        let alice_device = "ak:device:01904100-0000-7000-8000-000000000006";
+        let bob_device = "ak:device:01904100-0000-7000-8000-00000000000e";
+        let identity = |name: &str, device: &str| {
+            ArkretMlsIdentity::new_test_human_device(
+                DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap(),
+                DeviceId::new(device).unwrap(),
+            )
+            .unwrap()
+        };
+        let alice = identity("alice", alice_device);
+        let bob = identity("bob", bob_device);
+        let charlie = identity("charlie", "ak:device:01904100-0000-7000-8000-00000000000f");
+        let endpoints = vec![
+            alice.endpoint_identity(),
+            bob.endpoint_identity(),
+            charlie.endpoint_identity(),
+        ];
+        let packages = [
+            bob.key_package_record().unwrap(),
+            charlie.key_package_record().unwrap(),
+        ];
+        let charlie_private = charlie.export_private_state().unwrap();
+        let mut alice_group = alice.create_group(realm.as_bytes()).unwrap();
+        let add = alice_group.add_members(&packages).unwrap();
+        let mut bob_group = ArkretMlsGroup::join_from_welcome(bob, &add.welcomes[0]).unwrap();
+        bob_group
+            .install_test_leaf_bindings(endpoints.clone())
+            .unwrap();
+
+        // Drop live state: the sender and one existing member restart, while
+        // the offline recipient retains its original private KeyPackage state.
+        let alice_record = alice_group.export_state_record().unwrap();
+        let bob_record = bob_group.export_state_record().unwrap();
+        let exact_welcome = serde_json::to_vec(&add.welcomes[1]).unwrap();
+        drop(alice_group);
+        drop(bob_group);
+        drop(charlie);
+        let mut alice_group = ArkretMlsGroup::restore_from_state_record(&alice_record).unwrap();
+        let mut bob_group = ArkretMlsGroup::restore_from_state_record(&bob_record).unwrap();
+        let charlie =
+            ArkretMlsIdentity::restore_from_private_state(endpoints[2].clone(), &charlie_private)
+                .unwrap();
+        let mut charlie_group = ArkretMlsGroup::join_from_welcome(
+            charlie,
+            &serde_json::from_slice(&exact_welcome).unwrap(),
+        )
+        .unwrap();
+        charlie_group.install_test_leaf_bindings(endpoints).unwrap();
+
+        let header = content_header(
+            &alice_group,
+            realm,
+            alice_device,
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
+        let message = alice_group
+            .encrypt_payload(header, b"restored sender")
+            .unwrap();
+        assert_eq!(
+            bob_group.decrypt_payload(&message).unwrap(),
+            b"restored sender"
+        );
+        assert_eq!(
+            charlie_group.decrypt_payload(&message).unwrap(),
+            b"restored sender"
+        );
+        let header = content_header(
+            &bob_group,
+            realm,
+            bob_device,
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
+        let reply = bob_group
+            .encrypt_payload(header, b"restored receiver")
+            .unwrap();
+        assert_eq!(
+            alice_group.decrypt_payload(&reply).unwrap(),
+            b"restored receiver"
+        );
+
+        let removed =
+            test_account_actor(&DidCoreId::new("ak:did_core:webvh:z6mkfixturecharlie").unwrap());
+        let removal = alice_group.remove_members_by_actor(&[removed]).unwrap();
+        for proposal in &removal.proposals {
+            bob_group.apply_proposal(proposal).unwrap();
+        }
+        bob_group.apply_commit(&removal.commit).unwrap();
+        let header = content_header(
+            &alice_group,
+            realm,
+            alice_device,
+            "application/json",
+            EncryptedPayloadScheme::MlsRfc9420,
+            None,
+        );
+        let message = alice_group
+            .encrypt_payload(header, b"after removal")
+            .unwrap();
+        assert_eq!(
+            bob_group.decrypt_payload(&message).unwrap(),
+            b"after removal"
+        );
+        assert!(charlie_group.decrypt_payload(&message).is_err());
+        assert_ne!(
+            alice_group
+                .export_secret(
+                    arkret_wire::ExporterLabelId::RTC_FRAME_KEY_V1,
+                    realm.as_bytes(),
+                    32
+                )
+                .unwrap(),
+            charlie_group
+                .export_secret(
+                    arkret_wire::ExporterLabelId::RTC_FRAME_KEY_V1,
+                    realm.as_bytes(),
+                    32
+                )
+                .unwrap()
+        );
+    }
+
+    #[test]
     fn add_frontier_preview_matches_actual_post_commit_tree_with_a_gap_and_batch() {
         let alice = ArkretMlsIdentity::new_test_human_device(
             DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),

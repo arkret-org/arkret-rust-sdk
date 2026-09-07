@@ -75,6 +75,11 @@ impl ProjectedEventOperation {
         event: &Event,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<Self> {
+        let payload = Value::Object(event.payload.clone().into_iter().collect());
+        arkret_wire::forbidden_wire::validate_event_payload_forbidden_fields(
+            &event.kind,
+            &payload,
+        )?;
         Ok(Self {
             schema: Self::SCHEMA.to_owned(),
             operation_id,
@@ -83,7 +88,7 @@ impl ProjectedEventOperation {
             realm_id: event.realm_id.clone(),
             object_id,
             event_kind: event.kind.clone(),
-            payload: Value::Object(event.payload.clone().into_iter().collect()),
+            payload,
             refs: event.refs.clone(),
             idempotency_key: None,
             created_at: event.created_at,

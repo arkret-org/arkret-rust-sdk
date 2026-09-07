@@ -406,6 +406,11 @@ fn project_registered_operation_writes_with_pre_state(
     authority_resolver: Option<&CapabilityAuthorityResolver<'_>>,
 ) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
     let kind = event.kind.as_str().to_owned();
+    arkret_wire::forbidden_wire::validate_event_payload_forbidden_fields(
+        &event.kind,
+        &Value::Object(event.payload.clone().into_iter().collect()),
+    )
+    .map_err(|error| projection_error(&kind, &error.to_string()))?;
     let descriptor = event
         .kind
         .descriptor()

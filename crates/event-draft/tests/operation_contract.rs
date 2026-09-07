@@ -72,6 +72,35 @@ fn projected_event_with_proof(
 }
 
 #[test]
+fn accepted_event_projection_checks_wire_context_before_projection() {
+    let actor = DidCoreId::new("ak:did_core:web:alice.example").unwrap();
+    let mut event = arkret_wire::test_support::raw_event(
+        "ak.message.create",
+        test_scope(),
+        actor.clone(),
+        actor,
+        7,
+        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        serde_json::to_value(message_payload()).unwrap(),
+    )
+    .unwrap();
+    let project = |event: &arkret_wire::Event| {
+        ProjectedEventOperation::from_accepted_event(
+            OperationId::new("ak:operation:01904100-0000-7000-8000-9c5aa4740641").unwrap(),
+            OperationKind::Create,
+            None,
+            event,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+    };
+    assert_eq!(project(&event).unwrap().payload["track_name"], "discussion");
+    event
+        .payload
+        .insert("message_id".to_owned(), json!("forbidden producer mirror"));
+    assert!(project(&event).is_err());
+}
+
+#[test]
 fn accepted_event_projection_derives_the_ordinary_producer_device() {
     let operation = projected_event_with_proof(
         "ak:did_core:web:alice.example",

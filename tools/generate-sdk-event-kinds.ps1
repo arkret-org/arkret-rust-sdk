@@ -168,6 +168,7 @@ foreach ($k in $arr) {
         ReducerInput = [bool]$row.reducer_input
         Admission = if ($null -eq $row.admission) { $null } else { [string]$row.admission }
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
+        ConcurrencyClass = if ($null -eq $row.concurrency_class) { $null } else { [string]$row.concurrency_class }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
         CellSubjectRule = $row.cell_subject
         ValueProjectionRule = $row.value_projection
@@ -560,6 +561,7 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub reducer_input: bool,"
 & $add "    pub admission: Option<&'static str>,"
 & $add "    pub payload_schema_ref: Option<&'static str>,"
+& $add "    pub concurrency_class: Option<&'static str>,"
 & $add "    pub cell_writes: &'static [EventCellWriteDescriptor],"
 & $add "    pub cell_family: Option<&'static str>,"
 & $add "    /// Cell-subject rule; ``None`` means the envelope ``realm_id``."
@@ -853,6 +855,7 @@ foreach ($e in $entries) {
         "Some(CbaEffectPlane::$(ConvertTo-SimpleVariant -Value $e.Plane))"
     }
     $sealed = if ($e.Sealed) { "true" } else { "false" }
+    $concurrencyClass = if ($null -eq $e.ConcurrencyClass) { "None" } else { "Some(`"$($e.ConcurrencyClass)`")" }
     & $add "    EventKindDescriptor {"
     & $add "        kind: event_kind_str::$associatedName,"
     & $add "        category: EventRegistryCategory::$($e.CategoryVariant),"
@@ -860,6 +863,7 @@ foreach ($e in $entries) {
     & $add "        reducer_input: $reducerInput,"
     & $add "        admission: $admission,"
     & $add "        payload_schema_ref: $payloadSchemaRef,"
+    & $add "        concurrency_class: $concurrencyClass,"
     if ($e.CellWrites.Count -eq 0) {
         & $add "        cell_writes: &[],"
     } else {

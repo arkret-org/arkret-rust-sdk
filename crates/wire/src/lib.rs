@@ -41,6 +41,7 @@ pub mod cell;
 pub mod consent_scope;
 pub mod constants;
 pub mod control_proposal;
+pub mod control_seal_batch;
 pub mod cursor;
 pub mod device_revocation;
 pub mod directory_source_ref_access;

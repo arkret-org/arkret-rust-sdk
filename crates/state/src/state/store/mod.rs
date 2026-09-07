@@ -364,6 +364,9 @@ pub trait ControlEventStore: Send + Sync {
         policy: ControlProposalDecisionPolicy,
     ) -> StoreResult<()>;
 
+    /// Diagnostic records ordered by Ack absolute deadline and proposal digest.
+    /// Ack-less rows sort first so a missing obligation cannot hide behind a
+    /// bounded Ack sample. Notary work uses its separate insertion-order scan.
     async fn list_pending_records(
         &self,
         realm_id: &RealmId,
@@ -417,12 +420,6 @@ pub trait ControlEventStore: Send + Sync {
         &self,
         realm_id: &RealmId,
         cursor: Option<&Hash>,
-        limit: usize,
-    ) -> StoreResult<Vec<SealedControlEventRecord>>;
-
-    async fn list_retained_faults(
-        &self,
-        realm_id: &RealmId,
         limit: usize,
     ) -> StoreResult<Vec<SealedControlEventRecord>>;
 }
