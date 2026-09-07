@@ -258,20 +258,9 @@ pub fn validate_realm_bootstrap_unit(
             .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
         arkret_models_collaboration::direct_conversation_ops::DirectConversationFoundingPlan::from_events(exact)
             .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
-        let direct_roles = create
-            .refs
-            .iter()
-            .filter(|reference| {
-                reference.critical
-                    && matches!(
-                        reference.role.as_str(),
-                        "direct_conversation_basis" | "direct_conversation_agent_provision"
-                    )
-            })
-            .collect::<Vec<_>>();
-        if direct_roles.len() != 1 {
-            return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
-        }
+        // Founding authority is carried by the typed submission alongside the
+        // four Events and verified by admission. The current genesis format
+        // does not duplicate Contact/provision evidence in Event refs.
         return Ok(ValidatedRealmBootstrap {
             realm_id: create.realm_id.clone(),
             actor_id: create.actor_id.clone(),
@@ -509,6 +498,86 @@ mod tests {
             },
         }];
         events
+    }
+
+    fn direct_founding_unit() -> Vec<Event> {
+        let mut genesis = create();
+        genesis.scope_ref = ScopeRef::RealmGenesis;
+        genesis.actor_seq = 0;
+        genesis.payload.get_mut("object").unwrap()["schema_refs"] = json!([
+            "ak.schema.realm.v1",
+            arkret_wire::ProfileId::DIRECT_CONVERSATION_REALM_V1
+        ]);
+        genesis
+            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let realm = genesis.realm_id.clone();
+        let peer = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:peer.example").unwrap(),
+            DidCoreId::new(STATION).unwrap(),
+        ));
+        let member = |who: ActorId| {
+            event(
+                EventKind::MemberState,
+                json!({"realm_id": realm, "member_id": who, "membership": "join"}),
+            )
+        };
+        let strand = arkret_models_collaboration::objects::direct_conversation::direct_conversation_main_strand_create_payload(
+            realm.clone(), actor(), created_at());
+        let mut founder = member(actor());
+        let subject = arkret_wire::composite_subject(&[actor().canonical_key().unwrap()]).unwrap();
+        founder.preconditions = serde_json::from_value(json!([{
+            "cell_id": format!("ak:cell:ak.component.member.state.v1:{subject}"),
+            "predicate": {"op": "head_eq", "value": null}
+        }]))
+        .unwrap();
+        let mut events = vec![
+            genesis,
+            member(peer),
+            event(
+                EventKind::StrandCreate,
+                serde_json::to_value(strand).unwrap(),
+            ),
+            founder,
+        ];
+        for index in 1..events.len() {
+            let previous = events[index - 1].event_id.clone();
+            let current = &mut events[index];
+            current.scope_ref = ScopeRef::Realm {
+                realm_id: realm.clone(),
+            };
+            current.realm_id = realm.clone();
+            current.actor_seq = index as u64;
+            current.prev_refs = vec![previous];
+            current
+                .refresh_content_bound_identity_with_digest_suite(
+                    arkret_canonical::DigestSuite::Sha256,
+                )
+                .unwrap();
+        }
+        events
+    }
+
+    #[test]
+    fn direct_founding_accepts_current_four_event_unit_without_legacy_refs() {
+        let events = direct_founding_unit();
+        assert!(events[0].refs.is_empty());
+        let validated = validate_realm_bootstrap_unit(&events).unwrap();
+        assert_eq!(validated.realm_id, events[0].realm_id);
+    }
+
+    #[test]
+    fn direct_founding_still_rejects_missing_or_reordered_events() {
+        let mut events = direct_founding_unit();
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events[..3]),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
+        events.swap(1, 2);
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
     }
 
     #[test]
