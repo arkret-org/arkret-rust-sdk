@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-08.3;
-//! sha256=2b95787377ecc24fe7491bb0a587cc3383b0e48bf4bff5eb00280ef8152cf4d7 Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-09.1;
+//! sha256=66b9ecda2b7900d86c802cd975f795b55911d06c158486f6aca7039f45e58b26 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
 //! Entries: active_events=170, pre_state_requirements=8
