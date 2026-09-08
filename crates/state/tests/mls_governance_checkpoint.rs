@@ -14,7 +14,9 @@ use arkret_state::mls_governance_proof::{
     materialize_registered_cell_value_at_basis_from_verified_checkpoint,
     materialize_registered_cell_value_from_verified_checkpoint,
 };
-use arkret_state::{BottomMode, CellState, GovernanceView, MemoryCellRegistry, compute_state_root};
+use arkret_state::{
+    CellState, EventCellBottom, GovernanceView, MemoryCellRegistry, compute_state_root,
+};
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
     CellFamilyId, CellRef, DidCoreId, EncryptionProfile, Event, EventKind, GenesisSalt, Hash, Hlc,
@@ -83,7 +85,7 @@ fn registry() -> MemoryCellRegistry {
             (json!("leave"), json!("join")),
             (json!("join"), json!("leave")),
         ],
-        BottomMode::Reject,
+        EventCellBottom::Reject,
     );
     registry
 }

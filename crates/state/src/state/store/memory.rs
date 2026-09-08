@@ -18,10 +18,10 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use super::{
-    BottomMode, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
-    ControlProposalIngress, ControlProposalIngressClass, ControlProposalSnapshot,
-    ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
-    ControlSealScheduleRepairStats, ControlSealScheduleStats, PendingControlEventRecord, SealStore,
+    CellLatticeBinding, CellRegistry, CellStore, ControlEventStore, ControlProposalIngress,
+    ControlProposalIngressClass, ControlProposalSnapshot, ControlSealAttemptCompletion,
+    ControlSealAttemptOutcome, ControlSealScheduleClaim, ControlSealScheduleRepairStats,
+    ControlSealScheduleStats, EventCellBottom, PendingControlEventRecord, SealStore,
     SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
 };
 use crate::lattice::ordered_log::IssuedOp;
@@ -1271,7 +1271,7 @@ pub struct MemoryCellRegistry {
 #[derive(Clone)]
 struct BindingDescriptor {
     kind: LatticeKind,
-    bottom_mode: BottomMode,
+    bottom_mode: EventCellBottom,
     fsm_initial: Option<Value>,
     fsm_transitions: Vec<(Value, Value)>,
 }
@@ -1285,7 +1285,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::MEMBER_STATE_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::Fsm,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: Some(json!("invited")),
                 fsm_transitions: vec![
                     (json!("invited"), json!("join")),
@@ -1302,7 +1302,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1313,7 +1313,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::CONSENT_GRANT_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrSet,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1324,7 +1324,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::NOTARY_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1335,7 +1335,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::REALM_POLICY_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1347,7 +1347,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1358,7 +1358,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::AUDIT_ACCESS_LOG_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::OrderedLog,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1370,7 +1370,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::MLS_EPOCH_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1380,7 +1380,7 @@ impl Default for MemoryCellRegistry {
             arkret_wire::CellFamilyId::MLS_KEY_SCHEDULE_V1.to_owned(),
             BindingDescriptor {
                 kind: LatticeKind::CasRegister,
-                bottom_mode: BottomMode::Reject,
+                bottom_mode: EventCellBottom::Reject,
                 fsm_initial: None,
                 fsm_transitions: vec![],
             },
@@ -1409,7 +1409,7 @@ impl MemoryCellRegistry {
         &mut self,
         cell_family: impl Into<String>,
         kind: LatticeKind,
-        bottom_mode: BottomMode,
+        bottom_mode: EventCellBottom,
     ) {
         self.bindings.insert(
             cell_family.into(),
@@ -1427,7 +1427,7 @@ impl MemoryCellRegistry {
         cell_family: impl Into<String>,
         initial: Option<Value>,
         transitions: Vec<(Value, Value)>,
-        bottom_mode: BottomMode,
+        bottom_mode: EventCellBottom,
     ) {
         self.bindings.insert(
             cell_family.into(),
@@ -2654,7 +2654,7 @@ mod tests {
         let reg = MemoryCellRegistry::new();
         let binding = reg.resolve(&realm(), &cell_member()).unwrap();
         assert_eq!(binding.lattice.kind(), LatticeKind::Fsm);
-        assert_eq!(binding.bottom_mode, BottomMode::Reject);
+        assert_eq!(binding.bottom_mode, EventCellBottom::Reject);
     }
 
     #[tokio::test]

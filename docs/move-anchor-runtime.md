@@ -200,26 +200,25 @@ trait CellRegistry: Send + Sync {
     /// 等参数）以及 bottom mode（reject / expose）。
     ///
     /// 实现典型从 spec event-kind-registry 的 cell_family / lattice / bottom
-    /// 字段加载。Space-级 schema 偏离（`Space.cell_lattices` 覆盖）由该方法
-    /// 内部解析。
+    /// 字段加载。内建 family 不允许由 Space 或 Realm 覆盖；
+    /// Realm-specific extension family 按其显式登记解析。
     fn resolve(
         &self,
-        space_id: &SpaceId,
+        realm_id: &RealmId,
         cell: &CellRef,
-    ) -> Result<CellLatticeBinding>;
+    ) -> StoreResult<CellLatticeBinding>;
 }
 
 struct CellLatticeBinding {
     pub lattice: Box<dyn Lattice>,
-    pub bottom_mode: BottomMode, // Reject | Expose
+    pub bottom_mode: arkret_wire::EventCellBottom, // Reject | Expose | Inert
 }
 
-enum BottomMode { Reject, Expose }
 ```
 
 实现注意：`CellRegistry::resolve` 调用频次很高（每条 Move precondition 都会
-打），实现 SHOULD 缓存 `(space_id, cell_family) → CellLatticeBinding`，cache
-失效条件是 Space schema Move（写到 Space schema cell 的 Move）落 Seal。
+打），实现可缓存 `(realm_id, cell_family) → CellLatticeBinding`；内建 family 的 lattice/bottom 来自规范生成表，
+Realm extension 的缓存须绑定其实际登记状态，不能用 Space schema 覆盖内建规则。
 
 ## 4. Move Verifier 流水线
 

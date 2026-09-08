@@ -26,6 +26,9 @@ pub const MAX_GOVERNANCE_DEPENDENCY_RESPONSE_BYTES: u64 = 8 * 1024 * 1024;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum GovernanceDependencySelector {
+    AppletInstallationAuthority {
+        content_digest: Hash,
+    },
     AvailabilityReceipt {
         content_digest: Hash,
     },
@@ -43,6 +46,7 @@ pub enum GovernanceDependencySelector {
 impl GovernanceDependencySelector {
     fn kind(&self) -> &'static str {
         match self {
+            Self::AppletInstallationAuthority { .. } => "applet_installation_authority",
             Self::AvailabilityReceipt { .. } => "availability_receipt",
             Self::AuthenticatedSignerResolutionEvidence { .. } => {
                 "authenticated_signer_resolution_evidence"
@@ -61,7 +65,8 @@ impl GovernanceDependencySelector {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::AvailabilityReceipt { .. } | Self::CollisionVariantRecord { .. } => Ok(()),
-            Self::AuthenticatedSignerResolutionEvidence { content_digest }
+            Self::AppletInstallationAuthority { content_digest }
+            | Self::AuthenticatedSignerResolutionEvidence { content_digest }
             | Self::MinimalMetadataMlsLeafSignerEvidence { content_digest } => {
                 if !content_digest.as_ref().starts_with("sha256:") {
                     return Err(WireError::Protocol(format!(
@@ -91,7 +96,7 @@ pub fn governance_runtime_dependency_selectors_for_replay(
         match event.proofs.as_slice() {
             [EventProof::Producer(_)] => event.validate_for_direct_history_structural()?,
             [EventProof::Producer(_), EventProof::StationAdmission(_)] => {
-                event.validate_station_admission_binding(digest_suite)?;
+                event.validate_station_admission_structure(digest_suite)?;
             }
             _ => {
                 return Err(WireError::Protocol(
@@ -151,6 +156,11 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
                     }
                 }
                 EventProof::StationAdmission(admission) => {
+                    if let Some(content_digest) = &admission.applet_installation_digest {
+                        selectors.push(GovernanceDependencySelector::AppletInstallationAuthority {
+                            content_digest: content_digest.clone(),
+                        });
+                    }
                     if let Some(producer_evidence_ref) =
                         &admission.producer_signer_resolution_evidence_ref
                     {
@@ -898,6 +908,11 @@ fn canonicalize_selectors(
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum GovernanceDependency {
+    AppletInstallationAuthority {
+        selector: GovernanceDependencySelector,
+        applet_installation_authority:
+            Box<crate::applet_installation_authority::AppletInstallationAuthority>,
+    },
     AvailabilityReceipt {
         selector: GovernanceDependencySelector,
         availability_receipt: AvailabilityReceipt,
@@ -919,9 +934,35 @@ pub enum GovernanceDependency {
 impl Eq for GovernanceDependency {}
 
 impl GovernanceDependency {
+    /// Discover the standard dependencies embedded in this frozen object.
+    /// This discovers coordinates only and never authenticates the evidence.
+    pub fn dependency_selectors(&self) -> Result<Vec<GovernanceDependencySelector>> {
+        self.validate_branch()?;
+        match self {
+            Self::AppletInstallationAuthority {
+                applet_installation_authority,
+                ..
+            } => governance_runtime_dependency_selector_coordinates_for_acquisition(
+                &[],
+                &[
+                    applet_installation_authority.registration_event.clone(),
+                    applet_installation_authority.capability_grant_event.clone(),
+                ],
+            ),
+            Self::AuthenticatedSignerResolutionEvidence {
+                authenticated_signer_resolution_evidence,
+                ..
+            } => governance_attester_evidence_selectors(std::slice::from_ref(
+                authenticated_signer_resolution_evidence,
+            )),
+            _ => Ok(Vec::new()),
+        }
+    }
+
     pub fn selector(&self) -> &GovernanceDependencySelector {
         match self {
-            Self::AvailabilityReceipt { selector, .. }
+            Self::AppletInstallationAuthority { selector, .. }
+            | Self::AvailabilityReceipt { selector, .. }
             | Self::AuthenticatedSignerResolutionEvidence { selector, .. }
             | Self::MinimalMetadataMlsLeafSignerEvidence { selector, .. }
             | Self::CollisionVariantRecord { selector, .. } => selector,
@@ -930,6 +971,18 @@ impl GovernanceDependency {
 
     fn validate_branch(&self) -> Result<()> {
         match self {
+            Self::AppletInstallationAuthority {
+                selector:
+                    GovernanceDependencySelector::AppletInstallationAuthority { content_digest },
+                applet_installation_authority,
+            } => {
+                applet_installation_authority.validate_structural()?;
+                if content_digest != &applet_installation_authority.canonical_sha256_digest()? {
+                    return Err(WireError::Protocol(
+                        "Applet installation authority digest mismatch".to_owned(),
+                    ));
+                }
+            }
             Self::AvailabilityReceipt {
                 selector: GovernanceDependencySelector::AvailabilityReceipt { content_digest },
                 availability_receipt,

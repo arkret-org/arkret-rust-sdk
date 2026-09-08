@@ -126,6 +126,7 @@ fn attach_fixture_admission_proof(event: &mut Event) {
         .expect("fixture producer proof")
         .clone();
     let admission = StationAdmissionProof {
+        applet_installation_digest: None,
         kind: StationAdmissionProofKind::StationAdmission,
         verification_method: DidUrl::new("did:web:principal.example#admission").unwrap(),
         event_digest: producer.event_digest.clone(),

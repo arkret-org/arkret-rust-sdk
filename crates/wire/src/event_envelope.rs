@@ -1391,7 +1391,7 @@ impl Event {
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
-        self.validate_station_admission_binding(digest_suite)
+        self.validate_station_admission_structure(digest_suite)
     }
 
     /// Shape of an already-accepted Event carried as evidence rather than as a
@@ -1608,6 +1608,21 @@ impl Event {
         &self,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
+        if self.applet_id.is_some() {
+            return Err(WireError::Protocol(
+                "Applet admission requires verified installation authority dependencies".to_owned(),
+            ));
+        }
+        self.validate_station_admission_structure(digest_suite)
+    }
+
+    /// Validate digest/proof structure before authority dependency acquisition.
+    /// Applet controller authorization is deliberately deferred to the policy
+    /// verifier, which must authenticate the referenced installation evidence.
+    pub fn validate_station_admission_structure(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<()> {
         let expected_event_digest = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
         let [
             EventProof::Producer(producer),
@@ -1626,6 +1641,32 @@ impl Event {
             ));
         }
         let author = self.executed_by.as_ref().unwrap_or(&self.actor_id);
+        if self.applet_id.is_some() {
+            let Some(installation_digest) = &admission.applet_installation_digest else {
+                return Err(WireError::Protocol(
+                    "Applet admission omitted installation authority dependency".to_owned(),
+                ));
+            };
+            if !installation_digest.as_str().starts_with("sha256:") {
+                return Err(WireError::Protocol(
+                    "Applet installation authority must use SHA-256".to_owned(),
+                ));
+            }
+            let (controller, _) = admission
+                .verification_method
+                .as_str()
+                .split_once('#')
+                .ok_or_else(|| {
+                    WireError::Protocol("admission method has no fragment".to_owned())
+                })?;
+            let controller = project_did_to_core_id(&Did::new(controller.to_owned())?)?;
+            return admission.validate_binding(&expected_event_digest, producer, &controller);
+        }
+        if admission.applet_installation_digest.is_some() {
+            return Err(WireError::Protocol(
+                "non-Applet admission must omit installation authority".to_owned(),
+            ));
+        }
         admission.validate_binding(&expected_event_digest, producer, author.route_service_id())
     }
 

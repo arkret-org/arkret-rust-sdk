@@ -56,7 +56,7 @@ fn every_typed_adapter_matches_its_generated_lattice_binding() {
             "typed adapter {family} drifted from the generated lattice"
         );
         assert_eq!(
-            adapter.bottom_policy().to_sdk_bottom_mode(),
+            adapter.bottom_policy(),
             *expected_bottom,
             "typed adapter {family} drifted from the generated bottom policy"
         );

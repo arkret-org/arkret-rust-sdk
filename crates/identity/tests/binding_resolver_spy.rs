@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use arkret_identity::binding::{
-    DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRiskTier, LimitedTrust,
+    DidBindingPurpose, DidBindingStatus, DidFreshnessRiskTier, FreshnessProfile, LimitedTrust,
     StaleBehavior, VerifiedDidBinding, VerifiedDidBindingDocumentInput,
 };
 use arkret_identity::binding_digest::{EvidenceReceipt, MethodEvidence};
@@ -131,7 +131,7 @@ fn spy() -> CountingDidResolver<FixtureResolver> {
 fn freshness_profile() -> FreshnessProfile {
     FreshnessProfile {
         freshness_profile_id: "ak.did_freshness.spy_high.v1".to_owned(),
-        risk_tier: FreshnessRiskTier::High,
+        risk_tier: DidFreshnessRiskTier::High,
         did_method_selector: vec!["*".to_owned()],
         fresh_for_seconds: Some(1_800),
         stale_grace_seconds: None,
@@ -297,7 +297,7 @@ fn a_stale_binding_blocks_a_fresh_authority_call_but_not_a_low_risk_one() {
     let mut relaxed = request();
     relaxed.freshness = FreshnessProfile {
         freshness_profile_id: "ak.did_freshness.spy_low.v1".to_owned(),
-        risk_tier: FreshnessRiskTier::Low,
+        risk_tier: DidFreshnessRiskTier::Low,
         did_method_selector: vec!["*".to_owned()],
         fresh_for_seconds: Some(1_800),
         stale_grace_seconds: None,

@@ -1,6 +1,6 @@
 pub use arkret_schema::Criticality;
 use arkret_state::lattice::LatticeKind as SdkLatticeKind;
-use arkret_state::state::BottomMode;
+pub use arkret_wire::EventCellBottom;
 use serde_json::Value;
 
 /// Stable identification of the logical cell this [`LatticeKind`] drives.
@@ -18,24 +18,6 @@ pub struct ComponentDescriptor {
     pub criticality: Criticality,
 }
 
-/// Bottom-handling policy for a cell family.
-///
-/// - `Reject`: when the Lattice's `join` returns a structured `Bottom`, the receiver MUST
-///   quarantine the resolved cell and emit `bottom_diagnostics` events. Lattice queries on this
-///   cell return `bottom` rather than choosing a winner. This is the v1 default for safety-critical
-///   cells (capability, consent, notary).
-/// - `Expose`: callers are expected to render the multi-value set directly (e.g. UI shows "two
-///   concurrent edits, please reconcile" rather than blocking). Suitable for advisory cells (Strand
-///   titles, user profile fields).
-/// - `Inert`: the lattice's join cannot produce Bottom. If a stored Bottom is nevertheless
-///   observed, it represents an implementation invariant failure and is handled fail-closed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BottomPolicy {
-    Reject,
-    Expose,
-    Inert,
-}
-
 pub(crate) fn generated_lattice(cell_family: &str) -> SdkLatticeKind {
     crate::generated::SPEC_LATTICE_BINDINGS
         .iter()
@@ -43,37 +25,11 @@ pub(crate) fn generated_lattice(cell_family: &str) -> SdkLatticeKind {
         .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"))
 }
 
-pub(crate) fn generated_bottom_policy(cell_family: &str) -> BottomPolicy {
-    let mode = crate::generated::SPEC_LATTICE_BINDINGS
+pub(crate) fn generated_bottom_policy(cell_family: &str) -> EventCellBottom {
+    crate::generated::SPEC_LATTICE_BINDINGS
         .iter()
         .find_map(|(family, _, bottom)| (*family == cell_family).then_some(*bottom))
-        .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"));
-    match mode {
-        BottomMode::Reject => BottomPolicy::Reject,
-        BottomMode::Expose => BottomPolicy::Expose,
-        BottomMode::Inert => BottomPolicy::Inert,
-    }
-}
-
-impl BottomPolicy {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Reject => "reject",
-            Self::Expose => "expose",
-            Self::Inert => "inert",
-        }
-    }
-
-    /// Translate to the SDK state-res `BottomMode` that the
-    /// `CellRegistry` uses to drive Move/Seal receive-pipeline
-    /// bottom handling. The two are 1:1 by design.
-    pub fn to_sdk_bottom_mode(self) -> BottomMode {
-        match self {
-            Self::Reject => BottomMode::Reject,
-            Self::Expose => BottomMode::Expose,
-            Self::Inert => BottomMode::Inert,
-        }
-    }
+        .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"))
 }
 
 /// Errors a [`LatticeKind`] can raise during subject derivation.
@@ -159,8 +115,8 @@ pub trait LatticeKind: Send + Sync {
 
     /// `reject` → quarantine on Bottom (default, safety-critical cells);
     /// `expose` → render multi-value directly (advisory cells).
-    fn bottom_policy(&self) -> BottomPolicy {
-        BottomPolicy::Reject
+    fn bottom_policy(&self) -> EventCellBottom {
+        EventCellBottom::Reject
     }
 
     /// Component metadata for extension handling.

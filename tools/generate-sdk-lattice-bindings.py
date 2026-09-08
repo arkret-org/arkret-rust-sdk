@@ -94,7 +94,7 @@ def render(source_path: Path, registry: dict) -> str:
         family_constant = cell_family_constant(family)
         compact_row = (
             f"    (CellFamilyId::{family_constant}, LatticeKind::{lattice_variant}, "
-            f"BottomMode::{bottom_variant}),"
+            f"EventCellBottom::{bottom_variant}),"
         )
         if len(compact_row) <= 70:
             rows.append(compact_row)
@@ -104,7 +104,7 @@ def render(source_path: Path, registry: dict) -> str:
                     "    (",
                     f"        CellFamilyId::{family_constant},",
                     f"        LatticeKind::{lattice_variant},",
-                    f"        BottomMode::{bottom_variant},",
+                    f"        EventCellBottom::{bottom_variant},",
                     "    ),",
                 ]
             )
@@ -114,10 +114,10 @@ def render(source_path: Path, registry: dict) -> str:
             f"// Source sha256: {source_digest}",
             "",
             "use arkret_state::lattice::LatticeKind;",
-            "use arkret_state::state::BottomMode;",
+            "use arkret_wire::EventCellBottom;",
             "use arkret_wire::CellFamilyId;",
             "",
-            "pub(crate) const SPEC_LATTICE_BINDINGS: &[(&str, LatticeKind, BottomMode)] = &[",
+            "pub(crate) const SPEC_LATTICE_BINDINGS: &[(&str, LatticeKind, EventCellBottom)] = &[",
             *rows,
             "];",
             "",

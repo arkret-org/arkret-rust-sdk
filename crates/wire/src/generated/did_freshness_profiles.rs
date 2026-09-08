@@ -15,7 +15,10 @@ pub enum DidFreshnessProfileId {
 
 /// Registered risk tier of a freshness profile. Fixed by registration:
 /// a deployment declares only the numeric windows.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum DidFreshnessRiskTier {
     Low,
     Medium,

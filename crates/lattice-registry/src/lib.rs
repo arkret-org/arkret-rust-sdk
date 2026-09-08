@@ -29,7 +29,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use arkret_state::lattice::LatticeKind as SdkLatticeKind;
-    use arkret_state::{BottomMode, CellRegistry, CellState, SealedOp};
+    use arkret_state::{CellRegistry, CellState, EventCellBottom, SealedOp};
     use arkret_wire::{CellRef, Hash, LatticeOp, LatticeOpType, RealmId, composite_subject};
     use serde_json::json;
 
@@ -98,9 +98,9 @@ mod tests {
                         }
                         .to_owned(),
                         match bottom {
-                            BottomMode::Reject => "reject",
-                            BottomMode::Expose => "expose",
-                            BottomMode::Inert => "inert",
+                            EventCellBottom::Reject => "reject",
+                            EventCellBottom::Expose => "expose",
+                            EventCellBottom::Inert => "inert",
                         }
                         .to_owned(),
                     ),
@@ -154,12 +154,12 @@ mod tests {
         for (index, family) in families.into_iter().enumerate() {
             let adapter = typed.lookup(family).unwrap();
             assert_eq!(adapter.lattice(), SdkLatticeKind::OrSet);
-            assert_eq!(adapter.bottom_policy(), BottomPolicy::Inert);
+            assert_eq!(adapter.bottom_policy(), EventCellBottom::Inert);
 
             let cell = CellRef::new(format!("ak:cell:{family}:coverage")).unwrap();
             let binding = runtime.resolve(&realm_id, &cell).unwrap();
             assert_eq!(binding.lattice.kind(), SdkLatticeKind::OrSet);
-            assert_eq!(binding.bottom_mode, BottomMode::Inert);
+            assert_eq!(binding.bottom_mode, EventCellBottom::Inert);
 
             let grant = sealed(index * 2 + 1, LatticeOpType::Add);
             let revoke = sealed(index * 2 + 2, LatticeOpType::Remove);
@@ -312,7 +312,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::STRAND_OBJECT_V1)
             .unwrap();
         assert_eq!(adapter.lattice(), SdkLatticeKind::MvRegister);
-        assert_eq!(adapter.bottom_policy(), BottomPolicy::Expose);
+        assert_eq!(adapter.bottom_policy(), EventCellBottom::Expose);
         assert_eq!(
             adapter
                 .subject_for_effect(&json!({"target_ref": strand_id}))
@@ -332,7 +332,7 @@ mod tests {
         let runtime = build_sdk_cell_registry();
         let binding = runtime.resolve(&realm_id, &cell).unwrap();
         assert_eq!(binding.lattice.kind(), SdkLatticeKind::MvRegister);
-        assert_eq!(binding.bottom_mode, BottomMode::Expose);
+        assert_eq!(binding.bottom_mode, EventCellBottom::Expose);
 
         let set = |byte: u8, value: serde_json::Value| {
             SealedOp::new(
@@ -623,7 +623,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::APPLET_REGISTRATION_V1)
             .expect("Applet registration family must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(kind.bottom_policy(), EventCellBottom::Reject);
         assert_eq!(
             kind.subject_for_effect(&json!({"applet_id": "ak:applet:fixture"}))
                 .unwrap()
@@ -639,7 +639,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::CONSENT_GRANT_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
+        assert_eq!(kind.bottom_policy(), EventCellBottom::Inert);
         let payload = json!({"consent_id": "cnt:01HXYZ"});
         let subject = kind.subject_for_effect(&payload).unwrap();
         assert_eq!(subject.as_deref(), Some("cnt:01HXYZ"));
@@ -652,7 +652,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::MODERATION_STATE_V1)
             .expect("moderation state must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Expose);
+        assert_eq!(kind.bottom_policy(), EventCellBottom::Expose);
         assert_eq!(
             kind.subject_for_effect(&json!({"target_ref": "ak:event:target"}))
                 .unwrap()
@@ -750,7 +750,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::REALM_LINK_V1)
             .expect("Realm Link cell must be registered");
         assert_eq!(kind.lattice(), SdkLatticeKind::Fsm);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(kind.bottom_policy(), EventCellBottom::Reject);
         let subject = kind
             .subject_for_effect(&json!({
                 "target_realm_id": "ak:realm:Ab0jbIKlPZ-M3WbarZlCPLYtkCWggYwWZeRDlW-ShdQ9",
@@ -774,7 +774,7 @@ mod tests {
         let cell = CellRef::new(format!("ak:cell:ak.component.realm.link.v1:{subject}")).unwrap();
         let binding = sdk_registry.resolve(&realm_id, &cell).unwrap();
         assert_eq!(binding.lattice.kind(), SdkLatticeKind::Fsm);
-        assert_eq!(binding.bottom_mode, BottomMode::Reject);
+        assert_eq!(binding.bottom_mode, EventCellBottom::Reject);
     }
 
     #[test]
@@ -990,13 +990,13 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1)
             .expect("identity accountability must be registered");
         assert_eq!(accountability.lattice(), SdkLatticeKind::CasRegister);
-        assert_eq!(accountability.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(accountability.bottom_policy(), EventCellBottom::Reject);
 
         let selector = registry
             .lookup(arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1)
             .expect("agent selector claim must be registered");
         assert_eq!(selector.lattice(), SdkLatticeKind::MvRegister);
-        assert_eq!(selector.bottom_policy(), BottomPolicy::Expose);
+        assert_eq!(selector.bottom_policy(), EventCellBottom::Expose);
         let subject = selector
             .subject_for_effect(&json!({
                 "controller_subject_id": "did:web:alice.example",
@@ -1083,7 +1083,7 @@ mod tests {
         ] {
             let kind = registry.lookup(family).unwrap();
             assert_eq!(kind.lattice(), SdkLatticeKind::OrSet);
-            assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
+            assert_eq!(kind.bottom_policy(), EventCellBottom::Inert);
         }
 
         let recording = registry
@@ -1169,7 +1169,7 @@ mod tests {
             let cell = CellRef::new(format!("ak:cell:{family}:{call_id}")).unwrap();
             assert_eq!(
                 sdk_registry.resolve(&realm_id, &cell).unwrap().bottom_mode,
-                BottomMode::Inert
+                EventCellBottom::Inert
             );
         }
     }
@@ -1184,7 +1184,7 @@ mod tests {
         ] {
             let kind = registry.lookup(family).unwrap();
             assert_eq!(kind.lattice(), SdkLatticeKind::OrderedLog);
-            assert_eq!(kind.bottom_policy(), BottomPolicy::Inert);
+            assert_eq!(kind.bottom_policy(), EventCellBottom::Inert);
         }
     }
 
@@ -1206,7 +1206,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::POLICY_DEFINITION_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(kind.bottom_policy(), EventCellBottom::Reject);
         assert_eq!(
             kind.subject_for_effect(&json!({
                 "policy_id": "ak:policy:01904100-0000-7000-8000-000000000001"
@@ -1224,7 +1224,7 @@ mod tests {
             .lookup(arkret_wire::CellFamilyId::NOTARY_V1)
             .unwrap();
         assert_eq!(kind.lattice(), SdkLatticeKind::CasRegister);
-        assert_eq!(kind.bottom_policy(), BottomPolicy::Reject);
+        assert_eq!(kind.bottom_policy(), EventCellBottom::Reject);
         let comp = kind.component();
         assert_eq!(comp.criticality, Criticality::Required);
         assert_eq!(comp.component_type, arkret_wire::CellFamilyId::NOTARY_V1);
@@ -1244,7 +1244,7 @@ mod tests {
             assert_eq!(kind.lattice(), SdkLatticeKind::MvRegister);
             assert_eq!(
                 kind.bottom_policy(),
-                BottomPolicy::Expose,
+                EventCellBottom::Expose,
                 "{family} should expose multi-value via UX, not reject"
             );
         }

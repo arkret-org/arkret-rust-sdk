@@ -10,6 +10,7 @@
 
 pub mod account_lifecycle;
 pub mod agent_operations;
+pub mod applet_installation_authority;
 pub use arkret_models_identity::agent_signer_evidence;
 pub mod call_signal;
 pub mod contact_operations;

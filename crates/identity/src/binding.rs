@@ -15,6 +15,7 @@
 //! binding cannot be forged by round-tripping JSON either.
 
 use arkret_canonical::canonical;
+pub use arkret_wire::DidFreshnessRiskTier;
 use arkret_wire::{Did, DidFreshnessProfileId, DidUrl, Hash, TrustDomainId};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -265,21 +266,6 @@ fn pin_state(present: bool, absent: PinState) -> PinState {
 // Freshness profile and requirement
 // ============================================================================
 
-/// The risk tier of a registered freshness profile (§5.4).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum FreshnessRiskTier {
-    /// Registry-listed accepted-only read / replay paths. Stale is usable and a
-    /// plain request MUST NOT trigger a live fallback.
-    Low,
-    /// Per-operation registered. Stale is usable within a finite grace window,
-    /// against an audited `stale_evidence_used` record and one deduplicated
-    /// background refresh.
-    Medium,
-    /// Never consumes a stale binding: refresh synchronously or fail closed.
-    High,
-}
-
 /// What a call site does with a binding that is past `refresh_after` (§5.4).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -306,7 +292,7 @@ pub enum StaleBehavior {
 #[serde(deny_unknown_fields)]
 pub struct FreshnessProfile {
     pub freshness_profile_id: String,
-    pub risk_tier: FreshnessRiskTier,
+    pub risk_tier: DidFreshnessRiskTier,
     /// `did:<method>:` prefixes this row applies to, or the single `"*"`.
     pub did_method_selector: Vec<String>,
     pub fresh_for_seconds: Option<u64>,
@@ -341,13 +327,13 @@ impl FreshnessProfile {
     ) -> Self {
         debug_assert_eq!(
             id.risk_tier(),
-            arkret_wire::DidFreshnessRiskTier::High,
+            DidFreshnessRiskTier::High,
             "`high_tier` may only build a profile registered as the high tier"
         );
         let fresh_for_seconds = fresh_for.num_seconds().max(1) as u64;
         Self {
             freshness_profile_id: id.as_str().to_owned(),
-            risk_tier: FreshnessRiskTier::High,
+            risk_tier: DidFreshnessRiskTier::High,
             did_method_selector: vec!["*".to_owned()],
             fresh_for_seconds: Some(fresh_for_seconds),
             // §5.4: a `high` row has no stale consumption window at all.
@@ -381,11 +367,11 @@ impl FreshnessProfile {
     pub fn requirement(&self) -> FreshnessRequirement {
         FreshnessRequirement {
             max_age: match self.risk_tier {
-                FreshnessRiskTier::High => self.max_age(),
-                FreshnessRiskTier::Medium => self.stale_grace(),
-                FreshnessRiskTier::Low => None,
+                DidFreshnessRiskTier::High => self.max_age(),
+                DidFreshnessRiskTier::Medium => self.stale_grace(),
+                DidFreshnessRiskTier::Low => None,
             },
-            require_fresh: self.risk_tier == FreshnessRiskTier::High,
+            require_fresh: self.risk_tier == DidFreshnessRiskTier::High,
         }
     }
 
@@ -1161,6 +1147,24 @@ mod tests {
                 binding.verified_at() + Duration::minutes(11)
             )
         );
+    }
+
+    #[test]
+    fn generated_freshness_tier_preserves_profile_wire_contract() {
+        let profile = FreshnessProfile::high_tier(
+            DidFreshnessProfileId::RegistrationCurrentV1,
+            Duration::seconds(30),
+            None,
+        );
+        let mut value = serde_json::to_value(&profile).expect("profile serializes");
+        assert_eq!(value["risk_tier"], "high");
+        for tier in ["low", "medium", "high"] {
+            value["risk_tier"] = serde_json::json!(tier);
+            let parsed: FreshnessProfile = serde_json::from_value(value.clone()).unwrap();
+            assert_eq!(serde_json::to_value(parsed).unwrap()["risk_tier"], tier);
+        }
+        value["risk_tier"] = serde_json::json!("critical");
+        assert!(serde_json::from_value::<FreshnessProfile>(value).is_err());
     }
 
     #[test]

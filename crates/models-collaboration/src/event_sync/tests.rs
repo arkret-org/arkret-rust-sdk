@@ -274,6 +274,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
     event
         .proofs
         .push(EventProof::StationAdmission(StationAdmissionProof {
+            applet_installation_digest: None,
             kind: StationAdmissionProofKind::StationAdmission,
             verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
             event_digest: producer.event_digest.clone(),

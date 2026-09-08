@@ -34,7 +34,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::is_sole_recovery_cell;
-use super::store::{BottomMode, CellRegistry, StoreError};
+use super::store::{CellRegistry, EventCellBottom, StoreError};
 use crate::lattice::CellState;
 use crate::{
     BottomKind, CellRef, LatticeOp, LatticeOpType, ObservedRemoveMatch, Predicate, PredicateOp,
@@ -340,7 +340,7 @@ where
             let binding = registry
                 .resolve(realm_id, &pre.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode != BottomMode::Expose {
+            if binding.bottom_mode != EventCellBottom::Expose {
                 return Err(ControlMoveReject::FailedBottom {
                     cell: pre.cell_id.as_str().to_owned(),
                     kind: b.kind,
@@ -406,7 +406,7 @@ where
             };
             if blocked_by_bottom
                 && !matches!(write.op, ProjectedOp::Reset { .. })
-                && binding.bottom_mode != BottomMode::Expose
+                && binding.bottom_mode != EventCellBottom::Expose
                 && let Some(CellState::Bottom(bottom)) = pre_state.get(&effect.cell_id)
             {
                 return Err(ControlMoveReject::FailedBottom {
@@ -761,7 +761,7 @@ fn frozen_cell_value(
             let binding = registry
                 .resolve(realm_id, cell)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode == BottomMode::Expose {
+            if binding.bottom_mode == EventCellBottom::Expose {
                 Ok(Value::Null)
             } else {
                 Err(ControlMoveReject::FailedBottom {
@@ -1255,6 +1255,7 @@ mod tests {
         event
             .proofs
             .push(EventProof::StationAdmission(StationAdmissionProof {
+                applet_installation_digest: None,
                 kind: StationAdmissionProofKind::StationAdmission,
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixture:admin.example#station-admission",
@@ -1906,7 +1907,7 @@ mod tests {
             arkret_wire::CellFamilyId::MEMBER_STATE_V1,
             Some(json!("invited")),
             vec![(json!("invited"), json!("join"))],
-            BottomMode::Inert,
+            EventCellBottom::Inert,
         );
 
         let err = verify_control_move(

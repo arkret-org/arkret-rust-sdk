@@ -2,6 +2,7 @@
 
 use arkret_wire::*;
 
+pub mod applet_admission;
 pub mod authz;
 pub mod history_access;
 pub mod minimal_metadata_author;

@@ -14,6 +14,7 @@
 
 pub mod memory;
 
+pub use arkret_wire::EventCellBottom;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy};
 use async_trait::async_trait;
@@ -581,7 +582,7 @@ pub trait CellStore: Send + Sync {
 /// declared `bottom` mode (reject vs expose).
 pub struct CellLatticeBinding {
     pub lattice: Box<dyn Lattice>,
-    pub bottom_mode: BottomMode,
+    pub bottom_mode: EventCellBottom,
 }
 
 impl std::fmt::Debug for CellLatticeBinding {
@@ -591,15 +592,6 @@ impl std::fmt::Debug for CellLatticeBinding {
             .field("bottom_mode", &self.bottom_mode)
             .finish()
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BottomMode {
-    Reject,
-    Expose,
-    /// The registered lattice cannot produce Bottom. Encountering one is an
-    /// implementation invariant failure and callers must fail closed.
-    Inert,
 }
 
 /// `cell_family` → `Lattice` instance mapping.
