@@ -181,12 +181,7 @@ where
                     Some(Err(error)) => {
                         observe_streamed_response_failure(state.total_bytes);
                         state.finished = true;
-                        return Some((
-                            Err(Error::Protocol(format!(
-                                "subscribe body read failed: {error}"
-                            ))),
-                            state,
-                        ));
+                        return Some((Err(crate::client_internals::transport_error(error)), state));
                     }
                     None => {
                         observe_streamed_response(state.total_bytes);
@@ -248,6 +243,54 @@ fn decode_line(line: Vec<u8>) -> Result<Option<String>> {
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn interrupted_body_preserves_completed_lines_and_returns_transport_error() {
+        use std::io::{Read, Write};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut connection, _) = listener.accept().unwrap();
+            connection
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut request = [0; 4096];
+            connection.read(&mut request).unwrap();
+            connection.write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\n{\"kind\":\"frontier\"}\n{\"kind\":",
+            ).unwrap();
+        });
+        let response = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap()
+            .get(format!("http://{address}/subscribe"))
+            .send()
+            .await
+            .unwrap();
+        let lines = ndjson_lines(response.bytes_stream())
+            .collect::<Vec<_>>()
+            .await;
+        server.join().unwrap();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].as_deref().unwrap(), "{\"kind\":\"frontier\"}");
+        assert!(matches!(&lines[1], Err(Error::Http(_))), "{lines:?}");
+    }
+
+    #[test]
+    fn malformed_frame_remains_a_protocol_error() {
+        let lines = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap()
+            .block_on(async {
+                ndjson_lines(futures_util::stream::iter([Ok(vec![0xff, b'\n'])]))
+                    .collect::<Vec<_>>()
+                    .await
+            });
+        assert!(matches!(&lines[0], Err(Error::Protocol(_))));
+    }
 
     fn lines_of(chunks: Vec<&'static str>) -> Vec<Result<String>> {
         tokio::runtime::Builder::new_current_thread()

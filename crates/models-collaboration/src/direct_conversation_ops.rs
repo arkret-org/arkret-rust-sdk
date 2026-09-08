@@ -50,6 +50,19 @@ pub enum DirectConversationFoundingAuthorityEvidence {
 }
 
 impl DirectConversationFoundingAuthorityEvidence {
+    /// Commit to the accepted provision payload that binds the Agent to its
+    /// controller, delegation, PCR and accountability scope.
+    pub fn from_agent_provision(
+        agent_provision_ref: EventId,
+        payload: &crate::events_payloads::agent::AgentProvisionPayload,
+    ) -> Result<Self, arkret_wire::WireError> {
+        payload.validate()?;
+        Ok(Self::ControllerAgent {
+            agent_provision_ref,
+            controller_binding_digest: Hash::new(arkret_canonical::canonical_sha256(payload)?)?,
+        })
+    }
+
     pub fn agent_provision_digest(&self) -> Option<Hash> {
         match self {
             Self::ControllerAgent {
@@ -902,6 +915,52 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn controller_binding_digest_commits_to_provision_payload() {
+        let payload: crate::events_payloads::agent::AgentProvisionPayload = serde_json::from_value(json!({
+            "schema": "ak.schema.agent_provision.v1",
+            "agent_id": "ak:did_core:web:agent.example",
+            "controller_principal_id": "ak:did_core:web:alice.example",
+            "principal_control_realm_id": "ak:realm:AXqIXbu56hFXteZXtkBsqJxy_puV4mhSv1U0ZkUldxAL",
+            "controller_authorization_ref": "did:web:alice.example#managed-controller",
+            "agent_slug": "assistant",
+            "accountability_scope": "agent_operator",
+            "requested_scope_digest": format!("sha256:{}", "a".repeat(64)),
+            "selector_visibility": "private",
+            "created_at": "2026-09-08T12:00:00.000Z"
+        })).unwrap();
+        let provision_ref =
+            EventId::new("ak:event:AWAIb405aEEenVBHYRG-ZfDs-f9_j3E67tWGI36uYxFJ").unwrap();
+        let evidence = DirectConversationFoundingAuthorityEvidence::from_agent_provision(
+            provision_ref.clone(),
+            &payload,
+        )
+        .unwrap();
+        let mut changed = payload.clone();
+        changed.controller_principal_id = DidCoreId::new("ak:did_core:web:bob.example").unwrap();
+        let changed_evidence = DirectConversationFoundingAuthorityEvidence::from_agent_provision(
+            provision_ref,
+            &changed,
+        )
+        .unwrap();
+        assert_ne!(
+            serde_json::to_value(&evidence).unwrap()["controller_binding_digest"],
+            serde_json::to_value(&changed_evidence).unwrap()["controller_binding_digest"]
+        );
+        assert_eq!(
+            serde_json::to_value(&evidence).unwrap()["controller_binding_digest"],
+            arkret_canonical::canonical_sha256(&payload).unwrap()
+        );
+        changed.agent_slug = "Not Canonical".to_owned();
+        assert!(
+            DirectConversationFoundingAuthorityEvidence::from_agent_provision(
+                EventId::new("ak:event:AWAIb405aEEenVBHYRG-ZfDs-f9_j3E67tWGI36uYxFJ").unwrap(),
+                &changed
+            )
+            .is_err()
+        );
+    }
 
     #[test]
     fn controller_agent_provision_digest_is_derived_from_event_ref() {
