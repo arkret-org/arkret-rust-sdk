@@ -2065,6 +2065,21 @@ impl ArkretMlsGroup {
             .map_err(mls_error)?;
 
         match processed.into_content() {
+            ProcessedMessageContent::OwnPendingCommit => {
+                // OpenMLS authenticated the echoed Commit and matched its
+                // confirmation tag against the exact locally staged commit.
+                self.group
+                    .merge_pending_commit(&self.identity.provider)
+                    .map_err(mls_error)?;
+                let applied_epoch = self.epoch();
+                if applied_epoch != envelope.epoch {
+                    return Err(Error::Protocol(
+                        "pending MLS Commit epoch mismatch".to_owned(),
+                    ));
+                }
+                self.leaf_bindings.clear();
+                Ok(applied_epoch)
+            }
             ProcessedMessageContent::StagedCommitMessage(commit) => {
                 validate_staged_commit_capability_floor(
                     &self.group,
@@ -2588,6 +2603,38 @@ mod content_scheme_anchor_tests {
         .unwrap()
         .create_group(REALM.as_bytes())
         .unwrap()
+    }
+
+    #[test]
+    fn accepted_own_pending_commit_merges_the_exact_staged_state() {
+        let mut group = founder();
+        group
+            .group
+            .set_configuration(
+                group.identity.provider.storage(),
+                &openmls::prelude::MlsGroupJoinConfig::builder()
+                    .wire_format_policy(openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
+                    .build(),
+            )
+            .unwrap();
+        let bundle = group
+            .group
+            .self_update(
+                &group.identity.provider,
+                &group.identity.signer,
+                LeafNodeParameters::default(),
+            )
+            .unwrap();
+        let bytes = bundle.commit().tls_serialize_detached().unwrap();
+        let envelope = MlsCommitEnvelope {
+            group_id: group.group_id(),
+            epoch: group.epoch() + 1,
+            commit: encode(&bytes),
+            commit_digest: Hash::new(canonical::sha256_digest(&bytes)).unwrap(),
+            ratchet_tree: None,
+        };
+        assert_eq!(group.apply_commit(&envelope).unwrap(), 1);
+        assert!(group.apply_commit(&envelope).is_err());
     }
 
     /// Every wire-breaking AEAD parameter of the content scheme, checked

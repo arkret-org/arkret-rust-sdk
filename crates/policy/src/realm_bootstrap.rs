@@ -258,9 +258,8 @@ pub fn validate_realm_bootstrap_unit(
             .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
         arkret_models_collaboration::direct_conversation_ops::DirectConversationFoundingPlan::from_events(exact)
             .map_err(|_| RealmBootstrapValidationError::OutOfOrderBootstrap)?;
-        // Founding authority is carried by the typed submission alongside the
-        // four Events and verified by admission. The current genesis format
-        // does not duplicate Contact/provision evidence in Event refs.
+        // The signed critical ref fixes the authorization branch. Self admission
+        // reads current evidence locally; federation verifies the source evidence.
         return Ok(ValidatedRealmBootstrap {
             realm_id: create.realm_id.clone(),
             actor_id: create.actor_id.clone(),

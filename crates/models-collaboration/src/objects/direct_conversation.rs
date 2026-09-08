@@ -167,7 +167,7 @@ pub fn direct_conversation_realm_create_payload(
 }
 
 /// Build the peer membership payload in the exact four-Event Direct
-/// Conversation founding unit. The founder membership is the unit's final
+/// Conversation founding unit. The founder membership is the unit's preceding
 /// explicit genesis slot and uses [`direct_conversation_member_join_payload`].
 pub fn direct_conversation_peer_membership_bootstrap(
     realm_id: RealmId,
@@ -232,31 +232,32 @@ pub fn direct_conversation_main_strand_create_payload(
 ///
 /// The founder is derived from the pair's **root** Contact round and never from the current one, so
 /// tombstone/recontact cycles cannot flip it. Both sides compute it independently from data both
-/// already hold and both already signed, which is what removes the cross-server creation race: only
-/// one principal can create, so the contention collapses into a unique index on that principal's
-/// own Station.
+/// can independently verify. Incomplete evidence grants neither participant creation authority.
+/// Only after the same founder is established can its current Station's atomic unique slot
+/// serialize competing units; a local index alone does not establish cross-Station authority.
 ///
 /// See `zh/identity/contact-and-direct-conversation.md` §5.2.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DirectConversationFoundingAuthority {
     /// Exactly one accepted request. The founder is the **responder** — the participant that is not
-    /// the request issuer.
+    /// the request author.
     ///
-    /// This is deliberate and normative: the authority is lit up by the responder's
-    /// `normal_response_acceptance_receipt`, which proves the responder was online at the moment
-    /// the authority came into existence. The requester may have gone offline days earlier. Since
-    /// base v1 defines no fallback, naming the possibly-absent party as founder would leave the
-    /// pair unable to ever create the conversation.
-    Normal { request_issuer: ActorId },
-    /// Concurrent requests from both sides. There is no responder, so the founder is the issuer of
-    /// `requests[0]` under the ordering already registered for glare requests.
-    Glare { first_request_issuer: ActorId },
+    /// The caller must first validate the root round and its exact request and normal-response
+    /// acceptance evidence. Current online status does not select or replace the founder;
+    /// an offline founder retains authority and there is no timeout takeover.
+    Normal { request_author_actor_id: ActorId },
+    /// Concurrent requests from both sides. The caller supplies the signed Event author ActorId
+    /// of requests[0] after validating strict full request_event_ref wire-byte order and evidence.
+    /// This is never the Station receipt issuer, receipt-digest order, or arrival order.
+    Glare {
+        first_request_author_actor_id: ActorId,
+    },
     /// controller-to-own-Agent conversations have no Contact round at all. The founder is fixed to
     /// the controller so an Agent runtime key never needs Direct Conversation founding scope.
     ControllerOwnedAgent { controller_actor_id: ActorId },
 }
 
-/// Derive the sole principal allowed to author the founding unit for `participants`.
+/// Derive the sole ActorId allowed to author the founding unit for `participants`.
 ///
 /// `participants` is the unordered pair; ordering of the argument does not matter.
 pub fn direct_conversation_founder(
@@ -270,26 +271,28 @@ pub fn direct_conversation_founder(
         ));
     }
     match authority {
-        DirectConversationFoundingAuthority::Normal { request_issuer } => {
-            if *request_issuer == left {
+        DirectConversationFoundingAuthority::Normal {
+            request_author_actor_id,
+        } => {
+            if *request_author_actor_id == left {
                 Ok(right)
-            } else if *request_issuer == right {
+            } else if *request_author_actor_id == right {
                 Ok(left)
             } else {
                 Err(WireError::Protocol(
-                    "direct conversation normal authority request issuer is not a pair participant"
+                    "direct conversation normal authority request author is not a pair participant"
                         .to_owned(),
                 ))
             }
         }
         DirectConversationFoundingAuthority::Glare {
-            first_request_issuer,
+            first_request_author_actor_id,
         } => {
-            if *first_request_issuer == left || *first_request_issuer == right {
-                Ok(first_request_issuer.clone())
+            if *first_request_author_actor_id == left || *first_request_author_actor_id == right {
+                Ok(first_request_author_actor_id.clone())
             } else {
                 Err(WireError::Protocol(
-                    "direct conversation glare authority requests[0] issuer is not a pair participant"
+                    "direct conversation glare authority requests[0] request author is not a pair participant"
                         .to_owned(),
                 ))
             }
@@ -502,12 +505,12 @@ mod tests {
         // that moment, so Bob founds. Naming Alice would pick the party most likely to be
         // absent, and base v1 has no fallback.
         let authority = DirectConversationFoundingAuthority::Normal {
-            request_issuer: alice.clone(),
+            request_author_actor_id: alice.clone(),
         };
         let founder =
             direct_conversation_founder([alice.clone(), bob.clone()], &authority).unwrap();
         assert_eq!(founder, bob);
-        assert_ne!(founder, alice, "founder must not be the request issuer");
+        assert_ne!(founder, alice, "founder must not be the request author");
 
         // Argument order must not matter.
         assert_eq!(
@@ -525,11 +528,11 @@ mod tests {
     }
 
     #[test]
-    fn glare_basis_founder_is_the_first_request_issuer() {
+    fn glare_basis_founder_is_the_first_request_author() {
         let alice = actor("did:webvh:z6mkexamplealice:alice.example");
         let bob = actor("did:webvh:z6mkexamplebob:bob.example");
         let authority = DirectConversationFoundingAuthority::Glare {
-            first_request_issuer: alice.clone(),
+            first_request_author_actor_id: alice.clone(),
         };
         assert_eq!(
             direct_conversation_founder([alice.clone(), bob], &authority).unwrap(),
@@ -568,7 +571,7 @@ mod tests {
             direct_conversation_founder(
                 [alice.clone(), bob],
                 &DirectConversationFoundingAuthority::Normal {
-                    request_issuer: carol,
+                    request_author_actor_id: carol,
                 },
             )
             .is_err()
@@ -579,7 +582,7 @@ mod tests {
             direct_conversation_founder(
                 [alice.clone(), alice.clone()],
                 &DirectConversationFoundingAuthority::Normal {
-                    request_issuer: alice,
+                    request_author_actor_id: alice,
                 },
             )
             .is_err()

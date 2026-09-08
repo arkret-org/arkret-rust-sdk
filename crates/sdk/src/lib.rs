@@ -143,6 +143,7 @@ pub use arkret_models_collaboration::governance::accountability::{
     AccountabilityScope, AccountabilityScopeKind,
 };
 pub use arkret_models_collaboration::governance::agent_artifacts::*;
+pub use arkret_models_collaboration::governance::agent_membership_cascade::AgentControllerMembershipBinding;
 pub use arkret_models_collaboration::governance::agent_participation::*;
 pub use arkret_models_collaboration::governance::audit::{
     ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,

@@ -204,6 +204,11 @@ pub struct ContactRoundRequestRef {
     pub request_acceptance_receipt_digest: Hash,
 }
 
+/// Compare complete EventId wire strings, never decoded digests or receipt hashes.
+pub fn compare_contact_request_event_refs(left: &EventId, right: &EventId) -> std::cmp::Ordering {
+    left.as_str().as_bytes().cmp(right.as_str().as_bytes())
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -217,6 +222,91 @@ pub enum ContactRound {
         sorted_pair_member_ids: [ActorId; 2],
         requests: [ContactRoundRequestRef; 2],
     },
+}
+
+impl ContactRound {
+    /// Check the received core without changing its signed array order.
+    pub fn validate_canonical_order(&self) -> arkret_wire::Result<()> {
+        let participants = match self {
+            Self::Normal {
+                sorted_pair_member_ids,
+                ..
+            }
+            | Self::Glare {
+                sorted_pair_member_ids,
+                ..
+            } => sorted_pair_member_ids,
+        };
+        let first = arkret_canonical::canonical_json_bytes(&participants[0])?;
+        let second = arkret_canonical::canonical_json_bytes(&participants[1])?;
+        if first >= second {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact round participants must be distinct and strictly JCS-byte ordered"
+                    .to_owned(),
+            ));
+        }
+        if let Self::Glare { requests, .. } = self {
+            if !compare_contact_request_event_refs(
+                &requests[0].request_event_ref,
+                &requests[1].request_event_ref,
+            )
+            .is_lt()
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "Contact glare request refs must be distinct and strictly wire-byte ordered"
+                        .to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Construct a local core from exact receipts. Signature/current-proof validation is separate.
+    /// Receiving verifiers must validate their received core before comparing it to this result.
+    pub fn glare_from_request_receipts(
+        receipts: &[RequestAcceptanceReceipt; 2],
+    ) -> arkret_wire::Result<Self> {
+        let mut participants = [
+            receipts[0].core.holder.contact_actor_id(),
+            receipts[1].core.holder.contact_actor_id(),
+        ];
+        if receipts[0].core.peer.contact_actor_id() != participants[1]
+            || receipts[1].core.peer.contact_actor_id() != participants[0]
+            || participants[0] == participants[1]
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact glare receipts must cover the exact reverse pair".to_owned(),
+            ));
+        }
+        if arkret_canonical::canonical_json_bytes(&participants[0])?
+            > arkret_canonical::canonical_json_bytes(&participants[1])?
+        {
+            participants.swap(0, 1);
+        }
+        let mut requests = [
+            ContactRoundRequestRef {
+                request_event_ref: receipts[0].core.request_event_ref.clone(),
+                request_acceptance_receipt_digest: Hash::new(arkret_canonical::canonical_sha256(
+                    &receipts[0],
+                )?)?,
+            },
+            ContactRoundRequestRef {
+                request_event_ref: receipts[1].core.request_event_ref.clone(),
+                request_acceptance_receipt_digest: Hash::new(arkret_canonical::canonical_sha256(
+                    &receipts[1],
+                )?)?,
+            },
+        ];
+        requests.sort_by(|left, right| {
+            compare_contact_request_event_refs(&left.request_event_ref, &right.request_event_ref)
+        });
+        let round = Self::Glare {
+            sorted_pair_member_ids: participants,
+            requests,
+        };
+        round.validate_canonical_order()?;
+        Ok(round)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1463,6 +1553,91 @@ mod event_digest_derivation_tests {
             receipt_digest: hash('b'),
             signature: signature(),
         }
+    }
+
+    #[test]
+    fn contact_round_order_matches_normative_kat_and_rejects_noncanonical_input() {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir().expect(
+            "Contact round conformance requires ARKRET_SPEC_ARTIFACTS or the spec co-checkout",
+        );
+        let fixture: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(artifacts.join("fixtures/contact-round-kat.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(fixture["cases"].as_array().unwrap().len(), 3);
+        for case in fixture["cases"].as_array().unwrap() {
+            let round: ContactRound =
+                serde_json::from_value(case["contact_round"].clone()).unwrap();
+            assert_eq!(
+                arkret_canonical::canonical_json_bytes(&round).unwrap(),
+                case["canonical_contact_round"].as_str().unwrap().as_bytes()
+            );
+            assert_eq!(
+                crate::direct_conversation_ops::contact_round_id(&round)
+                    .unwrap()
+                    .as_str(),
+                case["expected_contact_round_id"].as_str().unwrap()
+            );
+        }
+        let negatives = fixture["request_ordering"]["negative_cases"]
+            .as_array()
+            .unwrap();
+        assert_eq!(negatives.len(), 3);
+        for case in negatives {
+            let round: ContactRound =
+                serde_json::from_value(case["contact_round"].clone()).unwrap();
+            let before = arkret_canonical::canonical_json_bytes(&round).unwrap();
+            assert!(
+                crate::direct_conversation_ops::contact_round_id(&round).is_err(),
+                "{}",
+                case["name"]
+            );
+            assert_eq!(
+                before,
+                arkret_canonical::canonical_json_bytes(&round).unwrap(),
+                "validation must not normalize incoming bytes"
+            );
+        }
+        let mut swapped: ContactRound =
+            serde_json::from_value(fixture["cases"][0]["contact_round"].clone()).unwrap();
+        let ContactRound::Normal {
+            sorted_pair_member_ids,
+            ..
+        } = &mut swapped
+        else {
+            unreachable!()
+        };
+        sorted_pair_member_ids.swap(0, 1);
+        assert!(crate::direct_conversation_ops::contact_round_id(&swapped).is_err());
+    }
+
+    #[test]
+    fn contact_round_order_is_independent_of_receipt_arrival_order() {
+        let mut first = request_receipt();
+        first.core.request_event_ref =
+            EventId::new("ak:event:AQ0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap();
+        let mut second = request_receipt();
+        second.core.holder = first.core.peer.clone();
+        second.core.peer = first.core.holder.clone();
+        second.core.request_event_ref =
+            EventId::new("ak:event:AQYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap();
+        let forward =
+            ContactRound::glare_from_request_receipts(&[first.clone(), second.clone()]).unwrap();
+        let reversed =
+            ContactRound::glare_from_request_receipts(&[second.clone(), first.clone()]).unwrap();
+        assert_eq!(forward, reversed);
+        let ContactRound::Glare { requests, .. } = &forward else {
+            unreachable!()
+        };
+        assert_eq!(requests[0].request_event_ref, first.core.request_event_ref);
+        assert_eq!(
+            requests[0].request_acceptance_receipt_digest.as_str(),
+            arkret_canonical::canonical_sha256(&first).unwrap()
+        );
+        // Same ref with a different signed receipt is still a duplicate, not a tie to sort.
+        second.core.request_event_ref = first.core.request_event_ref.clone();
+        assert!(ContactRound::glare_from_request_receipts(&[first.clone(), second]).is_err());
+        assert!(ContactRound::glare_from_request_receipts(&[first.clone(), first]).is_err());
     }
 
     #[test]

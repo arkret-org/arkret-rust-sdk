@@ -50,6 +50,25 @@ pub enum DirectConversationFoundingAuthorityEvidence {
 }
 
 impl DirectConversationFoundingAuthorityEvidence {
+    pub fn founding_ref(&self) -> arkret_wire::EventRef {
+        match self {
+            Self::ControllerAgent {
+                agent_provision_ref,
+                ..
+            } => arkret_wire::EventRef::new(
+                agent_provision_ref.to_string(),
+                "direct_conversation_agent_provision",
+            ),
+            Self::Human {
+                contact_round_evidence,
+                ..
+            } => arkret_wire::EventRef::new(
+                contact_round_evidence.contact_round_id.to_string(),
+                "direct_conversation_contact_round",
+            ),
+        }
+    }
+
     /// Commit to the accepted provision payload that binds the Agent to its
     /// controller, delegation, PCR and accountability scope.
     pub fn from_agent_provision(
@@ -82,7 +101,6 @@ pub struct DirectConversationFoundingUnitSubmission {
     pub unit_kind: DirectConversationFoundingUnitKind,
     pub idempotency_key: IdempotencyKey,
     pub events: [EventInitialSubmission; 4],
-    pub founding_authority_evidence: DirectConversationFoundingAuthorityEvidence,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
@@ -139,7 +157,7 @@ pub struct DirectConversationFoundingPlan {
 impl DirectConversationFoundingPlan {
     /// Validate the closed wire order and derive every coordinate without allocating an ID.
     pub fn from_events(events: [&Event; 4]) -> arkret_wire::Result<Self> {
-        let [create, peer_member, strand, founder_member] = events;
+        let [create, founder_member, peer_member, strand] = events;
         if create.kind.as_str() != arkret_wire::event_kind_str::REALM_CREATE
             || peer_member.kind.as_str() != arkret_wire::event_kind_str::MEMBER_STATE
             || strand.kind.as_str() != arkret_wire::event_kind_str::STRAND_CREATE
@@ -172,6 +190,37 @@ impl DirectConversationFoundingPlan {
         {
             return Err(founding_unit_invalid("founding scope or actor mismatch"));
         }
+        let founding_refs = create
+            .refs
+            .iter()
+            .filter(|reference| {
+                matches!(
+                    reference.role.as_str(),
+                    "direct_conversation_agent_provision" | "direct_conversation_contact_round"
+                )
+            })
+            .collect::<Vec<_>>();
+        if founding_refs.len() != 1 || !founding_refs[0].critical {
+            return Err(founding_unit_invalid(
+                "founding requires one critical authorization ref",
+            ));
+        }
+        let founding_ref = founding_refs[0];
+        for event in events {
+            let refs = event
+                .refs
+                .iter()
+                .filter(|reference| {
+                    matches!(
+                        reference.role.as_str(),
+                        "direct_conversation_agent_provision" | "direct_conversation_contact_round"
+                    )
+                })
+                .collect::<Vec<_>>();
+            if refs.len() != 1 || refs[0] != founding_ref {
+                return Err(founding_unit_invalid("founding authorization refs differ"));
+            }
+        }
         let realm_id = RealmId::from_event_id(&create.event_id);
         if create.realm_id != realm_id
             || peer_member.realm_id != realm_id
@@ -183,9 +232,9 @@ impl DirectConversationFoundingPlan {
         if peer_member.scope_ref.realm_id_opt() != Some(&realm_id)
             || strand.scope_ref.realm_id_opt() != Some(&realm_id)
             || founder_member.scope_ref.realm_id_opt() != Some(&realm_id)
-            || !peer_member.prev_refs.contains(&create.event_id)
+            || !founder_member.prev_refs.contains(&create.event_id)
+            || !peer_member.prev_refs.contains(&founder_member.event_id)
             || !strand.prev_refs.contains(&peer_member.event_id)
-            || !founder_member.prev_refs.contains(&strand.event_id)
         {
             return Err(founding_unit_invalid(
                 "founding scope or prev_refs chain mismatch",
@@ -203,6 +252,23 @@ impl DirectConversationFoundingPlan {
         {
             return Err(founding_unit_invalid("founding peer membership mismatch"));
         }
+        if (founding_ref.role == "direct_conversation_agent_provision")
+            != member_payload.agent_controller_binding.is_some()
+        {
+            return Err(founding_unit_invalid(
+                "founding Agent branch requires its explicit controller binding",
+            ));
+        }
+        if let Some(binding) = &member_payload.agent_controller_binding {
+            if create.actor_id.as_account_id() != Some(&binding.controller_account_id)
+                || binding.controller_membership_generation_ref != founder_member.event_id
+                || binding.controller_terminal_event_ref.is_some()
+            {
+                return Err(founding_unit_invalid(
+                    "founding Agent controller generation mismatch",
+                ));
+            }
+        }
         let founder_member_payload: crate::governance::membership_invite::MembershipPayload =
             serde_json::from_value(
                 serde_json::to_value(&founder_member.payload).map_err(protocol_error)?,
@@ -212,6 +278,7 @@ impl DirectConversationFoundingPlan {
         if founder_member_payload.membership
             != crate::governance::membership_invite::MembershipPayloadState::Join
             || founder_member_payload.member_id != create.actor_id
+            || founder_member_payload.agent_controller_binding.is_some()
             || founder_member_payload.realm_id.as_ref() != Some(&realm_id)
             || founder_member.preconditions.len() != 1
             || founder_member.preconditions[0].cell_id != founder_cell
@@ -237,9 +304,9 @@ impl DirectConversationFoundingPlan {
         }
         let event_ids = [
             create.event_id.clone(),
+            founder_member.event_id.clone(),
             peer_member.event_id.clone(),
             strand.event_id.clone(),
-            founder_member.event_id.clone(),
         ];
         let founding_unit_digest = direct_conversation_founding_unit_digest(&event_ids)?;
         Ok(Self {
@@ -306,7 +373,7 @@ impl DirectConversationFoundingAuthorityEvidence {
                             .to_owned(),
                     ));
                 }
-                let request_issuer = root
+                let request_author_actor_id = root
                     .request_receipts
                     .iter()
                     .find(|receipt| &receipt.core.request_event_ref == request_ref)
@@ -319,17 +386,19 @@ impl DirectConversationFoundingAuthorityEvidence {
                     })?;
                 let founder = match &root.contact_round {
                     crate::contact_operations::ContactRound::Normal { .. } => {
-                        if request_issuer == participants[0] {
+                        if request_author_actor_id == participants[0] {
                             participants[1].clone()
-                        } else if request_issuer == participants[1] {
+                        } else if request_author_actor_id == participants[1] {
                             participants[0].clone()
                         } else {
                             return Err(arkret_wire::WireError::Protocol(
-                                "direct conversation request issuer is outside the pair".to_owned(),
+                                "direct conversation request author is outside the pair".to_owned(),
                             ));
                         }
                     }
-                    crate::contact_operations::ContactRound::Glare { .. } => request_issuer,
+                    crate::contact_operations::ContactRound::Glare { .. } => {
+                        request_author_actor_id
+                    }
                 };
                 Ok((participants, founder))
             }
@@ -526,6 +595,7 @@ fn validate_contact_contact_round_evidence_shape(
 pub fn contact_round_id(
     contact_round: &crate::contact_operations::ContactRound,
 ) -> arkret_wire::Result<Hash> {
+    contact_round.validate_canonical_order()?;
     domain_separated_sha256(CONTACT_ROUND_DOMAIN, contact_round)
 }
 
