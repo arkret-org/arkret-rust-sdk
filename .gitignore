@@ -12,6 +12,7 @@ emsdk-*
 cobertura.xml
 Cargo.lock
 !tools/spec-codegen/Cargo.lock
+.codex*
 
 ## User settings
 xcuserdata/
