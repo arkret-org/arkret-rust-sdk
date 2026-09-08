@@ -87,80 +87,247 @@ pub enum PolicyRuleKind {
     Extension,
 }
 
-/// A single typed policy rule (mirrors
-/// `policy.schema.json#/$defs/policy_rule`). `rule_id` / `kind` / `effect` are required; the
-/// kind-specific fields (e.g. `actions` for `kind=action`) ride in `extra`
-/// and are validated by [`PolicyRule::validate`].
+/// Closed fields of `policy.schema.json#/$defs/policy_rule`.
+/// Kind-specific presence constraints are checked by [`Self::validate`].
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PolicyRule {
     pub rule_id: String,
     pub kind: PolicyRuleKind,
     pub effect: PolicyEffect,
     #[serde(default, skip_serializing_if = "is_zero_i64")]
     pub priority: i64,
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub actions: Option<Vec<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub resources: Option<Vec<PolicyResourceSelector>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub servers: Option<Vec<PolicyServerSelector>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub conditions: Option<arkret_wire::NonEmptyJsonObject>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub schema_ref: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub profile_ref: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub params: Option<BTreeMap<String, Value>>,
 }
 
 fn is_zero_i64(value: &i64) -> bool {
     *value == 0
 }
 
+// Missing fields default to None; an explicitly present null is not an object,
+// array or string and must not silently become an omitted schema property.
+fn deserialize_present<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyResourceKind {
+    Realm,
+    Strand,
+    Space,
+    Object,
+    Service,
+}
+
+/// Resource selector from `policy.schema.json#/$defs/policy_rule/properties/resources/items`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyResourceSelector {
+    pub kind: PolicyResourceKind,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub realm_id: Option<RealmId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub resource_ref: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyServerKind {
+    ServiceId,
+    Domain,
+    TrustDomain,
+}
+
+/// Federation selector from `policy.schema.json#/$defs/server_selector`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyServerSelector {
+    pub kind: PolicyServerKind,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub service_id: Option<arkret_wire::DidCoreId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub domain: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub match_subdomains: Option<bool>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_present"
+    )]
+    pub trust_domain: Option<arkret_identifiers::TrustDomainId>,
+}
+
 impl PolicyRule {
-    /// Validate the kind-conditional required fields that
-    /// `policy.schema.json` enforces (e.g. `kind=action` MUST carry a
-    /// non-empty `actions` array). Returns `Err(WireError::Protocol(...))` on
-    /// violation.
+    /// Validate field grammars, unique nonempty selectors and kind requirements.
     pub fn validate(&self) -> Result<()> {
-        if self.rule_id.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "policy rule rule_id must not be empty".to_owned(),
-            ));
-        }
-        const DECLARED_FIELDS: &[&str] = &[
-            "actions",
-            "resources",
-            "servers",
-            "conditions",
-            "schema_ref",
-            "profile_ref",
-            "params",
-        ];
-        if self
-            .extra
-            .keys()
-            .any(|field| !DECLARED_FIELDS.contains(&field.as_str()))
-        {
-            return Err(WireError::Protocol(
-                "policy rule contains a field outside the closed schema".to_owned(),
-            ));
-        }
-        let require = |field: &str| -> Result<()> {
-            match self.extra.get(field) {
-                Some(Value::Array(items)) if !items.is_empty() => Ok(()),
-                Some(value) if !value.is_null() => Ok(()),
-                _ => Err(WireError::Protocol(format!(
-                    "policy rule kind={:?} requires field '{field}'",
-                    self.kind
-                ))),
-            }
-        };
-        match self.kind {
-            PolicyRuleKind::Action => require("actions"),
-            PolicyRuleKind::Resource => require("resources"),
-            PolicyRuleKind::Server => require("servers"),
-            PolicyRuleKind::Extension => {
-                require("params")?;
-                if !self.extra.contains_key("schema_ref") && !self.extra.contains_key("profile_ref")
-                {
-                    return Err(WireError::Protocol(
-                        "policy extension rule requires schema_ref or profile_ref".to_owned(),
-                    ));
-                }
+        use std::sync::LazyLock;
+        static ACTION: LazyLock<regex::Regex> =
+            LazyLock::new(|| regex::Regex::new(r"^ak\.[a-z0-9_]+(?:\.[a-z0-9_]+)*$").unwrap());
+        static RESOURCE: LazyLock<regex::Regex> = LazyLock::new(|| {
+            regex::Regex::new(
+                r"^(ak:[a-z0-9_]+:[A-Za-z0-9._~=-]+(?::[A-Za-z0-9._~=-]+)*|did:[^\s]+)$",
+            )
+            .unwrap()
+        });
+        static SCHEMA: LazyLock<regex::Regex> = LazyLock::new(|| {
+            regex::Regex::new(r"^ak\.schema\.[a-z0-9_]+(?:\.[a-z0-9_]+)*\.v[0-9]+$").unwrap()
+        });
+        static PROFILE: LazyLock<regex::Regex> = LazyLock::new(|| {
+            regex::Regex::new(r"^ak\.profile\.[a-z0-9][a-z0-9_.-]*\.v[0-9]+$").unwrap()
+        });
+        static DOMAIN: LazyLock<regex::Regex> = LazyLock::new(|| {
+            regex::Regex::new(
+                r"^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+            )
+            .unwrap()
+        });
+        fn require(valid: bool, field: &str) -> Result<()> {
+            if valid {
                 Ok(())
+            } else {
+                Err(WireError::Protocol(format!("invalid policy rule {field}")))
             }
-            _ => Ok(()),
         }
+        fn unique_nonempty<T: PartialEq>(values: &[T]) -> bool {
+            !values.is_empty()
+                && values
+                    .iter()
+                    .enumerate()
+                    .all(|(index, value)| !values[..index].contains(value))
+        }
+        require(
+            crate::events_payloads::state::PolicyRuleId::new(self.rule_id.clone()).is_ok(),
+            "rule_id",
+        )?;
+        if let Some(actions) = &self.actions {
+            require(
+                unique_nonempty(actions) && actions.iter().all(|value| ACTION.is_match(value)),
+                "actions",
+            )?;
+        }
+        if let Some(resources) = &self.resources {
+            require(unique_nonempty(resources), "resources")?;
+            for resource in resources {
+                require(
+                    resource
+                        .resource_ref
+                        .as_ref()
+                        .is_none_or(|value| RESOURCE.is_match(value)),
+                    "resource_ref",
+                )?;
+            }
+        }
+        if let Some(servers) = &self.servers {
+            require(unique_nonempty(servers), "servers")?;
+            for server in servers {
+                require(
+                    server
+                        .domain
+                        .as_ref()
+                        .is_none_or(|value| value.len() <= 253 && DOMAIN.is_match(value)),
+                    "domain",
+                )?;
+                require(
+                    match server.kind {
+                        PolicyServerKind::ServiceId => server.service_id.is_some(),
+                        PolicyServerKind::Domain => server.domain.is_some(),
+                        PolicyServerKind::TrustDomain => server.trust_domain.is_some(),
+                    },
+                    "server selector",
+                )?;
+            }
+        }
+        require(
+            self.schema_ref
+                .as_ref()
+                .is_none_or(|value| SCHEMA.is_match(value)),
+            "schema_ref",
+        )?;
+        require(
+            self.profile_ref
+                .as_ref()
+                .is_none_or(|value| PROFILE.is_match(value)),
+            "profile_ref",
+        )?;
+        require(
+            match self.kind {
+                PolicyRuleKind::Action => self.actions.is_some(),
+                PolicyRuleKind::Resource => self.resources.is_some(),
+                PolicyRuleKind::Server => self.servers.is_some(),
+                PolicyRuleKind::Extension => {
+                    self.params.is_some()
+                        && (self.schema_ref.is_some() || self.profile_ref.is_some())
+                }
+                _ => true,
+            },
+            "kind requirements",
+        )
     }
 }
 

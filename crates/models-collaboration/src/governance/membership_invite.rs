@@ -92,10 +92,7 @@ impl JoinGateProof {
     /// Derived from the typed body rather than from received JSON, so a
     /// verifier cannot be handed a digest over some other object.
     pub fn payload_digest(&self) -> Result<Hash> {
-        let mut body = serde_json::to_value(self)?;
-        body.as_object_mut()
-            .ok_or_else(|| WireError::Protocol("join gate proof must be an object".to_owned()))?
-            .remove("proofs");
+        let body = canonical::unsigned_value(self, &["proofs"])?;
         Hash::new(canonical::canonical_sha256(&body)?).map_err(Into::into)
     }
 

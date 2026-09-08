@@ -1424,7 +1424,7 @@ fn restore_carries_bottom_cells_and_erasure_stubs() {
             }],
             erasure_stubs: vec![SnapshotErasureStub {
                 cell_ref: erased.clone(),
-                stub: serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"}),
+                stub: verification_stub(),
             }],
             ..Default::default()
         },
@@ -1511,7 +1511,7 @@ fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
         SnapshotAuxiliaryLists {
             erasure_stubs: vec![SnapshotErasureStub {
                 cell_ref: cell,
-                stub: serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"}),
+                stub: verification_stub(),
             }],
             ..Default::default()
         },
@@ -1570,7 +1570,7 @@ fn restore_rejects_erasure_stubs_with_no_commitment() {
         SnapshotAuxiliaryLists {
             erasure_stubs: vec![SnapshotErasureStub {
                 cell_ref: CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap(),
-                stub: serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"}),
+                stub: verification_stub(),
             }],
             ..Default::default()
         },
@@ -1650,4 +1650,51 @@ fn bootstrap_hint_must_name_the_manifest_it_is_bound_to() {
             .code,
         RealmStateSnapshotValidationCode::SignatureInvalid
     );
+}
+
+fn verification_stub() -> arkret_models_collaboration::events_payloads::event_wire::VerificationStub
+{
+    use arkret_models_collaboration::events_payloads::event_wire::{
+        ErasureTrigger, VerificationStub, VerificationStubScope, VerificationStubSubject,
+    };
+    let event_id = EventId::new("ak:event:Aao2sOuPY3tS2nZ7qnksKNP5Rf0xHN8c_r_NEIjv9hg3").unwrap();
+    VerificationStub {
+        stub_schema: "ak.schema.erasure_verification_stub.v1".to_owned(),
+        subject: VerificationStubSubject {
+            kind: "event".to_owned(),
+            subject_ref: event_id.to_string(),
+        },
+        scope: VerificationStubScope {
+            storage_boundary: "projection_store".to_owned(),
+            realm_id: None,
+            target_refs: None,
+            retention_policy_id: None,
+            service_scope: None,
+        },
+        event_digest: None,
+        retained_digests: None,
+        seal_inclusion: None,
+        redaction_authorization_ref: None,
+        legal_hold_ref: None,
+        receipt_id: "ak:receipt:01970e58-0004-7000-8000-000000000010".to_owned(),
+        trigger: ErasureTrigger::Event { event_id },
+        completed_at: "2026-09-01T00:00:00Z".parse().unwrap(),
+    }
+}
+
+#[test]
+fn snapshot_erasure_stub_requires_the_typed_receipt_bound_shape() {
+    let cell = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
+    let valid = SnapshotErasureStub {
+        cell_ref: cell.clone(),
+        stub: verification_stub(),
+    };
+    let wire = serde_json::to_value(&valid).unwrap();
+    assert_eq!(
+        serde_json::from_value::<SnapshotErasureStub>(wire.clone()).unwrap(),
+        valid
+    );
+    let mut invalid = wire;
+    invalid["stub"] = serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"});
+    assert!(serde_json::from_value::<SnapshotErasureStub>(invalid).is_err());
 }

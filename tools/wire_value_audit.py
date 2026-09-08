@@ -46,7 +46,7 @@ CFG_DISABLED_RE = re.compile(r"#\s*\[\s*cfg\s*\(\s*any\s*\(\s*\)\s*\)\s*\]")
 TEST_ATTRIBUTE_RE = re.compile(r"#\s*\[\s*test\s*\]")
 JSON_MACRO_RE = re.compile(r"\b(?:serde_json::)?json!\s*([({\[])")
 FUNCTION_RE = re.compile(
-    r"\b(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>{}]*>)?\s*\(",
+    r"\b(?:pub(?:\s*\([^)]*\))?\s+)?(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^{};]*>)?\s*\(",
     re.MULTILINE,
 )
 MATCH_RE = re.compile(r"\bmatch\s+([^\n{]+)\{")
@@ -585,7 +585,7 @@ def mutation_evidence(source: str) -> Iterable[tuple[int, str, str]]:
             r"(?:\.[ \t]*)?(insert|remove)\s*\(\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']"
         ),
         re.compile(
-            r"\[\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']\s*\]\s*="
+            r"\[\s*[\"']([A-Za-z_][A-Za-z0-9_]*)[\"']\s*\]\s*=(?!=|>)"
         ),
     ]
     for pattern in patterns:

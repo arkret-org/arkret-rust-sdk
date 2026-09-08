@@ -27,7 +27,7 @@ pub use arkret_wire::event_receipt::{
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/erasure-receipt.schema.json#/$defs/verification_stub`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSubject {
@@ -35,7 +35,7 @@ pub struct VerificationStubSubject {
     pub subject_ref: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubScope {
@@ -50,7 +50,7 @@ pub struct VerificationStubScope {
     pub service_scope: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStubSealInclusion {
@@ -74,7 +74,7 @@ pub enum ErasureTrigger {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct VerificationStub {
@@ -97,7 +97,7 @@ pub struct VerificationStub {
     pub completed_at: DateTime<Utc>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(untagged)]
 pub enum LegalHoldRef {

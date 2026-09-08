@@ -311,7 +311,10 @@ pub struct RealmStateSnapshotRestore {
     /// Cells whose canonical value a hard erasure removed, with the
     /// `ak.schema.erasure_verification_stub.v1` the receipt bound. Read as
     /// `[erased]`, never as «never existed».
-    pub erasure_stubs: BTreeMap<CellRef, serde_json::Value>,
+    pub erasure_stubs: BTreeMap<
+        CellRef,
+        arkret_models_collaboration::events_payloads::event_wire::VerificationStub,
+    >,
     pub soft_failed: Vec<SnapshotNonAcceptedInput>,
     pub quarantined: Vec<SnapshotNonAcceptedInput>,
     pub covered_events: CoveredEventSet,

@@ -785,7 +785,7 @@ pub struct SnapshotNonAcceptedInput {
 #[serde(deny_unknown_fields)]
 pub struct SnapshotErasureStub {
     pub cell_ref: CellRef,
-    pub stub: Value,
+    pub stub: arkret_models_collaboration::events_payloads::event_wire::VerificationStub,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -1588,19 +1588,19 @@ fn verify_lifecycle_branch(lifecycle: &AgentLifecycleWitness, settled: &Value) -
     if serde_json::to_value(first).ok().as_ref() != Some(settled) {
         return false;
     }
-    let heads: Vec<Value> = lifecycle
+    let heads = lifecycle
         .cell_heads
         .iter()
-        .map(|head| {
-            serde_json::json!({
-                "event_id": head.event_id.as_str(),
-                "value": head.value,
-            })
-        })
+        .map(
+            |head| arkret_state::realm_state_snapshot::RealmStateSnapshotCasHead {
+                event_id: head.event_id.clone(),
+                value: settled.clone(),
+            },
+        )
         .collect();
     let Ok(computed) = arkret_state::state::state_root::state_leaf_hash_from_state_object(
         &cell_ref,
-        serde_json::json!({ "heads": heads }),
+        arkret_state::realm_state_snapshot::SnapshotCellState::Heads(heads).to_state_object(),
         digest_suite,
     ) else {
         return false;

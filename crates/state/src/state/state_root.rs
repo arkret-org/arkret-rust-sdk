@@ -242,12 +242,12 @@ fn cas_leaf_state_object(cell: &CellRef, heads: &[CasHead]) -> Result<Value, cra
                 cell.as_str()
             ))
         })?;
-        entries.push(json!({
-            "event_id": event_id.as_str(),
-            "value": head.value,
-        }));
+        entries.push(crate::realm_state_snapshot::RealmStateSnapshotCasHead {
+            event_id,
+            value: head.value.clone(),
+        });
     }
-    Ok(json!({ "heads": entries }))
+    Ok(crate::realm_state_snapshot::SnapshotCellState::Heads(entries).to_state_object())
 }
 
 /// The exact leaf preimage `state_root` hashes for one member cell.

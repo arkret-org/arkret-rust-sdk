@@ -502,10 +502,16 @@
       "schema": "invite.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyResourceSelector",
+      "schema": "policy.schema.json#/$defs/policy_rule/properties/resources/items"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyRule",
-      "schema": "policy.schema.json#/$defs/policy_rule",
-      "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+      "schema": "policy.schema.json#/$defs/policy_rule"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicyServerSelector",
+      "schema": "policy.schema.json#/$defs/server_selector"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/plaintext_visibility.rs::PlaintextVisibleServicesPayload",

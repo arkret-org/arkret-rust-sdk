@@ -793,3 +793,95 @@ fn semantic_ref_proof_carries_the_closed_root_and_preimage_contract() {
     assert!(serde_json::from_value::<arkret_wire::SemanticRefProof>(unknown.clone()).is_err());
     assert!(registry.validate_value(SCHEMA, &unknown).is_err());
 }
+
+#[test]
+fn policy_rule_closed_fields_follow_the_normative_schema() {
+    use arkret_models_collaboration::governance::operation_wire::PolicyRule;
+    let registry = schema_registry_from_default_spec_artifacts()
+        .unwrap()
+        .expect("spec artifacts are required");
+    const SCHEMA: &str = "ak.schema.policy.v1#/$defs/policy_rule";
+    let valid = [
+        json!({"rule_id":"action", "kind":"action", "effect":"allow", "actions":["ak.message.send"]}),
+        json!({"rule_id":"resource", "kind":"resource", "effect":"deny", "resources":[{"kind":"object", "resource_ref":"ak:object:example"}]}),
+        json!({"rule_id":"server", "kind":"server", "effect":"allow", "servers":[{"kind":"domain", "domain":"example.org", "match_subdomains":false}]}),
+        json!({"rule_id":"extension", "kind":"extension", "effect":"require_review", "priority":3,
+            "schema_ref":"ak.schema.example.v1", "profile_ref":"ak.profile.example.v1",
+            "params":{"custom":[1,null,{"nested":true}]}, "conditions":{"custom":true}}),
+        // Schema conditionals require their own fields; they do not forbid
+        // selectors belonging to other kinds.
+        json!({"rule_id":"combined", "kind":"action", "effect":"allow", "actions":["ak.message.send"],
+            "servers":[{"kind":"domain", "domain":"example.org", "service_id":"ak:did_core:web:example.org"}]}),
+    ];
+    for wire in &valid {
+        registry.validate_value(SCHEMA, wire).unwrap();
+        let rule: PolicyRule = serde_json::from_value(wire.clone()).unwrap();
+        rule.validate().unwrap();
+        assert_eq!(serde_json::to_value(&rule).unwrap(), *wire);
+        assert_eq!(
+            arkret_canonical::canonical::canonical_json_bytes(&rule).unwrap(),
+            arkret_canonical::canonical::canonical_json_bytes(wire).unwrap()
+        );
+    }
+    let mut invalid = Vec::new();
+    for field in [
+        "actions",
+        "resources",
+        "servers",
+        "conditions",
+        "schema_ref",
+        "profile_ref",
+        "params",
+    ] {
+        let mut wire = valid[0].clone();
+        wire[field] = json!(null);
+        invalid.push(wire);
+    }
+    for (field, value) in [
+        ("undeclared", json!(true)),
+        ("rule_id", json!("Invalid")),
+        ("actions", json!([])),
+        ("actions", json!(["ak.message.send", "ak.message.send"])),
+        ("actions", json!(["message send"])),
+        ("resources", json!([{"kind":"object", "extra":true}])),
+        (
+            "resources",
+            json!([{"kind":"object", "resource_ref":"invalid"}]),
+        ),
+        ("servers", json!([{"kind":"domain"}])),
+        (
+            "servers",
+            json!([{"kind":"domain", "domain":"Example.org"}]),
+        ),
+        (
+            "servers",
+            json!([{"kind":"domain", "domain":"example.org", "match_subdomains":null}]),
+        ),
+        ("conditions", json!({})),
+        ("params", json!([])),
+        ("schema_ref", json!("other")),
+    ] {
+        let mut wire = valid[0].clone();
+        wire[field] = value;
+        invalid.push(wire);
+    }
+    for (index, field) in [
+        (0, "actions"),
+        (1, "resources"),
+        (2, "servers"),
+        (3, "params"),
+    ] {
+        let mut wire = valid[index].clone();
+        wire.as_object_mut().unwrap().remove(field);
+        invalid.push(wire);
+    }
+    for wire in invalid {
+        assert!(
+            registry.validate_value(SCHEMA, &wire).is_err(),
+            "schema accepted {wire}"
+        );
+        let accepted = serde_json::from_value::<PolicyRule>(wire.clone())
+            .is_ok_and(|rule| rule.validate().is_ok());
+        assert!(!accepted, "typed validation accepted {wire}");
+    }
+}

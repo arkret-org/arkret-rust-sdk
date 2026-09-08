@@ -3,7 +3,7 @@
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
 //! contract-registry.json; version=2026-09-08.7;
-//! sha256=07ae65ec6149817283cb73d82cf673b549daeea9ba4b4c08428f3ae1da087de1 Input: registry/
+//! sha256=191e398e41f3daf05b051a4053b803bf18a18c3caf00c4b4d2683c9519e95335 Input: registry/
 //! operation-registry.json; version=2026-09-08.3;
 //! sha256=41f9739b720e238147381c41f26e8e08d865b2ca8f8847ae544dd774ff251f09 Input: registry/
 //! event-kind-registry.json; version=2026-09-08.3;
