@@ -4,13 +4,95 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use arkret_wire::{
-    ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId, NotificationKind,
-    NotificationPriority, NotificationState, OpaqueLocalId, ReadCursorScope, RealmId, RelationId,
-    Result, SchemaId, StrandId, ViewId, WireError, canonical,
+    AccountId, ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId,
+    NotificationKind, NotificationPriority, NotificationProjectionId, NotificationState,
+    OpaqueLocalId, ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+/// The identity branches have disjoint lexical spaces and authority contracts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum NotificationIdentity {
+    Projection(NotificationProjectionId),
+    AgentApproval(NotificationId),
+}
+
+impl NotificationIdentity {
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        if value.starts_with(NotificationProjectionId::KIND_PREFIX) {
+            Ok(Self::Projection(NotificationProjectionId::new(value)?))
+        } else {
+            Ok(Self::AgentApproval(NotificationId::new(value)?))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Projection(id) => id.as_str(),
+            Self::AgentApproval(id) => id.as_str(),
+        }
+    }
+}
+
+impl From<NotificationId> for NotificationIdentity {
+    fn from(id: NotificationId) -> Self {
+        Self::AgentApproval(id)
+    }
+}
+
+impl From<NotificationProjectionId> for NotificationIdentity {
+    fn from(id: NotificationProjectionId) -> Self {
+        Self::Projection(id)
+    }
+}
+
+impl fmt::Display for NotificationIdentity {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// Derive an ordinary notification identity from immutable, verified inputs.
+/// Callers must separately authenticate the source and authorize its display.
+pub fn derive_notification_projection_id(
+    recipient_account_id: &AccountId,
+    realm_id: &RealmId,
+    source_event_id: &EventId,
+    notification_kind: &NotificationKind,
+) -> Result<NotificationProjectionId> {
+    recipient_account_id.validate()?;
+    if matches!(
+        notification_kind,
+        NotificationKind::Invite | NotificationKind::Agent
+    ) {
+        return Err(WireError::Protocol(
+            "notification category has a dedicated carrier".to_owned(),
+        ));
+    }
+    #[derive(Serialize)]
+    struct Preimage<'a> {
+        recipient_account_id: &'a AccountId,
+        realm_id: &'a RealmId,
+        source_event_id: &'a EventId,
+        notification_kind: &'a NotificationKind,
+    }
+    let preimage = Preimage {
+        recipient_account_id,
+        realm_id,
+        source_event_id,
+        notification_kind,
+    };
+    let mut bytes = b"ak.notification-projection.v1\n".to_vec();
+    bytes.extend_from_slice(&canonical::canonical_json_bytes(&preimage)?);
+    Ok(NotificationProjectionId::from_projection_digest(
+        canonical::sha256_bytes(bytes),
+    ))
+}
 
 /// Actor-private read cursor payload of `ak.read_cursor.advance`.
 ///
@@ -493,7 +575,7 @@ pub enum NotificationSource {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "NotificationWire")]
 pub struct Notification {
-    pub id: NotificationId,
+    pub id: NotificationIdentity,
     pub schema: NotificationSchema,
     pub actor_id: ActorId,
     #[serde(flatten)]
@@ -516,7 +598,7 @@ pub struct Notification {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NotificationWire {
-    id: NotificationId,
+    id: NotificationIdentity,
     schema: NotificationSchema,
     actor_id: ActorId,
     #[serde(default)]
@@ -595,6 +677,23 @@ impl Notification {
     pub fn validate(&self) -> Result<()> {
         match &self.source {
             NotificationSource::Event(source) => {
+                let recipient = self.actor_id.as_account_id().ok_or_else(|| {
+                    WireError::Protocol("notification recipient must be an AccountId".to_owned())
+                })?;
+                let realm = source.realm_id.as_ref().ok_or_else(|| {
+                    WireError::Protocol("event notification requires its source Realm".to_owned())
+                })?;
+                let expected = derive_notification_projection_id(
+                    recipient,
+                    realm,
+                    &source.source_event_id,
+                    &self.notification_kind,
+                )?;
+                if self.id != NotificationIdentity::Projection(expected) {
+                    return Err(WireError::Protocol(
+                        "notification identity does not bind its source inputs".to_owned(),
+                    ));
+                }
                 if source.track_name.as_deref().is_some_and(|track| {
                     track.is_empty()
                         || track.len() > 64
@@ -609,7 +708,9 @@ impl Notification {
                 }
             }
             NotificationSource::AccountArtifact(_) => {
-                if self.notification_kind != NotificationKind::Agent {
+                if self.notification_kind != NotificationKind::Agent
+                    || !matches!(self.id, NotificationIdentity::AgentApproval(_))
+                {
                     return Err(WireError::Protocol(
                         "notification account artifact source is invalid".to_owned(),
                     ));
@@ -651,7 +752,7 @@ impl From<NotificationInboxState> for NotificationState {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotificationInboxValue {
-    pub notification_id: NotificationId,
+    pub notification_id: NotificationIdentity,
     pub state: NotificationInboxState,
     pub updated_hlc: Hlc,
     pub origin_device_id: DeviceId,
@@ -806,7 +907,7 @@ mod notification_tests {
     #[test]
     fn notification_decodes_event_source_branch() {
         let notification = serde_json::from_value::<Notification>(json!({
-            "id": "ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4",
+            "id": "ak:notification_projection:AdaNq4qN-xTAcv8kCT3P9mL5AsSzg0PFlSELggvhw2Pw",
             "schema": "ak.schema.notification.v1",
             "actor_id": {"kind": "account", "account_id": {
                 "principal_id": "ak:did_core:web:alice.example",
@@ -824,6 +925,41 @@ mod notification_tests {
         }))
         .expect("event-sourced notification must decode");
 
+        let wire = serde_json::to_value(&notification).unwrap();
+        for (pointer, replacement) in [
+            (
+                "/actor_id/account_id/station_id",
+                json!("ak:did_core:web:other.example"),
+            ),
+            ("/notification_kind", json!("mention")),
+            (
+                "/realm_id",
+                json!("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"),
+            ),
+            (
+                "/source_event_id",
+                json!("ak:event:AU_oCPn_WTIYBhptsMI1qfZ28EaYvJo6qGTYZmYG4u7J"),
+            ),
+            (
+                "/id",
+                json!("ak:notification:019fa233-5ab8-75c0-8497-376bafe172a4"),
+            ),
+        ] {
+            let mut forged = wire.clone();
+            *forged.pointer_mut(pointer).unwrap() = replacement;
+            assert!(
+                serde_json::from_value::<Notification>(forged).is_err(),
+                "{pointer}"
+            );
+        }
+        let mut rebuilt = wire;
+        rebuilt["state"] = json!("archived");
+        rebuilt["preview"] = json!({"body": "updated local preview"});
+        assert_eq!(
+            serde_json::from_value::<Notification>(rebuilt).unwrap().id,
+            notification.id
+        );
+
         assert!(matches!(
             notification.source,
             NotificationSource::Event(NotificationEventSource {
@@ -831,6 +967,78 @@ mod notification_tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn notification_projection_binds_complete_account_and_source_inputs() {
+        let account: AccountId = serde_json::from_value(json!({
+            "principal_id": "ak:did_core:web:alice.example",
+            "station_id": "ak:did_core:web:ps.example"
+        }))
+        .unwrap();
+        let realm = RealmId::new("ak:realm:AdF_8ICakbYdEH0Cnl-w5o1WFlnh5rXGWqY_-_G6yM7N").unwrap();
+        let event = EventId::new("ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq").unwrap();
+        let id =
+            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Message)
+                .unwrap();
+        assert_eq!(
+            id.as_str(),
+            "ak:notification_projection:AdaNq4qN-xTAcv8kCT3P9mL5AsSzg0PFlSELggvhw2Pw"
+        );
+        assert_eq!(
+            id,
+            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Message)
+                .unwrap()
+        );
+        let mut other_account = account.clone();
+        other_account.station_id =
+            arkret_wire::DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        assert_ne!(
+            id,
+            derive_notification_projection_id(
+                &other_account,
+                &realm,
+                &event,
+                &NotificationKind::Message
+            )
+            .unwrap()
+        );
+        assert_ne!(
+            id,
+            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Mention)
+                .unwrap()
+        );
+        assert!(
+            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Agent)
+                .is_err()
+        );
+        assert!(
+            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Invite)
+                .is_err()
+        );
+        let inbox = NotificationInboxValue {
+            notification_id: id.into(),
+            state: NotificationInboxState::Archived,
+            updated_hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+            origin_device_id: DeviceId::new("ak:device:019fa233-5ab8-75c0-8497-376bafe172a4")
+                .unwrap(),
+        };
+        let wire = serde_json::to_value(&inbox).unwrap();
+        assert_eq!(
+            inbox,
+            NotificationInboxValue::from_account_data(&inbox.account_data_key(), &wire).unwrap()
+        );
+        let foreign_key = format!(
+            "ak.notifications.inbox.{}",
+            derive_notification_projection_id(
+                &other_account,
+                &realm,
+                &event,
+                &NotificationKind::Message
+            )
+            .unwrap()
+        );
+        assert!(NotificationInboxValue::from_account_data(&foreign_key, &wire).is_err());
     }
 
     #[test]

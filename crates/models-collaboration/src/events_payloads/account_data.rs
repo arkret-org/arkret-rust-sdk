@@ -3,6 +3,7 @@
 use serde::de;
 
 use crate::internal_prelude::*;
+use crate::objects::read_receipts::NotificationIdentity;
 
 /// `ak.views.private.<view_id>` per the account-data key registry. The
 /// namespace literal is spelled only in the generated [`AccountDataKey`].
@@ -22,7 +23,7 @@ pub fn private_view_account_data_key_view_id(account_data_key: &str) -> Option<V
 
 /// `ak.notifications.inbox.<notification_id>` per the account-data key
 /// registry.
-pub fn notification_inbox_account_data_key(notification_id: &NotificationId) -> String {
+pub fn notification_inbox_account_data_key(notification_id: &NotificationIdentity) -> String {
     format!(
         "{}.{}",
         AccountDataKey::NOTIFICATIONS_INBOX,
@@ -33,11 +34,11 @@ pub fn notification_inbox_account_data_key(notification_id: &NotificationId) -> 
 /// Inverse of [`notification_inbox_account_data_key`].
 pub fn notification_inbox_account_data_key_notification_id(
     account_data_key: &str,
-) -> Option<NotificationId> {
+) -> Option<NotificationIdentity> {
     account_data_key
         .strip_prefix(AccountDataKey::NOTIFICATIONS_INBOX)?
         .strip_prefix('.')
-        .and_then(|notification_id| NotificationId::new(notification_id.to_owned()).ok())
+        .and_then(|notification_id| NotificationIdentity::new(notification_id.to_owned()).ok())
 }
 
 /// Presence-aware account-data body.
@@ -194,9 +195,10 @@ mod tests {
         );
         assert_eq!(private_view_account_data_key_view_id(&key), Some(view_id));
 
-        let notification_id =
-            NotificationId::new("ak:notification:0196419b-0000-7000-8000-000000000002".to_owned())
-                .unwrap();
+        let notification_id = NotificationIdentity::new(
+            "ak:notification:0196419b-0000-7000-8000-000000000002".to_owned(),
+        )
+        .unwrap();
         let key = notification_inbox_account_data_key(&notification_id);
         assert_eq!(
             key,

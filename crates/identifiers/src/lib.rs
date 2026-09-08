@@ -988,6 +988,23 @@ fn decode_account_status_record_token(value: &str) -> Option<[u8; 33]> {
     (token[0] == DigestSuiteCode::Sha256.as_u8()).then_some(token)
 }
 
+id_type!(NotificationProjectionId, |value: &str| {
+    decode_digest_token(value, NotificationProjectionId::KIND_PREFIX)
+        .is_some_and(|token| token[0] == DigestSuiteCode::Sha256.as_u8())
+});
+
+impl NotificationProjectionId {
+    pub const KIND_PREFIX: &'static str = "ak:notification_projection:";
+
+    /// Encode all digest octets; this is neither a UUID nor an Event retype.
+    pub fn from_projection_digest(digest: [u8; 32]) -> Self {
+        let mut token = [0_u8; 33];
+        token[0] = DigestSuiteCode::Sha256.as_u8();
+        token[1..].copy_from_slice(&digest);
+        Self(encode_digest_token(Self::KIND_PREFIX, token))
+    }
+}
+
 id_type!(AccountStatusRecordId, |value: &str| {
     decode_account_status_record_token(value).is_some()
 });

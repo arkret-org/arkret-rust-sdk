@@ -2894,7 +2894,7 @@ mod tests {
             "ak:view:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned(),
         )
         .unwrap();
-        let notification_id = arkret_wire::NotificationId::new(
+        let notification_id = crate::objects::read_receipts::NotificationIdentity::new(
             "ak:notification:0196419b-0000-7000-8000-000000000002".to_owned(),
         )
         .unwrap();
