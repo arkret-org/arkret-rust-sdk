@@ -1,6 +1,8 @@
 //! Explicit deployment trust roots shared by native HTTP discovery transports.
 
-use crate::{Error, Result};
+#[cfg(feature = "tls-rustls")]
+use crate::Error;
+use crate::Result;
 
 #[cfg(all(not(target_arch = "wasm32"), feature = "tls-rustls"))]
 pub(crate) fn apply_explicit_tls_roots(
