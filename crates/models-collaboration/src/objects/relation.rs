@@ -182,6 +182,66 @@ impl RelationConflictCandidate {
     }
 }
 
+/// Projection-only evidence for one bounded set of concurrent Relation heads.
+///
+/// This value is never reducer input. Construction sorts by `event_id` and
+/// rejects incomplete, duplicate, or over-limit head sets so callers cannot
+/// accidentally publish a partial conflict as if it were authoritative.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RelationConflictDiagnostic {
+    pub dedupe_key: String,
+    pub heads: Vec<RelationConflictCandidate>,
+}
+
+impl RelationConflictDiagnostic {
+    pub const MAX_HEADS: usize = 16;
+
+    pub fn try_new(dedupe_key: String, mut heads: Vec<RelationConflictCandidate>) -> Result<Self> {
+        heads.sort_by(|left, right| left.event_id.cmp(&right.event_id));
+        let diagnostic = Self { dedupe_key, heads };
+        diagnostic.validate()?;
+        Ok(diagnostic)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.heads.len() < 2 || self.heads.len() > Self::MAX_HEADS {
+            return Err(WireError::Protocol(
+                "relation conflict diagnostic must contain between 2 and 16 heads".to_owned(),
+            ));
+        }
+        if self
+            .heads
+            .windows(2)
+            .any(|pair| pair[0].event_id >= pair[1].event_id)
+        {
+            return Err(WireError::Protocol(
+                "relation conflict diagnostic heads must be unique and sorted by event_id"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// A resolution must name the complete current head set. A subset or a
+    /// stale superset is not sufficient evidence and therefore fails closed.
+    pub fn validates_resolution_heads<'a, I>(&self, supplied: I) -> bool
+    where
+        I: IntoIterator<Item = &'a EventId>,
+    {
+        let supplied = supplied
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>();
+        let current = self
+            .heads
+            .iter()
+            .map(|candidate| &candidate.event_id)
+            .collect::<std::collections::BTreeSet<_>>();
+        supplied == current
+    }
+}
+
 pub fn relation_kind_is_structural(relation_kind: &str) -> bool {
     RelationKind::from_wire(relation_kind)
         .descriptor()
@@ -376,6 +436,51 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&kind).unwrap(),
             serde_json::json!("vendor_custom")
+        );
+    }
+
+    fn conflict_candidate(seed: u8) -> RelationConflictCandidate {
+        RelationConflictCandidate {
+            event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [seed; 32]),
+            reason: None,
+        }
+    }
+
+    #[test]
+    fn relation_conflict_diagnostic_sorts_and_requires_exact_resolution_heads() {
+        let diagnostic = RelationConflictDiagnostic::try_new(
+            "dedupe".to_owned(),
+            vec![conflict_candidate(2), conflict_candidate(1)],
+        )
+        .unwrap();
+        assert!(diagnostic.heads[0].event_id < diagnostic.heads[1].event_id);
+        assert!(
+            diagnostic.validates_resolution_heads(diagnostic.heads.iter().map(|h| &h.event_id))
+        );
+        assert!(!diagnostic.validates_resolution_heads([&diagnostic.heads[0].event_id]));
+    }
+
+    #[test]
+    fn relation_conflict_diagnostic_rejects_incomplete_duplicate_and_over_limit_heads() {
+        assert!(
+            RelationConflictDiagnostic::try_new("dedupe".to_owned(), vec![conflict_candidate(1)])
+                .is_err()
+        );
+        assert!(
+            RelationConflictDiagnostic::try_new(
+                "dedupe".to_owned(),
+                vec![conflict_candidate(1), conflict_candidate(1)]
+            )
+            .is_err()
+        );
+        assert!(
+            RelationConflictDiagnostic::try_new(
+                "dedupe".to_owned(),
+                (0..=RelationConflictDiagnostic::MAX_HEADS)
+                    .map(|seed| conflict_candidate(seed as u8))
+                    .collect()
+            )
+            .is_err()
         );
     }
 }
