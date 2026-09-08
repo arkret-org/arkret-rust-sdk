@@ -310,10 +310,10 @@ impl Client {
                 builder = builder.query(&[("filter.include_redundant_members", true)]);
             }
             for event_type in &filter.event_types {
-                builder = builder.query(&[("filter.event_types", event_type.as_str())]);
+                builder = builder.query(&[("filter.event_kinds", event_type.as_str())]);
             }
             for event_type in &filter.not_event_types {
-                builder = builder.query(&[("filter.not_event_types", event_type.as_str())]);
+                builder = builder.query(&[("filter.not_event_kinds", event_type.as_str())]);
             }
         }
         Ok(builder)
@@ -1027,11 +1027,11 @@ mod tests {
             "query: {query}"
         );
         assert!(
-            query.contains("filter.event_types=ak.message.create"),
+            query.contains("filter.event_kinds=ak.message.create"),
             "query: {query}"
         );
         assert!(
-            query.contains("filter.not_event_types=ak.reaction.add"),
+            query.contains("filter.not_event_kinds=ak.reaction.add"),
             "query: {query}"
         );
     }

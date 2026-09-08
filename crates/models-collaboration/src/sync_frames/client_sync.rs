@@ -41,7 +41,7 @@ pub struct SyncRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyncFilter {
     /// Realm IDs to sync.
-    #[serde(default)]
+    #[serde(default, rename = "realms")]
     pub realm_ids: Vec<RealmId>,
     /// Per-Realm timeline limit.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -53,10 +53,10 @@ pub struct SyncFilter {
     #[serde(default)]
     pub include_redundant_members: bool,
     /// Event kind allow list
-    #[serde(default)]
+    #[serde(default, rename = "event_kinds")]
     pub event_types: Vec<String>,
     /// Event kind deny list
-    #[serde(default)]
+    #[serde(default, rename = "not_event_kinds")]
     pub not_event_types: Vec<String>,
     /// Forward-compatible service-specific filter extensions.
     #[serde(default, flatten)]
@@ -244,7 +244,7 @@ fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
 
     let realm_ids = sorted_unique_strings(filter.realm_ids.iter().map(RealmId::as_str));
     if !realm_ids.is_empty() {
-        object.insert("realm_ids".to_owned(), serde_json::json!(realm_ids));
+        object.insert("realms".to_owned(), serde_json::json!(realm_ids));
     }
     if let Some(timeline_limit) = filter.timeline_limit {
         object.insert(
@@ -260,12 +260,12 @@ fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
     }
     let event_types = sorted_unique_strings(filter.event_types.iter().map(String::as_str));
     if !event_types.is_empty() {
-        object.insert("event_types".to_owned(), serde_json::json!(event_types));
+        object.insert("event_kinds".to_owned(), serde_json::json!(event_types));
     }
     let not_event_types = sorted_unique_strings(filter.not_event_types.iter().map(String::as_str));
     if !not_event_types.is_empty() {
         object.insert(
-            "not_event_types".to_owned(),
+            "not_event_kinds".to_owned(),
             serde_json::json!(not_event_types),
         );
     }
@@ -608,6 +608,29 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"realm_id\""));
         assert!(json.contains("\"direction\":\"backward\""));
+    }
+
+    #[test]
+    fn sync_filter_wire_names_bind_the_same_scope_as_the_typed_filter() {
+        let wire = serde_json::json!({
+            "realms": ["ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t"],
+            "timeline_limit": 2,
+            "event_kinds": ["ak.message.create"],
+            "not_event_kinds": ["ak.reaction.add"]
+        });
+        let filter: SyncFilter = serde_json::from_value(wire.clone()).unwrap();
+        assert!(filter.extra.is_empty());
+        assert_eq!(filter.realm_ids.len(), 1);
+        assert_eq!(filter.event_types, ["ak.message.create"]);
+        assert_eq!(filter.not_event_types, ["ak.reaction.add"]);
+        assert_eq!(normalized_sync_filter(Some(&filter)), wire);
+        let serialized = serde_json::to_value(&filter).unwrap();
+        for key in ["realms", "event_kinds", "not_event_kinds"] {
+            assert_eq!(serialized[key], wire[key]);
+        }
+        for key in ["realm_ids", "event_types", "not_event_types"] {
+            assert!(serialized.get(key).is_none());
+        }
     }
 
     #[test]
