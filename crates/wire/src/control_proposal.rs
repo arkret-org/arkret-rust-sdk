@@ -34,6 +34,14 @@ pub enum ControlProposalAckKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ControlProposalPublicationMode {
+    Online,
+    Delayed,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ControlProposalRejectReason {
     CapabilityDenied,
     CasConflict,
@@ -127,7 +135,9 @@ pub enum ControlProposalDecision {
 pub struct ControlProposalAckIssueRequest {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
-    pub authorization_lease: AuthorizationLease,
+    pub publication_mode: ControlProposalPublicationMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authorization_lease: Option<AuthorizationLease>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cbs_proof_bundles: Vec<CbsProofBundle>,
 }
@@ -237,13 +247,30 @@ impl ControlProposalAckIssueRequest {
                 "Control Proposal Ack issuance accepts only non-genesis Control Moves".to_owned(),
             ));
         }
-        self.authorization_lease.validate_structural()?;
-        if self.authorization_lease.actor_id != self.event.actor_id
-            || self.authorization_lease.scope_ref != self.event.scope_ref
-        {
-            return Err(WireError::Protocol(
-                "Control Proposal Ack authorization lease does not bind the Event".to_owned(),
-            ));
+        match (self.publication_mode, &self.authorization_lease) {
+            (ControlProposalPublicationMode::Online, None) => {}
+            (ControlProposalPublicationMode::Delayed, Some(lease)) => {
+                lease.validate_structural()?;
+                if lease.actor_id != self.event.actor_id || lease.scope_ref != self.event.scope_ref
+                {
+                    return Err(WireError::Protocol(
+                        "Control Proposal Ack authorization lease does not bind the Event"
+                            .to_owned(),
+                    ));
+                }
+            }
+            (ControlProposalPublicationMode::Online, Some(_)) => {
+                return Err(WireError::Protocol(
+                    "online Control Proposal Ack request must not carry an authorization lease"
+                        .to_owned(),
+                ));
+            }
+            (ControlProposalPublicationMode::Delayed, None) => {
+                return Err(WireError::Protocol(
+                    "delayed Control Proposal Ack request requires an authorization lease"
+                        .to_owned(),
+                ));
+            }
         }
         if self.cbs_proof_bundles.len() > 64 {
             return Err(WireError::Protocol(

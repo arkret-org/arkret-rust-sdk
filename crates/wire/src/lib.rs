@@ -121,9 +121,10 @@ pub use control_proposal::{
     ControlProposalDecisionPolicy, ControlProposalDecisionReadOutcome,
     ControlProposalDecisionReadRequestBody, ControlProposalDecisionSubmitOutcome,
     ControlProposalDecisionSubmitRequestBody, ControlProposalDecisionSubmitStatus,
-    ControlProposalDeferReason, ControlProposalRejectReason, ControlProposalState,
-    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_ACKS, MAX_PROPOSAL_AUTHORITY_PROOFS,
-    MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_INTAKE_SLA,
+    ControlProposalDeferReason, ControlProposalPublicationMode, ControlProposalRejectReason,
+    ControlProposalState, MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_ACKS,
+    MAX_PROPOSAL_AUTHORITY_PROOFS, MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS,
+    MAX_PROPOSAL_INTAKE_SLA,
 };
 pub use device_revocation::*;
 pub use directory_source_ref_access::{DirectorySourceRefAccess, DirectorySourceRefAccessKind};

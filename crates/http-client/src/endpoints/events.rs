@@ -343,10 +343,13 @@ impl Client {
             if is_control_move && (!anchor_unit || collect_anchor_receipts) {
                 let request = ControlProposalAckIssueRequest {
                     event: event.clone(),
-                    authorization_lease: submission
-                        .authorization_lease
-                        .clone()
-                        .expect("delayed submission was constructed with a lease"),
+                    publication_mode: arkret_wire::ControlProposalPublicationMode::Delayed,
+                    authorization_lease: Some(
+                        submission
+                            .authorization_lease
+                            .clone()
+                            .expect("delayed submission was constructed with a lease"),
+                    ),
                     cbs_proof_bundles: Vec::new(),
                 };
                 submission.control_proposal_ack = Some(
