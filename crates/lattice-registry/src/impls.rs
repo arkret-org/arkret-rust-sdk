@@ -59,7 +59,7 @@ macro_rules! singleton_lattice {
             fn lattice(&self) -> SdkLatticeKind {
                 generated_lattice(Self::CELL_FAMILY)
             }
-            fn bottom_policy(&self) -> BottomPolicy {
+            fn bottom_policy(&self) -> EventCellBottom {
                 generated_bottom_policy(Self::CELL_FAMILY)
             }
             fn component(&self) -> ComponentDescriptor {
@@ -92,7 +92,7 @@ macro_rules! per_subject_lattice {
             fn lattice(&self) -> SdkLatticeKind {
                 generated_lattice(Self::CELL_FAMILY)
             }
-            fn bottom_policy(&self) -> BottomPolicy {
+            fn bottom_policy(&self) -> EventCellBottom {
                 generated_bottom_policy(Self::CELL_FAMILY)
             }
             fn component(&self) -> ComponentDescriptor {
@@ -161,7 +161,7 @@ impl LatticeKind for CapabilityGrant {
         generated_lattice(Self::CELL_FAMILY)
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
 
@@ -226,7 +226,7 @@ impl LatticeKind for DeviceAuthorized {
         generated_lattice(Self::CELL_FAMILY)
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
 
@@ -280,7 +280,7 @@ impl LatticeKind for AgentKey {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -329,7 +329,7 @@ impl LatticeKind for KeyBackupActiveSeries {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -409,7 +409,7 @@ impl LatticeKind for StrandWatch {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -457,7 +457,7 @@ impl LatticeKind for IdentityAccountability {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -566,7 +566,7 @@ impl LatticeKind for CallRecording {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -597,7 +597,7 @@ impl LatticeKind for CallTranscript {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -628,7 +628,7 @@ impl LatticeKind for CallRecordingResult {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -659,7 +659,7 @@ impl LatticeKind for CallTranscriptResult {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -690,7 +690,7 @@ impl LatticeKind for CallMuteOverride {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -755,7 +755,7 @@ impl LatticeKind for MemberState {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn component(&self) -> ComponentDescriptor {
@@ -788,7 +788,7 @@ impl LatticeKind for InviteLifecycle {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -868,7 +868,7 @@ impl LatticeKind for RealmLink {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -915,7 +915,7 @@ impl LatticeKind for CircleMember {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -992,7 +992,7 @@ impl LatticeKind for MemberIdentityLattice {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -1037,7 +1037,7 @@ impl LatticeKind for ContactFactLog {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -1099,7 +1099,7 @@ impl LatticeKind for AgentSelectorClaim {
         generated_lattice(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
 
@@ -1149,7 +1149,7 @@ impl LatticeKind for View {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn component(&self) -> ComponentDescriptor {
@@ -1212,7 +1212,7 @@ impl LatticeKind for MimiRoomBinding {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn component(&self) -> ComponentDescriptor {
@@ -1304,7 +1304,7 @@ impl LatticeKind for RealmOrganization {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(self.cell_family())
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(self.cell_family())
     }
     fn component(&self) -> ComponentDescriptor {
@@ -1449,7 +1449,7 @@ impl LatticeKind for StrandObject {
     fn lattice(&self) -> SdkLatticeKind {
         generated_lattice(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> BottomPolicy {
+    fn bottom_policy(&self) -> EventCellBottom {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn component(&self) -> ComponentDescriptor {

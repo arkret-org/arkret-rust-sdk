@@ -44,10 +44,10 @@ pub use store::memory::{
     MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
 };
 pub use store::{
-    AcklessSelfPrincipalIngress, BottomMode, CellLatticeBinding, CellRegistry, CellStore,
-    ControlEventStore, ControlProposalIngress, ControlProposalIngressClass,
-    ControlProposalSnapshot, ControlSealAttemptCompletion, ControlSealAttemptOutcome,
-    ControlSealScheduleClaim, ControlSealScheduleRepairStats, ControlSealScheduleStats,
+    AcklessSelfPrincipalIngress, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
+    ControlProposalIngress, ControlProposalIngressClass, ControlProposalSnapshot,
+    ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
+    ControlSealScheduleRepairStats, ControlSealScheduleStats, EventCellBottom,
     PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
     control_event_digest,
 };

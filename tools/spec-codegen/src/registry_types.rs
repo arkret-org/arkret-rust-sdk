@@ -867,7 +867,7 @@ fn generate_did_freshness_profiles(artifacts_dir: &Path) -> Result<GeneratedOutp
             variant(string(row, "freshness_profile_id")?, &["ak.did_freshness."])
         )?;
     }
-    output.push_str("}\n\n/// Registered risk tier of a freshness profile. Fixed by registration:\n/// a deployment declares only the numeric windows.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum DidFreshnessRiskTier { Low, Medium, High }\n\nimpl DidFreshnessProfileId {\n    pub const ALL: &'static [Self] = &[\n");
+    output.push_str("}\n\n/// Registered risk tier of a freshness profile. Fixed by registration:\n/// a deployment declares only the numeric windows.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]\n#[serde(rename_all = \"snake_case\")]\npub enum DidFreshnessRiskTier { Low, Medium, High }\n\nimpl DidFreshnessProfileId {\n    pub const ALL: &'static [Self] = &[\n");
     for row in &rows {
         writeln!(
             output,

@@ -1585,7 +1585,7 @@ mod tests {
     fn high_profile() -> FreshnessProfile {
         FreshnessProfile {
             freshness_profile_id: "ak.did_freshness.test_high.v1".to_owned(),
-            risk_tier: crate::binding::FreshnessRiskTier::High,
+            risk_tier: crate::binding::DidFreshnessRiskTier::High,
             did_method_selector: vec!["*".to_owned()],
             fresh_for_seconds: Some(3_600),
             stale_grace_seconds: None,

@@ -50,8 +50,8 @@ pub use authority_history::{
     VerifiedAccountBindingReceipt, verify_account_binding_receipt_at_issuance,
 };
 pub use binding::{
-    BindingError, DidBindingPurpose, DidBindingStatus, FreshnessProfile, FreshnessRequirement,
-    FreshnessRiskTier, LimitedTrust, PinState, StaleBehavior, VerifiedDidBinding,
+    BindingError, DidBindingPurpose, DidBindingStatus, DidFreshnessRiskTier, FreshnessProfile,
+    FreshnessRequirement, LimitedTrust, PinState, StaleBehavior, VerifiedDidBinding,
     VerifiedDidBindingDocumentInput, VerifiedDidBindingInput, VerifiedDidBindingKey,
     document_canonical_digest,
 };

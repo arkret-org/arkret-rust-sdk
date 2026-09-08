@@ -1,5 +1,5 @@
 use arkret_state::lattice::LatticeKind as SdkLatticeKind;
-use arkret_state::state::{BottomMode, MemoryCellRegistry};
+use arkret_state::state::{EventCellBottom, MemoryCellRegistry};
 
 use super::contract_registry::{ContractRegistryError, canonical_fsm_contracts};
 use super::generated::SPEC_LATTICE_BINDINGS;
@@ -95,7 +95,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
 /// One-shot list of `(cell_family, sdk_lattice_kind, sdk_bottom_mode)`
 /// generated from every active cell contract in `event-kind-registry.json`.
-pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind, BottomMode)> {
+pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind, EventCellBottom)> {
     SPEC_LATTICE_BINDINGS.to_vec()
 }
 
@@ -126,7 +126,7 @@ pub fn try_build_sdk_cell_registry() -> Result<MemoryCellRegistry, ContractRegis
             &contract.cell_family,
             contract.runtime_initial_state,
             contract.runtime_transitions,
-            BottomMode::Reject,
+            EventCellBottom::Reject,
         );
     }
     Ok(sdk_registry)

@@ -23,8 +23,8 @@ use crate::state::store::memory::{
     MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
 };
 use crate::state::store::{
-    AcklessSelfPrincipalIngress, BottomMode, CellStore, ControlEventStore, ControlProposalIngress,
-    SealStore, control_event_digest,
+    AcklessSelfPrincipalIngress, CellStore, ControlEventStore, ControlProposalIngress,
+    EventCellBottom, SealStore, control_event_digest,
 };
 use crate::{
     Event, EventId, Hlc, LatticeOp, LatticeOpType, NotarySig, Precondition, Predicate, PredicateOp,
@@ -1355,7 +1355,7 @@ async fn anchor_unit_stages_create_projection_before_creator_binding_transition(
             (json!("leave"), json!("join")),
             (json!("join"), json!("join")),
         ],
-        BottomMode::Reject,
+        EventCellBottom::Reject,
     );
     let create = genesis_create();
     let create_digest = control_event_digest(&create, SUITE).unwrap();

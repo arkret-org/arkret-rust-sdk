@@ -554,6 +554,7 @@ fn domain_separated_sha256(domain: &[u8], value: &impl Serialize) -> arkret_wire
 }
 
 /// Closed query body for `ak.self.direct_conversation.read.resolve.v1`.
+/// `direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
