@@ -28,6 +28,7 @@ mod internal_prelude;
 pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod objects;
+pub mod poll;
 pub mod prepared_event_draft;
 pub mod principal_operations;
 pub mod resolved_state;

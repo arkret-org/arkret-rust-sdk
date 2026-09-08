@@ -1164,47 +1164,15 @@ fn validate_location_content_block(block: &Value) -> ContentBlockValidationResul
 }
 
 fn validate_poll_content_block(block: &Value) -> ContentBlockValidationResult<()> {
-    let poll = serde_json::from_value::<PollBlock>(block.clone()).map_err(|_| {
-        ContentBlockValidationError::new(
-            "poll content block requires question and at least two options",
-        )
-    })?;
-    let has_question = !poll.body.trim().is_empty()
-        || poll
-            .poll
-            .question
-            .as_ref()
-            .is_some_and(content_block_has_text_value);
-    if !has_question || poll.poll.answers.len() < 2 {
-        return Err(ContentBlockValidationError::new(
-            "poll content block requires question and at least two options",
-        ));
-    }
-    for answer in &poll.poll.answers {
-        validate_content_block(&answer.text.to_value().map_err(|_| {
-            ContentBlockValidationError::new("poll content block answer requires text")
-        })?)?;
-    }
-    Ok(())
+    let poll = serde_json::from_value::<PollBlock>(block.clone())
+        .map_err(|_| ContentBlockValidationError::new("invalid Poll content block"))?;
+    poll.validate()
 }
 
 fn validate_poll_response_content_block(block: &Value) -> ContentBlockValidationResult<()> {
-    let response = serde_json::from_value::<PollResponseBlock>(block.clone()).map_err(|_| {
-        ContentBlockValidationError::new(
-            "poll response content block requires poll_ref and at least one selection",
-        )
-    })?;
-    if response
-        .poll_response
-        .selections
-        .iter()
-        .all(|selection| selection.trim().is_empty())
-    {
-        return Err(ContentBlockValidationError::new(
-            "poll response content block requires poll_ref and at least one selection",
-        ));
-    }
-    Ok(())
+    let response = serde_json::from_value::<PollResponseBlock>(block.clone())
+        .map_err(|_| ContentBlockValidationError::new("invalid Poll response block"))?;
+    response.validate()
 }
 
 fn content_block_has_text(block: &Value) -> bool {
@@ -1213,10 +1181,6 @@ fn content_block_has_text(block: &Value) -> bool {
             .get("body")
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty())
-}
-
-fn content_block_has_text_value(block: &ContentBlock) -> bool {
-    !block.body.trim().is_empty()
 }
 
 fn json_integer(value: &Value) -> bool {
