@@ -1170,7 +1170,6 @@ declare_producer_allocated_ids! {
     HistoryResponseId, "ak:history_response:";
     OperationId, "ak:operation:";
     RecoveryKeyId, "ak:recovery_key:";
-    ServiceRouteHandoverId, "ak:service_route_handover:";
 }
 
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);

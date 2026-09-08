@@ -15,7 +15,6 @@ use serde_json::Value;
 
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::governance::circle::EncryptionFloor;
-use crate::objects::relation::RelationProfile;
 
 pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
 
@@ -59,10 +58,6 @@ pub struct Realm {
     /// the profile-specific admission path.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fields: BTreeMap<String, Value>,
-    /// Per-relation_kind cardinality declarations enforced by the resolver.
-    /// Empty means every relation kind is many-to-many.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub relation_profiles: Vec<RelationProfile>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -278,7 +273,6 @@ impl Realm {
             owning_organization_ids: Vec::new(),
             schema_refs: Vec::new(),
             fields: BTreeMap::new(),
-            relation_profiles: Vec::new(),
             policy_id: None,
             preview_policy_id: None,
             default_strand_id: None,
@@ -425,6 +419,14 @@ mod tests {
                 .unwrap(),
             }),
         )
+    }
+
+    #[test]
+    fn realm_rejects_removed_relation_profiles() {
+        let mut serialized = serde_json::to_value(realm()).unwrap();
+        assert!(serialized.get("relation_profiles").is_none());
+        serialized["relation_profiles"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<Realm>(serialized).is_err());
     }
 
     #[test]

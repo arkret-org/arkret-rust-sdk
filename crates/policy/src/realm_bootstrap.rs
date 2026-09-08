@@ -378,6 +378,38 @@ pub fn validate_realm_bootstrap_unit(
     })
 }
 
+/// Validate the control Events of an already admitted Realm's first Seal.
+///
+/// Applet-managed PCR creation is admitted only as part of its closed formal
+/// aggregate. Only its RealmCreate belongs to this PCR's control plane; the
+/// provisioning and accountability Events are not ordinary Realm followups.
+/// This function does not admit that aggregate or replace its cross-binding
+/// checks. Public ordinary bootstrap admission must continue to use
+/// `validate_realm_bootstrap_unit`.
+pub fn validate_accepted_realm_seal_genesis_unit(
+    events: &[Event],
+) -> std::result::Result<(), RealmBootstrapValidationError> {
+    let Some(create) = events.first() else {
+        return Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap);
+    };
+    if create.kind == EventKind::RealmCreate {
+        let payload: RealmCreatePayload = create
+            .typed_payload::<event_spec::RealmCreate>()
+            .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
+        if payload.object.purpose == RealmPurpose::AppletManagedControl {
+            if events.len() != 1 {
+                return Err(RealmBootstrapValidationError::OutOfOrderBootstrap);
+            }
+            payload
+                .object
+                .validate()
+                .map_err(|_| RealmBootstrapValidationError::EffectsPayloadMismatch)?;
+            return Ok(());
+        }
+    }
+    validate_realm_bootstrap_unit(events).map(|_| ())
+}
+
 /// Derive and check the registered authority-root value of a create payload.
 fn genesis_authority_root(
     _object: &serde_json::Map<String, serde_json::Value>,
@@ -498,6 +530,29 @@ mod tests {
             },
         }];
         events
+    }
+
+    #[test]
+    fn accepted_applet_pcr_seals_its_single_create_without_opening_ordinary_ingress() {
+        let mut managed = create();
+        let object = managed.payload.get_mut("object").unwrap();
+        object["purpose"] = json!("applet_managed_control");
+        object["initial_resolution"] = json!({
+            "did": "did:web:managed.example",
+            "method_history_head": "accepted-entry-0",
+            "version_id": "0"
+        });
+        assert!(validate_accepted_realm_seal_genesis_unit(std::slice::from_ref(&managed)).is_ok());
+        assert_eq!(
+            validate_realm_bootstrap_unit(std::slice::from_ref(&managed)),
+            Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap),
+        );
+        assert_eq!(
+            validate_accepted_realm_seal_genesis_unit(&[managed.clone(), create()]),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap),
+        );
+        managed.payload.get_mut("object").unwrap()["initial_resolution"] = serde_json::Value::Null;
+        assert!(validate_accepted_realm_seal_genesis_unit(&[managed]).is_err());
     }
 
     fn direct_founding_unit() -> Vec<Event> {

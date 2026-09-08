@@ -2,16 +2,16 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-08.1;
-//! sha256=819dba54cb38a1208e5cf2c4d6a94e3ca8b8f14fee9d0059988cca2cf31afc61 Input: registry/
-//! operation-registry.json; version=2026-09-08.1;
-//! sha256=cfaafa428428c03c915237684eb3ea18908a44829e2b06c464a9794c6eafb426 Input: registry/
-//! event-kind-registry.json; version=2026-09-07.12;
-//! sha256=e5fedce013a617ac0ffb36d7fcf151c10f9e381bebee8c6232e46c73370da573 Input: registry/
+//! contract-registry.json; version=2026-09-08.3;
+//! sha256=386304608be55205274d65ae9b560096599ff34469a65a1371814897c18874af Input: registry/
+//! operation-registry.json; version=2026-09-08.3;
+//! sha256=41f9739b720e238147381c41f26e8e08d865b2ca8f8847ae544dd774ff251f09 Input: registry/
+//! event-kind-registry.json; version=2026-09-08.1;
+//! sha256=8195c3b1ab25b125704a6fd664df830a22e209ee6be7262b593c60dc1bf4e51a Input: registry/
 //! schema-registry.json; version=2026-09-08.1;
 //! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Input: registry/
-//! id-kind-registry.json; version=2026-09-07.1;
-//! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0
+//! id-kind-registry.json; version=2026-09-08.3;
+//! sha256=8bc4a235a921656403a739a0a6618d2b00f47a566c19080f021d5a4b6fd13ed4
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
@@ -433,8 +433,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
             ServiceOperationId::PeerKeysKeypackagesCommandClaimV1,
             ServiceOperationId::PeerKeysKeypackagesReadClaimV1,
-            ServiceOperationId::PeerServiceResolutionCommandPublishV1,
-            ServiceOperationId::PeerServiceResolutionReadResolveV1,
             ServiceOperationId::PeerSignalCommandRelayV1,
             ServiceOperationId::PeerPrincipalGenesisCommandSubmitV1,
         ],
@@ -780,8 +778,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-07.12";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-08.1";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-08.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-08.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-07.1";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-08.3";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.3";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

@@ -401,8 +401,7 @@ pub struct HistoryResponseCapabilitySealContext {
     pub release_id: DidCoreId,
     pub release_service_binding_ref: EventId,
     pub release_service_resolution_ref: String,
-    pub release_service_resolution_sequence: u64,
-    pub release_service_resolution_record_digest: Hash,
+    pub release_service_resolution_digest: Hash,
     pub release_service_route_digest: Hash,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
@@ -843,8 +842,7 @@ pub struct HistoryKeyRequestReceipt {
     pub release_id: DidCoreId,
     pub release_service_binding_ref: EventId,
     pub release_service_resolution_ref: String,
-    pub release_service_resolution_sequence: u64,
-    pub release_service_resolution_record_digest: Hash,
+    pub release_service_resolution_digest: Hash,
     pub release_service_route_digest: Hash,
     pub history_traversal_retention: HistoryGovernanceTraversalRetention,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]

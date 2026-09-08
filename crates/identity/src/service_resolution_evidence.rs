@@ -5,7 +5,8 @@ use arkret_models_identity::{
     PublicPrincipalResolution, ResolutionDidBindingEvidenceKind,
     ResolutionDidBindingEvidenceReceipt, ResolutionDidBindingMethodProof,
     ResolutionDidBindingMethodProofKind, ResolutionDidBindingWitness,
-    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceResolutionRecord,
+    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceMethodState,
+    ServiceResolutionProjection,
 };
 use arkret_wire::{Did, DidCoreId, Hash, WireError, project_did_to_core_id};
 use chrono::{DateTime, Utc};
@@ -19,14 +20,14 @@ use crate::{
 /// Build and verify the complete retained WebVH resolution closure served by
 /// the open service-resolution operation.
 pub fn build_authenticated_webvh_service_resolution(
-    service_resolution_record: ServiceResolutionRecord,
+    service_id: DidCoreId,
+    service_kind: String,
     normalized_did_document: DidDocument,
     log_entries: Vec<Value>,
     witness_records: Vec<Value>,
     now: DateTime<Utc>,
 ) -> Result<AuthenticatedServiceResolution> {
-    let record = &service_resolution_record.record;
-    if record.did.method() != "webvh" || normalized_did_document.id != record.did {
+    if normalized_did_document.id.method() != "webvh" {
         return Err(IdentityError::Protocol(
             "WebVH service resolution builder received a different DID method or document"
                 .to_owned(),
@@ -56,7 +57,8 @@ pub fn build_authenticated_webvh_service_resolution(
     let document_digest = crate::document_canonical_digest(&normalized_did_document)
         .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let resolution = AuthenticatedServiceResolution {
-        service_resolution_record,
+        service_id,
+        service_kind,
         method_history_evidence: ResolutionMethodHistoryEvidence::WebvhLog {
             boundary: ResolutionMethodEvidenceBoundary {
                 from_method_history_head: first_history_head,
@@ -80,12 +82,51 @@ pub fn build_authenticated_webvh_service_resolution(
         },
         normalized_did_document,
     };
-    let expected_service_id = resolution
-        .service_resolution_record
-        .record
-        .service_id
-        .clone();
+    let expected_service_id = resolution.service_id.clone();
     verify_authenticated_service_resolution_history(&resolution, &expected_service_id, now)?;
+    Ok(resolution)
+}
+
+/// Build current no-history evidence from a DID document independently verified by the adapter.
+pub fn build_authenticated_did_web_service_resolution(
+    service_id: DidCoreId,
+    service_kind: String,
+    normalized_did_document: DidDocument,
+    now: DateTime<Utc>,
+) -> Result<AuthenticatedServiceResolution> {
+    if normalized_did_document.id.method() != "web" {
+        return Err(IdentityError::Protocol(
+            "did:web service resolution requires a did:web document".to_owned(),
+        ));
+    }
+    let digest = arkret_models_identity::normalized_did_document_digest(&normalized_did_document)
+        .map_err(wire)?;
+    let version = format!(
+        "synthetic-jcs-sha256:{}",
+        digest.as_str().trim_start_matches("sha256:")
+    );
+    let resolution = AuthenticatedServiceResolution {
+        service_id,
+        service_kind,
+        method_history_evidence: ResolutionMethodHistoryEvidence::DidWebDocument {
+            boundary: ResolutionMethodEvidenceBoundary {
+                from_method_history_head: digest.to_string(),
+                from_version_id: version.clone(),
+                to_method_history_head: digest.to_string(),
+                to_version_id: version,
+            },
+            evidence: ResolutionDidBindingEvidenceReceipt {
+                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
+                method: "web".to_owned(),
+                document_digest: digest,
+                method_proofs: Vec::new(),
+            },
+        },
+        normalized_did_document,
+    };
+    resolution
+        .validate_shape(&resolution.service_id, now)
+        .map_err(wire)?;
     Ok(resolution)
 }
 
@@ -100,7 +141,8 @@ pub fn verify_authenticated_service_resolution_history(
     resolution
         .validate_shape(expected_service_id, now)
         .map_err(wire)?;
-    let record = &resolution.service_resolution_record.record;
+    let did = &resolution.normalized_did_document.id;
+    let coordinates = resolution.method_history_evidence.boundary();
     match &resolution.method_history_evidence {
         ResolutionMethodHistoryEvidence::WebvhLog {
             boundary,
@@ -109,27 +151,32 @@ pub fn verify_authenticated_service_resolution_history(
             witness_records,
             ..
         } => verify_webvh_history(
-            &record.did,
+            did,
             &resolution.normalized_did_document,
             boundary,
             evidence,
             log_entries,
             witness_records,
-            &record.method_history_head,
-            &record.version_id,
+            &coordinates.to_method_history_head,
+            &coordinates.to_version_id,
         )?,
         ResolutionMethodHistoryEvidence::DidKeyExpansion { boundary, .. } => {
-            if record.did.method() != "key"
+            let expected_head = arkret_canonical::sha256_digest(did.as_str().as_bytes());
+            let expected_version = format!(
+                "synthetic-did-sha256:{}",
+                expected_head.trim_start_matches("sha256:")
+            );
+            if did.method() != "key"
                 || boundary.from_method_history_head != boundary.to_method_history_head
                 || boundary.from_version_id != boundary.to_version_id
-                || boundary.to_method_history_head != record.method_history_head
-                || boundary.to_version_id != record.version_id
+                || boundary.to_method_history_head != expected_head
+                || boundary.to_version_id != expected_version
             {
                 return Err(IdentityError::Protocol(
                     "did:key service resolution boundary mismatch".to_owned(),
                 ));
             }
-            let expected = DidKeyResolver::new().resolve_did(&record.did)?.document;
+            let expected = DidKeyResolver::new().resolve_did(did)?.document;
             require_same_document(&expected, &resolution.normalized_did_document)?;
         }
         ResolutionMethodHistoryEvidence::DidWebDocument { .. } => {
@@ -139,13 +186,7 @@ pub fn verify_authenticated_service_resolution_history(
             ));
         }
     }
-    arkret_signatures::service_resolution::verify_authenticated_service_resolution(
-        resolution,
-        expected_service_id,
-        now,
-    )
-    .map(|_| ())
-    .map_err(wire)
+    Ok(())
 }
 
 /// Verify the complete public principal-resolution closure and return the
@@ -349,12 +390,11 @@ pub fn authenticated_service_document_at(
     at: DateTime<Utc>,
 ) -> Result<DidDocument> {
     verify_authenticated_service_resolution_history(resolution, expected_service_id, at)?;
-    let record = &resolution.service_resolution_record.record;
+    let did = &resolution.normalized_did_document.id;
     match &resolution.method_history_evidence {
         ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } => {
-            let point =
-                arkret_signatures::webvh::validate_webvh_history_at(&record.did, log_entries, at)
-                    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
+            let point = arkret_signatures::webvh::validate_webvh_history_at(did, log_entries, at)
+                .map_err(|error| IdentityError::Protocol(error.to_string()))?;
             serde_json::from_value(point.document).map_err(|error| {
                 IdentityError::Protocol(format!("invalid historical WebVH document: {error}"))
             })
@@ -366,26 +406,6 @@ pub fn authenticated_service_document_at(
             "mutable did:web cannot be used for historical service key selection".to_owned(),
         )),
     }
-}
-
-/// Verify a complete current resolution and retain the exact assertion method
-/// that signed its record as a content-addressed service signer-evidence leaf.
-pub fn service_signer_evidence_from_authenticated_resolution(
-    resolution: AuthenticatedServiceResolution,
-    expected_service_id: &DidCoreId,
-    now: DateTime<Utc>,
-) -> Result<AuthenticatedSignerResolutionEvidence> {
-    let verification_method = resolution
-        .service_resolution_record
-        .proof
-        .verification_method
-        .clone();
-    service_signer_evidence_for_method_from_authenticated_resolution(
-        resolution,
-        expected_service_id,
-        verification_method,
-        now,
-    )
 }
 
 /// Retain a service signer-evidence leaf for the exact method that was
@@ -406,6 +426,13 @@ pub fn service_signer_evidence_for_method_from_authenticated_resolution(
             "historical service document does not authorize the requested method".to_owned(),
         ));
     }
+    crate::validate_verification_method_relationship(
+        &document,
+        &verification_method,
+        &document.id,
+        crate::DidVerificationRelationship::AssertionMethod,
+    )
+    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     let evidence = AuthenticatedSignerResolutionEvidence::Service {
         signer_id: expected_service_id.clone(),
         verification_method,
@@ -423,8 +450,8 @@ fn verify_webvh_history(
     evidence: &ResolutionDidBindingEvidenceReceipt,
     log_entries: &[Value],
     witness_records: &[Value],
-    record_history_head: &str,
-    record_version_id: &str,
+    expected_history_head: &str,
+    expected_version_id: &str,
 ) -> Result<()> {
     if did.method() != "webvh"
         || log_entries.is_empty()
@@ -486,8 +513,8 @@ fn verify_webvh_history(
         || boundary.from_version_id != first_version
         || boundary.to_method_history_head != last_history_head
         || boundary.to_version_id != last_version
-        || record_history_head != last_history_head
-        || record_version_id != last_version
+        || expected_history_head != last_history_head
+        || expected_version_id != last_version
         || evidence.method != "webvh"
         || method_proof.kind != ResolutionDidBindingMethodProofKind::WebvhLog
         || method_proof.history_head != last_history_head
@@ -562,10 +589,14 @@ fn history_head(entry: &Value) -> Result<String> {
 }
 
 fn require_same_document(expected: &DidDocument, actual: &DidDocument) -> Result<()> {
-    let expected = arkret_canonical::canonical_json_bytes(expected)
-        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    let actual = arkret_canonical::canonical_json_bytes(actual)
-        .map_err(|error| IdentityError::Protocol(error.to_string()))?;
+    let expected = arkret_canonical::canonical_json_bytes(
+        &arkret_models_identity::normalized_did_document(expected).map_err(wire)?,
+    )
+    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
+    let actual = arkret_canonical::canonical_json_bytes(
+        &arkret_models_identity::normalized_did_document(actual).map_err(wire)?,
+    )
+    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
     if expected != actual {
         return Err(IdentityError::Protocol(
             "retained normalized DID document does not match method-native history".to_owned(),
@@ -576,4 +607,137 @@ fn require_same_document(expected: &DidDocument, actual: &DidDocument) -> Result
 
 fn wire(error: WireError) -> IdentityError {
     IdentityError::Protocol(error.to_string())
+}
+
+/// Verify route authority against an independently fetched current method state.
+/// The caller must apply its method adapter trust policy to `current`.
+pub fn verify_current_service_resolution(
+    resolution: &AuthenticatedServiceResolution,
+    expected_service_id: &DidCoreId,
+    expected_kind: &str,
+    current: &crate::ResolvedDid,
+    now: DateTime<Utc>,
+) -> Result<ServiceResolutionProjection> {
+    resolution
+        .validate_shape(expected_service_id, now)
+        .map_err(wire)?;
+    if resolution.service_kind != expected_kind {
+        return Err(IdentityError::Protocol("service kind mismatch".to_owned()));
+    }
+    let current_document = &current.document;
+    require_same_document(current_document, &resolution.normalized_did_document)?;
+    if current_document.id.method() == "web" {
+        if !matches!(
+            resolution.method_history_evidence,
+            ResolutionMethodHistoryEvidence::DidWebDocument { .. }
+        ) {
+            return Err(IdentityError::Protocol(
+                "did:web requires current document evidence".to_owned(),
+            ));
+        }
+    } else {
+        let boundary = resolution.method_history_evidence.boundary();
+        if current_document.id.method() != "webvh"
+            || current.method_evidence.version_id.as_deref()
+                != Some(boundary.to_version_id.as_str())
+            || current.method_evidence.history_head.as_deref()
+                != Some(boundary.to_version_id.as_str())
+            || current.method_evidence.proofs.len() != 1
+            || !current
+                .method_evidence
+                .proofs
+                .iter()
+                .all(|proof| match proof {
+                    crate::MethodEvidenceProof::WebvhLog(proof) => {
+                        proof.history_head == boundary.to_version_id
+                    }
+                })
+        {
+            return Err(IdentityError::Protocol(
+                "service native history is not the independently resolved current state".to_owned(),
+            ));
+        }
+        verify_authenticated_service_resolution_history(resolution, expected_service_id, now)?;
+    }
+    resolution.projection().map_err(wire)
+}
+/// Require an accepted native state to occur in the fully verified incoming history.
+pub fn verify_service_resolution_floor(
+    resolution: &AuthenticatedServiceResolution,
+    floor: &ServiceMethodState,
+) -> Result<()> {
+    if resolution.service_id != floor.service_id || resolution.service_kind != floor.service_kind {
+        return Err(IdentityError::Protocol(
+            "service method state identity mismatch".to_owned(),
+        ));
+    }
+    match &resolution.method_history_evidence {
+        ResolutionMethodHistoryEvidence::WebvhLog { log_entries, .. } => {
+            verify_authenticated_service_resolution_history(
+                resolution,
+                &floor.service_id,
+                floor.verified_at,
+            )?;
+            for entry in log_entries {
+                if version_id(entry)? == floor.version_id
+                    && history_head(entry)? == floor.method_history_head
+                    && entry
+                        .get("state")
+                        .and_then(|state| state.get("id"))
+                        .and_then(Value::as_str)
+                        == Some(floor.did.as_str())
+                {
+                    return Ok(());
+                }
+            }
+            Err(IdentityError::Protocol(
+                "service method state rollback or fork".to_owned(),
+            ))
+        }
+        ResolutionMethodHistoryEvidence::DidWebDocument { .. }
+            if resolution.normalized_did_document.id == floor.did =>
+        {
+            Ok(())
+        }
+        _ => Err(IdentityError::Protocol(
+            "unsupported service method state transition".to_owned(),
+        )),
+    }
+}
+
+/// Discover the terminal DID from an old hosting location's native log.
+/// This is only a discovery hint: the destination must be independently queried
+/// and its current document, complete method evidence and witnesses verified.
+pub fn discover_webvh_current_did(expected_core: &DidCoreId, raw_log_bytes: &[u8]) -> Result<Did> {
+    if raw_log_bytes.len() > crate::DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32) {
+        return Err(IdentityError::Protocol(
+            "DID history exceeds the native log size limit".to_owned(),
+        ));
+    }
+    let mut last = None;
+    let mut count = 0;
+    for entry in serde_json::Deserializer::from_slice(raw_log_bytes).into_iter::<Value>() {
+        count += 1;
+        if count > 4096 {
+            return Err(IdentityError::Protocol(
+                "service DID history exceeds 4096 entries".to_owned(),
+            ));
+        }
+        last = Some(entry.map_err(|error| IdentityError::Protocol(error.to_string()))?);
+    }
+    let did = last
+        .as_ref()
+        .and_then(|entry| entry.pointer("/state/id"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            IdentityError::Protocol("service DID history omits terminal DID".to_owned())
+        })?;
+    let did = Did::new(did).map_err(|error| IdentityError::Protocol(error.to_string()))?;
+    if project_did_to_core_id(&did)? != *expected_core {
+        return Err(IdentityError::Protocol(
+            "service DID history changed its stable identity".to_owned(),
+        ));
+    }
+    crate::verify_did_webvh_v1_chain_bytes(&did, raw_log_bytes)?;
+    Ok(did)
 }

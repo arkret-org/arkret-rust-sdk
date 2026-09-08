@@ -1,13 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-07.1;
-//! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0 Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-08.3;
+//! sha256=8bc4a235a921656403a739a0a6618d2b00f47a566c19080f021d5a4b6fd13ed4 Input: registry/
 //! capability-action-registry.json; version=2026-09-07.1;
 //! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Input: registry/
 //! schema-registry.json; version=2026-09-08.1;
 //! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.2;
-//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
+//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=57,
 //! special_forms=14, actions=162, schemas=205, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
@@ -329,11 +329,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "scheduled_send",
         category: "account_private",
         wire_form: "ak:scheduled_send:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "service_route_handover",
-        category: "transport",
-        wire_form: "ak:service_route_handover:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "session_grant",

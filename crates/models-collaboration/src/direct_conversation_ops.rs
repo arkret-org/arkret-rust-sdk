@@ -509,7 +509,8 @@ fn validate_contact_contact_round_evidence_shape(
     Ok(())
 }
 
-fn contact_round_id(
+/// Derive the Contact round identity using the normative domain-prefixed JCS transcript.
+pub fn contact_round_id(
     contact_round: &crate::contact_operations::ContactRound,
 ) -> arkret_wire::Result<Hash> {
     domain_separated_sha256(CONTACT_ROUND_DOMAIN, contact_round)

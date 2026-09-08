@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-08.1;
-//! sha256=f932ecd346e8daa44e80b6711715d63fcf771e5d82ca88eb029e337cb7e43fb0 Entries: profile_ids=96
+//! Input: profiles/conformance-profiles.json; version=2026-09-08.3;
+//! sha256=0d98a7030afc2f57654efef1dcead654ef6cfca83f13cc52edb4edf1e4074b58 Entries: profile_ids=95
 
 use serde::{Deserialize, Serialize};
 
@@ -92,7 +92,6 @@ pub enum ProfileId {
     SearchBlindIndexV1,
     SearchClientIndexV1,
     SearchForwardPrivateV1,
-    ServiceResolutionMirrorV1,
     SignalMessageStreamV1,
     SignalPeerRelayV1,
     SignatureEcdsaP256V1,
@@ -230,7 +229,6 @@ impl ProfileId {
         Self::SearchBlindIndexV1,
         Self::SearchClientIndexV1,
         Self::SearchForwardPrivateV1,
-        Self::ServiceResolutionMirrorV1,
         Self::SignalMessageStreamV1,
         Self::SignalPeerRelayV1,
         Self::SignatureEcdsaP256V1,
@@ -351,8 +349,6 @@ impl ProfileId {
     pub const SEARCH_BLIND_INDEX_V1: &'static str = "ak.profile.search.blind_index.v1";
     pub const SEARCH_CLIENT_INDEX_V1: &'static str = "ak.profile.search.client_index.v1";
     pub const SEARCH_FORWARD_PRIVATE_V1: &'static str = "ak.profile.search.forward_private.v1";
-    pub const SERVICE_RESOLUTION_MIRROR_V1: &'static str =
-        "ak.profile.service_resolution_mirror.v1";
     pub const SIGNAL_MESSAGE_STREAM_V1: &'static str = "ak.profile.signal_message_stream.v1";
     pub const SIGNAL_PEER_RELAY_V1: &'static str = "ak.profile.signal_peer_relay.v1";
     pub const SIGNATURE_ECDSA_P256_V1: &'static str = "ak.profile.signature.ecdsa_p256.v1";
@@ -454,7 +450,6 @@ impl ProfileId {
             Self::SearchBlindIndexV1 => Self::SEARCH_BLIND_INDEX_V1,
             Self::SearchClientIndexV1 => Self::SEARCH_CLIENT_INDEX_V1,
             Self::SearchForwardPrivateV1 => Self::SEARCH_FORWARD_PRIVATE_V1,
-            Self::ServiceResolutionMirrorV1 => Self::SERVICE_RESOLUTION_MIRROR_V1,
             Self::SignalMessageStreamV1 => Self::SIGNAL_MESSAGE_STREAM_V1,
             Self::SignalPeerRelayV1 => Self::SIGNAL_PEER_RELAY_V1,
             Self::SignatureEcdsaP256V1 => Self::SIGNATURE_ECDSA_P256_V1,
@@ -555,7 +550,6 @@ impl ProfileId {
             Self::SearchBlindIndexV1 => ProfileRole::Server,
             Self::SearchClientIndexV1 => ProfileRole::Client,
             Self::SearchForwardPrivateV1 => ProfileRole::Server,
-            Self::ServiceResolutionMirrorV1 => ProfileRole::Server,
             Self::SignalMessageStreamV1 => ProfileRole::Client,
             Self::SignalPeerRelayV1 => ProfileRole::Server,
             Self::SignatureEcdsaP256V1 => ProfileRole::Admin,
@@ -673,7 +667,6 @@ impl ProfileId {
             Self::SEARCH_BLIND_INDEX_V1 => Some(Self::SearchBlindIndexV1),
             Self::SEARCH_CLIENT_INDEX_V1 => Some(Self::SearchClientIndexV1),
             Self::SEARCH_FORWARD_PRIVATE_V1 => Some(Self::SearchForwardPrivateV1),
-            Self::SERVICE_RESOLUTION_MIRROR_V1 => Some(Self::ServiceResolutionMirrorV1),
             Self::SIGNAL_MESSAGE_STREAM_V1 => Some(Self::SignalMessageStreamV1),
             Self::SIGNAL_PEER_RELAY_V1 => Some(Self::SignalPeerRelayV1),
             Self::SIGNATURE_ECDSA_P256_V1 => Some(Self::SignatureEcdsaP256V1),

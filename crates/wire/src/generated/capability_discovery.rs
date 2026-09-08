@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-08.1;
-//! sha256=819dba54cb38a1208e5cf2c4d6a94e3ca8b8f14fee9d0059988cca2cf31afc61
-//! Entries: operation_bundles=36 features=21
+//! Input: registry/contract-registry.json; version=2026-09-08.3;
+//! sha256=386304608be55205274d65ae9b560096599ff34469a65a1371814897c18874af
+//! Entries: operation_bundles=36 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -744,14 +744,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerSealsReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerServiceResolutionCommandPublishV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerServiceResolutionReadResolveV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1548,19 +1540,6 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         conflicts: &[],
     },
     FeatureDescriptor {
-        feature_id: "ak.feature.realm_service_resolution_mirror.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/sync/service-surface.md",
-        service_kinds: &[],
-        required_operation_pairs: &[],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[
-            "Realm service-resolution state is mirrored with the normative authenticated frontier semantics.",
-        ],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
         feature_id: "ak.feature.realm_state_snapshot.v1",
         status: FeatureStatus::Active,
         defined_in: "zh/sync/service-surface.md",
@@ -1569,26 +1548,6 @@ pub const FEATURES: &[FeatureDescriptor] = &[
             operation_id: ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
             binding_kind: BindingKind::HttpJson,
         }],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
-        feature_id: "ak.feature.service_route_handover.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/sync/service-surface.md",
-        service_kinds: &[],
-        required_operation_pairs: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerServiceResolutionCommandPublishV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerServiceResolutionReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-        ],
         required_profiles: &[],
         required_limits: &[],
         semantic_guarantees: &[],

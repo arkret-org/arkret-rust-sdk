@@ -3,7 +3,7 @@
 
 use arkret_wire::{
     AccountId, Did, DidCoreId, Event, EventBatchReceipt, EventId, Hash, ProtocolSignature, RealmId,
-    RequestId, Seal,
+    Seal,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -391,93 +391,21 @@ impl ResolutionMethodHistoryEvidence {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(untagged, deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionRecordCore {
-    pub service_id: DidCoreId,
-    pub service_kind: String,
-    pub did: Did,
-    pub method_history_head: String,
-    pub version_id: String,
-    pub resolution_event_ref: String,
-    pub record_sequence: u64,
-    pub previous_record_digest: Option<Hash>,
-    pub current_record_url: String,
-    pub base_url: String,
-    pub describe_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub refresh_after: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionRecord {
-    pub record: ServiceResolutionRecordCore,
-    pub proof: ProtocolSignature,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[allow(clippy::large_enum_variant)]
 pub enum ServiceResolutionCarrier {
     Inline {
-        inline: ServiceResolutionRecord,
+        inline: AuthenticatedServiceResolution,
     },
-    CurrentRecordUrl {
-        current_record_url: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        pinned_record_digest: Option<Hash>,
+    ResolutionUrl {
+        resolution_url: String,
     },
 }
-
-pub const MAX_SERVICE_CURRENT_RECORD_URL_BYTES: usize = 2_048;
-
-/// Canonical route-binding projection committed as `describe_digest` in a
-/// signed service resolution record (`zh/sync/service-surface.md` §2.6).
-///
-/// The shape is normative: exactly
-/// `{service_id, service_kind, service_resolution, http_json_base_url}`, in
-/// this field order. Producers and verifiers MUST derive the digest through
-/// [`route_binding_describe_digest`] so a projection change cannot silently
-/// diverge between the signer and any verifier.
-#[derive(Serialize)]
-struct RouteBindingProjection<'a> {
-    service_id: &'a DidCoreId,
-    service_kind: &'a str,
-    service_resolution: &'a ResolutionCommitment,
-    http_json_base_url: &'a str,
-}
-
-/// Canonical `describe_digest` over the route binding of one service.
-///
-/// `http_json_base_url` MUST already be the canonical HTTPS base URL the
-/// record advertises; this helper commits the value it is handed and performs
-/// no URL canonicalization of its own.
-pub fn route_binding_describe_digest(
-    service_id: &DidCoreId,
-    service_kind: &str,
-    service_resolution: &ResolutionCommitment,
-    http_json_base_url: &str,
-) -> arkret_wire::Result<Hash> {
-    let projection = RouteBindingProjection {
-        service_id,
-        service_kind,
-        service_resolution,
-        http_json_base_url,
-    };
-    Ok(Hash::new(arkret_canonical::canonical_sha256(&projection)?)?)
-}
-
+pub const MAX_SERVICE_RESOLUTION_URL_BYTES: usize = 2_048;
 /// Canonical path of the unauthenticated transport locator for one service's
-/// current signed resolution record.
+/// current method evidence.
 #[must_use]
-pub fn canonical_service_current_record_path(service_id: &DidCoreId) -> String {
+pub fn canonical_service_resolution_path(service_id: &DidCoreId) -> String {
     let mut encoded = String::with_capacity(service_id.as_str().len());
     for byte in service_id.as_str().bytes() {
         if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b'~') {
@@ -490,21 +418,21 @@ pub fn canonical_service_current_record_path(service_id: &DidCoreId) -> String {
     format!("/_arkret/open/services/{encoded}/resolution")
 }
 
-/// Validate a `current_record_url` as a bounded canonical transport locator.
+/// Validate a `resolution_url` as a bounded canonical transport locator.
 ///
-/// This establishes no service authority: a fetched record still needs its
-/// method history, proof, freshness and route binding independently verified.
-pub fn validate_service_current_record_url(
+/// This establishes no service authority: fetched evidence still needs its
+/// method history, current state and route binding independently verified.
+pub fn validate_service_resolution_url(
     value: &str,
     expected_service_id: &DidCoreId,
 ) -> arkret_wire::Result<()> {
-    if value.is_empty() || value.len() > MAX_SERVICE_CURRENT_RECORD_URL_BYTES {
+    if value.is_empty() || value.len() > MAX_SERVICE_RESOLUTION_URL_BYTES {
         return Err(arkret_wire::WireError::Protocol(
-            "service current-record URL length is out of bounds".to_owned(),
+            "service resolution URL length is out of bounds".to_owned(),
         ));
     }
     let parsed = Url::parse(value).map_err(|error| {
-        arkret_wire::WireError::Protocol(format!("service current-record URL is invalid: {error}"))
+        arkret_wire::WireError::Protocol(format!("service resolution URL is invalid: {error}"))
     })?;
     if parsed.scheme() != "https"
         || parsed.host_str().is_none()
@@ -512,11 +440,11 @@ pub fn validate_service_current_record_url(
         || parsed.password().is_some()
         || parsed.query().is_some()
         || parsed.fragment().is_some()
-        || parsed.path() != canonical_service_current_record_path(expected_service_id)
+        || parsed.path() != canonical_service_resolution_path(expected_service_id)
         || parsed.as_str() != value
     {
         return Err(arkret_wire::WireError::Protocol(
-            "service current-record URL is not the canonical HTTPS locator for the expected service"
+            "service resolution URL is not the canonical HTTPS locator for the expected service"
                 .to_owned(),
         ));
     }
@@ -524,517 +452,147 @@ pub fn validate_service_current_record_url(
 }
 
 impl ServiceResolutionCarrier {
-    /// Validate only the carrier shape and expected core-id binding.
-    ///
-    /// An inline or fetched record is not authorized by this check.
     pub fn validate_shape(&self, expected_service_id: &DidCoreId) -> arkret_wire::Result<()> {
         match self {
-            Self::Inline { inline } => {
-                if &inline.record.service_id != expected_service_id {
-                    return Err(arkret_wire::WireError::Protocol(
-                        "inline service resolution targets a different service".to_owned(),
-                    ));
-                }
-                validate_service_current_record_url(
-                    &inline.record.current_record_url,
-                    expected_service_id,
-                )
+            Self::Inline { inline } => inline.validate_shape(expected_service_id, Utc::now()),
+            Self::ResolutionUrl { resolution_url } => {
+                validate_service_resolution_url(resolution_url, expected_service_id)
             }
-            Self::CurrentRecordUrl {
-                current_record_url, ..
-            } => validate_service_current_record_url(current_record_url, expected_service_id),
         }
     }
 }
-
-impl ServiceResolutionRecord {
-    pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
-        #[derive(Serialize)]
-        struct Transcript<'a> {
-            context: &'static str,
-            payload_digest: Hash,
-            service_id: &'a DidCoreId,
-            service_kind: &'a str,
-            did: &'a Did,
-            method_history_head: &'a str,
-            version_id: &'a str,
-            resolution_event_ref: &'a str,
-            record_sequence: u64,
-            previous_record_digest: &'a Option<Hash>,
-            current_record_url: &'a str,
-            base_url: &'a str,
-            describe_digest: &'a Hash,
-            #[serde(
-                serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
-            )]
-            issued_at: DateTime<Utc>,
-            #[serde(
-                serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
-            )]
-            refresh_after: DateTime<Utc>,
-            #[serde(
-                serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
-            )]
-            expires_at: DateTime<Utc>,
-            verification_method: &'a arkret_wire::DidUrl,
-            #[serde(
-                serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp"
-            )]
-            created_at: DateTime<Utc>,
-        }
-        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(&self.record)?)?;
-        arkret_canonical::canonical_json_bytes(&Transcript {
-            context: arkret_wire::ProofContextId::SERVICE_RESOLUTION_RECORD_PROOF_V1,
-            payload_digest,
-            service_id: &self.record.service_id,
-            service_kind: &self.record.service_kind,
-            did: &self.record.did,
-            method_history_head: &self.record.method_history_head,
-            version_id: &self.record.version_id,
-            resolution_event_ref: &self.record.resolution_event_ref,
-            record_sequence: self.record.record_sequence,
-            previous_record_digest: &self.record.previous_record_digest,
-            current_record_url: &self.record.current_record_url,
-            base_url: &self.record.base_url,
-            describe_digest: &self.record.describe_digest,
-            issued_at: self.record.issued_at,
-            refresh_after: self.record.refresh_after,
-            expires_at: self.record.expires_at,
-            verification_method: &self.proof.verification_method,
-            created_at: self.proof.created_at,
-        })
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AuthenticatedServiceResolution {
-    pub service_resolution_record: ServiceResolutionRecord,
+    pub service_id: DidCoreId,
+    pub service_kind: String,
     pub method_history_evidence: ResolutionMethodHistoryEvidence,
+    #[serde(with = "service_document_wire")]
     pub normalized_did_document: DidDocument,
 }
-
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ServiceResolutionProjection {
+    pub service_id: DidCoreId,
+    pub service_kind: String,
+    pub did: Did,
+    pub method_history_head: String,
+    pub version_id: String,
+    pub resolution_event_ref: String,
+    pub base_url: String,
+}
 impl AuthenticatedServiceResolution {
     pub fn validate_shape(
         &self,
         expected_service_id: &DidCoreId,
-        now: DateTime<Utc>,
+        _now: DateTime<Utc>,
     ) -> arkret_wire::Result<()> {
-        if arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024 {
-            return Err(arkret_wire::WireError::Protocol(
-                "authenticated service resolution exceeds 1 MiB".to_owned(),
-            ));
-        }
-        let record = &self.service_resolution_record.record;
         self.method_history_evidence.validate_shape()?;
-        let projected = arkret_wire::project_did_to_core_id(&record.did)?;
-        let boundary = self.method_history_evidence.boundary();
-        let proof_controller = self
-            .service_resolution_record
-            .proof
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(controller, _)| controller);
-        if &record.service_id != expected_service_id
-            || projected != record.service_id
-            || self.normalized_did_document.id != record.did
-            || boundary.to_method_history_head != record.method_history_head
-            || boundary.to_version_id != record.version_id
+        self.normalized_did_document.validate()?;
+        if !arkret_wire::ServiceKind::ALL
+            .iter()
+            .any(|kind| kind.as_str() == self.service_kind)
+            || arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024
+            || &self.service_id != expected_service_id
+            || arkret_wire::project_did_to_core_id(&self.normalized_did_document.id)?
+                != self.service_id
             || self.method_history_evidence.evidence().document_digest
                 != normalized_did_document_digest(&self.normalized_did_document)?
-            || record.issued_at > record.refresh_after
-            || record.refresh_after >= record.expires_at
-            || now >= record.refresh_after
-            || self.service_resolution_record.proof.created_at != record.issued_at
-            || proof_controller != Some(record.did.as_str())
         {
             return Err(arkret_wire::WireError::Protocol(
-                "invalid or stale authenticated service resolution".to_owned(),
+                "invalid authenticated service resolution binding".to_owned(),
             ));
         }
         Ok(())
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ServiceRouteHandoverState {
-    Scheduled,
-    Cancelled,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceRouteHandoverNoticeCore {
-    pub service_id: DidCoreId,
-    pub service_kind: String,
-    pub handover_id: String,
-    pub notice_revision: u32,
-    pub state: ServiceRouteHandoverState,
-    pub from_record_sequence: u64,
-    pub from_record_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub candidate_base_url: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub candidate_record_url: Option<String>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub not_before: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub cutover_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub grace_until: Option<DateTime<Utc>>,
-    pub previous_notice_digest: Option<Hash>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
-impl ServiceRouteHandoverNoticeCore {
-    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        arkret_wire::ServiceRouteHandoverId::new(&self.handover_id)?;
-        let valid_chain = (self.notice_revision == 0 && self.previous_notice_digest.is_none())
-            || (self.notice_revision > 0 && self.previous_notice_digest.is_some());
-        let valid_state = match self.state {
-            ServiceRouteHandoverState::Scheduled => {
-                let Some((not_before, cutover_at, grace_until)) = self
-                    .not_before
-                    .zip(self.cutover_at)
-                    .zip(self.grace_until)
-                    .map(|((a, b), c)| (a, b, c))
-                else {
-                    return Err(arkret_wire::WireError::Protocol(
-                        "scheduled handover notice omits its time window".to_owned(),
-                    ));
-                };
-                self.candidate_base_url.is_some()
-                    && self.candidate_record_url.is_some()
-                    && self.issued_at <= not_before
-                    && not_before <= cutover_at
-                    && cutover_at < grace_until
-                    && grace_until <= self.expires_at
-            }
-            ServiceRouteHandoverState::Cancelled => {
-                self.notice_revision > 0
-                    && self.candidate_base_url.is_none()
-                    && self.candidate_record_url.is_none()
-                    && self.not_before.is_none()
-                    && self.cutover_at.is_none()
-                    && self.grace_until.is_none()
-                    && self.issued_at < self.expires_at
-            }
-        };
-        if !valid_chain || !valid_state {
+    /// Derive the route only after method-native verification by the caller.
+    pub fn projection(&self) -> arkret_wire::Result<ServiceResolutionProjection> {
+        self.validate_shape(&self.service_id, Utc::now())?;
+        let did = &self.normalized_did_document.id;
+        let normalized = crate::normalized_did_document(&self.normalized_did_document)?;
+        let entries = normalized["services"].as_array().ok_or_else(|| {
+            arkret_wire::WireError::Protocol(
+                "service DID document omits service endpoints".to_owned(),
+            )
+        })?;
+        let matches: Vec<_> = entries
+            .iter()
+            .filter(|entry| {
+                entry["protocol_names"]
+                    .as_array()
+                    .is_some_and(|types| types.len() == 1 && types[0] == "ArkretService")
+                    && entry["extensions"].as_array().is_some_and(|extensions| {
+                        extensions.iter().any(|row| {
+                            row["name"] == "serviceKind" && row["value"] == self.service_kind
+                        })
+                    })
+            })
+            .collect();
+        if matches.len() != 1 {
             return Err(arkret_wire::WireError::Protocol(
-                "invalid service route handover notice shape".to_owned(),
+                "service DID endpoint is missing or ambiguous".to_owned(),
             ));
         }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceRouteHandoverNotice {
-    pub notice: ServiceRouteHandoverNoticeCore,
-    pub proof: ProtocolSignature,
-}
-
-impl ServiceRouteHandoverNotice {
-    pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
-        self.notice.validate_shape()?;
-        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(&self.notice)?)?;
-        let mut transcript = serde_json::to_value(&self.notice)?;
-        let object = transcript
-            .as_object_mut()
-            .expect("handover notice core serializes as object");
-        object.insert(
-            "context".to_owned(),
-            serde_json::Value::String(
-                arkret_wire::ProofContextId::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1.to_owned(),
-            ),
-        );
-        object.insert(
-            "payload_digest".to_owned(),
-            serde_json::to_value(payload_digest)?,
-        );
-        object.insert(
-            "verification_method".to_owned(),
-            serde_json::to_value(&self.proof.verification_method)?,
-        );
-        object.insert(
-            "created_at".to_owned(),
-            serde_json::Value::String(arkret_canonical::format_timestamp_canonical(
-                self.proof.created_at,
-            )),
-        );
-        arkret_canonical::canonical_json_bytes(&transcript)
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "artifact_family",
-    rename_all = "snake_case",
-    deny_unknown_fields
-)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ServiceResolutionArtifactKey {
-    ServiceResolutionRecord {
-        service_id: DidCoreId,
-        record_sequence: u64,
-    },
-    ServiceRouteHandoverNotice {
-        service_id: DidCoreId,
-        handover_id: String,
-        notice_revision: u32,
-    },
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionPublishRequest {
-    pub request_id: RequestId,
-    pub realm_id: RealmId,
-    pub artifact_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_resolution_record: Option<ServiceResolutionRecord>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub service_route_handover_notice: Option<ServiceRouteHandoverNotice>,
-}
-
-impl ServiceResolutionPublishRequest {
-    pub fn validate(&self) -> arkret_wire::Result<ServiceResolutionArtifactKey> {
-        let (key, actual_digest) = match (
-            &self.service_resolution_record,
-            &self.service_route_handover_notice,
-        ) {
-            (Some(record), None) => (
-                ServiceResolutionArtifactKey::ServiceResolutionRecord {
-                    service_id: record.record.service_id.clone(),
-                    record_sequence: record.record.record_sequence,
+        let endpoint = matches[0];
+        let id = endpoint
+            .get("uri")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        if !id.starts_with(&format!("{did}#")) || id.ends_with('#') {
+            return Err(arkret_wire::WireError::Protocol(
+                "service endpoint id is not bound to its DID".to_owned(),
+            ));
+        }
+        let base_url = endpoint
+            .get("endpoint")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                arkret_wire::WireError::Protocol("service endpoint must be a URL".to_owned())
+            })?;
+        let canonical = crate::service_identity::CanonicalServiceUrl::new(base_url)?;
+        canonical.require_https()?;
+        if canonical.as_str() != base_url {
+            return Err(arkret_wire::WireError::Protocol(
+                "service endpoint is not canonical".to_owned(),
+            ));
+        }
+        let boundary = self.method_history_evidence.boundary();
+        Ok(ServiceResolutionProjection {
+            service_id: self.service_id.clone(),
+            service_kind: self.service_kind.clone(),
+            did: did.clone(),
+            method_history_head: boundary.to_method_history_head.clone(),
+            version_id: boundary.to_version_id.clone(),
+            resolution_event_ref: format!(
+                "{}:{}",
+                match did.method() {
+                    "webvh" => "did-webvh-entry-sha256",
+                    "web" => "did-web-document-sha256",
+                    _ => "did-key-did-sha256",
                 },
-                Hash::new(arkret_canonical::canonical_sha256(record)?)?,
+                boundary
+                    .to_method_history_head
+                    .strip_prefix("sha256:")
+                    .unwrap_or(&boundary.to_method_history_head)
             ),
-            (None, Some(notice)) => {
-                notice.notice.validate_shape()?;
-                (
-                    ServiceResolutionArtifactKey::ServiceRouteHandoverNotice {
-                        service_id: notice.notice.service_id.clone(),
-                        handover_id: notice.notice.handover_id.clone(),
-                        notice_revision: notice.notice.notice_revision,
-                    },
-                    Hash::new(arkret_canonical::canonical_sha256(notice)?)?,
-                )
-            }
-            _ => {
-                return Err(arkret_wire::WireError::Protocol(
-                    "publish request must carry exactly one resolution artifact".to_owned(),
-                ));
-            }
-        };
-        if actual_digest != self.artifact_digest {
-            return Err(arkret_wire::WireError::Protocol(
-                "publish artifact_digest mismatch".to_owned(),
-            ));
-        }
-        Ok(key)
-    }
-
-    pub fn canonical_digest(&self) -> arkret_wire::Result<Hash> {
-        self.validate()?;
-        Ok(Hash::new(arkret_canonical::canonical_sha256(self)?)?)
+            base_url: base_url.to_owned(),
+        })
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionPublishAckCore {
-    pub request_id: RequestId,
-    pub source_id: DidCoreId,
-    pub receiver_id: DidCoreId,
-    pub realm_id: RealmId,
-    pub request_digest: Hash,
-    pub artifact_key: ServiceResolutionArtifactKey,
-    pub artifact_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionPublishAck {
-    pub ack: ServiceResolutionPublishAckCore,
-    pub proof: ProtocolSignature,
-}
-
-impl ServiceResolutionPublishAck {
-    pub fn proof_signing_bytes(&self) -> arkret_wire::Result<Vec<u8>> {
-        let payload_digest = Hash::new(arkret_canonical::canonical_sha256(&self.ack)?)?;
-        arkret_canonical::canonical_json_bytes(&serde_json::json!({
-            "context": arkret_wire::ProofContextId::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1,
-            "payload_digest": payload_digest,
-            "request_id": self.ack.request_id,
-            "source_id": self.ack.source_id,
-            "receiver_id": self.ack.receiver_id,
-            "realm_id": self.ack.realm_id,
-            "request_digest": self.ack.request_digest,
-            "artifact_key": self.ack.artifact_key,
-            "artifact_digest": self.ack.artifact_digest,
-            "accepted_at": arkret_canonical::format_timestamp_canonical(self.ack.accepted_at),
-            "verification_method": self.proof.verification_method,
-            "created_at": arkret_canonical::format_timestamp_canonical(self.proof.created_at),
-        }))
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
-    }
-
-    pub fn validate_request_binding(
-        &self,
-        source_id: &DidCoreId,
-        request: &ServiceResolutionPublishRequest,
-    ) -> arkret_wire::Result<()> {
-        let key = request.validate()?;
-        if &self.ack.source_id != source_id
-            || self.ack.request_id != request.request_id
-            || self.ack.realm_id != request.realm_id
-            || self.ack.request_digest != request.canonical_digest()?
-            || self.ack.artifact_key != key
-            || self.ack.artifact_digest != request.artifact_digest
-            || self.proof.created_at != self.ack.accepted_at
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "publish ack does not cross-bind transport and artifact idempotency".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionPublishOutcome {
-    pub ack: ServiceResolutionPublishAck,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionResolveRequest {
-    pub realm_id: RealmId,
-    pub target_id: DidCoreId,
-    pub target_kind: String,
-    pub known_record_sequence: u64,
-    pub known_record_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub known_notice_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_records: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_response_bytes: Option<u32>,
-}
-
-impl ServiceResolutionResolveRequest {
-    pub fn validate_bounds(&self) -> arkret_wire::Result<()> {
-        if self
-            .max_records
-            .is_some_and(|value| !(1..=32).contains(&value))
-            || self
-                .max_response_bytes
-                .is_some_and(|value| !(4096..=262_144).contains(&value))
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "service resolution query exceeds hard bounds".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionResolveOutcome {
-    pub successor_records: Vec<ServiceResolutionRecord>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handover_notice: Option<ServiceRouteHandoverNotice>,
-    pub has_more: bool,
-}
-
-impl ServiceResolutionResolveOutcome {
-    pub fn validate_chain(
-        &self,
-        request: &ServiceResolutionResolveRequest,
-    ) -> arkret_wire::Result<()> {
-        request.validate_bounds()?;
-        if self.successor_records.len() > 32 || (self.has_more && self.successor_records.is_empty())
-        {
-            return Err(arkret_wire::WireError::Protocol(
-                "invalid bounded service resolution response".to_owned(),
-            ));
-        }
-        let mut sequence = request.known_record_sequence;
-        let mut digest = request.known_record_digest.clone();
-        for record in &self.successor_records {
-            if record.record.service_id != request.target_id
-                || record.record.service_kind != request.target_kind
-                || record.record.record_sequence != sequence + 1
-                || record.record.previous_record_digest.as_ref() != Some(&digest)
-            {
-                return Err(arkret_wire::WireError::Protocol(
-                    "service resolution response contains a gap or fork".to_owned(),
-                ));
-            }
-            sequence = record.record.record_sequence;
-            digest = Hash::new(arkret_canonical::canonical_sha256(record)?)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceResolutionLastSeenFloor {
+pub struct ServiceMethodState {
     pub service_id: DidCoreId,
     pub service_kind: String,
-    pub record_sequence: u64,
-    pub record_digest: Hash,
+    pub did: Did,
+    pub method_history_head: String,
+    pub version_id: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub verified_at: DateTime<Utc>,
 }
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceRouteNoticeState {
-    pub service_id: DidCoreId,
-    pub service_kind: String,
-    pub handover_id: String,
-    pub notice_revision: u32,
-    pub notice_digest: Hash,
-    pub state: ServiceRouteHandoverState,
-    pub from_record_sequence: u64,
-    pub from_record_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub verified_at: DateTime<Utc>,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1043,35 +601,20 @@ pub struct ServiceRouteCacheEntry {
     pub service_kind: String,
     pub did: Did,
     pub method_history_head: String,
-    /// Native DID-method version coordinate from the verified signed record.
     pub version_id: String,
-    pub record_sequence: u64,
-    pub record_digest: Hash,
     pub base_url: String,
-    pub current_record_url: String,
-    pub describe_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub verified_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub refresh_after: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub cached_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub cache_expires_at: DateTime<Utc>,
 }
-
 impl ServiceRouteCacheEntry {
-    #[must_use]
     pub fn is_routable_at(&self, now: DateTime<Utc>) -> bool {
-        self.refresh_after < self.expires_at
-            && self.cache_expires_at <= self.expires_at
-            && now < self.expires_at
+        self.verified_at <= now
+            && self.cache_expires_at <= self.verified_at + chrono::Duration::seconds(300)
             && now < self.cache_expires_at
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1079,220 +622,51 @@ pub struct RouteMirrorHint {
     pub mirror_id: DidCoreId,
     pub service_resolution: ServiceResolutionCarrier,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct RouteAssistance {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub handover_notice: Option<ServiceRouteHandoverNotice>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mirror_hints: Vec<RouteMirrorHint>,
 }
-
 impl RouteAssistance {
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
-        if (self.handover_notice.is_none() && self.mirror_hints.is_empty())
-            || self.mirror_hints.len() > 4
-        {
+        if self.mirror_hints.is_empty() || self.mirror_hints.len() > 4 {
             return Err(arkret_wire::WireError::Protocol(
-                "route assistance must contain a notice or at most four mirror hints".to_owned(),
+                "route assistance requires one to four mirror hints".to_owned(),
             ));
         }
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod resolution_contract_tests {
-    use arkret_wire::{Base64UrlString, DidUrl};
-    use chrono::{Duration, TimeZone as _};
-
+mod service_document_wire {
     use super::*;
-
-    fn hash(byte: char) -> Hash {
-        Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
+    pub fn serialize<S: serde::Serializer>(
+        document: &DidDocument,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        crate::normalized_did_document(document)
+            .map_err(serde::ser::Error::custom)?
+            .serialize(serializer)
     }
-
-    fn record(sequence: u64, previous_record_digest: Option<Hash>) -> ServiceResolutionRecord {
-        let issued_at = Utc.with_ymd_and_hms(2026, 8, 10, 1, 0, 0).unwrap();
-        let did = Did::new("did:webvh:z6mkfixture:service.example").unwrap();
-        let service_id = arkret_wire::project_did_to_core_id(&did).unwrap();
-        ServiceResolutionRecord {
-            record: ServiceResolutionRecordCore {
-                service_id,
-                service_kind: "station".to_owned(),
-                did: did.clone(),
-                method_history_head: "head-1".to_owned(),
-                version_id: "1-head-1".to_owned(),
-                resolution_event_ref: format!("ak:event:{}", "A".repeat(44)),
-                record_sequence: sequence,
-                previous_record_digest,
-                current_record_url: "https://service.example/_arkret/open/services/id/resolution"
-                    .to_owned(),
-                base_url: "https://service.example/".to_owned(),
-                describe_digest: hash('d'),
-                issued_at,
-                refresh_after: issued_at + Duration::minutes(5),
-                expires_at: issued_at + Duration::minutes(10),
-            },
-            proof: ProtocolSignature {
-                verification_method: DidUrl::new(format!("{did}#route-1")).unwrap(),
-                created_at: issued_at,
-                jws: Base64UrlString::new("AA".to_owned()).unwrap(),
-            },
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<DidDocument, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.get("did").is_none() {
+            return Err(serde::de::Error::custom(
+                "service evidence requires the canonical normalized DID projection",
+            ));
         }
-    }
-
-    fn resolve_request(record: &ServiceResolutionRecord) -> ServiceResolutionResolveRequest {
-        ServiceResolutionResolveRequest {
-            realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
-                .unwrap(),
-            target_id: record.record.service_id.clone(),
-            target_kind: record.record.service_kind.clone(),
-            known_record_sequence: record.record.record_sequence,
-            known_record_digest: Hash::new(arkret_canonical::canonical_sha256(record).unwrap())
-                .unwrap(),
-            known_notice_digest: None,
-            max_records: None,
-            max_response_bytes: None,
+        let document: DidDocument =
+            serde_json::from_value(value.clone()).map_err(serde::de::Error::custom)?;
+        let normalized =
+            crate::normalized_did_document(&document).map_err(serde::de::Error::custom)?;
+        if normalized != value {
+            return Err(serde::de::Error::custom(
+                "service evidence DID projection is not normalized",
+            ));
         }
-    }
-
-    #[test]
-    fn webvh_scid_projection_ignores_mutable_location_suffix() {
-        let old = Did::new("did:webvh:z6mkfixture:old.example:user").unwrap();
-        let new = Did::new("did:webvh:z6mkfixture:new.example:user").unwrap();
-        assert_eq!(
-            arkret_wire::project_did_to_core_id(&old).unwrap(),
-            arkret_wire::project_did_to_core_id(&new).unwrap()
-        );
-    }
-
-    #[test]
-    fn route_cache_requires_verified_version_coordinate() {
-        let record = record(0, None);
-        let now = record.record.issued_at;
-        let entry = ServiceRouteCacheEntry {
-            service_id: record.record.service_id,
-            service_kind: record.record.service_kind,
-            did: record.record.did,
-            method_history_head: record.record.method_history_head,
-            version_id: record.record.version_id,
-            record_sequence: record.record.record_sequence,
-            record_digest: hash('e'),
-            base_url: record.record.base_url,
-            current_record_url: record.record.current_record_url,
-            describe_digest: record.record.describe_digest,
-            verified_at: now,
-            refresh_after: record.record.refresh_after,
-            expires_at: record.record.expires_at,
-            cached_at: now,
-            cache_expires_at: now + Duration::minutes(1),
-        };
-        let mut value = serde_json::to_value(entry).unwrap();
-        value.as_object_mut().unwrap().remove("version_id");
-        assert!(serde_json::from_value::<ServiceRouteCacheEntry>(value).is_err());
-    }
-
-    #[test]
-    fn current_record_carrier_requires_canonical_expected_service_https_url() {
-        let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let canonical = format!(
-            "https://service.example{}",
-            canonical_service_current_record_path(&service_id)
-        );
-        let carrier = ServiceResolutionCarrier::CurrentRecordUrl {
-            current_record_url: canonical.clone(),
-            pinned_record_digest: None,
-        };
-        carrier.validate_shape(&service_id).unwrap();
-
-        for invalid in [
-            canonical.replace("https://", "http://"),
-            canonical.replace("service.example", "user@service.example"),
-            format!("{canonical}?version=1"),
-            format!("{canonical}#fragment"),
-            canonical.replace("%3A", "%3a"),
-            canonical.replace("service.example", "SERVICE.EXAMPLE"),
-            canonical.replace("service.example", "service.example:443"),
-            canonical.replace("z6mkfixture", "other"),
-        ] {
-            assert!(
-                ServiceResolutionCarrier::CurrentRecordUrl {
-                    current_record_url: invalid,
-                    pinned_record_digest: None,
-                }
-                .validate_shape(&service_id)
-                .is_err()
-            );
-        }
-
-        let oversized = format!(
-            "https://{}{}",
-            "a".repeat(2_048),
-            canonical_service_current_record_path(&service_id)
-        );
-        assert!(validate_service_current_record_url(&oversized, &service_id).is_err());
-    }
-
-    #[test]
-    fn successor_chain_rejects_gap_and_empty_has_more() {
-        let basis = record(0, None);
-        let request = resolve_request(&basis);
-        let empty = ServiceResolutionResolveOutcome {
-            successor_records: Vec::new(),
-            handover_notice: None,
-            has_more: true,
-        };
-        assert!(empty.validate_chain(&request).is_err());
-
-        let gap = record(2, Some(request.known_record_digest.clone()));
-        let outcome = ServiceResolutionResolveOutcome {
-            successor_records: vec![gap],
-            handover_notice: None,
-            has_more: false,
-        };
-        assert!(outcome.validate_chain(&request).is_err());
-    }
-
-    #[test]
-    fn publish_ack_cross_binds_both_idempotency_keys() {
-        let artifact = record(0, None);
-        let artifact_digest =
-            Hash::new(arkret_canonical::canonical_sha256(&artifact).unwrap()).unwrap();
-        let request = ServiceResolutionPublishRequest {
-            request_id: RequestId::new("ak:request:019b0000-0000-7000-8000-000000000001").unwrap(),
-            realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
-                .unwrap(),
-            artifact_digest: artifact_digest.clone(),
-            service_resolution_record: Some(artifact.clone()),
-            service_route_handover_notice: None,
-        };
-        let accepted_at = artifact.record.issued_at;
-        let source = artifact.record.service_id.clone();
-        let ack = ServiceResolutionPublishAck {
-            ack: ServiceResolutionPublishAckCore {
-                request_id: request.request_id.clone(),
-                source_id: source.clone(),
-                receiver_id: source.clone(),
-                realm_id: request.realm_id.clone(),
-                request_digest: request.canonical_digest().unwrap(),
-                artifact_key: request.validate().unwrap(),
-                artifact_digest,
-                accepted_at,
-            },
-            proof: ProtocolSignature {
-                verification_method: artifact.proof.verification_method,
-                created_at: accepted_at,
-                jws: Base64UrlString::new("AA".to_owned()).unwrap(),
-            },
-        };
-        assert!(ack.validate_request_binding(&source, &request).is_ok());
-        let wrong_source = DidCoreId::new("ak:did_core:web:other.example").unwrap();
-        assert!(
-            ack.validate_request_binding(&wrong_source, &request)
-                .is_err()
-        );
+        Ok(document)
     }
 }

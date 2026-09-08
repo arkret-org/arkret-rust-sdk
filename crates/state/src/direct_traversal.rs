@@ -897,7 +897,11 @@ pub fn derive_history_join_epoch(
                 // closed mls_genesis_payload schema does not declare one,
                 // and encryption-and-audit.md fixes creator principal as
                 // the accepted Event's own actor_id.
-                genesis.push((event.event_id.clone(), event.actor_id.clone(), event.actor_seq));
+                genesis.push((
+                    event.event_id.clone(),
+                    event.actor_id.clone(),
+                    event.actor_seq,
+                ));
             }
             _ => {}
         }
@@ -977,11 +981,13 @@ pub fn derive_history_join_epoch(
     // membership activations must precede its Genesis in that chain.
     let founding_incarnation = std::iter::once(realm_incarnation_ref)
         .chain(circle_incarnation_ref)
-        .all(|incarnation_ref| retained_control_events.iter().any(|event| {
-            event.event_id == *incarnation_ref
-                && event.actor_id == *genesis_creator
-                && event.actor_seq < *genesis_actor_seq
-        }));
+        .all(|incarnation_ref| {
+            retained_control_events.iter().any(|event| {
+                event.event_id == *incarnation_ref
+                    && event.actor_id == *genesis_creator
+                    && event.actor_seq < *genesis_actor_seq
+            })
+        });
     if *genesis_creator == subject.requester_actor_id && founding_incarnation {
         return Ok(0);
     }
@@ -1378,7 +1384,12 @@ mod tests {
         commit_at(event_id, base_epoch_ref, proposal_refs, 0)
     }
 
-    fn commit_at(event_id: &str, base_epoch_ref: &EventId, proposal_refs: Vec<EventId>, base_epoch: u64) -> Event {
+    fn commit_at(
+        event_id: &str,
+        base_epoch_ref: &EventId,
+        proposal_refs: Vec<EventId>,
+        base_epoch: u64,
+    ) -> Event {
         let commit_bytes = b"arkret-test-commit";
         let payload = MlsCommitPayload::new(
             base_epoch,
@@ -1463,26 +1474,48 @@ mod tests {
             genesis(GENESIS_REF, &founder),
             add_proposal(ADD_REF, &incarnation),
             add_proposal(second_add_ref, &incarnation),
-            commit(COMMIT_REF, &genesis_ref, vec![
-                EventId::new(ADD_REF).unwrap(), EventId::new(second_add_ref).unwrap(),
-            ]),
+            commit(
+                COMMIT_REF,
+                &genesis_ref,
+                vec![
+                    EventId::new(ADD_REF).unwrap(),
+                    EventId::new(second_add_ref).unwrap(),
+                ],
+            ),
         ];
-        assert_eq!(derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(), 1);
+        assert_eq!(
+            derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(),
+            1
+        );
         let later_add_ref = "ak:event:Aa5iC1k8qBhLViQvgYBaDDu8kW0AZcwnQyf3uwwBrOPh";
         let mut later_add = add_proposal(later_add_ref, &incarnation);
         later_add.payload.insert("base_epoch".into(), json!(1));
-        later_add.payload.insert("governance_binding".into(), serde_json::to_value(governance_binding(1, 2)).unwrap());
+        later_add.payload.insert(
+            "governance_binding".into(),
+            serde_json::to_value(governance_binding(1, 2)).unwrap(),
+        );
         retained.push(later_add);
         retained.push(commit_at(
             "ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC",
-            &EventId::new(COMMIT_REF).unwrap(), vec![EventId::new(later_add_ref).unwrap()], 1,
+            &EventId::new(COMMIT_REF).unwrap(),
+            vec![EventId::new(later_add_ref).unwrap()],
+            1,
         ));
-        assert_eq!(derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(), 1);
+        assert_eq!(
+            derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(),
+            1
+        );
         retained[1] = genesis(GENESIS_REF, &actor());
-        assert_eq!(derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(), 0);
+        assert_eq!(
+            derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(),
+            0
+        );
         // Rejoining after Genesis must not regain the creator's old floor.
         retained[0].actor_seq = 3;
-        assert_eq!(derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(), 1);
+        assert_eq!(
+            derive_history_join_epoch(&retained, &subject(&incarnation)).unwrap(),
+            1
+        );
     }
 
     #[tokio::test]

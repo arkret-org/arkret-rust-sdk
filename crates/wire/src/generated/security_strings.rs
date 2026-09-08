@@ -1,22 +1,22 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-08.1;
-//! sha256=70fc88beda196dcbd4fc8b865ee6e37b754576df032672245e22f21048a3940f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-08.3;
+//! sha256=c4497d869b03f63ea304af969533155f98c5dc1d10f53618085191552853a8e4 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
 //! sha256=d75d7fd0feb27c7a29db2255ce503f6137f31a9102086cb05be4b84ce03f297b Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
-//! hpke-suite-registry.json; version=2026-09-04.1;
-//! sha256=6004d5a3705dcc498a5ded6766ddf15b338f58db6b6e0e007f61a960b50d6bb5 Input: registry/
+//! hpke-suite-registry.json; version=2026-09-08.3;
+//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
 //! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=72, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=69, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=41, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -88,9 +88,6 @@ pub enum ProofContextId {
     ReceiptProofV1,
     RegistrationDidEvidenceControlProofV1,
     ServiceRegistrationReceiptProofV1,
-    ServiceResolutionPublishAckProofV1,
-    ServiceResolutionRecordProofV1,
-    ServiceRouteHandoverNoticeProofV1,
     SessionGrantAcceptedDevicePossessionProofV1,
     SignalProofV1,
     StationAdmissionProofV1,
@@ -164,9 +161,6 @@ impl ProofContextId {
         Self::ReceiptProofV1,
         Self::RegistrationDidEvidenceControlProofV1,
         Self::ServiceRegistrationReceiptProofV1,
-        Self::ServiceResolutionPublishAckProofV1,
-        Self::ServiceResolutionRecordProofV1,
-        Self::ServiceRouteHandoverNoticeProofV1,
         Self::SessionGrantAcceptedDevicePossessionProofV1,
         Self::SignalProofV1,
         Self::StationAdmissionProofV1,
@@ -280,12 +274,6 @@ impl ProofContextId {
         "ak.registration_did_evidence_control_proof.v1";
     pub const SERVICE_REGISTRATION_RECEIPT_PROOF_V1: &'static str =
         "ak.service_registration_receipt_proof.v1";
-    pub const SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1: &'static str =
-        "ak.service_resolution_publish_ack_proof.v1";
-    pub const SERVICE_RESOLUTION_RECORD_PROOF_V1: &'static str =
-        "ak.service_resolution_record_proof.v1";
-    pub const SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1: &'static str =
-        "ak.service_route_handover_notice_proof.v1";
     pub const SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.session_grant_accepted_device_possession_proof.v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal_proof.v1";
@@ -399,11 +387,6 @@ impl ProofContextId {
                 Self::REGISTRATION_DID_EVIDENCE_CONTROL_PROOF_V1
             }
             Self::ServiceRegistrationReceiptProofV1 => Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1,
-            Self::ServiceResolutionPublishAckProofV1 => {
-                Self::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1
-            }
-            Self::ServiceResolutionRecordProofV1 => Self::SERVICE_RESOLUTION_RECORD_PROOF_V1,
-            Self::ServiceRouteHandoverNoticeProofV1 => Self::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1,
             Self::SessionGrantAcceptedDevicePossessionProofV1 => {
                 Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
@@ -545,13 +528,6 @@ impl ProofContextId {
             }
             Self::SERVICE_REGISTRATION_RECEIPT_PROOF_V1 => {
                 Some(Self::ServiceRegistrationReceiptProofV1)
-            }
-            Self::SERVICE_RESOLUTION_PUBLISH_ACK_PROOF_V1 => {
-                Some(Self::ServiceResolutionPublishAckProofV1)
-            }
-            Self::SERVICE_RESOLUTION_RECORD_PROOF_V1 => Some(Self::ServiceResolutionRecordProofV1),
-            Self::SERVICE_ROUTE_HANDOVER_NOTICE_PROOF_V1 => {
-                Some(Self::ServiceRouteHandoverNoticeProofV1)
             }
             Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
                 Some(Self::SessionGrantAcceptedDevicePossessionProofV1)
@@ -1578,8 +1554,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "release_id",
             "release_service_binding_ref",
             "release_service_resolution_ref",
-            "release_service_resolution_sequence",
-            "release_service_resolution_record_digest",
+            "release_service_resolution_digest",
             "release_service_route_digest",
             "history_traversal_retention",
             "accepted_at",
@@ -2177,83 +2152,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/ServiceRegistrationReceipt",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::ServiceResolutionPublishAckProofV1,
-        context: "ak.service_resolution_publish_ack_proof.v1",
-        object_family: "service_resolution_publish_ack",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "request_id",
-            "source_id",
-            "receiver_id",
-            "realm_id",
-            "request_digest",
-            "artifact_key",
-            "artifact_digest",
-            "accepted_at",
-            "verification_method",
-            "created_at",
-        ],
-        schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_resolution_publish_ack",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::ServiceResolutionRecordProofV1,
-        context: "ak.service_resolution_record_proof.v1",
-        object_family: "service_resolution_record",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "service_id",
-            "service_kind",
-            "did",
-            "method_history_head",
-            "version_id",
-            "resolution_event_ref",
-            "record_sequence",
-            "previous_record_digest",
-            "current_record_url",
-            "base_url",
-            "describe_digest",
-            "issued_at",
-            "refresh_after",
-            "expires_at",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_resolution_record",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::ServiceRouteHandoverNoticeProofV1,
-        context: "ak.service_route_handover_notice_proof.v1",
-        object_family: "service_route_handover_notice",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "service_id",
-            "service_kind",
-            "handover_id",
-            "notice_revision",
-            "state",
-            "from_record_sequence",
-            "from_record_digest",
-            "candidate_base_url?",
-            "candidate_record_url?",
-            "not_before?",
-            "cutover_at?",
-            "grace_until?",
-            "previous_notice_digest",
-            "issued_at",
-            "expires_at",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/identity-resolution.schema.json#/$defs/service_route_handover_notice",
     },
     ProofContextDescriptor {
         id: ProofContextId::SessionGrantAcceptedDevicePossessionProofV1,

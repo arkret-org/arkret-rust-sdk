@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-08.1;
-//! sha256=e4682f05a4575b7200787da0202ec4341e92795cd7387f93a2a9201592dc63c9
-//! Entries: reason_codes=431
+//! Input: registry/error-code-registry.json; version=2026-09-08.3;
+//! sha256=8b805b1267323151e672844984644a20f263cacd10268d5d473c2068224187e7
+//! Entries: reason_codes=422
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -339,8 +339,6 @@ pub enum ReasonCode {
     RelationConflictFanoutExceeded,
     RelationKindContainsDerived,
     RelationKindWatchesDerived,
-    RelationProfileCardinalityConflict,
-    RelationScopeUnresolved,
     RelaxedWindowExceedsCeiling,
     ResolutionHistoryAncestorUnknown,
     RevocationFreshnessUnknown,
@@ -370,14 +368,7 @@ pub enum ReasonCode {
     ServiceKeyRevoked,
     ServiceNotPlaintextVisible,
     ServicePrerotationInvalid,
-    ServiceResolutionMirrorResponseGap,
-    ServiceResolutionMirrorResponseLimit,
     ServiceRouteFork,
-    ServiceRouteNoticeBasisStale,
-    ServiceRouteNoticeCancelled,
-    ServiceRouteNoticeConflict,
-    ServiceRouteNoticeExpired,
-    ServiceRouteSuccessorUnavailable,
     SessionFocusAlreadyCommitted,
     SessionFocusNoSplitBrain,
     SessionMissing,
@@ -851,9 +842,6 @@ impl ReasonCode {
     pub const RELATION_CONFLICT_FANOUT_EXCEEDED: &'static str = "relation_conflict_fanout_exceeded";
     pub const RELATION_KIND_CONTAINS_DERIVED: &'static str = "relation_kind_contains_derived";
     pub const RELATION_KIND_WATCHES_DERIVED: &'static str = "relation_kind_watches_derived";
-    pub const RELATION_PROFILE_CARDINALITY_CONFLICT: &'static str =
-        "relation_profile_cardinality_conflict";
-    pub const RELATION_SCOPE_UNRESOLVED: &'static str = "relation_scope_unresolved";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
         "resolution_history_ancestor_unknown";
@@ -885,17 +873,7 @@ impl ReasonCode {
     pub const SERVICE_KEY_REVOKED: &'static str = "service_key_revoked";
     pub const SERVICE_NOT_PLAINTEXT_VISIBLE: &'static str = "service_not_plaintext_visible";
     pub const SERVICE_PREROTATION_INVALID: &'static str = "service_prerotation_invalid";
-    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP: &'static str =
-        "service_resolution_mirror_response_gap";
-    pub const SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT: &'static str =
-        "service_resolution_mirror_response_limit";
     pub const SERVICE_ROUTE_FORK: &'static str = "service_route_fork";
-    pub const SERVICE_ROUTE_NOTICE_BASIS_STALE: &'static str = "service_route_notice_basis_stale";
-    pub const SERVICE_ROUTE_NOTICE_CANCELLED: &'static str = "service_route_notice_cancelled";
-    pub const SERVICE_ROUTE_NOTICE_CONFLICT: &'static str = "service_route_notice_conflict";
-    pub const SERVICE_ROUTE_NOTICE_EXPIRED: &'static str = "service_route_notice_expired";
-    pub const SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE: &'static str =
-        "service_route_successor_unavailable";
     pub const SESSION_FOCUS_ALREADY_COMMITTED: &'static str = "session_focus_already_committed";
     pub const SESSION_FOCUS_NO_SPLIT_BRAIN: &'static str = "session_focus_no_split_brain";
     pub const SESSION_MISSING: &'static str = "session_missing";
@@ -1353,8 +1331,6 @@ impl ReasonCode {
             Self::RelationConflictFanoutExceeded => Self::RELATION_CONFLICT_FANOUT_EXCEEDED,
             Self::RelationKindContainsDerived => Self::RELATION_KIND_CONTAINS_DERIVED,
             Self::RelationKindWatchesDerived => Self::RELATION_KIND_WATCHES_DERIVED,
-            Self::RelationProfileCardinalityConflict => Self::RELATION_PROFILE_CARDINALITY_CONFLICT,
-            Self::RelationScopeUnresolved => Self::RELATION_SCOPE_UNRESOLVED,
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
@@ -1386,18 +1362,7 @@ impl ReasonCode {
             Self::ServiceKeyRevoked => Self::SERVICE_KEY_REVOKED,
             Self::ServiceNotPlaintextVisible => Self::SERVICE_NOT_PLAINTEXT_VISIBLE,
             Self::ServicePrerotationInvalid => Self::SERVICE_PREROTATION_INVALID,
-            Self::ServiceResolutionMirrorResponseGap => {
-                Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP
-            }
-            Self::ServiceResolutionMirrorResponseLimit => {
-                Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT
-            }
             Self::ServiceRouteFork => Self::SERVICE_ROUTE_FORK,
-            Self::ServiceRouteNoticeBasisStale => Self::SERVICE_ROUTE_NOTICE_BASIS_STALE,
-            Self::ServiceRouteNoticeCancelled => Self::SERVICE_ROUTE_NOTICE_CANCELLED,
-            Self::ServiceRouteNoticeConflict => Self::SERVICE_ROUTE_NOTICE_CONFLICT,
-            Self::ServiceRouteNoticeExpired => Self::SERVICE_ROUTE_NOTICE_EXPIRED,
-            Self::ServiceRouteSuccessorUnavailable => Self::SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE,
             Self::SessionFocusAlreadyCommitted => Self::SESSION_FOCUS_ALREADY_COMMITTED,
             Self::SessionFocusNoSplitBrain => Self::SESSION_FOCUS_NO_SPLIT_BRAIN,
             Self::SessionMissing => Self::SESSION_MISSING,
@@ -1860,8 +1825,6 @@ impl ReasonCode {
             Self::RELATION_CONFLICT_FANOUT_EXCEEDED => Self::RelationConflictFanoutExceeded,
             Self::RELATION_KIND_CONTAINS_DERIVED => Self::RelationKindContainsDerived,
             Self::RELATION_KIND_WATCHES_DERIVED => Self::RelationKindWatchesDerived,
-            Self::RELATION_PROFILE_CARDINALITY_CONFLICT => Self::RelationProfileCardinalityConflict,
-            Self::RELATION_SCOPE_UNRESOLVED => Self::RelationScopeUnresolved,
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
@@ -1893,18 +1856,7 @@ impl ReasonCode {
             Self::SERVICE_KEY_REVOKED => Self::ServiceKeyRevoked,
             Self::SERVICE_NOT_PLAINTEXT_VISIBLE => Self::ServiceNotPlaintextVisible,
             Self::SERVICE_PREROTATION_INVALID => Self::ServicePrerotationInvalid,
-            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP => {
-                Self::ServiceResolutionMirrorResponseGap
-            }
-            Self::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT => {
-                Self::ServiceResolutionMirrorResponseLimit
-            }
             Self::SERVICE_ROUTE_FORK => Self::ServiceRouteFork,
-            Self::SERVICE_ROUTE_NOTICE_BASIS_STALE => Self::ServiceRouteNoticeBasisStale,
-            Self::SERVICE_ROUTE_NOTICE_CANCELLED => Self::ServiceRouteNoticeCancelled,
-            Self::SERVICE_ROUTE_NOTICE_CONFLICT => Self::ServiceRouteNoticeConflict,
-            Self::SERVICE_ROUTE_NOTICE_EXPIRED => Self::ServiceRouteNoticeExpired,
-            Self::SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE => Self::ServiceRouteSuccessorUnavailable,
             Self::SESSION_FOCUS_ALREADY_COMMITTED => Self::SessionFocusAlreadyCommitted,
             Self::SESSION_FOCUS_NO_SPLIT_BRAIN => Self::SessionFocusNoSplitBrain,
             Self::SESSION_MISSING => Self::SessionMissing,
@@ -3712,16 +3664,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for schema_violation when a direct ak.relation.create / update / delete targets relation_kind=watches. The watches Relation is a derived projection only: its truth source is the ak.component.strand.watch.v1 cell written via the ak.strand.watch.set durable event, never a direct Relation write. See zh/models/relation.md §3.2 and zh/models/strand-and-message.md §8.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_PROFILE_CARDINALITY_CONFLICT,
-        applies_to: &["schema_validation", "state_resolution"],
-        description: "RelationProfile registration/update was rejected because its `cardinality` and `max_to_per_from` / `max_from_per_to` express contradictory bounds (e.g. one_to_one with max_to_per_from > 1, or many_to_one with max_to_per_from > 1), or a `max_*` value is <= 0. `max_*` may only tighten within the direction implied by `cardinality`. See zh/models/relation.md §5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RELATION_SCOPE_UNRESOLVED,
-        applies_to: &["state_resolution", "service_call"],
-        description: "A Relation write with `relation_scope` in {space, board} was rejected because the reducer could not resolve the participating endpoints' owning board/space (`board_space_id`) used as the dedupe/cardinality key — the endpoint belongs to no board/space, or the owning board/space is tombstoned. The reducer MUST NOT silently downgrade to realm-scope dedupe. See zh/models/relation.md §5.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::RELAXED_WINDOW_EXCEEDS_CEILING,
         applies_to: &["schema_violation", "state_resolution"],
         description: "A ak.realm.policy_bundle write under ak.profile.e2ee_relaxed.v1 declared relaxed_window_max_ms greater than the spec hard ceiling (300000 ms / 5 min). Reducer MUST reject the policy update and receivers MUST NOT silently clamp; otherwise visible policy state splits across implementations. See artifacts/profiles/conformance-profiles.json#ak.profile.e2ee_relaxed.v1.downgrade_window_constraint.",
@@ -3871,44 +3813,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A service did:webvh inception or rotation omitted the sole next-key commitment, supplied more than one update/next key, or failed to open the previous nextKeyHashes commitment. Providers and resolvers MUST fail closed as service_registration_denied.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_RESOLUTION_MIRROR_RESPONSE_GAP,
-        applies_to: &["identity_resolution", "federation_transaction"],
-        description: "Internal peer-response diagnosis for a non-contiguous successor chain. It is a requester-local validation result and MUST NOT appear in the responder's wire error.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_RESOLUTION_MIRROR_RESPONSE_LIMIT,
-        applies_to: &["identity_resolution", "service_call"],
-        description: "Internal peer-response diagnosis for the 32-record, 256-KiB or caller-selected budget limit. It MUST NOT be serialized by the blinded peer resolve surface, which uses the universal size failure.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::SERVICE_ROUTE_FORK,
         applies_to: &["identity_resolution", "federation_transaction"],
-        description: "Internal anti-rollback diagnosis for distinct valid target-signed artifacts at the same sequence/revision; the service route is quarantined. It MUST NOT be serialized by the blinded peer resolve surface.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_ROUTE_NOTICE_BASIS_STALE,
-        applies_to: &["identity_resolution", "federation_transaction"],
-        description: "Internal route evaluator diagnosis for a notice whose exact record basis is not the receiver's durable floor. It MUST NOT be serialized by ak.peer.service_resolution.read.resolve.v1; the outward response is the blinded not_found/capability-denied or universal failure surface.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_ROUTE_NOTICE_CANCELLED,
-        applies_to: &["identity_resolution", "service_call"],
-        description: "Internal route evaluator diagnosis that a candidate belongs to an accepted cancelled notice. It MUST NOT be serialized by the blinded peer resolve surface.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_ROUTE_NOTICE_CONFLICT,
-        applies_to: &["identity_resolution", "federation_transaction"],
-        description: "Internal route evaluator diagnosis for a notice revision/digest fork or duplicate-key conflict. It MUST NOT be serialized by the blinded peer resolve surface.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_ROUTE_NOTICE_EXPIRED,
-        applies_to: &["identity_resolution", "service_call"],
-        description: "Internal route evaluator diagnosis that the signed handover validity window has expired. It MUST NOT be serialized by the blinded peer resolve surface.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SERVICE_ROUTE_SUCCESSOR_UNAVAILABLE,
-        applies_to: &["identity_resolution", "service_call"],
-        description: "Internal route evaluator diagnosis that no exact formal successor record is available at the candidate or authorized mirror. It MUST NOT be serialized by the blinded peer resolve surface.",
+        description: "The method-native service evidence conflicts with the durable accepted DID history prefix.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SESSION_FOCUS_ALREADY_COMMITTED,

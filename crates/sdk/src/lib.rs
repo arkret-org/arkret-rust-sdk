@@ -334,9 +334,6 @@ pub use arkret_signatures::keypackages::{
     sign_keypackages_revoke_request, sign_keypackages_upload_request,
     verify_keypackage_signing_input,
 };
-pub use arkret_signatures::service_resolution::{
-    sign_service_resolution_record, verify_authenticated_service_resolution,
-};
 // Shared `did:webvh` inception builder + organization statement signer, surfaced
 // at the SDK root so clients (sodmin / inkson) and servers (soland / coauth)
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,

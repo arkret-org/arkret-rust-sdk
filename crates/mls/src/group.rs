@@ -1156,14 +1156,19 @@ impl ArkretMlsGroup {
         preview.add_members_with_optional_governance_binding(
             member_key_packages,
             None,
-            if replace_existing_endpoints { member_actor_ids } else { &[] },
+            if replace_existing_endpoints {
+                member_actor_ids
+            } else {
+                &[]
+            },
         )?;
         let post_leaves = preview.active_author_leaves();
 
         let mut result = Vec::with_capacity(post_leaves.len());
         let mut attributed_indices = std::collections::BTreeSet::new();
         for binding in self.leaf_bindings.values() {
-            if replace_existing_endpoints && member_actor_ids.contains(&binding.actor_id)
+            if replace_existing_endpoints
+                && member_actor_ids.contains(&binding.actor_id)
                 && member_key_packages
                     .iter()
                     .any(|record| record.endpoint == binding.endpoint)

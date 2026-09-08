@@ -223,6 +223,7 @@ impl HttpDidResolver {
         let builder = HttpClient::builder()
             .timeout(Duration::from_millis(DEFAULT_HTTP_DID_RESOLVER_TIMEOUT_MS))
             .redirect(reqwest::redirect::Policy::none());
+        let builder = crate::tls_roots::apply_explicit_tls_roots(builder)?;
         target
             .apply_to_client_builder(builder)
             .build()
@@ -395,15 +396,40 @@ impl HttpDidResolver {
     }
 
     async fn resolve_did_webvh(&self, did: &Did) -> Result<ResolvedDid> {
+        let expected_core = arkret_wire::project_did_to_core_id(did)?;
+        let mut current = did.clone();
+        for _ in 0..4 {
+            self.policy.validate(&current)?;
+            let log_url = DidWebvhResolver::log_url(&current)?;
+            let (log_ct, log_body) = self
+                .fetch_bytes(&log_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32))
+                .await?;
+            let discovered =
+                arkret_identity::discover_webvh_current_did(&expected_core, &log_body)?;
+            if discovered == current {
+                return self.resolve_did_webvh_at(&current, log_ct, log_body).await;
+            }
+            // An old authority's verified log is discovery only. Resolve the
+            // destination afresh, including its native witness requirements.
+            current = discovered;
+        }
+        Err(Error::Protocol(
+            "did:webvh relocation exceeds discovery hop limit".to_owned(),
+        ))
+    }
+
+    async fn resolve_did_webvh_at(
+        &self,
+        did: &Did,
+        log_ct: String,
+        log_body: Vec<u8>,
+    ) -> Result<ResolvedDid> {
         let doc_url = DidWebvhResolver::document_url(did)?;
         let log_url = DidWebvhResolver::log_url(did)?;
         // Documents are capped at the spec document limit; the jsonl log
         // is deliberately wider (×32, matching `DidWebvhResolver::ingest_log`).
         let (doc_ct, doc_body) = self
             .fetch_bytes(&doc_url, DID_WEB_MAX_DOCUMENT_BYTES)
-            .await?;
-        let (log_ct, log_body) = self
-            .fetch_bytes(&log_url, DID_WEB_MAX_DOCUMENT_BYTES.saturating_mul(32))
             .await?;
         let mut witness_declared = false;
         for line in log_body

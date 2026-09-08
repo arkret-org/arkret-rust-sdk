@@ -47,9 +47,10 @@ impl PeerContactAddress {
         self.service_resolution
             .validate_shape(delivery_station_id)?;
         if let ServiceResolutionCarrier::Inline { inline } = &self.service_resolution {
-            let projected = arkret_wire::project_did_to_core_id(&inline.record.did)?;
+            let projected =
+                arkret_wire::project_did_to_core_id(&inline.normalized_did_document.id)?;
             if projected != *delivery_station_id
-                || inline.record.service_kind != Self::RECIPIENT_SERVICE_KIND
+                || inline.service_kind != Self::RECIPIENT_SERVICE_KIND
             {
                 return Err(arkret_wire::WireError::Protocol(
                     "Contact inline service resolution does not bind the recipient Station"
@@ -114,7 +115,7 @@ mod tests {
         let value = serde_json::json!({
             "recipient": {"kind": "human", "account_id": account_id},
             "service_resolution": {
-                "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
+                "resolution_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
             }
         });
         let address: PeerContactAddress = serde_json::from_value(value.clone()).unwrap();
@@ -133,7 +134,7 @@ mod tests {
             "account_id": authority(),
             "recipient_id": "ak:did_core:webvh:z6mkService",
             "service_resolution": {
-                "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
+                "resolution_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
             }
         });
         assert!(serde_json::from_value::<PeerContactAddress>(old_split_identity).is_err());
@@ -141,7 +142,7 @@ mod tests {
         let wrong_station: PeerContactAddress = serde_json::from_value(serde_json::json!({
             "recipient": {"kind": "human", "account_id": authority()},
             "service_resolution": {
-                "current_record_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkOther/resolution"
+                "resolution_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkOther/resolution"
             }
         }))
         .unwrap();

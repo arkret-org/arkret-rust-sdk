@@ -624,6 +624,39 @@ pub struct ServiceDescribe {
 }
 
 impl ServiceDescribe {
+    /// Confirm the exact route after independent DID-method verification.
+    pub fn validate_route_projection(
+        &self,
+        route: &arkret_models_identity::ServiceResolutionProjection,
+    ) -> Result<()> {
+        self.validate()?;
+        if self.protocol_version.as_str() != PROTOCOL_VERSION
+            || self.service_id != route.service_id
+            || self.service_kind.as_str() != route.service_kind
+            || self.service_resolution.did != route.did
+            || self.service_resolution.method_history_head != route.method_history_head
+            || self.service_resolution.version_id != route.version_id
+        {
+            return Err(WireError::Protocol(
+                "ServiceDescribe differs from the verified DID state".to_owned(),
+            ));
+        }
+        let bases: Vec<_> = self
+            .transport_bindings
+            .iter()
+            .filter_map(|binding| match binding {
+                TransportBinding::HttpJson { base_url, .. } => Some(base_url.as_str()),
+                _ => None,
+            })
+            .collect();
+        if bases != [route.base_url.as_str()] {
+            return Err(WireError::Protocol(
+                "ServiceDescribe must confirm exactly one verified HTTP endpoint".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub const SCHEMA: &'static str = SchemaId::SERVICE_DESCRIBE_V1;
 
     /// Build a complete development-mode description for a service surface.

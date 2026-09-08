@@ -44,6 +44,8 @@ pub mod http_did_resolver;
 pub mod key_backup_client;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod service_resolution_fetcher;
+#[cfg(not(target_arch = "wasm32"))]
+mod tls_roots;
 
 pub use account_subscribe::AccountSubscribeFolder;
 pub use builder::ClientBuilder;
@@ -63,10 +65,11 @@ pub use endpoints::{
 };
 pub use error::{Error, Result};
 #[cfg(not(target_arch = "wasm32"))]
-pub use service_resolution_fetcher::{
-    MaterializedServiceResolution, SERVICE_DESCRIBE_FETCH_MAX_BYTES,
-    SERVICE_RESOLUTION_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT, ServiceResolutionFetcher,
-};
+pub use service_resolution_fetcher::{MaterializedServiceResolution, ServiceResolutionFetcher};
+
+pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 1024 * 1024;
+pub const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 1024 * 1024;
+pub const SERVICE_RESOLUTION_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub const HEADER_REQUEST_ID: &str = "X-Arkret-Request-Id";
 pub const HEADER_WAIT_FOR: &str = "X-Arkret-Wait-For";

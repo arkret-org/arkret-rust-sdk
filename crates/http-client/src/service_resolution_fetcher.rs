@@ -1,8 +1,7 @@
 //! Hardened transport-only materialization of service-resolution carriers.
 //!
 //! Fetch success never establishes service authority. Callers must still
-//! verify the returned record proof, method history, freshness, successor
-//! chain and route binding before using its URL.
+//! verify method history, current state, freshness and route binding before using its URL.
 
 use std::time::Duration;
 
@@ -10,64 +9,29 @@ use arkret_egress_policy::OutboundPolicy;
 use arkret_egress_reqwest::EgressGuard;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::service_identity::CanonicalServiceUrl;
-use arkret_models_identity::{
-    AuthenticatedServiceResolution, ServiceResolutionCarrier, ServiceResolutionRecord,
-    validate_service_current_record_url,
-};
-use arkret_wire::{DidCoreId, Hash, ServiceKind, ServiceOperationId};
+use arkret_models_identity::{AuthenticatedServiceResolution, ServiceResolutionCarrier};
+use arkret_wire::{DidCoreId, ServiceKind, ServiceOperationId};
 use reqwest::StatusCode;
 use reqwest::header::{ACCEPT_ENCODING, CONTENT_ENCODING, HeaderMap};
 
 use crate::client_internals::read_body_limited;
-use crate::{Error, HEADER_OPERATION, Result};
+use crate::{
+    Error, HEADER_OPERATION, Result, SERVICE_DESCRIBE_FETCH_MAX_BYTES,
+    SERVICE_RESOLUTION_FETCH_MAX_BYTES, SERVICE_RESOLUTION_FETCH_TIMEOUT,
+};
 
-pub const SERVICE_RESOLUTION_FETCH_MAX_BYTES: usize = 1024 * 1024;
-pub const SERVICE_DESCRIBE_FETCH_MAX_BYTES: usize = 1024 * 1024;
-pub const SERVICE_RESOLUTION_FETCH_TIMEOUT: Duration = Duration::from_secs(5);
-
-/// A bounded canonical record whose transport locator was checked, but whose
-/// cryptographic and method-native authority has not yet been verified.
+/// Complete bounded material; transport success grants no authority.
 #[derive(Clone, Debug)]
-pub enum MaterializedServiceResolution {
-    InlineRecord {
-        record: Box<ServiceResolutionRecord>,
-        canonical_bytes: Vec<u8>,
-    },
-    AuthenticatedResolution {
-        resolution: Box<AuthenticatedServiceResolution>,
-        canonical_bytes: Vec<u8>,
-    },
+pub struct MaterializedServiceResolution {
+    pub resolution: Box<AuthenticatedServiceResolution>,
+    pub canonical_bytes: Vec<u8>,
 }
-
 impl MaterializedServiceResolution {
-    #[must_use]
-    pub fn record(&self) -> &ServiceResolutionRecord {
-        match self {
-            Self::InlineRecord { record, .. } => record,
-            Self::AuthenticatedResolution { resolution, .. } => {
-                &resolution.service_resolution_record
-            }
-        }
-    }
-
-    #[must_use]
     pub fn canonical_bytes(&self) -> &[u8] {
-        match self {
-            Self::InlineRecord {
-                canonical_bytes, ..
-            }
-            | Self::AuthenticatedResolution {
-                canonical_bytes, ..
-            } => canonical_bytes,
-        }
+        &self.canonical_bytes
     }
-
-    #[must_use]
-    pub fn authenticated_resolution(&self) -> Option<&AuthenticatedServiceResolution> {
-        match self {
-            Self::InlineRecord { .. } => None,
-            Self::AuthenticatedResolution { resolution, .. } => Some(resolution),
-        }
+    pub fn authenticated_resolution(&self) -> &AuthenticatedServiceResolution {
+        &self.resolution
     }
 }
 
@@ -110,21 +74,14 @@ impl ServiceResolutionFetcher {
             ServiceResolutionCarrier::Inline { inline } => {
                 let canonical_bytes = arkret_canonical::canonical::canonical_json_bytes(inline)
                     .map_err(|error| Error::Protocol(error.to_string()))?;
-                Ok(MaterializedServiceResolution::InlineRecord {
-                    record: Box::new(inline.clone()),
+                Ok(MaterializedServiceResolution {
+                    resolution: Box::new(inline.clone()),
                     canonical_bytes,
                 })
             }
-            ServiceResolutionCarrier::CurrentRecordUrl {
-                current_record_url,
-                pinned_record_digest,
-            } => tokio::time::timeout(
+            ServiceResolutionCarrier::ResolutionUrl { resolution_url } => tokio::time::timeout(
                 SERVICE_RESOLUTION_FETCH_TIMEOUT,
-                self.fetch_url(
-                    current_record_url,
-                    pinned_record_digest.as_ref(),
-                    expected_service_id,
-                ),
+                self.fetch_url(resolution_url, expected_service_id),
             )
             .await
             .map_err(|_| {
@@ -134,12 +91,11 @@ impl ServiceResolutionFetcher {
     }
 
     /// Fetch the role-scoped endpoint confirmation from a base URL that the
-    /// caller has already authenticated through a signed
-    /// `ServiceResolutionRecord`.
+    /// caller has already authenticated through verified DID method state.
     ///
     /// Transport success is not authority. Callers must validate the typed
     /// description and compare its stable route-binding projection with the
-    /// signed record before using any dynamic metadata.
+    /// verified DID endpoint before using any dynamic metadata.
     pub async fn fetch_describe(
         &self,
         verified_base_url: &str,
@@ -194,11 +150,10 @@ impl ServiceResolutionFetcher {
 
     async fn fetch_url(
         &self,
-        current_record_url: &str,
-        pinned_record_digest: Option<&Hash>,
+        resolution_url: &str,
         expected_service_id: &DidCoreId,
     ) -> Result<MaterializedServiceResolution> {
-        let parsed = reqwest::Url::parse(current_record_url)
+        let parsed = reqwest::Url::parse(resolution_url)
             .map_err(|error| Error::Protocol(format!("invalid service resolution URL: {error}")))?;
         let canonical_bytes = self
             .fetch_bounded(
@@ -212,24 +167,10 @@ impl ServiceResolutionFetcher {
         let resolution: AuthenticatedServiceResolution =
             arkret_canonical::canonical::from_canonical_json_slice(&canonical_bytes)
                 .map_err(|error| Error::Protocol(error.to_string()))?;
-        let record = &resolution.service_resolution_record;
-        if &record.record.service_id != expected_service_id {
-            return Err(Error::Protocol(
-                "fetched service resolution targets a different service".to_owned(),
-            ));
-        }
-        validate_service_current_record_url(&record.record.current_record_url, expected_service_id)
+        resolution
+            .validate_shape(expected_service_id, chrono::Utc::now())
             .map_err(|error| Error::Protocol(error.to_string()))?;
-        if let Some(expected_digest) = pinned_record_digest {
-            let actual = Hash::new(arkret_canonical::canonical_sha256(&record)?)
-                .map_err(|error| Error::Protocol(error.to_string()))?;
-            if &actual != expected_digest {
-                return Err(Error::Protocol(
-                    "fetched service resolution does not match its pinned digest".to_owned(),
-                ));
-            }
-        }
-        Ok(MaterializedServiceResolution::AuthenticatedResolution {
+        Ok(MaterializedServiceResolution {
             resolution: Box::new(resolution),
             canonical_bytes,
         })
@@ -254,7 +195,7 @@ impl ServiceResolutionFetcher {
             .redirect(reqwest::redirect::Policy::none())
             .no_proxy()
             .gzip(false);
-        let builder = apply_explicit_tls_roots(builder)?;
+        let builder = crate::tls_roots::apply_explicit_tls_roots(builder)?;
         let client = target
             .apply_to_client_builder(builder)
             .build()
@@ -271,35 +212,6 @@ impl ServiceResolutionFetcher {
         validate_response_metadata(&response, purpose, max_bytes)?;
         read_body_limited(response, max_bytes).await
     }
-}
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "tls-rustls"))]
-fn apply_explicit_tls_roots(builder: reqwest::ClientBuilder) -> Result<reqwest::ClientBuilder> {
-    let Some(path) = std::env::var_os("SSL_CERT_FILE") else {
-        return Ok(builder);
-    };
-    let path = std::path::PathBuf::from(path);
-    let pem = std::fs::read(&path).map_err(|error| {
-        Error::Protocol(format!(
-            "failed to read SSL_CERT_FILE {}: {error}",
-            path.display()
-        ))
-    })?;
-    let certificates = reqwest::Certificate::from_pem_bundle(&pem).map_err(|error| {
-        Error::Protocol(format!(
-            "SSL_CERT_FILE {} contains no valid PEM certificate: {error}",
-            path.display()
-        ))
-    })?;
-    // SSL_CERT_FILE is an explicit trust-store override. Keep hostname
-    // verification enabled, but avoid the platform verifier so ephemeral and
-    // private deployment roots are evaluated consistently by rustls/webpki.
-    Ok(builder.tls_backend_rustls().tls_certs_only(certificates))
-}
-
-#[cfg(not(all(not(target_arch = "wasm32"), feature = "tls-rustls")))]
-fn apply_explicit_tls_roots(builder: reqwest::ClientBuilder) -> Result<reqwest::ClientBuilder> {
-    Ok(builder)
 }
 
 fn validate_response_metadata(
@@ -343,7 +255,7 @@ fn validate_response_shape(
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_identity::canonical_service_current_record_path;
+    use arkret_models_identity::canonical_service_resolution_path;
     use arkret_wire::ServiceKind;
     use reqwest::header::HeaderValue;
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
@@ -355,12 +267,11 @@ mod tests {
     #[tokio::test]
     async fn public_fetcher_rejects_private_target_before_connecting() {
         let service_id = DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap();
-        let carrier = ServiceResolutionCarrier::CurrentRecordUrl {
-            current_record_url: format!(
+        let carrier = ServiceResolutionCarrier::ResolutionUrl {
+            resolution_url: format!(
                 "https://127.0.0.1{}",
-                canonical_service_current_record_path(&service_id)
+                canonical_service_resolution_path(&service_id)
             ),
-            pinned_record_digest: None,
         };
         let error = ServiceResolutionFetcher::new()
             .materialize(&carrier, &service_id)

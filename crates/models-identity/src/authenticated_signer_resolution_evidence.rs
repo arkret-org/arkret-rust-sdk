@@ -99,15 +99,15 @@ impl AuthenticatedSignerResolutionEvidence {
                 verification_method,
                 authenticated_resolution,
             } => {
-                let record = &authenticated_resolution.service_resolution_record.record;
+                let did = &authenticated_resolution.normalized_did_document.id;
                 let method_controller = verification_method
                     .as_str()
                     .split_once('#')
                     .map(|(controller, _)| controller);
-                if &record.service_id != signer_id
-                    || !(record.did.as_str().starts_with("did:key:")
-                        || record.did.as_str().starts_with("did:webvh:"))
-                    || method_controller != Some(record.did.as_str())
+                if &authenticated_resolution.service_id != signer_id
+                    || !(did.as_str().starts_with("did:key:")
+                        || did.as_str().starts_with("did:webvh:"))
+                    || method_controller != Some(did.as_str())
                 {
                     return Err(WireError::Protocol(
                         "service signer evidence does not authorize its signer or method"

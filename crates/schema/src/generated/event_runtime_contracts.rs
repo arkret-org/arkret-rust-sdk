@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-07.12;
-//! sha256=e5fedce013a617ac0ffb36d7fcf151c10f9e381bebee8c6232e46c73370da573 Input: registry/
-//! id-kind-registry.json; version=2026-09-07.1;
-//! sha256=c484217528cb60bd7536bd99a6a9971388f4a33671dd221ec5558c98cef816d0
+//! Input: registry/event-kind-registry.json; version=2026-09-08.1;
+//! sha256=8195c3b1ab25b125704a6fd664df830a22e209ee6be7262b593c60dc1bf4e51a Input: registry/
+//! id-kind-registry.json; version=2026-09-08.3;
+//! sha256=8bc4a235a921656403a739a0a6618d2b00f47a566c19080f021d5a4b6fd13ed4
 //! Entries: active_events=170, pre_state_requirements=8
 
 use arkret_wire::{

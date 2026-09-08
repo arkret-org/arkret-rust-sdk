@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-08.1;
-//! sha256=cfaafa428428c03c915237684eb3ea18908a44829e2b06c464a9794c6eafb426 Entries: registered=235
+//! Input: registry/operation-registry.json; version=2026-09-08.3;
+//! sha256=41f9739b720e238147381c41f26e8e08d865b2ca8f8847ae544dd774ff251f09 Entries: registered=233
 
 use serde::{Deserialize, Serialize};
 
@@ -97,8 +97,6 @@ pub enum ServiceOperationId {
     PeerSealsReadGovernanceDependenciesV1,
     PeerSealsReadMlsGovernanceProofV1,
     PeerSealsReadResolveV1,
-    PeerServiceResolutionCommandPublishV1,
-    PeerServiceResolutionReadResolveV1,
     PeerSignalCommandRelayV1,
     RootIdentityCommandSubmitDidOperationV1,
     RootIdentityDocumentResourceGetV1,
@@ -335,8 +333,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
     ServiceOperationId::PEER_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
     ServiceOperationId::PEER_SEALS_READ_RESOLVE_V1,
-    ServiceOperationId::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH_V1,
-    ServiceOperationId::PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1,
     ServiceOperationId::PEER_SIGNAL_COMMAND_RELAY_V1,
     ServiceOperationId::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1,
     ServiceOperationId::ROOT_IDENTITY_DOCUMENT_RESOURCE_GET_V1,
@@ -615,8 +611,6 @@ impl ServiceOperationId {
         Self::PeerSealsReadGovernanceDependenciesV1,
         Self::PeerSealsReadMlsGovernanceProofV1,
         Self::PeerSealsReadResolveV1,
-        Self::PeerServiceResolutionCommandPublishV1,
-        Self::PeerServiceResolutionReadResolveV1,
         Self::PeerSignalCommandRelayV1,
         Self::RootIdentityCommandSubmitDidOperationV1,
         Self::RootIdentityDocumentResourceGetV1,
@@ -924,10 +918,6 @@ impl ServiceOperationId {
     pub const PEER_SEALS_READ_MLS_GOVERNANCE_PROOF_V1: &'static str =
         "ak.peer.seals.read.mls_governance_proof.v1";
     pub const PEER_SEALS_READ_RESOLVE_V1: &'static str = "ak.peer.seals.read.resolve.v1";
-    pub const PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH_V1: &'static str =
-        "ak.peer.service_resolution.command.publish.v1";
-    pub const PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1: &'static str =
-        "ak.peer.service_resolution.read.resolve.v1";
     pub const PEER_SIGNAL_COMMAND_RELAY_V1: &'static str = "ak.peer.signal.command.relay.v1";
     pub const ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1: &'static str =
         "ak.root.identity.command.submit_did_operation.v1";
@@ -1316,12 +1306,6 @@ impl ServiceOperationId {
                 Self::PEER_SEALS_READ_MLS_GOVERNANCE_PROOF_V1
             }
             Self::PeerSealsReadResolveV1 => Self::PEER_SEALS_READ_RESOLVE_V1,
-            Self::PeerServiceResolutionCommandPublishV1 => {
-                Self::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH_V1
-            }
-            Self::PeerServiceResolutionReadResolveV1 => {
-                Self::PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1
-            }
             Self::PeerSignalCommandRelayV1 => Self::PEER_SIGNAL_COMMAND_RELAY_V1,
             Self::RootIdentityCommandSubmitDidOperationV1 => {
                 Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1
@@ -1752,12 +1736,6 @@ impl ServiceOperationId {
                 Some(Self::PeerSealsReadMlsGovernanceProofV1)
             }
             Self::PEER_SEALS_READ_RESOLVE_V1 => Some(Self::PeerSealsReadResolveV1),
-            Self::PEER_SERVICE_RESOLUTION_COMMAND_PUBLISH_V1 => {
-                Some(Self::PeerServiceResolutionCommandPublishV1)
-            }
-            Self::PEER_SERVICE_RESOLUTION_READ_RESOLVE_V1 => {
-                Some(Self::PeerServiceResolutionReadResolveV1)
-            }
             Self::PEER_SIGNAL_COMMAND_RELAY_V1 => Some(Self::PeerSignalCommandRelayV1),
             Self::ROOT_IDENTITY_COMMAND_SUBMIT_DID_OPERATION_V1 => {
                 Some(Self::RootIdentityCommandSubmitDidOperationV1)
@@ -4156,53 +4134,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/SealResolveOutcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerServiceResolutionCommandPublishV1,
-        http_method: "POST",
-        http_path: "/_arkret/peer/service-resolution/publish",
-        grpc: Some("PeerServiceResolution/Publish"),
-        mq: Some("peer.service_resolution.command.publish"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(65536),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/service_resolution_publish_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/service_resolution_publish_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "service_local_durable_route_mirror_ledger_and_ack_only_no_realm_event",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::PeerServiceResolutionReadResolveV1,
-        http_method: "QUERY",
-        http_path: "/_arkret/peer/service-resolution/resolve",
-        grpc: Some("PeerServiceResolution/Resolve"),
-        mq: Some("peer.service_resolution.query.resolve"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(16384),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/service_resolution_resolve_request",
-        ),
-        response_schema_ref: Some(
-            "schemas/identity-resolution.schema.json#/$defs/service_resolution_resolve_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

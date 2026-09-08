@@ -102,7 +102,7 @@ impl StoredDidCoreIdentity {
     pub fn validate(&self) -> Result<()> {
         self.identity.validate()?;
         self.did_document
-            .validate_for(&self.identity.registration_key)?;
+            .validate_service_kind(self.identity.registration_key.service_kind())?;
         if self.did_document.id != self.identity.did
             || self.registration_receipt.version_id != self.identity.version_id
         {
@@ -171,22 +171,22 @@ impl DidCoreIdentityBundle {
             IdentityError::Protocol(format!("identity bundle inception is malformed: {error}"))
         })?;
         inception.validate_for(key)?;
-        if inception.state.id != *did {
+        if project_did_to_core_id(&inception.state.id)? != self.identity.identity.service_id {
             return Err(IdentityError::Protocol(
                 "identity bundle history belongs to a different service DID".to_owned(),
             ));
         }
 
-        // The hash chain, pre-rotation commitments and entry proofs are the
-        // restoring deployment's job: it re-verifies every entry before
-        // replaying it, with the same checks it applies to a log submitted by
-        // anyone else. What is enforced here is the binding this type owns -
-        // that the log, the identity and the receipts describe one DID at one
-        // version - which is the part a consumer cannot re-derive.
-        // Bind the log to the identity it ships with. Without this a bundle
-        // could carry a current identity beside a log that no longer heads it -
-        // exactly the shape a rotation produced before the log was carried in
-        // full - and the mismatch would only surface during recovery.
+        // Verify native portability as well as key authorization before accepting
+        // a bundle whose historical DID locations differ from its current DID.
+        let mut log_bytes = Vec::new();
+        for entry in &self.webvh_history_entries {
+            log_bytes.extend(arkret_canonical::canonical_json_bytes(entry)?);
+            log_bytes.push(b'\n');
+        }
+        crate::verify_did_webvh_v1_chain_and_witness_bytes(did, &log_bytes, None)
+            .map_err(|error| IdentityError::Protocol(error.to_string()))?;
+
         let head = self
             .webvh_history_entries
             .last()
@@ -224,11 +224,11 @@ impl DidCoreIdentityBundle {
             ));
         }
         for (entry, receipt) in self.webvh_history_entries.iter().zip(&self.receipt_chains) {
-            receipt.validate_for(
-                key,
-                &self.identity.identity.service_id,
-                &self.identity.identity.did,
-            )?;
+            let entry_did: Did =
+                serde_json::from_value(entry.pointer("/state/id").cloned().ok_or_else(|| {
+                    IdentityError::Protocol("identity bundle entry omits its DID".to_owned())
+                })?)?;
+            receipt.validate_for(key, &self.identity.identity.service_id, &entry_did)?;
             let version_id = entry
                 .get("versionId")
                 .and_then(Value::as_str)
@@ -590,10 +590,9 @@ mod tests {
 
     use arkret_keystore::InMemoryKeyStore;
     use arkret_models_identity::service_identity::{
-        CanonicalServiceUrl, ServiceDidDocument, ServiceDidEndpoint, ServiceDidVerificationMethod,
-        ServiceRegistrationEnsureRequestBody, ServiceRegistrationKey, ServiceRegistrationOutcome,
-        ServiceRegistrationReceipt, ServiceWebvhDataIntegrityProof, ServiceWebvhInceptionOperation,
-        ServiceWebvhInceptionParameters,
+        CanonicalServiceUrl, ServiceDidEndpoint, ServiceRegistrationEnsureRequestBody,
+        ServiceRegistrationKey, ServiceRegistrationOutcome, ServiceRegistrationReceipt,
+        ServiceWebvhInceptionOperation,
     };
     use arkret_wire::{
         Did, DidCoreId, DidUrl, Hash, PayloadProof, ServiceKind, project_did_to_core_id, proof_kind,
@@ -615,49 +614,25 @@ mod tests {
         .unwrap()
     }
 
+    fn prepared_inception() -> arkret_signatures::webvh::PreparedInception {
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed([31; 32]);
+        let endpoint = "https://identity.example/".parse().unwrap();
+        let prepared = arkret_signatures::webvh::prepare_service_registration_inception(
+            &mut rng,
+            &arkret_signatures::webvh::ServiceRegistrationInceptionInput {
+                provider_endpoint: &endpoint,
+                registration_key: &registration_key(),
+                also_known_as: &[],
+                version_time: "2026-07-15T00:00:00Z".parse().unwrap(),
+                did_key_fragment: None,
+            },
+        )
+        .unwrap();
+        prepared
+    }
+
     fn inception() -> ServiceWebvhInceptionOperation {
-        let did = Did::new("did:webvh:QmScid:identity.example:webvh:auth").unwrap();
-        let signing_key = "z6MkiSigning".to_owned();
-        let update_key = "z6MkiUpdate".to_owned();
-        let signing_id = format!("{did}#did-key-1");
-        ServiceWebvhInceptionOperation {
-            version_id: "1-QmVersion".to_owned(),
-            version_time: "2026-07-15T00:00:00.000Z".parse().unwrap(),
-            parameters: ServiceWebvhInceptionParameters {
-                scid: "QmScid".to_owned(),
-                method: "did:webvh:1.0".to_owned(),
-                portable: true,
-                update_keys: vec![update_key.clone()],
-                next_key_hashes: vec!["QmNextKeyHash".to_owned()],
-            },
-            state: ServiceDidDocument {
-                context: vec!["https://www.w3.org/ns/did/v1".to_owned()],
-                id: did.clone(),
-                also_known_as: Vec::new(),
-                verification_method: vec![ServiceDidVerificationMethod {
-                    id: signing_id.clone(),
-                    method_type: "Multikey".to_owned(),
-                    controller: did.clone(),
-                    public_key_multibase: signing_key,
-                }],
-                authentication: vec![signing_id.clone()],
-                assertion_method: vec![signing_id],
-                service: vec![ServiceDidEndpoint {
-                    id: format!("{did}#service"),
-                    endpoint_type: "ArkretService".to_owned(),
-                    service_kind: ServiceKind::Station,
-                    service_endpoint: CanonicalServiceUrl::new("https://station.example/").unwrap(),
-                }],
-            },
-            proof: vec![ServiceWebvhDataIntegrityProof {
-                proof_type: "DataIntegrityProof".to_owned(),
-                cryptosuite: "eddsa-jcs-2022".to_owned(),
-                verification_method: DidUrl::new(format!("did:key:{update_key}#{update_key}"))
-                    .unwrap(),
-                proof_purpose: "assertionMethod".to_owned(),
-                proof_value: "zProof".to_owned(),
-            }],
-        }
+        serde_json::from_value(prepared_inception().log_entry.clone()).unwrap()
     }
 
     fn receipt(operation: &ServiceWebvhInceptionOperation) -> ServiceRegistrationReceipt {
@@ -820,6 +795,76 @@ mod tests {
                 .validate_provider_did(&provider_did)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn bundle_retains_historical_did_locations_across_native_portability() {
+        let prepared = prepared_inception();
+        let operation = inception();
+        let old_receipt = receipt(&operation);
+        let mut stored = stored_identity();
+        let scid = prepared.did.split(':').nth(2).unwrap();
+        let target = format!("did:webvh:{scid}:moved.example:webvh:service");
+        let mut state: serde_json::Value = serde_json::from_str(
+            &serde_json::to_string(&prepared.log_entry["state"])
+                .unwrap()
+                .replace(&prepared.did, &target),
+        )
+        .unwrap();
+        state["alsoKnownAs"] = serde_json::json!([prepared.did]);
+        let next_key = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+            ed25519_dalek::SigningKey::from_bytes(&[33; 32])
+                .verifying_key()
+                .as_bytes(),
+        );
+        let moved = arkret_signatures::webvh::prepare_webvh_relocation(
+            &arkret_signatures::webvh::WebvhRelocationInput {
+                current_did: &prepared.did,
+                target_did: &target,
+                previous_entries: std::slice::from_ref(&prepared.log_entry),
+                version_time: "2026-07-15T00:00:02Z".parse().unwrap(),
+                current_update_seed: &prepared.next_update_key_seed,
+                next_update_public_key_multibase: &next_key,
+                state: &state,
+            },
+        )
+        .unwrap();
+        let mut current_receipt = old_receipt.clone();
+        current_receipt.did = Did::new(&target).unwrap();
+        current_receipt.version_id = moved.version_id.clone();
+        current_receipt.issued_at = "2026-07-15T00:00:03Z".parse().unwrap();
+        current_receipt.proof.created_at = current_receipt.issued_at;
+        current_receipt.log_head_digest =
+            arkret_canonical::canonical_sha256(&moved.log_entry).unwrap();
+        current_receipt.control_key_digest = arkret_canonical::sha256_digest(
+            moved.log_entry["parameters"]["updateKeys"][0]
+                .as_str()
+                .unwrap()
+                .as_bytes(),
+        );
+        current_receipt.registration_receipt_id =
+            current_receipt.expected_registration_receipt_id().unwrap();
+        current_receipt.proof.payload_digest = current_receipt.expected_payload_digest().unwrap();
+        current_receipt.proof =
+            arkret_signatures::service_identity::sign_registration_receipt_proof(
+                &current_receipt,
+                &ed25519_dalek::SigningKey::from_bytes(&[11; 32]),
+            )
+            .unwrap();
+        stored.identity.did = Did::new(target).unwrap();
+        stored.identity.version_id = moved.version_id;
+        stored.did_document = serde_json::from_value(state).unwrap();
+        stored.registration_receipt = current_receipt.clone();
+        let mut bundle = DidCoreIdentityBundle {
+            schema: DidCoreIdentityBundle::SCHEMA.to_owned(),
+            identity: stored,
+            receipt_chains: vec![old_receipt, current_receipt],
+            webvh_history_entries: vec![prepared.log_entry.clone(), moved.log_entry],
+            exported_at: "2026-07-15T00:00:03Z".parse().unwrap(),
+        };
+        bundle.validate().unwrap();
+        bundle.webvh_history_entries[1]["state"]["alsoKnownAs"] = serde_json::json!([]);
+        assert!(bundle.validate().is_err());
     }
 
     #[test]

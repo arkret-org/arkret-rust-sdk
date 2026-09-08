@@ -9,9 +9,8 @@ use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarr
 use arkret_wire::event_envelope::Event;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    AccountId, ActorId, BlobRef, CbsProofBundle, DidCoreId, EventId, Hash, InviteId,
-    InviteLocatorId, InviteReceiveAction, RealmId, Result, SchemaId, UnknownInviteAction,
-    WireError,
+    AccountId, ActorId, BlobRef, DidCoreId, EventId, Hash, InviteId, InviteLocatorId,
+    InviteReceiveAction, RealmId, Result, SchemaId, UnknownInviteAction, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -26,9 +25,6 @@ pub const INVITE_LOCATOR_ROTATE_PATH: &str = "_arkret/self/invite-locators/rotat
 pub const INVITE_LOCATOR_DEFAULT_TTL_SECONDS: u32 = 900;
 pub const INVITE_LOCATOR_MIN_TTL_SECONDS: u32 = 60;
 pub const INVITE_LOCATOR_MAX_TTL_SECONDS: u32 = 3600;
-/// Upper bound on `InviteDeliveryRequestBody::cbs_proof_bundles`, equal to the
-/// `seal_basis.leaves` bound because each bundle serves one target Seal.
-pub const MAX_INVITE_DELIVERY_CBS_BUNDLES: usize = 64;
 
 fn validate_locator_token_shape(value: &str) -> bool {
     (22..=512).contains(&value.len())
@@ -309,7 +305,7 @@ fn validate_service_resolution_carrier(
     carrier: &ServiceResolutionCarrier,
 ) -> Result<()> {
     if let ServiceResolutionCarrier::Inline { inline } = carrier
-        && &inline.record.service_id != expected_service_id
+        && &inline.service_id != expected_service_id
     {
         return Err(WireError::Protocol(
             "service_resolution inline record does not match recipient_id".to_owned(),
@@ -413,13 +409,6 @@ pub struct InviteDeliveryRequestBody {
     pub invite_event: Event,
     pub invite_address: InviteAddress,
     pub introduction_evidence: IntroductionEvidence,
-    /// Receiver-relative CBS dependency bundles proving the invite Event's
-    /// Realm capability. The receiving Station is not yet a federation peer of
-    /// that Realm, so the authority closure travels with the request instead of
-    /// being fetched. One bundle per `invite_event.seal_basis.leaves` entry;
-    /// transport-only material that enters no signed digest and is never
-    /// materialised into durable Realm state.
-    pub cbs_proof_bundles: Vec<CbsProofBundle>,
     pub idempotency_key: String,
 }
 
@@ -454,7 +443,6 @@ impl InviteDeliveryRequestBody {
         invite_event: Event,
         invite_address: InviteAddress,
         introduction_evidence: IntroductionEvidence,
-        cbs_proof_bundles: Vec<CbsProofBundle>,
         idempotency_key: impl Into<String>,
     ) -> Self {
         Self {
@@ -462,7 +450,6 @@ impl InviteDeliveryRequestBody {
             invite_event,
             invite_address,
             introduction_evidence,
-            cbs_proof_bundles,
             idempotency_key: idempotency_key.into(),
         }
     }
@@ -477,16 +464,6 @@ impl InviteDeliveryRequestBody {
             return Err(WireError::Protocol(
                 "invite_delivery_request.idempotency_key MUST NOT be empty".to_owned(),
             ));
-        }
-        if self.cbs_proof_bundles.is_empty()
-            || self.cbs_proof_bundles.len() > MAX_INVITE_DELIVERY_CBS_BUNDLES
-        {
-            return Err(WireError::Protocol(format!(
-                "invite_delivery_request.cbs_proof_bundles MUST be 1..={MAX_INVITE_DELIVERY_CBS_BUNDLES} bundles"
-            )));
-        }
-        for bundle in &self.cbs_proof_bundles {
-            bundle.validate_structural()?;
         }
         self.invite_address.validate()
     }
@@ -881,10 +858,9 @@ mod tests {
                 DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
                 recipient_id,
             ),
-            service_resolution: ServiceResolutionCarrier::CurrentRecordUrl {
-                current_record_url:
-                    "https://ps.bob.example/_arkret/open/service-resolution/current".to_owned(),
-                pinned_record_digest: None,
+            service_resolution: ServiceResolutionCarrier::ResolutionUrl {
+                resolution_url: "https://ps.bob.example/_arkret/open/service-resolution/current"
+                    .to_owned(),
             },
             route_assistance: None,
             issued_at,

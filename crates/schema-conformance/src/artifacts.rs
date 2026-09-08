@@ -707,7 +707,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "request",
     "rtc_participant",
     "scheduled_send",
-    "service_route_handover",
     "session_grant",
     "sidecar",
     "space",

@@ -256,6 +256,22 @@ pub struct ServiceDidDocument {
 
 impl ServiceDidDocument {
     pub fn validate_for(&self, key: &ServiceRegistrationKey) -> Result<()> {
+        self.validate_service_kind(key.service_kind())?;
+        if self
+            .service
+            .iter()
+            .find(|entry| entry.service_kind == *key.service_kind())
+            .is_none_or(|entry| entry.service_endpoint != *key.public_base_url())
+        {
+            return Err(WireError::Protocol(
+                "service inception endpoint differs from its registration key".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Validate a current method-native document without pinning its endpoint to inception.
+    pub fn validate_service_kind(&self, service_kind: &ServiceKind) -> Result<()> {
         if self.id.method() != "webvh" {
             return Err(WireError::Protocol(
                 "service registration DID document id must use did:webvh".to_owned(),
@@ -325,14 +341,12 @@ impl ServiceDidDocument {
             .service
             .iter()
             .filter(|entry| {
-                entry.endpoint_type == "ArkretService"
-                    && entry.service_kind == *key.service_kind()
-                    && entry.service_endpoint == *key.public_base_url()
+                entry.endpoint_type == "ArkretService" && entry.service_kind == *service_kind
             })
             .count();
         if bindings != 1 {
             return Err(WireError::Protocol(
-                "signed inception must contain exactly one ArkretService endpoint matching service_kind and public_base_url"
+                "service document must contain exactly one ArkretService endpoint matching service_kind"
                     .to_owned(),
             ));
         }

@@ -54,10 +54,6 @@ fn newly_covered_producer_ids_reject_noncanonical_wire_values() {
     );
     check!(arkret_identifiers::OperationId, "ak:operation:");
     check!(arkret_identifiers::RecoveryKeyId, "ak:recovery_key:");
-    check!(
-        arkret_identifiers::ServiceRouteHandoverId,
-        "ak:service_route_handover:"
-    );
 }
 
 #[test]

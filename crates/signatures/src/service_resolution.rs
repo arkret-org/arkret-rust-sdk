@@ -1,48 +1,12 @@
-//! Signed `ServiceResolutionRecord` builder and verifier.
+//! Principal projection attestation signing and verification.
 
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidDocument, PrincipalResolutionProjectionAttestation,
+    DidDocument, PrincipalResolutionProjectionAttestation,
     PrincipalResolutionProjectionAttestationCore, PublicPrincipalResolution,
-    ServiceResolutionPublishAck, ServiceResolutionPublishAckCore, ServiceResolutionRecord,
-    ServiceResolutionRecordCore, ServiceRouteHandoverNotice,
 };
 use arkret_wire::{Base64UrlString, Did, DidCoreId, DidUrl, ProtocolSignature};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, Signer as _, SigningKey, Verifier as _, VerifyingKey};
-
-pub fn sign_service_resolution_record(
-    core: ServiceResolutionRecordCore,
-    verification_method: DidUrl,
-    signing_key: &SigningKey,
-) -> arkret_wire::Result<ServiceResolutionRecord> {
-    let created_at = core.issued_at;
-    let mut record = ServiceResolutionRecord {
-        record: core,
-        proof: ProtocolSignature {
-            verification_method,
-            created_at,
-            jws: base64_value("AA".to_owned())?,
-        },
-    };
-    let bytes = record.proof_signing_bytes()?;
-    record.proof.jws = base64_value(arkret_canonical::base64url_encode(
-        signing_key.sign(&bytes).to_bytes(),
-    ))?;
-    Ok(record)
-}
-
-pub fn sign_service_resolution_publish_ack(
-    core: ServiceResolutionPublishAckCore,
-    verification_method: DidUrl,
-    signing_key: &SigningKey,
-) -> arkret_wire::Result<ServiceResolutionPublishAck> {
-    let mut ack = ServiceResolutionPublishAck {
-        proof: placeholder_proof(verification_method, core.accepted_at)?,
-        ack: core,
-    };
-    ack.proof.jws = signature_value(signing_key, &ack.proof_signing_bytes()?)?;
-    Ok(ack)
-}
 
 /// Sign the Station projection attestation that makes the public
 /// resolution surface verifiable without disclosing any PCR material.
@@ -103,30 +67,6 @@ pub fn verify_public_principal_resolution(
     )
 }
 
-pub fn verify_service_route_handover_notice(
-    notice: &ServiceRouteHandoverNotice,
-    target_document: &DidDocument,
-    expected_service_id: &DidCoreId,
-    now: DateTime<Utc>,
-) -> arkret_wire::Result<VerifyingKey> {
-    notice.notice.validate_shape()?;
-    verify_full_to_core_binding(&target_document.id, expected_service_id)?;
-    if notice.notice.service_id != *expected_service_id
-        || notice.proof.created_at != notice.notice.issued_at
-        || now >= notice.notice.expires_at
-    {
-        return Err(arkret_wire::WireError::Protocol(
-            "handover notice target or freshness mismatch".to_owned(),
-        ));
-    }
-    verify_document_signature(
-        target_document,
-        &notice.proof,
-        &notice.proof_signing_bytes()?,
-        "invalid service route handover proof",
-    )
-}
-
 pub fn verify_full_to_core_binding(
     did: &Did,
     expected_service_id: &DidCoreId,
@@ -159,21 +99,6 @@ fn signature_value(signing_key: &SigningKey, bytes: &[u8]) -> arkret_wire::Resul
 
 fn base64_value(value: String) -> arkret_wire::Result<Base64UrlString> {
     Base64UrlString::new(value).map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))
-}
-
-pub fn verify_authenticated_service_resolution(
-    resolution: &AuthenticatedServiceResolution,
-    expected_service_id: &DidCoreId,
-    now: DateTime<Utc>,
-) -> arkret_wire::Result<VerifyingKey> {
-    resolution.validate_shape(expected_service_id, now)?;
-    let record = &resolution.service_resolution_record;
-    verify_document_signature(
-        &resolution.normalized_did_document,
-        &record.proof,
-        &record.proof_signing_bytes()?,
-        "invalid service resolution proof",
-    )
 }
 
 fn verify_document_signature(
@@ -261,100 +186,4 @@ fn require_assertion_method(document: &DidDocument, method: &DidUrl) -> arkret_w
         ));
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-
-    use arkret_models_identity::{
-        ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
-        ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
-    };
-    use arkret_wire::{DidCoreId, Hash};
-    use chrono::TimeZone as _;
-
-    use super::*;
-
-    fn hash(byte: char) -> Hash {
-        Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
-    }
-
-    fn fixture() -> (AuthenticatedServiceResolution, DidCoreId) {
-        let signing_key = SigningKey::from_bytes(&[31_u8; 32]);
-        let did = Did::new("did:web:agent-authority.example").unwrap();
-        let service_id = arkret_wire::project_did_to_core_id(&did).unwrap();
-        let method = DidUrl::new(format!("{did}#signing-1")).unwrap();
-        let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
-            signing_key.verifying_key().as_bytes(),
-        );
-        let document = DidDocument {
-            id: did.clone(),
-            verification_methods: BTreeMap::from([(method.to_string(), multibase)]),
-            also_known_as: Vec::new(),
-            updated_at: None,
-            raw_properties: BTreeMap::from([(
-                "assertionMethod".to_owned(),
-                serde_json::json!([method]),
-            )]),
-        };
-        let issued_at = Utc.with_ymd_and_hms(2026, 8, 10, 1, 0, 0).unwrap();
-        let record = sign_service_resolution_record(
-            ServiceResolutionRecordCore {
-                service_id: service_id.clone(),
-                service_kind: "station".to_owned(),
-                did,
-                method_history_head: "did-web-document-sha256:fixture".to_owned(),
-                version_id: "did-web-document-sha256:fixture".to_owned(),
-                resolution_event_ref: format!("did-web-document-sha256:{}", "1".repeat(64)),
-                record_sequence: 0,
-                previous_record_digest: None,
-                current_record_url: format!(
-                    "https://agent-authority.example/_arkret/open/services/{service_id}/resolution"
-                ),
-                base_url: "https://agent-authority.example/".to_owned(),
-                describe_digest: hash('2'),
-                issued_at,
-                refresh_after: issued_at + chrono::Duration::minutes(5),
-                expires_at: issued_at + chrono::Duration::minutes(10),
-            },
-            method,
-            &signing_key,
-        )
-        .unwrap();
-        let document_digest =
-            arkret_models_identity::normalized_did_document_digest(&document).unwrap();
-        let evidence = ResolutionMethodHistoryEvidence::DidWebDocument {
-            boundary: ResolutionMethodEvidenceBoundary {
-                from_method_history_head: record.record.method_history_head.clone(),
-                from_version_id: record.record.version_id.clone(),
-                to_method_history_head: record.record.method_history_head.clone(),
-                to_version_id: record.record.version_id.clone(),
-            },
-            evidence: ResolutionDidBindingEvidenceReceipt {
-                kind: ResolutionDidBindingEvidenceKind::AkDidBindingEvidenceV1,
-                method: "web".to_owned(),
-                document_digest,
-                method_proofs: Vec::new(),
-            },
-        };
-        (
-            AuthenticatedServiceResolution {
-                service_resolution_record: record,
-                method_history_evidence: evidence,
-                normalized_did_document: document,
-            },
-            service_id,
-        )
-    }
-
-    #[test]
-    fn signed_resolution_round_trips_and_rejects_tampering() {
-        let (mut resolution, service_id) = fixture();
-        let now = resolution.service_resolution_record.record.issued_at;
-        assert!(verify_authenticated_service_resolution(&resolution, &service_id, now).is_ok());
-        resolution.service_resolution_record.record.base_url =
-            "https://attacker.example/".to_owned();
-        assert!(verify_authenticated_service_resolution(&resolution, &service_id, now).is_err());
-    }
 }
