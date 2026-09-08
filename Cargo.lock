@@ -563,6 +563,7 @@ dependencies = [
  "arkret-canonical",
  "arkret-event-draft",
  "arkret-models-collaboration",
+ "arkret-models-integration",
  "arkret-schema",
  "arkret-schema-conformance",
  "arkret-wire",

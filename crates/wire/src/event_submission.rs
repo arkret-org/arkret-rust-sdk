@@ -799,6 +799,65 @@ mod tests {
         event
     }
 
+    #[test]
+    fn applet_admission_requires_portable_authority_and_keeps_producer_binding() {
+        let mut event = federated_event();
+        let suite = arkret_canonical::DigestSuite::Sha256;
+        event.applet_id =
+            Some(crate::AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap());
+        event.authorization_ref = Some(
+            crate::AuthorizationRef::new(
+                crate::GrantId::from_event_id(&event.event_id).to_string(),
+            )
+            .unwrap(),
+        );
+        event.executed_by = Some(ActorId::service(
+            DidCoreId::new("ak:did_core:web:external-applet.example").unwrap(),
+        ));
+        event
+            .refresh_content_bound_identity_with_digest_suite(suite)
+            .unwrap();
+        let digest = Hash::new(event.event_digest_with_digest_suite(suite).unwrap()).unwrap();
+        let [
+            EventProof::Producer(producer),
+            EventProof::StationAdmission(admission),
+        ] = event.proofs.as_mut_slice()
+        else {
+            unreachable!()
+        };
+        producer.event_digest = digest.clone();
+        producer.verification_method =
+            DidUrl::new("did:web:external-applet.example#key-1").unwrap();
+        admission.event_digest = digest;
+        admission.producer_verification_method = producer.verification_method.clone();
+        admission.producer_proof_digest =
+            StationAdmissionProof::producer_proof_digest(producer).unwrap();
+        assert!(event.validate_station_admission_structure(suite).is_err());
+        let EventProof::StationAdmission(admission) = &mut event.proofs[1] else {
+            unreachable!()
+        };
+        admission.applet_installation_digest =
+            Some(Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap());
+        event.validate_station_admission_structure(suite).unwrap();
+        assert!(
+            event.validate_station_admission_binding(suite).is_err(),
+            "structure cannot confer installation authority"
+        );
+        assert!(
+            event.validate_for_submit_structural().is_err(),
+            "accepted Events cannot enter caller submit"
+        );
+        let EventProof::StationAdmission(admission) = &mut event.proofs[1] else {
+            unreachable!()
+        };
+        let before = admission.canonical_binding_bytes().unwrap();
+        admission.applet_installation_digest =
+            Some(Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap());
+        assert_ne!(before, admission.canonical_binding_bytes().unwrap());
+        admission.producer_proof_digest = Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap();
+        assert!(event.validate_station_admission_structure(suite).is_err());
+    }
+
     fn federated_event() -> Event {
         let mut event = online_event();
         let mut producer = event.proofs[0].as_producer().unwrap().clone();
@@ -807,6 +866,7 @@ mod tests {
         event
             .proofs
             .push(EventProof::StationAdmission(StationAdmissionProof {
+                applet_installation_digest: None,
                 kind: StationAdmissionProofKind::StationAdmission,
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixturestation:principal.example#key-1",

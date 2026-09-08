@@ -1406,6 +1406,8 @@ pub struct StationAdmissionProof {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
     pub signer_resolution_evidence_ref: SignerEvidenceRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_installation_digest: Option<Hash>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub jws: String,
@@ -1537,6 +1539,12 @@ impl StationAdmissionProof {
             "accepted_at".to_owned(),
             Value::String(canonical::format_timestamp_canonical(self.accepted_at)),
         );
+        if let Some(digest) = &self.applet_installation_digest {
+            binding.insert(
+                "applet_installation_digest".to_owned(),
+                serde_json::to_value(digest)?,
+            );
+        }
         canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
     }
 }

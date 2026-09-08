@@ -18,6 +18,7 @@ default = []
 arkret-canonical = { workspace = true }
 arkret-event-draft = { workspace = true }
 arkret-models-collaboration = { workspace = true }
+arkret-models-integration = { workspace = true }
 arkret-schema = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }

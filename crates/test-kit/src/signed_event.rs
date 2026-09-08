@@ -302,6 +302,7 @@ pub fn structural_only_admitted_event(
         .as_producer()
         .expect("sign_structural_only_event attaches one producer proof");
     let mut proof = arkret_wire::StationAdmissionProof {
+        applet_installation_digest: None,
         kind: arkret_wire::StationAdmissionProofKind::StationAdmission,
         verification_method: admission.verification_method,
         event_digest: producer.event_digest.clone(),

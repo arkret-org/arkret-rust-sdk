@@ -1255,6 +1255,7 @@ mod tests {
         event
             .proofs
             .push(EventProof::StationAdmission(StationAdmissionProof {
+                applet_installation_digest: None,
                 kind: StationAdmissionProofKind::StationAdmission,
                 verification_method: DidUrl::new(
                     "did:webvh:z6mkfixture:admin.example#station-admission",
