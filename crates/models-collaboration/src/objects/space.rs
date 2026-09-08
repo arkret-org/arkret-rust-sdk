@@ -11,6 +11,53 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Validate a resolved canonical structural target. Callers must establish
+/// readability and basis completeness before exposing a Realm mismatch.
+pub fn validate_space_target(
+    child_realm_id: &str,
+    target_realm_id: &str,
+    target_is_active: bool,
+) -> std::result::Result<(), &'static str> {
+    if child_realm_id != target_realm_id {
+        return Err("space_realm_mismatch");
+    }
+    if !target_is_active {
+        return Err("space_not_active");
+    }
+    Ok(())
+}
+
+/// Resolved structural facts, independent of presentation or Circle filters.
+pub struct SpaceStructureNode<'a> {
+    pub realm_id: &'a str,
+    pub parent_space_id: Option<&'a str>,
+    pub active: bool,
+}
+
+/// Validate the entire proposed ancestor chain, failing closed on missing facts.
+pub fn validate_space_parent_chain<'a>(
+    child_id: &str,
+    child_realm_id: &str,
+    parent_id: Option<&'a str>,
+    lookup: impl Fn(&str) -> Option<SpaceStructureNode<'a>>,
+) -> std::result::Result<(), &'static str> {
+    let mut next = parent_id;
+    let mut seen = BTreeSet::new();
+    while let Some(id) = next {
+        if id == child_id || !seen.insert(id) {
+            return Err("space_parent_cycle");
+        }
+        let node = lookup(id).ok_or("space_parent_unreadable")?;
+        validate_space_target(
+            child_realm_id,
+            node.realm_id,
+            next != parent_id || node.active,
+        )?;
+        next = node.parent_space_id;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Space {
@@ -25,8 +72,16 @@ pub struct Space {
     pub id: Option<SpaceId>,
     pub schema: String,
     pub realm_id: RealmId,
+    /// AKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
+    /// (container). Authorization-transparent: never carries its own
+    /// membership/policy/E2EE group; this field places the Space's metadata
+    /// inside an existing Circle encryption scope.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_realm_id: Option<RealmId>,
+    pub scope_circle_id: Option<CircleId>,
+    /// AKP-0007 — reducer-enforced constraint on how child resources may
+    /// pick their scope.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child_scope_policy: Option<ChildScopePolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_space_id: Option<SpaceId>,
     // Declaration order mirrors `spec/v1/artifacts/schemas/space.schema.json`
@@ -40,10 +95,10 @@ pub struct Space {
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fields: BTreeMap<String, Value>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub labels: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fields: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -52,16 +107,6 @@ pub struct Space {
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub state_changed_at: Option<DateTime<Utc>>,
-    /// AKP-0007 (spec b7d35be) — optional Circle scope binding on the Space
-    /// (container). Authorization-transparent: never carries its own
-    /// membership/policy/E2EE group; this field places the Space's metadata
-    /// inside an existing Circle encryption scope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scope_circle_id: Option<CircleId>,
-    /// AKP-0007 — reducer-enforced constraint on how child resources may
-    /// pick their scope.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub child_scope_policy: Option<ChildScopePolicy>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -106,20 +151,19 @@ impl Space {
             id: Some(id),
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
-            default_realm_id: None,
+            scope_circle_id: None,
+            child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
             schema_refs: Vec::new(),
             title: title.into(),
             summary: None,
-            fields: BTreeMap::new(),
             labels: Vec::new(),
+            fields: BTreeMap::new(),
             avatar_blob_ref: None,
             state: Some(SpaceState::Active),
             state_changed_at: None,
-            scope_circle_id: None,
-            child_scope_policy: None,
             created_by,
             created_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
             updated_by: None,
@@ -145,20 +189,19 @@ impl Space {
             id: None,
             schema: SchemaId::SPACE_V1.to_owned(),
             realm_id,
-            default_realm_id: None,
+            scope_circle_id: None,
+            child_scope_policy: None,
             parent_space_id: None,
             kind: kind.into(),
             rank: None,
             schema_refs: Vec::new(),
             title: title.into(),
             summary: None,
-            fields: BTreeMap::new(),
             labels: Vec::new(),
+            fields: BTreeMap::new(),
             avatar_blob_ref: None,
             state: Some(SpaceState::Active),
             state_changed_at: None,
-            scope_circle_id: None,
-            child_scope_policy: None,
             created_by,
             created_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
             updated_by: None,
@@ -222,6 +265,70 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn structural_parent_requires_complete_same_realm_acyclic_chain() {
+        let check = |parent, facts: &[(&str, &str, Option<&str>, bool)]| {
+            validate_space_parent_chain("child", "realm", parent, |id| {
+                facts
+                    .iter()
+                    .find(|row| row.0 == id)
+                    .map(|row| SpaceStructureNode {
+                        realm_id: row.1,
+                        parent_space_id: row.2,
+                        active: row.3,
+                    })
+            })
+        };
+        assert_eq!(check(None, &[]), Ok(()));
+        assert_eq!(check(Some("parent"), &[]), Err("space_parent_unreadable"));
+        assert_eq!(
+            check(Some("parent"), &[("parent", "other", None, true)]),
+            Err("space_realm_mismatch")
+        );
+        assert_eq!(
+            check(Some("parent"), &[("parent", "realm", None, false)]),
+            Err("space_not_active")
+        );
+        assert_eq!(
+            check(Some("parent"), &[("parent", "realm", Some("child"), true)]),
+            Err("space_parent_cycle")
+        );
+        assert_eq!(
+            check(
+                Some("parent"),
+                &[("parent", "realm", Some("missing"), true)]
+            ),
+            Err("space_parent_unreadable")
+        );
+        assert_eq!(
+            check(
+                Some("parent"),
+                &[
+                    ("parent", "realm", Some("root"), true),
+                    ("root", "realm", None, false)
+                ]
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            check(
+                Some("parent"),
+                &[
+                    ("root", "realm", None, false),
+                    ("parent", "realm", Some("root"), true)
+                ]
+            ),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn space_rejects_removed_default_realm_field() {
+        let mut value = serde_json::to_value(space("board")).unwrap();
+        value["default_realm_id"] = value["realm_id"].clone();
+        assert!(serde_json::from_value::<Space>(value).is_err());
+    }
 
     fn space(kind: &str) -> Space {
         Space::new(

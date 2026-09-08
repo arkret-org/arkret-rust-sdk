@@ -19,6 +19,8 @@ pub struct RealmState {
     pub morphs: BTreeMap<String, Morph>,
     /// Current Space (container) objects by ID.
     pub spaces: BTreeMap<String, Space>,
+    /// Canonical placement projection keyed by (Board, Strand), valued by List.
+    pub(super) strand_positions: BTreeMap<(String, String), String>,
     /// Current relations by ID
     pub relations: BTreeMap<String, Relation>,
     /// Generic resolved state events keyed by `kind|subject` (spec Phase 1).
@@ -47,6 +49,7 @@ impl RealmState {
             subjects: BTreeMap::new(),
             morphs: BTreeMap::new(),
             spaces: BTreeMap::new(),
+            strand_positions: BTreeMap::new(),
             relations: BTreeMap::new(),
             resolved_state: BTreeMap::new(),
             messages: BTreeMap::new(),

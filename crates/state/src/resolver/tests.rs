@@ -135,7 +135,9 @@ fn realm_upgrade_rejects_an_unregistered_edge_without_mutating_profile() {
 fn space_events_create_update_parent_and_tombstone() {
     let space_id_owned = derived_object_id("ak:space:", 1);
     let space_id = space_id_owned.as_str();
-    let parent_space_id = "ak:space:AZ7DNT9vCENKLtcPIF0C8XeSO8NfAhWfKokXMXi127n4";
+    let parent_create = space_create_event(5);
+    let parent_id = arkret_wire::SpaceId::from_event_id(&parent_create.event_id);
+    let parent_space_id = parent_id.as_str();
     let create = event(
         EventKind::SpaceCreate,
         1,
@@ -180,6 +182,7 @@ fn space_events_create_update_parent_and_tombstone() {
     tombstone.prev_refs.push(parent.event_id.clone());
 
     let mut state = RealmState::new(realm_id());
+    state.apply_event(&parent_create).unwrap();
     state
         .apply_events(&[tombstone, parent, update, create])
         .unwrap();

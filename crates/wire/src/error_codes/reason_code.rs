@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-08.3;
-//! sha256=8b805b1267323151e672844984644a20f263cacd10268d5d473c2068224187e7
-//! Entries: reason_codes=422
+//! Input: registry/error-code-registry.json; version=2026-09-08.4;
+//! sha256=edb0c1ee16f1fada4e12e079fe377f29af188fcabbff2ffb9dd4f62c506f1d91
+//! Entries: reason_codes=423
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -383,6 +383,7 @@ pub enum ReasonCode {
     SpaceParentChainInBottomState,
     SpaceParentCycle,
     SpaceParentUnreadable,
+    SpaceRealmMismatch,
     Spam,
     StateMismatch,
     StorageFailed,
@@ -889,6 +890,7 @@ impl ReasonCode {
         "space_parent_chain_in_bottom_state";
     pub const SPACE_PARENT_CYCLE: &'static str = "space_parent_cycle";
     pub const SPACE_PARENT_UNREADABLE: &'static str = "space_parent_unreadable";
+    pub const SPACE_REALM_MISMATCH: &'static str = "space_realm_mismatch";
     pub const SPAM: &'static str = "spam";
     pub const STATE_MISMATCH: &'static str = "state_mismatch";
     pub const STORAGE_FAILED: &'static str = "storage_failed";
@@ -1377,6 +1379,7 @@ impl ReasonCode {
             Self::SpaceParentChainInBottomState => Self::SPACE_PARENT_CHAIN_IN_BOTTOM_STATE,
             Self::SpaceParentCycle => Self::SPACE_PARENT_CYCLE,
             Self::SpaceParentUnreadable => Self::SPACE_PARENT_UNREADABLE,
+            Self::SpaceRealmMismatch => Self::SPACE_REALM_MISMATCH,
             Self::Spam => Self::SPAM,
             Self::StateMismatch => Self::STATE_MISMATCH,
             Self::StorageFailed => Self::STORAGE_FAILED,
@@ -1871,6 +1874,7 @@ impl ReasonCode {
             Self::SPACE_PARENT_CHAIN_IN_BOTTOM_STATE => Self::SpaceParentChainInBottomState,
             Self::SPACE_PARENT_CYCLE => Self::SpaceParentCycle,
             Self::SPACE_PARENT_UNREADABLE => Self::SpaceParentUnreadable,
+            Self::SPACE_REALM_MISMATCH => Self::SpaceRealmMismatch,
             Self::SPAM => Self::Spam,
             Self::STATE_MISMATCH => Self::StateMismatch,
             Self::STORAGE_FAILED => Self::StorageFailed,
@@ -3860,7 +3864,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_HAS_LIVE_DEPENDENTS,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "`ak.space.tombstone` cannot proceed because the target Space still has active `contains` Relations or non-tombstoned child Spaces. See zh/models/realm-and-space.md §3.4.",
+        description: "Space tombstone is blocked by a non-tombstoned child Space or an effective canonical placement of a non-redacted Strand. Archived dependents still count. See zh/models/realm-and-space.md section 3.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_NOT_ACTIVE,
@@ -3885,7 +3889,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_PARENT_UNREADABLE,
         applies_to: &["event_envelope", "auth_decision", "projection"],
-        description: "The effective Space parent chain cannot be read or verified at the operation basis. Parent-dependent placement, default-Realm resolution, and subtree authorization MUST fail closed rather than treating the Space as a root. See zh/models/space-hierarchy.md section 4.",
+        description: "Canonical parent or placement structural facts cannot be read or verified at the operation basis. Structural validation and subtree authorization MUST fail closed, without disclosing hidden target Realm identity.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::SPACE_REALM_MISMATCH,
+        applies_to: &["event_envelope", "auth_decision"],
+        description: "A verified canonical Space parent or Board/List/Strand placement crosses actual Realm identities. Reject with failed_precondition after target readability and evidence checks; no profile exception or automatic Realm rewrite.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SPAM,

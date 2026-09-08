@@ -8,6 +8,24 @@ use super::super::*;
 use super::RealmState;
 
 impl RealmState {
+    fn validate_space_parent(
+        &self,
+        child_id: &str,
+        realm_id: &RealmId,
+        parent_id: Option<&str>,
+    ) -> Result<()> {
+        use arkret_models_collaboration::objects::space::{
+            SpaceStructureNode, validate_space_parent_chain,
+        };
+        validate_space_parent_chain(child_id, realm_id.as_str(), parent_id, |id| {
+            self.spaces.get(id).map(|space| SpaceStructureNode {
+                realm_id: space.realm_id.as_str(),
+                parent_space_id: space.parent_space_id.as_ref().map(SpaceId::as_str),
+                active: space.state == Some(crate::models::SpaceState::Active),
+            })
+        })
+        .map_err(|reason| WireError::Protocol(reason.to_owned()))
+    }
     pub(super) fn create_morph(&mut self, event: &Event) -> Result<()> {
         let object = event.typed_payload::<event_spec::MorphCreate>()?.object;
         // The object id is derived from this create Event, never read from the
@@ -165,10 +183,16 @@ impl RealmState {
     pub(super) fn create_space(&mut self, event: &Event) -> Result<()> {
         let payload = Value::Object(event.payload.clone().into_iter().collect());
         let object = payload.get("object").unwrap_or(&payload);
+        if object.get("default_realm_id").is_some() {
+            return Err(WireError::Protocol("schema_violation".to_owned()));
+        }
         // Derived from this create Event, never read from the payload.
         let id = SpaceId::from_event_id(&event.event_id);
         let space_id = id.as_str().to_owned();
         let realm_id = self.extract_field::<RealmId>(object, "realm_id")?;
+        if realm_id != event.realm_id || realm_id != self.realm_id {
+            return Err(WireError::Protocol("space_realm_mismatch".to_owned()));
+        }
         let kind = self.extract_field::<String>(object, "kind")?;
         let title = self.extract_field::<String>(object, "title")?;
         let state = self
@@ -181,7 +205,6 @@ impl RealmState {
             schema: SchemaId::SPACE_V1.to_owned(),
             id: Some(id),
             realm_id,
-            default_realm_id: self.extract_optional_field(object, "default_realm_id"),
             parent_space_id: self.extract_optional_field(object, "parent_space_id"),
             kind,
             title,
@@ -211,6 +234,11 @@ impl RealmState {
             updated_at: self.extract_optional_field(object, "updated_at"),
         };
         space.validate()?;
+        self.validate_space_parent(
+            &space_id,
+            &space.realm_id,
+            space.parent_space_id.as_ref().map(SpaceId::as_str),
+        )?;
         self.spaces.insert(space_id, space);
         Ok(())
     }
@@ -316,17 +344,32 @@ impl RealmState {
 
     pub(super) fn set_space_parent(&mut self, event: &Event) -> Result<()> {
         let space_id = self.extract_space_id(&event.payload)?;
-        let parent_space_id_str = self
-            .extract_optional_field::<String>(&event.payload, "parent_space_id")
-            .ok_or_else(|| {
-                WireError::Protocol("space parent event requires parent_space_id".to_owned())
-            })?;
-        let parent_space_id = SpaceId::new(parent_space_id_str)?;
+        let parent_space_id = match event.payload.get("parent_space_id") {
+            Some(Value::Null) => None,
+            Some(Value::String(id)) => Some(SpaceId::new(id.clone())?),
+            _ => {
+                return Err(WireError::Protocol(
+                    "space parent event requires parent_space_id or null".to_owned(),
+                ));
+            }
+        };
+        let child = self
+            .spaces
+            .get(&space_id)
+            .ok_or_else(|| WireError::Protocol("space_parent_unreadable".to_owned()))?;
+        if child.state != Some(crate::models::SpaceState::Active) {
+            return Err(WireError::Protocol("space_not_active".to_owned()));
+        }
+        self.validate_space_parent(
+            &space_id,
+            &child.realm_id,
+            parent_space_id.as_ref().map(SpaceId::as_str),
+        )?;
         let space = self
             .spaces
             .get_mut(&space_id)
             .ok_or_else(|| WireError::Protocol(format!("space not found: {}", space_id)))?;
-        space.parent_space_id = Some(parent_space_id);
+        space.parent_space_id = parent_space_id;
         space.updated_by = Some(event.actor_id.clone());
         space.updated_at = Some(event.created_at);
         space.validate()?;
@@ -376,6 +419,18 @@ impl RealmState {
             Some(crate::models::SpaceState::Active) | Some(crate::models::SpaceState::Archived) => {
             }
             _ => return Err(WireError::Protocol("space_already_terminal".to_owned())),
+        }
+        if self.spaces.values().any(|child| {
+            child.parent_space_id.as_ref().map(SpaceId::as_str) == Some(space_id.as_str())
+                && child.state != Some(crate::models::SpaceState::Tombstoned)
+        }) || self.strand_positions.iter().any(|((board, strand), list)| {
+            (board == &space_id || list == &space_id)
+                && self
+                    .subjects
+                    .get(strand)
+                    .is_none_or(|subject| subject.state != Some(crate::ObjectState::Redacted))
+        }) {
+            return Err(WireError::Protocol("space_has_live_dependents".to_owned()));
         }
         self.set_space_state(event, crate::models::SpaceState::Tombstoned)
     }
@@ -615,6 +670,33 @@ impl RealmState {
 
     pub(super) fn touch_strand(&mut self, event: &Event) -> Result<()> {
         let strand_id_str = self.extract_strand_id(&event.payload)?;
+        let (board_id, list_id) = if event.kind == arkret_wire::EventKind::StrandMove {
+            let payload = event.typed_payload::<event_spec::StrandMove>()?;
+            (payload.board_space_id, payload.target_space_id)
+        } else {
+            let payload = event.typed_payload::<event_spec::StrandReorder>()?;
+            (payload.board_space_id, payload.space_id)
+        };
+        let subject = self
+            .subjects
+            .get(&strand_id_str)
+            .ok_or_else(|| WireError::Protocol("space_parent_unreadable".to_owned()))?;
+        for id in [&board_id, &list_id] {
+            let target = self
+                .spaces
+                .get(id.as_str())
+                .ok_or_else(|| WireError::Protocol("space_parent_unreadable".to_owned()))?;
+            arkret_models_collaboration::objects::space::validate_space_target(
+                subject.realm_id.as_str(),
+                target.realm_id.as_str(),
+                target.state == Some(crate::models::SpaceState::Active),
+            )
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
+        }
+        self.strand_positions.insert(
+            (board_id.into_string(), strand_id_str.clone()),
+            list_id.into_string(),
+        );
         if let Some(subject) = self.subjects.get_mut(&strand_id_str) {
             subject.updated_by = Some(event.actor_id.clone());
             subject.updated_at = Some(event.created_at);
