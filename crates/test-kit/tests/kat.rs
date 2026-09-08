@@ -211,3 +211,132 @@ fn a_placeholder_proof_never_verifies() {
         "a StructuralOnly placeholder must never satisfy a signature verifier"
     );
 }
+
+#[test]
+fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
+    use arkret_canonical::DigestSuite;
+    use arkret_signatures::{SignEventOptions, sign_event};
+    use arkret_wire::{AuthoredEvent, Hash};
+
+    let signer = seeded_signer(subjects::alice_did(), subjects::alice_verification_method());
+    let created_at = "2026-08-17T12:34:56.789Z".parse::<DateTime<Utc>>().unwrap();
+    let mut event = SignedEventFixtureBuilder::new(
+        "ak.message.create",
+        ScopeRef::Realm {
+            realm_id: subjects::realm_id(),
+        },
+        ActorId::account(subjects::alice_account_id()),
+        json!({"track_name": subjects::DISCUSSION_TRACK}),
+    )
+    .with_actor_seq(23)
+    .with_hlc(pinned_hlc(23))
+    .with_created_at(created_at)
+    .build_unsigned()
+    .unwrap();
+    event
+        .causal_refs
+        .push(Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap());
+    event.unsigned.insert(
+        "local_operation_idempotency_alias".to_owned(),
+        json!("local-fixture"),
+    );
+    let before = event.clone();
+    let mut direct =
+        AuthoredEvent::finalize_with_digest_suite(event.clone(), DigestSuite::Sha256).unwrap();
+    sign_event(
+        &mut direct,
+        &signer,
+        &subjects::alice_verification_method(),
+        SignEventOptions::new().with_created_at(created_at),
+    )
+    .unwrap();
+    let shared = arkret_test_kit::sign_verifiable_event(event, &signer, DigestSuite::Sha256)
+        .unwrap()
+        .expect_verifiable();
+    assert_eq!(
+        serde_json::to_vec(&shared).unwrap(),
+        serde_json::to_vec(&direct.into_event()).unwrap()
+    );
+    assert_eq!(shared.causal_refs, before.causal_refs);
+    assert_eq!(shared.seal_ref, before.seal_ref);
+    assert_eq!(shared.auth_context, before.auth_context);
+    assert_eq!(shared.unsigned, before.unsigned);
+    assert_eq!(shared.created_at, created_at);
+    assert_eq!(
+        shared.proofs[0].as_producer().unwrap().created_at,
+        created_at
+    );
+}
+
+#[test]
+fn structural_admission_binds_the_exact_producer_without_claiming_verification() {
+    use arkret_canonical::DigestSuite;
+    use arkret_test_kit::{StructuralOnlyAdmissionFixture, structural_only_admitted_event};
+    use arkret_wire::{DidKey, DidUrl, SignerEvidenceRef};
+
+    let event = SignedEventFixtureBuilder::new(
+        "ak.message.create",
+        ScopeRef::Realm {
+            realm_id: subjects::realm_id(),
+        },
+        ActorId::account(subjects::alice_account_id()),
+        json!({"track_name": subjects::DISCUSSION_TRACK}),
+    )
+    .build_unsigned()
+    .unwrap();
+    let event_id = event.event_id.clone();
+    let accepted_at = event.created_at;
+    let fixture = structural_only_admitted_event(
+        event,
+        &StructuralOnlyPayloadSigner::new(
+            subjects::alice_did(),
+            subjects::alice_verification_method(),
+        ),
+        StructuralOnlyAdmissionFixture {
+            verification_method: DidUrl::new("did:web:station.example#admission").unwrap(),
+            producer_signing_key_did: DidKey::new("did:key:z6MkhFixtureDeviceKey").unwrap(),
+            signer_resolution_evidence_ref: SignerEvidenceRef::new(format!(
+                "ak:signer_evidence:sha256:{}",
+                "11".repeat(32)
+            ))
+            .unwrap(),
+            accepted_at,
+        },
+        DigestSuite::Sha256,
+    )
+    .unwrap();
+    assert_eq!(fixture.fidelity(), ProofFidelity::StructuralOnly);
+    let event = fixture.expect_structural_only();
+    assert_eq!(event.event_id, event_id);
+    assert_eq!(event.proofs.len(), 2);
+    let producer = event.proofs[0].as_producer().unwrap();
+    let admission = event.proofs[1].as_station_admission().unwrap();
+    admission
+        .validate_binding(
+            &producer.event_digest,
+            producer,
+            &subjects::station_core_id(),
+        )
+        .unwrap();
+    let mut changed = producer.clone();
+    changed.created_at += chrono::Duration::milliseconds(1);
+    assert!(
+        admission
+            .validate_binding(
+                &producer.event_digest,
+                &changed,
+                &subjects::station_core_id()
+            )
+            .is_err()
+    );
+    assert_eq!(admission.accepted_at, accepted_at);
+    assert_eq!(
+        admission.jws,
+        arkret_wire::test_support::structural_only_detached_jws(
+            &arkret_wire::Hash::new(arkret_canonical::canonical::sha256_digest(
+                admission.canonical_binding_bytes().unwrap()
+            ))
+            .unwrap()
+        )
+    );
+}

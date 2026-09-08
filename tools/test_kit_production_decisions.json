@@ -4,6 +4,10 @@
     {
       "manifest": "cotest/Cargo.toml",
       "rationale": "cotest is the joint conformance harness itself: it has no production build and ships no binary that runs outside a test run, so the test-kit is an ordinary dependency of its library rather than a dev-dependency of something else."
+    },
+    {
+      "manifest": "soland/crates/test-support/Cargo.toml",
+      "rationale": "soland-test-support is an unpublished integration-test fixture crate, consumed only by soland-server dev-dependencies. Its shared signing fixtures are not reachable from production builds."
     }
   ]
 }

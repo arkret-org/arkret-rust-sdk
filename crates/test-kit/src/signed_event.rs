@@ -1,10 +1,9 @@
 //! The canonical signed Event, built once.
 //!
-//! `raw Event → finalize → ProducerEventProof` had been re-derived in seven
-//! repositories. The differences that made the copies non-interchangeable were
-//! never in that pipeline; they were in its three inputs — the key, the clock
-//! and the HLC — so all three are parameters here and none of them has a
-//! silent default that only suits one caller.
+//! Fixture construction shares the SDK's `raw Event -> finalize -> proof`
+//! pipeline. Complete-Event entry points preserve fields supplied by the host;
+//! the builder provides fixed defaults for isolated tests and explicit inputs
+//! for live fixtures. Real and placeholder proofs carry distinct fidelity.
 
 use arkret_canonical::DigestSuite;
 use arkret_signatures::{Ed25519PayloadSigner, SignEventOptions, sign_event};
@@ -203,19 +202,7 @@ impl SignedEventFixtureBuilder {
     /// cannot be attached.
     pub fn sign_verifiable(self, signer: &Ed25519PayloadSigner) -> Result<SignedEventFixture> {
         let digest_suite = self.digest_suite;
-        let created_at = (self.clock)();
-        let event = self.with_created_at(created_at).build_unsigned()?;
-        let event = attach_proof(
-            event,
-            signer,
-            signer.verification_method_id().clone(),
-            created_at,
-            digest_suite,
-        )?;
-        Ok(SignedEventFixture {
-            event,
-            fidelity: ProofFidelity::Verifiable,
-        })
+        sign_verifiable_event(self.build_unsigned()?, signer, digest_suite)
     }
 
     /// Sign with a placeholder that carries no key material.
@@ -229,20 +216,109 @@ impl SignedEventFixtureBuilder {
         signer: &StructuralOnlyPayloadSigner,
     ) -> Result<SignedEventFixture> {
         let digest_suite = self.digest_suite;
-        let created_at = (self.clock)();
-        let event = self.with_created_at(created_at).build_unsigned()?;
-        let event = attach_proof(
-            event,
-            signer,
-            signer.verification_method_id().clone(),
-            created_at,
-            digest_suite,
-        )?;
-        Ok(SignedEventFixture {
-            event,
-            fidelity: ProofFidelity::StructuralOnly,
-        })
+        sign_structural_only_event(self.build_unsigned()?, signer, digest_suite)
     }
+}
+
+/// Attach a real Ed25519 proof to a complete Event.
+///
+/// Preserves caller-supplied fields and uses the Event's creation time for the
+/// proof. Finalizes the content-derived identity after all fields are set.
+///
+/// # Errors
+///
+/// Returns an error if the Event cannot finalize or its proof cannot be attached.
+pub fn sign_verifiable_event(
+    event: Event,
+    signer: &Ed25519PayloadSigner,
+    digest_suite: DigestSuite,
+) -> Result<SignedEventFixture> {
+    let created_at = event.created_at;
+    let event = attach_proof(
+        event,
+        signer,
+        signer.verification_method_id().clone(),
+        created_at,
+        digest_suite,
+    )?;
+    Ok(SignedEventFixture {
+        event,
+        fidelity: ProofFidelity::Verifiable,
+    })
+}
+
+/// Attach a structural-only placeholder proof to a complete Event.
+///
+/// Preserves caller-supplied fields and uses the Event's creation time for the
+/// proof. Finalizes the content-derived identity after all fields are set.
+///
+/// # Errors
+///
+/// Returns an error if the Event cannot finalize or its proof cannot be attached.
+pub fn sign_structural_only_event(
+    event: Event,
+    signer: &StructuralOnlyPayloadSigner,
+    digest_suite: DigestSuite,
+) -> Result<SignedEventFixture> {
+    let created_at = event.created_at;
+    let event = attach_proof(
+        event,
+        signer,
+        signer.verification_method_id().clone(),
+        created_at,
+        digest_suite,
+    )?;
+    Ok(SignedEventFixture {
+        event,
+        fidelity: ProofFidelity::StructuralOnly,
+    })
+}
+
+/// Caller-owned identities and timestamp for a placeholder station admission.
+/// This is fixture configuration, not a protocol wire model.
+pub struct StructuralOnlyAdmissionFixture {
+    pub verification_method: DidUrl,
+    pub producer_signing_key_did: arkret_wire::DidKey,
+    pub signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef,
+    pub accepted_at: DateTime<Utc>,
+}
+
+/// Build producer and station proofs for read/projection tests without key material.
+///
+/// Both placeholders bind their respective canonical transcripts. Neither proves
+/// admission or signature verification; callers must unwrap as structural-only.
+///
+/// # Errors
+///
+/// Returns an error if authoring or either canonical proof binding fails.
+pub fn structural_only_admitted_event(
+    event: Event,
+    producer_signer: &StructuralOnlyPayloadSigner,
+    admission: StructuralOnlyAdmissionFixture,
+    digest_suite: DigestSuite,
+) -> Result<SignedEventFixture> {
+    let mut fixture = sign_structural_only_event(event, producer_signer, digest_suite)?;
+    let producer = fixture.event.proofs[0]
+        .as_producer()
+        .expect("sign_structural_only_event attaches one producer proof");
+    let mut proof = arkret_wire::StationAdmissionProof {
+        kind: arkret_wire::StationAdmissionProofKind::StationAdmission,
+        verification_method: admission.verification_method,
+        event_digest: producer.event_digest.clone(),
+        producer_proof_digest: arkret_wire::StationAdmissionProof::producer_proof_digest(producer)?,
+        producer_verification_method: producer.verification_method.clone(),
+        producer_signing_key_did: admission.producer_signing_key_did,
+        producer_signer_resolution_evidence_ref: producer.signer_resolution_evidence_ref.clone(),
+        signer_resolution_evidence_ref: admission.signer_resolution_evidence_ref,
+        accepted_at: admission.accepted_at,
+        jws: String::new(),
+    };
+    let digest = arkret_wire::Hash::new(arkret_canonical::canonical::sha256_digest(
+        proof.canonical_binding_bytes()?,
+    ))?;
+    proof.jws = arkret_wire::test_support::structural_only_detached_jws(&digest);
+    fixture.event.proofs.push(proof.into());
+    Ok(fixture)
 }
 
 fn attach_proof<S: PayloadSigner + ?Sized>(

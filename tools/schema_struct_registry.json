@@ -1064,6 +1064,10 @@
       "schema": "device-revocation-state.schema.json#/$defs/device_revocation_gate_decision_receipt"
     },
     {
+      "rust_type": "crates/wire/src/event_envelope.rs::SemanticRefProof",
+      "schema": "event-envelope.schema.json#/$defs/semantic_ref_merkle_proof"
+    },
+    {
       "rust_type": "crates/wire/src/event_receipt.rs::DeviceReanchorReceiptScope",
       "schema": "event-batch-receipt.schema.json#/$defs/device_reanchor_scope"
     },
