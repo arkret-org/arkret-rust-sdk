@@ -1268,7 +1268,7 @@ pub struct MemoryCellRegistry {
     bindings: BTreeMap<String, BindingDescriptor>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, serde::Serialize)]
 struct BindingDescriptor {
     kind: LatticeKind,
     bottom_mode: EventCellBottom,
@@ -1442,6 +1442,48 @@ impl MemoryCellRegistry {
 }
 
 impl CellRegistry for MemoryCellRegistry {
+    fn checkpoint_context(&self, _realm_id: &RealmId) -> StoreResult<Option<Hash>> {
+        // All registry mutation requires `&mut self`; an Arc-held registry is
+        // therefore one immutable rule snapshot. Include complete FSM rules,
+        // not merely lattice names, and conservatively invalidate when any
+        // local implementation of joins, heads or ordering changes. SHA-256,
+        // JCS and typed identifier ordering are fixed protocol algorithms;
+        // semantic changes to those contracts must invalidate this evaluation
+        // contract explicitly, rather than relying on a dependency source scan.
+        static IMPLEMENTATION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        let implementation = IMPLEMENTATION.get_or_init(|| {
+            let sources = [
+                include_str!("../../lattice/mod.rs"),
+                include_str!("../../lattice/traits.rs"),
+                include_str!("../../lattice/cas_register.rs"),
+                include_str!("../../lattice/counter.rs"),
+                include_str!("../../lattice/fsm.rs"),
+                include_str!("../../lattice/mv_register.rs"),
+                include_str!("../../lattice/or_set.rs"),
+                include_str!("../../lattice/ordered_log.rs"),
+                include_str!("../seal.rs"),
+                include_str!("../state_root.rs"),
+                include_str!("mod.rs"),
+                include_str!("memory.rs"),
+            ];
+            let mut framed = Vec::new();
+            for source in sources {
+                framed.extend_from_slice(&(source.len() as u64).to_be_bytes());
+                framed.extend_from_slice(source.as_bytes());
+            }
+            arkret_canonical::sha256_digest(framed)
+        });
+        let bytes = arkret_canonical::canonical_json_bytes(&json!({
+            "evaluation_contract": "arkret-state-cell-evaluation-v1",
+            "implementation": implementation,
+            "bindings": self.bindings,
+        }))
+        .map_err(|error| StoreError::Backend(error.to_string()))?;
+        Hash::new(arkret_canonical::sha256_digest(bytes))
+            .map(Some)
+            .map_err(|error| StoreError::Backend(error.to_string()))
+    }
+
     fn resolve(&self, _realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
         // Parse "ak:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
         let cell_id = crate::CellId::parse(cell.as_str())
@@ -1499,6 +1541,52 @@ mod tests {
     use crate::{
         Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis, SealSignature,
     };
+
+    #[test]
+    fn checkpoint_context_binds_complete_rules_and_is_reproducible() {
+        let realm = derived_realm(12);
+        let mut first = MemoryCellRegistry::empty();
+        let mut second = MemoryCellRegistry::empty();
+        let family = arkret_wire::CellFamilyId::MEMBER_STATE_V1;
+        first.register_fsm(
+            family,
+            Some(json!("leave")),
+            vec![(json!("leave"), json!("join"))],
+            EventCellBottom::Reject,
+        );
+        second.register_fsm(
+            family,
+            Some(json!("leave")),
+            vec![(json!("leave"), json!("join"))],
+            EventCellBottom::Reject,
+        );
+        assert_eq!(
+            first.checkpoint_context(&realm).unwrap(),
+            second.checkpoint_context(&realm).unwrap()
+        );
+        let original = first.checkpoint_context(&realm).unwrap();
+        second.register_fsm(
+            family,
+            Some(json!("leave")),
+            vec![(json!("leave"), json!("ban"))],
+            EventCellBottom::Reject,
+        );
+        assert_ne!(original, second.checkpoint_context(&realm).unwrap());
+        second.register_fsm(
+            family,
+            Some(json!("join")),
+            vec![(json!("leave"), json!("join"))],
+            EventCellBottom::Reject,
+        );
+        assert_ne!(original, second.checkpoint_context(&realm).unwrap());
+        second.register_fsm(
+            family,
+            Some(json!("leave")),
+            vec![(json!("leave"), json!("join"))],
+            EventCellBottom::Expose,
+        );
+        assert_ne!(original, second.checkpoint_context(&realm).unwrap());
+    }
 
     const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
 

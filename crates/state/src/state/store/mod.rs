@@ -597,4 +597,16 @@ impl std::fmt::Debug for CellLatticeBinding {
 /// `cell_family` → `Lattice` instance mapping.
 pub trait CellRegistry: Send + Sync {
     fn resolve(&self, realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding>;
+
+    /// Identifies all rules used to derive a durable cell view for this Realm.
+    ///
+    /// Returning `Some` promises an immutable rule snapshot for the entire
+    /// lifetime of this registry, including every `resolve` call. A mutable
+    /// registry must return `None`; matching hashes before and after a call do
+    /// not exclude an intervening rule change. Unknown contexts cannot reuse
+    /// previously derived cell values. This is private execution metadata,
+    /// never a replacement for accepted Seal bytes or current authorization.
+    fn checkpoint_context(&self, _realm_id: &RealmId) -> StoreResult<Option<Hash>> {
+        Ok(None)
+    }
 }

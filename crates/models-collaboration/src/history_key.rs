@@ -2548,6 +2548,13 @@ pub struct HistoryKeyResponseListOutcome {
 
 impl HistoryKeyResponseListOutcome {
     pub fn validate(&self) -> Result<()> {
+        if self.entries.len() > 100
+            || arkret_canonical::canonical_json_bytes(self)?.len() > 8 * 1024 * 1024
+        {
+            return Err(WireError::Protocol(
+                "history response page exceeds 100 entries or 8 MiB".to_owned(),
+            ));
+        }
         if self.entries.is_empty() {
             if self.ack_token.is_some() {
                 return Err(WireError::Protocol(
