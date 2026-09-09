@@ -1,4 +1,4 @@
-//! Disk-backed direct Seal traversal for bulk/old history governance.
+//! Journaled direct Seal traversal for bulk/old history governance.
 //!
 //! `zh/governance/history-visibility.md` §5 splits governance verification in
 //! two: the bounded near-current `group_security_frontier` query, and this
@@ -19,7 +19,9 @@
 //! * **Replay** reuses the existing reducer through [`crate::apply_replayed_seal_in_context`].
 //!   There is exactly one implementation of notary selection, delta admission, root recomputation
 //!   and Bottom/recovery in the SDK, and direct traversal streams Seals into it one at a time
-//!   rather than handing it a materialized `Vec<Seal>`.
+//!   rather than handing it a materialized `Vec<Seal>`. The reducer stores and returned effective
+//!   state still grow with the accepted history; durable discovery does not bound the replay
+//!   phase's total memory.
 //!
 //! The two verifier phases are separately callable because they consume
 //! different evidence: discovery needs only signed `(seal_ref,
@@ -42,8 +44,8 @@ use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_wire::error_codes::{ErrorCode, ReasonCode};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ActorId, CellRef, EventId, Hash, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite,
-    RealmId, Seal, SealBasis, SealId, SealSignature, WireError, event_kind_str,
+    CellRef, EventId, Hash, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal,
+    SealBasis, SealId, SealSignature, WireError, event_kind_str,
 };
 use async_trait::async_trait;
 use serde_json::Value;
@@ -826,6 +828,75 @@ where
     })
 }
 
+/// Follow the reducer-selected epoch value, never raw candidate counts.
+/// Retained losing transitions are not authority. The target must come from
+/// the registered epoch cell at the same already verified governance basis.
+pub(crate) fn winning_mls_lineage<'a>(
+    retained: &'a [Event],
+    scope: &arkret_wire::HistoryEffectiveScope,
+    transition_ref: &EventId,
+    target_epoch: u64,
+) -> arkret_wire::Result<Vec<&'a Event>> {
+    let group_id = scope.canonical_mls_group_id()?;
+    let mut events = BTreeMap::new();
+    for event in retained {
+        if event.realm_id != *scope.realm_id() {
+            return Err(WireError::Protocol(
+                "history cut contains a cross-Realm Event".to_owned(),
+            ));
+        }
+        if let Some(previous) = events.insert(&event.event_id, event)
+            && previous != event
+        {
+            return Err(WireError::Protocol(
+                "retained Event identity has conflicting bytes".to_owned(),
+            ));
+        }
+    }
+    let mut current = transition_ref.clone();
+    let mut expected_epoch = target_epoch;
+    let mut lineage = Vec::new();
+    loop {
+        let event = events.remove(&current).ok_or_else(|| {
+            WireError::Protocol(
+                "winning MLS lineage is missing an Event or contains a cycle".to_owned(),
+            )
+        })?;
+        lineage.push(event);
+        match event.kind.as_str() {
+            event_kind_str::MLS_COMMIT => {
+                let commit: MlsCommitPayload = payload_of(event)?;
+                if commit.mls_group_id() != group_id
+                    || commit.next_epoch() != expected_epoch
+                    || commit.base_epoch().checked_add(1) != Some(expected_epoch)
+                    || commit.governance_binding().effective_scope()
+                        != &arkret_wire::ScopeRef::from(scope.clone())
+                {
+                    return Err(WireError::Protocol(
+                        "winning MLS lineage has inconsistent scope or epoch".to_owned(),
+                    ));
+                }
+                current = EventId::new(commit.base_epoch_ref().to_owned())?;
+                expected_epoch = commit.base_epoch();
+            }
+            event_kind_str::MLS_GENESIS
+                if expected_epoch == 0
+                    && event.payload.get("mls_group_id").and_then(Value::as_str)
+                        == Some(group_id.as_str())
+                    && event.payload.get("epoch").and_then(Value::as_u64) == Some(0) =>
+            {
+                lineage.reverse();
+                return Ok(lineage);
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "winning MLS lineage does not terminate in its Genesis".to_owned(),
+                ));
+            }
+        }
+    }
+}
+
 /// Derive the MLS phase of an already resolved membership from the same
 /// verified cut. `None` means membership is ready but its lineage is not.
 ///
@@ -838,15 +909,17 @@ where
 ///
 /// Nothing else is admissible. There is deliberately no variant keyed on
 /// `joined_at`, `received_at` or the current epoch.
-pub fn history_join_epoch_from_verified_membership(
+/// `genesis_incarnation` must come from the membership reducer at the winning
+/// lineage's Genesis signed basis in these same stores. The public store
+/// query constructs this input; it is never supplied by a remote assertion.
+pub(crate) fn history_join_epoch_from_verified_membership(
     retained_control_events: &[Event],
     membership: &crate::history_authorization::VerifiedMembership,
+    genesis_incarnation: Option<&AuthorizationIncarnation>,
+    lineage: &[&Event],
 ) -> arkret_wire::Result<Option<u64>> {
     let group_id = membership.scope().canonical_mls_group_id()?;
-    let mut add_proposals = BTreeMap::<EventId, MlsProposalPayload>::new();
-    let mut commits = BTreeMap::<(u64, String), BTreeMap<EventId, MlsCommitPayload>>::new();
-    let mut genesis = Vec::<(EventId, ActorId, u64)>::new();
-    let (realm_incarnation_ref, circle_incarnation_ref) = match membership.incarnation() {
+    let (realm_ref, circle_ref) = match membership.incarnation() {
         AuthorizationIncarnation::Realm {
             realm_membership_incarnation_ref,
         } => (realm_membership_incarnation_ref, None),
@@ -858,141 +931,47 @@ pub fn history_join_epoch_from_verified_membership(
             Some(circle_membership_incarnation_ref),
         ),
     };
-    for event in retained_control_events {
-        if event.realm_id != *membership.scope().realm_id() {
-            return Err(WireError::Protocol(
-                "history membership cut contains a cross-Realm Event".to_owned(),
-            ));
-        }
-        match event.kind.as_str() {
-            event_kind_str::MLS_PROPOSAL => {
-                let proposal: MlsProposalPayload = payload_of(event)?;
-                if proposal.mls_group_id.as_str() == group_id
-                    && proposal.proposal_type == MlsProposalType::Add
-                    && proposal.target_actor_id.as_ref() == Some(membership.actor())
-                    && proposal.target_authorization_incarnation.as_ref()
-                        == Some(membership.incarnation())
-                {
-                    add_proposals.insert(event.event_id.clone(), proposal);
-                }
-            }
-            event_kind_str::MLS_COMMIT => {
-                let commit: MlsCommitPayload = payload_of(event)?;
-                if commit.mls_group_id() == group_id {
-                    let successors = commits
-                        .entry((commit.base_epoch(), commit.base_epoch_ref().to_owned()))
-                        .or_default();
-                    if let Some(previous) = successors.get(&event.event_id) {
-                        if previous != &commit {
-                            return Err(WireError::Protocol(
-                                "retained MLS Commit identity has conflicting payloads".to_owned(),
-                            ));
-                        }
-                    } else {
-                        successors.insert(event.event_id.clone(), commit);
-                    }
-                }
-            }
-            event_kind_str::MLS_GENESIS
-                if event
-                    .payload
-                    .get("mls_group_id")
-                    .and_then(Value::as_str)
-                    .is_some_and(|group| group == group_id)
-                    && event.payload.get("epoch").and_then(Value::as_u64) == Some(0) =>
-            {
-                // The creator coordinate is not a payload field: the
-                // closed mls_genesis_payload schema does not declare one,
-                // and encryption-and-audit.md fixes creator principal as
-                // the accepted Event's own actor_id.
-                genesis.push((
-                    event.event_id.clone(),
-                    event.actor_id.clone(),
-                    event.actor_seq,
-                ));
-            }
-            _ => {}
-        }
-    }
-    if std::iter::once(realm_incarnation_ref)
-        .chain(circle_incarnation_ref)
-        .any(|id| {
-            !retained_control_events
-                .iter()
-                .any(|event| event.event_id == *id)
-        })
-    {
+    if std::iter::once(realm_ref).chain(circle_ref).any(|id| {
+        !retained_control_events
+            .iter()
+            .any(|event| &event.event_id == id)
+    }) {
         return Err(WireError::Protocol(
             "verified authorization incarnation is absent from the retained cut".to_owned(),
         ));
     }
-    if genesis.is_empty() {
+    let Some(genesis) = lineage.first() else {
         return Ok(None);
-    }
-    let [(genesis_ref, genesis_creator, genesis_actor_seq)] = genesis.as_slice() else {
-        return Err(WireError::Protocol(
-            "retained history cut does not have exactly one winning MLS Genesis".to_owned(),
-        ));
     };
-
-    let mut winning_ref = genesis_ref.clone();
-    let mut epoch = 0_u64;
-    let mut join_epoch = None;
-    for _ in 0..=commits.len() {
-        let candidates = commits
-            .get(&(epoch, winning_ref.as_str().to_owned()))
-            .into_iter()
-            .flat_map(|successors| successors.iter())
-            .filter(|(_, commit)| epoch.checked_add(1) == Some(commit.next_epoch()))
-            .collect::<Vec<_>>();
-        if candidates.is_empty() {
-            break;
-        }
-        if candidates.len() != 1 {
-            return Err(WireError::Protocol(
-                "retained MLS Commit frontier is contested".to_owned(),
-            ));
-        }
-        let (commit_ref, commit) = candidates[0];
-        let matching_adds = commit
-            .proposal_refs()
-            .iter()
-            .filter(|proposal_ref| {
-                add_proposals
-                    .get(*proposal_ref)
-                    .is_some_and(|proposal| proposal.base_epoch == epoch)
-            })
-            .count();
-        // History floors belong to the principal membership incarnation.
-        // Additional devices (including multiple Adds in one Commit) do not
-        // create another principal join or advance an existing floor (§3).
-        if matching_adds > 0 {
-            join_epoch.get_or_insert(commit.next_epoch());
-        }
-        winning_ref = commit_ref.clone();
-        epoch = commit.next_epoch();
-    }
-
-    // Genesis initial member: the same replay proved the founding membership
-    // incarnation above, and the winning Genesis names this actor as its initial
-    // leaf. No Add/Commit lineage exists for a founding member, so the floor is
-    // the Genesis epoch itself.
-    // A later rejoin of the creator is not its founding incarnation. These
-    // accepted Events share the creator's verified actor chain; both exact
-    // membership activations must precede its Genesis in that chain.
-    let founding_incarnation = std::iter::once(realm_incarnation_ref)
-        .chain(circle_incarnation_ref)
-        .all(|incarnation_ref| {
-            retained_control_events.iter().any(|event| {
-                event.event_id == *incarnation_ref
-                    && event.actor_id == *genesis_creator
-                    && event.actor_seq < *genesis_actor_seq
-            })
-        });
-    if genesis_creator == membership.actor() && founding_incarnation {
+    if genesis.actor_id == *membership.actor()
+        && genesis_incarnation == Some(membership.incarnation())
+    {
         return Ok(Some(0));
     }
-    Ok(join_epoch)
+    let mut adds = BTreeMap::<EventId, MlsProposalPayload>::new();
+    for event in retained_control_events {
+        if event.kind.as_str() == event_kind_str::MLS_PROPOSAL {
+            let proposal: MlsProposalPayload = payload_of(event)?;
+            if proposal.mls_group_id.as_str() == group_id
+                && proposal.proposal_type == MlsProposalType::Add
+                && proposal.target_actor_id.as_ref() == Some(membership.actor())
+                && proposal.target_authorization_incarnation.as_ref()
+                    == Some(membership.incarnation())
+            {
+                adds.insert(event.event_id.clone(), proposal);
+            }
+        }
+    }
+    for event in lineage.iter().skip(1) {
+        let commit: MlsCommitPayload = payload_of(event)?;
+        if commit.proposal_refs().iter().any(|id| {
+            adds.get(id)
+                .is_some_and(|proposal| proposal.base_epoch == commit.base_epoch())
+        }) {
+            return Ok(Some(commit.next_epoch()));
+        }
+    }
+    Ok(None)
 }
 
 fn payload_of<T: serde::de::DeserializeOwned>(event: &Event) -> arkret_wire::Result<T> {
@@ -1006,7 +985,9 @@ mod tests {
     use arkret_models_crypto::mls_envelopes::MlsCommitEnvelope;
     use arkret_models_crypto::mls_payloads::MlsGovernanceBindingPayload;
     use arkret_wire::event_envelope::ScopeRef;
-    use arkret_wire::{AccountId, ContentScheme, DidCoreId, DurabilityPolicy, Hlc, MlsGroupId};
+    use arkret_wire::{
+        AccountId, ActorId, ContentScheme, DidCoreId, DurabilityPolicy, Hlc, MlsGroupId,
+    };
     use serde_json::json;
 
     use super::*;
@@ -1410,6 +1391,27 @@ mod tests {
         }
     }
 
+    fn join_epoch_at(
+        retained: &[Event],
+        membership: &crate::history_authorization::VerifiedMembership,
+        genesis_incarnation: Option<&AuthorizationIncarnation>,
+        transition_ref: &str,
+        epoch: u64,
+    ) -> arkret_wire::Result<Option<u64>> {
+        let lineage = winning_mls_lineage(
+            retained,
+            membership.scope(),
+            &EventId::new(transition_ref)?,
+            epoch,
+        )?;
+        history_join_epoch_from_verified_membership(
+            retained,
+            membership,
+            genesis_incarnation,
+            &lineage,
+        )
+    }
+
     const INCARNATION_REF: &str = "ak:event:AWYr1ucW0vOccjnC8XMFGQK8PjKzaha_YpYb8B0uDY_y";
     const GENESIS_REF: &str = "ak:event:AZc5yUQiAVSI3hquJ6vb24B9nBqhiONzxJK6xPKc-IQ9";
     const ADD_REF: &str = "ak:event:AbNAprqpf8plo9xcY8bDOmf3mEUhUCZbN63erkPaxN_8";
@@ -1431,7 +1433,7 @@ mod tests {
             ),
         ];
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation))
+            join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1)
                 .expect("join epoch"),
             Some(1)
         );
@@ -1445,9 +1447,49 @@ mod tests {
             genesis(GENESIS_REF, &actor()),
         ];
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation))
-                .expect("join epoch"),
+            join_epoch_at(
+                &retained,
+                &subject(&incarnation),
+                Some(subject(&incarnation).incarnation()),
+                GENESIS_REF,
+                0
+            )
+            .expect("join epoch"),
             Some(0)
+        );
+    }
+
+    #[test]
+    fn genesis_membership_uses_the_historical_reducer_not_producer_ordering() {
+        let incarnation = EventId::new(INCARNATION_REF).unwrap();
+        let member = subject(&incarnation);
+        let admin = DidCoreId::new("ak:did_core:key:z6MkfixtureAdmin").unwrap();
+        let mut join = membership_join(INCARNATION_REF);
+        join.actor_id = ActorId::account(AccountId::new(admin.clone(), admin));
+        join.actor_seq = 100;
+        let retained = vec![join, genesis(GENESIS_REF, &actor())];
+        assert_eq!(
+            join_epoch_at(
+                &retained,
+                &member,
+                Some(member.incarnation()),
+                GENESIS_REF,
+                0
+            )
+            .unwrap(),
+            Some(0),
+        );
+        let old_member = subject(&EventId::new(ADD_REF).unwrap());
+        assert_eq!(
+            join_epoch_at(
+                &retained,
+                &member,
+                Some(old_member.incarnation()),
+                GENESIS_REF,
+                0
+            )
+            .unwrap(),
+            None,
         );
     }
 
@@ -1471,15 +1513,14 @@ mod tests {
                 ),
             ];
             assert_eq!(
-                history_join_epoch_from_verified_membership(&retained, &subject(&incarnation))
-                    .unwrap(),
+                join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
                 Some(1)
             );
         }
     }
 
     #[test]
-    fn lineage_deduplicates_one_commit_identity_but_rejects_contested_successors() {
+    fn lineage_uses_the_reducer_selected_successor_and_deduplicates_identity() {
         let incarnation = EventId::new(INCARNATION_REF).unwrap();
         let genesis_ref = EventId::new(GENESIS_REF).unwrap();
         let founder = DidCoreId::new("ak:did_core:key:z6MkfixtureFounder").unwrap();
@@ -1496,17 +1537,43 @@ mod tests {
             accepted_commit,
         ];
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).unwrap(),
+            join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
+            Some(1)
+        );
+        retained.push(retained[1].clone());
+        assert_eq!(
+            join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
             Some(1)
         );
         retained.push(commit(
             "ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC",
             &genesis_ref,
-            vec![EventId::new(ADD_REF).unwrap()],
+            Vec::new(),
         ));
-        assert!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).is_err()
+        assert_eq!(
+            join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
+            Some(1),
+            "a retained losing Commit must not override the reducer-selected recovered lineage"
         );
+        assert_eq!(
+            join_epoch_at(
+                &retained,
+                &subject(&incarnation),
+                None,
+                "ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC",
+                1
+            )
+            .unwrap(),
+            None,
+            "an Add consumed only on the losing lineage must not grant history access"
+        );
+        assert!(join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 2).is_err());
+        let missing = retained
+            .iter()
+            .filter(|event| event.event_id != genesis_ref)
+            .cloned()
+            .collect::<Vec<_>>();
+        assert!(join_epoch_at(&missing, &subject(&incarnation), None, COMMIT_REF, 1).is_err());
     }
 
     #[tokio::test]
@@ -1530,7 +1597,7 @@ mod tests {
             ),
         ];
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).unwrap(),
+            join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
             Some(1)
         );
         let later_add_ref = "ak:event:Aa5iC1k8qBhLViQvgYBaDDu8kW0AZcwnQyf3uwwBrOPh";
@@ -1548,18 +1615,40 @@ mod tests {
             1,
         ));
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).unwrap(),
+            join_epoch_at(
+                &retained,
+                &subject(&incarnation),
+                None,
+                "ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC",
+                2
+            )
+            .unwrap(),
             Some(1)
         );
         retained[1] = genesis(GENESIS_REF, &actor());
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).unwrap(),
+            join_epoch_at(
+                &retained,
+                &subject(&incarnation),
+                Some(subject(&incarnation).incarnation()),
+                "ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC",
+                2
+            )
+            .unwrap(),
             Some(0)
         );
-        // Rejoining after Genesis must not regain the creator's old floor.
-        retained[0].actor_seq = 3;
+        // A different incarnation at Genesis cannot regain the creator's floor,
+        // irrespective of the current producer's author or sequence.
+        let old_incarnation = subject(&EventId::new(ADD_REF).unwrap());
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).unwrap(),
+            join_epoch_at(
+                &retained,
+                &subject(&incarnation),
+                Some(old_incarnation.incarnation()),
+                "ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC",
+                2
+            )
+            .unwrap(),
             Some(1)
         );
     }
@@ -1573,7 +1662,7 @@ mod tests {
             genesis(GENESIS_REF, &founder),
         ];
         assert_eq!(
-            history_join_epoch_from_verified_membership(&retained, &subject(&incarnation)).unwrap(),
+            join_epoch_at(&retained, &subject(&incarnation), None, GENESIS_REF, 0).unwrap(),
             None
         );
     }
@@ -1582,7 +1671,7 @@ mod tests {
     async fn an_unproven_incarnation_fails_closed() {
         let incarnation = EventId::new(INCARNATION_REF).expect("incarnation ref");
         let retained = vec![genesis(GENESIS_REF, &actor())];
-        let error = history_join_epoch_from_verified_membership(&retained, &subject(&incarnation))
+        let error = join_epoch_at(&retained, &subject(&incarnation), None, GENESIS_REF, 0)
             .expect_err("an unproven incarnation is not a join floor");
         assert!(
             error.to_string().contains("authorization incarnation"),

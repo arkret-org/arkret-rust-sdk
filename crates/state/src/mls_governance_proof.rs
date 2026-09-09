@@ -401,6 +401,54 @@ where
     .await
 }
 
+/// Resolve both current and Genesis-time membership using one replay of the
+/// already verified cut. The history result never substitutes actor ordering
+/// for the Genesis's signed membership basis.
+pub async fn member_history_from_verified_checkpoint<ProjectWrites>(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    scope: &arkret_wire::HistoryEffectiveScope,
+    actor: &ActorId,
+    registry: &dyn CellRegistry,
+    project_writes: ProjectWrites,
+) -> arkret_wire::Result<(
+    crate::history_authorization::VerifiedMembership,
+    Option<u64>,
+)>
+where
+    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+{
+    checkpoint.validate_checkpoint()?;
+    if scope.realm_id() != &checkpoint.realm_id {
+        return frontier_rejected("membership scope differs from the verified checkpoint Realm");
+    }
+    let (seal_store, cell_store, ..) = replay_checkpoint_and_cut_to_basis(
+        &checkpoint.realm_id,
+        &checkpoint.basis,
+        &checkpoint.basis,
+        checkpoint,
+        &[],
+        &[],
+        &checkpoint.governance_dependencies,
+        registry,
+        |_, _, _, _| Ok(()),
+        |_, _, _| Box::pin(async { Ok(()) }),
+        |_, _, _, _| Ok(()),
+        project_writes,
+    )
+    .await?;
+    crate::history_authorization::member_history_at_verified_basis(
+        scope,
+        actor,
+        &checkpoint.basis,
+        &seal_store,
+        &cell_store,
+        registry,
+        &RetainedEventLookup(&checkpoint.accepted_events),
+        &checkpoint.accepted_events,
+    )
+    .await
+}
+
 struct RetainedEventLookup<'a>(&'a [Event]);
 
 #[async_trait]

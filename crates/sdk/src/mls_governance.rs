@@ -102,17 +102,44 @@ pub async fn history_join_epoch_from_verified_checkpoint(
     actor: &arkret_wire::ActorId,
     incarnation: &AuthorizationIncarnation,
 ) -> Result<Option<u64>, WireError> {
-    let membership = verified_membership_from_checkpoint(checkpoint, scope, actor).await?;
+    let (membership, epoch) =
+        verified_member_history_from_checkpoint(checkpoint, scope, actor).await?;
     if membership.incarnation() != incarnation {
         return Err(WireError::Protocol(
             "history request authorization incarnation is not current at its verified cut"
                 .to_owned(),
         ));
     }
-    arkret_state::direct_traversal::history_join_epoch_from_verified_membership(
-        &checkpoint.accepted_events,
-        &membership,
+    Ok(epoch)
+}
+
+/// Query membership and its MLS floor with one shared replay, including the
+/// exact Genesis-time membership when this actor is the initial principal.
+pub async fn verified_member_history_from_checkpoint(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    scope: &arkret_wire::HistoryEffectiveScope,
+    actor: &arkret_wire::ActorId,
+) -> Result<
+    (
+        arkret_state::history_authorization::VerifiedMembership,
+        Option<u64>,
+    ),
+    WireError,
+> {
+    let registry = arkret_lattice_registry::try_build_sdk_cell_registry()
+        .map_err(|error| WireError::Protocol(error.to_string()))?;
+    let authority_audits =
+        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
+    arkret_state::mls_governance_proof::member_history_from_verified_checkpoint(
+        checkpoint,
+        scope,
+        actor,
+        &registry,
+        |event, digest_suite| {
+            project_governance_cell_writes(event, digest_suite, &authority_audits)
+        },
     )
+    .await
 }
 
 /// The only Agent historical-evidence checks that cannot be derived
@@ -532,8 +559,14 @@ pub fn build_agent_signer_resolution_evidence(
     Ok(result)
 }
 
-/// Authenticate the PCR proof keys from the portable closure itself. No
-/// current DID resolution is performed for historical signatures.
+/// Verify PCR proof components inside the complete Agent verification flow.
+/// No current DID or device resolution is performed for historical signatures.
+///
+/// A successful component result does not authorize the Agent. Delegated
+/// notary descriptors acquire provenance only when the main current or
+/// historical verifier also authenticates the state-covering authority lease.
+/// Use this function as that verifier's trust callback; never treat its result
+/// alone as an authenticated admission or a reusable verified context.
 pub fn verify_agent_portable_trust(
     request: AgentHistoricalTrustRequest<'_>,
     root: &AuthenticatedSignerResolutionEvidence,
@@ -2226,6 +2259,10 @@ where
 }
 
 #[cfg(test)]
+#[path = "mls_governance_agent_tests.rs"]
+mod portable_agent_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -2414,13 +2451,17 @@ mod tests {
             })
             .unwrap();
         let mut substituted_key = original_descriptor.clone();
-        let other_key = ed25519_dalek::SigningKey::from_bytes(&[91; 32])
+        let other_key = ed25519_dalek::SigningKey::from_bytes(&[92; 32])
             .verifying_key()
             .to_bytes();
         substituted_key.frozen_public_key_b64u = arkret_canonical::base64url_encode(other_key);
         substituted_key.frozen_public_key_digest =
             arkret_wire::Hash::new(arkret_canonical::sha256_digest(other_key)).unwrap();
         substituted_key.validate().unwrap();
+        assert_ne!(
+            substituted_key.frozen_public_key_digest,
+            original_descriptor.frozen_public_key_digest
+        );
         assert!(
             arkret_signatures::verify_frozen_notary_signature(
                 signature,
@@ -2446,7 +2487,7 @@ mod tests {
             .unwrap(),
         );
         use ed25519_dalek::Signer as _;
-        let signed = ed25519_dalek::SigningKey::from_bytes(&[91; 32])
+        let signed = ed25519_dalek::SigningKey::from_bytes(&[92; 32])
             .sign(format!("{protected}.{}", arkret_canonical::base64url_encode(&body)).as_bytes());
         blake_seal.notary_signature = arkret_wire::NotarySig::Single(arkret_wire::SealSignature {
             verification_method: substituted_key.verification_method.clone(),

@@ -1,0 +1,763 @@
+{
+  "actor": {
+    "account_id": {
+      "principal_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+      "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+    },
+    "kind": "account"
+  },
+  "dependencies": [
+    {
+      "authenticated_resolution": {
+        "method_history_evidence": {
+          "boundary": {
+            "from_method_history_head": "sha256:bdb35e8d9949df7666c40573ed30fa1005e62be3138f913213b2c625d419a369",
+            "from_version_id": "1-QmVWzJvKBCua5LTWbFtyqmDbyNPEkGSbTDr3JZqYQyDjjz",
+            "to_method_history_head": "sha256:bdb35e8d9949df7666c40573ed30fa1005e62be3138f913213b2c625d419a369",
+            "to_version_id": "1-QmVWzJvKBCua5LTWbFtyqmDbyNPEkGSbTDr3JZqYQyDjjz"
+          },
+          "evidence": {
+            "document_digest": "sha256:646ca200572b0d50e50fd77f7a91fc8972f7a6734a61224f824a7a9b16ced798",
+            "kind": "ak.did.binding_evidence.v1",
+            "method": "webvh",
+            "method_proofs": [
+              {
+                "history_head": "sha256:bdb35e8d9949df7666c40573ed30fa1005e62be3138f913213b2c625d419a369",
+                "kind": "webvh_log",
+                "witness_proofs_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+                "witnesses": []
+              }
+            ]
+          },
+          "evidence_kind": "webvh_log",
+          "log_entries": [
+            {
+              "parameters": {
+                "method": "did:webvh:1.0",
+                "nextKeyHashes": [
+                  "QmcMurD9ycrpuFHrvCpvRDiamxYDEyPqEVWdtvfESnCDdE"
+                ],
+                "portable": true,
+                "scid": "QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj",
+                "updateKeys": [
+                  "z6MkmX4snMbfPRk7NBjN7CGzqJo8d81KZhwm1AqgWLBJ1ZgX"
+                ]
+              },
+              "proof": [
+                {
+                  "cryptosuite": "eddsa-jcs-2022",
+                  "proofPurpose": "assertionMethod",
+                  "proofValue": "z5nz7dMLzgEJqMrotGeUEUcm776mvMbGigyMzZfHkiEBWWxw9Q8pz9R7CDNR6nriNPwSygzjPu3xbpYFgb3NE8Utg",
+                  "type": "DataIntegrityProof",
+                  "verificationMethod": "did:key:z6MkmX4snMbfPRk7NBjN7CGzqJo8d81KZhwm1AqgWLBJ1ZgX#z6MkmX4snMbfPRk7NBjN7CGzqJo8d81KZhwm1AqgWLBJ1ZgX"
+                }
+              ],
+              "state": {
+                "@context": [
+                  "https://www.w3.org/ns/did/v1"
+                ],
+                "alsoKnownAs": [],
+                "assertionMethod": [
+                  "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key",
+                  "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#federation-fanout-key"
+                ],
+                "authentication": [
+                  "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+                ],
+                "id": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service",
+                "service": [
+                  {
+                    "id": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#service",
+                    "serviceEndpoint": "https://server.test/",
+                    "serviceKind": "station",
+                    "type": "ArkretService"
+                  }
+                ],
+                "verificationMethod": [
+                  {
+                    "controller": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service",
+                    "id": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key",
+                    "publicKeyMultibase": "z6MknLqRvfTHRJidZtmFsgiUHdgtFbQSaT1X7WTs95QKyb93",
+                    "type": "Multikey"
+                  },
+                  {
+                    "controller": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service",
+                    "id": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#federation-fanout-key",
+                    "publicKeyMultibase": "z6MknLqRvfTHRJidZtmFsgiUHdgtFbQSaT1X7WTs95QKyb93",
+                    "type": "Multikey"
+                  }
+                ]
+              },
+              "versionId": "1-QmVWzJvKBCua5LTWbFtyqmDbyNPEkGSbTDr3JZqYQyDjjz",
+              "versionTime": "2026-01-01T00:00:00Z"
+            }
+          ],
+          "witness_records": []
+        },
+        "normalized_did_document": {
+          "also_known_as": [],
+          "assertion_methods": [
+            {
+              "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#federation-fanout-key"
+            },
+            {
+              "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+            }
+          ],
+          "authentication": [
+            {
+              "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+            }
+          ],
+          "capability_delegations": [],
+          "capability_invocations": [],
+          "contexts": [
+            "https://www.w3.org/ns/did/v1"
+          ],
+          "controller_dids": [],
+          "did": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service",
+          "extensions": [],
+          "key_agreements": [],
+          "metadata": {},
+          "services": [
+            {
+              "endpoint": "https://server.test/",
+              "extensions": [
+                {
+                  "name": "serviceKind",
+                  "value": "station"
+                }
+              ],
+              "protocol_names": [
+                "ArkretService"
+              ],
+              "uri": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#service"
+            }
+          ],
+          "verification_methods": [
+            {
+              "controller_did": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service",
+              "extensions": [],
+              "public_key_material": {
+                "publicKeyMultibase": "z6MknLqRvfTHRJidZtmFsgiUHdgtFbQSaT1X7WTs95QKyb93"
+              },
+              "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#federation-fanout-key",
+              "verification_method_suite": "Multikey"
+            },
+            {
+              "controller_did": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service",
+              "extensions": [],
+              "public_key_material": {
+                "publicKeyMultibase": "z6MknLqRvfTHRJidZtmFsgiUHdgtFbQSaT1X7WTs95QKyb93"
+              },
+              "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key",
+              "verification_method_suite": "Multikey"
+            }
+          ]
+        },
+        "service_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj",
+        "service_kind": "station"
+      },
+      "kind": "service",
+      "signer_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj",
+      "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+    }
+  ],
+  "realm_id": "ak:realm:AfucJTn-9xLnYo-vw16iThcQ9ERuyCXebcEQI3X1oTWf",
+  "recipient_account_id": {
+    "principal_id": "ak:did_core:web:alice.example",
+    "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+  },
+  "root": {
+    "account_authority_signer_evidence_ref": "ak:signer_evidence:sha256:70c3cac5223b5122ccfef7ab5dc7f53b919be70dd7b02612de634ecc3b743715",
+    "agent_signer_evidence": {
+      "admission_evidence": {
+        "admission_evidence_digest": "sha256:147f4c0e47dbe53b4c72fb8a517e943bcd4830cb7fff9638ef4248610b27549d",
+        "agent_authority_state_evidence": {
+          "lease": {
+            "authority_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj",
+            "authority_kind": "agent_authority",
+            "expires_at": "2026-09-09T05:28:58.516Z",
+            "issued_at": "2026-09-09T05:23:58.516Z",
+            "proof": {
+              "jws": "eyJhbGciOiJFZDI1NTE5In0..sLEfL3JtL8SkMhEQCqvMDlCAbHRvQZRPx7hFloSRlFw6-xCAlfnCqIkvUwqxFvgIAwiU8-JsHr3as7OktArSBA",
+              "kind": "detached_jws"
+            },
+            "state_digest": "sha256:949b2994805e87c75ec1d5960811535cd56e445423df84f42b5ea69313a831b5",
+            "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+          },
+          "state": {
+            "accepted_delegated_notary_signers": [
+              {
+                "actor_id": {
+                  "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                  },
+                  "kind": "account"
+                },
+                "frozen_public_key_b64u": "a3NKjv8kb-c0s41ARsFI7uXwT-h7OgpCOVWneVbeBms",
+                "frozen_public_key_digest": "sha256:0e1b4e0d165bed857e8a3232ee9865b7001e4e7945887e6f7d149c5807ccaf08",
+                "jose_algorithm": "Ed25519",
+                "key_kind": "ed25519_raw32",
+                "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+              }
+            ],
+            "agent_lifecycle_witness": {
+              "accepted_status_event": {
+                "actor_id": {
+                  "account_id": {
+                    "principal_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                    "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                  },
+                  "kind": "account"
+                },
+                "actor_seq": 0,
+                "authorization_ref": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#managed-controller",
+                "created_at": "2026-09-09T05:23:55.000Z",
+                "event_id": "ak:event:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+                "executed_by": {
+                  "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                  },
+                  "kind": "account"
+                },
+                "hlc": "01a0849f69f8-0000-a13f9c2e",
+                "kind": "ak.realm.create",
+                "payload": {
+                  "object": {
+                    "digest_algorithm": "sha256",
+                    "encryption_profile": "mls_rfc9420",
+                    "genesis_salt": "EjSgDTarpcjfzZkHqZqGrl1_-kHOowuDANC-s7wUO2g",
+                    "initial_resolution": {
+                      "did": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1",
+                      "method_history_head": "sha256:e8049a03ae89d404b4bbf25d1b8e8380c62c27f2bce0d5097e11113d1985b10a",
+                      "version_id": "1-QmZpfHkDShNPJgm2UJmK36JkGfxCsCYGeA9Uxut6tjMA8k"
+                    },
+                    "notary": {
+                      "kind": "single_signer",
+                      "signer": {
+                        "actor_id": {
+                          "account_id": {
+                            "principal_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                            "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                          },
+                          "kind": "account"
+                        },
+                        "frozen_public_key_b64u": "-AzM3OSuHAeuIIoq35mjEK5CB-Awb6AjYRCwaCe7uNA",
+                        "frozen_public_key_digest": "sha256:f993bf2661c8a80d1ec098a49f6fb01d39439a1d5d6295a9ae435950026536da",
+                        "jose_algorithm": "Ed25519",
+                        "key_kind": "ed25519_raw32",
+                        "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#notary-key"
+                      }
+                    },
+                    "purpose": "agent_control",
+                    "reducer_profile": "ak.reducer.core.v1",
+                    "schema": "ak.schema.realm_genesis.v1",
+                    "schema_refs": [
+                      "ak.schema.realm.v1",
+                      "ak.profile.principal_control_realm.v1"
+                    ],
+                    "security_class": "high_assurance",
+                    "trust_domain": "ak:trust_domain:soland.local"
+                  }
+                },
+                "prev_refs": [],
+                "proofs": [
+                  {
+                    "created_at": "2026-09-09T05:23:55.000Z",
+                    "event_digest": "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                    "jws": "eyJhbGciOiJFZDI1NTE5In0..ZiRqVG22dMLBR__PcaOPhq9fNDkaTp_F-q-5C9LrmBJ37kh-clQv4qgqhrNyPXQQyJ6znoAxEPUGyMOeGdoTCg",
+                    "kind": "detached_jws",
+                    "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                  },
+                  {
+                    "accepted_at": "2026-09-09T05:23:56.334Z",
+                    "event_digest": "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                    "jws": "eyJhbGciOiJFZDI1NTE5In0..p4UE-24BxzLdqpoHW23jUI-Ca-XFezVXGbI8VdIKAYGNmwdHRH1_Xs9cUzLGlWgs2IS0QX8mZxkfz8x9hOhgCw",
+                    "kind": "station_admission",
+                    "producer_proof_digest": "sha256:73536a215576035e59f6ade9b293559e51dc1798b336e4e51199e511680ce8ce",
+                    "producer_signing_key_did": "did:key:z6MkmghdggH9iwAwmMypZmN9EsfPGwsbvmum2HkFWXVzrAeE",
+                    "producer_verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001",
+                    "signer_resolution_evidence_ref": "ak:signer_evidence:sha256:70c3cac5223b5122ccfef7ab5dc7f53b919be70dd7b02612de634ecc3b743715",
+                    "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+                  }
+                ],
+                "refs": [],
+                "requirements": {
+                  "schema": [
+                    "ak.schema.realm.v1"
+                  ]
+                },
+                "scope_ref": {
+                  "kind": "realm_genesis"
+                }
+              },
+              "agent_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+              "cell_heads": [
+                {
+                  "event_id": "ak:event:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+                  "value": "active"
+                }
+              ],
+              "cell_ref": "ak:cell:ak.component.agent.status.v1:IYuZOusFEjcoiZ4r1oqQnVs2LTSHkEvKC-MsYxZKC-s",
+              "cell_value": "active",
+              "component": "ak.component.agent.status.v1",
+              "inclusion_proof": [
+                "sha256:2d69668ef3cbc80e4f417389b52e02c73eee31b10ff97aae6ab2465afb68c2f4",
+                "sha256:8d0cb5b213655721445d01d5d80a56d1df799238f7329bef14e4d7fe4615462b",
+                "sha256:3ae1c4771af74bf3f5640abb29b6c85f6077ae8ca9fc770b9d6d16cca60ebd25",
+                "sha256:579e9469a7f12a6ac6ffc2a5fc211da06b8a14099b687721f8bae344b3f53354"
+              ],
+              "leaf_count": 9,
+              "leaf_digest": "sha256:162aacb1362623f09936558efafea72d3bd3fad53391783dacd4230e1256bdd0",
+              "leaf_index": 1,
+              "provenance": {
+                "kind": "delegated_pcr_genesis",
+                "realm_create_event_id": "ak:event:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G"
+              },
+              "seal": {
+                "availability_receipt_digests": [
+                  "sha256:b533a8ae8d727fc901c8c0ec5a478aafeaed5fd1a29ffc078c4437582a318bca"
+                ],
+                "completeness_root": "sha256:99a6c67eb1e291518a315070fa5616e9815507a3e1067ba46d869dd4b7127d6c",
+                "control_event_set_root": "sha256:2c217e7c57d2644f7428beb05bbc37c1c37dd167e0c922293a8c9d1a65329509",
+                "covered_event_digests": [
+                  "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                  "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0"
+                ],
+                "delta": [
+                  "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0"
+                ],
+                "hlc": "01a0849f7148-0009-a13f9c2e",
+                "id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+                "notary_seq": 1,
+                "notary_signature": {
+                  "jws": "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYjphbGljZS5leGFtcGxlI2FrOmRldmljZTowMTkwNDEwMC0wMDAwLTcwMDAtODAwMC1hMTFjZTAwMDAwMDEifQ..RXDpTahSkdYRNC5LvcugY4vWhx5KsH_dIxwk0jC7s1irT3hSIMZuumzw0WCCzHhEa34njf8gCJAmoDomaRVBCw",
+                  "payload_digest": "sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+                  "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                },
+                "predecessor_refs": [
+                  "ak:seal:sha256:8b1ce7087948c9a07acc618a004c0a990d4f122816ccdcb10526c061732efe29"
+                ],
+                "realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+                "sealed_at": "2026-09-09T05:23:57.184Z",
+                "state_root": "sha256:fa431eceffc0d076a997befa6a049683dcdf379c3511db298c14f5ceb6af36ef"
+              },
+              "seal_id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+              "state_root": "sha256:fa431eceffc0d076a997befa6a049683dcdf379c3511db298c14f5ceb6af36ef"
+            },
+            "authority_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj",
+            "authorization": {
+              "accepted_at": "2026-09-09T05:23:57.184Z",
+              "accepted_seal_id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+              "authorized_event_id": "ak:event:AXBscx4ITtiYtXqrW5_yFDKSDArZYz-Pr0ASOWK2q9LA",
+              "not_before": "2026-09-09T05:23:56.872Z",
+              "status": "active"
+            },
+            "frontier_seal_id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+            "frontier_state_root": "sha256:fa431eceffc0d076a997befa6a049683dcdf379c3511db298c14f5ceb6af36ef",
+            "key_authorization_event": {
+              "actor_id": {
+                "account_id": {
+                  "principal_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                  "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                },
+                "kind": "account"
+              },
+              "actor_seq": 1,
+              "authorization_ref": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#managed-controller",
+              "created_at": "2026-09-09T05:23:56.872Z",
+              "event_id": "ak:event:AXBscx4ITtiYtXqrW5_yFDKSDArZYz-Pr0ASOWK2q9LA",
+              "executed_by": {
+                "account_id": {
+                  "principal_id": "ak:did_core:web:alice.example",
+                  "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                },
+                "kind": "account"
+              },
+              "hlc": "01a0849f7148-0007-a13f9c2e",
+              "kind": "ak.agent.key.authorize",
+              "payload": {
+                "accountable_principal_id": "ak:did_core:web:alice.example",
+                "agent_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                "agent_key_scope": {
+                  "actions": [
+                    "ak.self.events.stream.subscribe.v1",
+                    "ak.self.events.read.scan.v1",
+                    "ak.self.events.read.frontier.v1",
+                    "ak.self.seals.read.frontier.v1",
+                    "ak.self.events.command.submit.v1"
+                  ],
+                  "resources": [
+                    {
+                      "kind": "operation",
+                      "operation": "ak.self.events.stream.subscribe.v1"
+                    },
+                    {
+                      "kind": "operation",
+                      "operation": "ak.self.events.read.scan.v1"
+                    },
+                    {
+                      "kind": "operation",
+                      "operation": "ak.self.events.read.frontier.v1"
+                    },
+                    {
+                      "kind": "operation",
+                      "operation": "ak.self.seals.read.frontier.v1"
+                    },
+                    {
+                      "kind": "operation",
+                      "operation": "ak.self.events.command.submit.v1"
+                    }
+                  ]
+                },
+                "approval_evidence": {
+                  "approved_by": "ak:did_core:web:alice.example",
+                  "kind": "pairing_request",
+                  "pairing_request_id": "agent_pairing_request:01a0849f-70b4-7831-9dba-5d310b60a749",
+                  "request_canonical_digest": "sha256:6fbb11447cd7006c3c11c79154bd1ad6e3e83d71ff4dbd0961757e8fb78ee19b"
+                },
+                "audience": [
+                  "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                ],
+                "issued_at": "2026-09-09T05:23:56.872Z",
+                "key_id": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa",
+                "public_key_digest": "sha256:30aef71a28c8ddd5d1fc7c28d02f4c72fc40ec4ff11511043e54542ee859dcb5",
+                "signing_key_binding_digest": "sha256:a628828915b71b2e7a23052e00ce537342ad5c71cad3164163e1dd17ee682883",
+                "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa"
+              },
+              "prev_refs": [
+                "ak:event:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G"
+              ],
+              "proofs": [
+                {
+                  "created_at": "2026-09-09T05:23:56.872Z",
+                  "event_digest": "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0",
+                  "jws": "eyJhbGciOiJFZDI1NTE5In0..IvPevfOaYAriKTvLKBbnSNJqohXzPAxVNBAnHD6Zfx4ZD17G0NI2fgFrOI4A8H-e4dycQspHf4fBOJCznwF3Ag",
+                  "kind": "detached_jws",
+                  "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                },
+                {
+                  "accepted_at": "2026-09-09T05:23:57.036Z",
+                  "event_digest": "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0",
+                  "jws": "eyJhbGciOiJFZDI1NTE5In0..ZOtLQTkG0VqfsXWJH9iUnFmuXtReaL7asnFI6V0xIRcbJ23oMSON05Cm1XZuzPwHcIrLqJ2x2K4OWfqZE3ZFAA",
+                  "kind": "station_admission",
+                  "producer_proof_digest": "sha256:7d5fb312c0b6da6d8a52f95dd9ce90282adbfaa6f962323299ac5dbe4704c168",
+                  "producer_signing_key_did": "did:key:z6MkmghdggH9iwAwmMypZmN9EsfPGwsbvmum2HkFWXVzrAeE",
+                  "producer_verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001",
+                  "signer_resolution_evidence_ref": "ak:signer_evidence:sha256:70c3cac5223b5122ccfef7ab5dc7f53b919be70dd7b02612de634ecc3b743715",
+                  "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+                }
+              ],
+              "realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+              "refs": [],
+              "scope_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G"
+              },
+              "seal_basis": {
+                "leaves": [
+                  "ak:seal:sha256:8b1ce7087948c9a07acc618a004c0a990d4f122816ccdcb10526c061732efe29"
+                ]
+              }
+            },
+            "key_state_witness": {
+              "agent_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+              "authorization_event_id": "ak:event:AXBscx4ITtiYtXqrW5_yFDKSDArZYz-Pr0ASOWK2q9LA",
+              "cell_ref": "ak:cell:ak.component.agent.key.v1:PAzB0tJxfSWjttIXCpIIuYZR7Nm6bwINuuMZF3e-vAE",
+              "cell_value": [
+                {
+                  "tag": "ak:event:AXBscx4ITtiYtXqrW5_yFDKSDArZYz-Pr0ASOWK2q9LA:1",
+                  "value": {
+                    "accountable_principal_id": "ak:did_core:web:alice.example",
+                    "agent_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                    "agent_key_scope": {
+                      "actions": [
+                        "ak.self.events.stream.subscribe.v1",
+                        "ak.self.events.read.scan.v1",
+                        "ak.self.events.read.frontier.v1",
+                        "ak.self.seals.read.frontier.v1",
+                        "ak.self.events.command.submit.v1"
+                      ],
+                      "resources": [
+                        {
+                          "kind": "operation",
+                          "operation": "ak.self.events.stream.subscribe.v1"
+                        },
+                        {
+                          "kind": "operation",
+                          "operation": "ak.self.events.read.scan.v1"
+                        },
+                        {
+                          "kind": "operation",
+                          "operation": "ak.self.events.read.frontier.v1"
+                        },
+                        {
+                          "kind": "operation",
+                          "operation": "ak.self.seals.read.frontier.v1"
+                        },
+                        {
+                          "kind": "operation",
+                          "operation": "ak.self.events.command.submit.v1"
+                        }
+                      ]
+                    },
+                    "approval_evidence": {
+                      "approved_by": "ak:did_core:web:alice.example",
+                      "kind": "pairing_request",
+                      "pairing_request_id": "agent_pairing_request:01a0849f-70b4-7831-9dba-5d310b60a749",
+                      "request_canonical_digest": "sha256:6fbb11447cd7006c3c11c79154bd1ad6e3e83d71ff4dbd0961757e8fb78ee19b"
+                    },
+                    "audience": [
+                      "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                    ],
+                    "issued_at": "2026-09-09T05:23:56.872Z",
+                    "key_id": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa",
+                    "public_key_digest": "sha256:30aef71a28c8ddd5d1fc7c28d02f4c72fc40ec4ff11511043e54542ee859dcb5",
+                    "signing_key_binding_digest": "sha256:a628828915b71b2e7a23052e00ce537342ad5c71cad3164163e1dd17ee682883",
+                    "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa"
+                  }
+                }
+              ],
+              "component": "ak.component.agent.key.v1",
+              "inclusion_proof": [
+                "sha256:162aacb1362623f09936558efafea72d3bd3fad53391783dacd4230e1256bdd0",
+                "sha256:8d0cb5b213655721445d01d5d80a56d1df799238f7329bef14e4d7fe4615462b",
+                "sha256:3ae1c4771af74bf3f5640abb29b6c85f6077ae8ca9fc770b9d6d16cca60ebd25",
+                "sha256:579e9469a7f12a6ac6ffc2a5fc211da06b8a14099b687721f8bae344b3f53354"
+              ],
+              "leaf_count": 9,
+              "leaf_digest": "sha256:2d69668ef3cbc80e4f417389b52e02c73eee31b10ff97aae6ab2465afb68c2f4",
+              "leaf_index": 0,
+              "seal": {
+                "availability_receipt_digests": [
+                  "sha256:b533a8ae8d727fc901c8c0ec5a478aafeaed5fd1a29ffc078c4437582a318bca"
+                ],
+                "completeness_root": "sha256:99a6c67eb1e291518a315070fa5616e9815507a3e1067ba46d869dd4b7127d6c",
+                "control_event_set_root": "sha256:2c217e7c57d2644f7428beb05bbc37c1c37dd167e0c922293a8c9d1a65329509",
+                "covered_event_digests": [
+                  "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                  "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0"
+                ],
+                "delta": [
+                  "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0"
+                ],
+                "hlc": "01a0849f7148-0009-a13f9c2e",
+                "id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+                "notary_seq": 1,
+                "notary_signature": {
+                  "jws": "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYjphbGljZS5leGFtcGxlI2FrOmRldmljZTowMTkwNDEwMC0wMDAwLTcwMDAtODAwMC1hMTFjZTAwMDAwMDEifQ..RXDpTahSkdYRNC5LvcugY4vWhx5KsH_dIxwk0jC7s1irT3hSIMZuumzw0WCCzHhEa34njf8gCJAmoDomaRVBCw",
+                  "payload_digest": "sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+                  "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                },
+                "predecessor_refs": [
+                  "ak:seal:sha256:8b1ce7087948c9a07acc618a004c0a990d4f122816ccdcb10526c061732efe29"
+                ],
+                "realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+                "sealed_at": "2026-09-09T05:23:57.184Z",
+                "state_root": "sha256:fa431eceffc0d076a997befa6a049683dcdf379c3511db298c14f5ceb6af36ef"
+              },
+              "seal_id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+              "state_root": "sha256:fa431eceffc0d076a997befa6a049683dcdf379c3511db298c14f5ceb6af36ef"
+            },
+            "pcr_genesis_event": {
+              "actor_id": {
+                "account_id": {
+                  "principal_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                  "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                },
+                "kind": "account"
+              },
+              "actor_seq": 0,
+              "authorization_ref": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#managed-controller",
+              "created_at": "2026-09-09T05:23:55.000Z",
+              "event_id": "ak:event:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+              "executed_by": {
+                "account_id": {
+                  "principal_id": "ak:did_core:web:alice.example",
+                  "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                },
+                "kind": "account"
+              },
+              "hlc": "01a0849f69f8-0000-a13f9c2e",
+              "kind": "ak.realm.create",
+              "payload": {
+                "object": {
+                  "digest_algorithm": "sha256",
+                  "encryption_profile": "mls_rfc9420",
+                  "genesis_salt": "EjSgDTarpcjfzZkHqZqGrl1_-kHOowuDANC-s7wUO2g",
+                  "initial_resolution": {
+                    "did": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1",
+                    "method_history_head": "sha256:e8049a03ae89d404b4bbf25d1b8e8380c62c27f2bce0d5097e11113d1985b10a",
+                    "version_id": "1-QmZpfHkDShNPJgm2UJmK36JkGfxCsCYGeA9Uxut6tjMA8k"
+                  },
+                  "notary": {
+                    "kind": "single_signer",
+                    "signer": {
+                      "actor_id": {
+                        "account_id": {
+                          "principal_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+                          "station_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj"
+                        },
+                        "kind": "account"
+                      },
+                      "frozen_public_key_b64u": "-AzM3OSuHAeuIIoq35mjEK5CB-Awb6AjYRCwaCe7uNA",
+                      "frozen_public_key_digest": "sha256:f993bf2661c8a80d1ec098a49f6fb01d39439a1d5d6295a9ae435950026536da",
+                      "jose_algorithm": "Ed25519",
+                      "key_kind": "ed25519_raw32",
+                      "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#notary-key"
+                    }
+                  },
+                  "purpose": "agent_control",
+                  "reducer_profile": "ak.reducer.core.v1",
+                  "schema": "ak.schema.realm_genesis.v1",
+                  "schema_refs": [
+                    "ak.schema.realm.v1",
+                    "ak.profile.principal_control_realm.v1"
+                  ],
+                  "security_class": "high_assurance",
+                  "trust_domain": "ak:trust_domain:soland.local"
+                }
+              },
+              "prev_refs": [],
+              "proofs": [
+                {
+                  "created_at": "2026-09-09T05:23:55.000Z",
+                  "event_digest": "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                  "jws": "eyJhbGciOiJFZDI1NTE5In0..ZiRqVG22dMLBR__PcaOPhq9fNDkaTp_F-q-5C9LrmBJ37kh-clQv4qgqhrNyPXQQyJ6znoAxEPUGyMOeGdoTCg",
+                  "kind": "detached_jws",
+                  "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                },
+                {
+                  "accepted_at": "2026-09-09T05:23:56.334Z",
+                  "event_digest": "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                  "jws": "eyJhbGciOiJFZDI1NTE5In0..p4UE-24BxzLdqpoHW23jUI-Ca-XFezVXGbI8VdIKAYGNmwdHRH1_Xs9cUzLGlWgs2IS0QX8mZxkfz8x9hOhgCw",
+                  "kind": "station_admission",
+                  "producer_proof_digest": "sha256:73536a215576035e59f6ade9b293559e51dc1798b336e4e51199e511680ce8ce",
+                  "producer_signing_key_did": "did:key:z6MkmghdggH9iwAwmMypZmN9EsfPGwsbvmum2HkFWXVzrAeE",
+                  "producer_verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001",
+                  "signer_resolution_evidence_ref": "ak:signer_evidence:sha256:70c3cac5223b5122ccfef7ab5dc7f53b919be70dd7b02612de634ecc3b743715",
+                  "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+                }
+              ],
+              "refs": [],
+              "requirements": {
+                "schema": [
+                  "ak.schema.realm.v1"
+                ]
+              },
+              "scope_ref": {
+                "kind": "realm_genesis"
+              }
+            },
+            "principal_control_realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+            "seal_lineages": [
+              {
+                "availability_receipt_digests": [],
+                "completeness_root": "sha256:193768bb5e56f12bdd39c5b466161b41e850c28971899d416e11bfeafa55fc31",
+                "control_event_set_root": "sha256:b19e1b3072197852afa8c38e6f7042b84676d368e11eb54d19e88841f7aa6968",
+                "covered_event_digests": [
+                  "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6"
+                ],
+                "delta": [
+                  "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6"
+                ],
+                "hlc": "01a0849f69f8-0003-a13f9c2e",
+                "id": "ak:seal:sha256:8b1ce7087948c9a07acc618a004c0a990d4f122816ccdcb10526c061732efe29",
+                "notary_seq": 0,
+                "notary_signature": {
+                  "jws": "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYjphbGljZS5leGFtcGxlI2FrOmRldmljZTowMTkwNDEwMC0wMDAwLTcwMDAtODAwMC1hMTFjZTAwMDAwMDEifQ..PlZ1GJ5mUDajkpNWBEi-KUfb7VHF1qdmya9QC1M7LilgclVt_2jQ1rCpkR7ZMYVJ3nSk4Fx6Ywr8V9HiormpAA",
+                  "payload_digest": "sha256:8b1ce7087948c9a07acc618a004c0a990d4f122816ccdcb10526c061732efe29",
+                  "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                },
+                "predecessor_refs": [],
+                "realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+                "sealed_at": "2026-09-09T05:23:56.466Z",
+                "state_root": "sha256:affa0161e26f0956463d686e58ac2d13af04388a222ed248bedaec41820a28f0"
+              },
+              {
+                "availability_receipt_digests": [
+                  "sha256:b533a8ae8d727fc901c8c0ec5a478aafeaed5fd1a29ffc078c4437582a318bca"
+                ],
+                "completeness_root": "sha256:99a6c67eb1e291518a315070fa5616e9815507a3e1067ba46d869dd4b7127d6c",
+                "control_event_set_root": "sha256:2c217e7c57d2644f7428beb05bbc37c1c37dd167e0c922293a8c9d1a65329509",
+                "covered_event_digests": [
+                  "sha256:1c597e6aef61fa2ce8521a5f66b1acae45bf89fad4e9513ba3a19b4ae390cdc6",
+                  "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0"
+                ],
+                "delta": [
+                  "sha256:706c731e084ed898b57aab5b9ff21432920c0ad9633f8faf40123962b6abd2c0"
+                ],
+                "hlc": "01a0849f7148-0009-a13f9c2e",
+                "id": "ak:seal:sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+                "notary_seq": 1,
+                "notary_signature": {
+                  "jws": "eyJhbGciOiJFZDI1NTE5Iiwia2lkIjoiZGlkOndlYjphbGljZS5leGFtcGxlI2FrOmRldmljZTowMTkwNDEwMC0wMDAwLTcwMDAtODAwMC1hMTFjZTAwMDAwMDEifQ..RXDpTahSkdYRNC5LvcugY4vWhx5KsH_dIxwk0jC7s1irT3hSIMZuumzw0WCCzHhEa34njf8gCJAmoDomaRVBCw",
+                  "payload_digest": "sha256:19d8ae0132416c2f60fd35defc3054d979e9ddd006c017b1e2c033ceb7ee5e14",
+                  "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+                },
+                "predecessor_refs": [
+                  "ak:seal:sha256:8b1ce7087948c9a07acc618a004c0a990d4f122816ccdcb10526c061732efe29"
+                ],
+                "realm_id": "ak:realm:ARxZfmrvYfos6FIaX2axrK5Fv4n61OlRO6Ohm0rjkM3G",
+                "sealed_at": "2026-09-09T05:23:57.184Z",
+                "state_root": "sha256:fa431eceffc0d076a997befa6a049683dcdf379c3511db298c14f5ceb6af36ef"
+              }
+            ],
+            "signing_key_binding": {
+              "agent_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+              "agent_key_authorize_event_id": "ak:event:AXBscx4ITtiYtXqrW5_yFDKSDArZYz-Pr0ASOWK2q9LA",
+              "agent_key_id": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa",
+              "controller_principal_id": "ak:did_core:web:alice.example",
+              "controller_proof": {
+                "jws": "eyJhbGciOiJFZDI1NTE5In0..tDHA_Vtfgmo1fch-Hoz-dWo1D2OAP8YEEEIwFFsEN2qyrY7c8kGGsJe2G_Eir4OWp3o1BrmLeaoWFF1SpGjZDg",
+                "kind": "detached_jws",
+                "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-a11ce0000001"
+              },
+              "issued_at": "2026-09-09T05:23:56.872Z",
+              "public_key": {
+                "algorithm": "Ed25519",
+                "key": "HM9ZjcdddZfSTKjlK79Ozwc9dUdGWPUU9_SJA8aQfjc",
+                "kty": "OKP"
+              },
+              "public_key_digest": "sha256:30aef71a28c8ddd5d1fc7c28d02f4c72fc40ec4ff11511043e54542ee859dcb5",
+              "schema": "ak.schema.agent_signing_key_binding.v1",
+              "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa"
+            }
+          },
+          "state_digest": "sha256:949b2994805e87c75ec1d5960811535cd56e445423df84f42b5ea69313a831b5"
+        },
+        "controller_account_gate_attestation": {
+          "authority_id": "ak:did_core:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj",
+          "basis": {
+            "binding_frontier_digest": "sha256:11ef67807e388992ec25a9f1fff1140750e5f87c5c4c8beb66397035935bd183",
+            "binding_version": 1,
+            "kind": "account_binding_default"
+          },
+          "basis_digest": "sha256:0a42dc91da64ecb21d5cceb2ca21ada53225196e61fd91d950dfbdcb691985c5",
+          "eligibility": "active",
+          "expires_at": "2026-09-09T05:25:58.508Z",
+          "issued_at": "2026-09-09T05:23:58.508Z",
+          "principal_id": "ak:did_core:web:alice.example",
+          "proof": {
+            "jws": "eyJhbGciOiJFZDI1NTE5In0..IZTnzbM8Vu5XVXYmEdIuPS3wVYeSllzY4m2Y5o1aPufdgrP8ulQfoz0mpqyTSex3TnYmBKmR2zQmbs-akZ7iBQ",
+            "kind": "detached_jws"
+          },
+          "schema": "ak.schema.controller_account_gate_attestation.v1",
+          "status": "active",
+          "verification_method": "did:webvh:QmXziUiqPkX8msZZ1YUWrcndbNJ7mufBGTgdm13HL3EHBj:server.test:webvh:service#notary-key"
+        }
+      },
+      "schema": "ak.schema.agent_signer_evidence.v1",
+      "verification_mode": "current_admission"
+    },
+    "attester_signer_evidence_ref": "ak:signer_evidence:sha256:70c3cac5223b5122ccfef7ab5dc7f53b919be70dd7b02612de634ecc3b743715",
+    "kind": "agent",
+    "signer_id": "ak:did_core:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj",
+    "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa"
+  },
+  "valid_from": "2026-09-09T05:23:58.516Z",
+  "verification_method": "did:webvh:QmdN7CTdbU7UUwoBGLGCgiTDGGUkFZvB3tLSLSYuEGoZNj:soland.local:webvh:agent-01a0849f6c2a7c61a00e84e96caf4ea1#runtime-0d16227b703c9b5d95a831ce97ecab5c325d5d602e885a9a07203953db1e0daa"
+}

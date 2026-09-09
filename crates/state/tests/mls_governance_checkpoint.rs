@@ -357,11 +357,16 @@ async fn membership_uses_the_exact_cut_and_does_not_require_mls_lineage() {
         }
     );
     assert_eq!(
-        arkret_state::direct_traversal::history_join_epoch_from_verified_membership(
-            &checkpoint.accepted_events,
-            &member
+        arkret_state::mls_governance_proof::member_history_from_verified_checkpoint(
+            &checkpoint,
+            &scope,
+            &actor,
+            &registry(),
+            projection,
         )
-        .unwrap(),
+        .await
+        .unwrap()
+        .1,
         None
     );
 
