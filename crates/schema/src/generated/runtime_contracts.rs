@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-09.1;
-//! sha256=cb9ee91da2dc2582665f159ba14592586bcbab043594b1287de02d0148f21755 Input: registry/
-//! operation-registry.json; version=2026-09-09.1;
-//! sha256=141dbe53b417e7212b9b27aedc167b24b21885dd055da73fe1e5810ff42b5cdd Input: registry/
+//! contract-registry.json; version=2026-09-09.6;
+//! sha256=8695242a92ff068155d1666536ab341ecd9b1b7ac374893307a50c762527d94b Input: registry/
+//! operation-registry.json; version=2026-09-09.6;
+//! sha256=334e4a2c40634fc6f4cb22d19253d90c9806d42200dd49ddb5539e63d2038355 Input: registry/
 //! event-kind-registry.json; version=2026-09-09.1;
 //! sha256=66b9ecda2b7900d86c802cd975f795b55911d06c158486f6aca7039f45e58b26 Input: registry/
 //! schema-registry.json; version=2026-09-08.1;
@@ -372,7 +372,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfEventsReadDescribeV1,
             ServiceOperationId::SelfEventsReadDeliveryStatusV1,
             ServiceOperationId::SelfEventsCommandSubmitV1,
-            ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,
+            ServiceOperationId::SelfSealsCommandPrepareV1,
             ServiceOperationId::SelfSealsCommandSubmitV1,
             ServiceOperationId::SelfEventsResourceGetV1,
             ServiceOperationId::SelfEventsReadResolveV1,
@@ -390,6 +390,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfAccountStreamSubscribeV1,
             ServiceOperationId::SelfAccountCommandRevokeCursorV1,
             ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
+            ServiceOperationId::SelfSealsReadPendingControlV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -780,6 +781,6 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-09.1";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-08.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-09.1";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-09.6";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

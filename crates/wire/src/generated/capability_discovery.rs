@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-09.1;
-//! sha256=cb9ee91da2dc2582665f159ba14592586bcbab043594b1287de02d0148f21755
+//! Input: registry/contract-registry.json; version=2026-09-09.6;
+//! sha256=8695242a92ff068155d1666536ab341ecd9b1b7ac374893307a50c762527d94b
 //! Entries: operation_bundles=36 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -1095,7 +1095,7 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,
+                operation_id: ServiceOperationId::SelfSealsCommandPrepareV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

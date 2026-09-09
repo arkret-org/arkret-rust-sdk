@@ -18,7 +18,7 @@ mod tests;
 
 pub use agent::{
     AgentPcrControlMaterial, AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority,
-    build_agent_pcr_create_payload, build_agent_pcr_event_seal, materialize_agent_pcr_control,
+    build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload, materialize_agent_pcr_control,
 };
 pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
 pub use projection::{CellWriteProjector, expected_realm_create_cells};
@@ -26,10 +26,7 @@ pub use self_principal::{
     SelfPrincipalPcrCreateInput, build_self_principal_pcr_create,
     build_self_principal_pcr_genesis_unit, validate_self_principal_pcr_genesis_unit,
 };
-pub use self_principal_seal::{
-    build_self_principal_bootstrap_seal, build_self_principal_event_seal,
-    build_self_principal_linear_successor_seal,
-};
+pub use self_principal_seal::build_self_principal_bootstrap_seal;
 
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
 

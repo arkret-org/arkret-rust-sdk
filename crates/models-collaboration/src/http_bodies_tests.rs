@@ -655,35 +655,7 @@ mod contact_projection_tests {
             },
             "state": "pending_incoming",
             "request_event_ref": REQUEST_EVENT_REF,
-            "request_receipt": {
-                "core": {
-                    "holder": {
-                        "kind": "human",
-                        "account_id": {
-                            "principal_id": "ak:did_core:webvh:z6mkfixtureholder",
-                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                        }
-                    },
-                    "peer": {
-                        "kind": "human",
-                        "account_id": {
-                            "principal_id": "ak:did_core:webvh:z6mkfixturepeer",
-                            "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                        }
-                    },
-                    "slot_version": 1,
-                    "request_event_ref": REQUEST_EVENT_REF,
-                    "source_checkpoint": format!("sha256:{}", "b".repeat(64)),
-                    "accepted_at": "2026-08-08T00:00:00.000Z",
-                    "issuer_id": "ak:did_core:web:ps.example"
-                },
-                "receipt_digest": "sha256:641452044a0d87132a2233b0765b061e065eefebb2ec14987451cd48df407a71",
-                "signature": {
-                    "verification_method": "did:web:ps.example#key-1",
-                    "created_at": "2026-08-08T00:00:00.000Z",
-                    "jws": "AA"
-                }
-            },
+            "request_message": "Hello",
             "granted_to_peer_scopes": [],
             "granted_by_peer_scopes": [],
             "bidirectional_scopes": []
@@ -710,26 +682,33 @@ mod contact_projection_tests {
     }
 
     #[test]
-    fn pending_incoming_row_requires_matching_source_receipt() {
+    fn pending_incoming_row_requires_reference_and_bounds_message_visibility() {
         let row: ContactListRow = serde_json::from_value(pending_incoming_row_fixture()).unwrap();
         assert_eq!(
-            row.request_receipt
-                .as_ref()
-                .unwrap()
-                .core
-                .request_event_ref
-                .as_str(),
+            row.request_event_ref.as_ref().unwrap().as_str(),
             REQUEST_EVENT_REF
         );
-
+        assert_eq!(row.request_message.as_deref(), Some("Hello"));
         let mut missing = pending_incoming_row_fixture();
-        missing.as_object_mut().unwrap().remove("request_receipt");
+        missing.as_object_mut().unwrap().remove("request_event_ref");
         assert!(serde_json::from_value::<ContactListRow>(missing).is_err());
-
-        let mut mismatched = pending_incoming_row_fixture();
-        mismatched["request_event_ref"] =
-            json!("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA");
-        assert!(serde_json::from_value::<ContactListRow>(mismatched).is_err());
+        let mut no_message = pending_incoming_row_fixture();
+        no_message
+            .as_object_mut()
+            .unwrap()
+            .remove("request_message");
+        assert!(serde_json::from_value::<ContactListRow>(no_message).is_ok());
+        let mut terminal = accepted_row_fixture();
+        terminal["request_message"] = json!("Private request message");
+        assert!(serde_json::from_value::<ContactListRow>(terminal).is_err());
+        for message in [String::new(), "x".repeat(2001)] {
+            let mut invalid = pending_incoming_row_fixture();
+            invalid["request_message"] = json!(message);
+            assert!(serde_json::from_value::<ContactListRow>(invalid).is_err());
+        }
+        let mut wrong_contract = pending_incoming_row_fixture();
+        wrong_contract["request_receipt"] = json!({});
+        assert!(serde_json::from_value::<ContactListRow>(wrong_contract).is_err());
     }
 }
 

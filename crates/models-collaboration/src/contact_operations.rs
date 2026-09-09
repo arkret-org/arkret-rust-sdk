@@ -471,8 +471,6 @@ pub struct ContactPrepareRequestBody {
     pub granted_to_peer_scopes: Vec<ContactScope>,
     pub introduction_evidence: ContactIntroductionEvidence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub previous_terminal_contact_round_id: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
@@ -979,7 +977,8 @@ pub struct ContactAcceptPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
-    pub request_receipt: RequestAcceptanceReceipt,
+    pub peer: ContactPeer,
+    pub request_event_ref: EventId,
     pub action: ContactAcceptAction,
     pub granted_to_peer_scopes: Vec<ContactScope>,
 }
@@ -1005,7 +1004,8 @@ pub struct ContactRejectPrepareRequestBody {
     pub phase: ContactPreparePhase,
     pub operation_id: ProtocolOperationId,
     pub idempotency_key: IdempotencyKey,
-    pub request_receipt: RequestAcceptanceReceipt,
+    pub peer: ContactPeer,
+    pub request_event_ref: EventId,
     pub action: ContactRejectAction,
 }
 

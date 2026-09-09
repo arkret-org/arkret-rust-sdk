@@ -7,7 +7,6 @@ use arkret_wire::{
     AvailabilityReceipt, CollisionVariantRecordId, Event, EventProof, Hash, RealmId, Result, Seal,
     SealId, WireError, canonical,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::events_payloads::state::{
@@ -1233,135 +1232,177 @@ impl GovernanceDependencyResolveOutcome {
     }
 }
 
-/// Exact PCR-only request for the availability dependencies needed before a
-/// device signs one successor Seal.
+/// Bounded pending Control Move discovery at an exact current PCR basis.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealAvailabilityReceiptIssueRequest {
+pub struct PcrPendingControlRequest {
     pub realm_id: RealmId,
     pub predecessor_refs: Vec<SealId>,
-    pub event_digests: Vec<Hash>,
+    pub limit: u32,
 }
 
-impl SealAvailabilityReceiptIssueRequest {
+impl PcrPendingControlRequest {
     pub fn validate(&self) -> Result<()> {
         validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
-        validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
+        if !(1..=1024).contains(&self.limit) {
+            return Err(WireError::Protocol(
+                "pending Control Move limit must be 1..=1024".to_owned(),
+            ));
+        }
         Ok(())
     }
 }
 
-/// Server-timestamped PCR availability preparation copied verbatim into the
-/// prospective successor Seal after the client verifies the complete typed
-/// dependency closure.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealAvailabilityReceiptIssueOutcome {
+pub struct PcrPendingControlOutcome {
     pub realm_id: RealmId,
     pub predecessor_refs: Vec<SealId>,
     pub event_digests: Vec<Hash>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub sealed_at: DateTime<Utc>,
-    pub availability_receipt_digests: Vec<Hash>,
-    pub governance_dependencies: Vec<GovernanceDependency>,
+    pub has_more: bool,
 }
 
-impl Eq for SealAvailabilityReceiptIssueOutcome {}
-
-impl SealAvailabilityReceiptIssueOutcome {
-    pub fn validate_for_request(
-        &self,
-        request: &SealAvailabilityReceiptIssueRequest,
-    ) -> Result<()> {
+impl PcrPendingControlOutcome {
+    pub fn validate_for_request(&self, request: &PcrPendingControlRequest) -> Result<()> {
         request.validate()?;
         if self.realm_id != request.realm_id
             || self.predecessor_refs != request.predecessor_refs
-            || self.event_digests != request.event_digests
+            || self.event_digests.len() > request.limit as usize
+            || self.event_digests.windows(2).any(|pair| pair[0] >= pair[1])
+            || self
+                .event_digests
+                .iter()
+                .any(|digest| !digest.as_str().starts_with("sha256:"))
+            || (self.has_more && self.event_digests.len() != request.limit as usize)
         {
             return Err(WireError::Protocol(
-                "availability receipt issue outcome does not exactly echo the request basis"
-                    .to_owned(),
-            ));
-        }
-        validate_sorted_unique_nonempty(
-            &self.availability_receipt_digests,
-            1_024,
-            "availability_receipt_digests",
-        )?;
-        if self.governance_dependencies.len() < 2 || self.governance_dependencies.len() > 2_048 {
-            return Err(WireError::Protocol(
-                "availability receipt issue outcome must contain 2..=2048 dependencies".to_owned(),
-            ));
-        }
-
-        GovernanceDependencyResolveOutcome {
-            items: self.governance_dependencies.clone(),
-            missing_selectors: Vec::new(),
-        }
-        .validate()?;
-
-        let requested_event_digests = request
-            .event_digests
-            .iter()
-            .cloned()
-            .collect::<BTreeSet<_>>();
-        let mut receipt_digests = BTreeSet::new();
-        let mut receipt_event_digests = BTreeSet::new();
-        let mut required_evidence_digests = BTreeSet::new();
-        let mut returned_evidence_digests = BTreeSet::new();
-        for dependency in &self.governance_dependencies {
-            match dependency {
-                GovernanceDependency::AvailabilityReceipt {
-                    selector: GovernanceDependencySelector::AvailabilityReceipt { content_digest },
-                    availability_receipt,
-                } => {
-                    if availability_receipt.realm_id != request.realm_id {
-                        return Err(WireError::Protocol(
-                            "availability receipt belongs to a different Realm".to_owned(),
-                        ));
-                    }
-                    receipt_digests.insert(content_digest.clone());
-                    receipt_event_digests.insert(availability_receipt.event_id.event_digest());
-                    required_evidence_digests.insert(
-                        availability_receipt
-                            .holder_signer_evidence_ref
-                            .content_digest()?,
-                    );
-                }
-                GovernanceDependency::AuthenticatedSignerResolutionEvidence {
-                    selector:
-                        GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                            content_digest,
-                        },
-                    ..
-                } => {
-                    returned_evidence_digests.insert(content_digest.clone());
-                }
-                _ => {
-                    return Err(WireError::Protocol(
-                        "availability preparation contains an unrelated dependency kind".to_owned(),
-                    ));
-                }
-            }
-        }
-        let declared_receipt_digests = self
-            .availability_receipt_digests
-            .iter()
-            .cloned()
-            .collect::<BTreeSet<_>>();
-        if receipt_digests != declared_receipt_digests
-            || receipt_event_digests != requested_event_digests
-            || receipt_digests.len() != request.event_digests.len()
-            || required_evidence_digests != returned_evidence_digests
-        {
-            return Err(WireError::Protocol(
-                "availability preparation is not every-and-only the requested receipts and signer evidence"
-                    .to_owned(),
+                "pending PCR result does not match the exact bounded request".to_owned(),
             ));
         }
         Ok(())
+    }
+}
+
+/// Exact ordinary PCR signing intent, frozen before preparation and retries.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealPrepareRequest {
+    pub realm_id: RealmId,
+    pub predecessor_refs: Vec<SealId>,
+    pub event_digests: Vec<Hash>,
+    pub hlc: arkret_wire::Hlc,
+}
+
+impl SealPrepareRequest {
+    pub fn validate(&self) -> Result<()> {
+        validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
+        validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
+        if self
+            .event_digests
+            .iter()
+            .any(|digest| !digest.as_str().starts_with("sha256:"))
+        {
+            return Err(WireError::Protocol(
+                "ordinary PCR delta requires SHA-256".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Bounded unsigned body prepared by the caller's authenticated Account Station.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealPrepareOutcome {
+    #[serde(deserialize_with = "deserialize_ordinary_pcr_body")]
+    pub seal_body: arkret_wire::UnsignedSeal,
+}
+
+fn deserialize_ordinary_pcr_body<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<arkret_wire::UnsignedSeal, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    for field in [
+        "covered_event_digests",
+        "data_view_root",
+        "data_event_set_root",
+        "previous_state_root",
+        "previous_digest_algorithm",
+    ] {
+        if value.get(field).is_some() {
+            return Err(serde::de::Error::custom(format!(
+                "ordinary PCR preparation forbids {field}"
+            )));
+        }
+    }
+    serde_json::from_value(value).map_err(serde::de::Error::custom)
+}
+
+impl SealPrepareOutcome {
+    pub fn validate_for_request(&self, request: &SealPrepareRequest) -> Result<()> {
+        request.validate()?;
+        let body = &self.seal_body;
+        if body.realm_id != request.realm_id
+            || body.predecessor_refs != request.predecessor_refs
+            || body.delta != request.event_digests
+            || body.hlc != request.hlc
+        {
+            return Err(WireError::Protocol(
+                "prepared Seal does not match the frozen signing intent".to_owned(),
+            ));
+        }
+        if !body.covered_event_digests.is_empty()
+            || body.data_view_root.is_some()
+            || body.data_event_set_root.is_some()
+            || body.previous_state_root.is_some()
+            || body.previous_digest_algorithm.is_some()
+            || body.notary_seq == 0
+        {
+            return Err(WireError::Protocol(
+                "PCR preparation requires an ordinary successor Seal".to_owned(),
+            ));
+        }
+        validate_sorted_unique_nonempty(
+            &body.availability_receipt_digests,
+            1_024,
+            "availability_receipt_digests",
+        )?;
+        if [
+            &body.control_event_set_root,
+            &body.state_root,
+            &body.completeness_root,
+        ]
+        .into_iter()
+        .chain(body.availability_receipt_digests.iter())
+        .any(|digest| !digest.as_str().starts_with("sha256:"))
+        {
+            return Err(WireError::Protocol(
+                "ordinary PCR preparation requires SHA-256 roots and receipts".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Bind the exact request and sign its Station-prepared canonical body.
+    /// Caller identity and local key selection remain the host's responsibility.
+    pub fn sign<S: arkret_wire::PayloadSigner + ?Sized>(
+        &self,
+        request: &SealPrepareRequest,
+        signer: &S,
+    ) -> Result<Seal> {
+        self.validate_for_request(request)?;
+        let bytes = arkret_canonical::canonical_json_bytes(&self.seal_body)?;
+        let signature = signer
+            .sign_notary_payload_with_digest_suite(&bytes, arkret_canonical::DigestSuite::Sha256)?;
+        Seal::from_canonical_body_and_signature(
+            &bytes,
+            arkret_wire::NotarySig::Single(signature.into()),
+            arkret_canonical::DigestSuite::Sha256,
+        )
     }
 }
 
@@ -1384,6 +1425,55 @@ mod tests {
     use std::any::TypeId;
 
     use super::*;
+
+    #[test]
+    fn pcr_prepared_body_binds_intent_without_history_and_rejects_legacy_fields() {
+        let digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        let request = SealPrepareRequest {
+            realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
+                .unwrap(),
+            predecessor_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap(),
+            ],
+            event_digests: vec![digest.clone()],
+            hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+        };
+        let value = serde_json::json!({"seal_body": {
+            "realm_id":request.realm_id,"predecessor_refs":request.predecessor_refs,
+            "delta":request.event_digests,"control_event_set_root":digest,"state_root":digest,
+            "completeness_root":digest,"notary_seq":1,"availability_receipt_digests":[digest],
+            "sealed_at":"2026-09-09T11:00:00.000Z","hlc":request.hlc,
+        }});
+        let prepared: SealPrepareOutcome = serde_json::from_value(value.clone()).unwrap();
+        prepared.validate_for_request(&request).unwrap();
+        let mut wrong = request.clone();
+        wrong
+            .event_digests
+            .push(Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap());
+        assert!(prepared.validate_for_request(&wrong).is_err());
+        wrong = request.clone();
+        wrong.hlc = arkret_wire::Hlc::new("01970e589d21-000a-a13f9c2e").unwrap();
+        assert!(prepared.validate_for_request(&wrong).is_err());
+        wrong = request.clone();
+        wrong.predecessor_refs =
+            vec![SealId::new(format!("ak:seal:sha256:{}", "4".repeat(64))).unwrap()];
+        assert!(prepared.validate_for_request(&wrong).is_err());
+        for (field, extra) in [
+            ("covered_event_digests", serde_json::json!([])),
+            ("data_view_root", serde_json::Value::Null),
+            ("previous_digest_algorithm", serde_json::json!("sha256")),
+        ] {
+            let mut malformed = value.clone();
+            malformed["seal_body"][field] = extra;
+            assert!(
+                serde_json::from_value::<SealPrepareOutcome>(malformed).is_err(),
+                "{field}"
+            );
+        }
+        let mut legacy = value;
+        legacy["governance_dependencies"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<SealPrepareOutcome>(legacy).is_err());
+    }
 
     #[test]
     fn governance_dependency_requests_have_distinct_wire_types() {

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-09.1;
-//! sha256=141dbe53b417e7212b9b27aedc167b24b21885dd055da73fe1e5810ff42b5cdd Entries: registered=233
+//! Input: registry/operation-registry.json; version=2026-09-09.6;
+//! sha256=334e4a2c40634fc6f4cb22d19253d90c9806d42200dd49ddb5539e63d2038355 Entries: registered=234
 
 use serde::{Deserialize, Serialize};
 
@@ -227,11 +227,12 @@ pub enum ServiceOperationId {
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
-    SelfSealsCommandIssueAvailabilityReceiptsV1,
+    SelfSealsCommandPrepareV1,
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
     SelfSealsReadGovernanceDependenciesV1,
     SelfSealsReadMlsGovernanceProofV1,
+    SelfSealsReadPendingControlV1,
     SelfSealsReadResolveV1,
     SelfSecurityTransactionCommandContinueV1,
     SelfSecurityTransactionCommandCreateV1,
@@ -463,11 +464,12 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1,
-    ServiceOperationId::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1,
+    ServiceOperationId::SELF_SEALS_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
     ServiceOperationId::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
+    ServiceOperationId::SELF_SEALS_READ_PENDING_CONTROL_V1,
     ServiceOperationId::SELF_SEALS_READ_RESOLVE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
@@ -741,11 +743,12 @@ impl ServiceOperationId {
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
-        Self::SelfSealsCommandIssueAvailabilityReceiptsV1,
+        Self::SelfSealsCommandPrepareV1,
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
         Self::SelfSealsReadGovernanceDependenciesV1,
         Self::SelfSealsReadMlsGovernanceProofV1,
+        Self::SelfSealsReadPendingControlV1,
         Self::SelfSealsReadResolveV1,
         Self::SelfSecurityTransactionCommandContinueV1,
         Self::SelfSecurityTransactionCommandCreateV1,
@@ -1128,14 +1131,15 @@ impl ServiceOperationId {
         "ak.self.realm_organization.read.list.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
         "ak.self.realm_state_snapshot.read.manifest_head.v1";
-    pub const SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1: &'static str =
-        "ak.self.seals.command.issue_availability_receipts.v1";
+    pub const SELF_SEALS_COMMAND_PREPARE_V1: &'static str = "ak.self.seals.command.prepare.v1";
     pub const SELF_SEALS_COMMAND_SUBMIT_V1: &'static str = "ak.self.seals.command.submit.v1";
     pub const SELF_SEALS_READ_FRONTIER_V1: &'static str = "ak.self.seals.read.frontier.v1";
     pub const SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1: &'static str =
         "ak.self.seals.read.governance_dependencies.v1";
     pub const SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1: &'static str =
         "ak.self.seals.read.mls_governance_proof.v1";
+    pub const SELF_SEALS_READ_PENDING_CONTROL_V1: &'static str =
+        "ak.self.seals.read.pending_control.v1";
     pub const SELF_SEALS_READ_RESOLVE_V1: &'static str = "ak.self.seals.read.resolve.v1";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1: &'static str =
         "ak.self.security_transaction.command.continue.v1";
@@ -1512,9 +1516,7 @@ impl ServiceOperationId {
             Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
             }
-            Self::SelfSealsCommandIssueAvailabilityReceiptsV1 => {
-                Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1
-            }
+            Self::SelfSealsCommandPrepareV1 => Self::SELF_SEALS_COMMAND_PREPARE_V1,
             Self::SelfSealsCommandSubmitV1 => Self::SELF_SEALS_COMMAND_SUBMIT_V1,
             Self::SelfSealsReadFrontierV1 => Self::SELF_SEALS_READ_FRONTIER_V1,
             Self::SelfSealsReadGovernanceDependenciesV1 => {
@@ -1523,6 +1525,7 @@ impl ServiceOperationId {
             Self::SelfSealsReadMlsGovernanceProofV1 => {
                 Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1
             }
+            Self::SelfSealsReadPendingControlV1 => Self::SELF_SEALS_READ_PENDING_CONTROL_V1,
             Self::SelfSealsReadResolveV1 => Self::SELF_SEALS_READ_RESOLVE_V1,
             Self::SelfSecurityTransactionCommandContinueV1 => {
                 Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1
@@ -1988,9 +1991,7 @@ impl ServiceOperationId {
             Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)
             }
-            Self::SELF_SEALS_COMMAND_ISSUE_AVAILABILITY_RECEIPTS_V1 => {
-                Some(Self::SelfSealsCommandIssueAvailabilityReceiptsV1)
-            }
+            Self::SELF_SEALS_COMMAND_PREPARE_V1 => Some(Self::SelfSealsCommandPrepareV1),
             Self::SELF_SEALS_COMMAND_SUBMIT_V1 => Some(Self::SelfSealsCommandSubmitV1),
             Self::SELF_SEALS_READ_FRONTIER_V1 => Some(Self::SelfSealsReadFrontierV1),
             Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1 => {
@@ -1999,6 +2000,7 @@ impl ServiceOperationId {
             Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1 => {
                 Some(Self::SelfSealsReadMlsGovernanceProofV1)
             }
+            Self::SELF_SEALS_READ_PENDING_CONTROL_V1 => Some(Self::SelfSealsReadPendingControlV1),
             Self::SELF_SEALS_READ_RESOLVE_V1 => Some(Self::SelfSealsReadResolveV1),
             Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1 => {
                 Some(Self::SelfSecurityTransactionCommandContinueV1)
@@ -7027,21 +7029,21 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfSealsCommandIssueAvailabilityReceiptsV1,
+        id: ServiceOperationId::SelfSealsCommandPrepareV1,
         http_method: "POST",
-        http_path: "/_arkret/self/seals/availability-receipts",
-        grpc: Some("SelfSeals/IssueAvailabilityReceipts"),
-        mq: Some("self.seals.command.issue_availability_receipts"),
+        http_path: "/_arkret/self/seals/prepare",
+        grpc: Some("SelfSeals/Prepare"),
+        mq: Some("self.seals.command.prepare"),
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "schema_resource",
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SealAvailabilityReceiptIssueRequest",
+            "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareRequest",
         ),
         response_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SealAvailabilityReceiptIssueOutcome",
+            "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareOutcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -7132,6 +7134,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadPendingControlV1,
+        http_method: "QUERY",
+        http_path: "/_arkret/self/seals/pending-control",
+        grpc: Some("SelfSeals/PendingControl"),
+        mq: Some("self.seals.read.pending_control"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PcrPendingControlRequest",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/PcrPendingControlOutcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

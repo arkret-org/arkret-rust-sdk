@@ -24,12 +24,11 @@ use serde_json::Value;
 
 use crate::projection::direct_projection;
 use crate::self_principal::validate_self_principal_pcr_create;
-use crate::self_principal_seal::validate_self_principal_linear_history;
 use crate::{
     AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority, AgentProvisionIntentOptions,
     DID_INCEPTION_REF_ROLE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL,
     REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
-    build_agent_pcr_create_payload, build_agent_pcr_event_seal, build_agent_provision_intent,
+    build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload, build_agent_provision_intent,
     build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
     build_self_principal_pcr_genesis_unit, materialize_agent_pcr_control,
     validate_self_principal_pcr_genesis_unit,
@@ -185,23 +184,6 @@ fn bootstrap_unit() -> (Event, Event) {
         &DidUrl::new(format!("{}#{}", principal_did, founding_device_id())).unwrap(),
     );
     (create, authorize)
-}
-
-#[test]
-fn self_principal_linear_control_history_allows_actor_sequence_gaps() {
-    let (create, mut authorize) = bootstrap_unit();
-    authorize.actor_seq = 3;
-
-    validate_self_principal_linear_history(&[create, authorize]).unwrap();
-}
-
-#[test]
-fn self_principal_linear_control_history_rejects_data_events() {
-    let (create, mut authorize) = bootstrap_unit();
-    authorize.kind = EventKind::AccountDataSet;
-
-    let error = validate_self_principal_linear_history(&[create, authorize]).unwrap_err();
-    assert!(error.to_string().contains("one actor"));
 }
 
 fn input() -> SelfPrincipalPcrCreateInput {
@@ -712,19 +694,15 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
         ))
         .unwrap(),
     };
-    let first = build_agent_pcr_event_seal(
+    let _first = build_agent_pcr_bootstrap_seal(
         std::slice::from_ref(&create),
-        None,
-        None,
         Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
         &signer,
         &project,
     )
     .unwrap();
-    let error = build_agent_pcr_event_seal(
+    let error = build_agent_pcr_bootstrap_seal(
         &[create, anchor],
-        Some(&first),
-        None,
         Hlc::new("01970e589d21-000a-a13f9c2e").unwrap(),
         &signer,
         &project,
@@ -733,7 +711,7 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
     assert!(
         error
             .to_string()
-            .contains("successor Seal requires availability preparation")
+            .contains("bootstrap Seal requires exactly its genesis create")
     );
 }
 

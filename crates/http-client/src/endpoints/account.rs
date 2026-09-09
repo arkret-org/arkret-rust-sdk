@@ -518,6 +518,11 @@ impl Client {
         self.get(PATH_SELF_CONTACTS).await
     }
 
+    pub async fn contacts_export_continuity(&self) -> Result<ContactList> {
+        self.get(&format!("{PATH_SELF_CONTACTS}?include_continuity=true"))
+            .await
+    }
+
     pub async fn contacts_tombstone(
         &self,
         request: &ContactTombstoneRequestBody,

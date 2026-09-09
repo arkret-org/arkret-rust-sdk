@@ -18,8 +18,8 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::governance_dependencies::{
-    GovernanceDependencyResolveOutcome, SealAvailabilityReceiptIssueOutcome,
-    SealAvailabilityReceiptIssueRequest, SelfGovernanceDependencyResolveRequest,
+    GovernanceDependencyResolveOutcome, SealPrepareOutcome, SealPrepareRequest,
+    SelfGovernanceDependencyResolveRequest,
 };
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome,
@@ -787,17 +787,22 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Ask the create-locked Station holder to issue and persist the
-    /// exact availability dependency closure before a device signs a PCR
-    /// successor Seal.
-    pub async fn seal_availability_receipts_issue(
+    /// Read pending digests without scanning or replaying PCR history.
+    pub async fn pcr_pending_control(
         &self,
-        request: &SealAvailabilityReceiptIssueRequest,
-    ) -> Result<SealAvailabilityReceiptIssueOutcome> {
+        request: &arkret_models_collaboration::governance_dependencies::PcrPendingControlRequest,
+    ) -> Result<arkret_models_collaboration::governance_dependencies::PcrPendingControlOutcome>
+    {
         request.validate()?;
-        let outcome: SealAvailabilityReceiptIssueOutcome = self
-            .post("/_arkret/self/seals/availability-receipts", request)
-            .await?;
+        let outcome: arkret_models_collaboration::governance_dependencies::PcrPendingControlOutcome = self.events_read_query("/_arkret/self/seals/pending-control", request).await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Request the exact Station-validated body for a device-signed PCR Seal.
+    pub async fn seals_prepare(&self, request: &SealPrepareRequest) -> Result<SealPrepareOutcome> {
+        request.validate()?;
+        let outcome: SealPrepareOutcome = self.post("/_arkret/self/seals/prepare", request).await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }

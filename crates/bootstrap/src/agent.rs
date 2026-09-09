@@ -5,9 +5,6 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
-use arkret_models_collaboration::governance_dependencies::{
-    SealAvailabilityReceiptIssueOutcome, SealAvailabilityReceiptIssueRequest,
-};
 use arkret_models_identity::ResolutionCommitment;
 use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
 use arkret_state::{
@@ -501,10 +498,8 @@ impl AgentPcrGenesisAuthority {
 
 /// Build and sign a Agent PCR Seal with the controller device named
 /// by the accepted Agent DID delegation.
-pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
+pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
     events: &[Event],
-    predecessor: Option<&Seal>,
-    availability: Option<&SealAvailabilityReceiptIssueOutcome>,
     hlc: Hlc,
     signer: &S,
     project: CellWriteProjector<'_>,
@@ -522,33 +517,14 @@ pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         .iter()
         .cloned()
         .collect::<BTreeSet<_>>();
-    let (predecessor_refs, current, notary_seq) = match predecessor {
-        Some(seal) => {
-            if seal.realm_id != material.realm_id || seal.covered_event_digests.is_empty() {
-                return Err(WireError::Protocol(
-                    "Agent PCR predecessor has incompatible Realm or coverage".to_owned(),
-                ));
-            }
-            let current = seal
-                .covered_event_digests
-                .iter()
-                .cloned()
-                .collect::<BTreeSet<_>>();
-            if !current.is_subset(&target) {
-                return Err(WireError::Protocol(
-                    "Agent PCR predecessor coverage is not a subset of the target".to_owned(),
-                ));
-            }
-            (
-                vec![seal.id.clone()],
-                current,
-                seal.notary_seq.checked_add(1).ok_or_else(|| {
-                    WireError::Protocol("Agent PCR notary sequence overflow".to_owned())
-                })?,
-            )
-        }
-        None => (Vec::new(), BTreeSet::new(), 0),
-    };
+    let predecessor_refs = Vec::new();
+    let current = BTreeSet::new();
+    let notary_seq = 0;
+    if events.len() != 1 || events[0].kind != EventKind::RealmCreate {
+        return Err(WireError::Protocol(
+            "Agent PCR bootstrap Seal requires exactly its genesis create".to_owned(),
+        ));
+    }
     let delta = target.difference(&current).cloned().collect::<Vec<_>>();
     if delta.is_empty() {
         return Err(WireError::Protocol(
@@ -567,30 +543,8 @@ pub fn build_agent_pcr_event_seal<S: PayloadSigner + ?Sized>(
         AGENT_PCR_DIGEST_SUITE,
     )
     .map_err(|error| WireError::Protocol(format!("Agent PCR completeness root: {error}")))?;
-    let (sealed_at, availability_receipt_digests) = match (predecessor, availability) {
-        (None, None) => (Utc::now(), Vec::new()),
-        (Some(_), Some(availability)) => {
-            availability.validate_for_request(&SealAvailabilityReceiptIssueRequest {
-                realm_id: material.realm_id.clone(),
-                predecessor_refs: predecessor_refs.clone(),
-                event_digests: delta.clone(),
-            })?;
-            (
-                availability.sealed_at,
-                availability.availability_receipt_digests.clone(),
-            )
-        }
-        (None, Some(_)) => {
-            return Err(WireError::Protocol(
-                "Agent PCR genesis Seal forbids availability preparation".to_owned(),
-            ));
-        }
-        (Some(_), None) => {
-            return Err(WireError::Protocol(
-                "Agent PCR successor Seal requires availability preparation".to_owned(),
-            ));
-        }
-    };
+    let sealed_at = Utc::now();
+    let availability_receipt_digests = Vec::new();
     let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
     let mut seal = Seal {
         id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,

@@ -221,33 +221,35 @@ struct SealBody<'a> {
     hlc: &'a Hlc,
 }
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CanonicalSealBody {
-    realm_id: RealmId,
-    predecessor_refs: Vec<SealId>,
-    delta: Vec<Hash>,
-    control_event_set_root: Hash,
-    state_root: Hash,
-    completeness_root: Hash,
-    notary_seq: u64,
+pub struct UnsignedSeal {
+    pub realm_id: RealmId,
+    pub predecessor_refs: Vec<SealId>,
+    pub delta: Vec<Hash>,
+    pub control_event_set_root: Hash,
+    pub state_root: Hash,
+    pub completeness_root: Hash,
+    pub notary_seq: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    data_view_root: Option<Hash>,
+    pub data_view_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    data_event_set_root: Option<Hash>,
-    availability_receipt_digests: Vec<Hash>,
+    pub data_event_set_root: Option<Hash>,
+    pub availability_receipt_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    covered_event_digests: Vec<Hash>,
+    pub covered_event_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    previous_state_root: Option<Hash>,
+    pub previous_state_root: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    previous_digest_algorithm: Option<arkret_canonical::DigestSuite>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub previous_digest_algorithm: Option<arkret_canonical::DigestSuite>,
     #[serde(
         serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp",
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_canonical_timestamp"
     )]
-    sealed_at: DateTime<Utc>,
-    hlc: Hlc,
+    pub sealed_at: DateTime<Utc>,
+    pub hlc: Hlc,
 }
 
 impl Seal {
@@ -258,7 +260,7 @@ impl Seal {
         notary_signature: NotarySig,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<Self> {
-        let body: CanonicalSealBody = serde_json::from_slice(canonical_body)?;
+        let body: UnsignedSeal = serde_json::from_slice(canonical_body)?;
         if canonical::canonical_json_bytes(&body)? != canonical_body {
             return Err(WireError::Protocol(
                 "Seal body bytes are not canonical JSON".to_owned(),

@@ -7,7 +7,6 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::agent_signer_evidence::AgentEventAdmission;
 use arkret_wire::{
     AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, CbsProofBundle,
@@ -23,7 +22,6 @@ use serde_json::Value;
 
 use crate::contact_operations::{
     ContactContinuityEvidence, ContactNextPrepareInput, ContactPeer, ContactScope,
-    RequestAcceptanceReceipt,
 };
 use crate::event_sync::RealmActorFrontierView;
 use crate::events_payloads::event_wire::decode_payload_after_kind_validation;
@@ -2256,7 +2254,7 @@ pub struct ContactListRow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub request_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub request_receipt: Option<RequestAcceptanceReceipt>,
+    pub request_message: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2268,16 +2266,9 @@ pub struct ContactListRow {
     pub bidirectional_scopes: Vec<ContactScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_scopes: Option<Vec<ContactScope>>,
-    /// Station service DID hosting the peer, when known (e.g. learned
-    /// from a cross-Station contact delivery). Lets the holder address
-    /// responses/invites to the peer's home server. Omitted for
-    /// same-Station contacts (spec contact-operations.schema.json).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_host_id: Option<DidCoreId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub peer_host_resolution: Option<ServiceResolutionCarrier>,
     /// Portable checkpoint plus the exact remaining tail. Present only after
-    /// both participant Stations have committed the same checkpoint.
+    /// both participant Stations have committed the same checkpoint and the caller explicitly
+    /// exports it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2302,7 +2293,7 @@ struct ContactListRowWire {
     #[serde(default)]
     request_event_ref: Option<EventId>,
     #[serde(default)]
-    request_receipt: Option<RequestAcceptanceReceipt>,
+    request_message: Option<String>,
     #[serde(default)]
     response_event_ref: Option<EventId>,
     #[serde(default)]
@@ -2314,10 +2305,6 @@ struct ContactListRowWire {
     bidirectional_scopes: Vec<ContactScope>,
     #[serde(default)]
     effective_scopes: Option<Vec<ContactScope>>,
-    #[serde(default)]
-    peer_host_id: Option<DidCoreId>,
-    #[serde(default)]
-    peer_host_resolution: Option<ServiceResolutionCarrier>,
     #[serde(default)]
     continuity_evidence: Option<ContactContinuityEvidence>,
     #[serde(default)]
@@ -2334,7 +2321,7 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             peer: wire.peer,
             state: wire.state,
             request_event_ref: wire.request_event_ref,
-            request_receipt: wire.request_receipt,
+            request_message: wire.request_message,
             response_event_ref: wire.response_event_ref,
             tombstone_event_ref: wire.tombstone_event_ref,
             next_prepare_input: wire.next_prepare_input,
@@ -2342,8 +2329,6 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
             granted_by_peer_scopes: wire.granted_by_peer_scopes,
             bidirectional_scopes: wire.bidirectional_scopes,
             effective_scopes: wire.effective_scopes,
-            peer_host_id: wire.peer_host_id,
-            peer_host_resolution: wire.peer_host_resolution,
             continuity_evidence: wire.continuity_evidence,
             direct_conversation: wire.direct_conversation,
             contact_agent_projections: wire.contact_agents,
@@ -2355,17 +2340,17 @@ impl TryFrom<ContactListRowWire> for ContactListRow {
 
 impl ContactListRow {
     pub fn validate_shape(&self) -> Result<()> {
-        if (self.state == ContactState::PendingIncoming) != self.request_receipt.is_some() {
+        if self.state == ContactState::PendingIncoming && self.request_event_ref.is_none() {
             return Err(WireError::Protocol(
-                "request_receipt must be present exactly for pending_incoming Contact rows"
-                    .to_owned(),
+                "pending_incoming requires request_event_ref".to_owned(),
             ));
         }
-        if let Some(receipt) = &self.request_receipt {
-            receipt.validate_shape()?;
-            if self.request_event_ref.as_ref() != Some(&receipt.core.request_event_ref) {
+        if let Some(message) = &self.request_message {
+            if self.state != ContactState::PendingIncoming
+                || !(1..=2000).contains(&message.chars().count())
+            {
                 return Err(WireError::Protocol(
-                    "Contact row request_event_ref does not match request_receipt".to_owned(),
+                    "request_message requires pending_incoming and 1..2000 characters".to_owned(),
                 ));
             }
         }

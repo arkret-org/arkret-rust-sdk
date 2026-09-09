@@ -214,7 +214,7 @@ pub use resource_selector::{
 };
 pub use seal::{
     MultiSigKind, MultiSignature, NotarySig, PayloadSignature, Seal, SealKind, SealSignature,
-    compute_seal_id, seal_canonical_bytes,
+    UnsignedSeal, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
