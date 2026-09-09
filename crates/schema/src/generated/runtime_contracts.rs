@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-09.13;
-//! sha256=546373f434c3278d310eeda2b29118a6f400c21420c21bae74d8cb67449f06f1 Input: registry/
-//! operation-registry.json; version=2026-09-09.12;
-//! sha256=b8ccaabfc9eed34eb3bb925e7327146bf26314f6f0a3dc53b9797598f9e68cd4 Input: registry/
+//! contract-registry.json; version=2026-09-10.2;
+//! sha256=b9d3f35e7fcc1a7076cf4e544a4591fa037da4c1ff15e3bb62d6ba90a6c3ee78 Input: registry/
+//! operation-registry.json; version=2026-09-10.2;
+//! sha256=c2ae2d334aebe6c78407cf1038c230b6ba6653d0df12cfabcad896a54dd74fcc Input: registry/
 //! event-kind-registry.json; version=2026-09-09.1;
 //! sha256=66b9ecda2b7900d86c802cd975f795b55911d06c158486f6aca7039f45e58b26 Input: registry/
 //! schema-registry.json; version=2026-09-08.1;
@@ -383,6 +383,8 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfSealsReadResolveV1,
             ServiceOperationId::SelfSealsReadMlsGovernanceProofV1,
             ServiceOperationId::SelfSealsReadMlsAcceptedArtifactV1,
+            ServiceOperationId::SelfSealsReadMembershipAuthorityV1,
+            ServiceOperationId::SelfSealsReadHistoryAuthorityV1,
             ServiceOperationId::SelfSealsReadGovernanceDependenciesV1,
             ServiceOperationId::SelfAccountReadDescribeV1,
             ServiceOperationId::SelfAccountReadViewerV1,
@@ -782,6 +784,6 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-09.1";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-08.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-09.12";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-10.2";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

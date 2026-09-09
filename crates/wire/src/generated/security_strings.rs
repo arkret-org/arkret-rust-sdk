@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-09;
-//! sha256=4e6abdcbbfd766293d34daa557e4ee03413e45096fed53b133dda427d5bc49f0 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-10;
+//! sha256=c00bbe81f1abb17e0b2141ef06f64d64624fc41b0b10bba98c830f7e51fee3e2 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -1526,8 +1526,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "requester_author_profile",
             "requester_endpoint_authorization",
             "requester_authorization_incarnation",
-            "trusted_history_base_basis",
-            "trusted_current_basis",
             "requested_ranges",
             "recipient_hpke_public_key",
             "expires_at",
@@ -1549,8 +1547,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "effective_scope",
             "requester_sender_domain",
             "requester_authorization_incarnation",
-            "trusted_history_base_basis",
-            "trusted_current_basis",
             "release_id",
             "release_service_binding_ref",
             "release_service_resolution_ref",

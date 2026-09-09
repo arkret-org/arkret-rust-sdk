@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-09.12;
-//! sha256=b8ccaabfc9eed34eb3bb925e7327146bf26314f6f0a3dc53b9797598f9e68cd4 Entries: registered=235
+//! Input: registry/operation-registry.json; version=2026-09-10.2;
+//! sha256=c2ae2d334aebe6c78407cf1038c230b6ba6653d0df12cfabcad896a54dd74fcc Entries: registered=237
 
 use serde::{Deserialize, Serialize};
 
@@ -231,6 +231,8 @@ pub enum ServiceOperationId {
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
     SelfSealsReadGovernanceDependenciesV1,
+    SelfSealsReadHistoryAuthorityV1,
+    SelfSealsReadMembershipAuthorityV1,
     SelfSealsReadMlsAcceptedArtifactV1,
     SelfSealsReadMlsGovernanceProofV1,
     SelfSealsReadPendingControlV1,
@@ -469,6 +471,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
     ServiceOperationId::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
+    ServiceOperationId::SELF_SEALS_READ_HISTORY_AUTHORITY_V1,
+    ServiceOperationId::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
     ServiceOperationId::SELF_SEALS_READ_PENDING_CONTROL_V1,
@@ -749,6 +753,8 @@ impl ServiceOperationId {
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
         Self::SelfSealsReadGovernanceDependenciesV1,
+        Self::SelfSealsReadHistoryAuthorityV1,
+        Self::SelfSealsReadMembershipAuthorityV1,
         Self::SelfSealsReadMlsAcceptedArtifactV1,
         Self::SelfSealsReadMlsGovernanceProofV1,
         Self::SelfSealsReadPendingControlV1,
@@ -1139,6 +1145,10 @@ impl ServiceOperationId {
     pub const SELF_SEALS_READ_FRONTIER_V1: &'static str = "ak.self.seals.read.frontier.v1";
     pub const SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1: &'static str =
         "ak.self.seals.read.governance_dependencies.v1";
+    pub const SELF_SEALS_READ_HISTORY_AUTHORITY_V1: &'static str =
+        "ak.self.seals.read.history_authority.v1";
+    pub const SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1: &'static str =
+        "ak.self.seals.read.membership_authority.v1";
     pub const SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1: &'static str =
         "ak.self.seals.read.mls_accepted_artifact.v1";
     pub const SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1: &'static str =
@@ -1526,6 +1536,10 @@ impl ServiceOperationId {
             Self::SelfSealsReadFrontierV1 => Self::SELF_SEALS_READ_FRONTIER_V1,
             Self::SelfSealsReadGovernanceDependenciesV1 => {
                 Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1
+            }
+            Self::SelfSealsReadHistoryAuthorityV1 => Self::SELF_SEALS_READ_HISTORY_AUTHORITY_V1,
+            Self::SelfSealsReadMembershipAuthorityV1 => {
+                Self::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1
             }
             Self::SelfSealsReadMlsAcceptedArtifactV1 => {
                 Self::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1
@@ -2004,6 +2018,12 @@ impl ServiceOperationId {
             Self::SELF_SEALS_READ_FRONTIER_V1 => Some(Self::SelfSealsReadFrontierV1),
             Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1 => {
                 Some(Self::SelfSealsReadGovernanceDependenciesV1)
+            }
+            Self::SELF_SEALS_READ_HISTORY_AUTHORITY_V1 => {
+                Some(Self::SelfSealsReadHistoryAuthorityV1)
+            }
+            Self::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1 => {
+                Some(Self::SelfSealsReadMembershipAuthorityV1)
             }
             Self::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1 => {
                 Some(Self::SelfSealsReadMlsAcceptedArtifactV1)
@@ -7125,6 +7145,46 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/GovernanceDependencyResolveOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadHistoryAuthorityV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/history-authority",
+        grpc: Some("SelfSeals/HistoryAuthority"),
+        mq: Some("self.seals.read.history_authority"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_authority_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/history_authority_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadMembershipAuthorityV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/membership-authority",
+        grpc: Some("SelfSeals/MembershipAuthority"),
+        mq: Some("self.seals.read.membership_authority"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/membership_authority_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/history-key.schema.json#/$defs/membership_authority_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

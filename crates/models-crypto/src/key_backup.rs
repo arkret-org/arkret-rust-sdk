@@ -87,7 +87,7 @@ pub struct KeyBackupsListQuery {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum BackupActiveSeriesPointer {
-    Absent,
+    Absent {},
     Active {
         active_series_id: BackupSeriesId,
         series_pointer_version: u64,
@@ -97,7 +97,7 @@ pub enum BackupActiveSeriesPointer {
 impl BackupActiveSeriesPointer {
     pub fn series_id(&self) -> Option<&BackupSeriesId> {
         match self {
-            Self::Absent => None,
+            Self::Absent {} => None,
             Self::Active {
                 active_series_id, ..
             } => Some(active_series_id),

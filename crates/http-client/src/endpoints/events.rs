@@ -776,6 +776,32 @@ impl Client {
         Ok(outcome)
     }
 
+    /// Read the current member history floor without fetching a governance checkpoint.
+    pub async fn history_authority(
+        &self,
+        request: &arkret_models_collaboration::history_key::HistoryAuthorityRequest,
+    ) -> Result<arkret_models_collaboration::history_key::HistoryAuthorityOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_collaboration::history_key::HistoryAuthorityOutcome = self
+            .post("/_arkret/self/seals/history-authority", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Read the current join identity at the exact accepted frontier.
+    pub async fn membership_authority(
+        &self,
+        request: &arkret_models_collaboration::history_key::MembershipAuthorityRequest,
+    ) -> Result<arkret_models_collaboration::history_key::MembershipAuthorityOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_collaboration::history_key::MembershipAuthorityOutcome = self
+            .post("/_arkret/self/seals/membership-authority", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     /// Read the Station's current acceptance of one already known MLS artifact.
     pub async fn mls_accepted_artifact(
         &self,

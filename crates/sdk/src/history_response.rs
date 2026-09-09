@@ -708,8 +708,6 @@ fn member_history_intent(
     let HistoryGovernanceTraversalIntent::MemberHistoryDelivery {
         effective_scope,
         mls_group_id,
-        trusted_history_base_basis,
-        trusted_current_basis,
         request_digest,
         requested_ranges,
         authorization_incarnation,
@@ -722,8 +720,6 @@ fn member_history_intent(
     let request = &accepted.request;
     if effective_scope != &request.effective_scope
         || mls_group_id != &request.effective_scope.canonical_mls_group_id()?
-        || trusted_history_base_basis != &request.trusted_history_base_basis
-        || trusted_current_basis != &request.trusted_current_basis
         || request_digest != &request.request_digest()?
         || requested_ranges != &request.requested_ranges
         || authorization_incarnation != &request.requester_authorization_incarnation

@@ -15,6 +15,176 @@ pub use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// Exact current history authorization query to the Account Station.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryAuthorityRequest {
+    pub effective_scope: HistoryEffectiveScope,
+    pub actor_id: ActorId,
+    pub seal_basis: SealBasis,
+}
+
+impl HistoryAuthorityRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.seal_basis.validate_protocol_bounds()?;
+        current_authority_size(self)
+    }
+
+    pub fn query_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        let bytes = arkret_canonical::canonical_json_bytes(self)?;
+        Hash::new(arkret_canonical::canonical::sha256_digest_from_slices(&[
+            b"ak.history-authority-query-v1",
+            &[0],
+            &bytes,
+        ]))
+        .map_err(Into::into)
+    }
+}
+
+/// Server-derived scope floor; later key release still checks current authority.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HistoryAuthorityOutcome {
+    pub account_id: arkret_wire::AccountId,
+    pub query_digest: Hash,
+    pub seal_basis: SealBasis,
+    pub authorization_incarnation: AuthorizationIncarnation,
+    pub join_epoch: u64,
+    pub history_floor_epoch: u64,
+}
+
+impl HistoryAuthorityOutcome {
+    pub fn validate_for_request(&self, request: &HistoryAuthorityRequest) -> Result<()> {
+        request.validate()?;
+        self.seal_basis.validate_protocol_bounds()?;
+        current_authority_size(self)?;
+        if self.query_digest != request.query_digest()?
+            || self.seal_basis != request.seal_basis
+            || (self.history_floor_epoch != 0 && self.history_floor_epoch != self.join_epoch)
+            || !matches!(
+                (&request.effective_scope, &self.authorization_incarnation),
+                (
+                    HistoryEffectiveScope::Realm { .. },
+                    AuthorizationIncarnation::Realm { .. }
+                ) | (
+                    HistoryEffectiveScope::Circle { .. },
+                    AuthorizationIncarnation::Circle { .. }
+                )
+            )
+        {
+            return Err(WireError::Protocol(
+                "history authority differs from its exact request or scope floor".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_account(
+        &self,
+        request: &HistoryAuthorityRequest,
+        account: &arkret_wire::AccountId,
+    ) -> Result<()> {
+        self.validate_for_request(request)?;
+        if &self.account_id != account {
+            return Err(WireError::Protocol(
+                "history authority belongs to another account".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Exact current membership query to the authenticated Account Station.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MembershipAuthorityRequest {
+    pub effective_scope: HistoryEffectiveScope,
+    pub actor_id: ActorId,
+    pub seal_basis: SealBasis,
+}
+
+impl MembershipAuthorityRequest {
+    pub fn validate(&self) -> Result<()> {
+        self.seal_basis.validate_protocol_bounds()?;
+        current_authority_size(self)
+    }
+
+    pub fn query_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        let bytes = arkret_canonical::canonical_json_bytes(self)?;
+        Hash::new(arkret_canonical::canonical::sha256_digest_from_slices(&[
+            b"ak.membership-authority-query-v1",
+            &[0],
+            &bytes,
+        ]))
+        .map_err(Into::into)
+    }
+}
+
+/// Current join identity; subsequent writes still undergo server admission.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MembershipAuthorityOutcome {
+    pub account_id: arkret_wire::AccountId,
+    pub query_digest: Hash,
+    pub seal_basis: SealBasis,
+    pub authorization_incarnation: AuthorizationIncarnation,
+}
+
+impl MembershipAuthorityOutcome {
+    pub fn validate_for_request(&self, request: &MembershipAuthorityRequest) -> Result<()> {
+        request.validate()?;
+        self.seal_basis.validate_protocol_bounds()?;
+        current_authority_size(self)?;
+        if self.query_digest != request.query_digest()?
+            || self.seal_basis != request.seal_basis
+            || !matches!(
+                (&request.effective_scope, &self.authorization_incarnation),
+                (
+                    HistoryEffectiveScope::Realm { .. },
+                    AuthorizationIncarnation::Realm { .. }
+                ) | (
+                    HistoryEffectiveScope::Circle { .. },
+                    AuthorizationIncarnation::Circle { .. }
+                )
+            )
+        {
+            return Err(WireError::Protocol(
+                "membership authority differs from the exact request".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_account(
+        &self,
+        request: &MembershipAuthorityRequest,
+        account: &arkret_wire::AccountId,
+    ) -> Result<()> {
+        self.validate_for_request(request)?;
+        if &self.account_id != account {
+            return Err(WireError::Protocol(
+                "membership authority belongs to another account".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn current_authority_size(value: &impl Serialize) -> Result<()> {
+    if arkret_canonical::canonical_json_bytes(value)?.len() > 64 * 1024 {
+        return Err(WireError::Protocol(
+            "membership authority exceeds 64 KiB".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -746,8 +916,6 @@ pub struct HistoryKeyRequestSigningInput {
     pub requester_author_profile: AuthorProfile,
     pub requester_endpoint_authorization: RequesterEndpointAuthorization,
     pub requester_authorization_incarnation: AuthorizationIncarnation,
-    pub trusted_history_base_basis: SealBasis,
-    pub trusted_current_basis: SealBasis,
     pub requested_ranges: Vec<EpochRange>,
     pub recipient_hpke_public_key: String,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -759,8 +927,6 @@ impl HistoryKeyRequestSigningInput {
         validate_sender_domain(&self.requester_sender_domain)?;
         self.requester_endpoint_authorization
             .validate_for_profile(self.requester_author_profile)?;
-        self.trusted_history_base_basis.validate_protocol_bounds()?;
-        self.trusted_current_basis.validate_protocol_bounds()?;
         validate_canonical_ranges(&self.requested_ranges, 64)?;
         if self.recipient_hpke_public_key.len() != 43
             || !is_base64url(&self.recipient_hpke_public_key)
@@ -785,8 +951,6 @@ pub struct HistoryKeyRequest {
     pub requester_author_profile: AuthorProfile,
     pub requester_endpoint_authorization: RequesterEndpointAuthorization,
     pub requester_authorization_incarnation: AuthorizationIncarnation,
-    pub trusted_history_base_basis: SealBasis,
-    pub trusted_current_basis: SealBasis,
     pub requested_ranges: Vec<EpochRange>,
     pub recipient_hpke_public_key: String,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -799,8 +963,6 @@ impl HistoryKeyRequest {
         validate_sender_domain(&self.requester_sender_domain)?;
         self.requester_endpoint_authorization
             .validate_for_profile(self.requester_author_profile)?;
-        self.trusted_history_base_basis.validate_protocol_bounds()?;
-        self.trusted_current_basis.validate_protocol_bounds()?;
         validate_canonical_ranges(&self.requested_ranges, 64)?;
         if self.recipient_hpke_public_key.len() != 43
             || !is_base64url(&self.recipient_hpke_public_key)
@@ -837,8 +999,6 @@ pub struct HistoryKeyRequestReceipt {
     pub effective_scope: HistoryEffectiveScope,
     pub requester_sender_domain: String,
     pub requester_authorization_incarnation: AuthorizationIncarnation,
-    pub trusted_history_base_basis: SealBasis,
-    pub trusted_current_basis: SealBasis,
     pub release_id: DidCoreId,
     pub release_service_binding_ref: EventId,
     pub release_service_resolution_ref: String,
@@ -855,8 +1015,6 @@ pub struct HistoryKeyRequestReceipt {
 impl HistoryKeyRequestReceipt {
     pub fn validate(&self) -> Result<()> {
         validate_sender_domain(&self.requester_sender_domain)?;
-        self.trusted_history_base_basis.validate_protocol_bounds()?;
-        self.trusted_current_basis.validate_protocol_bounds()?;
         if self.accepted_at > self.expires_at {
             return Err(WireError::Protocol(
                 "history request receipt is already expired".to_owned(),
@@ -917,9 +1075,6 @@ impl HistoryKeyRequestCreateOutcome {
             || self.request.requester_sender_domain != self.request_receipt.requester_sender_domain
             || self.request.requester_authorization_incarnation
                 != self.request_receipt.requester_authorization_incarnation
-            || self.request.trusted_history_base_basis
-                != self.request_receipt.trusted_history_base_basis
-            || self.request.trusted_current_basis != self.request_receipt.trusted_current_basis
             || self.request.expires_at != self.request_receipt.expires_at
         {
             return Err(WireError::Protocol(
@@ -946,9 +1101,6 @@ impl HistoryKeyRequestRecord {
             || self.request.requester_sender_domain != self.request_receipt.requester_sender_domain
             || self.request.requester_authorization_incarnation
                 != self.request_receipt.requester_authorization_incarnation
-            || self.request.trusted_history_base_basis
-                != self.request_receipt.trusted_history_base_basis
-            || self.request.trusted_current_basis != self.request_receipt.trusted_current_basis
         {
             return Err(WireError::Protocol(
                 "history request record receipt binding mismatch".to_owned(),
@@ -3445,5 +3597,214 @@ mod history_source_send_disposition_tests {
             HistorySourceSendDisposition::classify("history_not_visible"),
             HistorySourceSendDisposition::RequestTerminal
         );
+    }
+}
+
+#[cfg(test)]
+mod membership_authority_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn request() -> MembershipAuthorityRequest {
+        serde_json::from_value(json!({
+            "effective_scope":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
+            "actor_id":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"}},
+            "seal_basis":{"leaves":[format!("ak:seal:sha256:{}", "b".repeat(64))]}
+        })).unwrap()
+    }
+
+    fn outcome(query: &MembershipAuthorityRequest) -> MembershipAuthorityOutcome {
+        MembershipAuthorityOutcome {
+            account_id: query.actor_id.as_account_id().unwrap().clone(),
+            query_digest: query.query_digest().unwrap(),
+            seal_basis: query.seal_basis.clone(),
+            authorization_incarnation: AuthorizationIncarnation::Realm {
+                realm_membership_incarnation_ref: EventId::from_event_digest(
+                    &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+                )
+                .unwrap(),
+            },
+        }
+    }
+
+    #[test]
+    fn membership_result_binds_query_and_account() {
+        let query = request();
+        let result = outcome(&query);
+        result
+            .validate_for_account(&query, &result.account_id)
+            .unwrap();
+        let mut account = result.account_id.clone();
+        account.station_id = "ak:did_core:web:other.example".parse().unwrap();
+        assert!(result.validate_for_account(&query, &account).is_err());
+        let mut other = query.clone();
+        other.actor_id = ActorId::account(account);
+        assert!(result.validate_for_request(&other).is_err());
+        other = query.clone();
+        other.seal_basis.leaves[0] = format!("ak:seal:sha256:{}", "c".repeat(64))
+            .parse()
+            .unwrap();
+        assert!(result.validate_for_request(&other).is_err());
+    }
+
+    #[test]
+    fn membership_result_rejects_wrong_scope_branch_and_extra_fields() {
+        let query = request();
+        let mut result = outcome(&query);
+        result.authorization_incarnation = AuthorizationIncarnation::Circle {
+            realm_membership_incarnation_ref: EventId::from_event_digest(
+                &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            )
+            .unwrap(),
+            circle_membership_incarnation_ref: EventId::from_event_digest(
+                &Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
+            )
+            .unwrap(),
+        };
+        assert!(result.validate_for_request(&query).is_err());
+        let mut wire = serde_json::to_value(outcome(&query)).unwrap();
+        wire["checkpoint"] = json!({});
+        assert!(serde_json::from_value::<MembershipAuthorityOutcome>(wire).is_err());
+        let mut wire = serde_json::to_value(&query).unwrap();
+        wire["proof"] = json!({});
+        assert!(serde_json::from_value::<MembershipAuthorityRequest>(wire).is_err());
+    }
+}
+
+#[cfg(test)]
+mod history_authority_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn query() -> HistoryAuthorityRequest {
+        serde_json::from_value(json!({
+            "effective_scope":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
+            "actor_id":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"}},
+            "seal_basis":{"leaves":[format!("ak:seal:sha256:{}", "b".repeat(64))]}
+        })).unwrap()
+    }
+
+    fn result(query: &HistoryAuthorityRequest) -> HistoryAuthorityOutcome {
+        HistoryAuthorityOutcome {
+            account_id: query.actor_id.as_account_id().unwrap().clone(),
+            query_digest: query.query_digest().unwrap(),
+            seal_basis: query.seal_basis.clone(),
+            authorization_incarnation: AuthorizationIncarnation::Realm {
+                realm_membership_incarnation_ref: EventId::from_event_digest(
+                    &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+                )
+                .unwrap(),
+            },
+            join_epoch: 7,
+            history_floor_epoch: 7,
+        }
+    }
+
+    #[test]
+    fn history_authority_binds_account_query_and_scope_floor() {
+        let query = query();
+        let mut result = result(&query);
+        result
+            .validate_for_account(&query, &result.account_id)
+            .unwrap();
+        result.history_floor_epoch = 0;
+        result.validate_for_request(&query).unwrap();
+        result.history_floor_epoch = 3;
+        assert!(result.validate_for_request(&query).is_err());
+        result.history_floor_epoch = 7;
+        let mut account = result.account_id.clone();
+        account.station_id = "ak:did_core:web:other.example".parse().unwrap();
+        assert!(result.validate_for_account(&query, &account).is_err());
+        let mut other = query.clone();
+        other.actor_id = ActorId::account(account);
+        assert!(result.validate_for_request(&other).is_err());
+        other = query.clone();
+        other.seal_basis.leaves[0] = format!("ak:seal:sha256:{}", "c".repeat(64))
+            .parse()
+            .unwrap();
+        assert!(result.validate_for_request(&other).is_err());
+        let member = MembershipAuthorityRequest {
+            effective_scope: query.effective_scope.clone(),
+            actor_id: query.actor_id.clone(),
+            seal_basis: query.seal_basis.clone(),
+        };
+        result.query_digest = member.query_digest().unwrap();
+        assert!(result.validate_for_request(&query).is_err());
+    }
+
+    #[test]
+    fn history_authority_has_no_client_checkpoint_and_rejects_wrong_incarnation_branch() {
+        let query = query();
+        let mut result = result(&query);
+        for field in ["trusted_history_base_basis", "checkpoint"] {
+            let mut wire = serde_json::to_value(&result).unwrap();
+            wire[field] = json!({"leaves":query.seal_basis.leaves});
+            assert!(serde_json::from_value::<HistoryAuthorityOutcome>(wire).is_err());
+        }
+        let event =
+            EventId::from_event_digest(&Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap())
+                .unwrap();
+        result.authorization_incarnation = AuthorizationIncarnation::Circle {
+            realm_membership_incarnation_ref: event.clone(),
+            circle_membership_incarnation_ref: event,
+        };
+        assert!(result.validate_for_request(&query).is_err());
+    }
+
+    #[test]
+    fn history_request_signs_user_intent_and_rejects_retired_trust_anchor_fields() {
+        let query = query();
+        let incarnation = result(&query).authorization_incarnation;
+        let input = json!({
+            "request_id":"ak:history_request:019c0000-0000-7000-8000-000000000001",
+            "kind":"ak.history_key.request", "effective_scope":query.effective_scope,
+            "requester_actor_id":query.actor_id, "requester_sender_domain":"ak:device:019c0000-0000-7000-8000-000000000001",
+            "requester_author_profile":"ordinary_human",
+            "requester_endpoint_authorization":{"kind":"ordinary_human","requester_device_id":"ak:device:019c0000-0000-7000-8000-000000000001","requester_device_authorize_event_id":EventId::from_event_digest(&Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap()).unwrap(),"requester_device_generation_ref":1},
+            "requester_authorization_incarnation":incarnation, "requested_ranges":[{"from_epoch":7,"to_epoch":8}],
+            "recipient_hpke_public_key":"A".repeat(43), "expires_at":"2026-09-11T00:00:00.000Z"
+        });
+        serde_json::from_value::<HistoryKeyRequestSigningInput>(input.clone())
+            .unwrap()
+            .validate()
+            .unwrap();
+        let request = HistoryKeyRequest::build_signed_proof(
+            DidUrl::new("did:web:alice.example#device").unwrap(),
+            "2026-09-10T00:00:00.000Z".parse().unwrap(),
+            |proof| {
+                let mut wire = input.clone();
+                wire["requester_proof"] = serde_json::to_value(proof).unwrap();
+                serde_json::from_value(wire).unwrap()
+            },
+            |bytes| {
+                use ed25519_dalek::Signer as _;
+                let protected = arkret_wire::base64url::base64url_encode(br#"{"alg":"Ed25519"}"#);
+                let input = format!(
+                    "{protected}.{}",
+                    arkret_wire::base64url::base64url_encode(bytes)
+                );
+                let signature =
+                    ed25519_dalek::SigningKey::from_bytes(&[7; 32]).sign(input.as_bytes());
+                Ok(format!(
+                    "{protected}..{}",
+                    arkret_wire::base64url::base64url_encode(signature.to_bytes())
+                ))
+            },
+        )
+        .unwrap();
+        request.validate().unwrap();
+        let binding: serde_json::Value =
+            serde_json::from_slice(&request.proof_binding_bytes().unwrap()).unwrap();
+        for field in ["trusted_history_base_basis", "trusted_current_basis"] {
+            assert!(binding.get(field).is_none());
+            let mut old = input.clone();
+            old[field] = json!({"leaves":query.seal_basis.leaves});
+            assert!(serde_json::from_value::<HistoryKeyRequestSigningInput>(old).is_err());
+            let mut old = serde_json::to_value(&request).unwrap();
+            old[field] = json!({"leaves":query.seal_basis.leaves});
+            assert!(serde_json::from_value::<HistoryKeyRequest>(old).is_err());
+        }
     }
 }
