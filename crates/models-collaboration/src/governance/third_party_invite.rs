@@ -1,7 +1,47 @@
 //! Third-party invite wire payloads.
 
-use arkret_wire::{DidCoreId, Hash, Result, WireError};
+use arkret_wire::{AccountId, DidCoreId, Hash, InviteId, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
+
+use crate::governance::membership_invite::InviteClaimBindingProof;
+
+/// Body of `ak.open.third_party_invite.command.present_token.v1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThirdPartyInvitePresentRequestBody {
+    pub invite_token: String,
+    pub realm_id: RealmId,
+    pub subject_account_id: AccountId,
+    pub subject_did: DidCoreId,
+    pub claim_nonce: String,
+}
+
+impl ThirdPartyInvitePresentRequestBody {
+    pub fn validate_minimal(&self) -> Result<()> {
+        if !(22..=512).contains(&self.invite_token.len())
+            || !self
+                .invite_token
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+            || !(16..=128).contains(&self.claim_nonce.len())
+            || self.subject_account_id.principal_id != self.subject_did
+        {
+            return Err(WireError::Protocol(
+                "invalid third-party invite presentation request".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Success body of `ak.open.third_party_invite.command.present_token.v1`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThirdPartyInvitePresentOutcome {
+    pub invite_id: InviteId,
+    pub token_commitment: Hash,
+    pub binding_proof: InviteClaimBindingProof,
+}
 
 // ── ThirdPartyInvite (3PID) ─────────────────────────────────────────────
 /// Discriminator for the 3PID invite OOB mode.
