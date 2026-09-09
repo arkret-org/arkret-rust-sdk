@@ -160,6 +160,7 @@ pub struct AgentSessionGrantRequest {
 
 impl AgentSessionGrantRequest {
     pub fn validate(&self) -> Result<()> {
+        self.proof.validate_structure()?;
         if self.requested_scope.is_empty()
             || self
                 .requested_scope
@@ -234,17 +235,48 @@ pub struct AgentSessionGrantProof {
     pub request_canonical_digest: Hash,
     pub audience_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub signature: String,
     pub verification_method: DidUrl,
-    pub nonce: String,
+    pub signature: String,
 }
 
 impl AgentSessionGrantProof {
+    pub fn validate_structure(&self) -> Result<()> {
+        if !valid_agent_session_challenge(&self.challenge)
+            || self.expires_at <= self.issued_at
+            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+        {
+            return Err(WireError::Protocol(
+                "invalid Agent session proof challenge or time window".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Initial issuance only. Completed issuer-ledger replay reuses the
+    /// durable one-shot verification and independently checks fresh HTTP DPoP.
+    pub fn validate_at(&self, now: DateTime<Utc>) -> Result<()> {
+        self.validate_structure()?;
+        if self.issued_at > now + chrono::Duration::seconds(30) || now >= self.expires_at {
+            return Err(WireError::Protocol(
+                "Agent session proof is outside its acceptance window".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
         let value = canonical::unsigned_value(self, &["signature"])?;
         session_grant_proof_signing_bytes(&value)
     }
+}
+
+fn valid_agent_session_challenge(challenge: &str) -> bool {
+    arkret_wire::base64url::base64url_decode(challenge).is_ok_and(|bytes| {
+        bytes.len() >= 16 && arkret_wire::base64url::base64url_encode(&bytes) == challenge
+    })
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -260,9 +292,9 @@ pub enum AgentSessionGrantProofKind {
 pub struct UnsignedAgentSessionGrantProof {
     pub challenge: String,
     pub audience_id: DidCoreId,
+    pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub verification_method: DidUrl,
-    pub nonce: String,
 }
 
 /// Non-serializable Agent session-grant authoring state. Only
@@ -293,9 +325,9 @@ impl UnsignedAgentSessionGrantRequest {
         applet_authority: Option<SessionGrantAppletDelegation>,
         proof: UnsignedAgentSessionGrantProof,
     ) -> Result<Self> {
-        if proof.challenge.is_empty() {
+        if !valid_agent_session_challenge(&proof.challenge) {
             return Err(WireError::Protocol(
-                "agent session grant proof challenge must not be empty".to_owned(),
+                "agent session grant proof challenge must be canonical Base64URL with at least 128 bits".to_owned(),
             ));
         }
         if requested_scope.is_empty() || requested_scope.iter().any(|scope| scope.trim().is_empty())
@@ -304,9 +336,9 @@ impl UnsignedAgentSessionGrantRequest {
                 "agent session grant requested_scope must be non-empty".to_owned(),
             ));
         }
-        if agent_key_authorization_ref.trim().is_empty() || proof.nonce.trim().is_empty() {
+        if agent_key_authorization_ref.trim().is_empty() {
             return Err(WireError::Protocol(
-                "agent session grant authorization ref and nonce must not be empty".to_owned(),
+                "agent session grant authorization ref must not be empty".to_owned(),
             ));
         }
         Ok(Self {
@@ -347,10 +379,10 @@ impl UnsignedAgentSessionGrantRequest {
                 challenge: self.proof.challenge,
                 request_canonical_digest,
                 audience_id: self.proof.audience_id,
+                issued_at: self.proof.issued_at,
                 expires_at: self.proof.expires_at,
                 signature: signature.into_string(),
                 verification_method: self.proof.verification_method,
-                nonce: self.proof.nonce,
             },
         }))
     }
@@ -384,9 +416,9 @@ impl UnsignedAgentSessionGrantRequest {
             "challenge": &self.proof.challenge,
             "request_canonical_digest": digest,
             "audience_id": &self.proof.audience_id,
+            "issued_at": canonical::format_timestamp_canonical(self.proof.issued_at),
             "expires_at": canonical::format_timestamp_canonical(self.proof.expires_at),
             "verification_method": &self.proof.verification_method,
-            "nonce": &self.proof.nonce,
         });
         let object = value
             .as_object_mut()
@@ -1060,6 +1092,98 @@ mod session_grant_contract_tests {
         let mut open = valid;
         open["requested_scope"] = json!(["ak.self.events.read.scan.v1"]);
         assert!(serde_json::from_value::<SessionGrantRequestBody>(open).is_err());
+    }
+
+    #[test]
+    fn agent_initial_proof_matches_spec_kat_and_time_boundaries() {
+        use ed25519_dalek::{Signature, VerifyingKey};
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../arkret-spec/spec/v1/artifacts/fixtures/session-grant-issuance-fixture.json"
+        ))
+        .unwrap();
+        let kat = &fixture["agent_initial_proof"];
+        let body: AgentSessionGrantRequest =
+            serde_json::from_value(kat["request"].clone()).unwrap();
+        assert_eq!(
+            body.canonical_request_digest().unwrap().as_str(),
+            kat["request_digest"].as_str().unwrap()
+        );
+        let bytes = body.proof.canonical_signing_bytes().unwrap();
+        assert_eq!(
+            bytes,
+            kat["proof_canonical_bytes_utf8"]
+                .as_str()
+                .unwrap()
+                .as_bytes()
+        );
+        let key: [u8; 32] = arkret_wire::base64url::base64url_decode(
+            kat["runtime_public_key_b64u"].as_str().unwrap(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+        let signature = Signature::from_slice(
+            &arkret_wire::base64url::base64url_decode(&body.proof.signature).unwrap(),
+        )
+        .unwrap();
+        VerifyingKey::from_bytes(&key)
+            .unwrap()
+            .verify_strict(&bytes, &signature)
+            .unwrap();
+        for case in kat["time_cases"].as_array().unwrap() {
+            let mut proof = body.proof.clone();
+            if let Some(value) = case["issued_at"].as_str() {
+                proof.issued_at = value.parse().unwrap();
+            }
+            if let Some(value) = case["expires_at"].as_str() {
+                proof.expires_at = value.parse().unwrap();
+            }
+            assert_eq!(
+                proof
+                    .validate_at(case["now"].as_str().unwrap().parse().unwrap())
+                    .is_ok(),
+                case["accepted"].as_bool().unwrap(),
+                "{}",
+                case["name"]
+            );
+        }
+        for field in ["issued_at", "expires_at"] {
+            let mut invalid = kat["request"].clone();
+            invalid["proof"].as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<AgentSessionGrantRequest>(invalid).is_err());
+        }
+        let mut invalid = kat["request"].clone();
+        invalid["proof"]["nonce"] = json!("forbidden");
+        assert!(serde_json::from_value::<AgentSessionGrantRequest>(invalid).is_err());
+        let unsigned = UnsignedAgentSessionGrantRequest::new(
+            body.principal_id.clone(),
+            body.device_id.clone(),
+            body.requested_scope.clone(),
+            body.agent_key_authorization_ref.clone(),
+            body.agent_scope_request.clone(),
+            body.requested_scope_disclosure.clone(),
+            body.dpop_binding_proof.clone(),
+            body.applet_authority.clone(),
+            UnsignedAgentSessionGrantProof {
+                challenge: body.proof.challenge.clone(),
+                audience_id: body.proof.audience_id.clone(),
+                issued_at: body.proof.issued_at,
+                expires_at: body.proof.expires_at,
+                verification_method: body.proof.verification_method.clone(),
+            },
+        )
+        .unwrap();
+        assert_eq!(unsigned.canonical_signing_bytes().unwrap(), bytes);
+        let SessionGrantRequestBody::Agent(final_body) = unsigned
+            .attach_signature(NonEmptyString::new(body.proof.signature).unwrap())
+            .unwrap()
+        else {
+            panic!("wrong branch")
+        };
+        assert_eq!(
+            final_body.canonical_request_digest().unwrap(),
+            body.proof.request_canonical_digest
+        );
     }
 
     #[test]

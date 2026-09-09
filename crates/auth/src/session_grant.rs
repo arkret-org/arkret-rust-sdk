@@ -10,32 +10,8 @@ use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
     UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
 };
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RequestId};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, NonEmptyString, RequestId};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AgentKeyProofSigningInput {
-    pub audience_id: DidCoreId,
-    pub challenge: String,
-    pub nonce: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub request_canonical_digest: Hash,
-    pub verification_method: DidUrl,
-}
-
-impl AgentKeyProofSigningInput {
-    pub fn canonical_bytes(&self) -> crate::Result<Vec<u8>> {
-        arkret_canonical::canonical::canonical_json_bytes(self).map_err(Into::into)
-    }
-
-    pub fn canonical_digest(&self) -> crate::Result<Hash> {
-        Ok(Hash::new(arkret_canonical::canonical::sha256_digest(
-            self.canonical_bytes()?,
-        ))?)
-    }
-}
 
 pub fn human_session_grant_request(
     request_id: RequestId,
@@ -82,8 +58,8 @@ pub fn agent_key_proof_session_grant_request(
     dpop_binding_proof: SessionGrantDpopBindingProof,
     verification_method: DidUrl,
     challenge: impl Into<String>,
-    nonce: impl Into<String>,
     audience_id: DidCoreId,
+    issued_at: DateTime<Utc>,
     expires_at: DateTime<Utc>,
     signature: impl Into<String>,
 ) -> crate::Result<SessionGrantRequestBody> {
@@ -99,9 +75,9 @@ pub fn agent_key_proof_session_grant_request(
         UnsignedAgentSessionGrantProof {
             challenge: challenge.into(),
             audience_id,
+            issued_at,
             expires_at,
             verification_method,
-            nonce: nonce.into(),
         },
     )?;
     let signature = NonEmptyString::new(signature.into())
@@ -130,9 +106,9 @@ mod tests {
                 proof_jwt: "p".into(),
             },
             DidUrl::new("did:web:agent.example#runtime-key-1").unwrap(),
-            "challenge",
-            "nonce",
+            "AAECAwQFBgcICQoLDA0ODw",
             DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+            "2026-08-08T12:00:00.000Z".parse().unwrap(),
             "2026-08-08T12:05:00.000Z".parse().unwrap(),
             "signature",
         )

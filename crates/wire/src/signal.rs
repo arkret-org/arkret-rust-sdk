@@ -302,8 +302,6 @@ pub struct SignalProof {
     pub kind: String,
     pub verification_method: DidUrl,
     pub envelope_digest: Hash,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -443,7 +441,7 @@ impl SignalEnvelope {
         );
         object.insert(
             "created_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.proof.created_at)),
+            Value::String(canonical::format_timestamp_canonical(self.sent_at)),
         );
         if let Some(domain) = &self.proof.domain {
             object.insert("domain".to_owned(), Value::String(domain.clone()));
@@ -557,11 +555,6 @@ impl SignalEnvelope {
         {
             return Err(WireError::Protocol(
                 "signal proof verification_method does not match the sender endpoint".to_owned(),
-            ));
-        }
-        if self.proof.created_at != self.sent_at {
-            return Err(WireError::Protocol(
-                "signal proof created_at must equal sent_at".to_owned(),
             ));
         }
         if self.proof.envelope_digest != self.envelope_digest()? {
@@ -760,7 +753,6 @@ mod tests {
                 kind: proof_kind::DETACHED_JWS.to_owned(),
                 verification_method: DidUrl::new(format!("{}#{}", actor_did(), device())).unwrap(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                created_at: sent_at(),
                 domain: None,
                 audience: None,
                 jws: "a..b".to_owned(),
@@ -769,6 +761,24 @@ mod tests {
         envelope.encrypted_payload.aad_digest = envelope.expected_aad_digest().unwrap();
         envelope.proof.envelope_digest = envelope.envelope_digest().unwrap();
         envelope
+    }
+
+    #[test]
+    fn signal_proof_uses_outer_timestamp_and_rejects_a_duplicate_wire_timestamp() {
+        let original = envelope(SignalClass::Session, 30);
+        let mut wire = serde_json::to_value(&original).unwrap();
+        assert!(wire["proof"].get("created_at").is_none());
+        let binding: Value =
+            serde_json::from_slice(&original.proof_binding_bytes().unwrap()).unwrap();
+        assert_eq!(binding["created_at"], wire["sent_at"]);
+        wire["proof"]["created_at"] = wire["sent_at"].clone();
+        assert!(serde_json::from_value::<SignalEnvelope>(wire).is_err());
+        let mut changed = original;
+        changed.sent_at += Duration::seconds(1);
+        assert_ne!(
+            changed.proof_binding_bytes().unwrap(),
+            canonical::canonical_json_bytes(&binding).unwrap()
+        );
     }
 
     #[test]

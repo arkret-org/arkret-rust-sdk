@@ -459,7 +459,6 @@ pub struct CurrentSignerEvidenceResponseCore {
     pub request_digest: Hash,
     pub recipient_account_id: AccountId,
     pub challenge: NonEmptyString,
-    pub verifier_id: DidCoreId,
     pub issuer_id: DidCoreId,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
@@ -497,7 +496,6 @@ impl CurrentSignerEvidenceQueryOutcome {
             || core.request_digest != request.request_digest
             || core.recipient_account_id != request.recipient_account_id
             || core.challenge != request.challenge
-            || core.verifier_id != request.recipient_account_id.station_id
             || core.issuer_id != *request.target_station_id()?
         {
             return Err(WireError::Protocol(
@@ -516,8 +514,8 @@ impl CurrentSignerEvidenceQueryOutcome {
             ));
         }
         if self.proof.verification_method.as_str().split('#').next()
-            == Some(core.verifier_id.as_str())
-            && core.verifier_id != core.issuer_id
+            == Some(core.recipient_account_id.station_id.as_str())
+            && core.recipient_account_id.station_id != core.issuer_id
         {
             return Err(WireError::Protocol(
                 "proxy Station must not sign the authority response".to_owned(),
@@ -633,7 +631,6 @@ mod tests {
                 request_digest: request.request_digest.clone(),
                 recipient_account_id: request.recipient_account_id.clone(),
                 challenge: request.challenge.clone(),
-                verifier_id: request.recipient_account_id.station_id.clone(),
                 issuer_id: request.target_station_id().unwrap().clone(),
                 issued_at,
                 expires_at: issued_at + Duration::seconds(30),
@@ -666,6 +663,16 @@ mod tests {
                 device_id: DeviceId::new("ak:device:019b0000-0000-7000-8000-000000000003").unwrap(),
             });
         assert!(body.validate().is_err());
+    }
+
+    #[test]
+    fn response_wire_derives_verifier_from_recipient_station() {
+        let value = serde_json::to_value(outcome(&request())).unwrap();
+        assert_eq!(value["response"].as_object().unwrap().len(), 10);
+        assert!(value["response"].get("verifier_id").is_none());
+        let mut invalid = value;
+        invalid["response"]["verifier_id"] = serde_json::json!("ak:did_core:web:proxy.example");
+        assert!(serde_json::from_value::<CurrentSignerEvidenceQueryOutcome>(invalid).is_err());
     }
 
     #[test]

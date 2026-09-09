@@ -1479,7 +1479,12 @@ fn replay_dependency_closure(
         }
         selected.insert(key, (*item).clone());
     }
-    Ok(selected.into_values().collect())
+    let mut selected = selected
+        .into_values()
+        .map(|item| Ok((item.selector().canonical_sort_key()?, item)))
+        .collect::<Result<Vec<_>, WireError>>()?;
+    selected.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(selected.into_iter().map(|(_, item)| item).collect())
 }
 
 /// Verify an exact retained `(base, target]` cut without fetching material

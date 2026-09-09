@@ -903,7 +903,6 @@ mod tests {
                 ))
                 .unwrap(),
                 envelope_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-                created_at: binding.sent_at,
                 domain: None,
                 audience: None,
                 jws: "a..b".to_owned(),
