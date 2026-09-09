@@ -1011,8 +1011,7 @@ where
             project_writes,
         )
         .await?;
-    let (canonical_leaves, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
-    let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
+    let (_, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
     for branch in &bundle.frontier_projection.branches {
         let seal = seals.get(&branch.target_seal_ref).ok_or_else(|| {
             WireError::Protocol("frontier branch target Seal is unresolved".to_owned())
@@ -1094,9 +1093,47 @@ where
     )
     .await
     .map_err(replay_reject_error)?;
+    let security_frontier_digest = mls_security_frontier_digest_from_accepted_state(
+        &request.effective_scope,
+        &target_state,
+        group_genesis_binding,
+        local_mls_leaves,
+    )?;
+    Ok(VerifiedMlsGovernanceFrontier {
+        proof_target_basis: request.proof_target_basis.clone(),
+        security_frontier_digest,
+        page_digest: bundle.page_digest.clone(),
+        target_checkpoint: MlsGovernanceVerificationCheckpoint {
+            realm_id: base_checkpoint.realm_id.clone(),
+            basis: request.proof_target_basis.clone(),
+            live_digest_suite: live_digest_suite_at_basis(
+                &request.proof_target_basis,
+                &live_suites,
+            )?,
+            accepted_seals,
+            accepted_events,
+            governance_dependencies: dependencies,
+        },
+    })
+}
+
+/// Derive the registered MLS security-frontier digest from an already accepted
+/// effective state. The serving Station owns history admission and must supply
+/// the exact requested basis; this function neither admits untrusted cells nor
+/// replays Event/Seal history. Peer proof verification uses the same projection
+/// after independently validating its complete target state.
+pub fn mls_security_frontier_digest_from_accepted_state(
+    effective_scope: &ScopeRef,
+    target_state: &BTreeMap<CellRef, CellState>,
+    group_genesis_binding: &MlsGroupGenesisBinding,
+    local_mls_leaves: &[MlsSecurityFrontierLeaf],
+) -> arkret_wire::Result<Hash> {
+    group_genesis_binding.validate()?;
+    let (canonical_leaves, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
+    let mls_leaf_set_digest = canonical_hash(&canonical_leaves)?;
     let mut projected_entries = Vec::new();
     for (cell, state) in target_state {
-        let cell_id = CellId::from_ref(&cell)?;
+        let cell_id = CellId::from_ref(cell)?;
         // The joined Realm state necessarily contains many governance cells
         // outside the closed MLS security-frontier registry. They are not
         // proof entries and must be ignored here, exactly as the per-branch
@@ -1113,8 +1150,8 @@ where
         };
         let Some(projected_value) = project_frontier_value(
             cell_id.component(),
-            &value,
-            &request.effective_scope,
+            value,
+            effective_scope,
             &leaf_actors,
             &leaf_credentials,
             &cell_id,
@@ -1154,28 +1191,12 @@ where
     }) {
         return frontier_rejected("security frontier contains duplicate projected cell entries");
     }
-    let security_frontier_digest = canonical_hash(&SecurityFrontierDigestInput {
+    canonical_hash(&SecurityFrontierDigestInput {
         profile_id: crate::generated::mls_security_frontier::MLS_SECURITY_FRONTIER_PROFILE_ID,
-        effective_scope: &request.effective_scope,
+        effective_scope,
         group_genesis_binding,
         cell_entries: &projected_entries,
         mls_leaf_set_digest: &mls_leaf_set_digest,
-    })?;
-    Ok(VerifiedMlsGovernanceFrontier {
-        proof_target_basis: request.proof_target_basis.clone(),
-        security_frontier_digest,
-        page_digest: bundle.page_digest.clone(),
-        target_checkpoint: MlsGovernanceVerificationCheckpoint {
-            realm_id: base_checkpoint.realm_id.clone(),
-            basis: request.proof_target_basis.clone(),
-            live_digest_suite: live_digest_suite_at_basis(
-                &request.proof_target_basis,
-                &live_suites,
-            )?,
-            accepted_seals,
-            accepted_events,
-            governance_dependencies: dependencies,
-        },
     })
 }
 

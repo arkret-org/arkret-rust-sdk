@@ -40,6 +40,7 @@ mod mimi_consent_tests {
                 DidCoreId::new("ak:did_core:webvh:z6mkfixturestation".to_owned()).unwrap(),
             )),
             consent_event: EventInitialSubmission {
+                mls_frontier_leaves: None,
                 event: Event {
                     event_id: EventId::new(
                         "ak:event:Aaqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq".to_owned(),
@@ -289,6 +290,7 @@ mod mimi_reporter_authority_tests {
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         ));
         let report_event = EventInitialSubmission {
+            mls_frontier_leaves: None,
             event: Event {
                 event_id: event_id(b"report"),
                 kind: arkret_wire::EventKind::SelfModerationReport,
@@ -568,6 +570,7 @@ mod device_pairing_tests {
                 signature: Base64UrlString::new("AA").unwrap(),
             },
             authorize_event: EventInitialSubmission {
+                mls_frontier_leaves: None,
                 event,
                 authorization_lease: None,
                 cbs_proof_bundles: Vec::new(),

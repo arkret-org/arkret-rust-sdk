@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-09.6;
-//! sha256=334e4a2c40634fc6f4cb22d19253d90c9806d42200dd49ddb5539e63d2038355 Entries: registered=234
+//! Input: registry/operation-registry.json; version=2026-09-09.8;
+//! sha256=50be72a939b7d12dbf662b74dd4bb963c0cdb087e85290e4c19520b7ed8b5dd3 Entries: registered=234
 
 use serde::{Deserialize, Serialize};
 
@@ -4102,7 +4102,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("PeerSeals/MlsGovernanceProof"),
         mq: Some("peer.seals.read.mls_governance_proof"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(1048576),
+        max_canonical_body_bytes: Some(8388608),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
@@ -7125,15 +7125,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfSeals/MlsGovernanceProof"),
         mq: Some("self.seals.read.mls_governance_proof"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(1048576),
+        max_canonical_body_bytes: Some(8388608),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_request",
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/self_read_request",
         ),
         response_schema_ref: Some(
-            "schemas/mls-governance-proof-bundle.schema.json#/$defs/read_outcome",
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/self_read_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

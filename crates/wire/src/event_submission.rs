@@ -340,6 +340,13 @@ pub fn validate_anchor_unit_lease_bindings(
 pub struct EventInitialSubmission {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
+    /// Exact final leaf intent for MLS Genesis/Commit; retained with admission.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_mls_frontier_leaves"
+    )]
+    pub mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_lease: Option<AuthorizationLease>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -372,6 +379,13 @@ pub struct AcklessSelfPrincipalAdmissionEvidence {
 pub struct EventFederationSubmission {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
+    /// Exact final leaf intent for MLS Genesis/Commit; retained with admission.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_mls_frontier_leaves"
+    )]
+    pub mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_lease: Option<AuthorizationLease>,
     pub ingress_receipts: Vec<IngressReceipt>,
@@ -382,6 +396,38 @@ pub struct EventFederationSubmission {
     /// Byte-identical transport-only evidence forwarded from self admission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
+}
+
+fn deserialize_mls_frontier_leaves<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let leaves = Vec::<crate::mls_transition::MlsSecurityFrontierLeaf>::deserialize(deserializer)?;
+    crate::mls_transition::validate_mls_frontier_leaves(&leaves)
+        .map_err(serde::de::Error::custom)?;
+    Ok(Some(leaves))
+}
+
+pub fn validate_mls_submission_leaves(
+    event: &Event,
+    leaves: Option<&[crate::mls_transition::MlsSecurityFrontierLeaf]>,
+) -> Result<()> {
+    let required = matches!(
+        event.kind,
+        crate::EventKind::MlsGenesis | crate::EventKind::MlsCommit
+    );
+    if required != leaves.is_some() {
+        return Err(WireError::Protocol(
+            "mls_frontier_leaves are required exactly for MLS Genesis/Commit (schema_violation)"
+                .to_owned(),
+        ));
+    }
+    if let Some(leaves) = leaves {
+        crate::mls_transition::validate_mls_frontier_leaves(leaves)?;
+    }
+    Ok(())
 }
 
 /// Bindings that hold for every submission regardless of Realm policy.
@@ -475,6 +521,7 @@ impl EventInitialSubmission {
     pub fn online(event: Event) -> Self {
         Self {
             event,
+            mls_frontier_leaves: None,
             authorization_lease: None,
             cbs_proof_bundles: Vec::new(),
             control_proposal_ack: None,
@@ -487,6 +534,7 @@ impl EventInitialSubmission {
     pub fn delayed(event: Event, authorization_lease: AuthorizationLease) -> Self {
         Self {
             event,
+            mls_frontier_leaves: None,
             authorization_lease: Some(authorization_lease),
             cbs_proof_bundles: Vec::new(),
             control_proposal_ack: None,
@@ -514,6 +562,7 @@ impl EventInitialSubmission {
     ) -> Result<()> {
         self.event
             .validate_for_submit_structural_in_context(context)?;
+        validate_mls_submission_leaves(&self.event, self.mls_frontier_leaves.as_deref())?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
@@ -565,6 +614,7 @@ impl EventFederationSubmission {
     ) -> Result<()> {
         self.event
             .validate_for_federation_structural_in_context(context, digest_suite)?;
+        validate_mls_submission_leaves(&self.event, self.mls_frontier_leaves.as_deref())?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
@@ -993,6 +1043,54 @@ mod tests {
     }
 
     #[test]
+    fn mls_submission_requires_exact_kind_presence_and_rejects_null() {
+        let mut event = online_event();
+        let leaf = crate::mls_transition::MlsSecurityFrontierLeaf {
+            leaf_index: 0,
+            actor_id: event.actor_id.clone(),
+            credential_ref: crate::NonEmptyString::new("device-a").unwrap(),
+        };
+        validate_mls_submission_leaves(&event, None).unwrap();
+        assert!(validate_mls_submission_leaves(&event, Some(&[leaf.clone()])).is_err());
+        for kind in [crate::EventKind::MlsGenesis, crate::EventKind::MlsCommit] {
+            event.kind = kind;
+            assert!(validate_mls_submission_leaves(&event, None).is_err());
+            assert!(validate_mls_submission_leaves(&event, Some(&[])).is_err());
+            validate_mls_submission_leaves(&event, Some(&[leaf.clone()])).unwrap();
+        }
+        let mut value =
+            serde_json::to_value(EventInitialSubmission::online(online_event())).unwrap();
+        value["mls_frontier_leaves"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<EventInitialSubmission>(value).is_err());
+        let mut value =
+            serde_json::to_value(EventInitialSubmission::online(online_event())).unwrap();
+        value["mls_frontier_leaves"] = serde_json::json!([leaf]);
+        value["mls_frontier_leaves"][0]["extra"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<EventInitialSubmission>(value).is_err());
+    }
+
+    #[test]
+    fn mls_submission_rejects_duplicate_indices_credentials_and_bounds() {
+        use crate::mls_transition::{MlsSecurityFrontierLeaf, validate_mls_frontier_leaves};
+        let leaf = MlsSecurityFrontierLeaf {
+            leaf_index: 0,
+            actor_id: online_event().actor_id,
+            credential_ref: crate::NonEmptyString::new("a".repeat(2048)).unwrap(),
+        };
+        validate_mls_frontier_leaves(std::slice::from_ref(&leaf)).unwrap();
+        let mut other = leaf.clone();
+        other.leaf_index = 1;
+        assert!(validate_mls_frontier_leaves(&[leaf.clone(), other.clone()]).is_err());
+        other.credential_ref = crate::NonEmptyString::new("another-device").unwrap();
+        validate_mls_frontier_leaves(&[leaf.clone(), other.clone()]).unwrap();
+        assert!(validate_mls_frontier_leaves(&[other.clone(), leaf.clone()]).is_err());
+        other.leaf_index = 0;
+        assert!(validate_mls_frontier_leaves(&[leaf, other.clone()]).is_err());
+        other.credential_ref = crate::NonEmptyString::new("a".repeat(2049)).unwrap();
+        assert!(validate_mls_frontier_leaves(&[other]).is_err());
+    }
+
+    #[test]
     fn online_submission_validates_and_omits_authorization_lease() {
         let submission = EventInitialSubmission::online(online_event());
         assert_eq!(
@@ -1141,6 +1239,7 @@ mod tests {
     #[test]
     fn online_federation_uses_no_offline_publication_evidence() {
         let submission = EventFederationSubmission {
+            mls_frontier_leaves: None,
             event: federated_event(),
             authorization_lease: None,
             ingress_receipts: Vec::new(),
@@ -1160,6 +1259,7 @@ mod tests {
     #[test]
     fn delayed_federation_requires_a_lease_bound_receipt() {
         let submission = EventFederationSubmission {
+            mls_frontier_leaves: None,
             event: federated_event(),
             authorization_lease: Some(lease_for(&intent())),
             ingress_receipts: Vec::new(),

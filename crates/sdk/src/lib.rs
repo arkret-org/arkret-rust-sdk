@@ -207,10 +207,9 @@ pub use arkret_models_collaboration::sync_frames::account_subscribe::{
 pub use arkret_models_collaboration::sync_frames::account_sync::*;
 pub use arkret_models_collaboration::sync_frames::client_sync::{
     BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
-    MembershipBucket, RealmSubscription, RealmUpdate, SubscriptionConfig, SyncFilter, SyncGap,
-    SyncGapReason, SyncMode, SyncRequestBody, SyncSemantics, SyncStreamPosition, SyncTokenBinding,
-    SyncUpdates, TimelineFilter, TimelineOrderKey, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier,
-    sync_filter_digest,
+    MembershipBucket, RealmUpdate, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequestBody,
+    SyncSemantics, SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineOrderKey,
+    ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, sync_filter_digest,
 };
 pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
 pub use arkret_models_collaboration::sync_frames::stream_trace::{
@@ -235,6 +234,7 @@ pub use arkret_models_crypto::keys::*;
 pub use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
+pub use arkret_models_crypto::mls_governance_result::*;
 pub use arkret_models_crypto::mls_payloads::*;
 pub use arkret_models_crypto::mls_records::{
     LocalMlsKeyPackageInventory, LocalMlsKeyPackageInventoryEntry, MlsEndpointIdentity,
@@ -422,7 +422,7 @@ pub use mls_governance::{
     verify_agent_history_source_key, verify_agent_portable_trust,
     verify_event_derived_genesis_checkpoint, verify_mls_governance_checkpoint,
     verify_mls_governance_closure, verify_mls_governance_cut, verify_mls_governance_frontier,
-    verify_seal_availability_dependencies_default,
+    verify_retained_governance_event_proofs, verify_seal_availability_dependencies_default,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

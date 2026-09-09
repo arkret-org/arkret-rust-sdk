@@ -4,7 +4,7 @@
 //! - Incremental sync with cursors
 //! - Backfill handling
 //! - Device message handling
-//! - Filter and subscription support
+//! - Selective filters
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -32,9 +32,6 @@ pub struct SyncRequestBody {
     /// Filter for selective sync
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter: Option<SyncFilter>,
-    /// Realm subscriptions.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub subscriptions: Option<SubscriptionConfig>,
 }
 
 /// Sync filter for selective synchronization.
@@ -61,44 +58,6 @@ pub struct SyncFilter {
     /// Forward-compatible service-specific filter extensions.
     #[serde(default, flatten)]
     pub extra: BTreeMap<String, Value>,
-}
-
-/// Subscription configuration for realm_ids.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SubscriptionConfig {
-    /// Realm subscriptions.
-    pub subscriptions: Vec<RealmSubscription>,
-    /// Batch size for timeline
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub batch_item_count: Option<u32>,
-    /// Timeline filter
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline_filter: Option<TimelineFilter>,
-}
-
-/// Realm subscription.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmSubscription {
-    /// Realm ID.
-    pub realm_id: RealmId,
-    /// Timeline filter (lazy loading, etc.)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeline_filter: Option<TimelineFilter>,
-    /// Required state
-    #[serde(default)]
-    pub required_state: Vec<String>,
-}
-
-/// Timeline filter options.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum TimelineFilter {
-    /// All events
-    All,
-    /// Only messages
-    MessagesOnly,
-    /// Custom filter
-    Custom { filter: Value },
 }
 
 /// Backfill request for historical events.
@@ -207,20 +166,11 @@ impl SyncStreamPosition {
     }
 }
 
-/// Digest the request filter and subscriptions for token binding.
-pub fn sync_filter_digest(
-    filter: Option<&SyncFilter>,
-    subscriptions: Option<&SubscriptionConfig>,
-) -> Result<String> {
-    let mut binding = serde_json::Map::new();
-    binding.insert("filter".to_owned(), normalized_sync_filter(filter));
-    if let Some(subscriptions) = subscriptions {
-        binding.insert(
-            "subscriptions".to_owned(),
-            normalized_subscription_config(subscriptions)?,
-        );
-    }
-    Ok(canonical::canonical_sha256(&Value::Object(binding))?)
+/// Digest the canonical account filter for token binding.
+pub fn sync_filter_digest(filter: Option<&SyncFilter>) -> Result<String> {
+    Ok(canonical::canonical_sha256(&serde_json::json!({
+        "filter": normalized_sync_filter(filter)
+    }))?)
 }
 
 fn sorted_unique_strings<'a>(values: impl IntoIterator<Item = &'a str>) -> Vec<String> {
@@ -273,64 +223,6 @@ fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
     Value::Object(object)
 }
 
-fn normalized_subscription_config(subscriptions: &SubscriptionConfig) -> Result<Value> {
-    let mut object = serde_json::Map::new();
-    let mut subscription_entries = Vec::with_capacity(subscriptions.subscriptions.len());
-    for subscription in &subscriptions.subscriptions {
-        let value = normalized_realm_subscription(subscription);
-        let canonical = canonical::canonical_json_bytes(&value)?;
-        subscription_entries.push((canonical, value));
-    }
-    subscription_entries.sort_by(|left, right| left.0.cmp(&right.0));
-    subscription_entries.dedup_by(|left, right| left.0 == right.0);
-    let normalized_subscriptions = subscription_entries
-        .into_iter()
-        .map(|(_, value)| value)
-        .collect::<Vec<_>>();
-    if !normalized_subscriptions.is_empty() {
-        object.insert(
-            "subscriptions".to_owned(),
-            Value::Array(normalized_subscriptions),
-        );
-    }
-    if let Some(batch_item_count) = subscriptions.batch_item_count {
-        object.insert(
-            "batch_item_count".to_owned(),
-            serde_json::json!(batch_item_count),
-        );
-    }
-    if let Some(timeline_filter) = &subscriptions.timeline_filter {
-        object.insert(
-            "timeline_filter".to_owned(),
-            serde_json::to_value(timeline_filter)?,
-        );
-    }
-    Ok(Value::Object(object))
-}
-
-fn normalized_realm_subscription(subscription: &RealmSubscription) -> Value {
-    let mut object = serde_json::Map::new();
-    object.insert(
-        "realm_id".to_owned(),
-        Value::String(subscription.realm_id.as_str().to_owned()),
-    );
-    if let Some(timeline_filter) = &subscription.timeline_filter {
-        object.insert(
-            "timeline_filter".to_owned(),
-            serde_json::to_value(timeline_filter).unwrap_or(Value::Null),
-        );
-    }
-    let required_state =
-        sorted_unique_strings(subscription.required_state.iter().map(String::as_str));
-    if !required_state.is_empty() {
-        object.insert(
-            "required_state".to_owned(),
-            serde_json::json!(required_state),
-        );
-    }
-    Value::Object(object)
-}
-
 /// Sync token binding context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncTokenBinding {
@@ -342,7 +234,7 @@ pub struct SyncTokenBinding {
     pub device_id: DeviceId,
     /// Service that minted the token.
     pub service_id: DidCoreId,
-    /// Canonical digest of filter and subscription shape.
+    /// Canonical digest of the filter shape.
     pub filter_digest: String,
     /// Stream positions captured by the token.
     #[serde(default)]
@@ -361,7 +253,6 @@ impl SyncTokenBinding {
         device_id: DeviceId,
         service_id: DidCoreId,
         filter: Option<&SyncFilter>,
-        subscriptions: Option<&SubscriptionConfig>,
         positions: Vec<SyncStreamPosition>,
         expires_at: DateTime<Utc>,
     ) -> Result<Self> {
@@ -370,7 +261,7 @@ impl SyncTokenBinding {
             principal_id,
             device_id,
             service_id,
-            filter_digest: sync_filter_digest(filter, subscriptions)?,
+            filter_digest: sync_filter_digest(filter)?,
             positions,
             expires_at,
         })
@@ -587,7 +478,6 @@ mod tests {
             after: Some("token123".to_owned()),
             catchup: Some(true),
             filter: None,
-            subscriptions: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -661,60 +551,16 @@ mod tests {
             not_event_types: vec!["ak.redaction".to_owned(), "ak.audit.accessed".to_owned()],
             extra: BTreeMap::new(),
         };
-        let subscriptions_a = SubscriptionConfig {
-            subscriptions: vec![
-                RealmSubscription {
-                    realm_id: realm_b.clone(),
-                    timeline_filter: Some(TimelineFilter::MessagesOnly),
-                    required_state: vec!["m.room.name".to_owned(), "m.room.topic".to_owned()],
-                },
-                RealmSubscription {
-                    realm_id: realm_a.clone(),
-                    timeline_filter: None,
-                    required_state: vec![
-                        "ak.member.state".to_owned(),
-                        "ak.realm.policy".to_owned(),
-                    ],
-                },
-                RealmSubscription {
-                    realm_id: realm_b.clone(),
-                    timeline_filter: Some(TimelineFilter::MessagesOnly),
-                    required_state: vec!["m.room.topic".to_owned(), "m.room.name".to_owned()],
-                },
-            ],
-            batch_item_count: Some(20),
-            timeline_filter: None,
-        };
-        let subscriptions_b = SubscriptionConfig {
-            subscriptions: vec![
-                RealmSubscription {
-                    realm_id: realm_a,
-                    timeline_filter: None,
-                    required_state: vec![
-                        "ak.realm.policy".to_owned(),
-                        "ak.member.state".to_owned(),
-                    ],
-                },
-                RealmSubscription {
-                    realm_id: realm_b,
-                    timeline_filter: Some(TimelineFilter::MessagesOnly),
-                    required_state: vec!["m.room.topic".to_owned(), "m.room.name".to_owned()],
-                },
-            ],
-            batch_item_count: Some(20),
-            timeline_filter: None,
-        };
-
         assert_eq!(
-            sync_filter_digest(Some(&filter_a), Some(&subscriptions_a)).unwrap(),
-            sync_filter_digest(Some(&filter_b), Some(&subscriptions_b)).unwrap()
+            sync_filter_digest(Some(&filter_a)).unwrap(),
+            sync_filter_digest(Some(&filter_b)).unwrap()
         );
 
         let mut changed = filter_b;
         changed.event_types = vec!["ak.message.create".to_owned()];
         assert_ne!(
-            sync_filter_digest(Some(&filter_a), Some(&subscriptions_a)).unwrap(),
-            sync_filter_digest(Some(&changed), Some(&subscriptions_b)).unwrap()
+            sync_filter_digest(Some(&filter_a)).unwrap(),
+            sync_filter_digest(Some(&changed)).unwrap()
         );
     }
 

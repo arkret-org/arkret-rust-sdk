@@ -110,7 +110,6 @@ mod tests {
             after: after.map(ToOwned::to_owned),
             catchup: Some(catchup),
             filter: None,
-            subscriptions: None,
         }
     }
 

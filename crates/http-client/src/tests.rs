@@ -529,6 +529,7 @@ mod events_submit_tests {
         }];
 
         EventInitialSubmission {
+            mls_frontier_leaves: None,
             event,
             authorization_lease: Some(authorization_lease),
             // Optional receiver-relative dependency evidence; the fixture
@@ -1506,7 +1507,6 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
-                subscriptions: None,
             })
             .await
             .expect("stream init");
@@ -1542,7 +1542,6 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
-                subscriptions: None,
             })
             .await
             .unwrap();
@@ -1598,7 +1597,6 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
-                subscriptions: None,
             }),
         )
         .await
@@ -1627,7 +1625,6 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
-                subscriptions: None,
             })
             .await
             .unwrap_err();
@@ -1655,7 +1652,6 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
-                subscriptions: None,
             })
             .await
             .unwrap_err();

@@ -333,6 +333,7 @@ impl Client {
             .zip(outcome.authorization_leases)
         {
             let mut submission = EventInitialSubmission {
+                mls_frontier_leaves: None,
                 event: event.clone(),
                 authorization_lease: Some(lease),
                 cbs_proof_bundles: Vec::new(),
@@ -757,6 +758,19 @@ impl Client {
             pages += 1;
         }
         Ok(combined)
+    }
+
+    /// Consume the authenticated Account Station's exact MLS governance result.
+    pub async fn mls_governance_frontier(
+        &self,
+        request: &arkret_models_crypto::MlsGovernanceFrontierRequest,
+    ) -> Result<arkret_models_crypto::MlsGovernanceFrontierOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_crypto::MlsGovernanceFrontierOutcome = self
+            .post("/_arkret/self/seals/mls-governance-proof", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
     }
 
     /// Fetch one complete near-current MLS group-security-frontier proof.

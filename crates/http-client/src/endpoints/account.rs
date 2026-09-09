@@ -266,18 +266,7 @@ impl Client {
         request: &SyncRequestBody,
         accept: &str,
     ) -> Result<RequestBuilder> {
-        // `ak.self.account.stream.subscribe.v1` has no request body; its query
-        // surface is `after` / `catchup` / `filter.*` (client-sync.md §2
-        // request-parameter table). `subscriptions` and `wait_for` are not
-        // part of this transport — fail loudly instead of silently dropping
-        // fields the caller expects the server to honor.
-        if request.subscriptions.is_some() {
-            return Err(Error::Protocol(
-                "account subscribe does not support `subscriptions`; use per-Realm \
-                 events subscriptions instead"
-                    .to_owned(),
-            ));
-        }
+        // Account subscribe is a bodyless GET with the registered filter fields.
         let mut builder = self
             .request_unbounded(Method::GET, "/_arkret/self/account/subscribe")?
             .header("accept", accept);
@@ -547,7 +536,7 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::client_sync::{SubscriptionConfig, SyncFilter};
+    use arkret_models_collaboration::sync_frames::client_sync::SyncFilter;
     use arkret_wire::RealmId;
     use url::Url;
 
@@ -561,7 +550,6 @@ mod tests {
             after: None,
             catchup: None,
             filter: None,
-            subscriptions: None,
         }
     }
 
@@ -1107,19 +1095,13 @@ mod tests {
     }
 
     #[test]
-    fn account_subscribe_request_rejects_transport_unsupported_fields() {
-        let with_subscriptions = SyncRequestBody {
-            subscriptions: Some(SubscriptionConfig {
-                subscriptions: Vec::new(),
-                batch_item_count: None,
-                timeline_filter: None,
-            }),
-            ..empty_request()
-        };
-        let error = client()
-            .account_subscribe_request(&with_subscriptions, "application/x-ndjson")
-            .unwrap_err();
-        assert!(matches!(error, Error::Protocol(message) if message.contains("subscriptions")));
+    fn account_subscribe_request_rejects_unregistered_subscriptions() {
+        for value in [
+            serde_json::json!({"subscriptions": {}}),
+            serde_json::json!({"subscriptions": null}),
+        ] {
+            assert!(serde_json::from_value::<SyncRequestBody>(value).is_err());
+        }
     }
 
     #[test]

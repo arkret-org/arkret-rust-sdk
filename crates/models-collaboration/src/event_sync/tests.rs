@@ -367,6 +367,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
     )];
 
     EventFederationSubmission {
+        mls_frontier_leaves: None,
         event,
         authorization_lease: Some(authorization_lease),
         ingress_receipts: vec![receipt],
@@ -448,6 +449,7 @@ fn realm_seal_frontier_distinguishes_protocol_bounds_from_exact_policy() {
         SealBasis {
             leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap()],
         },
+        DigestSuite::Sha256,
         health,
         RealmSealFrontierObservationCoordinate {
             service_id: "ak:did_core:web:server.test".parse().unwrap(),

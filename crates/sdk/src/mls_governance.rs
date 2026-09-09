@@ -1296,7 +1296,9 @@ where
     }
 }
 
-async fn verify_event_proofs_default<VerifyAgentHistoryKey>(
+/// Verify one retained governance Event against its exact persisted signer dependencies.
+/// This is a server/auditor operation; clients consume their own Station result.
+pub async fn verify_retained_governance_event_proofs<VerifyAgentHistoryKey>(
     event: &Event,
     event_digest_suite: arkret_canonical::DigestSuite,
     dependencies: &[GovernanceDependency],
@@ -1694,7 +1696,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            Box::pin(verify_event_proofs_default(
+            Box::pin(verify_retained_governance_event_proofs(
                 event,
                 digest_suite,
                 dependencies,
@@ -1760,7 +1762,7 @@ where
             &registry,
             arkret_signatures::verify_frozen_notary_signature,
             |event, digest_suite, dependencies| {
-                Box::pin(verify_event_proofs_default(
+                Box::pin(verify_retained_governance_event_proofs(
                     event,
                     digest_suite,
                     dependencies,
@@ -1827,7 +1829,7 @@ where
             &registry,
             arkret_signatures::verify_frozen_notary_signature,
             |event, digest_suite, dependencies| {
-                Box::pin(verify_event_proofs_default(
+                Box::pin(verify_retained_governance_event_proofs(
                     event,
                     digest_suite,
                     dependencies,
@@ -2028,7 +2030,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            Box::pin(verify_event_proofs_default(
+            Box::pin(verify_retained_governance_event_proofs(
                 event,
                 digest_suite,
                 dependencies,
@@ -2111,7 +2113,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            Box::pin(verify_event_proofs_default(
+            Box::pin(verify_retained_governance_event_proofs(
                 event,
                 digest_suite,
                 dependencies,
@@ -2236,7 +2238,7 @@ where
         &registry,
         arkret_signatures::verify_frozen_notary_signature,
         |event, digest_suite, dependencies| {
-            Box::pin(verify_event_proofs_default(
+            Box::pin(verify_retained_governance_event_proofs(
                 event,
                 digest_suite,
                 dependencies,

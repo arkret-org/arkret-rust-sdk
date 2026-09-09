@@ -9,28 +9,19 @@ use std::collections::BTreeSet;
 use arkret_wire::base64url::{base64url_decode, base64url_encode};
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
-    ActorId, Base64UrlString, CellRef, ContentScheme, DurabilityPolicy, EventId, Hash,
-    NonEmptyString, Result, SealBasis, SealId, WireError,
+    Base64UrlString, CellRef, ContentScheme, DurabilityPolicy, EventId, Hash, Result, SealBasis,
+    SealId, WireError,
 };
 use serde::{Deserialize, Serialize};
 
 pub const MLS_GOVERNANCE_PROOF_MIN_BYTES: u32 = 65_536;
 pub use arkret_wire::constants::MLS_GOVERNANCE_PROOF_MAX_BYTES;
 pub const MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES: usize = 8_388_608;
-pub const MLS_GOVERNANCE_PROOF_MAX_LEAVES: usize = 65_536;
+pub use arkret_wire::mls_transition::MLS_FRONTIER_MAX_LEAVES as MLS_GOVERNANCE_PROOF_MAX_LEAVES;
 pub const MLS_GOVERNANCE_PROOF_MAX_SIBLINGS: usize = 64;
 const MLS_GOVERNANCE_PAGE_DIGEST_DOMAIN: &[u8] = b"ak.mls-governance-proof-page-v1";
 
-/// One current or pending RFC 9420 leaf supplied by the local MLS state.
-/// It is verifier input and never part of the proof response.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MlsSecurityFrontierLeaf {
-    pub leaf_index: u32,
-    pub actor_id: ActorId,
-    pub credential_ref: NonEmptyString,
-}
+pub use arkret_wire::mls_transition::MlsSecurityFrontierLeaf;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -109,55 +100,15 @@ impl MlsGovernanceProofRequestBody {
         {
             return schema("MLS governance proof byte_limit is outside 64 KiB..=1 MiB");
         }
-        if matches!(
-            self.effective_scope,
-            ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. }
-        ) {
-            return schema("MLS governance proof effective_scope must be Realm or Circle");
-        }
-        if self.effective_scope.canonical_mls_group_id()? != self.mls_group_id.as_str() {
-            return state("MLS governance proof group does not match effective_scope");
-        }
-        if self.local_mls_leaves.is_empty()
-            || self.local_mls_leaves.len() > MLS_GOVERNANCE_PROOF_MAX_LEAVES
-        {
-            return schema("MLS governance proof local_mls_leaves is outside 1..=65536");
-        }
-        let mut previous_leaf_index = None;
-        let mut credential_refs = BTreeSet::new();
-        for leaf in &self.local_mls_leaves {
-            leaf.actor_id.validate()?;
-            if leaf.credential_ref.as_str().chars().count() > 2_048 {
-                return schema(
-                    "MLS governance proof local_mls_leaves credential_ref exceeds 2048 characters",
-                );
-            }
-            if previous_leaf_index.is_some_and(|previous| previous >= leaf.leaf_index) {
-                return schema(
-                    "MLS governance proof local_mls_leaves must use strictly increasing leaf_index order",
-                );
-            }
-            previous_leaf_index = Some(leaf.leaf_index);
-            if !credential_refs.insert(leaf.credential_ref.as_str()) {
-                return schema("MLS governance proof local_mls_leaves repeats credential_ref");
-            }
-        }
-        let genesis = self.previous_epoch == 0 && self.next_epoch == 0;
-        let successor = self.previous_epoch.checked_add(1) == Some(self.next_epoch);
-        if !genesis && !successor {
-            return schema("MLS governance proof epochs are not genesis or one-step successor");
-        }
-        if genesis != self.base_group_state_ref.is_none() {
-            return schema(
-                "MLS governance proof genesis forbids base_group_state_ref and successor requires it",
-            );
-        }
-        if !genesis && self.proposed_group_genesis_binding.is_some() {
-            return schema("MLS governance successor query forbids proposed_group_genesis_binding");
-        }
-        if let Some(proposal) = &self.proposed_group_genesis_binding {
-            proposal.validate()?;
-        }
+        validate_group_binding_query(
+            &self.effective_scope,
+            &self.mls_group_id,
+            &self.local_mls_leaves,
+            self.base_group_state_ref.as_ref(),
+            self.proposed_group_genesis_binding.as_ref(),
+            self.previous_epoch,
+            self.next_epoch,
+        )?;
         if arkret_canonical::canonical_json_bytes(self)?.len()
             > MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
         {
@@ -179,9 +130,47 @@ impl MlsGovernanceProofRequestBody {
     }
 }
 
+pub(crate) fn validate_group_binding_query(
+    effective_scope: &ScopeRef,
+    mls_group_id: &Base64UrlString,
+    local_mls_leaves: &[MlsSecurityFrontierLeaf],
+    base_group_state_ref: Option<&EventId>,
+    proposed_group_genesis_binding: Option<&ProposedMlsGroupGenesisBinding>,
+    previous_epoch: u64,
+    next_epoch: u64,
+) -> Result<()> {
+    if matches!(
+        effective_scope,
+        ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. }
+    ) {
+        return schema("MLS governance proof effective_scope must be Realm or Circle");
+    }
+    if effective_scope.canonical_mls_group_id()? != mls_group_id.as_str() {
+        return state("MLS governance proof group does not match effective_scope");
+    }
+    arkret_wire::mls_transition::validate_mls_frontier_leaves(local_mls_leaves)?;
+    let genesis = previous_epoch == 0 && next_epoch == 0;
+    let successor = previous_epoch.checked_add(1) == Some(next_epoch);
+    if !genesis && !successor {
+        return schema("MLS governance proof epochs are not genesis or one-step successor");
+    }
+    if genesis != base_group_state_ref.is_none() {
+        return schema(
+            "MLS governance proof genesis forbids base_group_state_ref and successor requires it",
+        );
+    }
+    if !genesis && proposed_group_genesis_binding.is_some() {
+        return schema("MLS governance successor query forbids proposed_group_genesis_binding");
+    }
+    if let Some(proposal) = proposed_group_genesis_binding {
+        proposal.validate()?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{AccountId, DidCoreId, RealmId};
+    use arkret_wire::{AccountId, ActorId, DidCoreId, NonEmptyString, RealmId};
 
     use super::*;
 

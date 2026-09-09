@@ -521,9 +521,10 @@ pub struct RealmSealFrontierObservationCoordinate {
 ///
 /// `seal_basis.leaves[]` is the complete canonical non-quarantined accepted
 /// Seal leaf antichain: exactly one leaf under `single_signer` / `threshold`
-/// notary authority, every live leaf under `open_set`. No service-derived root
-/// hint is carried, because none of them is an authority: the consumer resolves
-/// and verifies every leaf Seal and recomputes the joined control view itself.
+/// notary authority, every live leaf under `open_set`. Self clients consume
+/// their authenticated Account Station result without replaying history; peer
+/// servers independently verify foreign governance. The live digest suite is
+/// the effective suite at exactly this accepted basis.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -531,6 +532,8 @@ pub struct RealmSealFrontierView {
     pub kind: RealmSealFrontierKind,
     pub realm_id: RealmId,
     pub seal_basis: SealBasis,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub live_digest_suite: DigestSuite,
     pub governance_health: ControlGovernanceHealth,
     pub observation_coordinate: RealmSealFrontierObservationCoordinate,
 }
@@ -539,6 +542,7 @@ impl RealmSealFrontierView {
     pub fn new(
         realm_id: RealmId,
         seal_basis: SealBasis,
+        live_digest_suite: DigestSuite,
         governance_health: ControlGovernanceHealth,
         observation_coordinate: RealmSealFrontierObservationCoordinate,
     ) -> Self {
@@ -546,13 +550,14 @@ impl RealmSealFrontierView {
             kind: RealmSealFrontierKind::RealmSeal,
             realm_id,
             seal_basis,
+            live_digest_suite,
             governance_health,
             observation_coordinate,
         }
     }
 
     /// The complete accepted leaf antichain a newly authored Control Move may
-    /// cite once every leaf has been resolved and verified.
+    /// cite after binding the authenticated Account Station result to its intent.
     pub fn seal_basis(&self) -> SealBasis {
         self.seal_basis.clone()
     }
