@@ -3227,6 +3227,18 @@
       "adjudication": "manual"
     },
     {
+      "finding": "json_authoring:crates/schema/src/generated/openapi_query.rs::openapi_query_operations:6520a4ba4a951238",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "spec/v1/artifacts/openapi/arkret-service-api.openapi.yaml; tools/spec-codegen/src/openapi.rs::generate",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Generated OpenAPI Operation Object metadata, copied from the normative QUERY definition with referenced components resolved. Nested type/schema/content describe JSON Schema and media types, not an Arkret runtime discriminated payload. Keep this exact finding audited; do not exclude generated files.",
+      "test": "pwsh -File tools/sync-spec-generated.ps1 -ArtifactsDir ../arkret-spec/spec/v1/artifacts -Check",
+      "reason": "Generated metadata for the registered ak.self.seals.read.pending_control.v1 query introduced by SDK commit 227233c6. The schema/type/content keys describe the OpenAPI Operation Object; runtime request and outcome remain the shared PcrPendingControlRequest and PcrPendingControlOutcome types.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_authoring:crates/schema/src/generated/openapi_query.rs::openapi_query_operations:71efda2a42dd748e",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
@@ -4324,17 +4336,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning status",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:crates/models-collaboration/src/sync_frames/client_sync.rs::normalized_realm_subscription:a57461c86bf16ef4",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning realm_id",
       "owner_repository": "arkret-rust-sdk",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",

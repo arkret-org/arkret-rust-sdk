@@ -174,6 +174,70 @@ fn third_party_invite_rejects_mode_mismatch() {
     assert!(lookup_bad.validate_minimal().is_err());
 }
 
+#[test]
+fn third_party_invite_lookup_binds_the_public_commitment() {
+    let value = json!({
+        "token_commitment": format!("sha256:{}", "ab".repeat(32)),
+        "lookup_table_ref": "lookup-private-slot",
+        "pepper_id": "pepper-private-slot",
+        "oob_code_kind": "lookup",
+        "verification_id": "ak:did_core:web:ivs.example",
+        "verification_public_key": "z6MkVK",
+        "max_claims": 1
+    });
+    let invite: ThirdPartyInvite = serde_json::from_value(value.clone()).unwrap();
+    invite.validate_minimal().unwrap();
+    for field in ["token_commitment", "lookup_table_ref", "pepper_id"] {
+        let mut missing = value.clone();
+        missing.as_object_mut().unwrap().remove(field);
+        let parsed: ThirdPartyInvite = serde_json::from_value(missing).unwrap();
+        assert!(parsed.validate_minimal().is_err(), "missing {field}");
+    }
+    for (field, extra) in [
+        ("token_salt_id", json!("salt")),
+        ("token_entropy_bits", json!(128)),
+    ] {
+        let mut mixed = value.clone();
+        mixed[field] = extra;
+        let parsed: ThirdPartyInvite = serde_json::from_value(mixed).unwrap();
+        assert!(
+            parsed.validate_minimal().is_err(),
+            "mixed mode field {field}"
+        );
+    }
+}
+
+#[test]
+fn third_party_invite_presentation_accepts_short_codes_and_full_dids() {
+    use arkret_models_collaboration::governance::third_party_invite::ThirdPartyInvitePresentRequestBody;
+    let value = json!({
+        "invite_token": "123456",
+        "realm_id": realm(),
+        "subject_account_id": {
+            "principal_id": "ak:did_core:web:alice.example",
+            "station_id": "ak:did_core:web:station.example"
+        },
+        "subject_did": "did:web:alice.example",
+        "claim_nonce": "0123456789abcdef"
+    });
+    let body: ThirdPartyInvitePresentRequestBody = serde_json::from_value(value.clone()).unwrap();
+    body.validate_minimal().unwrap();
+    for token in ["12345", "123 456", "123456&leak=yes"] {
+        let mut invalid = value.clone();
+        invalid["invite_token"] = json!(token);
+        let body: ThirdPartyInvitePresentRequestBody = serde_json::from_value(invalid).unwrap();
+        assert!(body.validate_minimal().is_err());
+    }
+    let mut different_subject = value.clone();
+    different_subject["subject_did"] = json!("did:web:bob.example");
+    let body: ThirdPartyInvitePresentRequestBody =
+        serde_json::from_value(different_subject).unwrap();
+    assert!(body.validate_minimal().is_err());
+    let mut core_as_did = value;
+    core_as_did["subject_did"] = json!("ak:did_core:web:alice.example");
+    assert!(serde_json::from_value::<ThirdPartyInvitePresentRequestBody>(core_as_did).is_err());
+}
+
 // `validate_signal_seq` / `CallSignalState` had no v1 successor to restate them
 // against: `signal-envelope.schema.json` places the sender sequence inside
 // `encrypted_payload`, reachable only after a recipient decrypts. There is no

@@ -1,6 +1,6 @@
 //! Third-party invite wire payloads.
 
-use arkret_wire::{AccountId, DidCoreId, Hash, InviteId, RealmId, Result, WireError};
+use arkret_wire::{AccountId, Did, DidCoreId, Hash, InviteId, RealmId, Result, WireError};
 use serde::{Deserialize, Serialize};
 
 use crate::governance::membership_invite::InviteClaimBindingProof;
@@ -12,19 +12,20 @@ pub struct ThirdPartyInvitePresentRequestBody {
     pub invite_token: String,
     pub realm_id: RealmId,
     pub subject_account_id: AccountId,
-    pub subject_did: DidCoreId,
+    pub subject_did: Did,
     pub claim_nonce: String,
 }
 
 impl ThirdPartyInvitePresentRequestBody {
     pub fn validate_minimal(&self) -> Result<()> {
-        if !(22..=512).contains(&self.invite_token.len())
+        if !(6..=512).contains(&self.invite_token.len())
             || !self
                 .invite_token
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-            || !(16..=128).contains(&self.claim_nonce.len())
-            || self.subject_account_id.principal_id != self.subject_did
+            || !(16..=128).contains(&self.claim_nonce.chars().count())
+            || self.subject_account_id.principal_id
+                != arkret_identifiers::project_did_to_core_id(&self.subject_did)?
         {
             return Err(WireError::Protocol(
                 "invalid third-party invite presentation request".to_owned(),
@@ -48,9 +49,10 @@ pub struct ThirdPartyInvitePresentOutcome {
 ///
 /// `ak.schema.invite.v1` carries a `oneOf` of:
 /// - `offline_token`: token_commitment + token_salt_id + token_entropy_bits (>= 128).
-/// - `lookup`: lookup_table_ref + pepper_id, rate-limited (3 errors invalidates the entry).
+/// - `lookup`: token_commitment + lookup_table_ref + pepper_id, rate-limited (3 errors invalidates
+///   the entry).
 ///
-/// The plaintext 3PID (email / SMS) MUST NEVER appear on the wire.
+/// Plaintext 3PID (email / SMS) never appears in the public Event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ThirdPartyInviteOobKind {
@@ -62,7 +64,7 @@ pub enum ThirdPartyInviteOobKind {
 ///
 /// Two-mode `oneOf`:
 /// - `offline_token` requires `token_commitment` + `token_salt_id` + `token_entropy_bits >= 128`.
-/// - `lookup` requires `lookup_table_ref` + `pepper_id`.
+/// - `lookup` requires `token_commitment` + `lookup_table_ref` + `pepper_id`.
 ///
 /// Both modes ALWAYS carry `max_claims`,
 /// `verification_id`, and `verification_public_key`. Internal
@@ -76,7 +78,7 @@ pub struct ThirdPartyInvite {
     /// Optional non-identifying UI hint; never a plaintext email or phone number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name_hint: Option<String>,
-    /// `offline_token` mode — SHA-256 of `token | salt[salt_id]`.
+    /// Both modes: SHA-256 of the private salt followed by the raw token bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_commitment: Option<Hash>,
     /// `offline_token` mode — opaque salt id, MUST be rotated per token.
@@ -110,11 +112,25 @@ impl ThirdPartyInvite {
             || self
                 .display_name_hint
                 .as_ref()
-                .is_some_and(|hint| hint.len() > 128)
+                .is_some_and(|hint| hint.chars().count() > 128)
             || self.verification_public_key.is_empty()
+            || self
+                .token_commitment
+                .as_ref()
+                .is_none_or(|commitment| !commitment.as_str().starts_with("sha256:"))
+            || [&self.token_salt_id, &self.pepper_id]
+                .into_iter()
+                .flatten()
+                .any(|value| {
+                    !(1..=128).contains(&value.chars().count()) || value.starts_with("ak:")
+                })
+            || self
+                .lookup_table_ref
+                .as_ref()
+                .is_some_and(|value| !(1..=128).contains(&value.chars().count()))
         {
             return Err(WireError::Protocol(
-                "third_party_invite requires max_claims=1, a non-empty verification key, and display_name_hint<=128 bytes"
+                "third_party_invite requires max_claims=1, a SHA-256 commitment, a non-empty verification key, and bounded public fields"
                     .to_owned(),
             ));
         }
@@ -146,17 +162,17 @@ impl ThirdPartyInvite {
             }
 
             ThirdPartyInviteOobKind::Lookup => {
-                if self.lookup_table_ref.is_none() || self.pepper_id.is_none() {
+                if self.token_commitment.is_none()
+                    || self.lookup_table_ref.is_none()
+                    || self.pepper_id.is_none()
+                {
                     return Err(WireError::Protocol(
-                        "third_party_invite lookup mode requires lookup_table_ref + pepper_id"
+                        "third_party_invite lookup mode requires token_commitment + lookup_table_ref + pepper_id"
                             .to_owned(),
                     ));
                 }
 
-                if self.token_commitment.is_some()
-                    || self.token_salt_id.is_some()
-                    || self.token_entropy_bits.is_some()
-                {
+                if self.token_salt_id.is_some() || self.token_entropy_bits.is_some() {
                     return Err(WireError::Protocol(
                         "third_party_invite lookup mode must NOT set offline_token fields"
                             .to_owned(),

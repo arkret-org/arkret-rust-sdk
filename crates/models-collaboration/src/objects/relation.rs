@@ -185,8 +185,8 @@ impl RelationConflictCandidate {
 /// Projection-only evidence for one bounded set of concurrent Relation heads.
 ///
 /// This value is never reducer input. Construction sorts by `event_id` and
-/// rejects incomplete, duplicate, or over-limit head sets so callers cannot
-/// accidentally publish a partial conflict as if it were authoritative.
+/// rejects undersized, duplicate, or over-limit head sets. The server must
+/// establish group completeness separately; this DTO cannot prove it.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -224,21 +224,28 @@ impl RelationConflictDiagnostic {
         Ok(())
     }
 
-    /// A resolution must name the complete current head set. A subset or a
-    /// stale superset is not sufficient evidence and therefore fails closed.
+    /// Compare against this diagnostic's head identities without accepting
+    /// duplicates. This is a structural check, not acceptance, authorization,
+    /// or proof that the server supplied the complete current group.
     pub fn validates_resolution_heads<'a, I>(&self, supplied: I) -> bool
     where
         I: IntoIterator<Item = &'a EventId>,
     {
-        let supplied = supplied
-            .into_iter()
-            .collect::<std::collections::BTreeSet<_>>();
+        if self.validate().is_err() {
+            return false;
+        }
+        let mut supplied_set = std::collections::BTreeSet::new();
+        for event_id in supplied {
+            if !supplied_set.insert(event_id) {
+                return false;
+            }
+        }
         let current = self
             .heads
             .iter()
             .map(|candidate| &candidate.event_id)
             .collect::<std::collections::BTreeSet<_>>();
-        supplied == current
+        supplied_set == current
     }
 }
 
@@ -458,6 +465,14 @@ mod tests {
             diagnostic.validates_resolution_heads(diagnostic.heads.iter().map(|h| &h.event_id))
         );
         assert!(!diagnostic.validates_resolution_heads([&diagnostic.heads[0].event_id]));
+        assert!(!diagnostic.validates_resolution_heads([
+            &diagnostic.heads[0].event_id,
+            &diagnostic.heads[0].event_id,
+            &diagnostic.heads[1].event_id,
+        ]));
+        let mut invalid = diagnostic.clone();
+        invalid.heads.reverse();
+        assert!(!invalid.validates_resolution_heads(diagnostic.heads.iter().map(|h| &h.event_id)));
     }
 
     #[test]
