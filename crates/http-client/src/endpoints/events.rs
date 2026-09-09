@@ -29,7 +29,6 @@ use arkret_models_collaboration::http_bodies::{
 };
 use arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
 use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
-use arkret_models_crypto::{MlsGovernanceProofBundle, MlsGovernanceProofRequestBody};
 use arkret_models_discovery::ServiceDescribe;
 use arkret_schema::PreparedStandardEvent;
 use arkret_state::{
@@ -316,7 +315,11 @@ impl Client {
         let submit_context = initial_submission_context(events)?;
         let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
         let request = AuthorizationLeaseIssueRequestBody {
-            events: events.to_vec(),
+            submissions: events
+                .iter()
+                .cloned()
+                .map(arkret_wire::EventInitialSubmission::online)
+                .collect(),
             intents: Vec::new(),
         };
         let request_key = arkret_wire::new_prefixed_uuid7("lease-");
@@ -773,14 +776,14 @@ impl Client {
         Ok(outcome)
     }
 
-    /// Fetch one complete near-current MLS group-security-frontier proof.
-    pub async fn mls_governance_proof(
+    /// Read the Station's current acceptance of one already known MLS artifact.
+    pub async fn mls_accepted_artifact(
         &self,
-        request: &MlsGovernanceProofRequestBody,
-    ) -> Result<MlsGovernanceProofBundle> {
+        request: &arkret_models_crypto::MlsAcceptedArtifactRequest,
+    ) -> Result<arkret_models_crypto::MlsAcceptedArtifactOutcome> {
         request.validate()?;
-        let outcome: MlsGovernanceProofBundle = self
-            .post("/_arkret/self/seals/mls-governance-proof", request)
+        let outcome: arkret_models_crypto::MlsAcceptedArtifactOutcome = self
+            .post("/_arkret/self/seals/mls-accepted-artifact", request)
             .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)

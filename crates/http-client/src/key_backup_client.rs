@@ -66,7 +66,14 @@ impl KeyBackupClient {
     /// `GET /_arkret/self/keys/backups` (list current backups for the
     /// authenticated principal).
     pub async fn list_key_backups(&self) -> SdkResult<arkret_models_crypto::KeysBackupsList> {
-        self.client.get("/_arkret/self/keys/backups").await
+        self.client
+            .list_key_backups(&arkret_models_crypto::KeyBackupsListQuery {
+                series_id: None,
+                backup_kind: None,
+                cursor: None,
+                limit: None,
+            })
+            .await
     }
 
     /// `POST /_arkret/self/keys/backups/{backup_id}/delete-challenge`.

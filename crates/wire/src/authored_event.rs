@@ -59,6 +59,7 @@ use crate::{EventId, Result, WireError};
 pub struct AuthoredEvent {
     event: Event,
     digest_suite: DigestSuite,
+    mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
 }
 
 impl AuthoredEvent {
@@ -81,6 +82,7 @@ impl AuthoredEvent {
         Ok(Self {
             event,
             digest_suite,
+            mls_frontier_leaves: None,
         })
     }
 
@@ -100,7 +102,32 @@ impl AuthoredEvent {
         Ok(Self {
             event,
             digest_suite,
+            mls_frontier_leaves: None,
         })
+    }
+
+    /// Freeze the exact public MLS admission input with the local authored record.
+    /// This does not change the signed Event; a different input requires re-authoring.
+    pub fn bind_mls_frontier_leaves(
+        &mut self,
+        leaves: Vec<crate::mls_transition::MlsSecurityFrontierLeaf>,
+    ) -> Result<()> {
+        crate::event_submission::validate_mls_submission_leaves(&self.event, Some(&leaves))?;
+        if self
+            .mls_frontier_leaves
+            .as_ref()
+            .is_some_and(|existing| existing != &leaves)
+        {
+            return Err(WireError::Protocol(
+                "authored MLS admission input is immutable".to_owned(),
+            ));
+        }
+        self.mls_frontier_leaves = Some(leaves);
+        Ok(())
+    }
+
+    pub fn mls_frontier_leaves(&self) -> Option<&[crate::mls_transition::MlsSecurityFrontierLeaf]> {
+        self.mls_frontier_leaves.as_deref()
     }
 
     /// The digest suite this Event's identity and proofs are bound to.
@@ -194,7 +221,13 @@ impl From<AuthoredEvent> for Event {
 
 impl Serialize for AuthoredEvent {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        crate::event_submission::validate_mls_submission_leaves(
+            &self.event,
+            self.mls_frontier_leaves(),
+        )
+        .map_err(serde::ser::Error::custom)?;
         AuthoredEventRecordRef {
+            mls_frontier_leaves: self.mls_frontier_leaves(),
             digest_suite: self.digest_suite,
             event: &self.event,
         }
@@ -207,6 +240,8 @@ impl Serialize for AuthoredEvent {
 struct AuthoredEventRecordRef<'a> {
     digest_suite: DigestSuite,
     event: &'a Event,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mls_frontier_leaves: Option<&'a [crate::mls_transition::MlsSecurityFrontierLeaf]>,
 }
 
 #[derive(Deserialize)]
@@ -214,13 +249,22 @@ struct AuthoredEventRecordRef<'a> {
 struct AuthoredEventRecord {
     digest_suite: DigestSuite,
     event: Event,
+    #[serde(default)]
+    mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
 }
 
 impl<'de> Deserialize<'de> for AuthoredEvent {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         let record = AuthoredEventRecord::deserialize(deserializer)?;
-        Self::from_verified_with_digest_suite(record.event, record.digest_suite)
-            .map_err(serde::de::Error::custom)
+        crate::event_submission::validate_mls_submission_leaves(
+            &record.event,
+            record.mls_frontier_leaves.as_deref(),
+        )
+        .map_err(serde::de::Error::custom)?;
+        let mut authored = Self::from_verified_with_digest_suite(record.event, record.digest_suite)
+            .map_err(serde::de::Error::custom)?;
+        authored.mls_frontier_leaves = record.mls_frontier_leaves;
+        Ok(authored)
     }
 }
 
@@ -382,5 +426,37 @@ mod tests {
             RealmId::from_event_id(authored.event_id())
         );
         authored.verify_identity().unwrap();
+    }
+    #[test]
+    fn authored_mls_input_is_frozen_before_durable_serialization() {
+        let mut event = envelope();
+        event.kind = crate::EventKind::MlsCommit;
+        let actor = event.actor_id.clone();
+        let mut authored = AuthoredEvent::finalize_with_digest_suite(event, SUITE).unwrap();
+        assert!(serde_json::to_vec(&authored).is_err());
+        let leaves = vec![crate::mls_transition::MlsSecurityFrontierLeaf {
+            leaf_index: 0,
+            actor_id: actor,
+            credential_ref: crate::NonEmptyString::new("device-1").unwrap(),
+        }];
+        let event_id = authored.event_id().clone();
+        authored.bind_mls_frontier_leaves(leaves.clone()).unwrap();
+        let bytes = serde_json::to_vec(&authored).unwrap();
+        let restored: AuthoredEvent = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(restored, authored);
+        assert_eq!(restored.event_id(), &event_id);
+        assert_eq!(restored.mls_frontier_leaves(), Some(leaves.as_slice()));
+        let mut changed = leaves.clone();
+        changed[0].credential_ref = crate::NonEmptyString::new("device-2").unwrap();
+        assert!(authored.bind_mls_frontier_leaves(changed).is_err());
+        assert_eq!(serde_json::to_vec(&authored).unwrap(), bytes);
+        let mut missing = serde_json::to_value(&authored).unwrap();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("mls_frontier_leaves");
+        assert!(serde_json::from_value::<AuthoredEvent>(missing).is_err());
+        let mut ordinary = AuthoredEvent::finalize_with_digest_suite(envelope(), SUITE).unwrap();
+        assert!(ordinary.bind_mls_frontier_leaves(leaves).is_err());
     }
 }

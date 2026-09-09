@@ -9,11 +9,11 @@ use arkret_models_collaboration::sync_frames::account_sync::{
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
 };
 use arkret_models_crypto::{
-    BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup, KeyBackupSummary,
-    KeyBackupsListQuery, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
-    KeyPackagesConsumeOutcome, KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome,
-    KeyPackagesRevokeRequestBody, KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody,
-    KeysBackupsDeleteChallenge, KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
+    BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup, KeyBackupsListQuery,
+    KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome,
+    KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody,
+    KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody, KeysBackupsDeleteChallenge,
+    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
     KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
     KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
     KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
@@ -491,6 +491,12 @@ impl Client {
     /// `series_id` / `backup_kind` / `cursor` / `limit` filters from
     /// [`KeyBackupsListQuery`] (key-management.md §7.5).
     pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
+        if query.limit.is_some_and(|limit| !(1..=200).contains(&limit)) {
+            return Err(arkret_wire::WireError::Protocol(
+                "backup page limit must be 1..200".to_owned(),
+            )
+            .into());
+        }
         let mut builder = self.request(Method::GET, "/_arkret/self/keys/backups")?;
         if let Some(ref series_id) = query.series_id {
             builder = builder.query(&[("series_id", series_id.as_str())]);
@@ -504,21 +510,9 @@ impl Client {
         if let Some(limit) = query.limit {
             builder = builder.query(&[("limit", limit.to_string())]);
         }
-        self.send_json(builder).await
-    }
-
-    /// Convenience variant that returns just the summary list. Equivalent to
-    /// [`list_key_backups`](Self::list_key_backups) with default query.
-    pub async fn list_all_key_backups(&self) -> Result<Vec<KeyBackupSummary>> {
-        let response: KeysBackupsList = self
-            .list_key_backups(&KeyBackupsListQuery {
-                series_id: None,
-                backup_kind: None,
-                cursor: None,
-                limit: None,
-            })
-            .await?;
-        Ok(response.backups)
+        let page: KeysBackupsList = self.send_json(builder).await?;
+        page.validate_for_query(query)?;
+        Ok(page)
     }
 
     /// Unlock and fetch a single encrypted [`KeyBackup`] envelope for local

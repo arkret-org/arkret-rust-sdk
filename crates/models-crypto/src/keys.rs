@@ -439,6 +439,7 @@ mod device_generation_tests {
     fn attested_row(generation: u64) -> serde_json::Value {
         let trust_algorithm = arkret_wire::generated::HPKE_SUITES[2].canonical_id;
         json!({
+            "signer_evidence_ref": format!("ak:signer_evidence:sha256:{}", "a".repeat(64)),
             "algorithms": {},
             "trust_algorithms": [trust_algorithm],
             "device_projection_attestation": {

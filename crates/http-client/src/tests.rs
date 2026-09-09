@@ -392,10 +392,7 @@ mod events_submit_tests {
     };
     use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
     use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-    use arkret_models_crypto::{
-        MlsGovernanceBindingProfile, MlsGovernanceFrontierPurpose, MlsGovernanceProofProfile,
-        MlsGovernanceProofRequestBody, MlsSecurityFrontierLeaf,
-    };
+    use arkret_models_crypto::{MlsGovernanceFrontierRequest, MlsSecurityFrontierLeaf};
     use arkret_wire::{
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
@@ -748,7 +745,7 @@ mod events_submit_tests {
     }
 
     #[tokio::test]
-    async fn mls_governance_proof_uses_canonical_query_body() {
+    async fn mls_governance_frontier_uses_canonical_query_body() {
         let (client, capture) = spawn_capture_server("{}").await;
         let realm_id =
             RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI").unwrap();
@@ -762,8 +759,7 @@ mod events_submit_tests {
                 )
                 .unwrap()],
             };
-        let request = MlsGovernanceProofRequestBody {
-            profile: MlsGovernanceProofProfile::GroupSecurityFrontier,
+        let request = MlsGovernanceFrontierRequest {
             effective_scope,
             mls_group_id: Base64UrlString::new(group_id.clone()).unwrap(),
             local_mls_leaves: vec![MlsSecurityFrontierLeaf {
@@ -774,20 +770,16 @@ mod events_submit_tests {
                 )),
                 credential_ref: NonEmptyString::new("did:webvh:z6mkfixture#device-1").unwrap(),
             }],
-            proof_base_basis: basis.clone(),
-            proof_target_basis: basis,
-            byte_limit: 1_048_576,
-            frontier_purpose: MlsGovernanceFrontierPurpose::GroupBinding,
+            seal_basis: basis,
             base_group_state_ref: Some(
                 EventId::new("ak:event:AbnHJt4q4qY18zqvLiy3Emmqy7weTAuApx42RmRgPr2h").unwrap(),
             ),
             proposed_group_genesis_binding: None,
             previous_epoch: 0,
             next_epoch: 1,
-            binding_profile: MlsGovernanceBindingProfile::AkSecurityFrontierV1,
         };
 
-        client.mls_governance_proof(&request).await.unwrap_err();
+        client.mls_governance_frontier(&request).await.unwrap_err();
 
         let raw = capture.await.unwrap();
         let (request_line, _headers, body) = split_request(&raw);
@@ -796,12 +788,12 @@ mod events_submit_tests {
             "unexpected request line: {request_line}",
         );
         let parsed: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(parsed["profile"], "group_security_frontier");
+        assert!(parsed.get("proof_base_basis").is_none());
         assert_eq!(parsed["effective_scope"]["kind"], "realm");
         assert_eq!(parsed["mls_group_id"], group_id);
         assert_eq!(parsed["previous_epoch"], 0);
         assert_eq!(parsed["next_epoch"], 1);
-        assert_eq!(parsed["binding_profile"], "ak.security_frontier.v1");
+        assert!(parsed.get("binding_profile").is_none());
     }
 
     #[tokio::test]

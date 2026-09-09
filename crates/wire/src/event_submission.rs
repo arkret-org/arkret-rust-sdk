@@ -153,7 +153,7 @@ impl PcrGenesisUnit {
 /// Signed Events presented to the actor's Station for publication
 /// lease issuance. Issuance validates but does not commit these Events.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorizationLeaseIssueRequestBody {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -161,7 +161,7 @@ pub struct AuthorizationLeaseIssueRequestBody {
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
-    pub events: Vec<Event>,
+    pub submissions: Vec<EventInitialSubmission>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub intents: Vec<AuthorizationLeaseIssueIntent>,
 }
@@ -185,18 +185,66 @@ pub struct AuthorizationLeaseIssueOutcome {
     pub authorization_leases: Vec<AuthorizationLease>,
 }
 
+impl<'de> Deserialize<'de> for AuthorizationLeaseIssueRequestBody {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged, deny_unknown_fields)]
+        enum Target {
+            Submissions {
+                submissions: Vec<EventInitialSubmission>,
+            },
+            Intents {
+                intents: Vec<AuthorizationLeaseIssueIntent>,
+            },
+        }
+        let request = match Target::deserialize(deserializer)? {
+            Target::Submissions { submissions } => Self {
+                submissions,
+                intents: Vec::new(),
+            },
+            Target::Intents { intents } => Self {
+                submissions: Vec::new(),
+                intents,
+            },
+        };
+        request
+            .validate_structural()
+            .map_err(serde::de::Error::custom)?;
+        Ok(request)
+    }
+}
+
 impl AuthorizationLeaseIssueRequestBody {
     pub fn validate_structural(&self) -> Result<()> {
-        let target_count = self.events.len() + self.intents.len();
+        let target_count = self.submissions.len() + self.intents.len();
         if target_count == 0 || target_count > 500 {
             return Err(WireError::Protocol(
                 "authorization lease issuance requires between 1 and 500 targets".to_owned(),
             ));
         }
-        if !self.events.is_empty() && !self.intents.is_empty() {
+        if !self.submissions.is_empty() && !self.intents.is_empty() {
             return Err(WireError::Protocol(
-                "authorization lease issuance requires exactly one of events or intents".to_owned(),
+                "authorization lease issuance requires exactly one of submissions or intents"
+                    .to_owned(),
             ));
+        }
+        for submission in &self.submissions {
+            if submission.authorization_lease.is_some() {
+                return Err(WireError::Protocol(
+                    "lease preflight forbids an existing authorization_lease".to_owned(),
+                ));
+            }
+            validate_mls_submission_leaves(
+                &submission.event,
+                submission.mls_frontier_leaves.as_deref(),
+            )?;
+            validate_membership_compensation_evidence(
+                &submission.event,
+                submission.membership_compensation_evidence.as_ref(),
+            )?;
         }
         Ok(())
     }
@@ -211,7 +259,7 @@ impl AuthorizationLeaseIssueOutcome {
         digest_suites: &[arkret_canonical::DigestSuite],
     ) -> Result<()> {
         request.validate_structural()?;
-        if self.authorization_leases.len() != request.events.len() + request.intents.len() {
+        if self.authorization_leases.len() != request.submissions.len() + request.intents.len() {
             return Err(WireError::Protocol(
                 "authorization lease outcome cardinality changed".to_owned(),
             ));
@@ -219,8 +267,15 @@ impl AuthorizationLeaseIssueOutcome {
         for lease in &self.authorization_leases {
             lease.validate_structural()?;
         }
-        if !request.events.is_empty() {
-            self.validate_event_bindings(&request.events, digest_suites)
+        if !request.submissions.is_empty() {
+            self.validate_event_bindings(
+                &request
+                    .submissions
+                    .iter()
+                    .map(|submission| submission.event.clone())
+                    .collect::<Vec<_>>(),
+                digest_suites,
+            )
         } else {
             if !digest_suites.is_empty() {
                 return Err(WireError::Protocol(
@@ -347,7 +402,11 @@ pub struct EventInitialSubmission {
         deserialize_with = "deserialize_mls_frontier_leaves"
     )]
     pub mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_authorization_lease"
+    )]
     pub authorization_lease: Option<AuthorizationLease>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cbs_proof_bundles: Vec<CbsProofBundle>,
@@ -386,7 +445,11 @@ pub struct EventFederationSubmission {
         deserialize_with = "deserialize_mls_frontier_leaves"
     )]
     pub mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_optional_authorization_lease"
+    )]
     pub authorization_lease: Option<AuthorizationLease>,
     pub ingress_receipts: Vec<IngressReceipt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -396,6 +459,15 @@ pub struct EventFederationSubmission {
     /// Byte-identical transport-only evidence forwarded from self admission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
+}
+
+fn deserialize_optional_authorization_lease<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<AuthorizationLease>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    AuthorizationLease::deserialize(deserializer).map(Some)
 }
 
 fn deserialize_mls_frontier_leaves<'de, D>(
@@ -1275,9 +1347,47 @@ mod tests {
     }
 
     #[test]
+    fn lease_preflight_rejects_bare_events_existing_lease_and_mls_input_omission() {
+        let mut submission = EventInitialSubmission::online(online_event());
+        let mut request = AuthorizationLeaseIssueRequestBody {
+            submissions: vec![submission.clone()],
+            intents: Vec::new(),
+        };
+        request.validate_structural().unwrap();
+        let encoded = serde_json::to_value(&request).unwrap();
+        serde_json::from_value::<AuthorizationLeaseIssueRequestBody>(encoded.clone()).unwrap();
+        assert!(
+            serde_json::from_value::<AuthorizationLeaseIssueRequestBody>(
+                serde_json::json!({"events":[online_event()]})
+            )
+            .is_err()
+        );
+        for invalid in [serde_json::Value::Null, serde_json::json!([])] {
+            let mut value = encoded.clone();
+            value["intents"] = invalid;
+            assert!(serde_json::from_value::<AuthorizationLeaseIssueRequestBody>(value).is_err());
+        }
+        let mut value = encoded.clone();
+        value["submissions"][0]["authorization_lease"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<AuthorizationLeaseIssueRequestBody>(value).is_err());
+        request.submissions[0].authorization_lease = Some(lease_for(&intent()));
+        assert!(request.validate_structural().is_err());
+        submission.event.kind = crate::EventKind::MlsGenesis;
+        request.submissions = vec![submission];
+        assert!(request.validate_structural().is_err());
+        request.submissions[0].mls_frontier_leaves =
+            Some(vec![crate::mls_transition::MlsSecurityFrontierLeaf {
+                leaf_index: 0,
+                actor_id: request.submissions[0].event.actor_id.clone(),
+                credential_ref: crate::NonEmptyString::new("device-a").unwrap(),
+            }]);
+        request.validate_structural().unwrap();
+    }
+
+    #[test]
     fn lease_issue_request_enforces_closed_target_shape() {
         let empty = AuthorizationLeaseIssueRequestBody {
-            events: Vec::new(),
+            submissions: Vec::new(),
             intents: Vec::new(),
         };
         assert!(empty.validate_structural().is_err());
@@ -1297,13 +1407,13 @@ mod tests {
             _ => unreachable!(),
         });
         let mixed = AuthorizationLeaseIssueRequestBody {
-            events: vec![event],
+            submissions: vec![EventInitialSubmission::online(event)],
             intents: vec![target.clone()],
         };
         assert!(mixed.validate_structural().is_err());
 
         let too_many = AuthorizationLeaseIssueRequestBody {
-            events: Vec::new(),
+            submissions: Vec::new(),
             intents: vec![target; 501],
         };
         assert!(too_many.validate_structural().is_err());
@@ -1313,7 +1423,7 @@ mod tests {
     fn lease_issue_outcome_preserves_ordered_intent_binding() {
         let requested = intent();
         let request = AuthorizationLeaseIssueRequestBody {
-            events: Vec::new(),
+            submissions: Vec::new(),
             intents: vec![requested.clone()],
         };
         let outcome = AuthorizationLeaseIssueOutcome {

@@ -47,3 +47,5 @@ pub use security_transaction::*;
 pub use security_transaction_resilience::{
     SecurityTransactionResilienceProjection, run_security_transaction_resilience_fixture,
 };
+
+mod serde_absence;

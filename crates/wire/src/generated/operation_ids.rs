@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-09.8;
-//! sha256=50be72a939b7d12dbf662b74dd4bb963c0cdb087e85290e4c19520b7ed8b5dd3 Entries: registered=234
+//! Input: registry/operation-registry.json; version=2026-09-09.12;
+//! sha256=b8ccaabfc9eed34eb3bb925e7327146bf26314f6f0a3dc53b9797598f9e68cd4 Entries: registered=235
 
 use serde::{Deserialize, Serialize};
 
@@ -231,6 +231,7 @@ pub enum ServiceOperationId {
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
     SelfSealsReadGovernanceDependenciesV1,
+    SelfSealsReadMlsAcceptedArtifactV1,
     SelfSealsReadMlsGovernanceProofV1,
     SelfSealsReadPendingControlV1,
     SelfSealsReadResolveV1,
@@ -468,6 +469,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
     ServiceOperationId::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
+    ServiceOperationId::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
     ServiceOperationId::SELF_SEALS_READ_PENDING_CONTROL_V1,
     ServiceOperationId::SELF_SEALS_READ_RESOLVE_V1,
@@ -747,6 +749,7 @@ impl ServiceOperationId {
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
         Self::SelfSealsReadGovernanceDependenciesV1,
+        Self::SelfSealsReadMlsAcceptedArtifactV1,
         Self::SelfSealsReadMlsGovernanceProofV1,
         Self::SelfSealsReadPendingControlV1,
         Self::SelfSealsReadResolveV1,
@@ -1136,6 +1139,8 @@ impl ServiceOperationId {
     pub const SELF_SEALS_READ_FRONTIER_V1: &'static str = "ak.self.seals.read.frontier.v1";
     pub const SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1: &'static str =
         "ak.self.seals.read.governance_dependencies.v1";
+    pub const SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1: &'static str =
+        "ak.self.seals.read.mls_accepted_artifact.v1";
     pub const SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1: &'static str =
         "ak.self.seals.read.mls_governance_proof.v1";
     pub const SELF_SEALS_READ_PENDING_CONTROL_V1: &'static str =
@@ -1521,6 +1526,9 @@ impl ServiceOperationId {
             Self::SelfSealsReadFrontierV1 => Self::SELF_SEALS_READ_FRONTIER_V1,
             Self::SelfSealsReadGovernanceDependenciesV1 => {
                 Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1
+            }
+            Self::SelfSealsReadMlsAcceptedArtifactV1 => {
+                Self::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1
             }
             Self::SelfSealsReadMlsGovernanceProofV1 => {
                 Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1
@@ -1996,6 +2004,9 @@ impl ServiceOperationId {
             Self::SELF_SEALS_READ_FRONTIER_V1 => Some(Self::SelfSealsReadFrontierV1),
             Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1 => {
                 Some(Self::SelfSealsReadGovernanceDependenciesV1)
+            }
+            Self::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1 => {
+                Some(Self::SelfSealsReadMlsAcceptedArtifactV1)
             }
             Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1 => {
                 Some(Self::SelfSealsReadMlsGovernanceProofV1)
@@ -7114,6 +7125,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/GovernanceDependencyResolveOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadMlsAcceptedArtifactV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/mls-accepted-artifact",
+        grpc: Some("SelfSeals/MlsAcceptedArtifact"),
+        mq: Some("self.seals.read.mls_accepted_artifact"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

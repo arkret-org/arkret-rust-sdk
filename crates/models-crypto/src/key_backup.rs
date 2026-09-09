@@ -82,15 +82,132 @@ pub struct KeyBackupsListQuery {
     pub limit: Option<u32>,
 }
 
+/// One backup class evaluated at the Account Station's accepted PCR basis.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+pub enum BackupActiveSeriesPointer {
+    Absent,
+    Active {
+        active_series_id: BackupSeriesId,
+        series_pointer_version: u64,
+    },
+}
+
+impl BackupActiveSeriesPointer {
+    pub fn series_id(&self) -> Option<&BackupSeriesId> {
+        match self {
+            Self::Absent => None,
+            Self::Active {
+                active_series_id, ..
+            } => Some(active_series_id),
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BackupActiveSeriesState {
+    pub account_id: AccountId,
+    pub control_realm_id: RealmId,
+    pub seal_basis: arkret_wire::SealBasis,
+    pub secret_storage: BackupActiveSeriesPointer,
+    pub mls_history: BackupActiveSeriesPointer,
+}
+
+impl BackupActiveSeriesState {
+    pub fn pointer(&self, kind: BackupKind) -> &BackupActiveSeriesPointer {
+        match kind {
+            BackupKind::SecretStorage => &self.secret_storage,
+            BackupKind::MlsHistory => &self.mls_history,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.seal_basis.validate_protocol_bounds()?;
+        for pointer in [&self.secret_storage, &self.mls_history] {
+            if matches!(
+                pointer,
+                BackupActiveSeriesPointer::Active {
+                    series_pointer_version: 0,
+                    ..
+                }
+            ) {
+                return Err(WireError::Protocol(
+                    "active backup pointer version must be positive".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeysBackupsList {
-    #[serde(default)]
     pub backups: Vec<KeyBackupSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_series: BackupActiveSeriesState,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub next_cursor: Option<Cursor>,
     pub has_more: bool,
+}
+
+impl KeysBackupsList {
+    pub fn validate_for_query(&self, query: &KeyBackupsListQuery) -> Result<()> {
+        self.active_series.validate()?;
+        let limit = query.limit.unwrap_or(50);
+        if !(1..=200).contains(&limit)
+            || self.backups.len() > limit as usize
+            || self.has_more != self.next_cursor.is_some()
+            || (self.has_more && self.backups.is_empty())
+        {
+            return Err(WireError::Protocol(
+                "backup metadata page exceeds its bounds or has inconsistent continuation"
+                    .to_owned(),
+            ));
+        }
+        let actor = ActorId::account(self.active_series.account_id.clone());
+        for row in &self.backups {
+            if row.actor_id != actor
+                || query
+                    .series_id
+                    .as_ref()
+                    .is_some_and(|series| series != &row.series_id)
+                || query
+                    .backup_kind
+                    .is_some_and(|kind| kind != row.backup_kind)
+            {
+                return Err(WireError::Protocol(
+                    "backup metadata page crosses its account or filter".to_owned(),
+                ));
+            }
+        }
+        let key = |row: &KeyBackupSummary| {
+            (
+                row.backup_kind.as_str().to_owned(),
+                row.series_id.to_string(),
+                row.series_seq,
+                row.backup_id.to_string(),
+            )
+        };
+        if self
+            .backups
+            .windows(2)
+            .any(|pair| key(&pair[0]) >= key(&pair[1]))
+            || arkret_canonical::canonical_json_bytes(self)?.len() > 1024 * 1024
+        {
+            return Err(WireError::Protocol(
+                "backup metadata page is unordered or exceeds 1 MiB".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Conformance-vector id of the key-backup unlock-proof KAT
@@ -3220,3 +3337,85 @@ mod aead_profile_tests {
 // `x-arkret-auth.proof_in_body: true`); challenge acquisition is a
 // deployment-local concern per `identity-did.md` §5.1 and has no
 // dedicated `/_arkret/` sub-path.
+
+#[cfg(test)]
+mod current_backup_page_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    fn page() -> Value {
+        json!({"backups": [], "has_more": false, "active_series": {
+            "account_id": {"principal_id":"ak:did_core:web:alice.example", "station_id":"ak:did_core:web:station.example"},
+            "control_realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI",
+            "seal_basis":{"leaves":[format!("ak:seal:sha256:{}", "b".repeat(64))]},
+            "secret_storage":{"state":"absent"}, "mls_history":{"state":"absent"}
+        }})
+    }
+    fn query() -> KeyBackupsListQuery {
+        KeyBackupsListQuery {
+            series_id: None,
+            backup_kind: None,
+            cursor: None,
+            limit: None,
+        }
+    }
+    #[test]
+    fn current_backup_page_requires_both_explicit_pointer_states() {
+        let good: KeysBackupsList = serde_json::from_value(page()).unwrap();
+        good.validate_for_query(&query()).unwrap();
+        for pointer in ["secret_storage", "mls_history"] {
+            let mut wire = page();
+            wire["active_series"]
+                .as_object_mut()
+                .unwrap()
+                .remove(pointer);
+            assert!(serde_json::from_value::<KeysBackupsList>(wire).is_err());
+        }
+        for field in ["active_series", "backups"] {
+            let mut wire = page();
+            wire.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<KeysBackupsList>(wire).is_err());
+        }
+        let mut wire = page();
+        wire["next_cursor"] = Value::Null;
+        assert!(serde_json::from_value::<KeysBackupsList>(wire).is_err());
+        let mut wire = page();
+        wire["active_series"]["secret_storage"] = json!({"state":"absent", "active_series_id":"ak:backup_series:01964137-1000-7000-8000-000000000001"});
+        assert!(serde_json::from_value::<KeysBackupsList>(wire).is_err());
+    }
+    #[test]
+    fn current_backup_page_rejects_zero_version_and_false_completion() {
+        let mut wire = page();
+        wire["active_series"]["secret_storage"] = json!({"state":"active", "active_series_id":"ak:backup_series:01964137-1000-7000-8000-000000000001", "series_pointer_version":0});
+        let invalid: KeysBackupsList = serde_json::from_value(wire).unwrap();
+        assert!(invalid.validate_for_query(&query()).is_err());
+        let mut wire = page();
+        wire["has_more"] = true.into();
+        let invalid: KeysBackupsList = serde_json::from_value(wire).unwrap();
+        assert!(invalid.validate_for_query(&query()).is_err());
+    }
+    #[test]
+    fn current_backup_page_checks_actor_filter_order_and_bounds() {
+        let mut wire = page();
+        let row = json!({"backup_id":"ak:backup:01964137-1000-7000-8000-000000000001", "actor_id":{"kind":"account", "account_id":wire["active_series"]["account_id"]},
+            "backup_kind":"secret_storage", "backup_version":"kb_1", "created_at":"2026-09-09T00:00:00.000Z", "ciphertext_digest":format!("sha256:{}", "a".repeat(64)),
+            "encryption":{"recipient_method":"secret_storage_key"}, "series_id":"ak:backup_series:01964137-1000-7000-8000-000000000001", "series_seq":0});
+        wire["backups"] = json!([row]);
+        let good: KeysBackupsList = serde_json::from_value(wire).unwrap();
+        good.validate_for_query(&query()).unwrap();
+        let mut invalid = good.clone();
+        invalid.backups.push(invalid.backups[0].clone());
+        assert!(invalid.validate_for_query(&query()).is_err());
+        let mut invalid = good.clone();
+        invalid.active_series.account_id.station_id =
+            arkret_wire::DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        assert!(invalid.validate_for_query(&query()).is_err());
+        let mut filter = query();
+        filter.backup_kind = Some(BackupKind::MlsHistory);
+        assert!(good.validate_for_query(&filter).is_err());
+        filter = query();
+        filter.limit = Some(201);
+        assert!(good.validate_for_query(&filter).is_err());
+    }
+}
