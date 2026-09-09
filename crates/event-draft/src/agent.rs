@@ -190,6 +190,10 @@ mod tests {
         Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
     }
 
+    fn account_actor(principal_id: DidCoreId) -> ActorId {
+        ActorId::account(AccountId::new(principal_id, core_id("agent-station")))
+    }
+
     fn realm() -> RealmId {
         RealmId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
@@ -300,8 +304,8 @@ mod tests {
                     controller_principal_id.clone(),
                 ),
                 scope(),
-                ActorId::service(agent_id.clone()),
-                ActorId::service(controller_principal_id.clone()),
+                account_actor(agent_id.clone()),
+                account_actor(controller_principal_id.clone()),
                 DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -310,10 +314,10 @@ mod tests {
         );
 
         assert_eq!(event.kind, EventKind::AgentKeyAuthorize);
-        assert_eq!(event.actor_id, ActorId::service(agent_id));
+        assert_eq!(event.actor_id, account_actor(agent_id));
         assert_eq!(
             event.executed_by,
-            Some(ActorId::service(controller_principal_id))
+            Some(account_actor(controller_principal_id))
         );
         assert_eq!(event.payload["key_id"], "runtime-key-1");
     }
@@ -337,8 +341,8 @@ mod tests {
                     controller_principal_id.clone(),
                 ),
                 scope(),
-                ActorId::service(agent_id.clone()),
-                ActorId::service(controller_principal_id),
+                account_actor(agent_id.clone()),
+                account_actor(controller_principal_id),
                 DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -386,8 +390,8 @@ mod tests {
                     ),
                 },
                 scope(),
-                ActorId::service(agent_id.clone()),
-                ActorId::service(controller_principal_id),
+                account_actor(agent_id.clone()),
+                account_actor(controller_principal_id),
                 DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
                 Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
             )
@@ -435,7 +439,7 @@ mod tests {
         let pause = authored(
             build_agent_pause_intent(
                 agent_actor_id.clone(),
-                ActorId::service(controller_principal_id.clone()),
+                account_actor(controller_principal_id.clone()),
                 scope(),
                 authorization_ref.clone(),
                 Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
@@ -462,7 +466,7 @@ mod tests {
         let resume = authored(
             build_agent_resume_intent(
                 agent_actor_id,
-                ActorId::service(controller_principal_id),
+                account_actor(controller_principal_id),
                 scope(),
                 authorization_ref,
                 changed_at,

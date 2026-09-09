@@ -31,7 +31,7 @@ const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
-    /// Resolve origin-signed current authority for one exact received Signal.
+    /// Fetch reusable authority and the missing pieces of its dependency closure.
     pub async fn current_signer_evidence_query(
         &self,
         request: &CurrentSignerEvidenceQueryRequestBody,
@@ -40,7 +40,7 @@ impl Client {
         let outcome: CurrentSignerEvidenceQueryOutcome = self
             .post(CURRENT_SIGNER_EVIDENCE_QUERY_PATH, request)
             .await?;
-        outcome.validate_for_request(request, chrono::Utc::now())?;
+        outcome.validate_transport_for_request(request)?;
         Ok(outcome)
     }
 

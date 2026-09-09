@@ -502,7 +502,10 @@ mod tests {
         };
         let mut leave = MembershipPayload::transition(
             MembershipPayloadState::Leave,
-            ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap()),
+            ActorId::account(authority(
+                "ak:did_core:web:agent.example",
+                "ak:did_core:web:principal.example",
+            )),
             "controller membership ended",
         );
         leave.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);
@@ -510,7 +513,10 @@ mod tests {
         leave.to_value().unwrap();
         let mut ban = MembershipPayload::transition(
             MembershipPayloadState::Ban,
-            ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap()),
+            ActorId::account(authority(
+                "ak:did_core:web:agent.example",
+                "ak:did_core:web:principal.example",
+            )),
             "controller membership ended",
         );
         ban.membership_cause = Some(MembershipLifecycleCause::ControllerMembershipEnded);

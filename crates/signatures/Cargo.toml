@@ -67,7 +67,7 @@ harness = false
 name = "proof_verify"
 
 [[test]]
-name = "history_source_observation"
+name = "history_source_signing"
 required-features = ["collaboration"]
 
 [lints]

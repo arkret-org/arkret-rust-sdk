@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-08.4;
-//! sha256=e639f508b614ecb3f41728d203f82ab1cb3be80f487bd25d675d1c27dfa0c83c Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-09;
+//! sha256=58f8ba5e4c674b17c7ac7fc8ceb0255bd4909f2ecb462f8719fc9d9f4c0cbedd Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -9,7 +9,7 @@
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-09-08.3;
-//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
+//! sha256=27bffd654557d827a4adc82768624f2927e0301909f42201eb82ac1535a49bf8 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-08-25;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=69, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=41, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=40, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -545,7 +545,6 @@ pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
     AgentAuthorityStateEvidenceV1,
     AgentSignerAdmissionReceiptV1,
-    AgentSignerEvidenceV1,
     AppletDeliveryAuthenticationRecordDigestV1,
     AppletManagedActorAuthoringRequestProofV1,
     AppletManagedActorBundleProofV1,
@@ -554,7 +553,6 @@ pub enum DomainSeparationId {
     ContactRequestAcceptanceCoreV1,
     ContactRequestSourceCheckpointV1,
     ControllerAccountGateV1,
-    CurrentSignerEvidenceResponseV1,
     DirectoryListHandlesForSubjectRequestProofV1,
     DirectoryResolveAgentSelectorRequestProofV1,
     DirectoryResolveHandleRequestProofV1,
@@ -567,6 +565,7 @@ pub enum DomainSeparationId {
     FederationVerifyActorSignatureV1,
     FrankingProofSignatureV1,
     HttpMessageSignatureV1,
+    IdentityRecoveryDevicePossessionV1,
     IdentityRecoveryPolicySignatureV1,
     IdentityRecoveryProofV1,
     IdentityRecoveryReceiptSignatureV1,
@@ -590,7 +589,6 @@ impl DomainSeparationId {
         Self::AccountabilityScopeSetV1,
         Self::AgentAuthorityStateEvidenceV1,
         Self::AgentSignerAdmissionReceiptV1,
-        Self::AgentSignerEvidenceV1,
         Self::AppletDeliveryAuthenticationRecordDigestV1,
         Self::AppletManagedActorAuthoringRequestProofV1,
         Self::AppletManagedActorBundleProofV1,
@@ -599,7 +597,6 @@ impl DomainSeparationId {
         Self::ContactRequestAcceptanceCoreV1,
         Self::ContactRequestSourceCheckpointV1,
         Self::ControllerAccountGateV1,
-        Self::CurrentSignerEvidenceResponseV1,
         Self::DirectoryListHandlesForSubjectRequestProofV1,
         Self::DirectoryResolveAgentSelectorRequestProofV1,
         Self::DirectoryResolveHandleRequestProofV1,
@@ -612,6 +609,7 @@ impl DomainSeparationId {
         Self::FederationVerifyActorSignatureV1,
         Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
+        Self::IdentityRecoveryDevicePossessionV1,
         Self::IdentityRecoveryPolicySignatureV1,
         Self::IdentityRecoveryProofV1,
         Self::IdentityRecoveryReceiptSignatureV1,
@@ -635,7 +633,6 @@ impl DomainSeparationId {
         "ak.agent_authority_state_evidence.v1";
     pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
         "ak.agent_signer_admission_receipt.v1";
-    pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.agent_signer_evidence.v1";
     pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
         "ak.applet.delivery_authentication_record_digest.v1";
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
@@ -650,8 +647,6 @@ impl DomainSeparationId {
     pub const CONTACT_REQUEST_SOURCE_CHECKPOINT_V1: &'static str =
         "ak.contact.request_source_checkpoint.v1";
     pub const CONTROLLER_ACCOUNT_GATE_V1: &'static str = "ak.controller_account_gate.v1";
-    pub const CURRENT_SIGNER_EVIDENCE_RESPONSE_V1: &'static str =
-        "ak.current_signer_evidence_response.v1";
     pub const DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1: &'static str =
         "ak.directory_list_handles_for_subject_request_proof.v1";
     pub const DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1: &'static str =
@@ -670,6 +665,8 @@ impl DomainSeparationId {
         "ak.federation.verify_actor.signature.v1";
     pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http_message_signature.v1";
+    pub const IDENTITY_RECOVERY_DEVICE_POSSESSION_V1: &'static str =
+        "ak.identity.recovery_device_possession.v1";
     pub const IDENTITY_RECOVERY_POLICY_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_policy.signature.v1";
     pub const IDENTITY_RECOVERY_PROOF_V1: &'static str = "ak.identity.recovery_proof.v1";
@@ -701,7 +698,6 @@ impl DomainSeparationId {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
             Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
-            Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
             Self::AppletDeliveryAuthenticationRecordDigestV1 => {
                 Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
             }
@@ -714,7 +710,6 @@ impl DomainSeparationId {
             Self::ContactRequestAcceptanceCoreV1 => Self::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
             Self::ContactRequestSourceCheckpointV1 => Self::CONTACT_REQUEST_SOURCE_CHECKPOINT_V1,
             Self::ControllerAccountGateV1 => Self::CONTROLLER_ACCOUNT_GATE_V1,
-            Self::CurrentSignerEvidenceResponseV1 => Self::CURRENT_SIGNER_EVIDENCE_RESPONSE_V1,
             Self::DirectoryListHandlesForSubjectRequestProofV1 => {
                 Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1
             }
@@ -737,6 +732,9 @@ impl DomainSeparationId {
             Self::FederationVerifyActorSignatureV1 => Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
             Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
+            Self::IdentityRecoveryDevicePossessionV1 => {
+                Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1
+            }
             Self::IdentityRecoveryPolicySignatureV1 => Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1,
             Self::IdentityRecoveryProofV1 => Self::IDENTITY_RECOVERY_PROOF_V1,
             Self::IdentityRecoveryReceiptSignatureV1 => {
@@ -771,7 +769,6 @@ impl DomainSeparationId {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
             Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
-            Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
             Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
                 Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
             }
@@ -788,9 +785,6 @@ impl DomainSeparationId {
                 Some(Self::ContactRequestSourceCheckpointV1)
             }
             Self::CONTROLLER_ACCOUNT_GATE_V1 => Some(Self::ControllerAccountGateV1),
-            Self::CURRENT_SIGNER_EVIDENCE_RESPONSE_V1 => {
-                Some(Self::CurrentSignerEvidenceResponseV1)
-            }
             Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryListHandlesForSubjectRequestProofV1)
             }
@@ -815,6 +809,9 @@ impl DomainSeparationId {
             }
             Self::FRANKING_PROOF_SIGNATURE_V1 => Some(Self::FrankingProofSignatureV1),
             Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
+            Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1 => {
+                Some(Self::IdentityRecoveryDevicePossessionV1)
+            }
             Self::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1 => {
                 Some(Self::IdentityRecoveryPolicySignatureV1)
             }
@@ -1314,7 +1311,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         object_family: "device_authorize_possession",
         consumer_operation: None,
         binding_fields: &[
-            "principal_id",
+            "account_id",
             "device_id",
             "device_public_key_did",
             "hpke_key",
@@ -1322,9 +1319,9 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "device_key_algorithm",
             "authorized_by",
             "not_before",
-            "expires_at?",
-            "scopes?",
-            "recovery_session_id?",
+            "expires_at",
+            "scopes",
+            "recovery_session_id",
             "authorization_binding_kind",
         ],
         schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
@@ -1335,13 +1332,16 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         object_family: "device_authorize_recovery_possession",
         consumer_operation: None,
         binding_fields: &[
-            "principal_id",
+            "account_id",
             "device_id",
             "device_public_key_did",
             "hpke_key",
             "algorithms",
             "device_key_algorithm",
             "authorized_by",
+            "not_before",
+            "expires_at",
+            "scopes",
             "recovery_session_id",
             "authorization_binding_kind",
         ],

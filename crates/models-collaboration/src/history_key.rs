@@ -1494,36 +1494,6 @@ impl MinimalMetadataMlsLeafSignerEvidence {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistorySourceAgentObservationInput {
-    pub response_id: HistoryResponseId,
-    pub effective_scope: HistoryEffectiveScope,
-    pub source_actor_id: ActorId,
-    pub source_sender_domain: String,
-    pub request_digest: Hash,
-    pub request_receipt_digest: Hash,
-    #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub content: HistoryKeyResponseContent,
-}
-
-impl HistorySourceAgentObservationInput {
-    pub fn validate(&self) -> Result<()> {
-        validate_sender_domain(&self.source_sender_domain)?;
-        match &self.content {
-            HistoryKeyResponseContent::Manifest(manifest) => manifest.validate(),
-            HistoryKeyResponseContent::Chunk(chunk) => chunk.validate(),
-        }
-    }
-
-    pub fn history_source_agent_observation_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        framed_sha256("ak.history-source-agent-observation-v1", self)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseSigningInput {
     pub response_id: HistoryResponseId,
     pub effective_scope: HistoryEffectiveScope,
@@ -1545,23 +1515,6 @@ impl HistoryKeyResponseSigningInput {
             HistoryKeyResponseContent::Manifest(manifest) => manifest.validate(),
             HistoryKeyResponseContent::Chunk(chunk) => chunk.validate(),
         }
-    }
-
-    /// Compute the non-cyclic request digest bound by Agent current
-    /// admission evidence. The signer-evidence coordinates are deliberately
-    /// excluded because that evidence contains this digest.
-    pub fn history_source_agent_observation_digest(&self) -> Result<Hash> {
-        HistorySourceAgentObservationInput {
-            response_id: self.response_id.clone(),
-            effective_scope: self.effective_scope.clone(),
-            source_actor_id: self.source_actor_id.clone(),
-            source_sender_domain: self.source_sender_domain.clone(),
-            request_digest: self.request_digest.clone(),
-            request_receipt_digest: self.request_receipt_digest.clone(),
-            expires_at: self.expires_at,
-            content: self.content.clone(),
-        }
-        .history_source_agent_observation_digest()
     }
 }
 
@@ -1597,21 +1550,6 @@ impl HistoryKeyResponseSendRequest {
         }
         .validate()?;
         self.validate_proof_binding()
-    }
-
-    pub fn history_source_agent_observation_digest(&self) -> Result<Hash> {
-        HistoryKeyResponseSigningInput {
-            response_id: self.response_id.clone(),
-            effective_scope: self.effective_scope.clone(),
-            source_actor_id: self.source_actor_id.clone(),
-            source_sender_domain: self.source_sender_domain.clone(),
-            source_signer_evidence_ref: self.source_signer_evidence_ref.clone(),
-            request_digest: self.request_digest.clone(),
-            request_receipt_digest: self.request_receipt_digest.clone(),
-            expires_at: self.expires_at,
-            content: self.content.clone(),
-        }
-        .history_source_agent_observation_digest()
     }
 }
 
@@ -2007,9 +1945,7 @@ impl AgentEvidenceViewLocator {
     pub fn validate_for_current_evidence(&self, evidence: &AgentSignerEvidence) -> Result<()> {
         self.validate()?;
         let AgentSignerEvidence::CurrentAdmission {
-            admission_evidence,
-            current_observation,
-            ..
+            admission_evidence, ..
         } = evidence
         else {
             return Err(WireError::Protocol(
@@ -2028,8 +1964,8 @@ impl AgentEvidenceViewLocator {
             || self.agent_key_authorize_event_id != binding.agent_key_authorize_event_id
             || self.active_lifecycle_event_id != lifecycle.accepted_status_event.event_id
             || self.control_basis != expected_basis
-            || self.observed_at != current_observation.evaluated_at
-            || self.expires_at != current_observation.expires_at
+            || self.observed_at != admission_evidence.valid_from()
+            || self.expires_at != admission_evidence.expires_at()
             || self.agent_signer_evidence_digest != agent_signer_evidence_digest(evidence)?
         {
             return Err(WireError::Protocol(

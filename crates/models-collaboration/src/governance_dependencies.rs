@@ -357,14 +357,18 @@ where
                 controller_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
                 receiver_signer_evidence_ref,
+                agent_signer_evidence,
                 ..
             } => {
                 for evidence_ref in [
                     attester_signer_evidence_ref,
                     controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
-                    receiver_signer_evidence_ref,
-                ] {
+                ]
+                .into_iter()
+                .chain(receiver_signer_evidence_ref.iter())
+                .chain(agent_signer_evidence.required_historical_signer_refs())
+                {
                     selectors.push(
                         GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
                             content_digest: evidence_ref.content_digest()?,
@@ -559,14 +563,18 @@ fn validate_authenticated_evidence_reachability(
                 controller_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
                 receiver_signer_evidence_ref,
+                agent_signer_evidence,
                 ..
             } => {
                 for evidence_ref in [
                     attester_signer_evidence_ref,
                     controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
-                    receiver_signer_evidence_ref,
-                ] {
+                ]
+                .into_iter()
+                .chain(receiver_signer_evidence_ref.iter())
+                .chain(agent_signer_evidence.required_historical_signer_refs())
+                {
                     pending.push(evidence_ref.content_digest()?);
                 }
             }
@@ -732,14 +740,18 @@ pub fn history_source_signer_dependency_closure(
                     controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
                     receiver_signer_evidence_ref,
+                    agent_signer_evidence,
                     ..
                 } => {
                     for evidence_ref in [
                         attester_signer_evidence_ref,
                         controller_signer_evidence_ref,
                         account_authority_signer_evidence_ref,
-                        receiver_signer_evidence_ref,
-                    ] {
+                    ]
+                    .into_iter()
+                    .chain(receiver_signer_evidence_ref.iter())
+                    .chain(agent_signer_evidence.required_historical_signer_refs())
+                    {
                         pending.push(evidence_ref.content_digest()?);
                     }
                 }

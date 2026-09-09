@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parent.parent
 DEFAULT_ARTIFACTS = REPO.parent / "arkret-spec" / "spec" / "v1" / "artifacts"
 DEFAULT_EVIDENCE = REPO / "tools" / "operation-coverage-evidence.json"
 DEFAULT_OUTPUT = REPO / "docs" / "operation-coverage-matrix.md"
-AUDITED_CLAIMABLE_PROFILES = 67
+AUDITED_CLAIMABLE_PROFILES = 66
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -161,7 +161,9 @@ def generate(artifacts: Path, evidence_path_value: Path) -> str:
     # deleted ak.profile.disappearing.v1 along with Disappearing Messages, and
     # from 69 to 68 when the Spec deleted
     # ak.profile.morph.schema_migration_transformations.v1 (26ff6ab2); the
-    # guard is here so a silent catalog change cannot slip into the matrix, not
+    # service-resolution-mirror removal leaves 66 claimable profiles. Its
+    # former matrix rows referenced deleted mirror operations and must disappear.
+    # The guard is here so a silent catalog change cannot slip into the matrix, not
     # to pin a number forever, so it moves with a reviewed deletion.
     if len(claimable) != AUDITED_CLAIMABLE_PROFILES:
         raise ValueError(

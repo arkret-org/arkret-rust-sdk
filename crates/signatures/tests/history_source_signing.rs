@@ -1,7 +1,7 @@
 use arkret_models_collaboration::history_key::{
     EpochRange, HistoryKeyResponseContent, HistoryKeyResponseSendRequest,
-    HistoryResponseChunkDescriptor, HistoryResponseId, HistoryResponseManifest,
-    HistoryResponseManifestKind, HistorySourceAgentObservationInput,
+    HistoryKeyResponseSigningInput, HistoryResponseChunkDescriptor, HistoryResponseId,
+    HistoryResponseManifest, HistoryResponseManifestKind,
 };
 use arkret_wire::{
     ActorId, DidCoreId, DidUrl, Hash, HistoryEffectiveScope, RealmId, SignerEvidenceRef,
@@ -12,8 +12,8 @@ fn digest(byte: &str) -> Hash {
     Hash::new(format!("sha256:{}", byte.repeat(64))).unwrap()
 }
 
-fn observation_input() -> HistorySourceAgentObservationInput {
-    HistorySourceAgentObservationInput {
+fn signing_input() -> HistoryKeyResponseSigningInput {
+    HistoryKeyResponseSigningInput {
         response_id: HistoryResponseId::new(
             "ak:history_response:019c0000-0000-7000-8000-000000000001",
         )
@@ -27,6 +27,11 @@ fn observation_input() -> HistorySourceAgentObservationInput {
             DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         )),
         source_sender_domain: "history.example".to_owned(),
+        source_signer_evidence_ref: SignerEvidenceRef::new(format!(
+            "ak:signer_evidence:{}",
+            digest("a")
+        ))
+        .unwrap(),
         request_digest: digest("1"),
         request_receipt_digest: digest("2"),
         expires_at: DateTime::parse_from_rfc3339("2026-08-28T00:00:00Z")
@@ -50,11 +55,8 @@ fn observation_input() -> HistorySourceAgentObservationInput {
 }
 
 #[test]
-fn agent_observation_digest_precedes_evidence_and_complete_source_proof() {
-    let observation = observation_input();
-    let observation_digest = observation
-        .history_source_agent_observation_digest()
-        .unwrap();
+fn source_proof_binds_reusable_evidence_reference() {
+    let observation = signing_input();
     let evidence_digest = digest("a");
     let evidence_ref =
         SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence_digest}")).unwrap();
@@ -84,9 +86,5 @@ fn agent_observation_digest_precedes_evidence_and_complete_source_proof() {
     )
     .unwrap();
 
-    assert_eq!(
-        source.history_source_agent_observation_digest().unwrap(),
-        observation_digest
-    );
     source.validate().unwrap();
 }

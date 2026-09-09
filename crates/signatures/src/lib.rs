@@ -39,7 +39,6 @@ pub mod agent_evidence;
 #[cfg(feature = "collaboration")]
 pub mod contact_receipt;
 #[cfg(feature = "collaboration")]
-pub mod current_signer_evidence;
 #[cfg(feature = "collaboration")]
 mod device_authorization;
 #[cfg(feature = "collaboration")]

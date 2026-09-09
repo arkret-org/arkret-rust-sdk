@@ -41,7 +41,8 @@ pub enum AuthenticatedSignerResolutionEvidence {
         attester_signer_evidence_ref: SignerEvidenceRef,
         controller_signer_evidence_ref: SignerEvidenceRef,
         account_authority_signer_evidence_ref: SignerEvidenceRef,
-        receiver_signer_evidence_ref: SignerEvidenceRef,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        receiver_signer_evidence_ref: Option<SignerEvidenceRef>,
     },
 }
 
@@ -123,9 +124,11 @@ impl AuthenticatedSignerResolutionEvidence {
                 ..
             } => {
                 if &public_resolution.account_id.principal_id != signer_id
-                    || !normalized_did_document
-                        .verification_methods
-                        .contains_key(verification_method.as_str())
+                    || verification_method
+                        .as_str()
+                        .split_once('#')
+                        .map(|(did, _)| did)
+                        != Some(normalized_did_document.id.as_str())
                 {
                     return Err(WireError::Protocol(
                         "principal signer evidence does not authorize its signer or method"
@@ -169,25 +172,20 @@ impl AuthenticatedSignerResolutionEvidence {
                 agent_signer_evidence,
                 ..
             } => {
-                let matches_signer = match agent_signer_evidence.as_ref() {
+                let admission = match agent_signer_evidence.as_ref() {
                     AgentSignerEvidence::HistoricalEvent {
-                        event_admission_receipt,
-                        ..
-                    } => {
-                        &event_admission_receipt.agent_id == signer_id
-                            && &event_admission_receipt.verification_method == verification_method
-                    }
-                    AgentSignerEvidence::CurrentAdmission {
                         admission_evidence, ..
-                    } => {
-                        let binding = &admission_evidence
-                            .agent_authority_state_evidence
-                            .state
-                            .signing_key_binding;
-                        &binding.agent_id == signer_id
-                            && &binding.verification_method == verification_method
                     }
+                    | AgentSignerEvidence::CurrentAdmission {
+                        admission_evidence, ..
+                    } => admission_evidence,
                 };
+                let binding = &admission
+                    .agent_authority_state_evidence
+                    .state
+                    .signing_key_binding;
+                let matches_signer = &binding.agent_id == signer_id
+                    && &binding.verification_method == verification_method;
                 if !matches_signer {
                     return Err(WireError::Protocol(
                         "Agent signer evidence does not authorize its signer or method".to_owned(),
@@ -211,12 +209,23 @@ impl AuthenticatedSignerResolutionEvidence {
                 account_authority_signer_evidence_ref,
                 receiver_signer_evidence_ref,
                 ..
-            } => vec![
-                attester_signer_evidence_ref,
-                controller_signer_evidence_ref,
-                account_authority_signer_evidence_ref,
-                receiver_signer_evidence_ref,
-            ],
+            } => {
+                if matches!(self, Self::Agent { agent_signer_evidence, .. } if matches!(agent_signer_evidence.as_ref(), AgentSignerEvidence::CurrentAdmission { .. }))
+                    == receiver_signer_evidence_ref.is_some()
+                {
+                    return Err(WireError::Protocol(
+                        "Agent receiver evidence must occur only for historical acceptance"
+                            .to_owned(),
+                    ));
+                }
+                let mut refs = vec![
+                    attester_signer_evidence_ref,
+                    controller_signer_evidence_ref,
+                    account_authority_signer_evidence_ref,
+                ];
+                refs.extend(receiver_signer_evidence_ref.iter());
+                refs
+            }
         };
         for evidence_ref in references {
             evidence_ref.content_digest()?;

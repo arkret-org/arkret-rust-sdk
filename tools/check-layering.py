@@ -64,8 +64,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # arkret deps), so the account-profile `preferred_locale` field can take it
     # directly without giving the model layer a runtime dependency.
     "arkret-locale": set(),
-    "arkret-models-identity": _WIRE | {"arkret-locale"},
-    "arkret-models-crypto": _WIRE | {"arkret-models-identity"},
+    # Account-device signer evidence contains the crypto model's typed device
+    # projection. Crypto models are now a leaf data domain: the former reverse
+    # identity edge is removed, so the declared graph stays acyclic.
+    "arkret-models-identity": _WIRE | {"arkret-locale", "arkret-models-crypto"},
+    "arkret-models-crypto": _WIRE,
     "arkret-models-collaboration": _WIRE
     | {"arkret-models-identity", "arkret-models-crypto"},
     "arkret-models-integration": _WIRE | {"arkret-models-identity"},
@@ -121,6 +124,8 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # also takes arkret-state, because portable Agent signer evidence is only
     # valid if the witnessed cell value recomputes to the committed state leaf
     # digest and its inclusion proof verifies; both are owned by arkret-state.
+    # The same verifier projects lifecycle Event writes through arkret-schema's
+    # generated registry, avoiding a duplicate hand-written cell projector.
     "arkret-signatures": _WIRE
     | {
         "arkret-event-draft",
@@ -129,6 +134,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-models-collaboration",
         "arkret-models-discovery",
         "arkret-state",
+        "arkret-schema",
     },
     # The issuing-service `Cursor` mint/validate surface is a wire sync token
     # owned by arkret-wire; arkret-hlc re-exports it, hence the wire edge.

@@ -1,12 +1,12 @@
 //! Current and historical portable Agent signer-evidence wire models.
 //!
 //! Current admission and historical verification are deliberately different
-//! enum branches. Historical validity is carried by the destination-signed
-//! Event admission receipt and is never reconstructed from a later snapshot.
+//! enum branches. Historical validity uses the original Station admission or
+//! a distinct receiver receipt and never reconstructs authority from later state.
 
 use arkret_wire::{
-    Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString, ProtocolOperationId,
-    RealmId, RequestId, SchemaId, Seal, SealId, SignerEvidenceRef,
+    Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString, RealmId, RequestId,
+    SchemaId, Seal, SealId, SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -395,23 +395,35 @@ pub struct AgentAdmissionEvidence {
     pub admission_evidence_digest: Hash,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentCurrentObservation {
-    pub operation_id: ProtocolOperationId,
-    pub request_digest: Hash,
-    pub verifier_id: DidCoreId,
-    pub audience_id: DidCoreId,
-    pub challenge: NonEmptyString,
-    pub agent_authority_state_digest: Hash,
-    pub agent_key_seal_id: SealId,
-    pub agent_status_seal_id: SealId,
-    pub controller_gate_attestation_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub evaluated_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
+impl AgentAdmissionEvidence {
+    /// Earliest instant at which all independently signed sources apply.
+    pub fn valid_from(&self) -> DateTime<Utc> {
+        let state = &self.agent_authority_state_evidence;
+        [
+            state.lease.issued_at,
+            self.controller_account_gate_attestation.issued_at,
+            state.state.signing_key_binding.issued_at,
+            state.state.authorization.accepted_at,
+            state.state.authorization.not_before,
+        ]
+        .into_iter()
+        .max()
+        .expect("authority lease has an observation time")
+    }
+    /// A new wrapper, connection, or gate cannot extend a source's lifetime.
+    pub fn expires_at(&self) -> DateTime<Utc> {
+        let state = &self.agent_authority_state_evidence;
+        [
+            Some(state.lease.expires_at),
+            Some(self.controller_account_gate_attestation.expires_at),
+            state.state.signing_key_binding.expires_at,
+            state.state.authorization.expires_at,
+        ]
+        .into_iter()
+        .flatten()
+        .min()
+        .expect("authority lease has an expiry")
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -441,34 +453,6 @@ impl AgentEventAdmissionReceipt {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentEvidenceOuterAttestation {
-    pub domain: NonEmptyString,
-    pub core_digest: Hash,
-    pub source_id: DidCoreId,
-    pub verification_method: DidUrl,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub proof: AgentDetachedJws,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentHistoricalEvidenceOuterAttestation {
-    pub domain: NonEmptyString,
-    pub core_digest: Hash,
-    pub source_id: DidCoreId,
-    pub verification_method: DidUrl,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub attested_at: DateTime<Utc>,
-    pub proof: AgentDetachedJws,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentEvidenceTransparency {
     pub profile: NonEmptyString,
     pub log_id: NonEmptyString,
@@ -483,13 +467,15 @@ pub struct AgentEvidenceTransparency {
 /// response must carry target Agent authority without permitting the
 /// historical-event branch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(
+    tag = "verification_mode",
+    rename = "current_admission",
+    deny_unknown_fields
+)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CurrentAgentSignerEvidence {
     pub schema: NonEmptyString,
     pub admission_evidence: AgentAdmissionEvidence,
-    pub current_observation: AgentCurrentObservation,
-    pub outer_attestation: AgentEvidenceOuterAttestation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transparency: Option<AgentEvidenceTransparency>,
 }
@@ -499,8 +485,6 @@ impl From<CurrentAgentSignerEvidence> for AgentSignerEvidence {
         Self::CurrentAdmission {
             schema: value.schema,
             admission_evidence: value.admission_evidence,
-            current_observation: value.current_observation,
-            outer_attestation: value.outer_attestation,
             transparency: value.transparency,
         }
     }
@@ -523,19 +507,185 @@ pub enum AgentSignerEvidence {
     CurrentAdmission {
         schema: NonEmptyString,
         admission_evidence: AgentAdmissionEvidence,
-        current_observation: AgentCurrentObservation,
-        outer_attestation: AgentEvidenceOuterAttestation,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transparency: Option<AgentEvidenceTransparency>,
     },
     HistoricalEvent {
         schema: NonEmptyString,
         admission_evidence: AgentAdmissionEvidence,
-        event_admission_receipt: AgentEventAdmissionReceipt,
-        outer_attestation: AgentHistoricalEvidenceOuterAttestation,
+        event_admission: AgentEventAdmission,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transparency: Option<AgentEvidenceTransparency>,
     },
+}
+
+/// Proof of the exact durable acceptance, reusing the original Station proof
+/// for the original same-Station acceptance.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum AgentEventAdmission {
+    StationAdmission {
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        accepted_event: Event,
+    },
+    ReceiverReceipt {
+        receipt: AgentEventAdmissionReceipt,
+    },
+}
+
+impl AgentEventAdmission {
+    pub fn event_id(&self) -> &EventId {
+        match self {
+            Self::StationAdmission { accepted_event } => &accepted_event.event_id,
+            Self::ReceiverReceipt { receipt } => &receipt.event_id,
+        }
+    }
+
+    pub fn realm_id(&self) -> &RealmId {
+        match self {
+            Self::StationAdmission { accepted_event } => &accepted_event.realm_id,
+            Self::ReceiverReceipt { receipt } => &receipt.realm_id,
+        }
+    }
+    pub fn agent_id(&self) -> &DidCoreId {
+        match self {
+            Self::StationAdmission { accepted_event } => accepted_event
+                .executed_by
+                .as_ref()
+                .unwrap_or(&accepted_event.actor_id)
+                .signing_principal_id(),
+            Self::ReceiverReceipt { receipt } => &receipt.agent_id,
+        }
+    }
+    pub fn station_admission(&self) -> arkret_wire::Result<&arkret_wire::StationAdmissionProof> {
+        let Self::StationAdmission { accepted_event } = self else {
+            return Err(arkret_wire::WireError::Protocol(
+                "acceptance is a receiver receipt".to_owned(),
+            ));
+        };
+        accepted_event
+            .proofs
+            .iter()
+            .find_map(arkret_wire::EventProof::as_station_admission)
+            .ok_or_else(|| {
+                arkret_wire::WireError::Protocol("accepted Event omitted Station proof".to_owned())
+            })
+    }
+    pub fn verification_method(&self) -> arkret_wire::Result<&DidUrl> {
+        match self {
+            Self::StationAdmission { .. } => {
+                Ok(&self.station_admission()?.producer_verification_method)
+            }
+            Self::ReceiverReceipt { receipt } => Ok(&receipt.verification_method),
+        }
+    }
+    pub fn producer_accepted_at(&self) -> arkret_wire::Result<DateTime<Utc>> {
+        match self {
+            Self::StationAdmission { .. } => Ok(self.station_admission()?.accepted_at),
+            Self::ReceiverReceipt { receipt } => Ok(receipt.producer_accepted_at),
+        }
+    }
+    pub fn receiver_accepted_at(&self) -> arkret_wire::Result<DateTime<Utc>> {
+        match self {
+            Self::StationAdmission { .. } => Ok(self.station_admission()?.accepted_at),
+            Self::ReceiverReceipt { receipt } => Ok(receipt.accepted_at),
+        }
+    }
+    pub fn producer_signer_resolution_evidence_ref(
+        &self,
+    ) -> arkret_wire::Result<&SignerEvidenceRef> {
+        match self {
+            Self::StationAdmission { .. } => self
+                .station_admission()?
+                .producer_signer_resolution_evidence_ref
+                .as_ref()
+                .ok_or_else(|| {
+                    arkret_wire::WireError::Protocol(
+                        "accepted Agent Event omitted producer evidence ref".to_owned(),
+                    )
+                }),
+            Self::ReceiverReceipt { receipt } => {
+                Ok(&receipt.producer_signer_resolution_evidence_ref)
+            }
+        }
+    }
+
+    pub fn receiver_id(&self) -> arkret_wire::Result<DidCoreId> {
+        match self {
+            Self::StationAdmission { accepted_event } => {
+                let admission = accepted_event
+                    .proofs
+                    .iter()
+                    .find_map(|proof| match proof {
+                        arkret_wire::EventProof::StationAdmission(value) => Some(value),
+                        _ => None,
+                    })
+                    .ok_or_else(|| {
+                        arkret_wire::WireError::Protocol(
+                            "historical Agent evidence has no Station admission".to_owned(),
+                        )
+                    })?;
+                let did = admission
+                    .verification_method
+                    .as_str()
+                    .split('#')
+                    .next()
+                    .unwrap_or_default();
+                Ok(arkret_wire::project_did_to_core_id(
+                    &arkret_wire::Did::new(did.to_owned())?,
+                )?)
+            }
+            Self::ReceiverReceipt { receipt } => Ok(receipt.receiver_id.clone()),
+        }
+    }
+}
+
+impl AgentSignerEvidence {
+    pub fn admission_evidence(&self) -> &AgentAdmissionEvidence {
+        match self {
+            Self::CurrentAdmission {
+                admission_evidence, ..
+            }
+            | Self::HistoricalEvent {
+                admission_evidence, ..
+            } => admission_evidence,
+        }
+    }
+    pub fn required_historical_signer_methods(&self) -> Vec<&DidUrl> {
+        let mut methods = std::collections::BTreeSet::new();
+        for seal in &self
+            .admission_evidence()
+            .agent_authority_state_evidence
+            .state
+            .seal_lineages
+        {
+            match &seal.notary_signature {
+                arkret_wire::NotarySig::Single(signature) => {
+                    methods.insert(&signature.verification_method);
+                }
+                arkret_wire::NotarySig::Multi(signatures) => methods.extend(
+                    signatures
+                        .signatures
+                        .iter()
+                        .map(|signature| &signature.verification_method),
+                ),
+            }
+        }
+        methods.into_iter().collect()
+    }
+    pub fn required_historical_signer_refs(&self) -> Vec<&SignerEvidenceRef> {
+        self.admission_evidence()
+            .agent_authority_state_evidence
+            .state
+            .agent_lifecycle_witness
+            .accepted_status_event
+            .proofs
+            .iter()
+            .filter_map(arkret_wire::EventProof::as_station_admission)
+            .map(|proof| &proof.signer_resolution_evidence_ref)
+            .collect()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -549,11 +699,6 @@ pub enum AgentSignerEvidenceQuerySelector {
     CurrentAdmission {
         agent_id: DidCoreId,
         verification_method: DidUrl,
-        operation_id: ProtocolOperationId,
-        request_digest: Hash,
-        verifier_id: DidCoreId,
-        audience: DidCoreId,
-        challenge: NonEmptyString,
     },
     HistoricalEvent {
         agent_id: DidCoreId,
@@ -664,26 +809,19 @@ impl AgentSignerEvidenceQueryOutcome {
                 unreachable!("validate rejects non-agent query success roots")
             };
             let selector = match agent_signer_evidence.as_ref() {
-                AgentSignerEvidence::CurrentAdmission {
-                    current_observation,
-                    ..
-                } => AgentSignerEvidenceQuerySelector::CurrentAdmission {
-                    agent_id: signer_id.clone(),
-                    verification_method: verification_method.clone(),
-                    operation_id: current_observation.operation_id.clone(),
-                    request_digest: current_observation.request_digest.clone(),
-                    verifier_id: current_observation.verifier_id.clone(),
-                    audience: current_observation.audience_id.clone(),
-                    challenge: current_observation.challenge.clone(),
-                },
+                AgentSignerEvidence::CurrentAdmission { .. } => {
+                    AgentSignerEvidenceQuerySelector::CurrentAdmission {
+                        agent_id: signer_id.clone(),
+                        verification_method: verification_method.clone(),
+                    }
+                }
                 AgentSignerEvidence::HistoricalEvent {
-                    event_admission_receipt,
-                    ..
+                    event_admission, ..
                 } => AgentSignerEvidenceQuerySelector::HistoricalEvent {
                     agent_id: signer_id.clone(),
                     verification_method: verification_method.clone(),
-                    event_id: event_admission_receipt.event_id.clone(),
-                    receiver_id: event_admission_receipt.receiver_id.clone(),
+                    event_id: event_admission.event_id().clone(),
+                    receiver_id: event_admission.receiver_id()?,
                 },
             };
             let key = arkret_canonical::canonical_json_bytes(&selector)?;
