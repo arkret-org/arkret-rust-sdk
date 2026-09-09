@@ -391,7 +391,7 @@ enum DependencyVisit {
 
 fn referenced_digests(
     evidence: &AuthenticatedSignerResolutionEvidence,
-    available: &BTreeMap<Hash, &AuthenticatedSignerResolutionEvidence>,
+    _available: &BTreeMap<Hash, &AuthenticatedSignerResolutionEvidence>,
 ) -> arkret_wire::Result<Vec<Hash>> {
     Ok(match evidence {
         AuthenticatedSignerResolutionEvidence::Service { .. } => Vec::new(),
@@ -406,7 +406,6 @@ fn referenced_digests(
         } => vec![attester_signer_evidence_ref.content_digest()?],
         AuthenticatedSignerResolutionEvidence::Agent {
             attester_signer_evidence_ref,
-            controller_signer_evidence_ref,
             account_authority_signer_evidence_ref,
             receiver_signer_evidence_ref,
             agent_signer_evidence,
@@ -414,7 +413,6 @@ fn referenced_digests(
         } => {
             let mut refs = vec![
                 attester_signer_evidence_ref.content_digest()?,
-                controller_signer_evidence_ref.content_digest()?,
                 account_authority_signer_evidence_ref.content_digest()?,
             ];
             refs.extend(
@@ -425,34 +423,6 @@ fn referenced_digests(
             );
             for reference in agent_signer_evidence.required_historical_signer_refs() {
                 refs.push(reference.content_digest()?);
-            }
-            for method in agent_signer_evidence.required_historical_signer_methods() {
-                let matches = available
-                    .iter()
-                    .filter(|(_, dependency)| {
-                        method
-                            .as_str()
-                            .split_once('#')
-                            .and_then(|(did, _)| arkret_wire::Did::new(did.to_owned()).ok())
-                            .and_then(|did| arkret_wire::project_did_to_core_id(&did).ok())
-                            .as_ref()
-                            == Some(dependency.signer_id())
-                            && matches!(
-                                dependency,
-                                AuthenticatedSignerResolutionEvidence::Service { .. }
-                                    | AuthenticatedSignerResolutionEvidence::Principal { .. }
-                            )
-                    })
-                    .map(|(digest, _)| digest.clone())
-                    .collect::<Vec<_>>();
-                if matches.is_empty() {
-                    return Err(WireError::Protocol(
-                        "Agent Seal historical signer dependency missing".to_owned(),
-                    ));
-                }
-                if !matches.iter().any(|digest| refs.contains(digest)) {
-                    refs.extend(matches);
-                }
             }
             refs
         }
@@ -686,7 +656,6 @@ pub enum CompactAgentSignerResolutionEvidence {
         verification_method: DidUrl,
         agent_signer_evidence: CompactCurrentAgentSignerEvidence,
         attester_signer_evidence_ref: SignerEvidenceRef,
-        controller_signer_evidence_ref: SignerEvidenceRef,
         account_authority_signer_evidence_ref: SignerEvidenceRef,
     },
 }
@@ -702,7 +671,6 @@ impl CompactAgentSignerResolutionEvidence {
             verification_method,
             agent_signer_evidence,
             attester_signer_evidence_ref,
-            controller_signer_evidence_ref,
             account_authority_signer_evidence_ref,
             ..
         } = root
@@ -742,7 +710,6 @@ impl CompactAgentSignerResolutionEvidence {
                 transparency: transparency.clone(),
             },
             attester_signer_evidence_ref: attester_signer_evidence_ref.clone(),
-            controller_signer_evidence_ref: controller_signer_evidence_ref.clone(),
             account_authority_signer_evidence_ref: account_authority_signer_evidence_ref.clone(),
         })
     }
@@ -760,7 +727,6 @@ impl CompactAgentSignerResolutionEvidence {
                     transparency,
                 },
             attester_signer_evidence_ref,
-            controller_signer_evidence_ref,
             account_authority_signer_evidence_ref,
         } = self;
         let compact = &admission_evidence.agent_authority_state_evidence;
@@ -797,7 +763,6 @@ impl CompactAgentSignerResolutionEvidence {
                 transparency: transparency.clone(),
             }),
             attester_signer_evidence_ref: attester_signer_evidence_ref.clone(),
-            controller_signer_evidence_ref: controller_signer_evidence_ref.clone(),
             account_authority_signer_evidence_ref: account_authority_signer_evidence_ref.clone(),
             receiver_signer_evidence_ref: None,
         };

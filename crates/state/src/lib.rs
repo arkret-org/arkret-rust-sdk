@@ -37,6 +37,7 @@ mod models {
 
 pub mod consent;
 pub mod direct_traversal;
+pub mod history_authorization;
 pub mod history_backup;
 pub mod history_store;
 pub mod lattice;

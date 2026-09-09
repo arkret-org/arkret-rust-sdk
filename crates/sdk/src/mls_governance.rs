@@ -22,9 +22,7 @@ use arkret_state::mls_governance_proof::{
     MlsGovernanceVerificationCheckpoint, MlsGroupGenesisBinding, SealAvailabilityReplayAuthority,
     SealDependencyReplayContext, VerifiedMlsGovernanceFrontier,
 };
-use arkret_wire::{
-    CellRef, CircleId, Event, EventProof, Hash, RealmId, Seal, SealBasis, WireError,
-};
+use arkret_wire::{CircleId, Event, EventProof, Hash, RealmId, Seal, SealBasis, WireError};
 
 /// Result of verifying raw complete governance material without trusting a
 /// caller-supplied target digest suite.
@@ -54,6 +52,29 @@ pub async fn current_authorization_incarnation_from_verified_checkpoint(
     target: &arkret_wire::ActorId,
     circle_id: Option<&CircleId>,
 ) -> Result<AuthorizationIncarnation, WireError> {
+    let scope = match circle_id {
+        Some(circle_id) => arkret_wire::HistoryEffectiveScope::Circle {
+            realm_id: checkpoint.realm_id.clone(),
+            circle_id: circle_id.clone(),
+        },
+        None => arkret_wire::HistoryEffectiveScope::Realm {
+            realm_id: checkpoint.realm_id.clone(),
+        },
+    };
+    Ok(
+        verified_membership_from_checkpoint(checkpoint, &scope, target)
+            .await?
+            .incarnation()
+            .clone(),
+    )
+}
+
+/// Resolve membership independently of MLS admission, from the registered cells.
+pub async fn verified_membership_from_checkpoint(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    scope: &arkret_wire::HistoryEffectiveScope,
+    target: &arkret_wire::ActorId,
+) -> Result<arkret_state::history_authorization::VerifiedMembership, WireError> {
     let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
         WireError::Protocol(format!(
             "MLS authorization-incarnation registry construction failed: {error}"
@@ -61,53 +82,37 @@ pub async fn current_authorization_incarnation_from_verified_checkpoint(
     })?;
     let authority_audits =
         arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
-    let realm_cell = realm_membership_cell(target)?;
-    let realm_membership_incarnation_ref =
-        arkret_state::mls_governance_proof::winning_membership_join_event_from_verified_checkpoint(
-            checkpoint,
-            &realm_cell,
-            &registry,
-            |event, digest_suite| {
-                project_governance_cell_writes(event, digest_suite, &authority_audits)
-            },
-        )
-        .await?;
-    let Some(circle_id) = circle_id else {
-        return Ok(AuthorizationIncarnation::Realm {
-            realm_membership_incarnation_ref,
-        });
-    };
-    let circle_subject = arkret_wire::cell::composite_subject(&[
-        serde_json::Value::String(circle_id.as_str().to_owned()),
-        serde_json::Value::String(target.canonical_key()?),
-    ])?;
-    let circle_cell = CellRef::new(arkret_wire::cell::subject_cell(
-        arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
-        &circle_subject,
-    ))?;
-    Ok(AuthorizationIncarnation::Circle {
-        realm_membership_incarnation_ref,
-        circle_membership_incarnation_ref:
-            arkret_state::mls_governance_proof::winning_membership_join_event_from_verified_checkpoint(
-                checkpoint,
-                &circle_cell,
-                &registry,
-                |event, digest_suite| {
-                    project_governance_cell_writes(event, digest_suite, &authority_audits)
-                },
-            )
-            .await?,
-    })
+    arkret_state::mls_governance_proof::membership_from_verified_checkpoint(
+        checkpoint,
+        scope,
+        target,
+        &registry,
+        |event, digest_suite| {
+            project_governance_cell_writes(event, digest_suite, &authority_audits)
+        },
+    )
+    .await
 }
 
-fn realm_membership_cell(target: &arkret_wire::ActorId) -> Result<CellRef, WireError> {
-    let subject = arkret_wire::cell::composite_subject(&[serde_json::Value::String(
-        target.canonical_key()?,
-    )])?;
-    Ok(CellRef::new(arkret_wire::cell::subject_cell(
-        arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-        &subject,
-    ))?)
+/// Require the exact requested membership and return its independently derived
+/// MLS stage. A missing lineage is pending, never an epoch-zero fallback.
+pub async fn history_join_epoch_from_verified_checkpoint(
+    checkpoint: &MlsGovernanceVerificationCheckpoint,
+    scope: &arkret_wire::HistoryEffectiveScope,
+    actor: &arkret_wire::ActorId,
+    incarnation: &AuthorizationIncarnation,
+) -> Result<Option<u64>, WireError> {
+    let membership = verified_membership_from_checkpoint(checkpoint, scope, actor).await?;
+    if membership.incarnation() != incarnation {
+        return Err(WireError::Protocol(
+            "history request authorization incarnation is not current at its verified cut"
+                .to_owned(),
+        ));
+    }
+    arkret_state::direct_traversal::history_join_epoch_from_verified_membership(
+        &checkpoint.accepted_events,
+        &membership,
+    )
 }
 
 /// The only Agent historical-evidence checks that cannot be derived
@@ -362,27 +367,73 @@ pub(crate) fn bound_evidence_by_ref<'a>(
     Ok(evidence)
 }
 
-fn validate_agent_controller_account(
-    evidence: &AuthenticatedSignerResolutionEvidence,
-    controller_principal_id: &arkret_wire::DidCoreId,
-    station_id: &arkret_wire::DidCoreId,
+fn validate_agent_control_accounts(
+    state: &arkret_models_identity::AgentAuthorityState,
+    actor: &arkret_wire::ActorId,
 ) -> Result<(), WireError> {
-    let AuthenticatedSignerResolutionEvidence::Principal {
-        public_resolution, ..
-    } = evidence
-    else {
-        return Err(WireError::Protocol(
-            "Agent controller source must authenticate a Principal account".to_owned(),
-        ));
-    };
-    if public_resolution.account_id.principal_id != *controller_principal_id
-        || public_resolution.account_id.station_id != *station_id
-    {
-        return Err(WireError::Protocol(
-            "Agent controller source belongs to a different AccountId".to_owned(),
-        ));
+    let controller = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+        state.signing_key_binding.controller_principal_id.clone(),
+        actor.route_service_id().clone(),
+    ));
+    for event in [
+        &state.pcr_genesis_event,
+        &state.key_authorization_event,
+        &state.agent_lifecycle_witness.accepted_status_event,
+    ] {
+        if event.actor_id != *actor
+            || event.executed_by.as_ref() != Some(&controller)
+            || event.realm_id != state.principal_control_realm_id
+            || event.authorization_ref != state.pcr_genesis_event.authorization_ref
+        {
+            return Err(WireError::Protocol(
+                "Agent control Event belongs to a different AccountId or delegation".to_owned(),
+            ));
+        }
     }
     Ok(())
+}
+
+fn verified_agent_control_event_key(
+    event: &Event,
+    dependencies: &[GovernanceDependency],
+) -> Result<PublicKeyMaterial, WireError> {
+    let proof = event
+        .proofs
+        .iter()
+        .find_map(EventProof::as_station_admission)
+        .ok_or_else(|| {
+            WireError::Protocol("Agent control Event omitted Station admission".to_owned())
+        })?;
+    let controller = event.executed_by.as_ref().ok_or_else(|| {
+        WireError::Protocol("Agent control Event omitted controller execution".to_owned())
+    })?;
+    let evidence = bound_evidence_by_ref(
+        dependencies,
+        &proof.signer_resolution_evidence_ref,
+        controller.route_service_id(),
+        &proof.verification_method,
+    )?;
+    if !matches!(
+        evidence,
+        AuthenticatedSignerResolutionEvidence::Service { .. }
+    ) {
+        return Err(WireError::Protocol(
+            "Agent control Event admission source must be its Station".to_owned(),
+        ));
+    }
+    let key = authenticated_document_key(evidence, dependencies, proof.accepted_at)?;
+    arkret_signatures::agent_evidence::verify_agent_accepted_event_signature(event, &|method| {
+        (method == &proof.verification_method).then(|| key.clone())
+    })
+    .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
+    let multibase = proof
+        .producer_signing_key_did
+        .as_str()
+        .strip_prefix("did:key:")
+        .ok_or_else(|| WireError::Protocol("Agent admitted key is not did:key".to_owned()))?;
+    Ok(PublicKeyMaterial::Ed25519Raw {
+        bytes: arkret_canonical::decode_ed25519_multibase(multibase)?.to_vec(),
+    })
 }
 
 /// Construct one canonical Agent root; current authority has no receiver
@@ -390,7 +441,6 @@ fn validate_agent_controller_account(
 pub fn build_agent_signer_resolution_evidence(
     agent_signer_evidence: AgentSignerEvidence,
     authority_evidence: &AuthenticatedSignerResolutionEvidence,
-    controller_evidence: &AuthenticatedSignerResolutionEvidence,
     account_authority_evidence: &AuthenticatedSignerResolutionEvidence,
     receiver_evidence: Option<&AuthenticatedSignerResolutionEvidence>,
 ) -> Result<AuthenticatedSignerResolutionEvidence, WireError> {
@@ -405,27 +455,22 @@ pub fn build_agent_signer_resolution_evidence(
     let snapshot = &admission.agent_authority_state_evidence;
     let binding = &snapshot.state.signing_key_binding;
     let gate = &admission.controller_account_gate_attestation;
-    for evidence in [
-        authority_evidence,
-        controller_evidence,
-        account_authority_evidence,
-    ]
-    .into_iter()
-    .chain(receiver_evidence)
+    for evidence in [authority_evidence, account_authority_evidence]
+        .into_iter()
+        .chain(receiver_evidence)
     {
         evidence.validate_attester_binding()?;
     }
-    validate_agent_controller_account(
-        controller_evidence,
-        &binding.controller_principal_id,
-        &snapshot.state.authority_id,
+    validate_agent_control_accounts(
+        &snapshot.state,
+        &arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            binding.agent_id.clone(),
+            snapshot.state.authority_id.clone(),
+        )),
     )?;
     if gate.authority_id != snapshot.state.authority_id
         || authority_evidence.signer_id() != &snapshot.state.authority_id
         || authority_evidence.verification_method() != &snapshot.lease.verification_method
-        || controller_evidence.signer_id() != &binding.controller_principal_id
-        || controller_evidence.verification_method()
-            != &binding.controller_proof.verification_method
         || account_authority_evidence.signer_id() != &gate.authority_id
         || account_authority_evidence.verification_method() != &gate.verification_method
         || !matches!(
@@ -478,7 +523,6 @@ pub fn build_agent_signer_resolution_evidence(
         verification_method: binding.verification_method.clone(),
         agent_signer_evidence: Box::new(agent_signer_evidence),
         attester_signer_evidence_ref: authority_evidence.evidence_ref()?,
-        controller_signer_evidence_ref: controller_evidence.evidence_ref()?,
         account_authority_signer_evidence_ref: account_authority_evidence.evidence_ref()?,
         receiver_signer_evidence_ref: receiver_evidence
             .map(AuthenticatedSignerResolutionEvidence::evidence_ref)
@@ -510,71 +554,84 @@ pub fn verify_agent_portable_trust(
         .state;
     match request {
         AgentHistoricalTrustRequest::PcrSeal(seal) => {
+            verified_agent_control_event_key(&state.pcr_genesis_event, dependencies)?;
+            let authority = arkret_bootstrap::AgentPcrGenesisAuthority::from_accepted_create(
+                &state.pcr_genesis_event,
+                &|event| {
+                    arkret_schema::project_registered_cell_writes(
+                        event,
+                        event
+                            .event_id
+                            .event_digest()
+                            .digest_suite()
+                            .map_err(|error| error.to_string())?,
+                    )
+                    .map_err(|error| error.to_string())
+                },
+            )?;
+            if authority.realm_id() != &state.principal_control_realm_id
+                || authority.agent_id() != &state.pcr_genesis_event.actor_id
+                || seal.realm_id != state.principal_control_realm_id
+            {
+                return Err(WireError::Protocol(
+                    "Agent PCR founding authority mismatch".to_owned(),
+                ));
+            }
+            let delegated = validated_delegated_notary_signers(state, &authority)?;
+            let digest_suite = seal.state_root.digest_suite()?;
+            seal.validate_id(digest_suite)?;
             let canonical = seal.canonical_bytes_for_id()?;
-            let expected_digest = Hash::new(arkret_canonical::sha256_digest(&canonical))?;
             let signatures = match &seal.notary_signature {
                 arkret_wire::NotarySig::Single(signature) => vec![signature],
                 arkret_wire::NotarySig::Multi(signatures) => signatures.signatures.iter().collect(),
             };
-            if signatures.is_empty() {
+            let methods = signatures
+                .iter()
+                .map(|signature| signature.verification_method.clone())
+                .collect::<BTreeSet<_>>();
+            if signatures.is_empty() || methods.len() != signatures.len() {
                 return Err(WireError::Protocol(
-                    "Agent PCR Seal has no signature".to_owned(),
+                    "Agent PCR Seal signatures must be unique and nonempty".to_owned(),
+                ));
+            }
+            let is_delegated =
+                signatures.len() == 1 && delegated.contains_key(&signatures[0].verification_method);
+            if !is_delegated && !authority.notary().proposal_quorum_met(&methods) {
+                return Err(WireError::Protocol(
+                    "Agent PCR Seal does not meet its frozen notary quorum".to_owned(),
                 ));
             }
             for signature in signatures {
-                let did = signature
-                    .verification_method
-                    .as_str()
-                    .split('#')
-                    .next()
-                    .unwrap_or_default();
-                let signer =
-                    arkret_wire::project_did_to_core_id(&arkret_wire::Did::new(did.to_owned())?)?;
-                if signer != state.authority_id
-                    && signer != state.signing_key_binding.controller_principal_id
-                    || signature.payload_digest != expected_digest
-                {
-                    return Err(WireError::Protocol(
-                        "Agent PCR Seal signer or digest mismatch".to_owned(),
-                    ));
+                let descriptor = if is_delegated {
+                    delegated.get(&signature.verification_method).copied()
+                } else {
+                    authority
+                        .notary()
+                        .signer_descriptor(&signature.verification_method)
                 }
-                let key = authenticated_method_key(
-                    dependencies,
-                    &signature.verification_method,
-                    seal.sealed_at,
+                .ok_or_else(|| {
+                    WireError::Protocol(
+                        "Agent PCR Seal signer has no accepted key source".to_owned(),
+                    )
+                })?;
+                arkret_signatures::verify_frozen_notary_signature(
+                    signature,
+                    descriptor,
+                    &canonical,
+                    digest_suite,
                 )?;
-                arkret_signatures::Ed25519DetachedJwsVerifier::new()
-                    .verify_detached_jws(&signature.jws, &canonical, &key)
-                    .map_err(|error| WireError::Protocol(error.to_string()))?;
             }
             Ok(())
         }
-        AgentHistoricalTrustRequest::LifecycleWitness(witness) => {
-            let proof = witness
-                .accepted_status_event
-                .proofs
-                .iter()
-                .find_map(EventProof::as_station_admission)
-                .ok_or_else(|| {
-                    WireError::Protocol(
-                        "Agent lifecycle Event omitted Station admission".to_owned(),
-                    )
-                })?;
-            let evidence = evidence_by_digest(
-                dependencies,
-                &proof.signer_resolution_evidence_ref.content_digest()?,
-            )?;
-            if evidence.verification_method() != &proof.verification_method {
-                return Err(WireError::Protocol(
-                    "Agent lifecycle Station method mismatch".to_owned(),
-                ));
+        AgentHistoricalTrustRequest::LifecycleWitness(_) => {
+            for event in [
+                &state.pcr_genesis_event,
+                &state.key_authorization_event,
+                &state.agent_lifecycle_witness.accepted_status_event,
+            ] {
+                verified_agent_control_event_key(event, dependencies)?;
             }
-            let key = authenticated_document_key(evidence, dependencies, proof.accepted_at)?;
-            arkret_signatures::agent_evidence::verify_agent_lifecycle_event_signature(
-                witness,
-                &|method| (method == &proof.verification_method).then(|| key.clone()),
-            )
-            .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))
+            Ok(())
         }
         AgentHistoricalTrustRequest::Transparency(_) => Err(WireError::Protocol(
             "transparency needs its independently configured log trust".to_owned(),
@@ -582,32 +639,46 @@ pub fn verify_agent_portable_trust(
     }
 }
 
-pub fn authenticated_method_key(
-    dependencies: &[GovernanceDependency],
-    method: &arkret_wire::DidUrl,
-    at: chrono::DateTime<chrono::Utc>,
-) -> Result<PublicKeyMaterial, WireError> {
-    let mut resolved = None;
-    for dependency in dependencies {
-        let GovernanceDependency::AuthenticatedSignerResolutionEvidence {
-            authenticated_signer_resolution_evidence: evidence,
-            ..
-        } = dependency
-        else {
-            continue;
-        };
-        if let Ok(key) = authenticated_document_method_key(evidence, dependencies, method, at) {
-            if resolved.as_ref().is_some_and(|previous| previous != &key) {
-                return Err(WireError::Protocol(
-                    "historical method has conflicting authenticated keys".to_owned(),
-                ));
-            }
-            resolved = Some(key);
+fn validated_delegated_notary_signers<'a>(
+    state: &'a arkret_models_identity::AgentAuthorityState,
+    authority: &arkret_bootstrap::AgentPcrGenesisAuthority,
+) -> Result<BTreeMap<arkret_wire::DidUrl, &'a arkret_wire::NotarySignerDescriptor>, WireError> {
+    let used = state
+        .seal_lineages
+        .iter()
+        .flat_map(|seal| match &seal.notary_signature {
+            arkret_wire::NotarySig::Single(signature) => vec![signature],
+            arkret_wire::NotarySig::Multi(signatures) => signatures.signatures.iter().collect(),
+        })
+        .filter(|signature| {
+            authority
+                .notary()
+                .signer_descriptor(&signature.verification_method)
+                .is_none()
+        })
+        .map(|signature| signature.verification_method.clone())
+        .collect::<BTreeSet<_>>();
+    let mut previous = None;
+    let mut mapped = BTreeMap::new();
+    for descriptor in &state.accepted_delegated_notary_signers {
+        descriptor.validate()?;
+        let method = &descriptor.verification_method;
+        if descriptor.actor_id != *authority.controller_actor_id()
+            || descriptor.actor_id.as_account_id().is_none()
+            || previous.is_some_and(|old: &arkret_wire::DidUrl| old >= method)
+            || !used.contains(method)
+        {
+            return Err(WireError::Protocol("Agent delegated notary mapping is unordered, unrelated, or belongs to a different controller Account".to_owned()));
         }
+        previous = Some(method);
+        mapped.insert(method.clone(), descriptor);
     }
-    resolved.ok_or_else(|| {
-        WireError::Protocol("historical method dependency is missing or invalid".to_owned())
-    })
+    if mapped.len() != used.len() {
+        return Err(WireError::Protocol(
+            "Agent delegated notary admitted key source is missing".to_owned(),
+        ));
+    }
+    Ok(mapped)
 }
 
 /// Verify the complete Agent historical-event evidence state machine
@@ -633,7 +704,6 @@ where
         verification_method,
         agent_signer_evidence,
         attester_signer_evidence_ref,
-        controller_signer_evidence_ref,
         account_authority_signer_evidence_ref,
         receiver_signer_evidence_ref,
     } = evidence
@@ -664,23 +734,9 @@ where
         &core.authority_id,
         &authority_evidence_state.lease.verification_method,
     )?;
-    let controller_evidence = bound_evidence_by_ref(
-        dependencies,
-        controller_signer_evidence_ref,
-        &binding.controller_principal_id,
-        &binding.controller_proof.verification_method,
-    )?;
-    validate_agent_controller_account(
-        controller_evidence,
-        &binding.controller_principal_id,
-        event
-            .executed_by
-            .as_ref()
-            .unwrap_or(&event.actor_id)
-            .route_service_id(),
-    )?;
+    validate_agent_control_accounts(core, event.executed_by.as_ref().unwrap_or(&event.actor_id))?;
     let controller_public_key =
-        authenticated_document_key(controller_evidence, dependencies, binding.issued_at)?;
+        verified_agent_control_event_key(&core.key_authorization_event, dependencies)?;
     let authority_public_key = authenticated_document_key(
         authority_evidence,
         dependencies,
@@ -727,7 +783,7 @@ where
     ))
     .await?;
     let verify_pcr_seal = |_seal: &Seal| Ok(());
-    let verify_lifecycle = |_witness: &AgentLifecycleWitness| Ok(());
+    let verify_control_event = |_event: &Event| Ok(());
     let verified_state = arkret_signatures::agent_evidence::verify_agent_evidence_state(
         admission_evidence,
         &arkret_signatures::agent_evidence::AgentEvidenceStateVerificationContext {
@@ -739,7 +795,7 @@ where
             authorize_public_key_digest: &public_key_digest,
             authorize_signing_key_binding_digest: &binding_digest,
             verify_seal_signature: &verify_pcr_seal,
-            verify_lifecycle_reducer: &verify_lifecycle,
+            verify_control_event_signature: &verify_control_event,
         },
     )
     .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
@@ -789,7 +845,6 @@ where
             transparency: transparency.clone(),
         },
         authority_evidence,
-        controller_evidence,
         account_authority_evidence,
         None,
     )?;
@@ -911,6 +966,7 @@ pub struct VerifiedAgentCurrentContext {
     key: arkret_signatures::agent_evidence::VerifiedAgentSigningKey,
     document_keys: BTreeMap<Hash, VerifiedAgentDocumentKey>,
     transparency_digest: Option<Hash>,
+    controller_public_key: PublicKeyMaterial,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct VerifiedAgentDocumentKey {
@@ -1037,7 +1093,6 @@ where
         verification_method: root_method,
         agent_signer_evidence,
         attester_signer_evidence_ref,
-        controller_signer_evidence_ref,
         account_authority_signer_evidence_ref,
         receiver_signer_evidence_ref: _,
     } = evidence
@@ -1071,32 +1126,25 @@ where
         &core.authority_id,
         &authority_evidence_state.lease.verification_method,
     )?;
-    let controller_evidence = bound_evidence_by_ref(
-        dependencies,
-        controller_signer_evidence_ref,
-        &binding.controller_principal_id,
-        &binding.controller_proof.verification_method,
-    )?;
     let account_authority_evidence = bound_evidence_by_ref(
         dependencies,
         account_authority_signer_evidence_ref,
         &gate.authority_id,
         &gate.verification_method,
     )?;
-    validate_agent_controller_account(
-        controller_evidence,
-        &binding.controller_principal_id,
-        actor.route_service_id(),
-    )?;
+    validate_agent_control_accounts(core, actor)?;
     let mut document_keys = previous
         .map(|context| context.document_keys.clone())
         .unwrap_or_default();
-    let controller_public_key = agent_document_key(
-        controller_evidence,
-        dependencies,
-        binding.issued_at,
-        &mut document_keys,
-    )?;
+    let controller_public_key = if let Some(previous) = previous.filter(|previous| {
+        previous.key.state_digest() == &authority_evidence_state.state_digest
+            && previous.key.signer_actor_id() == actor
+            && previous.key.verification_method() == verification_method
+    }) {
+        previous.controller_public_key.clone()
+    } else {
+        verified_agent_control_event_key(&core.key_authorization_event, dependencies)?
+    };
     let authority_public_key = agent_document_key(
         authority_evidence,
         dependencies,
@@ -1131,7 +1179,7 @@ where
         ))
         .await?;
         let verify_pcr_seal = |_seal: &Seal| Ok(());
-        let verify_lifecycle = |_witness: &AgentLifecycleWitness| Ok(());
+        let verify_control_event = |_event: &Event| Ok(());
         arkret_signatures::agent_evidence::verify_agent_evidence_state(
             admission_evidence,
             &arkret_signatures::agent_evidence::AgentEvidenceStateVerificationContext {
@@ -1143,7 +1191,7 @@ where
                 authorize_public_key_digest: &public_key_digest,
                 authorize_signing_key_binding_digest: &binding_digest,
                 verify_seal_signature: &verify_pcr_seal,
-                verify_lifecycle_reducer: &verify_lifecycle,
+                verify_control_event_signature: &verify_control_event,
             },
         )
         .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?
@@ -1194,7 +1242,6 @@ where
     );
     let retained_key_digests = [
         attester_signer_evidence_ref.content_digest()?,
-        controller_signer_evidence_ref.content_digest()?,
         account_authority_signer_evidence_ref.content_digest()?,
     ];
     document_keys.retain(|digest, _| retained_key_digests.contains(digest));
@@ -1204,6 +1251,7 @@ where
                 key,
                 document_keys,
                 transparency_digest,
+                controller_public_key,
             })
         }
         arkret_signatures::agent_evidence::AgentSignerEvidenceVerdict::Unresolved(reason) => {
@@ -2245,7 +2293,6 @@ mod tests {
             .collect::<Vec<_>>();
         let AuthenticatedSignerResolutionEvidence::Agent {
             agent_signer_evidence,
-            controller_signer_evidence_ref,
             ..
         } = &fixture.root
         else {
@@ -2284,6 +2331,172 @@ mod tests {
         ));
 
         let state = &admission.agent_authority_state_evidence.state;
+        let founding_authority = arkret_bootstrap::AgentPcrGenesisAuthority::from_accepted_create(
+            &state.pcr_genesis_event,
+            &|event| {
+                arkret_schema::project_registered_cell_writes(
+                    event,
+                    event
+                        .event_id
+                        .event_digest()
+                        .digest_suite()
+                        .map_err(|error| error.to_string())?,
+                )
+                .map_err(|error| error.to_string())
+            },
+        )
+        .unwrap();
+        assert!(
+            !state.accepted_delegated_notary_signers.is_empty(),
+            "real pairing fixture must exercise accepted controller-device Seal keys"
+        );
+        validated_delegated_notary_signers(state, &founding_authority).unwrap();
+        let mut missing_key_source = state.clone();
+        missing_key_source.accepted_delegated_notary_signers.clear();
+        assert!(
+            validated_delegated_notary_signers(&missing_key_source, &founding_authority).is_err()
+        );
+        let mut duplicate_key_source = state.clone();
+        duplicate_key_source
+            .accepted_delegated_notary_signers
+            .push(state.accepted_delegated_notary_signers[0].clone());
+        assert!(
+            validated_delegated_notary_signers(&duplicate_key_source, &founding_authority).is_err()
+        );
+        let mut unrelated_key_source = state.clone();
+        unrelated_key_source.accepted_delegated_notary_signers[0].actor_id = fixture.actor.clone();
+        assert!(
+            validated_delegated_notary_signers(&unrelated_key_source, &founding_authority).is_err()
+        );
+        let mut substituted_method = state.clone();
+        let unused_method = arkret_wire::DidUrl::new(format!(
+            "{}#unused-device",
+            state.accepted_delegated_notary_signers[0]
+                .verification_method
+                .as_str()
+                .split('#')
+                .next()
+                .unwrap()
+        ))
+        .unwrap();
+        substituted_method.accepted_delegated_notary_signers[0].verification_method =
+            unused_method.clone();
+        assert!(
+            validated_delegated_notary_signers(&substituted_method, &founding_authority).is_err()
+        );
+        let mut surplus_key_source = state.clone();
+        let mut unused_descriptor = state.accepted_delegated_notary_signers[0].clone();
+        unused_descriptor.verification_method = unused_method;
+        surplus_key_source
+            .accepted_delegated_notary_signers
+            .push(unused_descriptor);
+        surplus_key_source
+            .accepted_delegated_notary_signers
+            .sort_by(|left, right| left.verification_method.cmp(&right.verification_method));
+        assert!(
+            validated_delegated_notary_signers(&surplus_key_source, &founding_authority).is_err()
+        );
+        let original_descriptor = &state.accepted_delegated_notary_signers[0];
+        let (seal, signature) = state
+            .seal_lineages
+            .iter()
+            .find_map(|seal| {
+                let signatures = match &seal.notary_signature {
+                    arkret_wire::NotarySig::Single(signature) => vec![signature],
+                    arkret_wire::NotarySig::Multi(multi) => multi.signatures.iter().collect(),
+                };
+                signatures
+                    .into_iter()
+                    .find(|signature| {
+                        signature.verification_method == original_descriptor.verification_method
+                    })
+                    .map(|signature| (seal, signature))
+            })
+            .unwrap();
+        let mut substituted_key = original_descriptor.clone();
+        let other_key = ed25519_dalek::SigningKey::from_bytes(&[91; 32])
+            .verifying_key()
+            .to_bytes();
+        substituted_key.frozen_public_key_b64u = arkret_canonical::base64url_encode(other_key);
+        substituted_key.frozen_public_key_digest =
+            arkret_wire::Hash::new(arkret_canonical::sha256_digest(other_key)).unwrap();
+        substituted_key.validate().unwrap();
+        assert!(
+            arkret_signatures::verify_frozen_notary_signature(
+                signature,
+                &substituted_key,
+                &seal.canonical_bytes_for_id().unwrap(),
+                seal.state_root.digest_suite().unwrap()
+            )
+            .is_err()
+        );
+        // Exercise the portable Seal verifier's selected-suite domain with a
+        // genuinely signed Blake3 body. This verifies one proof component;
+        // it does not turn the modified fixture into an authority lease.
+        let suite = arkret_canonical::DigestSuite::Blake3;
+        let mut blake_seal = seal.clone();
+        blake_seal.state_root =
+            Hash::new(arkret_canonical::digest(suite, b"selected state")).unwrap();
+        let body = blake_seal.canonical_bytes_for_id().unwrap();
+        blake_seal.id = Seal::id_from_canonical_bytes(&body, suite).unwrap();
+        let protected = arkret_canonical::base64url_encode(
+            arkret_canonical::canonical_json_bytes(&serde_json::json!({
+                "alg": "Ed25519", "kid": substituted_key.verification_method,
+            }))
+            .unwrap(),
+        );
+        use ed25519_dalek::Signer as _;
+        let signed = ed25519_dalek::SigningKey::from_bytes(&[91; 32])
+            .sign(format!("{protected}.{}", arkret_canonical::base64url_encode(&body)).as_bytes());
+        blake_seal.notary_signature = arkret_wire::NotarySig::Single(arkret_wire::SealSignature {
+            verification_method: substituted_key.verification_method.clone(),
+            payload_digest: Hash::new(arkret_canonical::digest(suite, &body)).unwrap(),
+            jws: format!(
+                "{protected}..{}",
+                arkret_canonical::base64url_encode(signed.to_bytes())
+            ),
+        });
+        let mut proof_root = fixture.root.clone();
+        let AuthenticatedSignerResolutionEvidence::Agent {
+            agent_signer_evidence,
+            ..
+        } = &mut proof_root
+        else {
+            unreachable!()
+        };
+        let AgentSignerEvidence::CurrentAdmission {
+            admission_evidence, ..
+        } = agent_signer_evidence.as_mut()
+        else {
+            unreachable!()
+        };
+        admission_evidence
+            .agent_authority_state_evidence
+            .state
+            .seal_lineages = vec![blake_seal.clone()];
+        admission_evidence
+            .agent_authority_state_evidence
+            .state
+            .accepted_delegated_notary_signers = vec![substituted_key];
+        verify_agent_portable_trust(
+            AgentHistoricalTrustRequest::PcrSeal(&blake_seal),
+            &proof_root,
+            &dependencies,
+        )
+        .unwrap();
+        let mut wrong_digest = blake_seal.clone();
+        let arkret_wire::NotarySig::Single(signature) = &mut wrong_digest.notary_signature else {
+            unreachable!()
+        };
+        signature.payload_digest = Hash::new(arkret_canonical::sha256_digest(&body)).unwrap();
+        assert!(
+            verify_agent_portable_trust(
+                AgentHistoricalTrustRequest::PcrSeal(&wrong_digest),
+                &proof_root,
+                &dependencies
+            )
+            .is_err()
+        );
         let state_digest = &admission.agent_authority_state_evidence.state_digest;
         let compact = arkret_models_collaboration::current_signer_evidence::CompactAgentSignerResolutionEvidence::from_full(&fixture.root, std::slice::from_ref(state_digest)).unwrap();
         assert!(compact.hydrate(&BTreeMap::new()).is_err());
@@ -2312,72 +2525,42 @@ mod tests {
             .is_err()
         );
 
-        let old_ref = controller_signer_evidence_ref.clone();
-        let mut substituted_dependencies = dependencies.clone();
-        let mut new_ref = None;
-        for dependency in &mut substituted_dependencies {
-            if let GovernanceDependency::AuthenticatedSignerResolutionEvidence {
-                selector,
-                authenticated_signer_resolution_evidence,
-            } = dependency
-                && authenticated_signer_resolution_evidence
-                    .evidence_ref()
-                    .unwrap()
-                    == old_ref
-            {
-                let AuthenticatedSignerResolutionEvidence::Principal {
-                    public_resolution, ..
-                } = authenticated_signer_resolution_evidence.as_mut()
-                else {
-                    panic!("Principal controller fixture expected")
-                };
-                public_resolution.account_id.station_id = other_station.clone();
-                let reference = authenticated_signer_resolution_evidence
-                    .evidence_ref()
-                    .unwrap();
-                *selector = GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                    content_digest: reference.content_digest().unwrap(),
-                };
-                new_ref = Some(reference);
-            }
-        }
         let mut substituted_root = fixture.root.clone();
         let AuthenticatedSignerResolutionEvidence::Agent {
-            controller_signer_evidence_ref,
+            agent_signer_evidence,
             ..
         } = &mut substituted_root
         else {
             unreachable!()
         };
-        *controller_signer_evidence_ref = new_ref.expect("controller dependency");
+        let AgentSignerEvidence::CurrentAdmission {
+            admission_evidence, ..
+        } = agent_signer_evidence.as_mut()
+        else {
+            unreachable!()
+        };
+        admission_evidence
+            .agent_authority_state_evidence
+            .state
+            .key_authorization_event
+            .executed_by = Some(arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+            admission_evidence
+                .agent_authority_state_evidence
+                .state
+                .signing_key_binding
+                .controller_principal_id
+                .clone(),
+            other_station,
+        )));
         let error = verify_public_agent_fixture(
             &fixture.actor,
             &fixture.verification_method,
             &substituted_root,
-            &substituted_dependencies,
+            &dependencies,
             at,
         )
         .unwrap_err();
         assert!(error.to_string().contains("different AccountId"));
-    }
-
-    #[test]
-    fn realm_membership_lookup_uses_registered_composite_subject() {
-        let actor = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
-            arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            arkret_wire::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-        ));
-        let subject = arkret_wire::cell::composite_subject(&[serde_json::Value::String(
-            actor.canonical_key().unwrap(),
-        )])
-        .unwrap();
-        let expected = CellRef::new(arkret_wire::cell::subject_cell(
-            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-            &subject,
-        ))
-        .unwrap();
-
-        assert_eq!(realm_membership_cell(&actor).unwrap(), expected);
     }
 
     #[test]

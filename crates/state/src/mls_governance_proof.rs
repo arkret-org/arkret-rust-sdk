@@ -133,9 +133,9 @@ impl Eq for MlsGovernanceVerificationCheckpoint {}
 /// Lazy retrieval of the exact canonical Control Event bytes an accepted Seal
 /// pinned at acceptance time.
 ///
-/// Replay never materializes the whole cut: the direct-traversal driver keeps
-/// only the Seal it is applying plus that Seal's own `delta[]` Events live, and
-/// resolves every older covered Event from the reducer's Control Event store.
+/// The direct-traversal input buffer holds one Seal and its `delta[]`; older
+/// covered Events are resolved from the reducer's Control Event store. The
+/// store may itself retain the whole cut in memory.
 /// A fully materialized `BTreeMap<Hash, Event>` also implements this trait so
 /// the near-current frontier surface keeps its existing shape.
 #[async_trait]
@@ -356,29 +356,22 @@ where
     Ok(values)
 }
 
-/// Return the exact Event that established the effective `join` value of one
-/// registered membership cell at a verified checkpoint.
-///
-/// This replays the checkpoint through the ordinary reducer. It does not pick
-/// a retained `join` Event by timestamp or list order, so leave/rejoin and
-/// concurrent histories cannot silently bind an MLS Add to a stale
-/// authorization incarnation.
-pub async fn winning_membership_join_event_from_verified_checkpoint<ProjectWrites>(
+/// Resolve both Realm and optional Circle membership in one replay. The
+/// checkpoint must already have passed full trust admission; shape validation
+/// here is not a substitute for historical signature verification.
+pub async fn membership_from_verified_checkpoint<ProjectWrites>(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
-    cell: &CellRef,
+    scope: &arkret_wire::HistoryEffectiveScope,
+    actor: &ActorId,
     registry: &dyn CellRegistry,
     project_writes: ProjectWrites,
-) -> arkret_wire::Result<EventId>
+) -> arkret_wire::Result<crate::history_authorization::VerifiedMembership>
 where
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     checkpoint.validate_checkpoint()?;
-    let cell_id = CellId::from_ref(cell)?;
-    if !matches!(
-        cell_id.component(),
-        arkret_wire::CellFamilyId::MEMBER_STATE_V1 | arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
-    ) {
-        return frontier_rejected("authorization incarnation target is not a membership cell");
+    if scope.realm_id() != &checkpoint.realm_id {
+        return frontier_rejected("membership scope differs from the verified checkpoint Realm");
     }
     let (seal_store, cell_store, ..) = replay_checkpoint_and_cut_to_basis(
         &checkpoint.realm_id,
@@ -395,31 +388,30 @@ where
         project_writes,
     )
     .await?;
-    let state = effective_state_at(
-        &checkpoint.basis.leaves,
-        &checkpoint.realm_id,
+    let events = RetainedEventLookup(&checkpoint.accepted_events);
+    crate::history_authorization::membership_at_verified_basis(
+        scope,
+        actor,
+        &checkpoint.basis,
         &seal_store,
         &cell_store,
         registry,
+        &events,
     )
     .await
-    .map_err(replay_reject_error)?;
-    if !matches!(state.get(cell), Some(CellState::Value(value)) if value.as_str() == Some("join")) {
-        return frontier_rejected("authorization membership cell is not effectively joined");
+}
+
+struct RetainedEventLookup<'a>(&'a [Event]);
+
+#[async_trait]
+impl ReplayEventLookup for RetainedEventLookup<'_> {
+    async fn event(&self, digest: &Hash) -> arkret_wire::Result<Option<Event>> {
+        Ok(self
+            .0
+            .iter()
+            .find(|event| event.event_id.event_digest() == *digest)
+            .cloned())
     }
-    let issued = cell_store
-        .sealed_ops_for_cell(&checkpoint.realm_id, cell)
-        .await
-        .map_err(replay_store_error)?;
-    let winning_digest = winning_membership_join(&issued)?;
-    for event in &checkpoint.accepted_events {
-        if claimed_event_digest(event)? == winning_digest {
-            return Ok(event.event_id.clone());
-        }
-    }
-    Err(WireError::Protocol(
-        "winning membership transition is absent from the verified checkpoint".to_owned(),
-    ))
 }
 
 #[allow(clippy::too_many_arguments)]

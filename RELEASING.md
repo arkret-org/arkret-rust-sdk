@@ -19,8 +19,8 @@ arkret-keystore
 arkret-locale
 arkret-wire
 arkret-hlc
-arkret-models-identity
 arkret-models-crypto
+arkret-models-identity
 arkret-models-collaboration
 arkret-models-discovery
 arkret-models-integration

@@ -1682,7 +1682,21 @@ pub async fn effective_cas_heads_at(
     registry: &dyn CellRegistry,
 ) -> Result<CasHeadsByCell, SealReject> {
     let covered = union_predecessor_covered_events(leaves, seals).await?;
-    cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[]).await
+    cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[], None).await
+}
+
+/// Resolve only named causal-register cells at the same exact covered view.
+/// This avoids materializing every unrelated cell for a membership query.
+pub async fn causal_heads_for_cells_at(
+    leaves: &[SealId],
+    realm_id: &RealmId,
+    seals: &dyn SealStore,
+    cells: &dyn CellStore,
+    registry: &dyn CellRegistry,
+    targets: &[CellRef],
+) -> Result<CasHeadsByCell, SealReject> {
+    let covered = union_predecessor_covered_events(leaves, seals).await?;
+    cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[], Some(targets)).await
 }
 
 /// The `cas_register` heads of a candidate post-state: an explicit covered set
@@ -1698,7 +1712,7 @@ pub async fn effective_cas_heads_with_new_ops(
     registry: &dyn CellRegistry,
     new_ops: &[(CellRef, IssuedOp)],
 ) -> Result<CasHeadsByCell, SealReject> {
-    cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops).await
+    cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops, None).await
 }
 
 /// [`effective_cas_heads_at`] over an explicit covered set, optionally layered
@@ -1737,12 +1751,12 @@ async fn cas_heads_for_covered_events(
     cells: &dyn CellStore,
     registry: &dyn CellRegistry,
     new_ops: &[(CellRef, IssuedOp)],
+    targets: Option<&[CellRef]>,
 ) -> Result<CasHeadsByCell, SealReject> {
-    let mut targets = cells
-        .list_cells(realm_id)
-        .await?
-        .into_iter()
-        .collect::<BTreeSet<_>>();
+    let mut targets = match targets {
+        Some(targets) => targets.iter().cloned().collect::<BTreeSet<_>>(),
+        None => cells.list_cells(realm_id).await?.into_iter().collect(),
+    };
     targets.extend(new_ops.iter().map(|(cell, _)| cell.clone()));
 
     let mut out = BTreeMap::new();
@@ -2012,7 +2026,7 @@ async fn effective_joined_view_with_new_ops(
             covered, realm_id, cells, registry, new_ops,
         )
         .await?,
-        cas_heads: cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops)
+        cas_heads: cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops, None)
             .await?,
     })
 }

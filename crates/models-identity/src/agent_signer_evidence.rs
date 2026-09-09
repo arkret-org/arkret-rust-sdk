@@ -292,6 +292,10 @@ pub struct AgentAuthorityStateLease {
 pub struct AgentAuthorityState {
     pub authority_id: DidCoreId,
     pub principal_control_realm_id: RealmId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub pcr_genesis_event: Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub key_authorization_event: Event,
     pub frontier_seal_id: SealId,
     pub frontier_state_root: Hash,
     pub signing_key_binding: AgentSigningKeyBinding,
@@ -301,6 +305,7 @@ pub struct AgentAuthorityState {
     pub key_transition_witness: Option<AgentAuthorizationTransitionWitness>,
     pub agent_lifecycle_witness: AgentLifecycleWitness,
     pub seal_lineages: Vec<Seal>,
+    pub accepted_delegated_notary_signers: Vec<arkret_wire::NotarySignerDescriptor>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -652,39 +657,25 @@ impl AgentSignerEvidence {
             } => admission_evidence,
         }
     }
-    pub fn required_historical_signer_methods(&self) -> Vec<&DidUrl> {
-        let mut methods = std::collections::BTreeSet::new();
-        for seal in &self
+    pub fn required_historical_signer_refs(&self) -> Vec<&SignerEvidenceRef> {
+        let state = &self
             .admission_evidence()
             .agent_authority_state_evidence
-            .state
-            .seal_lineages
-        {
-            match &seal.notary_signature {
-                arkret_wire::NotarySig::Single(signature) => {
-                    methods.insert(&signature.verification_method);
-                }
-                arkret_wire::NotarySig::Multi(signatures) => methods.extend(
-                    signatures
-                        .signatures
-                        .iter()
-                        .map(|signature| &signature.verification_method),
-                ),
-            }
-        }
-        methods.into_iter().collect()
-    }
-    pub fn required_historical_signer_refs(&self) -> Vec<&SignerEvidenceRef> {
-        self.admission_evidence()
-            .agent_authority_state_evidence
-            .state
-            .agent_lifecycle_witness
-            .accepted_status_event
-            .proofs
-            .iter()
-            .filter_map(arkret_wire::EventProof::as_station_admission)
-            .map(|proof| &proof.signer_resolution_evidence_ref)
-            .collect()
+            .state;
+        [
+            &state.pcr_genesis_event,
+            &state.key_authorization_event,
+            &state.agent_lifecycle_witness.accepted_status_event,
+        ]
+        .into_iter()
+        .filter_map(|event| {
+            event
+                .proofs
+                .iter()
+                .find_map(arkret_wire::EventProof::as_station_admission)
+        })
+        .map(|proof| &proof.signer_resolution_evidence_ref)
+        .collect()
     }
 }
 

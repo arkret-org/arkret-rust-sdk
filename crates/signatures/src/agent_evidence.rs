@@ -346,13 +346,13 @@ pub struct AgentEvidenceStateVerificationContext<'a> {
     pub authorize_public_key_digest: &'a Hash,
     pub authorize_signing_key_binding_digest: &'a Hash,
     pub verify_seal_signature: &'a dyn Fn(&Seal) -> Result<(), AgentEvidenceRejectedReason>,
-    pub verify_lifecycle_reducer:
-        &'a dyn Fn(&AgentLifecycleWitness) -> Result<(), AgentEvidenceRejectedReason>,
+    pub verify_control_event_signature:
+        &'a dyn Fn(&arkret_wire::Event) -> Result<(), AgentEvidenceRejectedReason>,
 }
 
 /// Independently established trust inputs shared by both verification modes.
 /// The verified-state token has a private constructor and is bound to the
-/// exact admission/snapshot/witness digests.
+/// exact stable state and witnessed identity.
 pub struct AgentEvidenceCommonContext<'a> {
     pub signer_id: &'a DidCoreId,
     pub agent_key_id: &'a NonEmptyString,
@@ -564,7 +564,13 @@ pub fn verify_agent_evidence_state(
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
-    (context.verify_lifecycle_reducer)(&snapshot.state.agent_lifecycle_witness)?;
+    for event in [
+        &snapshot.state.pcr_genesis_event,
+        &snapshot.state.key_authorization_event,
+        &snapshot.state.agent_lifecycle_witness.accepted_status_event,
+    ] {
+        (context.verify_control_event_signature)(event)?;
+    }
     Ok(VerifiedAgentEvidenceState {
         signer_actor_id: context.signer_actor_id.clone(),
         state_digest: snapshot.state_digest.clone(),
@@ -1267,23 +1273,71 @@ fn validate_state_witnesses(
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let lifecycle_value = serde_json::to_value(lifecycle.cell_value)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    Ok(key.component.as_str() == AGENT_KEY_COMPONENT
+    let genesis = &snapshot.state.pcr_genesis_event;
+    let authorize = &snapshot.state.key_authorization_event;
+    let expected_controller = ActorId::account(arkret_wire::AccountId::new(
+        context.controller_principal_id.clone(),
+        context.signer_actor_id.route_service_id().clone(),
+    ));
+    let authorization_payload =
+        arkret_models_collaboration::events_payloads::agent::AgentKeyAuthorizePayload::try_from(
+            authorize,
+        )
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    Ok(genesis.kind == arkret_wire::EventKind::RealmCreate
+        && genesis.event_id == snapshot.state.principal_control_realm_id.event_id()
+        && authorize.event_id == *context.agent_key_authorize_event_id
+        && [genesis, authorize, &lifecycle.accepted_status_event]
+            .iter()
+            .all(|event| {
+                event.actor_id == *context.signer_actor_id
+                    && event.realm_id == snapshot.state.principal_control_realm_id
+                    && event.executed_by.as_ref() == Some(&expected_controller)
+                    && event.authorization_ref == genesis.authorization_ref
+            })
+        && authorization_payload.signing_key_binding_digest
+            == *context.authorize_signing_key_binding_digest
+        && authorization_payload.public_key_digest == *context.authorize_public_key_digest
+        && authorization_payload.agent_id == binding.agent_id
+        && authorization_payload.key_id == binding.agent_key_id
+        && authorization_payload.issued_at == binding.issued_at
+        && authorization_payload.expires_at == binding.expires_at
+        && authorization_payload.verification_method == binding.verification_method
+        && authorization_payload.accountable_principal_id == *context.controller_principal_id
+        && authorize
+            .proofs
+            .iter()
+            .find_map(arkret_wire::EventProof::as_station_admission)
+            .is_some_and(|proof| {
+                proof.producer_verification_method == binding.controller_proof.verification_method
+            })
+        && key.component.as_str() == AGENT_KEY_COMPONENT
         && context.signer_actor_id.as_account_id().is_some()
         && snapshot.state.authority_id == *context.signer_actor_id.route_service_id()
         && context.signer_actor_id.signing_principal_id() == context.signer_id
         && key.agent_id == *context.signer_id
         && key.authorization_event_id == *context.agent_key_authorize_event_id
         && key.seal.id == key.seal_id
+        && snapshot.state.authorization.accepted_at == key.seal.sealed_at
         && key.seal.state_root == key.state_root
         && key.seal.realm_id == snapshot.state.principal_control_realm_id
         && agent_authorization_cell_ref(context.signer_id, context.agent_key_id).ok()
             == Some(key.cell_ref.clone())
-        && value_contains_authorization_record(
-            &key_value,
-            binding,
-            context.authorize_public_key_digest,
-            context.authorize_signing_key_binding_digest,
-        )
+        && key
+            .cell_value
+            .iter()
+            .filter(|entry| {
+                agent_authorization_dot_matches_event(
+                    entry.tag.as_str(),
+                    authorize.event_id.as_str(),
+                )
+            })
+            .count()
+            == 1
+        && key.cell_value.iter().any(|entry| {
+            agent_authorization_dot_matches_event(entry.tag.as_str(), authorize.event_id.as_str())
+                && entry.value == Value::Object(authorize.payload.clone().into_iter().collect())
+        })
         && verify_witness_branch(
             &key.cell_ref,
             &key_value,
@@ -1318,8 +1372,14 @@ pub fn verify_agent_lifecycle_event_signature(
     witness: &AgentLifecycleWitness,
     resolve_key: &dyn Fn(&DidUrl) -> Option<PublicKeyMaterial>,
 ) -> Result<(), AgentEvidenceRejectedReason> {
+    verify_agent_accepted_event_signature(&witness.accepted_status_event, resolve_key)
+}
+
+pub fn verify_agent_accepted_event_signature(
+    event: &arkret_wire::Event,
+    resolve_key: &dyn Fn(&DidUrl) -> Option<PublicKeyMaterial>,
+) -> Result<(), AgentEvidenceRejectedReason> {
     let reject = || AgentEvidenceRejectedReason::SigningKeyMismatch;
-    let event = &witness.accepted_status_event;
     let controller = event.executed_by.as_ref().ok_or_else(reject)?;
     let suite = event
         .event_id
@@ -1769,55 +1829,6 @@ fn did_url_controller_core_id(method: &DidUrl) -> Result<DidCoreId, AgentEvidenc
     project_did_to_core_id(&controller).map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
-fn value_contains_authorization_record(
-    value: &Value,
-    binding: &AgentSigningKeyBinding,
-    authorize_public_key_digest: &Hash,
-    binding_digest: &Hash,
-) -> bool {
-    match value {
-        Value::Object(values) => {
-            let exact_record = values
-                .get("tag")
-                .and_then(Value::as_str)
-                .is_some_and(|event_dot| {
-                    agent_authorization_dot_matches_event(
-                        event_dot,
-                        binding.agent_key_authorize_event_id.as_str(),
-                    ) && values
-                        .get("value")
-                        .and_then(Value::as_object)
-                        .is_some_and(|record| {
-                            authorization_record_fields_match(
-                                record,
-                                binding,
-                                authorize_public_key_digest,
-                                binding_digest,
-                            )
-                        })
-                });
-            exact_record
-                || values.values().any(|nested| {
-                    value_contains_authorization_record(
-                        nested,
-                        binding,
-                        authorize_public_key_digest,
-                        binding_digest,
-                    )
-                })
-        }
-        Value::Array(values) => values.iter().any(|nested| {
-            value_contains_authorization_record(
-                nested,
-                binding,
-                authorize_public_key_digest,
-                binding_digest,
-            )
-        }),
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
-    }
-}
-
 #[cfg(test)]
 mod producer_tests {
     use arkret_models_identity::agent_signer_evidence::AgentAuthorityStateLease;
@@ -1861,24 +1872,6 @@ mod producer_tests {
             .is_err()
         );
     }
-}
-
-fn authorization_record_fields_match(
-    record: &serde_json::Map<String, Value>,
-    binding: &AgentSigningKeyBinding,
-    authorize_public_key_digest: &Hash,
-    binding_digest: &Hash,
-) -> bool {
-    record.get("agent_id").and_then(Value::as_str) == Some(binding.agent_id.as_str())
-        && record.get("key_id").and_then(Value::as_str) == Some(binding.agent_key_id.as_str())
-        && record.get("verification_method").and_then(Value::as_str)
-            == Some(binding.verification_method.as_str())
-        && record.get("public_key_digest").and_then(Value::as_str)
-            == Some(authorize_public_key_digest.as_str())
-        && record
-            .get("signing_key_binding_digest")
-            .and_then(Value::as_str)
-            == Some(binding_digest.as_str())
 }
 
 #[cfg(test)]

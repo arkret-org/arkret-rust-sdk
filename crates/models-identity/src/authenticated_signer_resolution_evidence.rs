@@ -39,7 +39,6 @@ pub enum AuthenticatedSignerResolutionEvidence {
         verification_method: DidUrl,
         agent_signer_evidence: Box<AgentSignerEvidence>,
         attester_signer_evidence_ref: SignerEvidenceRef,
-        controller_signer_evidence_ref: SignerEvidenceRef,
         account_authority_signer_evidence_ref: SignerEvidenceRef,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         receiver_signer_evidence_ref: Option<SignerEvidenceRef>,
@@ -205,7 +204,6 @@ impl AuthenticatedSignerResolutionEvidence {
             } => vec![attester_signer_evidence_ref],
             Self::Agent {
                 attester_signer_evidence_ref,
-                controller_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
                 receiver_signer_evidence_ref,
                 ..
@@ -220,7 +218,6 @@ impl AuthenticatedSignerResolutionEvidence {
                 }
                 let mut refs = vec![
                     attester_signer_evidence_ref,
-                    controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
                 ];
                 refs.extend(receiver_signer_evidence_ref.iter());

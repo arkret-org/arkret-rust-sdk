@@ -13,6 +13,7 @@ use arkret_state::mls_governance_proof::{
     MlsGovernanceVerificationCheckpoint,
     materialize_registered_cell_value_at_basis_from_verified_checkpoint,
     materialize_registered_cell_value_from_verified_checkpoint,
+    membership_from_verified_checkpoint,
 };
 use arkret_state::{
     CellState, EventCellBottom, GovernanceView, MemoryCellRegistry, compute_state_root,
@@ -323,6 +324,73 @@ fn checkpoint() -> (MlsGovernanceVerificationCheckpoint, SealBasis, CellRef) {
     };
     checkpoint.validate_checkpoint().unwrap();
     (checkpoint, historical, membership_cell)
+}
+
+#[tokio::test]
+async fn membership_uses_the_exact_cut_and_does_not_require_mls_lineage() {
+    let (mut checkpoint, historical, _) = checkpoint();
+    let actor = checkpoint.accepted_events[0].actor_id.clone();
+    let scope = arkret_wire::HistoryEffectiveScope::Realm {
+        realm_id: checkpoint.realm_id.clone(),
+    };
+    assert!(
+        membership_from_verified_checkpoint(&checkpoint, &scope, &actor, &registry(), projection)
+            .await
+            .is_err()
+    );
+
+    checkpoint.basis = historical;
+    checkpoint
+        .accepted_seals
+        .retain(|seal| checkpoint.basis.leaves.contains(&seal.id));
+    checkpoint
+        .accepted_events
+        .retain(|event| event.kind == EventKind::RealmCreate);
+    let member =
+        membership_from_verified_checkpoint(&checkpoint, &scope, &actor, &registry(), projection)
+            .await
+            .unwrap();
+    assert_eq!(
+        member.incarnation(),
+        &arkret_models_collaboration::history_key::AuthorizationIncarnation::Realm {
+            realm_membership_incarnation_ref: checkpoint.accepted_events[0].event_id.clone(),
+        }
+    );
+    assert_eq!(
+        arkret_state::direct_traversal::history_join_epoch_from_verified_membership(
+            &checkpoint.accepted_events,
+            &member
+        )
+        .unwrap(),
+        None
+    );
+
+    let other = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+        DidCoreId::new("ak:did_core:web:replay-kat.example").unwrap(),
+        DidCoreId::new("ak:did_core:web:another-station.example").unwrap(),
+    ));
+    assert!(
+        membership_from_verified_checkpoint(&checkpoint, &scope, &other, &registry(), projection)
+            .await
+            .is_err()
+    );
+    let other_scope = arkret_wire::HistoryEffectiveScope::Realm {
+        realm_id: arkret_wire::RealmId::new(
+            "ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN",
+        )
+        .unwrap(),
+    };
+    assert!(
+        membership_from_verified_checkpoint(
+            &checkpoint,
+            &other_scope,
+            &actor,
+            &registry(),
+            projection
+        )
+        .await
+        .is_err()
+    );
 }
 
 #[tokio::test]

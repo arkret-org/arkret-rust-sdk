@@ -354,7 +354,6 @@ where
             ),
             AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_ref,
-                controller_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
                 receiver_signer_evidence_ref,
                 agent_signer_evidence,
@@ -362,7 +361,6 @@ where
             } => {
                 for evidence_ref in [
                     attester_signer_evidence_ref,
-                    controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
                 ]
                 .into_iter()
@@ -560,7 +558,6 @@ fn validate_authenticated_evidence_reachability(
             } => pending.push(attester_signer_evidence_ref.content_digest()?),
             AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_ref,
-                controller_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
                 receiver_signer_evidence_ref,
                 agent_signer_evidence,
@@ -568,7 +565,6 @@ fn validate_authenticated_evidence_reachability(
             } => {
                 for evidence_ref in [
                     attester_signer_evidence_ref,
-                    controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
                 ]
                 .into_iter()
@@ -737,7 +733,6 @@ pub fn history_source_signer_dependency_closure(
                 } => pending.push(attester_signer_evidence_ref.content_digest()?),
                 AuthenticatedSignerResolutionEvidence::Agent {
                     attester_signer_evidence_ref,
-                    controller_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
                     receiver_signer_evidence_ref,
                     agent_signer_evidence,
@@ -745,7 +740,6 @@ pub fn history_source_signer_dependency_closure(
                 } => {
                     for evidence_ref in [
                         attester_signer_evidence_ref,
-                        controller_signer_evidence_ref,
                         account_authority_signer_evidence_ref,
                     ]
                     .into_iter()
