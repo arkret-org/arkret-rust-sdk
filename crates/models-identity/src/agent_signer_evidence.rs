@@ -6,7 +6,7 @@
 
 use arkret_wire::{
     Base64UrlString, DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyString, RealmId, RequestId,
-    SchemaId, Seal, SealId, SignerEvidenceRef,
+    Seal, SealId, SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -753,86 +753,13 @@ pub fn validate_self_signer_bytes<T: Serialize>(
     }
     Ok(())
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "verification_mode",
-    rename_all = "snake_case",
-    deny_unknown_fields
-)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentSignerEvidenceQuerySelector {
-    CurrentAdmission {
-        actor: arkret_wire::ActorId,
-        verification_method: DidUrl,
-    },
-    HistoricalEvent {
-        actor: arkret_wire::ActorId,
-        verification_method: DidUrl,
-        event_id: EventId,
-        receiver_id: DidCoreId,
-    },
-}
-impl AgentSignerEvidenceQuerySelector {
-    pub fn actor(&self) -> &arkret_wire::ActorId {
-        match self {
-            Self::CurrentAdmission { actor, .. } | Self::HistoricalEvent { actor, .. } => actor,
-        }
-    }
-    pub fn verification_method(&self) -> &DidUrl {
-        match self {
-            Self::CurrentAdmission {
-                verification_method,
-                ..
-            }
-            | Self::HistoricalEvent {
-                verification_method,
-                ..
-            } => verification_method,
-        }
-    }
-    pub fn validate(&self) -> arkret_wire::Result<()> {
-        self.actor().validate()?;
-        if !matches!(self.actor(), arkret_wire::ActorId::Account { .. }) {
-            return Err(self_signer_error(
-                arkret_wire::ErrorCode::SchemaViolation,
-                "Agent selector requires an Account actor",
-            ));
-        }
-        Ok(())
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSignerEvidenceQueryRequestBody {
-    pub request_id: RequestId,
-    pub realm_id: RealmId,
-    pub recipient_account_id: arkret_wire::AccountId,
-    pub queries: Vec<AgentSignerEvidenceQuerySelector>,
-}
-impl AgentSignerEvidenceQueryRequestBody {
-    pub fn validate(&self) -> arkret_wire::Result<()> {
-        validate_self_signer_bytes(self, SELF_SIGNER_REQUEST_MAX_BYTES, true)?;
-        self.recipient_account_id.validate()?;
-        if self.queries.is_empty() || self.queries.len() > 64 {
-            return Err(self_signer_error(
-                arkret_wire::ErrorCode::SchemaViolation,
-                "self query requires 1..=64 selectors",
-            ));
-        }
-        let mut seen = std::collections::BTreeSet::new();
-        for selector in &self.queries {
-            selector.validate()?;
-            if !seen.insert(arkret_canonical::canonical_json_bytes(selector)?) {
-                return Err(self_signer_error(
-                    arkret_wire::ErrorCode::SchemaViolation,
-                    "duplicate selector",
-                ));
-            }
-        }
-        Ok(())
-    }
-}
+// The self-path query surface that used to live here - selectors, request
+// body, per-selector results and outcome - is now the single unified
+// `ak.self.signer_keys.read.resolve.v1` contract in
+// `crate::signer_key_operations`. The old `self/agent-signer-evidence/query`
+// and `self/current-signer-evidence/query` operations no longer exist, so their
+// DTOs are gone rather than kept as a second shape. The key and status types
+// below stay: the unified surface reuses them verbatim.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -845,149 +772,17 @@ pub enum SignerEvidenceResolvedStatus {
 pub enum SignerEvidenceUnavailableStatus {
     Unavailable,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged, deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentSignerEvidenceQueryResult {
-    CurrentResolved {
-        selector: AgentSignerEvidenceQuerySelector,
-        status: SignerEvidenceResolvedStatus,
-        key: StationSigningKey,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        checked_at: DateTime<Utc>,
-    },
-    HistoricalResolved {
-        selector: AgentSignerEvidenceQuerySelector,
-        status: SignerEvidenceResolvedStatus,
-        key: StationSigningKey,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-        accepted_at: DateTime<Utc>,
-        signer_evidence_ref: SignerEvidenceRef,
-    },
-    Unavailable {
-        selector: AgentSignerEvidenceQuerySelector,
-        status: SignerEvidenceUnavailableStatus,
-    },
-}
-impl AgentSignerEvidenceQueryResult {
-    pub fn selector(&self) -> &AgentSignerEvidenceQuerySelector {
-        match self {
-            Self::CurrentResolved { selector, .. }
-            | Self::HistoricalResolved { selector, .. }
-            | Self::Unavailable { selector, .. } => selector,
-        }
-    }
-    pub fn validate(&self) -> arkret_wire::Result<()> {
-        validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
-        self.selector().validate()?;
-        let key = match self {
-            Self::CurrentResolved {
-                selector: AgentSignerEvidenceQuerySelector::CurrentAdmission { .. },
-                key,
-                ..
-            }
-            | Self::HistoricalResolved {
-                selector: AgentSignerEvidenceQuerySelector::HistoricalEvent { .. },
-                key,
-                ..
-            } => Some(key),
-            Self::Unavailable { .. } => None,
-            _ => {
-                return Err(self_signer_error(
-                    arkret_wire::ErrorCode::SchemaViolation,
-                    "result mode mismatch",
-                ));
-            }
-        };
-        if let Some(key) = key {
-            key.validate()?;
-            if &key.actor != self.selector().actor()
-                || &key.verification_method != self.selector().verification_method()
-            {
-                return Err(self_signer_error(
-                    arkret_wire::ErrorCode::SchemaViolation,
-                    "result key binding mismatch",
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSignerEvidenceQueryOutcome {
-    pub request_id: RequestId,
-    pub realm_id: RealmId,
-    pub recipient_account_id: arkret_wire::AccountId,
-    pub results: Vec<AgentSignerEvidenceQueryResult>,
-}
-impl AgentSignerEvidenceQueryOutcome {
-    pub fn validate(&self) -> arkret_wire::Result<()> {
-        validate_self_signer_bytes(self, SELF_SIGNER_OUTCOME_MAX_BYTES, false)?;
-        if self.results.is_empty() || self.results.len() > 64 {
-            return Err(self_signer_error(
-                arkret_wire::ErrorCode::SchemaViolation,
-                "invalid result count",
-            ));
-        }
-        let mut seen = std::collections::BTreeSet::new();
-        for item in &self.results {
-            item.validate()?;
-            if !seen.insert(arkret_canonical::canonical_json_bytes(item.selector())?) {
-                return Err(self_signer_error(
-                    arkret_wire::ErrorCode::SchemaViolation,
-                    "duplicate result",
-                ));
-            }
-        }
-        Ok(())
-    }
-    pub fn validate_for_request(
-        &self,
-        request: &AgentSignerEvidenceQueryRequestBody,
-    ) -> arkret_wire::Result<()> {
-        request.validate()?;
-        self.validate()?;
-        let requested = request
-            .queries
-            .iter()
-            .map(arkret_canonical::canonical_json_bytes)
-            .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
-        let returned = self
-            .results
-            .iter()
-            .map(|r| arkret_canonical::canonical_json_bytes(r.selector()))
-            .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
-        if self.request_id != request.request_id
-            || self.realm_id != request.realm_id
-            || self.recipient_account_id != request.recipient_account_id
-            || requested != returned
-        {
-            return Err(self_signer_error(
-                arkret_wire::ErrorCode::SchemaViolation,
-                "self signer response binding mismatch",
-            ));
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod self_signer_tests {
     use super::*;
-    fn request() -> AgentSignerEvidenceQueryRequestBody {
-        serde_json::from_value(serde_json::json!({
-            "request_id":"ak:request:0196419b-0000-7000-8000-00000000000a",
-            "realm_id":"ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "recipient_account_id":{"principal_id":"ak:did_core:web:reader.example","station_id":"ak:did_core:web:station.example"},
-            "queries":[{"verification_mode":"current_admission","actor":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:agent.example","station_id":"ak:did_core:web:station.example"}},"verification_method":"did:web:agent.example#agent-key"}]
-        })).unwrap()
-    }
-    fn key(request: &AgentSignerEvidenceQueryRequestBody) -> StationSigningKey {
+
+    fn key() -> StationSigningKey {
         StationSigningKey {
-            actor: request.queries[0].actor().clone(),
-            verification_method: request.queries[0].verification_method().clone(),
+            actor: arkret_wire::ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            )),
+            verification_method: DidUrl::new("did:web:agent.example#agent-key").unwrap(),
             public_key_b64u: Base64UrlString::new("A".repeat(43)).unwrap(),
             authorization_ref: EventId::new(
                 "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
@@ -995,86 +790,24 @@ mod self_signer_tests {
             .unwrap(),
         }
     }
-    fn outcome(request: &AgentSignerEvidenceQueryRequestBody) -> AgentSignerEvidenceQueryOutcome {
-        AgentSignerEvidenceQueryOutcome {
-            request_id: request.request_id.clone(),
-            realm_id: request.realm_id.clone(),
-            recipient_account_id: request.recipient_account_id.clone(),
-            results: vec![AgentSignerEvidenceQueryResult::CurrentResolved {
-                selector: request.queries[0].clone(),
-                status: SignerEvidenceResolvedStatus::Resolved,
-                key: key(request),
-                checked_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
-            }],
-        }
-    }
-    #[test]
-    fn self_signer_results_bind_account_station_and_exact_request_set() {
-        let request = request();
-        let mut result = outcome(&request);
-        result.validate_for_request(&request).unwrap();
-        let saved = result.clone();
-        result.recipient_account_id.station_id =
-            DidCoreId::new("ak:did_core:web:other.example").unwrap();
-        assert!(result.validate_for_request(&request).is_err());
-        result = saved.clone();
-        result.results.push(result.results[0].clone());
-        assert!(result.validate_for_request(&request).is_err());
-        result = saved;
-        if let AgentSignerEvidenceQueryResult::CurrentResolved { key, .. } = &mut result.results[0]
-        {
-            let account = arkret_wire::AccountId::new(
-                key.actor.signing_principal_id().clone(),
-                DidCoreId::new("ak:did_core:web:other.example").unwrap(),
-            );
-            key.actor = arkret_wire::ActorId::account(account);
-        }
-        assert!(result.validate_for_request(&request).is_err());
-    }
-    #[test]
-    fn self_signer_historical_shape_cannot_authorize_current_selector() {
-        let request = request();
-        let mut result = outcome(&request);
-        result.results[0] = AgentSignerEvidenceQueryResult::HistoricalResolved {
-            selector: request.queries[0].clone(),
-            status: SignerEvidenceResolvedStatus::Resolved,
-            key: key(&request),
-            accepted_at: arkret_canonical::normalize_timestamp_canonical(Utc::now()),
-            signer_evidence_ref: SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "a".repeat(64)
-            ))
-            .unwrap(),
-        };
-        assert!(result.validate_for_request(&request).is_err());
-        let mut encoded = serde_json::to_value(&request).unwrap();
-        encoded["known_signer_evidence_refs"] = serde_json::json!([]);
-        assert!(serde_json::from_value::<AgentSignerEvidenceQueryRequestBody>(encoded).is_err());
-    }
+
     #[test]
     fn self_signer_key_rejects_wrong_method_principal_and_noncanonical_padding_bits() {
-        let request = request();
-        let mut value = key(&request);
+        let mut value = key();
         value.verification_method = DidUrl::new("did:web:other.example#agent-key").unwrap();
         assert!(value.validate().is_err());
-        value = key(&request);
+        value = key();
         if let Ok(noncanonical) = Base64UrlString::new(format!("{}B", "A".repeat(42))) {
             value.public_key_b64u = noncanonical;
             assert!(value.validate().is_err());
         }
     }
+
     #[test]
-    fn self_signer_request_bytes_take_precedence_over_selector_count() {
-        let mut request = request();
-        request.queries = vec![request.queries[0].clone(); 1000];
-        assert_eq!(
-            request.validate().unwrap_err().error_code(),
-            Some(arkret_wire::ErrorCode::PayloadTooLarge)
-        );
-        request.queries.truncate(2);
-        assert_eq!(
-            request.validate().unwrap_err().error_code(),
-            Some(arkret_wire::ErrorCode::SchemaViolation)
-        );
+    fn self_signer_key_requires_an_account_actor() {
+        let mut value = key();
+        value.actor =
+            arkret_wire::ActorId::service(DidCoreId::new("ak:did_core:web:agent.example").unwrap());
+        assert!(value.validate().is_err());
     }
 }

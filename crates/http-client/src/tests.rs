@@ -1178,7 +1178,12 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn list_key_backups_includes_series_id_query() {
-        let (client, capture) = spawn_capture_server(r#"{"backups":[],"has_more":false}"#).await;
+        // The list page always carries both accepted backup-class pointers, so a
+        // stub that omits `active_series` is not a page the client may accept.
+        let (client, capture) = spawn_capture_server(
+            r#"{"backups":[],"active_series":{"account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"},"control_realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI","seal_basis":{"leaves":["ak:seal:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]},"secret_storage":{"state":"absent"},"mls_history":{"state":"absent"}},"has_more":false}"#,
+        )
+        .await;
         let query = arkret_models_crypto::KeyBackupsListQuery {
             series_id: Some(
                 arkret_wire::BackupSeriesId::new(
