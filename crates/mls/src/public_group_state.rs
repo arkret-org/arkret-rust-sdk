@@ -5,6 +5,7 @@ mod tests;
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::base64url_encode;
+use arkret_models_collaboration::events_payloads::mls_proposal_admission::MlsProposalSenderClass;
 use arkret_models_crypto::{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsGovernanceBindingPayload};
 use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, NonEmptyString};
 use openmls::prelude::{
@@ -206,6 +207,13 @@ pub enum MlsPublicHandshakeTransition {
         proposal_ref: Vec<u8>,
         /// RFC 9420 ProposalType code, obtained from the signed message.
         proposal_type: u16,
+        /// RFC 9420 sender class of the signed message.
+        ///
+        /// A `None` `sender_leaf` says only that there is no member leaf; it is
+        /// neither an authorization nor a refusal. This field is the one that
+        /// carries the admission decision, through
+        /// [`arkret_models_collaboration::events_payloads::mls_proposal_admission::admit_durable_mls_proposal`].
+        sender_class: MlsProposalSenderClass,
         /// Member signer at the exact base. None denotes a non-member sender;
         /// applications must authorize that separate class explicitly.
         sender_leaf: Option<MlsPublicEndpointLeaf>,
@@ -213,6 +221,9 @@ pub enum MlsPublicHandshakeTransition {
         remove_leaf_index: Option<u32>,
     },
     Commit {
+        /// RFC 9420 sender class of the signed Commit. A `new_member_commit`
+        /// sender is an external Commit, which v1 does not admit.
+        sender_class: MlsProposalSenderClass,
         sender_leaf: Option<MlsPublicEndpointLeaf>,
         previous_epoch: u64,
         epoch: u64,
@@ -348,6 +359,12 @@ impl MlsPublicGroupTracker {
             )
             .map_err(mls_error)?;
         let sender = processed.sender().clone();
+        let sender_class = match &sender {
+            Sender::Member(_) => MlsProposalSenderClass::Member,
+            Sender::External(_) => MlsProposalSenderClass::External,
+            Sender::NewMemberProposal => MlsProposalSenderClass::NewMemberProposal,
+            Sender::NewMemberCommit => MlsProposalSenderClass::NewMemberCommit,
+        };
         let sender_leaf = match &sender {
             Sender::Member(index) => Some(
                 previous_leaves
@@ -385,6 +402,7 @@ impl MlsPublicGroupTracker {
                 Ok(MlsPublicHandshakeTransition::Proposal {
                     proposal_ref,
                     proposal_type,
+                    sender_class,
                     sender_leaf,
                     add_key_package_bytes,
                     remove_leaf_index,
@@ -518,6 +536,7 @@ impl MlsPublicGroupTracker {
                     updated.remove(index);
                 }
                 Ok(MlsPublicHandshakeTransition::Commit {
+                    sender_class,
                     sender_leaf,
                     previous_epoch,
                     epoch: self.epoch(),

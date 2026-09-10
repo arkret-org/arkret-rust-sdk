@@ -74,3 +74,18 @@ pub enum Error {
     #[error(transparent)]
     Identity(#[from] arkret_identity::IdentityError),
 }
+
+impl Error {
+    /// The registered error code of a service problem envelope.
+    ///
+    /// Callers branch on [`arkret_wire::ErrorCode`] rather than comparing
+    /// `detail` strings or bare HTTP statuses: a status alone cannot separate,
+    /// say, a Seal signing-slot fence from any other 409.
+    #[must_use]
+    pub fn error_code(&self) -> Option<arkret_wire::ErrorCode> {
+        match self {
+            Self::Api { error, .. } => error.error_code(),
+            _ => None,
+        }
+    }
+}

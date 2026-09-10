@@ -6,19 +6,35 @@ use std::fmt;
 use arkret_wire::{
     AccountId, ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId,
     NotificationKind, NotificationPriority, NotificationProjectionId, NotificationState,
-    OpaqueLocalId, ReadCursorScope, RealmId, RelationId, Result, SchemaId, StrandId, ViewId,
-    WireError, canonical,
+    OpaqueLocalId, OrdinaryNotificationKind, ReadCursorScope, RealmId, RelationId, Result,
+    SchemaId, StrandId, ViewId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// The identity branches have disjoint lexical spaces and authority contracts.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Deserialization selects the branch from the `ak:` prefix rather than trying
+/// each variant in turn: the two branches carry different authority (a
+/// deterministic projection token the recipient recomputes, versus an
+/// account-private approval UUID), so a first-variant-that-parses match would
+/// silently reclassify a malformed token instead of rejecting it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum NotificationIdentity {
     Projection(NotificationProjectionId),
     AgentApproval(NotificationId),
+}
+
+impl<'de> Deserialize<'de> for NotificationIdentity {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        Self::new(value).map_err(serde::de::Error::custom)
+    }
 }
 
 impl NotificationIdentity {
@@ -59,27 +75,26 @@ impl fmt::Display for NotificationIdentity {
 
 /// Derive an ordinary notification identity from immutable, verified inputs.
 /// Callers must separately authenticate the source and authorize its display.
+///
+/// This is the identity recomputation every recipient owes an account-subscribe
+/// ordinary notification row: the preimage is the registered
+/// `notification.schema.json#/$defs/projection_preimage`, the domain separator
+/// is `ak.notification-projection.v1` followed by LF, the body is RFC 8785 JCS,
+/// and the token is the SHA-256 suite byte `0x01` followed by the complete
+/// 32-byte digest, base64url without padding.
 pub fn derive_notification_projection_id(
     recipient_account_id: &AccountId,
     realm_id: &RealmId,
     source_event_id: &EventId,
-    notification_kind: &NotificationKind,
+    notification_kind: OrdinaryNotificationKind,
 ) -> Result<NotificationProjectionId> {
     recipient_account_id.validate()?;
-    if matches!(
-        notification_kind,
-        NotificationKind::Invite | NotificationKind::Agent
-    ) {
-        return Err(WireError::Protocol(
-            "notification category has a dedicated carrier".to_owned(),
-        ));
-    }
     #[derive(Serialize)]
     struct Preimage<'a> {
         recipient_account_id: &'a AccountId,
         realm_id: &'a RealmId,
         source_event_id: &'a EventId,
-        notification_kind: &'a NotificationKind,
+        notification_kind: OrdinaryNotificationKind,
     }
     let preimage = Preimage {
         recipient_account_id,
@@ -92,6 +107,23 @@ pub fn derive_notification_projection_id(
     Ok(NotificationProjectionId::from_projection_digest(
         canonical::sha256_bytes(bytes),
     ))
+}
+
+/// `notification.schema.json#/properties/track_name`: a Strand track key on the
+/// source Strand. Shared by the full Notification object and by the ordinary
+/// account-subscribe projection row so both reject the same values.
+fn validate_notification_track_name(track_name: &str) -> Result<()> {
+    if track_name.is_empty()
+        || track_name.len() > 64
+        || !track_name.bytes().enumerate().all(|(index, byte)| {
+            byte.is_ascii_lowercase() || index > 0 && (byte.is_ascii_digit() || byte == b'_')
+        })
+    {
+        return Err(WireError::Protocol(
+            "notification track_name is invalid".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 /// Actor-private read cursor payload of `ak.read_cursor.advance`.
@@ -687,24 +719,15 @@ impl Notification {
                     recipient,
                     realm,
                     &source.source_event_id,
-                    &self.notification_kind,
+                    OrdinaryNotificationKind::try_from(&self.notification_kind)?,
                 )?;
                 if self.id != NotificationIdentity::Projection(expected) {
                     return Err(WireError::Protocol(
                         "notification identity does not bind its source inputs".to_owned(),
                     ));
                 }
-                if source.track_name.as_deref().is_some_and(|track| {
-                    track.is_empty()
-                        || track.len() > 64
-                        || !track.bytes().enumerate().all(|(index, byte)| {
-                            byte.is_ascii_lowercase()
-                                || index > 0 && (byte.is_ascii_digit() || byte == b'_')
-                        })
-                }) {
-                    return Err(WireError::Protocol(
-                        "notification track_name is invalid".to_owned(),
-                    ));
+                if let Some(track_name) = source.track_name.as_deref() {
+                    validate_notification_track_name(track_name)?;
                 }
             }
             NotificationSource::AccountArtifact(_) => {
@@ -718,6 +741,114 @@ impl Notification {
             }
         }
         Ok(())
+    }
+}
+
+/// Counterpart for
+/// `notification.schema.json#/$defs/ordinary_projection_content`: the current
+/// content of one ordinary source-Event notification projection as it is
+/// delivered on the account-subscribe `notifications` channel.
+///
+/// Four members of [`Notification`] are deliberately absent, and the absence is
+/// the contract, not an omission: `id` is carried by the delta row, `schema` is
+/// implied by the channel, `actor_id` is the authenticated account, and `state`
+/// stays in the holder-private inbox
+/// (`ak.notifications.inbox.<notification_id>` plus the read cursor). A Station
+/// that put any of them on this row would be publishing a second source of
+/// truth for inbox disposition. [`Self::into_notification`] is the only way
+/// back to a full object, and it takes those four from the receiver's own
+/// state.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrdinaryProjectionContent {
+    pub realm_id: RealmId,
+    pub source_event_id: EventId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_ref: Option<NotificationSourceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strand_id: Option<StrandId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track_name: Option<String>,
+    pub notification_kind: OrdinaryNotificationKind,
+    pub priority: NotificationPriority,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<BTreeMap<String, Value>>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl OrdinaryProjectionContent {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(track_name) = self.track_name.as_deref() {
+            validate_notification_track_name(track_name)?;
+        }
+        Ok(())
+    }
+
+    /// Recompute the deterministic projection identity this row must carry.
+    ///
+    /// The recipient is the authenticated account, never a wire field, so a
+    /// Station cannot hand a client a row addressed to somebody else.
+    pub fn derive_id(&self, recipient_account_id: &AccountId) -> Result<NotificationProjectionId> {
+        derive_notification_projection_id(
+            recipient_account_id,
+            &self.realm_id,
+            &self.source_event_id,
+            self.notification_kind,
+        )
+    }
+
+    /// Compare the recomputed identity against the delivered row id byte for
+    /// byte. A mismatch means the row is discarded, not repaired.
+    pub fn verify_id(
+        &self,
+        recipient_account_id: &AccountId,
+        delivered_id: &NotificationProjectionId,
+    ) -> Result<()> {
+        self.validate()?;
+        if &self.derive_id(recipient_account_id)? != delivered_id {
+            return Err(WireError::Protocol(
+                "ordinary notification row id does not bind its own projection inputs".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Rebuild the display-side [`Notification`] from this row plus the four
+    /// members the wire deliberately does not carry.
+    pub fn into_notification(
+        self,
+        recipient_account_id: &AccountId,
+        delivered_id: NotificationProjectionId,
+        state: NotificationState,
+    ) -> Result<Notification> {
+        self.verify_id(recipient_account_id, &delivered_id)?;
+        let notification = Notification {
+            id: NotificationIdentity::Projection(delivered_id),
+            schema: NotificationSchema::V1,
+            actor_id: ActorId::account(recipient_account_id.clone()),
+            source: NotificationSource::Event(NotificationEventSource {
+                source_event_id: self.source_event_id,
+                realm_id: Some(self.realm_id),
+                source_ref: self.source_ref,
+                strand_id: self.strand_id,
+                track_name: self.track_name,
+            }),
+            notification_kind: self.notification_kind.into(),
+            priority: self.priority,
+            state,
+            preview: self.preview,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+        };
+        notification.validate()?;
+        Ok(notification)
     }
 }
 
@@ -978,17 +1109,26 @@ mod notification_tests {
         .unwrap();
         let realm = RealmId::new("ak:realm:AdF_8ICakbYdEH0Cnl-w5o1WFlnh5rXGWqY_-_G6yM7N").unwrap();
         let event = EventId::new("ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq").unwrap();
-        let id =
-            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Message)
-                .unwrap();
+        let id = derive_notification_projection_id(
+            &account,
+            &realm,
+            &event,
+            OrdinaryNotificationKind::Message,
+        )
+        .unwrap();
         assert_eq!(
             id.as_str(),
             "ak:notification_projection:AdaNq4qN-xTAcv8kCT3P9mL5AsSzg0PFlSELggvhw2Pw"
         );
         assert_eq!(
             id,
-            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Message)
-                .unwrap()
+            derive_notification_projection_id(
+                &account,
+                &realm,
+                &event,
+                OrdinaryNotificationKind::Message
+            )
+            .unwrap()
         );
         let mut other_account = account.clone();
         other_account.station_id =
@@ -999,23 +1139,25 @@ mod notification_tests {
                 &other_account,
                 &realm,
                 &event,
-                &NotificationKind::Message
+                OrdinaryNotificationKind::Message
             )
             .unwrap()
         );
         assert_ne!(
             id,
-            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Mention)
-                .unwrap()
+            derive_notification_projection_id(
+                &account,
+                &realm,
+                &event,
+                OrdinaryNotificationKind::Mention
+            )
+            .unwrap()
         );
-        assert!(
-            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Agent)
-                .is_err()
-        );
-        assert!(
-            derive_notification_projection_id(&account, &realm, &event, &NotificationKind::Invite)
-                .is_err()
-        );
+        // The two carrier-owning categories are excluded by the type, not by a
+        // runtime check every producer has to remember.
+        for excluded in [NotificationKind::Agent, NotificationKind::Invite] {
+            assert!(OrdinaryNotificationKind::try_from(&excluded).is_err());
+        }
         let inbox = NotificationInboxValue {
             notification_id: id.into(),
             state: NotificationInboxState::Archived,
@@ -1034,7 +1176,7 @@ mod notification_tests {
                 &other_account,
                 &realm,
                 &event,
-                &NotificationKind::Message
+                OrdinaryNotificationKind::Message
             )
             .unwrap()
         );

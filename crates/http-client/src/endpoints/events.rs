@@ -51,7 +51,7 @@ use crate::{Client, ClientRequestOptions, Error, Result, reject_path_segment};
 
 const MAX_EVENTS_QUERY_PAGES: usize = 100;
 
-fn query_method() -> Method {
+pub(crate) fn query_method() -> Method {
     Method::from_bytes(b"QUERY").expect("QUERY is a valid registered HTTP method")
 }
 
@@ -182,7 +182,7 @@ impl Client {
         Ok(outcome)
     }
 
-    async fn events_read_query<T, B>(&self, path: &str, body: &B) -> Result<T>
+    pub(crate) async fn events_read_query<T, B>(&self, path: &str, body: &B) -> Result<T>
     where
         T: DeserializeOwned,
         B: Serialize + ?Sized,
@@ -874,6 +874,17 @@ impl Client {
     }
 
     /// Request the exact Station-validated body for a device-signed PCR Seal.
+    ///
+    /// The Station holds a durable signing-slot fence, so this call is a retry
+    /// **only** when it re-sends byte-identical canonical bytes: hold one
+    /// [`SealPrepareRequestBody`] value and pass that same value again. Do not
+    /// regenerate `hlc`, re-order `event_digests` or re-collect
+    /// `predecessor_refs` on a retry — that is a second request, and
+    /// [`arkret_wire::ErrorCode::SealSignerSlotFenced`] (409) refuses it so
+    /// that the position cannot yield a second signable body while a device may
+    /// already have signed the first one offline. On that error, re-send the
+    /// original request to take back the original body, or discover pending
+    /// Control Moves again once the predecessor basis has actually advanced.
     pub async fn seals_prepare(
         &self,
         request: &SealPrepareRequestBody,

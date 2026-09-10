@@ -12,12 +12,6 @@ use arkret_models_collaboration::governance::agent_participation::{
 use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
-use arkret_models_collaboration::{
-    SelfCurrentSignerEvidenceQueryOutcome, SelfCurrentSignerEvidenceQueryRequestBody,
-};
-use arkret_models_identity::agent_signer_evidence::{
-    AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBody,
-};
 use arkret_wire::{RealmId, SidecarId};
 use reqwest::Method;
 
@@ -25,49 +19,10 @@ use crate::{Client, Error, Result};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
-const AGENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/agent-signer-evidence/query";
-const CURRENT_SIGNER_EVIDENCE_QUERY_PATH: &str = "/_arkret/self/current-signer-evidence/query";
 const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
-    /// Check current signing authority once through the recipient’s own Station.
-    pub async fn current_signer_evidence_query(
-        &self,
-        request: &SelfCurrentSignerEvidenceQueryRequestBody,
-    ) -> Result<SelfCurrentSignerEvidenceQueryOutcome> {
-        request.validate()?;
-        let builder = self.request(Method::POST, CURRENT_SIGNER_EVIDENCE_QUERY_PATH)?;
-        let builder = self.canonical_json_body(builder, request)?;
-        let outcome: SelfCurrentSignerEvidenceQueryOutcome = self
-            .send_json_limited(
-                builder,
-                arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
-            )
-            .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
-    /// `POST /_arkret/self/agent-signer-evidence/query`
-    /// (`ak.self.agent_signer_evidence.read.resolve.v1`).
-    pub async fn agent_signer_evidence_query(
-        &self,
-        request: &AgentSignerEvidenceQueryRequestBody,
-    ) -> Result<AgentSignerEvidenceQueryOutcome> {
-        request.validate()?;
-        let builder = self.request(Method::POST, AGENT_SIGNER_EVIDENCE_QUERY_PATH)?;
-        let builder = self.canonical_json_body(builder, request)?;
-        let outcome: AgentSignerEvidenceQueryOutcome = self
-            .send_json_limited(
-                builder,
-                arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
-            )
-            .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
     /// `POST /_arkret/gate/account/agent-key-pair`
     /// (`ak.gate.account.command.pair_agent_key.v1`).
     pub async fn agent_key_pair(

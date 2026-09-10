@@ -17,6 +17,11 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
     DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
+#[cfg(all(test, not(target_arch = "wasm32")))]
+use arkret_models_collaboration::session_grant_bodies::{
+    AgentSessionGrantProof, AgentSessionGrantProofKind, AgentSessionGrantRequest,
+    SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof,
+};
 use arkret_models_collaboration::session_grant_bodies::{
     SessionGrantOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
 };
@@ -530,7 +535,6 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use arkret_models_collaboration::sync_frames::client_sync::SyncFilter;
-    use arkret_wire::RealmId;
     use url::Url;
 
     use super::*;
@@ -595,27 +599,47 @@ mod tests {
         raw
     }
 
+    /// Built from the wire structs rather than a JSON literal: the literal this
+    /// replaced still carried a retired `nonce` member and no `issued_at`, and
+    /// nothing failed until the body was actually deserialized at run time.
     #[cfg(not(target_arch = "wasm32"))]
     fn session_grant_request() -> SessionGrantRequestBody {
-        serde_json::from_value(serde_json::json!({
-            "principal_id": "ak:did_core:web:agent.example",
-            "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "requested_scope": ["ak.message.create"],
-            "agent_key_authorization_ref": "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
-            "agent_scope_request": {},
-            "dpop_binding_proof": {"proof_jwt": "holder.proof.jwt"},
-            "proof": {
-                "proof_kind": "agent_key_proof",
-                "challenge": "0123456789abcdef",
-                "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
-                "audience_id": "ak:did_core:web:service.example",
-                "expires_at": "2026-08-08T12:04:00.000Z",
-                "signature": "detached.jws",
-                "verification_method": "did:web:agent.example#runtime-key-1",
-                "nonce": "agent-nonce"
-            }
-        }))
-        .unwrap()
+        SessionGrantRequestBody::Agent(AgentSessionGrantRequest {
+            principal_id: arkret_wire::DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
+            device_id: arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000041")
+                .unwrap(),
+            requested_scope: vec!["ak.message.create".to_owned()],
+            agent_key_authorization_ref: "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g"
+                .to_owned(),
+            agent_scope_request: SessionGrantAgentScopeRequest {
+                realm_ids: Vec::new(),
+                strand_ids: Vec::new(),
+                track_names: Vec::new(),
+            },
+            requested_scope_disclosure: None,
+            dpop_binding_proof: SessionGrantDpopBindingProof {
+                proof_jwt: "holder.proof.jwt".to_owned(),
+            },
+            applet_authority: None,
+            proof: AgentSessionGrantProof {
+                proof_kind: AgentSessionGrantProofKind::AgentKeyProof,
+                challenge: arkret_wire::base64url::base64url_encode([0u8; 16]),
+                request_canonical_digest: arkret_wire::Hash::new(format!(
+                    "sha256:{}",
+                    "00".repeat(32)
+                ))
+                .unwrap(),
+                audience_id: arkret_wire::DidCoreId::new("ak:did_core:web:service.example")
+                    .unwrap(),
+                issued_at: "2026-08-08T12:00:00.000Z".parse().unwrap(),
+                expires_at: "2026-08-08T12:04:00.000Z".parse().unwrap(),
+                verification_method: arkret_wire::DidUrl::new(
+                    "did:web:agent.example#runtime-key-1",
+                )
+                .unwrap(),
+                signature: "detached.jws".to_owned(),
+            },
+        })
     }
 
     #[cfg(not(target_arch = "wasm32"))]

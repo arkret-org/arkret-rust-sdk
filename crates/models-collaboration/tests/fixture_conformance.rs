@@ -28,8 +28,16 @@ fn history_response_stream_fixture_uses_production_wire_helpers() {
     let list: HistoryKeyResponseListOutcome =
         serde_json::from_value(kat["wire_instances"]["sequence_ordered_list"].clone()).unwrap();
     list.validate().unwrap();
-    let empty: HistoryKeyResponseListOutcome =
-        serde_json::from_value(json!({"entries": [], "limited": false})).unwrap();
+    // Built from the struct, not from a JSON literal: the literal this replaced
+    // silently stopped matching the type when `source_signer_results` landed.
+    let empty = HistoryKeyResponseListOutcome {
+        entries: Vec::new(),
+        source_signer_results: Vec::new(),
+        cipher_suite: None,
+        ack_token: None,
+        cursor: None,
+        limited: false,
+    };
     empty.validate().unwrap();
     assert!(empty.ack_token.is_none());
     let mut ackable_empty = empty;
