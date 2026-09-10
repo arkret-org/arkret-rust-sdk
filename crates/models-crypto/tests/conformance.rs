@@ -1,6 +1,7 @@
 use arkret_canonical::{base64url, canonical};
 use arkret_models_crypto::{
-    EncryptedEnvelope, MlsCommitEnvelope, MlsCommitPayload, MlsGovernanceBindingPayload,
+    EncryptedEnvelope, MAX_EVENT_CONTENT_INTEGER, MlsCommitEnvelope, MlsCommitPayload,
+    MlsGovernanceBindingPayload,
 };
 use arkret_schema_conformance::{event_payload_validator_catalog, spec_json_artifact};
 use arkret_wire::{EncryptedPayloadScheme, EventId, Hash, ProfileId, RealmId, ScopeRef};
@@ -20,8 +21,8 @@ fn encrypted_envelope_wire() -> serde_json::Value {
 }
 
 #[test]
-fn encrypted_envelope_wire_preserves_scheme_branch_and_full_width_counter() {
-    for counter in [None, Some(0), Some(1), Some(u64::MAX)] {
+fn encrypted_envelope_wire_preserves_scheme_branch_and_canonical_range_counter() {
+    for counter in [None, Some(0), Some(1), Some(MAX_EVENT_CONTENT_INTEGER)] {
         let mut wire = encrypted_envelope_wire();
         if let Some(counter) = counter {
             wire["encryption_context"]["counter"] = counter.into();
@@ -58,6 +59,9 @@ fn encrypted_envelope_invalid_counter_cannot_fall_back_to_standard_mls() {
         serde_json::json!("0"),
         serde_json::json!(-1),
         serde_json::json!(0.5),
+        // encoding.md section 1 bounds canonical JSON integers; a counter
+        // past that bound is not a wider counter, it is an invalid envelope.
+        serde_json::json!(MAX_EVENT_CONTENT_INTEGER + 1),
     ] {
         let mut wire = encrypted_envelope_wire();
         wire["encryption_context"]["counter"] = invalid;
