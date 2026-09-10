@@ -13,6 +13,7 @@ mod mimi;
 mod moderation;
 mod peer;
 mod push;
+mod realm_join;
 mod security;
 mod signal;
 

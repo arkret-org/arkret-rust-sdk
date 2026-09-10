@@ -1178,7 +1178,13 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn list_key_backups_includes_series_id_query() {
-        let (client, capture) = spawn_capture_server(r#"{"backups":[],"has_more":false}"#).await;
+        // `active_series` is a required member of the page: the client is
+        // handed the accepted PCR-basis pointer alongside the rows, so a
+        // response without it is not a page this client can accept.
+        let (client, capture) = spawn_capture_server(
+            r#"{"backups":[],"active_series":{"account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:service.example"},"control_realm_id":"ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19","seal_basis":{"leaves":["ak:seal:sha256:0000000000000000000000000000000000000000000000000000000000000000"]},"secret_storage":{"state":"absent"},"mls_history":{"state":"absent"}},"has_more":false}"#,
+        )
+        .await;
         let query = arkret_models_crypto::KeyBackupsListQuery {
             series_id: Some(
                 arkret_wire::BackupSeriesId::new(

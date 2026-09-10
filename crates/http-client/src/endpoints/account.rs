@@ -609,10 +609,10 @@ mod tests {
                 "challenge": "0123456789abcdef",
                 "request_canonical_digest": format!("sha256:{}", "00".repeat(32)),
                 "audience_id": "ak:did_core:web:service.example",
+                "issued_at": "2026-08-08T12:00:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "detached.jws",
-                "verification_method": "did:web:agent.example#runtime-key-1",
-                "nonce": "agent-nonce"
+                "verification_method": "did:web:agent.example#runtime-key-1"
             }
         }))
         .unwrap()

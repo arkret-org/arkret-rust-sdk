@@ -533,8 +533,10 @@ impl InviteDelivery {
     pub const SCHEMA: &'static str = SchemaId::INVITE_DELIVERY_V1;
     /// Registered `maxItems` bound on `entries`; overflow evicts the oldest.
     pub const MAX_ENTRIES: usize = 200;
-    /// Schema bounds on `invite_token` (`minLength: 1`, `maxLength: 512`).
-    pub const INVITE_TOKEN_MAX_LENGTH: usize = 512;
+    /// Schema bounds on `invite_token` (`minLength: 1`, `maxLength: 512`),
+    /// defined once in `arkret-wire` because the same credential rides three
+    /// other carriers.
+    pub const INVITE_TOKEN_MAX_LENGTH: usize = arkret_wire::INVITE_TOKEN_MAX_CHARS;
 
     /// Constructor that pins the canonical schema discriminator.
     pub fn new(updated_at: DateTime<Utc>, entries: Vec<InviteDeliveryEntry>) -> Self {
@@ -601,13 +603,7 @@ pub struct InviteDeliveryEntry {
 
 impl InviteDeliveryEntry {
     pub fn validate(&self) -> Result<()> {
-        let token_length = self.invite_token.chars().count();
-        if token_length == 0 || token_length > InviteDelivery::INVITE_TOKEN_MAX_LENGTH {
-            return Err(WireError::Protocol(
-                "invite_delivery entry invite_token must be 1..=512 characters".to_owned(),
-            ));
-        }
-        Ok(())
+        arkret_wire::validate_invite_token("invite_delivery entry", &self.invite_token)
     }
 }
 
