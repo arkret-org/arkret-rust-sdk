@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-10.21;
-//! sha256=70943fa8639d8d4c48718baee319017d879f0444dd8bad3d8573e70b2b762290 Entries: schema_ids=223,
+//! Input: registry/schema-registry.json; version=2026-09-11.1;
+//! sha256=096690d39d72cabec2bbf6b024e3e6d188e0eed3860ba6ca5af75283b0486e77 Entries: schema_ids=223,
 //! active=223
 
 use serde::{Deserialize, Serialize};
@@ -1131,8 +1131,10 @@ impl SchemaId {
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
     /// Bounded join bootstrap material: effective join_rule, complete accepted seal_basis, live
-    /// digest suite, encryption profile and one dependency bundle per basis leaf. It is purpose
-    /// limited and expiring, never membership or a governance read grant.
+    /// digest suite, encryption profile, one dependency bundle per basis leaf, the
+    /// exact-precondition proof for the single control cell of this intent, and the applicant's own
+    /// predecessor Events as unverified authoring input. It is purpose limited and expiring, never
+    /// membership, never a governance read grant and never a frontier completeness proof.
     pub const REALM_JOIN_BOOTSTRAP_OUTCOME_V1: &'static str =
         "ak.schema.realm_join_bootstrap_outcome.v1";
     /// Authenticated service-to-service request for the bounded material required to author and

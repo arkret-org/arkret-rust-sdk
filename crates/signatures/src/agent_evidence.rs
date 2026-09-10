@@ -1590,7 +1590,11 @@ mod digest_domain_tests {
     }
 
     #[test]
-    fn authorization_digest_hashes_raw_key_not_runtime_jwk() {
+    fn both_runtime_key_projections_hash_the_same_raw_key() {
+        // v1 has one Agent runtime key digest domain: the raw 32-byte key. The request and
+        // authorization projections therefore agree by construction, and a digest taken over the
+        // runtime JWK is not that domain. Two domains used to exist, and comparing across them
+        // made every server answer look like a different runtime, so the equality is the guard.
         let public_key = AgentSigningPublicKey {
             kty: NonEmptyString::new("OKP").unwrap(),
             algorithm: NonEmptyString::new("Ed25519").unwrap(),
@@ -1608,7 +1612,11 @@ mod digest_domain_tests {
             authorization_digest.as_str(),
             "sha256:544e62cee8033709e389e5b2755343d0d0fa8c4850215cfb6331717e80d1aea3"
         );
-        assert_ne!(authorization_digest, runtime_request_digest);
+        assert_eq!(authorization_digest, runtime_request_digest);
+        assert_ne!(
+            authorization_digest.as_str(),
+            arkret_canonical::canonical_sha256(&public_key).unwrap()
+        );
     }
 
     #[test]

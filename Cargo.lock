@@ -211,6 +211,7 @@ dependencies = [
  "arkret-models-collaboration",
  "arkret-models-identity",
  "arkret-schema",
+ "arkret-signatures",
  "arkret-state",
  "arkret-wire",
  "chrono",

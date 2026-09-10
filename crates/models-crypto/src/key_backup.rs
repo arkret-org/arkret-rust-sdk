@@ -6,7 +6,7 @@ use arkret_canonical::{
     decode_multibase_base58btc, decode_multicodec_varint, encode_multibase_base58btc,
 };
 use arkret_wire::{
-    AccountId, ActorId, AttestationId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole,
+    AccountId, ActorId, AuditReasonText, AuthoritySetIssuer, AuthoritySetIssuerRole,
     AuthorizationLease, BackupId, BackupObjectRef, BackupRotationBinding, BackupRotationKind,
     BackupSeriesId, Base64UrlString, CbsProofBundle, ControlProposalAck, Cursor, DeviceId,
     DidCoreId, DidUrl, EpochRange, Event, EventId, EventInitialSubmission, EventKind,
@@ -19,10 +19,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::artifacts_keys::{
-    KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryPolicyRef, RecoveryShareHolder,
-    ShareShareCommitment,
-};
+use crate::artifacts_keys::{KeyBackupUnlockProof, RecoveryIdentityModel, RecoveryPolicyRef};
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -253,12 +250,12 @@ pub enum KeyBackupDeleteProof {
     },
     /// Trusted recovery service proof. The service is never a sufficient factor
     /// on its own: the referenced recovery session MUST be unexpired, unconsumed
-    /// and established by recovery unlock or device quorum.
+    /// and established by recovery unlock or device quorum. v1 carries no
+    /// attestation reference here: the recovery policy has no attestation
+    /// switch, so the field would be an unverified configuration surface.
     TrustedRecoveryService {
         service_id: DidCoreId,
         recovery_session_id: RecoverySessionId,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        attestation_ref: Option<AttestationId>,
         proof: PayloadProof,
     },
 }
@@ -1900,9 +1897,10 @@ pub struct RecoveryPolicy {
     pub supersedes_id: Option<PolicyId>,
     pub trust_domain: TrustDomainId,
     pub methods: Vec<RecoveryMethod>,
-    /// Two-person-rule / cooldown enforcement layered on the proofs.
+    /// Minimum wall-clock delay between recovery session creation and proof
+    /// acceptance. Absence means no delay.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub approval_requirement: Option<RecoveryApprovalRequirement>,
+    pub cooldown_seconds: Option<u64>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1946,41 +1944,13 @@ impl RecoveryPolicy {
             }
         }
         let mut used_keys = BTreeSet::new();
-        let mut used_shares = BTreeSet::new();
-        match proof {
-            Some(crate::RecoverySessionProof::RecoveryUnlock(proof)) => {
-                used_keys.insert(proof.verification_method.as_str());
-            }
-            Some(crate::RecoverySessionProof::ThresholdRecovery(proof)) => {
-                for method in &self.methods {
-                    if let RecoveryMethod::ThresholdRecovery {
-                        publication_key, ..
-                    } = method
-                    {
-                        used_keys.insert(publication_key.verification_method.as_str());
-                    }
-                }
-                for release in &proof.share_releases {
-                    used_shares.insert(release.share_id.as_str());
-                }
-            }
-            _ => {}
+        if let Some(crate::RecoverySessionProof::RecoveryUnlock(proof)) = proof {
+            used_keys.insert(proof.verification_method.as_str());
         }
         for method in &self.methods {
             for key in method.signing_keys() {
                 if used_keys.contains(key.verification_method.as_str()) && !key.active_at(now) {
                     return Err(denied());
-                }
-            }
-            if let RecoveryMethod::ThresholdRecovery { shares, .. } = method {
-                for share in shares {
-                    if used_shares.contains(share.share_id.as_str())
-                        && (share.not_before.is_some_and(|at| now < at)
-                            || share.expires_at.is_some_and(|at| now >= at)
-                            || share.revoked_at.is_some_and(|at| now >= at))
-                    {
-                        return Err(denied());
-                    }
                 }
             }
         }
@@ -1993,14 +1963,6 @@ impl RecoveryPolicy {
                     if used_keys.contains(key.verification_method.as_str())
                         && key.revoked_at.is_some_and(|at| now >= at)
                     {
-                        return Err(denied());
-                    }
-                }
-                if let RecoveryMethod::ThresholdRecovery { shares, .. } = method {
-                    if shares.iter().any(|share| {
-                        used_shares.contains(share.share_id.as_str())
-                            && share.revoked_at.is_some_and(|at| now >= at)
-                    }) {
                         return Err(denied());
                     }
                 }
@@ -2060,7 +2022,7 @@ impl RecoveryPolicy {
         let mut kinds = BTreeSet::new();
         let mut signing_refs = BTreeSet::new();
         let mut recipient_refs = BTreeSet::new();
-        if self.methods.len() > 5 {
+        if self.methods.len() > 4 {
             return Err(WireError::Protocol("too many recovery methods".to_owned()));
         }
         for method in &self.methods {
@@ -2145,16 +2107,6 @@ impl RecoveryPolicy {
                         .collect(),
                     1,
                 ),
-                RecoveryMethod::ThresholdRecovery {
-                    publication_key, ..
-                } => (
-                    if publication_key.active_at(evaluated_at) {
-                        vec![publication_key.verification_method.clone()]
-                    } else {
-                        Vec::new()
-                    },
-                    1,
-                ),
                 RecoveryMethod::DeviceQuorum { k, member_ids } => {
                     let methods = member_ids
                         .iter()
@@ -2168,12 +2120,12 @@ impl RecoveryPolicy {
                         .collect::<Result<Vec<_>>>()?;
                     (methods, *k)
                 }
-                RecoveryMethod::TrustedRecoveryService { k, services } => (
+                RecoveryMethod::TrustedRecoveryService { services } => (
                     services
                         .iter()
                         .map(|s| s.authorization_verification_method.clone())
                         .collect(),
-                    *k,
+                    1,
                 ),
             };
             methods.sort();
@@ -2214,17 +2166,7 @@ pub enum RecoveryMethod {
         k: u32,
         member_ids: Vec<DeviceId>,
     },
-    ThresholdRecovery {
-        k: u32,
-        shares: Vec<RecoveryShare>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        vss_root_commitment: Option<Hash>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        reshare_policy: Option<RecoveryResharePolicy>,
-        publication_key: RecoveryKeyEntry,
-    },
     TrustedRecoveryService {
-        k: u32,
         services: Vec<RecoveryTrustedService>,
     },
 }
@@ -2235,16 +2177,12 @@ impl RecoveryMethod {
             Self::DidRoot {} => RecoveryProofKind::DidRoot,
             Self::RecoveryUnlock { .. } => RecoveryProofKind::RecoveryUnlock,
             Self::DeviceQuorum { .. } => RecoveryProofKind::DeviceQuorum,
-            Self::ThresholdRecovery { .. } => RecoveryProofKind::ThresholdRecovery,
             Self::TrustedRecoveryService { .. } => RecoveryProofKind::TrustedRecoveryService,
         }
     }
     pub fn signing_keys(&self) -> Vec<&RecoveryKeyEntry> {
         match self {
             Self::RecoveryUnlock { keys } => keys.iter().collect(),
-            Self::ThresholdRecovery {
-                publication_key, ..
-            } => vec![publication_key],
             _ => Vec::new(),
         }
     }
@@ -2257,16 +2195,8 @@ impl RecoveryMethod {
                     && *k as usize <= member_ids.len()
                     && member_ids.iter().collect::<BTreeSet<_>>().len() == member_ids.len()
             }
-            Self::ThresholdRecovery { k, shares, .. } => {
-                let holders = shares
-                    .iter()
-                    .map(|s| serde_json::to_string(&s.holder))
-                    .collect::<std::result::Result<BTreeSet<_>, _>>()?;
-                *k >= 2 && *k as usize <= holders.len() && holders.len() == shares.len()
-            }
-            Self::TrustedRecoveryService { k, services } => {
-                *k >= 1
-                    && *k as usize <= services.len()
+            Self::TrustedRecoveryService { services } => {
+                !services.is_empty()
                     && services.len() <= 32
                     && services
                         .iter()
@@ -2278,7 +2208,7 @@ impl RecoveryMethod {
         };
         if !valid {
             return Err(WireError::Protocol(
-                "recovery method has invalid threshold, empty members or duplicate holders"
+                "recovery method has invalid threshold, empty members or duplicate entries"
                     .to_owned(),
             ));
         }
@@ -2296,7 +2226,7 @@ pub struct UnsignedRecoveryPolicyBody {
     pub supersedes_id: Option<PolicyId>,
     pub trust_domain: TrustDomainId,
     pub methods: Vec<RecoveryMethod>,
-    pub approval_requirement: Option<RecoveryApprovalRequirement>,
+    pub cooldown_seconds: Option<u64>,
     pub issued_at: DateTime<Utc>,
     pub not_before: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -2340,7 +2270,7 @@ impl UnsignedRecoveryPolicy {
             supersedes_id: body.supersedes_id,
             trust_domain: body.trust_domain,
             methods: body.methods,
-            approval_requirement: body.approval_requirement,
+            cooldown_seconds: body.cooldown_seconds,
             issued_at: body.issued_at,
             not_before: body.not_before,
             expires_at: body.expires_at,
@@ -2369,14 +2299,14 @@ fn recovery_policy_unsigned_value(body: &UnsignedRecoveryPolicyBody) -> Result<V
         "supersedes_id": &body.supersedes_id,
         "trust_domain": &body.trust_domain,
         "methods": &body.methods,
-        "approval_requirement": &body.approval_requirement,
+        "cooldown_seconds": &body.cooldown_seconds,
         "issued_at": arkret_canonical::canonical::format_timestamp_canonical(body.issued_at),
         "not_before": body.not_before.map(arkret_canonical::canonical::format_timestamp_canonical),
         "expires_at": body.expires_at.map(arkret_canonical::canonical::format_timestamp_canonical),
     });
     let object = value.as_object_mut().expect("policy literal is an object");
     for (present, field) in [
-        (body.approval_requirement.is_some(), "approval_requirement"),
+        (body.cooldown_seconds.is_some(), "cooldown_seconds"),
         (body.not_before.is_some(), "not_before"),
         (body.expires_at.is_some(), "expires_at"),
     ] {
@@ -2551,48 +2481,6 @@ pub struct RecoveryPolicyPublishOutcome {
     pub accepted_at: DateTime<Utc>,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RecoveryReshareScheme {
-    None,
-    ProactiveVss,
-    ProactiveFeldman,
-    ServiceDefined,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryResharePolicy {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_share_age_seconds: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scheme: Option<RecoveryReshareScheme>,
-}
-
-/// `recovery-policy.schema.json#/$defs/share` — single recovery share.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RecoveryShare {
-    pub share_id: String,
-    #[serde(flatten)]
-    pub holder: RecoveryShareHolder,
-    pub transport: String,
-    pub share_commitment: ShareShareCommitment,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub not_before: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub expires_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_reason_code: Option<String>,
-}
-
 /// Deterministic projection of a signed methods entry and accepted authority
 /// evidence. This derived view is never a second signed policy configuration.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2615,8 +2503,6 @@ pub struct RecoveryTrustedService {
     pub service_id: DidCoreId,
     pub audience: NonEmptyString,
     pub authorization_verification_method: DidUrl,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub attestation_required: Option<bool>,
 }
 
 /// `recovery-policy.schema.json#/$defs/recovery_key_entry` — a recovery
@@ -2775,19 +2661,6 @@ fn validate_canonical_multibase(value: &str) -> Result<Vec<u8>> {
     Ok(decoded)
 }
 
-/// `recovery-policy.schema.json#/properties/approval_requirement`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RecoveryApprovalRequirement {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_approvals: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cooldown_seconds: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub announcement_required: Option<bool>,
-}
-
 /// `recovery-policy.schema.json#/properties/auth_data`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2813,8 +2686,6 @@ pub enum RecoveryProofKind {
     DeviceQuorum,
     /// External trusted recovery service (e.g. OIDC, custodian).
     TrustedRecoveryService,
-    /// Shamir threshold-share reconstruction.
-    ThresholdRecovery,
 }
 
 impl RecoveryProofKind {
@@ -2824,7 +2695,6 @@ impl RecoveryProofKind {
         Self::RecoveryUnlock,
         Self::DeviceQuorum,
         Self::TrustedRecoveryService,
-        Self::ThresholdRecovery,
     ];
 
     pub fn as_wire_str(self) -> &'static str {
@@ -2833,7 +2703,6 @@ impl RecoveryProofKind {
             Self::RecoveryUnlock => "recovery_unlock",
             Self::DeviceQuorum => "device_quorum",
             Self::TrustedRecoveryService => "trusted_recovery_service",
-            Self::ThresholdRecovery => "threshold_recovery",
         }
     }
 }
@@ -3164,12 +3033,9 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
 pub struct RecoveryProofSummary {
     pub kind: RecoveryProofKind,
     pub proof_digest: Hash,
-    /// Required for `device_quorum` and `threshold_recovery`.
+    /// Required for `device_quorum`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quorum_participant_count: Option<u32>,
-    /// Participating share ids when `kind = threshold_recovery`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub share_ids: Option<Vec<String>>,
 }
 
 /// `recovery-receipt.schema.json#/properties/unlocked_backups[]`.
@@ -3493,7 +3359,10 @@ mod recovery_method_tests {
         );
 
         let key: RecoveryKeyEntry = serde_json::from_value(
-            fixture["schema_validation_cases"][6]["instance"]["methods"][0]["publication_key"]
+            arkret_schema_conformance::spec_json_artifact("fixtures/key-backup-fixture.json")
+                .unwrap()
+                .pointer("/schema_validation_cases/3/instance/methods/0/keys/0")
+                .unwrap()
                 .clone(),
         )
         .unwrap();
@@ -3561,25 +3430,31 @@ mod recovery_method_tests {
     }
 
     #[test]
-    fn trusted_service_threshold_preserves_or_method_and_exact_authority_members() {
+    fn trusted_service_entries_are_or_alternatives_with_exact_authority_members() {
         let service = json!({
             "service_id":"ak:did_core:web:recovery.example",
             "audience":"https://station.example/recovery",
             "authorization_verification_method":"did:web:recovery.example#recovery"
         });
         let method: RecoveryMethod = serde_json::from_value(
-            json!({"kind":"trusted_recovery_service","k":1,"services":[service.clone()]}),
+            json!({"kind":"trusted_recovery_service","services":[service.clone()]}),
         )
         .unwrap();
         method.validate().unwrap();
         let duplicate: RecoveryMethod = serde_json::from_value(
-            json!({"kind":"trusted_recovery_service","k":2,"services":[service.clone(),service]}),
+            json!({"kind":"trusted_recovery_service","services":[service.clone(),service.clone()]}),
         )
         .unwrap();
         assert!(duplicate.validate().is_err());
         assert!(
             serde_json::from_value::<RecoveryMethod>(
-                json!({"kind":"trusted_recovery_service","k":1,"services":[{
+                json!({"kind":"trusted_recovery_service","k":1,"services":[service]})
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<RecoveryMethod>(
+                json!({"kind":"trusted_recovery_service","services":[{
                     "service_id":"ak:did_core:web:recovery.example",
                     "audience":"https://station.example/recovery",
                     "authorization_verification_method":"did:web:recovery.example#recovery",

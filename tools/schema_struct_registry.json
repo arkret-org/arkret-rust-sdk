@@ -812,22 +812,12 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::ThresholdRecoveryShareRelease",
-      "schema": "recovery-session.schema.json#/$defs/threshold_recovery_proof/properties/share_releases/items",
-      "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) RecoveryShareHolder carries holder_kind/holder_principal_id/holder_service_id; every declared non-flatten Rust field remains checked against schema properties."
-    },
-    {
       "rust_type": "crates/models-crypto/src/encrypted_envelope.rs::EncryptedEnvelope",
       "schema": "encrypted-envelope.schema.json"
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::KeysBackupsDeleteChallenge",
       "schema": "keys-operations.schema.json#/$defs/keys_backups_delete_challenge"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryApprovalRequirement",
-      "schema": "recovery-policy.schema.json#/properties/approval_requirement"
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryKeyAgreementEntry",
@@ -862,14 +852,8 @@
       "schema": "recovery-receipt.schema.json#/properties/auth_data"
     },
     {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryShare",
-      "schema": "recovery-policy.schema.json#/$defs/share",
-      "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) RecoveryShareHolder carries holder_kind/holder_principal_id/holder_service_id; every declared non-flatten Rust field remains checked against schema properties."
-    },
-    {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryTrustedService",
-      "schema": "recovery-policy.schema.json#/$defs/recovery_method/oneOf/4/properties/services/items"
+      "schema": "recovery-policy.schema.json#/$defs/recovery_method/oneOf/3/properties/services/items"
     },
     {
       "rust_type": "crates/models-crypto/src/keys.rs::DeviceProjectionAttestationCore",
@@ -1226,10 +1210,6 @@
     {
       "rust_type": "crates/models-collaboration/src/objects/object_facets.rs::DisplaySymbol",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['emoji', 'glyph'], Spec-only=['color_token', 'short_name', 'symbol']."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/artifacts_keys.rs::ShareShareCommitment",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['algorithm', 'commitment_b64u'], Spec-only=['expires_at', 'holder_kind', 'holder_principal_id?', 'holder_service_id?', 'not_before', 'revocation_reason_code', 'revoked_at', 'share_commitment', 'share_id', 'transport']."
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryBackupClassUnlocked",

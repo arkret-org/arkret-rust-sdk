@@ -2,14 +2,14 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-11.1;
-//! sha256=9c8b1279062921ba19f67e5adaf6b9f54cc00122d3a5e3cf5a0a5551bcde5b67 Input: registry/
-//! operation-registry.json; version=2026-09-10.25;
-//! sha256=d96f814c324b3de8ffd03d4b591e79532df7ed823612c876d4dd2b5cade22860 Input: registry/
+//! contract-registry.json; version=2026-09-11.2;
+//! sha256=9dadc499b6bbf9cf3adf9f73e530e64ca32e2ed56516b233414711d755a34090 Input: registry/
+//! operation-registry.json; version=2026-09-11.1;
+//! sha256=d8ad97f92aa1cb569ad6990935c7cc28371ec8c4b859f7fa08136b3b946a54a3 Input: registry/
 //! event-kind-registry.json; version=2026-09-11.1;
 //! sha256=3a43945bf7e4f68fcc6cd6a76de5e3bf45be4c0f059e5b8ddb786f64e206f780 Input: registry/
-//! schema-registry.json; version=2026-09-10.21;
-//! sha256=70943fa8639d8d4c48718baee319017d879f0444dd8bad3d8573e70b2b762290 Input: registry/
+//! schema-registry.json; version=2026-09-11.1;
+//! sha256=096690d39d72cabec2bbf6b024e3e6d188e0eed3860ba6ca5af75283b0486e77 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -809,7 +809,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 ];
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-11.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-10.21";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-10.25";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-11.1";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-11.1";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

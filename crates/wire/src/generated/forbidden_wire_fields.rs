@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=f9796c5d4a535514bbc7316f9f24d8af0a169d00a32590206ab5b8081ec41e02
-//! Entries: forbidden_wire_fields=261
+//! sha256=1ba728c6c6cd68504869a7315405377d9e4f7eeb72ecbc906d522bc0aebbcc93
+//! Entries: forbidden_wire_fields=260
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -3662,20 +3662,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         ],
         match_kind: "field",
         match_values: &["retention_policy"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "commitment_b64",
-        context: "recovery_policy.share_commitment",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "recovery-policy.schema.json#/$defs/share",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["commitment_b64"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

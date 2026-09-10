@@ -26,9 +26,10 @@ use std::fmt;
 use arkret_canonical::DigestSuite;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
-    AccountId, CbsProofBundle, ControlProposalDecisionReadOutcome, ControlProposalState,
-    EncryptionProfile, EventId, Hash, InviteId, JoinRule, Precondition, RealmId, RequestId, Result,
-    SchemaId, SealBasis, SealId, WireError, canonical, event_kind_str, framed_request_digest,
+    AccountId, ActorId, CbsProofBundle, CellRef, ControlProposalDecisionReadOutcome,
+    ControlProposalState, EncryptionProfile, Event, EventId, Hash, InviteId, JoinRule,
+    Precondition, RealmId, RequestId, Result, SchemaId, SealBasis, SealId, SemanticRefProof,
+    SemanticRefProofRootField, WireError, canonical, event_kind_str, framed_request_digest,
     validate_invite_token,
 };
 use chrono::{DateTime, Utc};
@@ -50,6 +51,17 @@ pub const MAX_REALM_JOIN_GATE_PROOFS: usize = 16;
 /// `peer_bootstrap_outcome.dependency_bundles` bound; it also equals the
 /// `seal_basis` leaf bound, because the array is one bundle per leaf.
 pub const MAX_REALM_JOIN_DEPENDENCY_BUNDLES: usize = 64;
+
+/// `realm_join_cell_state_proofs` bound. It is the same bound for the same
+/// reason: the array is one proof per `seal_basis` leaf.
+pub const MAX_REALM_JOIN_CELL_STATE_PROOFS: usize = 64;
+
+/// `realm_join_cell_state_proof.neighbors` bound. A sorted-neighbor
+/// non-membership proof needs at most the two leaves that bracket `cell_id`.
+pub const MAX_REALM_JOIN_ABSENCE_NEIGHBORS: usize = 2;
+
+/// `peer_bootstrap_outcome.applicant_predecessor_events` bound.
+pub const MAX_REALM_JOIN_PREDECESSOR_EVENTS: usize = 64;
 
 /// Enforce one carrier's registered `x-arkret-max-canonical-bytes`.
 ///
@@ -201,6 +213,252 @@ impl RealmJoinGovernanceFacts {
     }
 }
 
+/// Whether one control cell is written under one `seal_basis` leaf.
+///
+/// `absent` is the never-written case, and it is what makes the `null` join
+/// result derivable at all: a Station that simply omitted the proof would be
+/// indistinguishable from one that could not build it.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmJoinCellPresence {
+    Present,
+    Absent,
+}
+
+/// Value-or-absence proof for one control cell against exactly one
+/// `seal_basis` leaf.
+///
+/// Nothing here is authoritative. `present` carries the audit path of the
+/// cell's `state_root` leaf, so the verifier reads the exact state object out
+/// of `leaf_canonical_preimage_b64u` instead of trusting a declared value;
+/// `absent` carries the sorted-neighbor non-membership proof for the same
+/// `cell_id` under the same root. Both forms MUST recompute the `state_root`
+/// the verifier itself derived for `seal_ref`, which is a step this structural
+/// check deliberately does not perform.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmJoinCellStateProof {
+    /// Exact cell this proof decides. The requesting Station derives it from
+    /// the applicant's own complete `AccountId` or account `ActorId`; a
+    /// holder-declared subject is never a source.
+    pub cell_id: CellRef,
+    /// Exact `seal_basis` leaf this proof is evaluated against.
+    pub seal_ref: SealId,
+    pub presence: RealmJoinCellPresence,
+    /// Present exactly when `presence` is `present`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inclusion: Option<SemanticRefProof>,
+    /// Present exactly when `presence` is `absent`. Zero items assert the
+    /// empty-tree root, one item is a boundary neighbour, and two items MUST
+    /// carry adjacent `leaf_index` values.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub neighbors: Option<Vec<SemanticRefProof>>,
+}
+
+impl RealmJoinCellStateProof {
+    pub fn validate_structural(&self) -> Result<()> {
+        match (self.presence, &self.inclusion, &self.neighbors) {
+            (RealmJoinCellPresence::Present, Some(inclusion), None) => {
+                inclusion.validate_structural()?;
+                if inclusion.root_field != SemanticRefProofRootField::StateRoot {
+                    return Err(WireError::Protocol(
+                        "Realm join cell inclusion proof must resolve against state_root"
+                            .to_owned(),
+                    ));
+                }
+                Ok(())
+            }
+            (RealmJoinCellPresence::Absent, None, Some(neighbors)) => {
+                if neighbors.len() > MAX_REALM_JOIN_ABSENCE_NEIGHBORS {
+                    return Err(WireError::Protocol(format!(
+                        "Realm join cell absence proof carries more than {MAX_REALM_JOIN_ABSENCE_NEIGHBORS} neighbors"
+                    )));
+                }
+                for neighbor in neighbors {
+                    neighbor.validate_structural()?;
+                    if neighbor.root_field != SemanticRefProofRootField::StateRoot {
+                        return Err(WireError::Protocol(
+                            "Realm join cell absence proof must resolve against state_root"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                if let [left, right] = neighbors.as_slice() {
+                    if left == right {
+                        return Err(WireError::Protocol(
+                            "Realm join cell absence proof repeats one neighbor".to_owned(),
+                        ));
+                    }
+                    // Two neighbours only bracket `cell_id` if nothing can sit
+                    // between them, and a pair that disagrees about the tree
+                    // size is not a pair of neighbours in one tree at all.
+                    if left.leaf_count != right.leaf_count
+                        || right.leaf_index != left.leaf_index.saturating_add(1)
+                    {
+                        return Err(WireError::Protocol(
+                            "Realm join cell absence neighbors must be adjacent leaves of one tree"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                if let [only] = neighbors.as_slice() {
+                    // A single neighbour asserts that `cell_id` falls outside
+                    // the tree, so it MUST be a boundary leaf; an interior leaf
+                    // leaves both sides unproven.
+                    if only.leaf_index != 0 && only.leaf_index + 1 != only.leaf_count {
+                        return Err(WireError::Protocol(
+                            "a single Realm join absence neighbor must be a boundary leaf"
+                                .to_owned(),
+                        ));
+                    }
+                }
+                Ok(())
+            }
+            (RealmJoinCellPresence::Present, ..) => Err(WireError::Protocol(
+                "a present Realm join cell proof requires an inclusion path and no neighbors"
+                    .to_owned(),
+            )),
+            (RealmJoinCellPresence::Absent, ..) => Err(WireError::Protocol(
+                "an absent Realm join cell proof requires neighbors and no inclusion path"
+                    .to_owned(),
+            )),
+        }
+    }
+}
+
+/// Exactly one [`RealmJoinCellStateProof`] per `seal_basis` leaf, for one and
+/// the same `cell_id`, in the same canonical leaf order as `seal_basis.leaves`
+/// and `dependency_bundles`.
+///
+/// A missing leaf, a repeated leaf, a leaf outside the returned basis or a
+/// second `cell_id` is a schema violation: the requesting Station joins the
+/// per-leaf results under the registered lattice rules for that cell and never
+/// accepts one leaf as the whole basis.
+fn validate_cell_state_proofs(
+    proofs: &[RealmJoinCellStateProof],
+    leaves: &[SealId],
+    what: &str,
+) -> Result<()> {
+    if proofs.is_empty() || proofs.len() > MAX_REALM_JOIN_CELL_STATE_PROOFS {
+        return Err(WireError::Protocol(format!(
+            "{what} requires 1..={MAX_REALM_JOIN_CELL_STATE_PROOFS} cell state proofs"
+        )));
+    }
+    if proofs.len() != leaves.len() {
+        return Err(WireError::Protocol(format!(
+            "{what} requires one cell state proof per seal_basis leaf"
+        )));
+    }
+    let cell_id = &proofs[0].cell_id;
+    for (proof, leaf) in proofs.iter().zip(leaves) {
+        if proof.seal_ref != *leaf {
+            return Err(WireError::Protocol(format!(
+                "{what} cell state proofs are not in canonical leaf order"
+            )));
+        }
+        if proof.cell_id != *cell_id {
+            return Err(WireError::Protocol(format!(
+                "{what} cell state proofs must all decide one cell"
+            )));
+        }
+        proof.validate_structural()?;
+    }
+    Ok(())
+}
+
+/// Exact `live_target` material for one directed invite.
+///
+/// The slot subject is the single-component composite of the applicant's
+/// complete `AccountId`, so an occupied slot is by construction a live direct
+/// invite for exactly this applicant and no other.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmJoinInviteAcceptPrecondition {
+    /// Proofs for the `ak.component.invite.live_target.v1` cell. An absent or
+    /// `Bottom` joined slot is not a usable pre-state and fails rather than
+    /// being defaulted.
+    pub live_target_proofs: Vec<RealmJoinCellStateProof>,
+    /// Proofs for the `ak.component.invite.lifecycle.v1` cell of the invite
+    /// that occupies the slot; any joined state other than `pending` or
+    /// `claimed` is rejected.
+    pub invite_lifecycle_proofs: Vec<RealmJoinCellStateProof>,
+    /// Exact accepted `ak.invite.create` Control Move that occupies the slot.
+    /// Its content-bound `event_id` MUST equal the joined `live_target` value,
+    /// which is what authenticates it, so it carries no separate coverage
+    /// proof.
+    pub invite_move: Event,
+}
+
+/// Exact `member.state` material for a self-authored join or knock.
+///
+/// The requesting Station derives the `head_eq` value from the joined per-leaf
+/// results: a never-written cell yields `null`, a written cell yields its exact
+/// `fsm` state, and a joined `Bottom` fails closed instead of being rewritten
+/// as `null`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmJoinMemberStatePrecondition {
+    /// Proofs for the `ak.component.member.state.v1` cell whose subject is the
+    /// applicant's complete account `ActorId`.
+    pub member_state_proofs: Vec<RealmJoinCellStateProof>,
+}
+
+/// Closed exact-precondition material for the requested join intent.
+///
+/// It proves the value or the never-written absence of exactly the one control
+/// cell the prepared Event will bind, evaluated against the complete returned
+/// `seal_basis`, and it discloses nothing else. The schema registers two
+/// payload branches; the wire tag is the same closed `intent` vocabulary as
+/// [`RealmJoinIntent`], because the `member_state` branch answers both
+/// `member_join` and `knock`.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "intent", rename_all = "snake_case")]
+pub enum RealmJoinPreconditionEvidence {
+    InviteAccept(RealmJoinInviteAcceptPrecondition),
+    MemberJoin(RealmJoinMemberStatePrecondition),
+    Knock(RealmJoinMemberStatePrecondition),
+}
+
+impl RealmJoinPreconditionEvidence {
+    /// Shape and per-leaf coverage against the exact basis the same outcome
+    /// returned. Recomputing each `state_root` and joining the per-leaf results
+    /// is the requesting Station's step, not this one.
+    pub fn validate_structural(&self, seal_basis: &SealBasis) -> Result<()> {
+        let leaves = &seal_basis.leaves;
+        match self {
+            Self::InviteAccept(evidence) => {
+                validate_cell_state_proofs(
+                    &evidence.live_target_proofs,
+                    leaves,
+                    "Realm join invite live_target",
+                )?;
+                validate_cell_state_proofs(
+                    &evidence.invite_lifecycle_proofs,
+                    leaves,
+                    "Realm join invite lifecycle",
+                )
+            }
+            Self::MemberJoin(evidence) | Self::Knock(evidence) => validate_cell_state_proofs(
+                &evidence.member_state_proofs,
+                leaves,
+                "Realm join member state",
+            ),
+        }
+    }
+
+    /// The branch MUST agree with the requested intent: precondition material
+    /// for another intent decides another cell.
+    pub fn matches_intent(&self, intent: &RealmJoinIntent) -> bool {
+        matches!(
+            (self, intent),
+            (Self::InviteAccept(_), RealmJoinIntent::InviteAccept { .. })
+                | (Self::MemberJoin(_), RealmJoinIntent::MemberJoin { .. })
+                | (Self::Knock(_), RealmJoinIntent::Knock {})
+        )
+    }
+}
+
 /// Typed transition used while constructing a complete join Event.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -313,7 +571,7 @@ pub struct RealmJoinUnsignedEvent {
     pub kind: arkret_wire::EventKind,
     pub realm_id: RealmId,
     pub scope_ref: arkret_wire::ScopeRef,
-    pub actor_id: arkret_wire::ActorId,
+    pub actor_id: ActorId,
     pub actor_seq: u64,
     #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -352,7 +610,7 @@ impl RealmJoinUnsignedEvent {
             scope_ref: arkret_wire::ScopeRef::Realm {
                 realm_id: request.realm_id.clone(),
             },
-            actor_id: arkret_wire::ActorId::account(request.account_id.clone()),
+            actor_id: ActorId::account(request.account_id.clone()),
             actor_seq: frontier.next_actor_seq,
             created_at: request.created_at,
             hlc: request.hlc.clone(),
@@ -388,8 +646,8 @@ impl RealmJoinUnsignedEvent {
         }
     }
 
-    pub fn to_event(&self) -> Result<arkret_wire::Event> {
-        Ok(arkret_wire::Event {
+    pub fn to_event(&self) -> Result<Event> {
+        Ok(Event {
             event_id: self.event_id.clone(),
             kind: self.kind.clone(),
             realm_id: self.realm_id.clone(),
@@ -500,7 +758,7 @@ impl RealmJoinPrepareOutcome {
         let frontier = &self.accepted_actor_frontier;
         if self.authoring_device_generation_ref == 0
             || frontier.realm_id != self.realm_id
-            || frontier.actor_id != arkret_wire::ActorId::account(self.account_id.clone())
+            || frontier.actor_id != ActorId::account(self.account_id.clone())
             || event.realm_id != self.realm_id
             || event.actor_id != frontier.actor_id
             || event.scope_ref
@@ -556,7 +814,7 @@ impl RealmJoinPrepareOutcome {
                 "Realm join preparation prepares a different intent than requested".to_owned(),
             ));
         }
-        let actor = arkret_wire::ActorId::account(request.account_id.clone());
+        let actor = ActorId::account(request.account_id.clone());
         let (expected_payload, expected_cell, expected_invite_value) = match &request.intent {
             RealmJoinIntent::InviteAccept { invite_id, .. } => {
                 let subject =
@@ -566,7 +824,7 @@ impl RealmJoinPrepareOutcome {
                         invite_id.clone(),
                         request.account_id.clone(),
                     ))?,
-                    arkret_wire::CellRef::new(format!(
+                    CellRef::new(format!(
                         "ak:cell:ak.component.invite.live_target.v1:{subject}"
                     ))?,
                     Some(serde_json::to_value(invite_id.event_id())?),
@@ -592,9 +850,7 @@ impl RealmJoinPrepareOutcome {
                         agent_controller_binding: None,
                         invite_ref: None,
                     })?,
-                    arkret_wire::CellRef::new(format!(
-                        "ak:cell:ak.component.member.state.v1:{subject}"
-                    ))?,
+                    CellRef::new(format!("ak:cell:ak.component.member.state.v1:{subject}"))?,
                     None,
                 )
             }
@@ -753,6 +1009,20 @@ pub struct RealmJoinBootstrapOutcome {
     /// requesting Station needs to verify the returned facts itself; it is not
     /// authoritative.
     pub dependency_bundles: Vec<CbsProofBundle>,
+    /// Exact-precondition material for the declared intent, evaluated against
+    /// the same complete `seal_basis` and verified independently by the
+    /// requesting Station.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub precondition_evidence: RealmJoinPreconditionEvidence,
+    /// Unverified authoring input: the applicant's own accepted Events at the
+    /// highest actor sequence the holder observes for exactly this `realm_id`
+    /// and account `ActorId`, sorted bytewise by `event_id` without duplicates.
+    ///
+    /// An empty array is only the holder observing none. It proves neither an
+    /// empty chain nor completeness, and it never lowers or overrides history
+    /// the requesting Station has already verified.
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub applicant_predecessor_events: Vec<Event>,
     /// Instant the holder observed the returned accepted projection.
     #[serde(with = "canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
@@ -793,7 +1063,46 @@ impl RealmJoinBootstrapOutcome {
                 ));
             }
         }
+        self.precondition_evidence
+            .validate_structural(&self.governance_facts.seal_basis)?;
+        self.validate_predecessor_events()?;
         validate_window(self.observed_at, self.expires_at, "Realm join bootstrap")
+    }
+
+    /// Scope and ordering of `applicant_predecessor_events`.
+    ///
+    /// These Events are authoring input, so the only thing decidable here is
+    /// that they are the applicant's own, for this Realm, and canonically
+    /// ordered. Producer proof, station admission proof, signer regime and
+    /// sequence continuity are re-run by the requesting Station under the
+    /// ordinary Event acceptance rules before any of them enters a prepare
+    /// context.
+    fn validate_predecessor_events(&self) -> Result<()> {
+        if self.applicant_predecessor_events.len() > MAX_REALM_JOIN_PREDECESSOR_EVENTS {
+            return Err(WireError::Protocol(format!(
+                "Realm join bootstrap carries more than {MAX_REALM_JOIN_PREDECESSOR_EVENTS} applicant predecessor events"
+            )));
+        }
+        let applicant = ActorId::account(self.applicant_account_id.clone());
+        for event in &self.applicant_predecessor_events {
+            if event.realm_id != self.realm_id || event.actor_id != applicant {
+                return Err(WireError::Protocol(
+                    "Realm join bootstrap predecessor events must all be the applicant's own for this Realm"
+                        .to_owned(),
+                ));
+            }
+        }
+        if self
+            .applicant_predecessor_events
+            .windows(2)
+            .any(|pair| pair[0].event_id.as_str() >= pair[1].event_id.as_str())
+        {
+            return Err(WireError::Protocol(
+                "Realm join bootstrap predecessor events must be bytewise sorted and unique"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn validate_for_request(&self, request: &RealmJoinBootstrapRequestBody) -> Result<()> {
@@ -809,6 +1118,11 @@ impl RealmJoinBootstrapOutcome {
         if self.request_digest != request.request_digest()? {
             return Err(WireError::Protocol(
                 "Realm join bootstrap request_digest does not cover this request".to_owned(),
+            ));
+        }
+        if !self.precondition_evidence.matches_intent(&request.intent) {
+            return Err(WireError::Protocol(
+                "Realm join bootstrap precondition evidence answers another intent".to_owned(),
             ));
         }
         Ok(())
@@ -1142,7 +1456,7 @@ mod tests {
     fn prepare_outcome(request: &RealmJoinPrepareRequestBody) -> RealmJoinPrepareOutcome {
         let frontier = crate::event_sync::RealmActorFrontierView::new(
             request.realm_id.clone(),
-            arkret_wire::ActorId::account(request.account_id.clone()),
+            ActorId::account(request.account_id.clone()),
             0,
             Vec::new(),
             DigestSuite::Sha256,
@@ -1351,7 +1665,7 @@ mod tests {
             let mut request = prepare_request();
             request.intent = intent;
             let mut outcome = prepare_outcome(&request);
-            let actor = arkret_wire::ActorId::account(request.account_id.clone());
+            let actor = ActorId::account(request.account_id.clone());
             let subject =
                 arkret_wire::composite_subject(&[actor.canonical_key().unwrap()]).unwrap();
             let transition = RealmJoinTransition::MemberState {
@@ -1412,7 +1726,7 @@ mod tests {
         let mut outcome = prepare_outcome(&request);
         outcome.accepted_actor_frontier = crate::event_sync::RealmActorFrontierView::new(
             request.realm_id.clone(),
-            arkret_wire::ActorId::account(request.account_id.clone()),
+            ActorId::account(request.account_id.clone()),
             8,
             vec![EventId::from_digest(DigestSuite::Sha256, [7; 32])],
             DigestSuite::Sha256,
@@ -1486,6 +1800,119 @@ mod tests {
         }
     }
 
+    fn live_target_cell() -> CellRef {
+        CellRef::new(format!(
+            "ak:cell:ak.component.invite.live_target.v1:{}",
+            arkret_wire::composite_subject(&[account_id().canonical_key().unwrap()]).unwrap()
+        ))
+        .expect("cell ref")
+    }
+
+    fn invite_lifecycle_cell() -> CellRef {
+        CellRef::new(format!(
+            "ak:cell:ak.component.invite.lifecycle.v1:{}",
+            invite_id().as_str()
+        ))
+        .expect("cell ref")
+    }
+
+    fn member_state_cell() -> CellRef {
+        CellRef::new(format!(
+            "ak:cell:ak.component.member.state.v1:{}",
+            arkret_wire::composite_subject(&[ActorId::account(account_id())
+                .canonical_key()
+                .unwrap()])
+            .unwrap()
+        ))
+        .expect("cell ref")
+    }
+
+    fn state_root_proof(leaf_index: u64, leaf_count: u64) -> SemanticRefProof {
+        SemanticRefProof {
+            kind: arkret_wire::SemanticRefProofKind::Rfc6962Merkle,
+            root_field: SemanticRefProofRootField::StateRoot,
+            root_digest: hash('3'),
+            leaf_canonical_preimage_b64u: arkret_wire::Base64UrlString::new(format!(
+                "cGF0aA{leaf_index}"
+            ))
+            .expect("preimage"),
+            leaf_digest: hash('9'),
+            audit_path: vec![hash('a')],
+            leaf_index,
+            leaf_count,
+        }
+    }
+
+    fn present_proof(cell_id: CellRef, seal_ref: SealId) -> RealmJoinCellStateProof {
+        RealmJoinCellStateProof {
+            cell_id,
+            seal_ref,
+            presence: RealmJoinCellPresence::Present,
+            inclusion: Some(state_root_proof(0, 1)),
+            neighbors: None,
+        }
+    }
+
+    fn absent_proof(
+        cell_id: CellRef,
+        seal_ref: SealId,
+        neighbors: Vec<SemanticRefProof>,
+    ) -> RealmJoinCellStateProof {
+        RealmJoinCellStateProof {
+            cell_id,
+            seal_ref,
+            presence: RealmJoinCellPresence::Absent,
+            inclusion: None,
+            neighbors: Some(neighbors),
+        }
+    }
+
+    /// An Event that really is the applicant's own, for this Realm, with a
+    /// content-bound id derived from its own bytes.
+    fn applicant_event(actor_seq: u64) -> Event {
+        let mut event = prepare_outcome(&prepare_request())
+            .unsigned_event
+            .to_event()
+            .expect("envelope");
+        event.actor_seq = actor_seq;
+        event
+            .refresh_content_bound_identity_with_digest_suite(DigestSuite::Sha256)
+            .expect("derived id");
+        event
+    }
+
+    fn invite_move() -> Event {
+        let mut event = applicant_event(0);
+        event.kind = arkret_wire::EventKind::from("ak.invite.create");
+        event
+            .refresh_content_bound_identity_with_digest_suite(DigestSuite::Sha256)
+            .expect("derived id");
+        event
+    }
+
+    fn invite_accept_evidence(leaves: &[SealId]) -> RealmJoinPreconditionEvidence {
+        RealmJoinPreconditionEvidence::InviteAccept(RealmJoinInviteAcceptPrecondition {
+            live_target_proofs: leaves
+                .iter()
+                .map(|leaf| present_proof(live_target_cell(), leaf.clone()))
+                .collect(),
+            invite_lifecycle_proofs: leaves
+                .iter()
+                .map(|leaf| present_proof(invite_lifecycle_cell(), leaf.clone()))
+                .collect(),
+            invite_move: invite_move(),
+        })
+    }
+
+    fn member_state_evidence(leaves: &[SealId]) -> RealmJoinPreconditionEvidence {
+        RealmJoinPreconditionEvidence::MemberJoin(RealmJoinMemberStatePrecondition {
+            member_state_proofs: leaves
+                .iter()
+                .map(|leaf| absent_proof(member_state_cell(), leaf.clone(), Vec::new()))
+                .collect(),
+        })
+    }
+
     fn bootstrap_outcome(request: &RealmJoinBootstrapRequestBody) -> RealmJoinBootstrapOutcome {
         let seal = seal();
         RealmJoinBootstrapOutcome {
@@ -1498,14 +1925,343 @@ mod tests {
             }),
             dependency_bundles: vec![CbsProofBundle {
                 target_seal_ref: seal.id.clone(),
-                seals: vec![seal],
+                seals: vec![seal.clone()],
                 control_moves: Vec::new(),
                 inclusion_proofs: Vec::new(),
                 availability_proofs: Vec::new(),
             }],
+            precondition_evidence: invite_accept_evidence(&[seal.id.clone()]),
+            applicant_predecessor_events: Vec::new(),
             observed_at: observed_at(),
             expires_at: expires_at(),
         }
+    }
+
+    fn sorted_predecessors(count: usize) -> Vec<Event> {
+        let mut events: Vec<Event> = (0..count).map(|seq| applicant_event(seq as u64)).collect();
+        events.sort_by(|left, right| left.event_id.as_str().cmp(right.event_id.as_str()));
+        events
+    }
+
+    #[test]
+    fn precondition_evidence_needs_one_proof_per_basis_leaf() {
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        outcome
+            .validate_structural()
+            .expect("one proof per leaf for each cell");
+
+        let RealmJoinPreconditionEvidence::InviteAccept(evidence) =
+            &mut outcome.precondition_evidence
+        else {
+            panic!("the invite fixture is an invite_accept branch");
+        };
+        evidence.live_target_proofs.clear();
+        let error = outcome
+            .validate_structural()
+            .expect_err("a cell with no proof at all decides nothing");
+        assert!(error.to_string().contains("cell state proofs"), "{error}");
+    }
+
+    #[test]
+    fn precondition_proofs_follow_the_canonical_leaf_order() {
+        // Two real leaves, two real bundles, two real proofs per cell. Only the
+        // proof order is wrong, so without the order rule each leaf would be
+        // decided against another leaf's recomputed state_root.
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        let mut seals = vec![seal_with('1'), seal_with('7')];
+        seals.sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()));
+        let leaves: Vec<SealId> = seals.iter().map(|seal| seal.id.clone()).collect();
+        outcome.governance_facts.seal_basis = SealBasis {
+            leaves: leaves.clone(),
+        };
+        outcome.dependency_bundles = seals
+            .iter()
+            .map(|seal| CbsProofBundle {
+                target_seal_ref: seal.id.clone(),
+                seals: vec![seal.clone()],
+                control_moves: Vec::new(),
+                inclusion_proofs: Vec::new(),
+                availability_proofs: Vec::new(),
+            })
+            .collect();
+        outcome.precondition_evidence = invite_accept_evidence(&leaves);
+        outcome
+            .validate_structural()
+            .expect("one proof per leaf, in leaf order");
+
+        let RealmJoinPreconditionEvidence::InviteAccept(evidence) =
+            &mut outcome.precondition_evidence
+        else {
+            panic!("the invite fixture is an invite_accept branch");
+        };
+        evidence.invite_lifecycle_proofs.reverse();
+        let error = outcome
+            .validate_structural()
+            .expect_err("a proof for another leaf proves nothing about this one");
+        assert!(
+            error.to_string().contains("canonical leaf order"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn one_proof_group_decides_exactly_one_cell() {
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        let mut seals = vec![seal_with('1'), seal_with('7')];
+        seals.sort_by(|left, right| left.id.as_str().cmp(right.id.as_str()));
+        let leaves: Vec<SealId> = seals.iter().map(|seal| seal.id.clone()).collect();
+        outcome.governance_facts.seal_basis = SealBasis {
+            leaves: leaves.clone(),
+        };
+        outcome.dependency_bundles = seals
+            .iter()
+            .map(|seal| CbsProofBundle {
+                target_seal_ref: seal.id.clone(),
+                seals: vec![seal.clone()],
+                control_moves: Vec::new(),
+                inclusion_proofs: Vec::new(),
+                availability_proofs: Vec::new(),
+            })
+            .collect();
+        outcome.precondition_evidence = invite_accept_evidence(&leaves);
+
+        let RealmJoinPreconditionEvidence::InviteAccept(evidence) =
+            &mut outcome.precondition_evidence
+        else {
+            panic!("the invite fixture is an invite_accept branch");
+        };
+        // A second cell inside one group would let a holder answer about a cell
+        // the requesting Station never derived.
+        evidence.live_target_proofs[1].cell_id = member_state_cell();
+        let error = outcome
+            .validate_structural()
+            .expect_err("one group decides one cell");
+        assert!(error.to_string().contains("one cell"), "{error}");
+    }
+
+    #[test]
+    fn a_present_cell_proof_carries_only_a_state_root_inclusion_path() {
+        let leaf = seal().id;
+        present_proof(live_target_cell(), leaf.clone())
+            .validate_structural()
+            .expect("an inclusion path under state_root");
+
+        let mut wrong_root = present_proof(live_target_cell(), leaf.clone());
+        wrong_root.inclusion.as_mut().expect("inclusion").root_field =
+            SemanticRefProofRootField::ControlEventSetRoot;
+        let error = wrong_root
+            .validate_structural()
+            .expect_err("the covered-event tree is not the governance state tree");
+        assert!(error.to_string().contains("state_root"), "{error}");
+
+        let mut both = present_proof(live_target_cell(), leaf.clone());
+        both.neighbors = Some(Vec::new());
+        assert!(both.validate_structural().is_err());
+
+        let mut neither = present_proof(live_target_cell(), leaf);
+        neither.inclusion = None;
+        assert!(neither.validate_structural().is_err());
+    }
+
+    #[test]
+    fn an_absent_cell_proof_carries_a_bounded_sorted_neighbor_set() {
+        let leaf = seal().id;
+        // Zero neighbours: the empty-tree root.
+        absent_proof(member_state_cell(), leaf.clone(), Vec::new())
+            .validate_structural()
+            .expect("the empty-tree root needs no neighbor");
+        // One boundary neighbour.
+        absent_proof(
+            member_state_cell(),
+            leaf.clone(),
+            vec![state_root_proof(0, 4)],
+        )
+        .validate_structural()
+        .expect("a boundary neighbor bounds one side");
+        // Two adjacent neighbours bracket the cell.
+        absent_proof(
+            member_state_cell(),
+            leaf.clone(),
+            vec![state_root_proof(1, 4), state_root_proof(2, 4)],
+        )
+        .validate_structural()
+        .expect("adjacent leaves leave no room for the cell");
+
+        let interior = absent_proof(
+            member_state_cell(),
+            leaf.clone(),
+            vec![state_root_proof(1, 4)],
+        );
+        assert!(
+            interior.validate_structural().is_err(),
+            "an interior leaf leaves both sides unproven"
+        );
+
+        let gap = absent_proof(
+            member_state_cell(),
+            leaf.clone(),
+            vec![state_root_proof(0, 4), state_root_proof(2, 4)],
+        );
+        assert!(
+            gap.validate_structural().is_err(),
+            "a gap between neighbors is exactly where the cell could sit"
+        );
+
+        let three = absent_proof(
+            member_state_cell(),
+            leaf.clone(),
+            vec![
+                state_root_proof(0, 4),
+                state_root_proof(1, 4),
+                state_root_proof(2, 4),
+            ],
+        );
+        assert!(three.validate_structural().is_err());
+
+        let mut wrong_root = state_root_proof(0, 4);
+        wrong_root.root_field = SemanticRefProofRootField::ControlEventSetRoot;
+        assert!(
+            absent_proof(member_state_cell(), leaf.clone(), vec![wrong_root])
+                .validate_structural()
+                .is_err()
+        );
+
+        let mut with_inclusion = absent_proof(member_state_cell(), leaf, Vec::new());
+        with_inclusion.inclusion = Some(state_root_proof(0, 1));
+        assert!(with_inclusion.validate_structural().is_err());
+    }
+
+    #[test]
+    fn precondition_evidence_answers_the_requested_intent() {
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        outcome
+            .validate_for_request(&request)
+            .expect("invite evidence for an invite request");
+
+        outcome.precondition_evidence =
+            member_state_evidence(&outcome.governance_facts.seal_basis.leaves);
+        let error = outcome
+            .validate_for_request(&request)
+            .expect_err("member.state material decides another cell than live_target");
+        assert!(error.to_string().contains("another intent"), "{error}");
+
+        let mut member_request = bootstrap_request();
+        member_request.intent = RealmJoinIntent::MemberJoin {
+            gate_proofs: Vec::new(),
+        };
+        outcome.request_digest = member_request.request_digest().expect("digest");
+        outcome
+            .validate_for_request(&member_request)
+            .expect("member.state material for a member_join request");
+
+        let mut knock_request = bootstrap_request();
+        knock_request.intent = RealmJoinIntent::Knock {};
+        outcome.request_digest = knock_request.request_digest().expect("digest");
+        assert!(
+            outcome.validate_for_request(&knock_request).is_err(),
+            "a member_join branch is not a knock branch"
+        );
+    }
+
+    #[test]
+    fn precondition_evidence_round_trips_through_its_wire_tag() {
+        let leaves = vec![seal().id];
+        let value = serde_json::to_value(invite_accept_evidence(&leaves)).expect("serialize");
+        assert_eq!(value["intent"], json!("invite_accept"));
+        assert!(value.get("live_target_proofs").is_some());
+        let restored: RealmJoinPreconditionEvidence =
+            serde_json::from_value(value).expect("deserialize");
+        assert_eq!(restored, invite_accept_evidence(&leaves));
+
+        let knock = RealmJoinPreconditionEvidence::Knock(RealmJoinMemberStatePrecondition {
+            member_state_proofs: vec![absent_proof(
+                member_state_cell(),
+                leaves[0].clone(),
+                Vec::new(),
+            )],
+        });
+        let value = serde_json::to_value(&knock).expect("serialize");
+        assert_eq!(value["intent"], json!("knock"));
+        assert_eq!(
+            serde_json::from_value::<RealmJoinPreconditionEvidence>(value).expect("deserialize"),
+            knock
+        );
+
+        assert!(
+            serde_json::from_value::<RealmJoinPreconditionEvidence>(
+                json!({"intent": "restricted_join", "member_state_proofs": []})
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn predecessor_events_are_the_applicants_own_for_this_realm() {
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        outcome.applicant_predecessor_events = sorted_predecessors(2);
+        outcome
+            .validate_structural()
+            .expect("the applicant's own siblings");
+
+        let mut foreign_realm = outcome.clone();
+        foreign_realm.applicant_predecessor_events[0].realm_id =
+            RealmId::new("ak:realm:AZ0iBOTdEfBLcM7WT9SFbSOJU7EYIkPMPtXcLcZ5UjRT").expect("realm");
+        let error = foreign_realm
+            .validate_structural()
+            .expect_err("another Realm's Event is not a predecessor here");
+        assert!(error.to_string().contains("applicant's own"), "{error}");
+
+        let mut foreign_actor = outcome.clone();
+        foreign_actor.applicant_predecessor_events[0].actor_id = ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:other.example").expect("principal"),
+            DidCoreId::new("ak:did_core:web:origin.example").expect("station"),
+        ));
+        assert!(
+            foreign_actor.validate_structural().is_err(),
+            "another actor's Event never enters this actor's chain"
+        );
+    }
+
+    #[test]
+    fn predecessor_events_are_bytewise_sorted_and_duplicate_free() {
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        outcome.applicant_predecessor_events = sorted_predecessors(3);
+        outcome.validate_structural().expect("canonical order");
+
+        let mut reversed = outcome.clone();
+        reversed.applicant_predecessor_events.reverse();
+        let error = reversed
+            .validate_structural()
+            .expect_err("an unordered sibling set has no canonical form");
+        assert!(error.to_string().contains("bytewise sorted"), "{error}");
+
+        let mut duplicated = outcome.clone();
+        duplicated.applicant_predecessor_events =
+            vec![outcome.applicant_predecessor_events[0].clone(); 2];
+        assert!(duplicated.validate_structural().is_err());
+    }
+
+    #[test]
+    fn predecessor_events_stay_inside_the_registered_bound() {
+        let request = bootstrap_request();
+        let mut outcome = bootstrap_outcome(&request);
+        let events = sorted_predecessors(MAX_REALM_JOIN_PREDECESSOR_EVENTS + 1);
+        outcome.applicant_predecessor_events = events[..MAX_REALM_JOIN_PREDECESSOR_EVENTS].to_vec();
+        outcome
+            .validate_structural()
+            .expect("the registered bound is reachable");
+
+        outcome.applicant_predecessor_events = events;
+        let error = outcome
+            .validate_structural()
+            .expect_err("a closure that does not fit is limit_exceeded, never truncated");
+        assert!(error.to_string().contains("predecessor events"), "{error}");
     }
 
     #[test]
@@ -1560,6 +2316,8 @@ mod tests {
                 availability_proofs: Vec::new(),
             })
             .collect();
+        outcome.precondition_evidence =
+            invite_accept_evidence(&outcome.governance_facts.seal_basis.leaves);
         outcome
             .validate_structural()
             .expect("one bundle per leaf, in leaf order");
@@ -1899,6 +2657,96 @@ mod tests {
                 },
             );
             assert_matches_schema("realm_join_knock_intent", &RealmJoinIntent::Knock {});
+        }
+
+        #[test]
+        fn every_precondition_branch_carries_exactly_its_declared_members() {
+            let leaves = vec![seal().id];
+            assert_matches_schema(
+                "realm_join_invite_accept_precondition",
+                &invite_accept_evidence(&leaves),
+            );
+            assert_matches_schema(
+                "realm_join_member_state_precondition",
+                &member_state_evidence(&leaves),
+            );
+        }
+
+        #[test]
+        fn a_cell_state_proof_covers_both_of_its_exclusive_shapes() {
+            // `inclusion` and `neighbors` are mutually exclusive, so no single
+            // instance is "fully populated"; parity has to be checked against
+            // the union of the two legal shapes.
+            let declared: BTreeSet<String> =
+                definition("realm_join_cell_state_proof")["properties"]
+                    .as_object()
+                    .expect("$defs/realm_join_cell_state_proof/properties is missing")
+                    .keys()
+                    .cloned()
+                    .collect();
+            let leaf = seal().id;
+            let mut carried = BTreeSet::new();
+            for shape in [
+                present_proof(live_target_cell(), leaf.clone()),
+                absent_proof(member_state_cell(), leaf, vec![state_root_proof(0, 4)]),
+            ] {
+                carried.extend(
+                    serde_json::to_value(&shape)
+                        .expect("carrier serializes")
+                        .as_object()
+                        .expect("carrier serializes to an object")
+                        .keys()
+                        .cloned(),
+                );
+            }
+            assert_eq!(declared, carried);
+        }
+
+        #[test]
+        fn the_cell_presence_vocabulary_matches_the_registry() {
+            let declared: BTreeSet<String> =
+                definition("realm_join_cell_state_proof")["properties"]["presence"]["enum"]
+                    .as_array()
+                    .expect("presence enum is missing")
+                    .iter()
+                    .map(|value| value.as_str().expect("enum value is a string").to_owned())
+                    .collect();
+            let carried: BTreeSet<String> = [
+                RealmJoinCellPresence::Present,
+                RealmJoinCellPresence::Absent,
+            ]
+            .iter()
+            .map(|value| {
+                serde_json::to_value(value)
+                    .expect("enum serializes")
+                    .as_str()
+                    .expect("enum serializes to a string")
+                    .to_owned()
+            })
+            .collect();
+            assert_eq!(declared, carried);
+        }
+
+        #[test]
+        fn every_registered_proof_array_bound_is_pinned() {
+            let intake = arkret_schema_conformance::spec_json_artifact(INTAKE)
+                .unwrap_or_else(|error| panic!("embedded {INTAKE} failed to load: {error}"));
+            assert_eq!(
+                intake["$defs"]["realm_join_cell_state_proofs"]["maxItems"].as_u64(),
+                Some(MAX_REALM_JOIN_CELL_STATE_PROOFS as u64)
+            );
+            assert_eq!(
+                intake["$defs"]["realm_join_cell_state_proof"]["properties"]["neighbors"]
+                    ["maxItems"]
+                    .as_u64(),
+                Some(MAX_REALM_JOIN_ABSENCE_NEIGHBORS as u64)
+            );
+            assert_eq!(
+                intake["$defs"]["peer_bootstrap_outcome"]["properties"]
+                    ["applicant_predecessor_events"]["maxItems"]
+                    .as_u64(),
+                Some(MAX_REALM_JOIN_PREDECESSOR_EVENTS as u64)
+            );
         }
 
         #[test]

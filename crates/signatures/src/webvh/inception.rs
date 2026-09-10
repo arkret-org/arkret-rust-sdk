@@ -2901,14 +2901,67 @@ mod historical_verification_tests {
                 .is_err()
         );
 
+        let mut wrong_head_pin = draft.clone();
+        wrong_head_pin.method_history_head = format!("sha256:{}", "1".repeat(64));
+        assert!(
+            verify_registration_did_evidence_draft(&prepared.submit_body, &wrong_head_pin).is_err()
+        );
+
+        let mut wrong_key_pin = draft.clone();
+        wrong_key_pin.control_key_digest = Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap();
+        assert!(
+            verify_registration_did_evidence_draft(&prepared.submit_body, &wrong_key_pin).is_err()
+        );
+
         let mut omitted = serde_json::to_value(&draft).unwrap();
         omitted.as_object_mut().unwrap().remove("method_evidence");
         assert!(serde_json::from_value::<RegistrationDidEvidenceDraft>(omitted).is_err());
-        assert!(
-            draft
-                .accept(created_at - Duration::milliseconds(1))
-                .is_err()
-        );
+    }
+
+    #[test]
+    fn registration_evidence_accepts_every_registry_acceptance_instant() {
+        let (prepared, root_seed, created_at) = registration_fixture();
+        let draft =
+            sign_registration_did_evidence_draft(&prepared.submit_body, created_at, &root_seed)
+                .unwrap();
+        // `accepted_at` is the registry's own clock and `control_proof.created_at`
+        // is the signer's; the pair carries no causal order, so every delta below
+        // -- including the smallest representable millisecond step and a large
+        // skew in either direction -- MUST survive this comparison alone.
+        for delta in [
+            Duration::zero(),
+            Duration::milliseconds(-1),
+            Duration::milliseconds(1),
+            Duration::seconds(-3),
+            Duration::seconds(3),
+            Duration::hours(-30),
+            Duration::hours(30),
+        ] {
+            let evidence = draft
+                .clone()
+                .accept(created_at + delta)
+                .expect("cross-Authority acceptance time must never be range-checked");
+            assert_eq!(evidence.accepted_at, created_at + delta);
+            assert_eq!(evidence.control_proof.created_at, created_at);
+            evidence.validate_shape().unwrap();
+            evidence.canonical_digest().unwrap();
+            verify_registration_did_evidence_draft(&prepared.submit_body, &evidence.draft())
+                .expect("frozen evidence must still verify against the exact operation");
+        }
+    }
+
+    #[test]
+    fn registration_evidence_rejects_a_control_proof_time_changed_after_signing() {
+        let (prepared, root_seed, created_at) = registration_fixture();
+        let evidence =
+            sign_registration_did_evidence_draft(&prepared.submit_body, created_at, &root_seed)
+                .unwrap()
+                .accept(created_at - Duration::seconds(2))
+                .unwrap();
+
+        let mut tampered = evidence.draft();
+        tampered.control_proof.created_at = created_at - Duration::seconds(4);
+        assert!(verify_registration_did_evidence_draft(&prepared.submit_body, &tampered).is_err());
     }
 
     #[test]

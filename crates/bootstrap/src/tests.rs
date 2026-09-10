@@ -45,8 +45,18 @@ struct FixtureSigner {
 /// point of these assertions is that the event-kind registry derives the
 /// genesis leaf sets the bootstrap branches name.
 fn registry_projection(event: &Event) -> Result<Vec<ProjectedCellWrite>, String> {
-    arkret_schema::project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256)
-        .map_err(|error| error.to_string())
+    // The Event id losslessly encodes the suite its digest was taken under, and
+    // the OR-Set dots the contract derives are keyed by that digest, so the
+    // projector must follow the Event rather than assume one suite.
+    arkret_schema::project_registered_cell_writes(
+        event,
+        event
+            .event_id
+            .event_digest()
+            .digest_suite()
+            .map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }
 
 fn fixture_event_id(seed: u8) -> EventId {
@@ -508,6 +518,7 @@ fn agent_pcr_create() -> Event {
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        digest_suite: arkret_canonical::DigestSuite::Sha256,
         created_at: Utc::now(),
     })
     .unwrap();
@@ -541,6 +552,7 @@ fn agent_pcr_payload_is_built_from_the_public_realm_type() {
         genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
             .unwrap(),
         trust_domain: TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
+        digest_suite: arkret_canonical::DigestSuite::Sha256,
         created_at: Utc::now(),
     })
     .unwrap();
@@ -714,6 +726,282 @@ fn covered_event_with_no_derived_writes_moves_only_the_coverage_root() {
             .to_string()
             .contains("bootstrap Seal requires exactly its genesis create")
     );
+}
+
+const AGENT_CONTROLLER_SEAL_SEED: [u8; 32] = [0x7c; 32];
+
+fn agent_controller_did() -> Did {
+    Did::new("did:webvh:z6mkfixturecontroller:controller.example").unwrap()
+}
+
+fn agent_controller_seal_signer() -> arkret_signatures::Ed25519PayloadSigner {
+    let controller_did = agent_controller_did();
+    arkret_signatures::Ed25519PayloadSigner::from_did_key_seed(
+        AGENT_CONTROLLER_SEAL_SEED,
+        controller_did.clone(),
+        DidUrl::new(format!("{controller_did}#seal-1")).unwrap(),
+    )
+}
+
+/// The genesis create of an Agent PCR that locks `digest_suite`.
+///
+/// The id is content-bound rather than assigned, and it is derived under
+/// SHA-256 for every suite because section 2.5.0 makes `realm_id` a retype of
+/// this Event's own id and fixes the v1 Realm token header at `0x01`.
+fn agent_pcr_genesis_with_digest_suite(digest_suite: arkret_canonical::DigestSuite) -> Event {
+    let agent_did = Did::new("did:webvh:z6mkfixtureagent:agent.example").unwrap();
+    let agent = project_did_to_core_id(&agent_did).unwrap();
+    let controller = project_did_to_core_id(&agent_controller_did()).unwrap();
+    let payload = build_agent_pcr_create_payload(AgentPcrCreatePayloadInput {
+        agent_id: agent.clone(),
+        initial_resolution: fixture_resolution(agent_did.clone()),
+        controller_principal_id: controller.clone(),
+        notary: fixture_notary(&agent, &agent_did, "root"),
+        genesis_salt: arkret_wire::GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+            .unwrap(),
+        trust_domain: TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
+        digest_suite,
+        created_at: "2026-07-15T00:00:00.000Z".parse().unwrap(),
+    })
+    .unwrap();
+    let mut create = arkret_wire::test_support::raw_event(
+        EventKind::RealmCreate.to_string(),
+        ScopeRef::RealmGenesis,
+        agent.clone(),
+        agent,
+        0,
+        Hlc::new("01970e589d21-0011-a13f9c2e").unwrap(),
+        payload.to_value().unwrap(),
+    )
+    .unwrap();
+    create.created_at = "2026-07-15T00:00:00.000Z".parse().unwrap();
+    create.authorization_ref =
+        Some(AuthorizationRef::new(format!("{agent_did}#managed-controller")).unwrap());
+    create.executed_by = Some(ActorId::service(controller));
+    create.refs.clear();
+    create
+        .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+        .unwrap();
+    create
+}
+
+/// An effect-free covered Control Move authored under `digest_suite`.
+fn agent_pcr_follow_up_event(
+    create: &Event,
+    actor_seq: u64,
+    hlc: &str,
+    digest_suite: arkret_canonical::DigestSuite,
+    seal_basis: Option<SealBasis>,
+) -> Event {
+    let mut event = arkret_wire::test_support::raw_event(
+        EventKind::MlsGenesis.to_string(),
+        ScopeRef::Realm {
+            realm_id: create.realm_id.clone(),
+        },
+        create.actor_id.signing_principal_id().clone(),
+        create.actor_id.route_service_id().clone(),
+        actor_seq,
+        Hlc::new(hlc).unwrap(),
+        serde_json::json!({}),
+    )
+    .unwrap();
+    event.created_at = create.created_at;
+    event.executed_by = create.executed_by.clone();
+    event.authorization_ref = create.authorization_ref.clone();
+    event.seal_basis = seal_basis;
+    event
+        .refresh_content_bound_identity_with_digest_suite(digest_suite)
+        .unwrap();
+    event
+}
+
+/// The registry contract for `ak.mls.genesis` registers three writes; these
+/// assertions are about this crate's suite arithmetic, not that leaf set, so
+/// the injected projector reports the named anchors as effect-free.
+fn effect_free_projection(
+    effect_free: &BTreeSet<EventId>,
+) -> impl Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + '_ {
+    move |event: &Event| {
+        if effect_free.contains(&event.event_id) {
+            return Ok(Vec::new());
+        }
+        registry_projection(event)
+    }
+}
+
+/// The materializer must take its suite from the authenticated genesis object,
+/// not from a constant. Only the create's own digest stays SHA-256, and only
+/// because the Realm token is a retype of that Event id.
+#[test]
+fn agent_pcr_material_uses_the_genesis_declared_digest_suite() {
+    for digest_suite in [
+        arkret_canonical::DigestSuite::Sha256,
+        arkret_canonical::DigestSuite::Blake3,
+    ] {
+        let create = agent_pcr_genesis_with_digest_suite(digest_suite);
+        let material =
+            materialize_agent_pcr_control(std::slice::from_ref(&create), &registry_projection)
+                .unwrap();
+
+        assert_eq!(material.digest_suite, digest_suite);
+        assert_eq!(material.state_root.digest_suite().unwrap(), digest_suite);
+        assert_eq!(
+            material.covered_event_digests,
+            vec![
+                Hash::new(
+                    create
+                        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                        .unwrap()
+                )
+                .unwrap()
+            ]
+        );
+        assert_eq!(RealmId::from_event_id(&create.event_id), create.realm_id);
+
+        let authority =
+            AgentPcrGenesisAuthority::from_accepted_create(&create, &registry_projection).unwrap();
+        assert_eq!(authority.digest_suite(), digest_suite);
+        assert_eq!(
+            authority.authority_set_ref().digest_suite().unwrap(),
+            digest_suite
+        );
+    }
+}
+
+/// Every root, the Seal identity and the notary payload digest follow the
+/// declared suite, and the signature is a real Ed25519 detached JWS.
+#[test]
+fn agent_pcr_bootstrap_seal_follows_the_genesis_declared_digest_suite() {
+    for digest_suite in [
+        arkret_canonical::DigestSuite::Sha256,
+        arkret_canonical::DigestSuite::Blake3,
+    ] {
+        let create = agent_pcr_genesis_with_digest_suite(digest_suite);
+        let signer = agent_controller_seal_signer();
+        let seal = build_agent_pcr_bootstrap_seal(
+            std::slice::from_ref(&create),
+            Hlc::new("01970e589d21-0012-a13f9c2e").unwrap(),
+            &signer,
+            &registry_projection,
+        )
+        .unwrap();
+
+        assert!(
+            seal.id
+                .as_str()
+                .starts_with(&format!("ak:seal:{}:", digest_suite.as_str()))
+        );
+        seal.validate_id(digest_suite).unwrap();
+        assert_eq!(seal.state_root.digest_suite().unwrap(), digest_suite);
+        assert_eq!(
+            seal.control_event_set_root.digest_suite().unwrap(),
+            digest_suite
+        );
+        assert_eq!(seal.completeness_root.digest_suite().unwrap(), digest_suite);
+
+        let NotarySig::Single(signature) = &seal.notary_signature else {
+            panic!("Agent PCR bootstrap Seal must use one controller signature")
+        };
+        assert_eq!(
+            signature.payload_digest.digest_suite().unwrap(),
+            digest_suite
+        );
+        let public_key = signer.verifying_key().to_bytes();
+        let descriptor = NotarySignerDescriptor {
+            actor_id: ActorId::service(project_did_to_core_id(&agent_controller_did()).unwrap()),
+            verification_method: signer.verification_method_id().clone(),
+            key_kind: NotaryKeyKind::Ed25519Raw32,
+            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+            frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
+            frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
+                .unwrap(),
+        };
+        arkret_signatures::verify_frozen_notary_signature(
+            signature,
+            &descriptor,
+            &seal.canonical_bytes_for_id().unwrap(),
+            digest_suite,
+        )
+        .unwrap();
+    }
+}
+
+/// A follow-up Move digested under the declared suite is accepted in both the
+/// anchor unit and a later Seal batch; the same Move digested under the other
+/// suite is rejected outright rather than silently re-digested.
+#[test]
+fn agent_pcr_rejects_events_digested_under_an_undeclared_suite() {
+    for digest_suite in [
+        arkret_canonical::DigestSuite::Sha256,
+        arkret_canonical::DigestSuite::Blake3,
+    ] {
+        let other = match digest_suite {
+            arkret_canonical::DigestSuite::Sha256 => arkret_canonical::DigestSuite::Blake3,
+            arkret_canonical::DigestSuite::Blake3 => arkret_canonical::DigestSuite::Sha256,
+        };
+        let create = agent_pcr_genesis_with_digest_suite(digest_suite);
+        let signer = agent_controller_seal_signer();
+        let genesis_seal = build_agent_pcr_bootstrap_seal(
+            std::slice::from_ref(&create),
+            Hlc::new("01970e589d21-0013-a13f9c2e").unwrap(),
+            &signer,
+            &registry_projection,
+        )
+        .unwrap();
+        let basis = SealBasis {
+            leaves: vec![genesis_seal.id.clone()],
+        };
+
+        let anchor =
+            agent_pcr_follow_up_event(&create, 1, "01970e589d21-0014-a13f9c2e", digest_suite, None);
+        let successor = agent_pcr_follow_up_event(
+            &create,
+            2,
+            "01970e589d21-0015-a13f9c2e",
+            digest_suite,
+            Some(basis),
+        );
+        let effect_free = [anchor.event_id.clone(), successor.event_id.clone()]
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let material = materialize_agent_pcr_control(
+            &[create.clone(), anchor.clone(), successor.clone()],
+            &effect_free_projection(&effect_free),
+        )
+        .unwrap();
+        assert_eq!(material.digest_suite, digest_suite);
+        assert_eq!(material.covered_event_digests.len(), 3);
+        assert!(material.covered_event_digests.contains(
+            &Hash::new(anchor.event_digest_with_digest_suite(digest_suite).unwrap()).unwrap()
+        ));
+        assert!(
+            material.covered_event_digests.contains(
+                &Hash::new(
+                    successor
+                        .event_digest_with_digest_suite(digest_suite)
+                        .unwrap()
+                )
+                .unwrap()
+            )
+        );
+
+        let mismatched =
+            agent_pcr_follow_up_event(&create, 1, "01970e589d21-0014-a13f9c2e", other, None);
+        let effect_free = [mismatched.event_id.clone()]
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        let error = materialize_agent_pcr_control(
+            &[create, mismatched],
+            &effect_free_projection(&effect_free),
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("suite the genesis did not declare"),
+            "unexpected rejection: {error}"
+        );
+    }
 }
 
 #[test]

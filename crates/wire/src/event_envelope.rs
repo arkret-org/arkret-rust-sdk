@@ -495,13 +495,11 @@ impl RegistrationDidEvidenceDraft {
         Ok(bytes)
     }
 
+    /// Attach the registry's own original acceptance time. That instant and
+    /// `control_proof.created_at` come from independent Authority clocks, so
+    /// their order is never compared.
     pub fn accept(self, accepted_at: DateTime<Utc>) -> Result<RegistrationDidEvidence> {
         self.validate_shape()?;
-        if accepted_at < self.control_proof.created_at {
-            return Err(WireError::Protocol(
-                "registration evidence acceptance predates its control proof".to_owned(),
-            ));
-        }
         let evidence = RegistrationDidEvidence {
             principal_id: self.principal_id,
             did: self.did,
@@ -547,13 +545,7 @@ impl RegistrationDidEvidence {
             &self.version_id,
             &self.method_evidence,
             &self.control_proof,
-        )?;
-        if self.control_proof.created_at > self.accepted_at {
-            return Err(WireError::Protocol(
-                "registration DID evidence predates its control proof".to_owned(),
-            ));
-        }
-        Ok(())
+        )
     }
 
     pub fn canonical_digest(&self) -> Result<Hash> {

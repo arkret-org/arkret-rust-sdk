@@ -552,7 +552,7 @@ mod tests {
         // this test exists so the SDK cannot drift from it silently.
         assert_eq!(
             public_key_digest.as_str(),
-            "sha256:30bde072332c796c2bfa2cca05564e592d49a6dd11719cfdb8a918c0897486a4"
+            "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
         );
         assert_eq!(
             attestation_digest.as_str(),
@@ -560,7 +560,7 @@ mod tests {
         );
         assert_eq!(
             binding_digest.as_str(),
-            "sha256:d9bfa43d517f962dd5fa8e1a8873dce0de410bffec06b553ea03dd01e330460f"
+            "sha256:baaf80b0befc79c9baf9b9d65a4bd730e4ae5a6ec1b65f72d2857d03426f3466"
         );
     }
 
@@ -626,7 +626,10 @@ mod tests {
         .build_approval_request()
         .unwrap();
         let proof = &request.body.proof_of_possession;
-        let transcript = proof.canonical_transcript_bytes("12345678").unwrap();
+        // The transcript binds the pairing code, so it has to be the one the builder used.
+        let transcript = proof
+            .canonical_transcript_bytes("AAAAAAAAAAAAAAAAAAAAAA")
+            .unwrap();
         let signature = base64url_decode(proof.signature.as_str()).unwrap();
         let signature = ed25519_dalek::Signature::from_slice(&signature).unwrap();
 

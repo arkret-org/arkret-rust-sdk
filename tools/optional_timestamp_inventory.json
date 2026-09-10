@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "total": 212,
+  "total": 203,
   "counts": {
-    "internal": 58,
-    "optional_has_default": 151,
+    "internal": 55,
+    "optional_has_default": 145,
     "required": 2,
     "schema_field_unknown": 1
   },
@@ -1666,7 +1666,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 878,
+      "line": 893,
       "struct_name": "KeyRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1678,7 +1678,7 @@
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 881,
+      "line": 896,
       "struct_name": "KeyRecord",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1687,78 +1687,6 @@
       "schema_pointer": "keys-operations.schema.json#/$defs/key_record",
       "schema_source": "doc-pointer",
       "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 997,
-      "struct_name": "Share",
-      "field_name": "not_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/share",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 1000,
-      "struct_name": "Share",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/share",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 1003,
-      "struct_name": "Share",
-      "field_name": "revoked_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/share",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 1046,
-      "struct_name": "ShareWire",
-      "field_name": "not_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 1049,
-      "struct_name": "ShareWire",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 1052,
-      "struct_name": "ShareWire",
-      "field_name": "revoked_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/http_bodies.rs",
@@ -1786,7 +1714,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 721,
+      "line": 718,
       "struct_name": "KeyBackupSummary",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1798,7 +1726,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 725,
+      "line": 722,
       "struct_name": "KeyBackupSummary",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1810,7 +1738,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 765,
+      "line": 762,
       "struct_name": "KeyBackup",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1822,7 +1750,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 769,
+      "line": 766,
       "struct_name": "KeyBackup",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1834,7 +1762,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 1874,
+      "line": 1871,
       "struct_name": "KeyBackupRetention",
       "field_name": "delete_after",
       "field_type": "Option<DateTime<Utc>>",
@@ -1846,7 +1774,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 1910,
+      "line": 1908,
       "struct_name": "RecoveryPolicy",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -1858,7 +1786,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 1914,
+      "line": 1912,
       "struct_name": "RecoveryPolicy",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1870,7 +1798,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2328,
+      "line": 2351,
       "struct_name": "RecoveryPolicySummary",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1882,7 +1810,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2348,
+      "line": 2371,
       "struct_name": "RecoveryControlFrontier",
       "field_name": "observed_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1894,7 +1822,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2363,
+      "line": 2386,
       "struct_name": "RecoveryPolicyActiveOutcome",
       "field_name": "as_of",
       "field_type": "Option<DateTime<Utc>>",
@@ -1906,43 +1834,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2492,
-      "struct_name": "RecoveryShare",
-      "field_name": "not_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/share",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2495,
-      "struct_name": "RecoveryShare",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/share",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2498,
-      "struct_name": "RecoveryShare",
-      "field_name": "revoked_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/share",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2556,
+      "line": 2535,
       "struct_name": "RecoveryKeyEntry",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1954,7 +1846,7 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2638,
+      "line": 2617,
       "struct_name": "RecoveryKeyAgreementEntry",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2290,7 +2182,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 519,
+      "line": 529,
       "struct_name": "KeyVerificationContent",
       "field_name": "timestamp",
       "field_type": "Option<DateTime<Utc>>",
@@ -2302,7 +2194,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 522,
+      "line": 532,
       "struct_name": "KeyVerificationContent",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",

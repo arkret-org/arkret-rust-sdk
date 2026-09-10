@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-10.11;
-//! sha256=32f5c9672c62899dfb2eaace2ce2e5064733f92ac1440251a16b68d99e68af59
-//! Entries: reason_codes=434
+//! Input: registry/error-code-registry.json; version=2026-09-11.2;
+//! sha256=989628a94d919649c16a24236f417f46ad2fe94eb7be3e38e38676d38805acf9
+//! Entries: reason_codes=432
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -44,7 +44,6 @@ pub enum ReasonCode {
     ApprovalAlreadyConsumed,
     ApprovalNonceReused,
     ApprovalRequired,
-    AttestationMissing,
     AudienceMismatch,
     AuditCapabilityIncomplete,
     AuditPurposeMismatch,
@@ -378,7 +377,6 @@ pub enum ReasonCode {
     SessionFocusAlreadyCommitted,
     SessionFocusNoSplitBrain,
     SessionMissing,
-    ShareCommitmentMismatch,
     SidecarCreateDenied,
     SignalPlaintextForbidden,
     SoftFailed,
@@ -501,7 +499,6 @@ impl ReasonCode {
     pub const APPROVAL_ALREADY_CONSUMED: &'static str = "approval_already_consumed";
     pub const APPROVAL_NONCE_REUSED: &'static str = "approval_nonce_reused";
     pub const APPROVAL_REQUIRED: &'static str = "approval_required";
-    pub const ATTESTATION_MISSING: &'static str = "attestation_missing";
     pub const AUDIENCE_MISMATCH: &'static str = "audience_mismatch";
     pub const AUDIT_CAPABILITY_INCOMPLETE: &'static str = "audit_capability_incomplete";
     pub const AUDIT_PURPOSE_MISMATCH: &'static str = "audit_purpose_mismatch";
@@ -898,7 +895,6 @@ impl ReasonCode {
     pub const SESSION_FOCUS_ALREADY_COMMITTED: &'static str = "session_focus_already_committed";
     pub const SESSION_FOCUS_NO_SPLIT_BRAIN: &'static str = "session_focus_no_split_brain";
     pub const SESSION_MISSING: &'static str = "session_missing";
-    pub const SHARE_COMMITMENT_MISMATCH: &'static str = "share_commitment_mismatch";
     pub const SIDECAR_CREATE_DENIED: &'static str = "sidecar_create_denied";
     pub const SIGNAL_PLAINTEXT_FORBIDDEN: &'static str = "signal_plaintext_forbidden";
     pub const SOFT_FAILED: &'static str = "soft_failed";
@@ -1024,7 +1020,6 @@ impl ReasonCode {
             Self::ApprovalAlreadyConsumed => Self::APPROVAL_ALREADY_CONSUMED,
             Self::ApprovalNonceReused => Self::APPROVAL_NONCE_REUSED,
             Self::ApprovalRequired => Self::APPROVAL_REQUIRED,
-            Self::AttestationMissing => Self::ATTESTATION_MISSING,
             Self::AudienceMismatch => Self::AUDIENCE_MISMATCH,
             Self::AuditCapabilityIncomplete => Self::AUDIT_CAPABILITY_INCOMPLETE,
             Self::AuditPurposeMismatch => Self::AUDIT_PURPOSE_MISMATCH,
@@ -1406,7 +1401,6 @@ impl ReasonCode {
             Self::SessionFocusAlreadyCommitted => Self::SESSION_FOCUS_ALREADY_COMMITTED,
             Self::SessionFocusNoSplitBrain => Self::SESSION_FOCUS_NO_SPLIT_BRAIN,
             Self::SessionMissing => Self::SESSION_MISSING,
-            Self::ShareCommitmentMismatch => Self::SHARE_COMMITMENT_MISMATCH,
             Self::SidecarCreateDenied => Self::SIDECAR_CREATE_DENIED,
             Self::SignalPlaintextForbidden => Self::SIGNAL_PLAINTEXT_FORBIDDEN,
             Self::SoftFailed => Self::SOFT_FAILED,
@@ -1536,7 +1530,6 @@ impl ReasonCode {
             Self::APPROVAL_ALREADY_CONSUMED => Self::ApprovalAlreadyConsumed,
             Self::APPROVAL_NONCE_REUSED => Self::ApprovalNonceReused,
             Self::APPROVAL_REQUIRED => Self::ApprovalRequired,
-            Self::ATTESTATION_MISSING => Self::AttestationMissing,
             Self::AUDIENCE_MISMATCH => Self::AudienceMismatch,
             Self::AUDIT_CAPABILITY_INCOMPLETE => Self::AuditCapabilityIncomplete,
             Self::AUDIT_PURPOSE_MISMATCH => Self::AuditPurposeMismatch,
@@ -1918,7 +1911,6 @@ impl ReasonCode {
             Self::SESSION_FOCUS_ALREADY_COMMITTED => Self::SessionFocusAlreadyCommitted,
             Self::SESSION_FOCUS_NO_SPLIT_BRAIN => Self::SessionFocusNoSplitBrain,
             Self::SESSION_MISSING => Self::SessionMissing,
-            Self::SHARE_COMMITMENT_MISMATCH => Self::ShareCommitmentMismatch,
             Self::SIDECAR_CREATE_DENIED => Self::SidecarCreateDenied,
             Self::SIGNAL_PLAINTEXT_FORBIDDEN => Self::SignalPlaintextForbidden,
             Self::SOFT_FAILED => Self::SoftFailed,
@@ -2242,11 +2234,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::APPROVAL_REQUIRED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "Event was rejected because the active capability constraint requires approval evidence (per zh/authz/capabilities.md §6 / §8) and none was supplied.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::ATTESTATION_MISSING,
-        applies_to: &["crypto", "device_recovery", "schema_validation"],
-        description: "A `recipient_method=hardware_wrapped_key` key-backup envelope, or a recovery proof requiring hardware attestation, lacks an `attestation` chain that the receiver can verify against the active recovery policy's `methods[kind=trusted_recovery_service].services[]`. See zh/identity/key-management.md §7.5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIENCE_MISMATCH,
@@ -3674,7 +3661,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PROOF_KIND_UNKNOWN,
         applies_to: &["schema_validation", "device_recovery"],
-        description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 methods kind union. Producers MUST use one of did_root, recovery_unlock, device_quorum, trusted_recovery_service, or threshold_recovery.",
+        description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 methods kind union. Producers MUST use one of did_root, recovery_unlock, device_quorum, or trusted_recovery_service.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_REQUIRED,
@@ -3929,11 +3916,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SESSION_MISSING,
         applies_to: &["direct_conversation_readiness"],
         description: "Closed target-specific Direct Conversation readiness blocker: the otherwise authorized Agent has no current session for the requested send path. It MUST NOT appear in generic Agent readiness.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SHARE_COMMITMENT_MISMATCH,
-        applies_to: &["crypto", "device_recovery"],
-        description: "A threshold-recovery share submitted during reconstruction does not match the `share_commitment{algorithm, commitment_b64u}` declared in the active recovery policy. Coordinator MUST notify the user which holder submitted an invalid share. See zh/identity/key-management.md §7.5.4 / §8.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SIDECAR_CREATE_DENIED,

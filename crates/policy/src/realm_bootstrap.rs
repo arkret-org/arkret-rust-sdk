@@ -554,6 +554,18 @@ mod tests {
         assert!(validate_accepted_realm_seal_genesis_unit(&[managed]).is_err());
     }
 
+    /// The `direct_conversation_contact_round` branch discriminator every Event
+    /// of the unit carries (`contact-and-direct-conversation.md` sections 5.4
+    /// and 6.1: one critical role, exact XOR, same branch context).
+    fn direct_founding_ref() -> arkret_wire::EventRef {
+        arkret_wire::EventRef::new(
+            "ak:event:AZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZ",
+            "direct_conversation_contact_round",
+        )
+    }
+
+    /// The closed four-Event unit in the exact wire order section 6.1 fixes:
+    /// create, founder join, peer join, main Strand, chained by `prev_refs`.
     fn direct_founding_unit() -> Vec<Event> {
         let mut genesis = create();
         genesis.scope_ref = ScopeRef::RealmGenesis;
@@ -562,6 +574,7 @@ mod tests {
             "ak.schema.realm.v1",
             arkret_wire::ProfileId::DIRECT_CONVERSATION_REALM_V1
         ]);
+        genesis.refs = vec![direct_founding_ref()];
         genesis
             .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap();
@@ -587,12 +600,12 @@ mod tests {
         .unwrap();
         let mut events = vec![
             genesis,
+            founder,
             member(peer),
             event(
                 EventKind::StrandCreate,
                 serde_json::to_value(strand).unwrap(),
             ),
-            founder,
         ];
         for index in 1..events.len() {
             let previous = events[index - 1].event_id.clone();
@@ -603,6 +616,7 @@ mod tests {
             current.realm_id = realm.clone();
             current.actor_seq = index as u64;
             current.prev_refs = vec![previous];
+            current.refs = vec![direct_founding_ref()];
             current
                 .refresh_content_bound_identity_with_digest_suite(
                     arkret_canonical::DigestSuite::Sha256,
@@ -613,9 +627,13 @@ mod tests {
     }
 
     #[test]
-    fn direct_founding_accepts_current_four_event_unit_without_legacy_refs() {
+    fn direct_founding_accepts_the_current_four_event_unit() {
         let events = direct_founding_unit();
-        assert!(events[0].refs.is_empty());
+        for event in &events {
+            assert_eq!(events[0].refs, event.refs);
+        }
+        assert!(events[0].refs[0].critical);
+        assert_eq!(events[0].refs[0].role, "direct_conversation_contact_round");
         let validated = validate_realm_bootstrap_unit(&events).unwrap();
         assert_eq!(validated.realm_id, events[0].realm_id);
     }

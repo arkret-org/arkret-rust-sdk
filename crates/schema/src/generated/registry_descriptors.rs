@@ -4,8 +4,8 @@
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886 Input: registry/
 //! capability-action-registry.json; version=2026-09-10.18;
 //! sha256=92bb8d82019adc647d18c12c476f3044eb6642fd443dd890c947b6fffc874274 Input: registry/
-//! schema-registry.json; version=2026-09-10.21;
-//! sha256=70943fa8639d8d4c48718baee319017d879f0444dd8bad3d8573e70b2b762290 Input: registry/
+//! schema-registry.json; version=2026-09-11.1;
+//! sha256=096690d39d72cabec2bbf6b024e3e6d188e0eed3860ba6ca5af75283b0486e77 Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.2;
 //! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
 //! special_forms=14, actions=163, schemas=223, account_data_patterns=24

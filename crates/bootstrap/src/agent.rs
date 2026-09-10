@@ -23,7 +23,16 @@ use chrono::{DateTime, Utc};
 use crate::REALM_CREATE_CELL;
 use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
 
-const AGENT_PCR_DIGEST_SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
+/// The `ak.realm.create` Event's own digest suite.
+///
+/// `realm-and-space.md` §2.5.0 derives `realm_id = retype(event_id, "realm")`
+/// and fixes the v1 Realm token header at `0x01`, so the genesis Event digest
+/// is SHA-256 for every Realm regardless of the suite that Realm locks for the
+/// rest of its history. This is the Realm-token contract, not a SHA-256
+/// fallback: every non-create Event, every root and the Seal itself use the
+/// suite the genesis declared.
+const REALM_CREATE_EVENT_DIGEST_SUITE: arkret_canonical::DigestSuite =
+    arkret_canonical::DigestSuite::Sha256;
 
 /// Public inputs for the profile-closed Agent PCR Realm payload.
 #[derive(Clone, Debug)]
@@ -37,6 +46,9 @@ pub struct AgentPcrCreatePayloadInput {
     pub initial_resolution: ResolutionCommitment,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
+    /// The suite this Agent PCR locks at create time. `realm-genesis` uses the
+    /// ordinary Realm digest enum; Agent PCRs have no SHA-256 exception.
+    pub digest_suite: arkret_canonical::DigestSuite,
     pub created_at: DateTime<Utc>,
 }
 
@@ -64,7 +76,7 @@ pub fn build_agent_pcr_create_payload(
             ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
         ],
         arkret_wire::CORE_REDUCER_PROFILE,
-        arkret_canonical::DigestSuite::Sha256,
+        input.digest_suite,
         SecurityClass::HighAssurance,
         EncryptionProfile::MlsRfc9420,
         input.notary,
@@ -103,6 +115,10 @@ pub struct AgentPcrControlMaterial {
     pub authorization_ref: AuthorizationRef,
     /// The founding notary profile, exactly as the accepted create declared it.
     pub notary: NotaryValue,
+    /// The Realm's locked digest suite, taken from the authenticated genesis
+    /// object. Every covered Event digest, root, Seal id and notary payload
+    /// digest in this material was derived under it.
+    pub digest_suite: arkret_canonical::DigestSuite,
     pub covered_event_digests: Vec<Hash>,
     pub state_root: Hash,
     pub joined: BTreeMap<CellRef, CellState>,
@@ -176,6 +192,7 @@ pub fn materialize_agent_pcr_control(
             "Agent PCR create purpose is inconsistent".to_owned(),
         ));
     }
+    let digest_suite = object.digest_algorithm;
     let notary_value = object.notary;
     notary_value.validate()?;
     if !notary_primary_projects_to_actor(&notary_value, &create.actor_id)? {
@@ -205,9 +222,20 @@ pub fn materialize_agent_pcr_control(
     let mut ordered = included
         .into_iter()
         .map(|event| {
+            let event_suite = event_digest_suite(event, digest_suite);
+            // The carried id losslessly encodes the suite its digest was taken
+            // under. A history whose Events were digested under a different
+            // suite than the genesis locked is rejected here rather than
+            // silently re-digested into this Realm's contract.
+            if event.event_id.event_digest().digest_suite()? != event_suite {
+                return Err(WireError::Protocol(format!(
+                    "Agent PCR Event {} was digested under a suite the genesis did not declare",
+                    event.event_id.as_str()
+                )));
+            }
             Ok((
                 event,
-                Hash::new(event.event_digest_with_digest_suite(AGENT_PCR_DIGEST_SUITE)?)?,
+                Hash::new(event.event_digest_with_digest_suite(event_suite)?)?,
             ))
         })
         .collect::<Result<Vec<_>>>()?;
@@ -287,22 +315,35 @@ pub fn materialize_agent_pcr_control(
         cursor = end;
     }
 
-    let state_root = compute_state_root(
-        GovernanceView::new(&joined, &cas_heads),
-        AGENT_PCR_DIGEST_SUITE,
-    )
-    .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
+    let state_root = compute_state_root(GovernanceView::new(&joined, &cas_heads), digest_suite)
+        .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
     Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
         controller_actor_id,
         authorization_ref,
         notary: notary_value,
+        digest_suite,
         covered_event_digests: covered.into_iter().collect(),
         state_root,
         joined,
         event_ops,
     })
+}
+
+/// The suite one Agent PCR Event's own digest is taken under.
+///
+/// Only `ak.realm.create` differs, and only because §2.5.0 makes the Realm
+/// token a retype of its own `event_id`.
+fn event_digest_suite(
+    event: &Event,
+    realm_digest_suite: arkret_canonical::DigestSuite,
+) -> arkret_canonical::DigestSuite {
+    if event.kind == EventKind::RealmCreate {
+        REALM_CREATE_EVENT_DIGEST_SUITE
+    } else {
+        realm_digest_suite
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -430,6 +471,7 @@ pub struct AgentPcrGenesisAuthority {
     controller_actor_id: ActorId,
     authorization_ref: AuthorizationRef,
     notary: NotaryValue,
+    digest_suite: arkret_canonical::DigestSuite,
     authority_set_ref: Hash,
 }
 
@@ -447,13 +489,17 @@ impl AgentPcrGenesisAuthority {
             ));
         }
         let material = materialize_agent_pcr_control(std::slice::from_ref(create), project)?;
-        let authority_set_ref = Hash::new(arkret_canonical::canonical_sha256(&material.notary)?)?;
+        let authority_set_ref = Hash::new(arkret_canonical::digest(
+            material.digest_suite,
+            arkret_canonical::canonical_json_bytes(&material.notary)?,
+        ))?;
         Ok(Self {
             realm_id: material.realm_id,
             agent_id: material.agent_id,
             controller_actor_id: material.controller_actor_id,
             authorization_ref: material.authorization_ref,
             notary: material.notary,
+            digest_suite: material.digest_suite,
             authority_set_ref,
         })
     }
@@ -488,6 +534,11 @@ impl AgentPcrGenesisAuthority {
 
     pub fn notary(&self) -> &NotaryValue {
         &self.notary
+    }
+
+    /// The suite this Agent PCR locked in its genesis object.
+    pub fn digest_suite(&self) -> arkret_canonical::DigestSuite {
+        self.digest_suite
     }
 
     /// Canonical digest of the founding notary profile.
@@ -531,23 +582,27 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
             "Agent PCR Seal has no new Event delta".to_owned(),
         ));
     }
-    let control_root = control_event_set_root(&target, AGENT_PCR_DIGEST_SUITE)
+    let digest_suite = material.digest_suite;
+    let control_root = control_event_set_root(&target, digest_suite)
         .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
     let completeness_root = arkret_state::control_event_completeness_root(
         &events
             .iter()
             .cloned()
-            .map(|event| (event, AGENT_PCR_DIGEST_SUITE))
+            .map(|event| {
+                let event_suite = event_digest_suite(&event, digest_suite);
+                (event, event_suite)
+            })
             .collect::<Vec<_>>(),
         &target,
-        AGENT_PCR_DIGEST_SUITE,
+        digest_suite,
     )
     .map_err(|error| WireError::Protocol(format!("Agent PCR completeness root: {error}")))?;
     let sealed_at = Utc::now();
     let availability_receipt_digests = Vec::new();
-    let zero_hash = Hash::new(format!("sha256:{}", "00".repeat(32)))?;
+    let placeholder_digest = Hash::new(arkret_canonical::digest(digest_suite, b""))?;
     let mut seal = Seal {
-        id: SealId::new(format!("ak:seal:sha256:{}", "00".repeat(32)))?,
+        id: SealId::new(format!("ak:seal:{}", placeholder_digest.as_str()))?,
         realm_id: material.realm_id,
         predecessor_refs,
         delta,
@@ -563,20 +618,20 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
         previous_digest_algorithm: None,
         notary_signature: NotarySig::Single(SealSignature {
             verification_method: signer.verification_method_id().clone(),
-            payload_digest: zero_hash,
+            payload_digest: placeholder_digest,
             jws: String::new(),
         }),
         sealed_at,
         hlc,
     };
     let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, AGENT_PCR_DIGEST_SUITE)?;
+    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, digest_suite)?;
     seal.notary_signature = NotarySig::Single(
         signer
-            .sign_notary_payload_with_digest_suite(&canonical_bytes, AGENT_PCR_DIGEST_SUITE)?
+            .sign_notary_payload_with_digest_suite(&canonical_bytes, digest_suite)?
             .into(),
     );
     seal.validate_structural()?;
-    seal.validate_id(AGENT_PCR_DIGEST_SUITE)?;
+    seal.validate_id(digest_suite)?;
     Ok(seal)
 }
