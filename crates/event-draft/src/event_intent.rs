@@ -472,7 +472,8 @@ impl EventIntent {
     ///   attempt;
     /// - `event_id`, `proofs` and `unsigned` are derived or transport-only;
     /// - a CBS member is per-attempt state *unless this intent pinned it*. A pre-join
-    ///   `ak.invite.accept` pins its join-candidate basis because the invitee cannot re-resolve the
+    ///   `ak.invite.accept` pins the `seal_basis` its own Station froze in
+    ///   `ak.self.realm_join.command.prepare.v1`, because the invitee cannot re-resolve the
     ///   membership-gated Seal view; an ordinary member-authored Event leaves it open and
     ///   re-resolves it each attempt.
     pub fn authored_envelope_matches(&self, event: &arkret_wire::Event) -> bool {

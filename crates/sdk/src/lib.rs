@@ -162,6 +162,7 @@ pub use arkret_models_collaboration::governance::operation_wire::*;
 pub use arkret_models_collaboration::governance::peer_contact::*;
 pub use arkret_models_collaboration::governance::plaintext_visibility::*;
 pub use arkret_models_collaboration::governance::realm_governance::*;
+pub use arkret_models_collaboration::governance::realm_join_intake::*;
 pub use arkret_models_collaboration::governance::realm_lifecycle::*;
 pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_dependencies::*;
@@ -257,6 +258,7 @@ pub use arkret_models_discovery::presence::{
     STATUS_MESSAGE_MAX_CODE_POINTS, aggregate_presence_states, validate_last_active_at,
     validate_status_message,
 };
+pub use arkret_models_discovery::realm_join_preview::*;
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{
     ApiConventionMetadata, DidCoreIdAllowlist, HttpTraceMetadata, NotFoundPrivacy, QuotaKind,

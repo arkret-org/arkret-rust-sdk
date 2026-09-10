@@ -282,12 +282,6 @@ pub struct DirectoryResolveRealmRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct DirectoryRealmResolutionOutcome {
     pub realm_preview: RealmPreview,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    #[cfg_attr(
-        feature = "openapi",
-        salvo(schema(value_type = Vec<serde_json::Value>))
-    )]
-    pub stripped_state_entries: Vec<Event>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(
         feature = "openapi",

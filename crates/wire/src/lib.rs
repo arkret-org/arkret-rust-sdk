@@ -56,6 +56,7 @@ pub mod generated;
 pub mod history_secret;
 pub mod history_store;
 pub mod ingress_budget;
+pub mod invite_token;
 pub mod mls_transition;
 pub mod notary;
 pub mod object_address;
@@ -72,6 +73,7 @@ pub mod problem_details;
 pub mod query_auth;
 pub mod receive_policy;
 pub mod recovery_authority;
+pub mod request_digest;
 pub mod resource_selector;
 pub mod seal;
 pub mod security_transaction;
@@ -175,6 +177,7 @@ pub use history_store::{
     MAX_HISTORY_SENDER_DOMAIN_CHARS, MAX_LOCAL_MLS_STATE_REF_CHARS,
 };
 pub use ingress_budget::WireBodyClass;
+pub use invite_token::{INVITE_TOKEN_MAX_CHARS, validate_invite_token};
 pub use mls_transition::mls_genesis_transition_digest;
 pub use notary::{
     ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
@@ -209,6 +212,7 @@ pub use recovery_authority::{
     RecoveryCompletionAttestationAuthData, UnsignedRecoveryCompletionAttestation,
     UnsignedRecoveryCompletionAttestationBody,
 };
+pub use request_digest::framed_request_digest;
 pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
