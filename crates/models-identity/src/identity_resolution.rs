@@ -744,9 +744,19 @@ impl AuthenticatedServiceResolution {
         })
     }
 }
+/// Longest a verified route may be reused without re-resolving the current
+/// method state (`sync/service-surface.md` section 2.6).
+pub const SERVICE_ROUTE_CACHE_MAX_SECONDS: i64 = 300;
+
+/// The accepted method-state floor for one service DID.
+///
+/// `sync/service-surface.md` section 2.6 requires a receiver to persist the
+/// accepted method head / version / DID, and to reject later material that does
+/// not contain that state plus a continuous native successor. This is local
+/// durable state with no Spec schema counterpart: it never crosses a process
+/// boundary, so it carries no OpenAPI projection.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct ServiceMethodState {
     pub service_id: DidCoreId,
     pub service_kind: String,
@@ -756,26 +766,75 @@ pub struct ServiceMethodState {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub verified_at: DateTime<Utc>,
 }
+/// One verified service route together with the local window in which it may
+/// be reused.
+///
+/// Only [`ServiceResolutionProjection`] is a wire shape. `service-surface.md`
+/// section 2.6 states that local `verified_at` / `cache_expires_at` are never
+/// forwardable freshness credentials, so this whole struct stays local: it is a
+/// replaceable performance cache that MAY disappear on restart, and it never
+/// lowers the accepted method state in [`ServiceMethodState`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ServiceRouteCacheEntry {
-    pub service_id: DidCoreId,
-    pub service_kind: String,
-    pub did: Did,
-    pub method_history_head: String,
-    pub version_id: String,
-    pub base_url: String,
+pub struct VerifiedServiceRoute {
+    pub projection: ServiceResolutionProjection,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub verified_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub cache_expires_at: DateTime<Utc>,
 }
-impl ServiceRouteCacheEntry {
+impl VerifiedServiceRoute {
+    /// Cache one freshly verified projection for the full permitted window.
+    #[must_use]
+    pub fn new(projection: ServiceResolutionProjection, verified_at: DateTime<Utc>) -> Self {
+        Self {
+            projection,
+            verified_at,
+            cache_expires_at: verified_at
+                + chrono::Duration::seconds(SERVICE_ROUTE_CACHE_MAX_SECONDS),
+        }
+    }
     pub fn is_routable_at(&self, now: DateTime<Utc>) -> bool {
         self.verified_at <= now
-            && self.cache_expires_at <= self.verified_at + chrono::Duration::seconds(300)
+            && self.cache_expires_at
+                <= self.verified_at + chrono::Duration::seconds(SERVICE_ROUTE_CACHE_MAX_SECONDS)
             && now < self.cache_expires_at
+    }
+    #[must_use]
+    pub const fn service_id(&self) -> &DidCoreId {
+        &self.projection.service_id
+    }
+    #[must_use]
+    pub fn service_kind(&self) -> &str {
+        &self.projection.service_kind
+    }
+    #[must_use]
+    pub const fn did(&self) -> &Did {
+        &self.projection.did
+    }
+    #[must_use]
+    pub fn method_history_head(&self) -> &str {
+        &self.projection.method_history_head
+    }
+    #[must_use]
+    pub fn version_id(&self) -> &str {
+        &self.projection.version_id
+    }
+    #[must_use]
+    pub fn base_url(&self) -> &str {
+        &self.projection.base_url
+    }
+    /// The accepted floor this route establishes.
+    #[must_use]
+    pub fn method_state(&self) -> ServiceMethodState {
+        ServiceMethodState {
+            service_id: self.projection.service_id.clone(),
+            service_kind: self.projection.service_kind.clone(),
+            did: self.projection.did.clone(),
+            method_history_head: self.projection.method_history_head.clone(),
+            version_id: self.projection.version_id.clone(),
+            verified_at: self.verified_at,
+        }
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

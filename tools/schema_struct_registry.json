@@ -954,6 +954,10 @@
       "schema": "account-operations.schema.json#/$defs/device_summary"
     },
     {
+      "rust_type": "crates/models-identity/src/identity_resolution.rs::ServiceResolutionProjection",
+      "schema": "identity-resolution.schema.json#/$defs/service_route_projection"
+    },
+    {
       "rust_type": "crates/models-integration/src/applet/registration.rs::AppletEndpointEntry",
       "schema": "applet-package.schema.json#/$defs/endpoint_entry",
       "comparison": "rust_fields_subset",
