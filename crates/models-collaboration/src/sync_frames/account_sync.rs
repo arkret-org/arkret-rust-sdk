@@ -11,6 +11,7 @@ use arkret_wire::{AccountId, ActorId, ActorPrivateUpdateKind, DidCoreId};
 use serde::Serializer;
 
 use crate::internal_prelude::*;
+use crate::objects::read_receipts::{NotificationIdentity, OrdinaryProjectionContent};
 
 /// Standard non-Event device-message kinds shared by wire validation and the
 /// client drafting layer.
@@ -64,18 +65,56 @@ pub struct AgentRuntimeApprovalNotificationRemovalData {
     pub reason: AgentRuntimeApprovalRemovalReason,
 }
 
-/// Closed data branches for account notification deltas.
+/// Closed terminal reasons for an ordinary source-Event notification row.
+///
+/// Every value is server-observable. Inbox disposition (read / dismissed /
+/// archived) is holder-private state and never removes a current row, so it has
+/// no representation here — a Station that wanted to express "the user read it"
+/// would have to invent a reason, and there is none to invent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrdinaryNotificationRemovalReason {
+    SourceRemoved,
+    AccessRevoked,
+    Expired,
+    Superseded,
+}
+
+/// Required data of an ordinary source-Event notification `remove` delta.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OrdinaryNotificationRemovalData {
+    pub reason: OrdinaryNotificationRemovalReason,
+}
+
+/// Closed data branches for account notification deltas.
+///
+/// Serialization is untagged because the wire carries no discriminator of its
+/// own; deserialization is *not*, and must not be. `expired` and `superseded`
+/// belong to both removal vocabularies, so an untagged decoder would accept an
+/// ordinary removal reason on an Agent approval row (and the reverse) whenever
+/// the two vocabularies overlap. [`NotificationDelta`] therefore selects the
+/// branch from the `id` form first and only then parses `data` into that
+/// branch's type.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(untagged)]
 pub enum NotificationData {
     AgentRuntimeApproval(AgentRuntimeApprovalNotificationData),
     AgentRuntimeApprovalRemoval(AgentRuntimeApprovalNotificationRemovalData),
+    OrdinaryProjection(Box<OrdinaryProjectionContent>),
+    OrdinaryRemoval(OrdinaryNotificationRemovalData),
 }
 
 /// Strongly typed account notification projection delta.
+///
+/// One channel carries both notification branches, and the `id` form is the
+/// only discriminator: `ak:notification:<uuidv7>` is an Agent runtime approval,
+/// `ak:notification_projection:<token>` is an ordinary source-Event current
+/// row. Both share the projector, the channel position and the per-frame
+/// budget; there is no second notification list operation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct NotificationDelta {
-    pub id: NotificationId,
+    pub id: NotificationIdentity,
     pub action: NotificationDeltaAction,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<NotificationData>,
@@ -83,7 +122,7 @@ pub struct NotificationDelta {
 
 impl NotificationDelta {
     pub fn try_new(
-        id: NotificationId,
+        id: NotificationIdentity,
         action: NotificationDeltaAction,
         data: Option<NotificationData>,
     ) -> Result<Self> {
@@ -93,25 +132,96 @@ impl NotificationDelta {
     }
 
     pub fn validate_shape(&self) -> Result<()> {
-        match (self.action, self.data.as_ref()) {
-            (NotificationDeltaAction::Upsert, Some(NotificationData::AgentRuntimeApproval(_)))
+        match (&self.id, self.action, self.data.as_ref()) {
+            (
+                NotificationIdentity::AgentApproval(_),
+                NotificationDeltaAction::Upsert,
+                Some(NotificationData::AgentRuntimeApproval(_)),
+            )
             | (
+                NotificationIdentity::AgentApproval(_),
                 NotificationDeltaAction::Remove,
                 None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)),
             ) => Ok(()),
-            (NotificationDeltaAction::Upsert, _) => Err(WireError::Protocol(
-                "notification upsert requires agent_runtime_approval data".to_owned(),
-            )),
-            (NotificationDeltaAction::Remove, _) => Err(WireError::Protocol(
-                "notification remove data must contain only a terminal reason".to_owned(),
-            )),
+            (
+                NotificationIdentity::Projection(_),
+                NotificationDeltaAction::Upsert,
+                Some(NotificationData::OrdinaryProjection(content)),
+            ) => content.validate(),
+            (
+                NotificationIdentity::Projection(_),
+                NotificationDeltaAction::Remove,
+                Some(NotificationData::OrdinaryRemoval(_)),
+            ) => Ok(()),
+            (NotificationIdentity::AgentApproval(_), NotificationDeltaAction::Upsert, _) => {
+                Err(WireError::Protocol(
+                    "notification upsert requires agent_runtime_approval data".to_owned(),
+                ))
+            }
+            (NotificationIdentity::AgentApproval(_), NotificationDeltaAction::Remove, _) => {
+                Err(WireError::Protocol(
+                    "notification remove data must contain only a terminal reason".to_owned(),
+                ))
+            }
+            (NotificationIdentity::Projection(_), NotificationDeltaAction::Upsert, _) => {
+                Err(WireError::Protocol(
+                    "ordinary notification upsert requires ordinary projection content".to_owned(),
+                ))
+            }
+            (NotificationIdentity::Projection(_), NotificationDeltaAction::Remove, _) => {
+                Err(WireError::Protocol(
+                    "ordinary notification remove requires a server-observable reason".to_owned(),
+                ))
+            }
         }
     }
 
     pub fn agent_runtime_approval(&self) -> Option<&AgentRuntimeApprovalNotificationData> {
         match self.data.as_ref() {
             Some(NotificationData::AgentRuntimeApproval(data)) => Some(data),
-            None | Some(NotificationData::AgentRuntimeApprovalRemoval(_)) => None,
+            _ => None,
+        }
+    }
+
+    pub fn agent_runtime_approval_removal_reason(
+        &self,
+    ) -> Option<AgentRuntimeApprovalRemovalReason> {
+        match self.data.as_ref() {
+            Some(NotificationData::AgentRuntimeApprovalRemoval(data)) => Some(data.reason),
+            _ => None,
+        }
+    }
+
+    pub fn ordinary_projection(&self) -> Option<&OrdinaryProjectionContent> {
+        match self.data.as_ref() {
+            Some(NotificationData::OrdinaryProjection(content)) => Some(content),
+            _ => None,
+        }
+    }
+
+    pub fn ordinary_removal_reason(&self) -> Option<OrdinaryNotificationRemovalReason> {
+        match self.data.as_ref() {
+            Some(NotificationData::OrdinaryRemoval(data)) => Some(data.reason),
+            _ => None,
+        }
+    }
+
+    /// Recompute the ordinary projection identity from the authenticated
+    /// recipient's own AccountId and compare it with the delivered row id.
+    ///
+    /// A recipient MUST run this before displaying an ordinary current row: the
+    /// id is the only thing binding the row to *this* account, and the row
+    /// itself does not carry a recipient field to compare against. Branches
+    /// with no recomputable identity (Agent approvals, and ordinary removals,
+    /// which carry only a reason) return `Ok` without asserting anything.
+    pub fn verify_recipient_binding(&self, recipient_account_id: &AccountId) -> Result<()> {
+        self.validate_shape()?;
+        match (&self.id, self.data.as_ref()) {
+            (
+                NotificationIdentity::Projection(id),
+                Some(NotificationData::OrdinaryProjection(content)),
+            ) => content.verify_id(recipient_account_id, id),
+            _ => Ok(()),
         }
     }
 }
@@ -119,10 +229,10 @@ impl NotificationDelta {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct NotificationDeltaWire {
-    id: NotificationId,
+    id: NotificationIdentity,
     action: NotificationDeltaAction,
     #[serde(default)]
-    data: Option<NotificationData>,
+    data: Option<Value>,
 }
 
 impl<'de> Deserialize<'de> for NotificationDelta {
@@ -131,7 +241,34 @@ impl<'de> Deserialize<'de> for NotificationDelta {
         D: serde::Deserializer<'de>,
     {
         let wire = NotificationDeltaWire::deserialize(deserializer)?;
-        Self::try_new(wire.id, wire.action, wire.data).map_err(serde::de::Error::custom)
+        let data = match (&wire.id, wire.action, wire.data) {
+            (_, _, None) => None,
+            (
+                NotificationIdentity::AgentApproval(_),
+                NotificationDeltaAction::Upsert,
+                Some(raw),
+            ) => Some(NotificationData::AgentRuntimeApproval(
+                serde_json::from_value(raw).map_err(serde::de::Error::custom)?,
+            )),
+            (
+                NotificationIdentity::AgentApproval(_),
+                NotificationDeltaAction::Remove,
+                Some(raw),
+            ) => Some(NotificationData::AgentRuntimeApprovalRemoval(
+                serde_json::from_value(raw).map_err(serde::de::Error::custom)?,
+            )),
+            (NotificationIdentity::Projection(_), NotificationDeltaAction::Upsert, Some(raw)) => {
+                Some(NotificationData::OrdinaryProjection(Box::new(
+                    serde_json::from_value(raw).map_err(serde::de::Error::custom)?,
+                )))
+            }
+            (NotificationIdentity::Projection(_), NotificationDeltaAction::Remove, Some(raw)) => {
+                Some(NotificationData::OrdinaryRemoval(
+                    serde_json::from_value(raw).map_err(serde::de::Error::custom)?,
+                ))
+            }
+        };
+        Self::try_new(wire.id, wire.action, data).map_err(serde::de::Error::custom)
     }
 }
 
@@ -140,6 +277,20 @@ mod notification_delta_tests {
     use serde_json::json;
 
     use super::*;
+
+    /// Identity KAT from `id-kind-registry.json`: this recipient, Realm, source
+    /// Event and `message` kind derive exactly the projection id below.
+    const KAT_REALM: &str = "ak:realm:AdF_8ICakbYdEH0Cnl-w5o1WFlnh5rXGWqY_-_G6yM7N";
+    const KAT_EVENT: &str = "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq";
+    const KAT_PROJECTION: &str =
+        "ak:notification_projection:AdaNq4qN-xTAcv8kCT3P9mL5AsSzg0PFlSELggvhw2Pw";
+
+    fn kat_recipient() -> AccountId {
+        AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+        )
+    }
 
     fn approval_delta(action: &str) -> Value {
         json!({
@@ -151,6 +302,20 @@ mod notification_delta_tests {
                 "requested_at": "2026-07-13T10:00:00.000Z",
                 "expires_at": "2026-07-13T10:15:00.000Z"
             }
+        })
+    }
+
+    fn ordinary_delta(action: &str, data: Value) -> Value {
+        json!({"id": KAT_PROJECTION, "action": action, "data": data})
+    }
+
+    fn ordinary_content() -> Value {
+        json!({
+            "realm_id": KAT_REALM,
+            "source_event_id": KAT_EVENT,
+            "notification_kind": "message",
+            "priority": "normal",
+            "created_at": "2026-09-10T10:00:00.000Z"
         })
     }
 
@@ -175,6 +340,93 @@ mod notification_delta_tests {
         let mut retired_data_kind = approval_delta("upsert");
         retired_data_kind["data"]["kind"] = json!("agent_runtime_approval");
         assert!(serde_json::from_value::<NotificationDelta>(retired_data_kind).is_err());
+    }
+
+    #[test]
+    fn ordinary_current_row_round_trips_and_binds_its_recipient() {
+        let delta: NotificationDelta =
+            serde_json::from_value(ordinary_delta("upsert", ordinary_content())).unwrap();
+        let content = delta.ordinary_projection().expect("ordinary branch");
+        assert_eq!(content.notification_kind, OrdinaryNotificationKind::Message);
+        assert!(delta.agent_runtime_approval().is_none());
+        delta.verify_recipient_binding(&kat_recipient()).unwrap();
+
+        let other_station = AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+        );
+        assert!(delta.verify_recipient_binding(&other_station).is_err());
+        assert_eq!(
+            serde_json::to_value(&delta).unwrap(),
+            ordinary_delta("upsert", ordinary_content())
+        );
+    }
+
+    #[test]
+    fn ordinary_row_refuses_inbox_state_and_identity_members() {
+        for forbidden in ["id", "schema", "actor_id", "state"] {
+            let mut content = ordinary_content();
+            content[forbidden] = json!("unread");
+            assert!(
+                serde_json::from_value::<NotificationDelta>(ordinary_delta("upsert", content))
+                    .is_err(),
+                "{forbidden}"
+            );
+        }
+        let mut agent_kind = ordinary_content();
+        agent_kind["notification_kind"] = json!("agent");
+        assert!(
+            serde_json::from_value::<NotificationDelta>(ordinary_delta("upsert", agent_kind))
+                .is_err()
+        );
+        let mut invite_kind = ordinary_content();
+        invite_kind["notification_kind"] = json!("invite");
+        assert!(
+            serde_json::from_value::<NotificationDelta>(ordinary_delta("upsert", invite_kind))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn removal_vocabularies_do_not_cross_branches() {
+        let delta: NotificationDelta =
+            serde_json::from_value(ordinary_delta("remove", json!({"reason": "expired"}))).unwrap();
+        assert_eq!(
+            delta.ordinary_removal_reason(),
+            Some(OrdinaryNotificationRemovalReason::Expired)
+        );
+        assert!(delta.agent_runtime_approval_removal_reason().is_none());
+
+        // `approved` is an Agent-only reason and `access_revoked` an ordinary
+        // one; the shared `expired` / `superseded` values are exactly why the
+        // branch cannot be chosen by trying both data shapes.
+        assert!(
+            serde_json::from_value::<NotificationDelta>(ordinary_delta(
+                "remove",
+                json!({"reason": "approved"})
+            ))
+            .is_err()
+        );
+        let mut agent_remove = approval_delta("remove");
+        agent_remove["data"] = json!({"reason": "access_revoked"});
+        assert!(serde_json::from_value::<NotificationDelta>(agent_remove).is_err());
+
+        // An ordinary remove carries no optional data: the reason is required.
+        let mut bare = ordinary_delta("remove", json!({}));
+        bare.as_object_mut().unwrap().remove("data");
+        assert!(serde_json::from_value::<NotificationDelta>(bare).is_err());
+    }
+
+    #[test]
+    fn branch_data_cannot_be_delivered_under_the_other_id_form() {
+        let mut approval_under_projection = approval_delta("upsert");
+        approval_under_projection["id"] = json!(KAT_PROJECTION);
+        assert!(serde_json::from_value::<NotificationDelta>(approval_under_projection).is_err());
+
+        let mut ordinary_under_approval = ordinary_delta("upsert", ordinary_content());
+        ordinary_under_approval["id"] =
+            json!("ak:notification:01964137-0000-7000-8000-000000000001");
+        assert!(serde_json::from_value::<NotificationDelta>(ordinary_under_approval).is_err());
     }
 }
 

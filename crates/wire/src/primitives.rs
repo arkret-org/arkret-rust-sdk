@@ -685,6 +685,72 @@ pub enum NotificationKind {
     System,
 }
 
+/// Closed `notification_kind` subset carried by an ordinary source-Event
+/// notification projection
+/// (`notification.schema.json#/$defs/ordinary_notification_kind`).
+///
+/// `invite` has its own private Invite delivery carrier and `agent` belongs to
+/// the account-artifact branch, so neither participates in the deterministic
+/// projection preimage. Keeping the subset as its own type means the exclusion
+/// is a compile-time fact of the preimage and of the account-subscribe ordinary
+/// row, not a runtime rejection each producer has to remember.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrdinaryNotificationKind {
+    Message,
+    Mention,
+    Reply,
+    Assignment,
+    Schedule,
+    Reaction,
+    Policy,
+    Call,
+    Applet,
+    Moderation,
+    System,
+}
+
+impl From<OrdinaryNotificationKind> for NotificationKind {
+    fn from(value: OrdinaryNotificationKind) -> Self {
+        match value {
+            OrdinaryNotificationKind::Message => Self::Message,
+            OrdinaryNotificationKind::Mention => Self::Mention,
+            OrdinaryNotificationKind::Reply => Self::Reply,
+            OrdinaryNotificationKind::Assignment => Self::Assignment,
+            OrdinaryNotificationKind::Schedule => Self::Schedule,
+            OrdinaryNotificationKind::Reaction => Self::Reaction,
+            OrdinaryNotificationKind::Policy => Self::Policy,
+            OrdinaryNotificationKind::Call => Self::Call,
+            OrdinaryNotificationKind::Applet => Self::Applet,
+            OrdinaryNotificationKind::Moderation => Self::Moderation,
+            OrdinaryNotificationKind::System => Self::System,
+        }
+    }
+}
+
+impl TryFrom<&NotificationKind> for OrdinaryNotificationKind {
+    type Error = WireError;
+
+    fn try_from(value: &NotificationKind) -> Result<Self> {
+        match value {
+            NotificationKind::Message => Ok(Self::Message),
+            NotificationKind::Mention => Ok(Self::Mention),
+            NotificationKind::Reply => Ok(Self::Reply),
+            NotificationKind::Assignment => Ok(Self::Assignment),
+            NotificationKind::Schedule => Ok(Self::Schedule),
+            NotificationKind::Reaction => Ok(Self::Reaction),
+            NotificationKind::Policy => Ok(Self::Policy),
+            NotificationKind::Call => Ok(Self::Call),
+            NotificationKind::Applet => Ok(Self::Applet),
+            NotificationKind::Moderation => Ok(Self::Moderation),
+            NotificationKind::System => Ok(Self::System),
+            NotificationKind::Invite | NotificationKind::Agent => Err(WireError::Protocol(
+                "notification category has a dedicated carrier".to_owned(),
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NotificationPriority {
