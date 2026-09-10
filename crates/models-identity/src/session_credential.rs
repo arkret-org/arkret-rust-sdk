@@ -1,8 +1,9 @@
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, DeviceId, DeviceRevocationGateCheckOutcome, DeviceRevocationGateCheckRequestBody,
-    DidCoreId, DidUrl, EventId, Result, SessionGrantGateAdmission, SessionGrantId, WireError,
+    AccountId, ActorId, DeviceId, DeviceRevocationGateCheckOutcome,
+    DeviceRevocationGateCheckRequestBody, DidCoreId, DidUrl, EventId, RealmId, Result,
+    SessionGrantGateAdmission, SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -17,6 +18,7 @@ pub const SESSION_GRANT_ISSUANCE_SCHEMA: &str = "ak.session_grant.issuance.v1";
 pub enum SessionGrantProofKind {
     AccountHandoff,
     AgentKeyProof,
+    PairwiseEndpointProof,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -34,14 +36,22 @@ pub enum SessionGrantHolderBinding {
     HumanDevice {
         device_binding: String,
     },
-    RecoveryCandidateDevice {
-        device_id: DeviceId,
-    },
     AgentRuntime {
         agent_id: DidCoreId,
         device_id: DeviceId,
         agent_key_authorization_ref: EventId,
         verification_method: DidUrl,
+    },
+    /// Realm-local minimal-metadata pairwise endpoint. It creates no Account,
+    /// Device or Agent, so `device_binding` is forbidden, and it must never be
+    /// projected into Realm, roster, directory or federation state.
+    MinimalMetadataPairwise {
+        realm_id: RealmId,
+        actor_id: ActorId,
+        verification_method: DidUrl,
+    },
+    RecoveryCandidateDevice {
+        device_id: DeviceId,
     },
 }
 
@@ -671,6 +681,27 @@ fn validate_issuance_fields(
             }
         }
         (
+            SessionGrantCredentialClass::Standard,
+            SessionGrantHolderBinding::MinimalMetadataPairwise {
+                actor_id,
+                verification_method,
+                ..
+            },
+        ) => {
+            if device_binding.is_some() {
+                return Err(WireError::Protocol(
+                    "minimal-metadata pairwise session grant must omit device_binding".to_owned(),
+                ));
+            }
+            if scope_details.is_some() {
+                return Err(WireError::Protocol(
+                    "minimal-metadata pairwise session grant must omit Agent scope_details"
+                        .to_owned(),
+                ));
+            }
+            validate_pairwise_holder_identity(actor_id, verification_method, audience_id)?;
+        }
+        (
             SessionGrantCredentialClass::RecoverySession,
             SessionGrantHolderBinding::RecoveryCandidateDevice { .. },
         ) => {
@@ -692,6 +723,55 @@ fn validate_issuance_fields(
         }
     }
     let _ = (audience_id, holder_binding, device_binding, scope_details);
+    Ok(())
+}
+
+/// The pairwise holder branch is self-certifying: its ActorId principal is the
+/// `did:key` projection of the signed verification method, and its Station is
+/// the grant audience. Both are checked here so a grant that renames the
+/// endpoint cannot decode at all.
+fn validate_pairwise_holder_identity(
+    actor_id: &ActorId,
+    verification_method: &DidUrl,
+    audience_id: &DidCoreId,
+) -> Result<()> {
+    let ActorId::Account { account_id } = actor_id else {
+        return Err(WireError::Protocol(
+            "minimal-metadata pairwise holder_binding requires the account ActorId branch"
+                .to_owned(),
+        ));
+    };
+    let (controller, fragment) = verification_method
+        .as_str()
+        .split_once('#')
+        .ok_or_else(|| {
+            WireError::Protocol(
+                "minimal-metadata pairwise verification_method has no fragment".to_owned(),
+            )
+        })?;
+    let method_specific_id = controller.strip_prefix("did:key:").ok_or_else(|| {
+        WireError::Protocol(
+            "minimal-metadata pairwise verification_method must be a did:key".to_owned(),
+        )
+    })?;
+    if fragment != method_specific_id {
+        return Err(WireError::Protocol(
+            "minimal-metadata pairwise verification_method fragment must repeat its multibase key"
+                .to_owned(),
+        ));
+    }
+    let controller = arkret_wire::Did::new(controller.to_owned())?;
+    if arkret_wire::project_did_to_core_id(&controller)? != account_id.principal_id {
+        return Err(WireError::Protocol(
+            "minimal-metadata pairwise holder actor_id does not match its verification_method"
+                .to_owned(),
+        ));
+    }
+    if &account_id.station_id != audience_id {
+        return Err(WireError::Protocol(
+            "minimal-metadata pairwise holder Station must equal the grant audience".to_owned(),
+        ));
+    }
     Ok(())
 }
 

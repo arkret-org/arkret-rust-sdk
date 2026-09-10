@@ -283,8 +283,10 @@ pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
 pub use arkret_models_identity::identity_resolution::*;
 pub use arkret_models_identity::member_identity::*;
+pub use arkret_models_identity::service_binding_results::*;
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::session_credential::*;
+pub use arkret_models_identity::signer_key_operations::*;
 pub use arkret_models_identity::{
     AuthenticatedSignerResolutionEvidence, DID_WEBVH_V1_METHOD,
     ed25519_notary_signer_descriptor_from_evidence, validate_did_webvh_v1_method,
@@ -366,6 +368,7 @@ pub use arkret_wire::object_address::*;
 pub use arkret_wire::organization_recovery::{
     OrganizationRecoveryArchive, OrganizationRecoveryHpkeSuite,
 };
+pub use arkret_wire::pairwise_endpoint_possession::*;
 pub use arkret_wire::patch::*;
 pub use arkret_wire::peer_operation_paths::*;
 pub use arkret_wire::plaintext::PlaintextDataClassKind;
