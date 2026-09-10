@@ -33,8 +33,10 @@ pub mod organization_registration;
 /// shared by inkson / sodmin / soland / cotest (SOD-05-001 / SPEC-CR-019).
 pub mod primary_handle;
 pub mod proof;
+pub mod service_binding_results;
 pub mod service_identity;
 pub mod session_credential;
+pub mod signer_key_operations;
 
 pub use account::*;
 pub use actor_profile::*;
@@ -57,4 +59,6 @@ pub use identity_resolution::*;
 pub use member_identity::*;
 pub use organization_registration::*;
 pub use proof::*;
+pub use service_binding_results::*;
 pub use session_credential::*;
+pub use signer_key_operations::*;

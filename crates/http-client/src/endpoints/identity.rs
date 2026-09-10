@@ -41,6 +41,45 @@ impl Client {
         Ok(outcome)
     }
 
+    /// Read the own-Station notary configuration for a Realm genesis this
+    /// authenticated account is about to author
+    /// (`sync/server-trusted-results.md` §5.8).
+    ///
+    /// Success is a signing input, never an authorization: no Realm is created,
+    /// no identifier is reserved, and the caller still signs `ak.realm.create`
+    /// itself. `notary` is copied verbatim into the genesis object.
+    pub async fn genesis_notary(
+        &self,
+        request: &arkret_models_identity::GenesisNotaryRequestBody,
+    ) -> Result<arkret_models_identity::GenesisNotaryOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_identity::GenesisNotaryOutcome = self
+            .post("/_arkret/self/genesis-notary/query", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Read the own-Station verified route and signing keys of the media
+    /// service anchored by one joined Realm
+    /// (`sync/server-trusted-results.md` §5.9).
+    ///
+    /// `accepted_service_id` is the `service_id` the caller already installed
+    /// from the Realm's accepted `ak.realm.media_service` cell. A route that
+    /// does not match it is rejected here rather than adopted.
+    pub async fn media_service_binding(
+        &self,
+        request: &arkret_models_identity::MediaServiceBindingRequestBody,
+        accepted_service_id: &DidCoreId,
+    ) -> Result<arkret_models_identity::MediaServiceBindingOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_identity::MediaServiceBindingOutcome = self
+            .post("/_arkret/self/media-service-bindings/query", request)
+            .await?;
+        outcome.validate_for_request(request, accepted_service_id)?;
+        Ok(outcome)
+    }
+
     /// Read the authenticated account's exact Principal Control Realm lineage.
     ///
     /// The authority pair is an explicit selector: the server must not choose
