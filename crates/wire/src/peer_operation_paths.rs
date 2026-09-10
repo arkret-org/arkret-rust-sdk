@@ -2,6 +2,7 @@
 
 pub const PATH_PEER_PRINCIPAL_GENESIS: &str = "/_arkret/peer/principal-genesis";
 pub const PATH_PEER_DEVICE_REVOCATIONS_CHECK: &str = "/_arkret/peer/device-revocations/check";
+pub const PATH_PEER_KEYS_QUERY: &str = "/_arkret/peer/keys/query";
 
 #[cfg(test)]
 mod tests {
@@ -21,6 +22,12 @@ mod tests {
                 .descriptor()
                 .http_path,
             PATH_PEER_DEVICE_REVOCATIONS_CHECK
+        );
+        assert_eq!(
+            ServiceOperationId::PeerKeysReadLookupV1
+                .descriptor()
+                .http_path,
+            PATH_PEER_KEYS_QUERY
         );
     }
 }

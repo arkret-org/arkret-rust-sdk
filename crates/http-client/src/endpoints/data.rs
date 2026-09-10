@@ -431,7 +431,10 @@ impl Client {
     }
 
     pub async fn keys_query(&self, request: &KeysQueryRequestBody) -> Result<KeysQueryOutcome> {
-        self.post("/_arkret/self/keys/query", request).await
+        request.validate()?;
+        let outcome: KeysQueryOutcome = self.post("/_arkret/self/keys/query", request).await?;
+        outcome.validate()?;
+        Ok(outcome)
     }
 
     pub async fn keys_claim(&self, request: &KeysClaimRequestBody) -> Result<KeysClaimOutcome> {

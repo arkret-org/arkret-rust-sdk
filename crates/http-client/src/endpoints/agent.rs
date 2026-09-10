@@ -12,6 +12,9 @@ use arkret_models_collaboration::governance::agent_participation::{
 use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
+use arkret_models_identity::signer_key_operations::{
+    SignerKeysQueryOutcome, SignerKeysQueryRequestBody,
+};
 use arkret_wire::{RealmId, SidecarId};
 use reqwest::Method;
 
@@ -19,10 +22,39 @@ use crate::{Client, Error, Result};
 
 const AGENT_KEY_PAIR_PATH: &str = "/_arkret/gate/account/agent-key-pair";
 const AGENTS_PATH: &str = "/_arkret/self/agents";
+const SIGNER_KEYS_QUERY_PATH: &str = "/_arkret/self/signer-keys/query";
 const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
+    /// `POST /_arkret/self/signer-keys/query`
+    /// (`ak.self.signer_keys.read.resolve.v1`).
+    ///
+    /// One surface for both questions the recipient Station can answer: which
+    /// key is currently admitted for a sender, and which key signed one exact
+    /// locally accepted historical Event. Device and Agent senders share it, so
+    /// a caller no longer has to know which of two operations to reach for.
+    ///
+    /// The result is not portable evidence and not a reusable current grant: a
+    /// `unavailable` answer means only that this Station cannot answer that
+    /// selector right now.
+    pub async fn signer_keys_query(
+        &self,
+        request: &SignerKeysQueryRequestBody,
+    ) -> Result<SignerKeysQueryOutcome> {
+        request.validate()?;
+        let builder = self.request(Method::POST, SIGNER_KEYS_QUERY_PATH)?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: SignerKeysQueryOutcome = self
+            .send_json_limited(
+                builder,
+                arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
+            )
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     /// `POST /_arkret/gate/account/agent-key-pair`
     /// (`ak.gate.account.command.pair_agent_key.v1`).
     pub async fn agent_key_pair(

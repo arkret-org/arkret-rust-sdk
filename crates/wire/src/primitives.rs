@@ -1382,6 +1382,55 @@ pub fn service_operation_proof_binding_prefix(
     Ok(binding)
 }
 
+/// Complete canonical detached-JWS binding bytes for one registered
+/// service-operation proof context (`conformance/encoding.md` §6 (b)-(d)).
+///
+/// The `context` constant is written by the verifier from the registry row, is
+/// carried as a binding-object member, and never appears as a JWS header
+/// parameter or a wire field of the signed object. The returned bytes are the
+/// detached JWS payload segment; there is no additional domain-tag prefix.
+pub fn service_operation_proof_binding_bytes(
+    context: &str,
+    operation_id: &str,
+    issuer: Option<Value>,
+    targets: Vec<(&'static str, Value)>,
+    payload_digest: &Hash,
+    proof: &UnsignedPayloadProof,
+) -> Result<Vec<u8>> {
+    proof.validate_production()?;
+    if proof.proof_purpose.is_some() {
+        return Err(WireError::Protocol(format!(
+            "{context} proof must not carry proof_purpose"
+        )));
+    }
+    if &proof.payload_digest != payload_digest {
+        return Err(WireError::Protocol(format!(
+            "{context} proof payload_digest mismatch"
+        )));
+    }
+    let domain = proof
+        .domain
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| WireError::Protocol(format!("{context} proof requires domain")))?;
+    let audience = proof
+        .audience
+        .as_ref()
+        .ok_or_else(|| WireError::Protocol(format!("{context} proof requires audience")))?;
+    let mut binding = service_operation_proof_binding_prefix(
+        context,
+        operation_id,
+        issuer,
+        targets,
+        payload_digest,
+        &proof.verification_method,
+        proof.created_at,
+    )?;
+    binding.insert("domain".to_owned(), Value::String(domain.clone()));
+    binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
+    canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]

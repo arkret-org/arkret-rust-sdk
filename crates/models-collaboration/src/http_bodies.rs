@@ -1909,38 +1909,14 @@ fn mimi_proof_binding_bytes(
     payload_digest: &Hash,
     proof: &arkret_wire::UnsignedPayloadProof,
 ) -> Result<Vec<u8>> {
-    proof.validate_production()?;
-    if proof.proof_purpose.is_some() {
-        return Err(WireError::Protocol(
-            "MIMI operation proof must not carry proof_purpose".to_owned(),
-        ));
-    }
-    if &proof.payload_digest != payload_digest {
-        return Err(WireError::Protocol(
-            "MIMI operation proof payload_digest mismatch".to_owned(),
-        ));
-    }
-    let domain = proof
-        .domain
-        .as_ref()
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| WireError::Protocol("MIMI operation proof requires domain".to_owned()))?;
-    let audience = proof
-        .audience
-        .as_ref()
-        .ok_or_else(|| WireError::Protocol("MIMI operation proof requires audience".to_owned()))?;
-    let mut binding = arkret_wire::service_operation_proof_binding_prefix(
+    arkret_wire::service_operation_proof_binding_bytes(
         context,
         operation_id,
         issuer,
         targets,
         payload_digest,
-        &proof.verification_method,
-        proof.created_at,
-    )?;
-    binding.insert("domain".to_owned(), Value::String(domain.clone()));
-    binding.insert("audience".to_owned(), serde_json::to_value(audience)?);
-    canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
+        proof,
+    )
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

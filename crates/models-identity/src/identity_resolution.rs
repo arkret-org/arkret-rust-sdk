@@ -556,6 +556,20 @@ pub struct AuthenticatedServiceResolution {
     #[serde(with = "service_document_wire")]
     pub normalized_did_document: DidDocument,
 }
+/// Derived route projection of one verified service DID state.
+///
+/// This is the single Rust expression of
+/// `identity-resolution.schema.json#/$defs/service_route_projection`
+/// (`sync/service-surface.md` §2.6). It is produced either locally by
+/// [`AuthenticatedServiceResolution::projection`] after method-native
+/// verification, or handed over already verified inside an own-Station result
+/// such as the media service binding. There is deliberately only one type: a
+/// second "wire-only" copy would let a consumer accept a route the local
+/// verifier would have rejected.
+///
+/// Every coordinate comes from the verified method-native state and its unique
+/// `ArkretService` entry. The projection creates no signed address history and
+/// carries no method evidence.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -567,6 +581,70 @@ pub struct ServiceResolutionProjection {
     pub version_id: String,
     pub resolution_event_ref: String,
     pub base_url: String,
+}
+
+impl ServiceResolutionProjection {
+    /// Closed shape check for a projection that arrives over the wire.
+    ///
+    /// It proves the projection is internally consistent - the DID projects
+    /// onto `service_id`, the adapter coordinate is a registered method-state
+    /// position, and `base_url` is the canonical HTTPS entry - without
+    /// resolving anything. Whether the *content* is current is the issuing
+    /// Station's responsibility.
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        let projection_error = |message: &str| arkret_wire::WireError::ProtocolCode {
+            code: arkret_wire::ErrorCode::SchemaViolation,
+            message: message.to_owned(),
+        };
+        if !arkret_wire::ServiceKind::ALL
+            .iter()
+            .any(|kind| kind.as_str() == self.service_kind)
+        {
+            return Err(projection_error(
+                "service route projection carries an unregistered service_kind",
+            ));
+        }
+        if arkret_wire::project_did_to_core_id(&self.did)? != self.service_id {
+            return Err(projection_error(
+                "service route projection DID does not project onto its service_id",
+            ));
+        }
+        if self.method_history_head.is_empty()
+            || self.method_history_head.chars().count() > 512
+            || self.version_id.is_empty()
+            || self.version_id.chars().count() > 512
+            || self.version_id.starts_with("ak:")
+        {
+            return Err(projection_error(
+                "service route projection method state coordinates are out of bounds",
+            ));
+        }
+        let Some((adapter, digest)) = self.resolution_event_ref.split_once(':') else {
+            return Err(projection_error(
+                "service route projection resolution_event_ref is not an adapter coordinate",
+            ));
+        };
+        if !matches!(
+            adapter,
+            "did-webvh-entry-sha256" | "did-web-document-sha256" | "did-key-did-sha256"
+        ) || digest.len() != 64
+            || !digest
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        {
+            return Err(projection_error(
+                "service route projection resolution_event_ref is not a registered adapter coordinate",
+            ));
+        }
+        let canonical = crate::service_identity::CanonicalServiceUrl::new(&self.base_url)?;
+        canonical.require_https()?;
+        if !self.base_url.ends_with('/') {
+            return Err(projection_error(
+                "service route projection base_url must carry exactly one trailing slash",
+            ));
+        }
+        Ok(())
+    }
 }
 impl AuthenticatedServiceResolution {
     pub fn validate_shape(

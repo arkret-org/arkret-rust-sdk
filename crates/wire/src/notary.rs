@@ -342,6 +342,28 @@ impl NotaryValue {
         }
     }
 
+    /// Every registered descriptor, primary slots first then recovery slots.
+    ///
+    /// The two sets are never interchangeable at authorization time, but a
+    /// caller that must check a property of the complete configuration - such as
+    /// the founding-notary rule that every slot is a `service` actor - has to
+    /// see their union.
+    pub fn descriptors(&self) -> Vec<&NotarySignerDescriptor> {
+        match self {
+            Self::SingleSigner {
+                signer,
+                recovery_signers,
+                ..
+            }
+            | Self::Mixed {
+                signer,
+                recovery_signers,
+                ..
+            } => std::iter::once(signer).chain(recovery_signers).collect(),
+            Self::Threshold { signers, .. } | Self::OpenSet { signers } => signers.iter().collect(),
+        }
+    }
+
     pub fn signer_descriptor(
         &self,
         verification_method: &DidUrl,
