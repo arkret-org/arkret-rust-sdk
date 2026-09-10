@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/relation-kind-registry.json; version=2026-09-08.1;
-//! sha256=0d7ee36f8749ea1d29d796cb900cd3f624d2b6cca0b086567b0685649bc4fe77 Entries: standard=15
+//! Input: registry/relation-kind-registry.json; version=2026-09-09.1;
+//! sha256=24d2636e189d6b73608d5a15c33989b820a067fd0cbcaabffb99a46d06a6a943 Entries: standard=15
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -36,6 +36,7 @@ pub enum RelationTruthSourceClass {
 pub struct RelationKindDescriptor {
     pub canonical_id: &'static str,
     pub default_cardinality: &'static str,
+    pub primary_conflict_domain: &'static str,
     pub truth_source_class: RelationTruthSourceClass,
     pub weak_semantic: bool,
 }
@@ -132,90 +133,105 @@ pub const RELATION_KIND_DESCRIPTORS: &[RelationKindDescriptor] = &[
     RelationKindDescriptor {
         canonical_id: "assigned_to",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "attached_to",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "belongs_to",
         default_cardinality: "many_to_one",
+        primary_conflict_domain: "from",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: false,
     },
     RelationKindDescriptor {
         canonical_id: "blocks",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "confidential_discussion_of",
         default_cardinality: "many_to_one",
+        primary_conflict_domain: "from",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "contains",
         default_cardinality: "shape_dependent",
+        primary_conflict_domain: "shape_dependent",
         truth_source_class: RelationTruthSourceClass::ShapeDependent,
         weak_semantic: false,
     },
     RelationKindDescriptor {
         canonical_id: "depends_on",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "derived_from",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "has_default_view",
         default_cardinality: "many_to_one",
+        primary_conflict_domain: "from",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "mentions",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "promoted_from_discussion",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "references",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "replies_to",
         default_cardinality: "many_to_one",
+        primary_conflict_domain: "from",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "summarized_from",
         default_cardinality: "many_to_many",
+        primary_conflict_domain: "tuple",
         truth_source_class: RelationTruthSourceClass::Canonical,
         weak_semantic: true,
     },
     RelationKindDescriptor {
         canonical_id: "watches",
         default_cardinality: "one_active_edge_per_pair",
+        primary_conflict_domain: "truth_source",
         truth_source_class: RelationTruthSourceClass::DerivedProjection,
         weak_semantic: false,
     },

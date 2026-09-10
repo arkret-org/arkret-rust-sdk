@@ -1474,7 +1474,7 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             variant(string(row, "canonical_id")?, &[])
         )?;
     }
-    output.push_str("    Custom(String),\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum RelationTruthSourceClass {\n    Canonical,\n    DerivedProjection,\n    ShapeDependent,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct RelationKindDescriptor {\n    pub canonical_id: &'static str,\n    pub default_cardinality: &'static str,\n    pub truth_source_class: RelationTruthSourceClass,\n    pub weak_semantic: bool,\n}\n\nimpl RelationKind {\n    pub const STANDARD: &'static [Self] = &[\n");
+    output.push_str("    Custom(String),\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub enum RelationTruthSourceClass {\n    Canonical,\n    DerivedProjection,\n    ShapeDependent,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct RelationKindDescriptor {\n    pub canonical_id: &'static str,\n    pub default_cardinality: &'static str,\n    pub primary_conflict_domain: &'static str,\n    pub truth_source_class: RelationTruthSourceClass,\n    pub weak_semantic: bool,\n}\n\nimpl RelationKind {\n    pub const STANDARD: &'static [Self] = &[\n");
     for row in &rows {
         writeln!(
             output,
@@ -1504,9 +1504,14 @@ fn generate_relation_kinds(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     for row in rows {
         writeln!(
             output,
-            "    RelationKindDescriptor {{\n        canonical_id: {},\n        default_cardinality: {},\n        truth_source_class: RelationTruthSourceClass::{},\n        weak_semantic: {},\n    }},",
+            "    RelationKindDescriptor {{\n        canonical_id: {},\n        default_cardinality: {},\n        primary_conflict_domain: {},\n        truth_source_class: RelationTruthSourceClass::{},\n        weak_semantic: {},\n    }},",
             rust_string(string(row, "canonical_id")?),
             rust_string(string(row, "default_cardinality")?),
+            rust_string(if row.get("shapes").is_some() {
+                "shape_dependent"
+            } else {
+                string(row, "primary_conflict_domain")?
+            }),
             variant(string(row, "truth_source_class")?, &[]),
             field(row, "weak_semantic")?
                 .as_bool()
