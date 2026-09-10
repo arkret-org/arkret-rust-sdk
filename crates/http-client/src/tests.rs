@@ -547,18 +547,19 @@ mod events_submit_tests {
     /// supplied `body_response` JSON under HTTP/1.1 200 OK. The chosen
     /// port is allocated by the OS so tests can run in parallel.
     async fn spawn_capture_server(
-        body_response: &'static str,
+        body_response: impl Into<String>,
     ) -> (Client, tokio::sync::oneshot::Receiver<Vec<u8>>) {
         spawn_capture_server_with(body_response, |builder| builder).await
     }
 
     async fn spawn_capture_server_with<F>(
-        body_response: &'static str,
+        body_response: impl Into<String>,
         configure: F,
     ) -> (Client, tokio::sync::oneshot::Receiver<Vec<u8>>)
     where
         F: FnOnce(ClientBuilder) -> ClientBuilder,
     {
+        let body_response = body_response.into();
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -1178,7 +1179,33 @@ mod events_submit_tests {
 
     #[tokio::test]
     async fn list_key_backups_includes_series_id_query() {
-        let (client, capture) = spawn_capture_server(r#"{"backups":[],"has_more":false}"#).await;
+        // The canned response is serialized from the wire struct, so a new
+        // required member cannot leave a hand-written literal behind.
+        let empty_list = arkret_models_crypto::KeysBackupsList {
+            backups: Vec::new(),
+            active_series: arkret_models_crypto::BackupActiveSeriesState {
+                account_id: arkret_wire::AccountId::new(
+                    arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                    arkret_wire::DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+                ),
+                control_realm_id: arkret_wire::RealmId::new(
+                    "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
+                )
+                .unwrap(),
+                seal_basis: arkret_wire::SealBasis {
+                    leaves: vec![
+                        arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64)))
+                            .unwrap(),
+                    ],
+                },
+                secret_storage: arkret_models_crypto::BackupActiveSeriesPointer::Absent {},
+                mls_history: arkret_models_crypto::BackupActiveSeriesPointer::Absent {},
+            },
+            next_cursor: None,
+            has_more: false,
+        };
+        let (client, capture) =
+            spawn_capture_server(serde_json::to_string(&empty_list).unwrap()).await;
         let query = arkret_models_crypto::KeyBackupsListQuery {
             series_id: Some(
                 arkret_wire::BackupSeriesId::new(
