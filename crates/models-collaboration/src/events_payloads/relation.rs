@@ -15,14 +15,56 @@ fn schema_violation<T>(message: impl Into<String>) -> Result<T> {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RelationUpdatePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relation_id: Option<RelationId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<ObjectRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub patch: Option<Patch>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub expected_state_digest: Option<Hash>,
+    pub patch: Patch,
+    pub relation_id: RelationId,
+}
+
+#[cfg(test)]
+mod update_tests {
+    use super::*;
+
+    #[test]
+    fn relation_update_requires_one_canonical_target_and_patch() {
+        let canonical = serde_json::json!({
+            "relation_id": "ak:relation:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml",
+            "patch": {"fields.label": {"$op": "set", "value": "updated"}},
+            "expected_state_digest": format!("sha256:{}", "1".repeat(64)),
+        });
+        let parsed: RelationUpdatePayload = serde_json::from_value(canonical.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), canonical);
+        for field in ["relation_id", "patch"] {
+            let mut invalid = canonical.clone();
+            invalid.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<RelationUpdatePayload>(invalid).is_err());
+        }
+        for field in ["target_ref", "status"] {
+            let mut invalid = canonical.clone();
+            invalid[field] = canonical["relation_id"].clone();
+            assert!(serde_json::from_value::<RelationUpdatePayload>(invalid).is_err());
+        }
+        let mut old_target = canonical.clone();
+        old_target["target_ref"] = old_target
+            .as_object_mut()
+            .unwrap()
+            .remove("relation_id")
+            .unwrap();
+        assert!(serde_json::from_value::<RelationUpdatePayload>(old_target).is_err());
+        let mut null_guard = canonical.clone();
+        null_guard["expected_state_digest"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<RelationUpdatePayload>(null_guard).is_err());
+        let mut unguarded = canonical;
+        unguarded
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_state_digest");
+        assert!(serde_json::from_value::<RelationUpdatePayload>(unguarded).is_ok());
+    }
 }
 
 /// Counterpart for
