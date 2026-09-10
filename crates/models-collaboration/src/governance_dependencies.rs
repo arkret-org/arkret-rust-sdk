@@ -1286,6 +1286,27 @@ impl PcrPendingControlOutcome {
 }
 
 /// Exact ordinary PCR signing intent, frozen before preparation and retries.
+///
+/// # The signing-slot fence
+///
+/// The Station freezes one canonical request per
+/// `(realm_id, signer slot, predecessor basis)` before it returns the first
+/// signable body, so exactly one signable body ever leaves that signing
+/// position. A *different* canonical request against the same slot is refused
+/// with [`arkret_wire::error_codes::ErrorCode::SealSignerSlotFenced`] (HTTP
+/// 409); the frozen request keeps replaying its byte-identical body across
+/// timeouts, lease loss, failover and restart, because the device may already
+/// have signed that body offline.
+///
+/// The operational consequence for every client is one rule: **a retry re-sends
+/// the same canonical bytes.** The operation's registered idempotency is
+/// `canonical_hash` over the full body, so a freshly generated `hlc`, a
+/// re-ordered `delta` or a re-collected `predecessor_refs` set is not a retry —
+/// it is a second request that the fence will refuse. On a 409
+/// `seal_signer_slot_fenced`, the recovery is to re-send the *original*
+/// request and take back the original body, never to vary the request until one
+/// is accepted. [`Self::canonical_request_hash`] is that identity; hold the
+/// request value itself and reuse it.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1297,6 +1318,21 @@ pub struct SealPrepareRequestBody {
 }
 
 impl SealPrepareRequestBody {
+    /// The request identity the signing-slot fence is keyed on: `sha256:` over
+    /// the RFC 8785 JCS encoding of the complete request body, matching the
+    /// operation registry's `canonical_hash` / `canonical_hash_input=full_body`
+    /// declaration for `ak.self.seals.command.prepare.v1`.
+    ///
+    /// Two values that hash equal are the same retry; two that do not are two
+    /// requests, and at most one of them can ever be signable.
+    pub fn canonical_request_hash(&self) -> Result<Hash> {
+        self.validate()?;
+        Hash::new(canonical::sha256_digest(canonical::canonical_json_bytes(
+            self,
+        )?))
+        .map_err(WireError::from)
+    }
+
     pub fn validate(&self) -> Result<()> {
         validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
         validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
@@ -1473,6 +1509,53 @@ mod tests {
         let mut legacy = value;
         legacy["governance_dependencies"] = serde_json::json!([]);
         assert!(serde_json::from_value::<SealPrepareOutcome>(legacy).is_err());
+    }
+
+    #[test]
+    fn seal_prepare_request_identity_is_the_full_canonical_body() {
+        let digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        let request = SealPrepareRequestBody {
+            realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
+                .unwrap(),
+            predecessor_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap(),
+            ],
+            event_digests: vec![digest.clone()],
+            hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+        };
+        let identity = request.canonical_request_hash().unwrap();
+        assert_eq!(
+            identity.as_str(),
+            canonical::sha256_digest(canonical::canonical_json_bytes(&request).unwrap())
+        );
+        assert_eq!(request.clone().canonical_request_hash().unwrap(), identity);
+
+        // Every member of the body is inside the fence identity, so none of
+        // them may be regenerated on a retry.
+        let mut fresh_hlc = request.clone();
+        fresh_hlc.hlc = arkret_wire::Hlc::new("01970e589d21-000a-a13f9c2e").unwrap();
+        assert_ne!(fresh_hlc.canonical_request_hash().unwrap(), identity);
+        let mut wider_delta = request.clone();
+        wider_delta
+            .event_digests
+            .push(Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap());
+        assert_ne!(wider_delta.canonical_request_hash().unwrap(), identity);
+        let mut other_basis = request;
+        other_basis.predecessor_refs =
+            vec![SealId::new(format!("ak:seal:sha256:{}", "4".repeat(64))).unwrap()];
+        assert_ne!(other_basis.canonical_request_hash().unwrap(), identity);
+    }
+
+    #[test]
+    fn seal_signer_slot_fence_is_a_registered_conflict() {
+        assert_eq!(
+            arkret_wire::ErrorCode::SealSignerSlotFenced.http_status(),
+            409
+        );
+        assert_eq!(
+            arkret_wire::ErrorCode::from_wire("seal_signer_slot_fenced"),
+            Some(arkret_wire::ErrorCode::SealSignerSlotFenced)
+        );
     }
 
     #[test]
