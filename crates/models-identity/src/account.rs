@@ -214,7 +214,7 @@ pub struct AccountDataRow {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AccountDataCasConflictDetails {
+pub struct AccountDataCasConflict {
     pub account_data_key: String,
     pub current_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1947,7 +1947,7 @@ mod account_data_tests {
 
     #[test]
     fn cas_conflict_details_preserve_revision_without_live_entry() {
-        let details: AccountDataCasConflictDetails = serde_json::from_value(json!({
+        let details: AccountDataCasConflict = serde_json::from_value(json!({
             "account_data_key": "ak.client.ui_state",
             "current_revision": 7
         }))
@@ -1960,7 +1960,7 @@ mod account_data_tests {
     #[test]
     fn cas_conflict_details_reject_unknown_fields() {
         assert!(
-            serde_json::from_value::<AccountDataCasConflictDetails>(json!({
+            serde_json::from_value::<AccountDataCasConflict>(json!({
                 "account_data_key": "ak.client.ui_state",
                 "current_revision": 7,
                 "expected_revision": 6

@@ -5,9 +5,7 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::agent_operations::{
-    AgentSidecarAccessReadiness, PendingSidecarAccessReconciliationItem,
-};
+use crate::agent_operations::{AgentSidecarAccessReadiness, PendingSidecarAccessReconciliation};
 use crate::prepared_event_draft::PreparedEventDraft;
 use crate::string_marker;
 
@@ -176,7 +174,7 @@ pub enum SidecarEnsureOutcome {
         sidecar_id: SidecarId,
         source_context_ref: SidecarContextRef,
         access_readiness: AgentSidecarAccessReadiness,
-        pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
+        pending_access_reconciliations: Vec<PendingSidecarAccessReconciliation>,
     },
 }
 
@@ -189,7 +187,7 @@ struct SidecarAcceptedOutcomePayload {
     sidecar_id: SidecarId,
     source_context_ref: SidecarContextRef,
     access_readiness: AgentSidecarAccessReadiness,
-    pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
+    pending_access_reconciliations: Vec<PendingSidecarAccessReconciliation>,
 }
 
 impl<'de> Deserialize<'de> for SidecarEnsureOutcome {

@@ -28,16 +28,16 @@ use crate::{CellRef, Hash, SchemaId, SealId};
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct BottomDetails(BTreeMap<String, Value>);
+pub struct BottomContext(BTreeMap<String, Value>);
 
-impl BottomDetails {
+impl BottomContext {
     #[must_use]
     pub const fn new() -> Self {
         Self(BTreeMap::new())
     }
 }
 
-impl std::ops::Deref for BottomDetails {
+impl std::ops::Deref for BottomContext {
     type Target = BTreeMap<String, Value>;
 
     fn deref(&self) -> &Self::Target {
@@ -45,18 +45,18 @@ impl std::ops::Deref for BottomDetails {
     }
 }
 
-impl std::ops::DerefMut for BottomDetails {
+impl std::ops::DerefMut for BottomContext {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-pub fn bottom_details<K, I>(pairs: I) -> BottomDetails
+pub fn bottom_details<K, I>(pairs: I) -> BottomContext
 where
     K: Into<String>,
     I: IntoIterator<Item = (K, Value)>,
 {
-    BottomDetails(
+    BottomContext(
         pairs
             .into_iter()
             .map(|(key, value)| (key.into(), value))
@@ -121,7 +121,7 @@ pub struct Bottom {
     /// kind (e.g. invalid_transition: from/to/expected_transitions;
     /// schema_error: schema_id/violation_path).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<BottomDetails>,
+    pub details: Option<BottomContext>,
     /// When the cell first crossed `Space.bottom_escalation_after_ms`.
     /// Absent within the grace window. Implementations SHOULD raise an
     /// out-of-band notification once set.

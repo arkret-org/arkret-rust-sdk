@@ -16,7 +16,7 @@
 //!
 //! ```no_run
 //! use arkret_crypto::backup::{build_key_backup_envelope, derive_vault_kek};
-//! use arkret_models_crypto::{BackupKind, SecretStorageItem, SecretStorageItemKind};
+//! use arkret_models_crypto::{BackupKind, SecretStorageItemKind, SecretStorageSecret};
 //! use arkret_wire::{AccountId, ActorId};
 //!
 //! let kek = derive_vault_kek(b"correct horse battery staple")?;
@@ -31,7 +31,7 @@
 //!     "kb_1",
 //!     "recovery_vault",
 //!     &kek,
-//!     vec![SecretStorageItem {
+//!     vec![SecretStorageSecret {
 //!         item_kind: SecretStorageItemKind::PrivateAccountState,
 //!         secret_id: "account-state".to_owned(),
 //!         secret_b64u: "c2VjcmV0".to_owned(),
@@ -48,12 +48,12 @@ use arkret_canonical::canonical::{
     canonical_json_bytes, canonical_sha256, format_timestamp_canonical, sha256_digest, sha256_hex,
 };
 use arkret_models_crypto::key_backup::{
-    BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentItem,
+    BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupContentIndex,
     KeyBackupDomainSeparation, KeyBackupEncryption, KeyBackupFrontierRef, KeyBackupKdf,
     KeyBackupKdfName, KeyBackupKdfParams, KeyBackupRecipientMethod,
 };
 use arkret_models_crypto::{
-    KeyBackupKeybag, KeyBackupPlaintext, SecretStorageContentIndex, SecretStorageItem,
+    KeyBackupKeybag, KeyBackupPlaintext, SecretStorageContentIndex, SecretStorageSecret,
 };
 use arkret_wire::{
     AEAD_PROFILE_XCHACHA20_POLY1305_V1, ActorId, BackupId, Base64UrlString, DeviceId, Hash,
@@ -648,7 +648,7 @@ pub fn build_key_backup_envelope(
     backup_version: &str,
     subdomain: &str,
     kek: &VaultKek,
-    items: Vec<SecretStorageItem>,
+    items: Vec<SecretStorageSecret>,
 ) -> Result<KeyBackup> {
     build_key_backup_envelope_with_extensions(
         backup_id,
@@ -676,7 +676,7 @@ pub fn build_key_backup_envelope_with_extensions(
     subdomain: &str,
     aead_aad_extensions: XExtensionMap,
     kek: &VaultKek,
-    items: Vec<SecretStorageItem>,
+    items: Vec<SecretStorageSecret>,
 ) -> Result<KeyBackup> {
     let series_id =
         arkret_wire::BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
@@ -711,7 +711,7 @@ fn build_key_backup_envelope_in_series(
     subdomain: &str,
     aead_aad_extensions: XExtensionMap,
     kek: &VaultKek,
-    items: Vec<SecretStorageItem>,
+    items: Vec<SecretStorageSecret>,
     series_id: arkret_wire::BackupSeriesId,
     series_seq: u64,
     supersedes_id: Option<BackupId>,
@@ -747,7 +747,7 @@ fn build_key_backup_envelope_in_series(
     let contents = items
         .iter()
         .map(|item| {
-            Ok(KeyBackupContentItem::SecretStorage(
+            Ok(KeyBackupContentIndex::SecretStorage(
                 SecretStorageContentIndex {
                     item_kind: item.item_kind,
                     realm_id: None,
@@ -887,7 +887,7 @@ pub fn build_key_backup_successor_envelope(
     device_id: Option<DeviceId>,
     backup_version: &str,
     kek: &VaultKek,
-    items: Vec<SecretStorageItem>,
+    items: Vec<SecretStorageSecret>,
     frontier_ref: impl Into<String>,
     device_generation_ref: u64,
 ) -> Result<KeyBackup> {
@@ -1005,7 +1005,7 @@ mod key_backup_envelope_tests {
             "kb_1",
             "recovery_vault",
             &kek,
-            vec![SecretStorageItem {
+            vec![SecretStorageSecret {
                 item_kind: SecretStorageItemKind::PrivateAccountState,
                 secret_id: "account-state".to_owned(),
                 secret_b64u: "c2VjcmV0".to_owned(),

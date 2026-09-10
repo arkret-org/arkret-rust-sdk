@@ -275,7 +275,7 @@ pub enum SecurityTransactionPreparedPlan {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SecurityTransactionTerminalResult {
+pub struct SecurityTransactionTerminalOutcome {
     pub result: SecurityTransactionResultKind,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
@@ -304,7 +304,7 @@ pub struct SecurityTransaction {
     pub prepared_plan_digest: Hash,
     pub accepted_steps: Vec<AcceptedStep>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_result: Option<SecurityTransactionTerminalResult>,
+    pub terminal_result: Option<SecurityTransactionTerminalOutcome>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

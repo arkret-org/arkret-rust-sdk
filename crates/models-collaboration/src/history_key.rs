@@ -2543,7 +2543,7 @@ pub enum HistorySourceSignerKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HistorySourceSignerResult {
+pub enum HistorySourceSignerOutcome {
     Authenticated {
         source_signer_evidence_ref: SignerEvidenceRef,
         signer_kind: HistorySourceSignerKind,
@@ -2558,7 +2558,7 @@ pub enum HistorySourceSignerResult {
     },
 }
 
-impl HistorySourceSignerResult {
+impl HistorySourceSignerOutcome {
     pub fn evidence_ref(&self) -> &SignerEvidenceRef {
         match self {
             Self::Authenticated {
@@ -2649,7 +2649,7 @@ impl HistoryResponsePageEntry {
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseListOutcome {
     pub entries: Vec<HistoryResponsePageEntry>,
-    pub source_signer_results: Vec<HistorySourceSignerResult>,
+    pub source_signer_results: Vec<HistorySourceSignerOutcome>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -2686,7 +2686,7 @@ impl HistoryKeyResponseListOutcome {
             || self
                 .source_signer_results
                 .iter()
-                .map(HistorySourceSignerResult::evidence_ref)
+                .map(HistorySourceSignerOutcome::evidence_ref)
                 .collect::<std::collections::BTreeSet<_>>()
                 != required
         {
@@ -2907,7 +2907,7 @@ impl OrganizationRecoveryArchiveListQuery {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct OrganizationRecoveryArchiveListItem {
+pub struct OrganizationRecoveryArchiveRow {
     pub archive_sequence: u64,
     /// Exact canonical digest of the first archive replica durably accepted by
     /// the holder service. This is the only valid self-traversal access
@@ -2922,7 +2922,7 @@ pub struct OrganizationRecoveryArchiveListItem {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OrganizationRecoveryArchiveListOutcome {
-    pub items: Vec<OrganizationRecoveryArchiveListItem>,
+    pub items: Vec<OrganizationRecoveryArchiveRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
     pub limited: bool,
@@ -4015,7 +4015,7 @@ mod receiver_result_tests {
             "source_signer_evidence_ref":format!("ak:signer_evidence:sha256:{}", "a".repeat(64)),
             "signer_kind":"principal", "signer_id":"ak:did_core:web:alice.example",
             "verification_method":"did:web:alice.example#key", "public_key_b64u":"A".repeat(43)});
-        let result: HistorySourceSignerResult = serde_json::from_value(wire.clone()).unwrap();
+        let result: HistorySourceSignerOutcome = serde_json::from_value(wire.clone()).unwrap();
         result.validate().unwrap();
         let page = HistoryKeyResponseListOutcome {
             entries: vec![],
@@ -4029,7 +4029,7 @@ mod receiver_result_tests {
         let mut bad = wire;
         bad["public_key_b64u"] = json!("A".repeat(42));
         assert!(
-            serde_json::from_value::<HistorySourceSignerResult>(bad)
+            serde_json::from_value::<HistorySourceSignerOutcome>(bad)
                 .unwrap()
                 .validate()
                 .is_err()

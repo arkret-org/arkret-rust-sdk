@@ -1621,7 +1621,7 @@
       "spec_pointer": "strand.schema.json#/$defs/strand_metadata/properties/fields"
     },
     {
-      "finding": "crates/models-collaboration/src/objects/view.rs::DashboardConfigWidgetsItem.layout",
+      "finding": "crates/models-collaboration/src/objects/view.rs::DashboardWidget.layout",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -1776,17 +1776,6 @@
     },
     {
       "finding": "crates/models-collaboration/src/sync_frames/client_sync.rs::SyncFilter.extra",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "BTreeMap<String, Value>",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotChunksItem.extra",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",

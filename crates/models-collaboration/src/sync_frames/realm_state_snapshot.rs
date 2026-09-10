@@ -5,7 +5,7 @@ use arkret_wire::{ActorId, PayloadProof, SchemaId};
 use crate::internal_prelude::*;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/realm-state-realm-state-snapshot.schema.json#/properties/frontier`.
+/// `spec/v1/artifacts/schemas/realm-state-snapshot.schema.json#/properties/frontier`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RealmStateSnapshotFrontierValue {
     pub event_ids: Vec<EventId>,
@@ -16,7 +16,7 @@ pub struct RealmStateSnapshotFrontierValue {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStateSnapshotEventSetCommitmentActorSeqRangesItem {
+pub struct RealmStateSnapshotActorSeqRange {
     pub actor_id: ActorId,
     pub from_seq: u64,
     pub to_seq: u64,
@@ -30,7 +30,7 @@ pub struct RealmStateSnapshotEventSetCommitment {
     pub root: Hash,
     pub covered_event_count: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_seq_ranges: Option<Vec<RealmStateSnapshotEventSetCommitmentActorSeqRangesItem>>,
+    pub actor_seq_ranges: Option<Vec<RealmStateSnapshotActorSeqRange>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,16 +50,17 @@ pub struct RealmStateSnapshotVerificationHintsValue {
     pub extra: BTreeMap<String, Value>,
 }
 
+/// Chunk reference and byte length in the snapshot manifest.
+/// `spec/v1/artifacts/schemas/realm-state-snapshot.schema.json#/properties/chunks/items`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RealmStateSnapshotChunksItem {
+#[serde(deny_unknown_fields)]
+pub struct RealmStateSnapshotChunkRef {
     pub chunk_ref: BlobRef,
     pub size_bytes: u64,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: BTreeMap<String, Value>,
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/realm-state-realm-state-snapshot.schema.json#/$defs/
+/// `spec/v1/artifacts/schemas/realm-state-snapshot.schema.json#/$defs/
 /// realm_state_snapshot_witness_attestation`.
 ///
 /// A distinct object family from the manifest: the witness signs the canonical
@@ -73,12 +74,12 @@ pub struct RealmStateSnapshotChunksItem {
 /// `RealmStateSnapshotWitnessAttestation` hangs off
 /// `RealmStateSnapshotManifest` / `AuthorityBinding` and owns the canonical projection
 /// builder and the quorum verifier. The two halves are named apart on purpose — same as
-/// [`RealmStateSnapshotChunksItem`] vs
+/// [`RealmStateSnapshotChunkRef`] vs
 /// `RealmStateSnapshotChunkDescriptor` — so neither shadows the other in the
 /// `arkret_sdk` prelude.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStateSnapshotWitnessAttestationItem {
+pub struct RealmStateSnapshotWitnessSignature {
     pub witness_id: DidCoreId,
     pub proof: PayloadProof,
 }
@@ -92,7 +93,7 @@ pub struct RealmStateSnapshotAuthorityBinding {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub witness_attestations: Option<Vec<RealmStateSnapshotWitnessAttestationItem>>,
+    pub witness_attestations: Option<Vec<RealmStateSnapshotWitnessSignature>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -108,7 +109,7 @@ pub struct Snapshot {
     pub event_set_commitment: RealmStateSnapshotEventSetCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<RealmStateSnapshotVerificationHintsValue>,
-    pub chunks: Vec<RealmStateSnapshotChunksItem>,
+    pub chunks: Vec<RealmStateSnapshotChunkRef>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -135,4 +136,21 @@ pub struct RealmStateSnapshotBootstrap {
     pub signature: PayloadProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<RealmStateSnapshotVerificationHintsValue>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RealmStateSnapshotChunkRef;
+
+    #[test]
+    fn manifest_chunk_reference_rejects_fields_outside_its_closed_schema() {
+        let mut value = serde_json::json!({
+            "chunk_ref": format!("ak:blob:sha256:{}", "a".repeat(64)),
+            "size_bytes": 42,
+        });
+        let chunk: RealmStateSnapshotChunkRef = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(chunk).unwrap(), value);
+        value["extra"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<RealmStateSnapshotChunkRef>(value).is_err());
+    }
 }

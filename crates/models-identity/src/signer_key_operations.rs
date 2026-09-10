@@ -232,7 +232,7 @@ impl SignerKeysQueryRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CurrentSignerKeyResult {
+pub struct CurrentSignerKeyOutcome {
     pub selector: SignerKeyQuerySelector,
     pub status: SignerEvidenceResolvedStatus,
     pub key: StationSigningKey,
@@ -243,7 +243,7 @@ pub struct CurrentSignerKeyResult {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoricalAccountDeviceSignerKeyResult {
+pub struct HistoricalAccountDeviceSignerKeyOutcome {
     pub selector: HistoricalAccountDeviceSelector,
     pub status: SignerEvidenceResolvedStatus,
     pub key: HistoricalDeviceSigningKey,
@@ -256,7 +256,7 @@ pub struct HistoricalAccountDeviceSignerKeyResult {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoricalAgentSignerKeyResult {
+pub struct HistoricalAgentSignerKeyOutcome {
     pub selector: HistoricalAgentSelector,
     pub status: SignerEvidenceResolvedStatus,
     pub key: StationSigningKey,
@@ -268,7 +268,7 @@ pub struct HistoricalAgentSignerKeyResult {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct UnavailableSignerKeyResult {
+pub struct UnavailableSignerKeyOutcome {
     pub selector: SignerKeyQuerySelector,
     pub status: SignerEvidenceUnavailableStatus,
 }
@@ -281,14 +281,14 @@ pub struct UnavailableSignerKeyResult {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SignerKeyQueryResult {
-    Current(CurrentSignerKeyResult),
-    HistoricalAgent(HistoricalAgentSignerKeyResult),
-    HistoricalAccountDevice(HistoricalAccountDeviceSignerKeyResult),
-    Unavailable(UnavailableSignerKeyResult),
+pub enum SignerKeyQueryOutcome {
+    Current(CurrentSignerKeyOutcome),
+    HistoricalAgent(HistoricalAgentSignerKeyOutcome),
+    HistoricalAccountDevice(HistoricalAccountDeviceSignerKeyOutcome),
+    Unavailable(UnavailableSignerKeyOutcome),
 }
 
-impl SignerKeyQueryResult {
+impl SignerKeyQueryOutcome {
     #[must_use]
     pub fn selector(&self) -> SignerKeyQuerySelector {
         match self {
@@ -357,7 +357,7 @@ pub struct SignerKeysQueryOutcome {
     pub request_id: RequestId,
     pub realm_id: RealmId,
     pub recipient_account_id: AccountId,
-    pub results: Vec<SignerKeyQueryResult>,
+    pub results: Vec<SignerKeyQueryOutcome>,
 }
 
 impl SignerKeysQueryOutcome {
@@ -504,13 +504,13 @@ mod tests {
             realm_id: request.realm_id.clone(),
             recipient_account_id: request.recipient_account_id.clone(),
             results: vec![
-                SignerKeyQueryResult::Current(CurrentSignerKeyResult {
+                SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
                     selector: current_selector(),
                     status: SignerEvidenceResolvedStatus::Resolved,
                     key: station_key(),
                     checked_at: "2026-09-10T00:00:00.000Z".parse().unwrap(),
                 }),
-                SignerKeyQueryResult::Unavailable(UnavailableSignerKeyResult {
+                SignerKeyQueryOutcome::Unavailable(UnavailableSignerKeyOutcome {
                     selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
                     status: SignerEvidenceUnavailableStatus::Unavailable,
                 }),
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn a_result_may_not_substitute_another_verification_method() {
-        let swapped = SignerKeyQueryResult::Current(CurrentSignerKeyResult {
+        let swapped = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
             selector: current_selector(),
             status: SignerEvidenceResolvedStatus::Resolved,
             key: StationSigningKey {
@@ -544,7 +544,7 @@ mod tests {
 
     #[test]
     fn a_current_result_may_not_answer_a_historical_selector() {
-        let mismatched = SignerKeyQueryResult::Current(CurrentSignerKeyResult {
+        let mismatched = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
             selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
             status: SignerEvidenceResolvedStatus::Resolved,
             key: station_key(),

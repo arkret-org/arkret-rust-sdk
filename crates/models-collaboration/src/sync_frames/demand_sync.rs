@@ -86,7 +86,7 @@ pub enum RealmListMembership {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmListItem {
+pub struct RealmRow {
     pub realm_id: RealmId,
     pub revision: u64,
     pub activity_position: u64,
@@ -105,7 +105,7 @@ pub struct RealmListItem {
     pub default_strand_id: Option<StrandId>,
 }
 
-impl RealmListItem {
+impl RealmRow {
     pub fn validate(&self) -> Result<()> {
         if self.revision > MAX_SAFE_INTEGER
             || self.activity_position > MAX_SAFE_INTEGER
@@ -127,7 +127,7 @@ impl RealmListItem {
 pub struct RealmListPage {
     pub snapshot_cursor: Cursor,
     pub snapshot_revision: u64,
-    pub items: Vec<RealmListItem>,
+    pub items: Vec<RealmRow>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -185,7 +185,7 @@ pub struct RealmListRemoval {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmListChanges {
-    pub upserts: Vec<RealmListItem>,
+    pub upserts: Vec<RealmRow>,
     pub removals: Vec<RealmListRemoval>,
 }
 

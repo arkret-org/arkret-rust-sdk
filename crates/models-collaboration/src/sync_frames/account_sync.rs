@@ -941,7 +941,7 @@ pub struct MemberRoster {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmSyncEntryEventStatesItem {
+pub struct RealmSyncEventState {
     pub event_id: EventId,
     pub event_state: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -950,7 +950,7 @@ pub struct RealmSyncEntryEventStatesItem {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmSyncEntryBottomsItem {
+pub struct RealmSyncBottom {
     pub cell_id: String,
     pub status: String,
     pub bottom: Bottom,
@@ -1006,13 +1006,13 @@ pub struct RealmSyncEntry {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
-    pub event_states: Option<Vec<RealmSyncEntryEventStatesItem>>,
+    pub event_states: Option<Vec<RealmSyncEventState>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
-    pub bottoms: Option<Vec<RealmSyncEntryBottomsItem>>,
+    pub bottoms: Option<Vec<RealmSyncBottom>>,
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",

@@ -271,16 +271,16 @@ pub struct CallRecordingStartPayload {
     pub capture_kind: RecordingCaptureKind,
     pub mode: RecordingMode,
     pub visible_notice: VisibleCaptureNotice,
-    pub result: RecordingStartResult,
+    pub result: RecordingStartOutcome,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct RecordingStartResult {
+pub struct RecordingStartOutcome {
     pub retention: CallRecordingRetention,
 }
 
-impl<'de> Deserialize<'de> for RecordingStartResult {
+impl<'de> Deserialize<'de> for RecordingStartOutcome {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

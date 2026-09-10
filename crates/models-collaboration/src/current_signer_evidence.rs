@@ -194,7 +194,7 @@ impl CurrentSignerEvidenceQueryRequestBody {
 // projection attestation. Boxing a variant to even them out would put an
 // indirection in a type the schema defines flat, for no wire effect.
 #[allow(clippy::large_enum_variant)]
-pub enum CurrentSignerEvidenceItem {
+pub enum CurrentSignerEvidence {
     AccountDevice {
         account_id: AccountId,
         device_id: DeviceId,
@@ -209,7 +209,7 @@ pub enum CurrentSignerEvidenceItem {
     },
 }
 
-impl CurrentSignerEvidenceItem {
+impl CurrentSignerEvidence {
     pub fn selector(&self) -> CurrentSignerEvidenceSelector {
         match self {
             Self::AccountDevice {
@@ -510,7 +510,7 @@ pub struct CurrentSignerEvidenceResponseCore {
     pub request_id: RequestId,
     pub realm_id: RealmId,
     pub recipient_account_id: AccountId,
-    pub evidences: Vec<CurrentSignerEvidenceItem>,
+    pub evidences: Vec<CurrentSignerEvidence>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -546,7 +546,7 @@ impl CurrentSignerEvidenceQueryOutcome {
                     "current signer evidence repeats or substitutes a selector".to_owned(),
                 ));
             }
-            if let CurrentSignerEvidenceItem::Agent {
+            if let CurrentSignerEvidence::Agent {
                 authenticated_signer_evidence:
                     CompactAgentSignerResolutionEvidence::Agent {
                         agent_signer_evidence:

@@ -980,14 +980,14 @@ pub enum PendingSidecarAccessReconciliationStage {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PendingSidecarAccessReconciliationItem {
+pub struct PendingSidecarAccessReconciliation {
     pub agent_id: DidCoreId,
     pub provisioning_phase: PendingSidecarAccessReconciliationStage,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_frontier: Option<Vec<EventId>>,
 }
 
-impl PendingSidecarAccessReconciliationItem {
+impl PendingSidecarAccessReconciliation {
     pub fn validate(&self) -> Result<()> {
         match (&self.provisioning_phase, &self.membership_frontier) {
             (PendingSidecarAccessReconciliationStage::MlsRemove, Some(frontier))
@@ -1185,7 +1185,7 @@ pub struct AgentSidecarView {
     pub effective_agent_ids: Vec<DidCoreId>,
     pub mls_context: AgentSidecarMlsContext,
     pub access_readiness: AgentSidecarAccessReadiness,
-    pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliationItem>,
+    pub pending_access_reconciliations: Vec<PendingSidecarAccessReconciliation>,
 }
 
 impl AgentSidecarView {
@@ -2436,7 +2436,7 @@ mod tests {
             EventId::new("ak:event:ARbUzETAsZ3suuQ0GSmBWTsNjmUnTEEl_ZnDOUWRPm-N").unwrap();
         let mut membership_frontier = vec![event_a, event_b];
         membership_frontier.sort();
-        let valid = PendingSidecarAccessReconciliationItem {
+        let valid = PendingSidecarAccessReconciliation {
             agent_id,
             provisioning_phase: PendingSidecarAccessReconciliationStage::MlsRemove,
             membership_frontier: Some(membership_frontier.clone()),

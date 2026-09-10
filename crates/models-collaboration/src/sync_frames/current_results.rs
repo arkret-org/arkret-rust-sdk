@@ -178,7 +178,7 @@ impl CurrentValue {
         let raw = serde_json::json!({"selector":selector,"target":target,"revision":0,
             "result":{"status":"value","value":value}});
         match CurrentResultEntry::try_from_json(raw)?.result {
-            CurrentResult::Value { value } => Ok(value),
+            CurrentOutcome::Value { value } => Ok(value),
             _ => Err(error("Current value requires a scalar result")),
         }
     }
@@ -199,7 +199,7 @@ pub enum CurrentUnavailableReason {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
-pub enum CurrentResult {
+pub enum CurrentOutcome {
     Value { value: CurrentValue },
     Heads { heads: Vec<CurrentHead> },
     Removed,
@@ -211,7 +211,7 @@ pub struct CurrentResultEntry {
     selector: CurrentSelector,
     target: CurrentTarget,
     revision: u64,
-    result: CurrentResult,
+    result: CurrentOutcome,
 }
 
 #[derive(Deserialize)]
@@ -258,7 +258,7 @@ impl CurrentResultEntry {
     pub fn revision(&self) -> u64 {
         self.revision
     }
-    pub fn result(&self) -> &CurrentResult {
+    pub fn result(&self) -> &CurrentOutcome {
         &self.result
     }
 
@@ -270,7 +270,7 @@ impl CurrentResultEntry {
         selector: CurrentSelector,
         target: CurrentTarget,
         revision: u64,
-        result: CurrentResult,
+        result: CurrentOutcome,
     ) -> Result<Self> {
         Self::try_from_json(
             serde_json::json!({"selector":selector,"target":target,"revision":revision,"result":result}),
@@ -294,7 +294,7 @@ impl CurrentResultEntry {
         let family = raw.selector.family()?;
         validate_target_binding(&raw.selector, &raw.target, &family, &raw.result)?;
         let result = match raw.result {
-            ResultWire::Value { value } => CurrentResult::Value {
+            ResultWire::Value { value } => CurrentOutcome::Value {
                 value: CurrentValue { family, value },
             },
             ResultWire::Heads { heads } => {
@@ -322,10 +322,10 @@ impl CurrentResultEntry {
                         },
                     });
                 }
-                CurrentResult::Heads { heads: result }
+                CurrentOutcome::Heads { heads: result }
             }
-            ResultWire::Removed => CurrentResult::Removed,
-            ResultWire::Unavailable { reason } => CurrentResult::Unavailable { reason },
+            ResultWire::Removed => CurrentOutcome::Removed,
+            ResultWire::Unavailable { reason } => CurrentOutcome::Unavailable { reason },
         };
         Ok(Self {
             selector: raw.selector,
@@ -520,7 +520,7 @@ mod tests {
     fn materialized_heads_validate_target_scope_and_complete_value() {
         let wire: Value = serde_json::from_str(STRAND_ENTRY).unwrap();
         let entry = CurrentResultEntry::try_from_json(wire.clone()).unwrap();
-        let CurrentResult::Heads { heads } = entry.result() else {
+        let CurrentOutcome::Heads { heads } = entry.result() else {
             panic!("expected heads");
         };
         assert!(heads[0].value.as_strand().unwrap().id.is_some());

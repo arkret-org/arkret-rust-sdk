@@ -1609,7 +1609,7 @@ pub struct BottomDiagnostic {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub heads: Vec<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<BottomDetails>,
+    pub details: Option<BottomContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub escalated_at: Option<DateTime<Utc>>,

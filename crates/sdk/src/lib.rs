@@ -352,7 +352,7 @@ pub use arkret_signatures::{
 pub use arkret_state::mls_governance_proof::*;
 pub use arkret_state::{lattice, realm_state_snapshot, state, *};
 pub use arkret_wire::authored_event::AuthoredEvent;
-pub use arkret_wire::bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use arkret_wire::bottom::{Bottom, BottomContext, BottomKind, SealView, bottom_details};
 pub use arkret_wire::cbs::{
     LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
     ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,

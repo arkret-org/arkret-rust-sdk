@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::applet::{AppletPackage, AppletRegistrationEpochEvidence, GhostExternalTuple};
 use crate::artifacts_applet::{
-    E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance, RejectedItem,
+    AppletEventRejection, E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -46,7 +46,7 @@ pub enum AppletTransactionStatus {
 pub struct AppletTransactionOutcome {
     pub status: AppletTransactionStatus,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejections: Vec<RejectedItem>,
+    pub rejections: Vec<AppletEventRejection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
 }
@@ -90,7 +90,7 @@ pub struct AppletWidgetPolicy {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletRejectedItem {
+pub struct AppletScopeRejection {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub requested_scope: Option<String>,
     pub reason_code: ReasonCode,
@@ -119,7 +119,7 @@ pub struct AppletInstallOutcome {
     pub e2ee_authorization_refs: Vec<EventId>,
     pub widget_policy_ref: Option<EventId>,
     pub effective_status: AppletInstallEffectiveStatus,
-    pub rejections: Vec<AppletRejectedItem>,
+    pub rejections: Vec<AppletScopeRejection>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -277,7 +277,7 @@ pub struct AppletRevokeOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub revoked_refs: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub rejections: Vec<AppletRejectedItem>,
+    pub rejections: Vec<AppletScopeRejection>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -2,7 +2,7 @@
 //! All modified authority statements are re-signed; there is no trust callback bypass.
 
 use arkret_models_collaboration::current_signer_evidence::{
-    CompactAgentSignerResolutionEvidence, CurrentSignerEvidenceItem,
+    CompactAgentSignerResolutionEvidence, CurrentSignerEvidence,
     CurrentSignerEvidenceQueryRequestBody, CurrentSignerEvidenceSelector,
 };
 use arkret_models_identity::{AgentAdmissionEvidence, AgentAuthorityState};
@@ -80,7 +80,7 @@ impl Fixture {
 
     fn verify(&self) -> Result<VerifiedAgentCurrentContext, WireError> {
         // Exercise the consumer's exact closure gate before the cryptographic entry.
-        let item = CurrentSignerEvidenceItem::Agent {
+        let item = CurrentSignerEvidence::Agent {
             actor: self.actor.clone(),
             verification_method: self.verification_method.clone(),
             authenticated_signer_evidence: CompactAgentSignerResolutionEvidence::from_full(

@@ -50,7 +50,7 @@ impl From<DidMethod> for String {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum JoinPolicyPayloadGatesItem {
+pub enum JoinPolicyGate {
     ClaimRequired {
         gate_id: JoinPolicyGateId,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -130,7 +130,7 @@ pub struct JoinPolicyDirectoryHint {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct JoinPolicyPayload {
-    pub gates: Vec<JoinPolicyPayloadGatesItem>,
+    pub gates: Vec<JoinPolicyGate>,
     pub combinator: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub directory_hint: Option<JoinPolicyDirectoryHint>,

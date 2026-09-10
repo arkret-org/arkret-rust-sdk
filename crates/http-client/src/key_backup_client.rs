@@ -160,7 +160,7 @@ mod tests {
                 subdomain: "aead".to_owned(),
                 aead_aad_extensions: Default::default(),
             },
-            contents: vec![arkret_models_crypto::KeyBackupContentItem::SecretStorage(
+            contents: vec![arkret_models_crypto::KeyBackupContentIndex::SecretStorage(
                 arkret_models_crypto::SecretStorageContentIndex {
                     item_kind: arkret_models_crypto::SecretStorageItemKind::PrivateAccountState,
                     realm_id: None,

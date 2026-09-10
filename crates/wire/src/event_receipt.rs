@@ -114,7 +114,7 @@ pub struct EventBatchReceipt {
     pub receipt_id: ReceiptId,
     pub issuer_id: DidCoreId,
     pub scope: EventBatchReceiptScope,
-    pub events: Vec<EventBatchReceiptItem>,
+    pub events: Vec<EventBatchReceiptRow>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub proofs: Vec<PayloadProof>,
@@ -123,12 +123,12 @@ pub struct EventBatchReceipt {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct EventBatchReceiptItem {
+pub struct EventBatchReceiptRow {
     pub event_id: EventId,
     pub kind: NonEmptyString,
 }
 
-impl EventBatchReceiptItem {
+impl EventBatchReceiptRow {
     pub fn canonical_json_bytes(&self) -> Result<Vec<u8>> {
         canonical::canonical_json_bytes(self).map_err(Into::into)
     }
@@ -220,7 +220,7 @@ impl EventBatchReceipt {
         let canonical_events = self
             .events
             .iter()
-            .map(EventBatchReceiptItem::canonical_json_bytes)
+            .map(EventBatchReceiptRow::canonical_json_bytes)
             .collect::<Result<Vec<_>>>()?;
         if canonical_events.windows(2).any(|pair| pair[0] >= pair[1]) {
             return Err(WireError::Protocol(
@@ -332,8 +332,8 @@ mod event_batch_receipt_tests {
         )
     }
 
-    fn item(digest: Hash, kind: &str) -> EventBatchReceiptItem {
-        EventBatchReceiptItem {
+    fn item(digest: Hash, kind: &str) -> EventBatchReceiptRow {
+        EventBatchReceiptRow {
             event_id: EventId::from_event_digest(&digest).unwrap(),
             kind: NonEmptyString::new(kind).unwrap(),
         }
@@ -342,7 +342,7 @@ mod event_batch_receipt_tests {
     #[test]
     fn bare_event_id_is_not_a_receipt_event() {
         let encoded = "\"ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\"";
-        assert!(serde_json::from_str::<EventBatchReceiptItem>(encoded).is_err());
+        assert!(serde_json::from_str::<EventBatchReceiptRow>(encoded).is_err());
     }
 
     #[test]

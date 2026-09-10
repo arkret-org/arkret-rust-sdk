@@ -172,6 +172,13 @@ Request/response DTO suffixes are unified workspace-wide (no removed aliases):
 - Endpoint success responses use `*Outcome` (e.g. `EventsQueryOutcome`,
   `AccountRegisterOutcome`). Do not introduce new `*ResBody` or
   `*Response` names.
+- Per-selector success/unavailable unions also use `*Outcome`; `*Result`
+  is not a protocol wrapper suffix. Nested objects use their domain noun or
+  an appropriate registered wrapper such as `*Row`, not generic `*Item` or
+  `*Details`. Domain subjects (ICE candidates, MLS GroupInfo, RSVP answers)
+  are distinct from response wrappers; see `common-fields.md` section 2.0.1 R4.
+  Run `python tools/lint-type-names.py` and
+  `python -m unittest discover -s tools -p test_type_names.py` when adding types.
 - Path/query/header parameter groups use `*Params` / `*Args`.
 - Struct field declaration order for wire objects follows the matching spec
   schema `properties` order (`spec/v1/artifacts/schemas/*.schema.json`,

@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::key_backup::{
-    BackupKind, KeyBackup, KeyBackupContentItem, KeyBackupSignatureAlgorithm, RecoveryProofKind,
+    BackupKind, KeyBackup, KeyBackupContentIndex, KeyBackupSignatureAlgorithm, RecoveryProofKind,
     SecretStorageContentIndex, SecretStorageItemKind,
 };
 use crate::keys::DeviceGenerationStatus;
@@ -35,7 +35,7 @@ use crate::keys::DeviceGenerationStatus;
 #[serde(tag = "backup_kind", rename_all = "snake_case")]
 pub enum KeyBackupKeybag {
     SecretStorage {
-        items: Vec<SecretStorageItem>,
+        items: Vec<SecretStorageSecret>,
     },
     MlsHistory {
         effective_scope: HistoryEffectiveScope,
@@ -174,7 +174,7 @@ impl KeyBackupPlaintext {
         }
     }
 
-    fn bind_secret_storage(items: &[SecretStorageItem], envelope: &KeyBackup) -> Result<()> {
+    fn bind_secret_storage(items: &[SecretStorageSecret], envelope: &KeyBackup) -> Result<()> {
         if items.len() != envelope.contents.len() {
             return Err(WireError::Protocol(
                 "key backup public/plaintext item counts differ".to_owned(),
@@ -216,7 +216,7 @@ impl KeyBackupPlaintext {
         items: &[HistorySecretRange],
         envelope: &KeyBackup,
     ) -> Result<()> {
-        let [KeyBackupContentItem::HistorySecretRanges(index)] = envelope.contents.as_slice()
+        let [KeyBackupContentIndex::HistorySecretRanges(index)] = envelope.contents.as_slice()
         else {
             return Err(WireError::Protocol(
                 "mls_history key backup contents must be exactly one history_secret_ranges index"
@@ -248,7 +248,7 @@ impl KeyBackupPlaintext {
 /// `spec/v1/artifacts/schemas/key-backup-plaintext.schema.json#/$defs/secret_storage_item`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SecretStorageItem {
+pub struct SecretStorageSecret {
     pub item_kind: SecretStorageItemKind,
     pub secret_id: String,
     pub secret_b64u: String,
@@ -258,7 +258,7 @@ pub struct SecretStorageItem {
     pub extra: XExtensionMap,
 }
 
-impl SecretStorageItem {
+impl SecretStorageSecret {
     pub fn validate(&self) -> Result<()> {
         if self.secret_id.is_empty()
             || !self
@@ -303,7 +303,7 @@ impl SecretStorageItem {
 
 fn secret_storage_metadata_matches(
     public: &SecretStorageContentIndex,
-    secret: &SecretStorageItem,
+    secret: &SecretStorageSecret,
 ) -> Result<bool> {
     Ok(public.item_kind == secret.item_kind
         && public.secret_id.as_deref() == Some(secret.secret_id.as_str())
@@ -2113,7 +2113,7 @@ pub enum SessionState {
 /// properties/share_releases/items`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct ThresholdRecoveryProofShareReleasesItem {
+pub struct ThresholdRecoveryShareRelease {
     pub share_id: NonEmptyString,
     #[serde(flatten)]
     pub holder: RecoveryShareHolder,
@@ -2125,7 +2125,7 @@ pub struct ThresholdRecoveryProofShareReleasesItem {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct ThresholdRecoveryProofShareReleasesItemWire {
+struct ThresholdRecoveryShareReleaseWire {
     share_id: NonEmptyString,
     holder_kind: RecoveryShareHolderKind,
     holder_principal_id: Option<DidCoreId>,
@@ -2136,12 +2136,12 @@ struct ThresholdRecoveryProofShareReleasesItemWire {
     signature: Base64UrlString,
 }
 
-impl<'de> Deserialize<'de> for ThresholdRecoveryProofShareReleasesItem {
+impl<'de> Deserialize<'de> for ThresholdRecoveryShareRelease {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let wire = ThresholdRecoveryProofShareReleasesItemWire::deserialize(deserializer)?;
+        let wire = ThresholdRecoveryShareReleaseWire::deserialize(deserializer)?;
         let holder = recovery_share_holder_from_parts(
             wire.holder_kind,
             wire.holder_principal_id,
@@ -2174,7 +2174,7 @@ pub struct ThresholdRecoveryProof {
     pub challenge: Challenge,
     #[serde(deserialize_with = "deserialize_minimum_two")]
     pub threshold: u64,
-    pub share_releases: Vec<ThresholdRecoveryProofShareReleasesItem>,
+    pub share_releases: Vec<ThresholdRecoveryShareRelease>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -2599,6 +2599,6 @@ mod untagged_contract_tests {
             "ranges": [{"from_epoch": 0, "to_epoch": 3}],
             "secret_id": "segment",
         });
-        assert!(serde_json::from_value::<KeyBackupContentItem>(index).is_err());
+        assert!(serde_json::from_value::<KeyBackupContentIndex>(index).is_err());
     }
 }

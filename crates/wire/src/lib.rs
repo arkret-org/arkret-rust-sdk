@@ -100,7 +100,7 @@ pub use authored_event::AuthoredEvent;
 pub use authorization_lease_issuance_fixture::{
     AuthorizationLeaseIssuanceProjection, run_authorization_lease_issuance_fixture,
 };
-pub use bottom::{Bottom, BottomDetails, BottomKind, SealView, bottom_details};
+pub use bottom::{Bottom, BottomContext, BottomKind, SealView, bottom_details};
 pub use cbs::{
     DeviceReanchorPreFenceSealFrontier, LatticeOp, LatticeOpType, ObservedRemoveMatch,
     Precondition, Predicate, PredicateOp, ProjectedCellWrite, ProjectedOp, ProjectionEffect,
@@ -230,7 +230,7 @@ pub use security_transaction::{
     SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
     SecurityTransactionAcceptor, SecurityTransactionCreateRequest, SecurityTransactionKind,
     SecurityTransactionPreparedPlan, SecurityTransactionResultKind, SecurityTransactionStep,
-    SecurityTransactionTerminalResult, UnsignedClientStepAttestation,
+    SecurityTransactionTerminalOutcome, UnsignedClientStepAttestation,
     security_rotation_erase_confirmation_digest, security_rotation_local_commit_digest,
 };
 pub use self_contact_paths::*;

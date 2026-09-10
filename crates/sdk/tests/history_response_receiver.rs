@@ -33,7 +33,7 @@ fn with_proof<T: serde::de::DeserializeOwned>(
 fn fixture() -> (
     HistoryKeyRequestCreateOutcome,
     HistoryKeyResponseRecord,
-    HistorySourceSignerResult,
+    HistorySourceSignerOutcome,
     DateTime<Utc>,
 ) {
     let now: DateTime<Utc> = "2026-09-10T00:00:00.000Z".parse().unwrap();
@@ -144,7 +144,7 @@ fn fixture() -> (
     )
     .unwrap();
     record.validate().unwrap();
-    let signer_result = HistorySourceSignerResult::Authenticated {
+    let signer_result = HistorySourceSignerOutcome::Authenticated {
         source_signer_evidence_ref: arkret_wire::SignerEvidenceRef::new(evidence).unwrap(),
         signer_kind: HistorySourceSignerKind::Principal,
         signer_id: "ak:did_core:web:alice.example".parse().unwrap(),
@@ -162,7 +162,7 @@ fn fixture() -> (
 fn verify(
     accepted: &HistoryKeyRequestCreateOutcome,
     record: &HistoryKeyResponseRecord,
-    signer: &HistorySourceSignerResult,
+    signer: &HistorySourceSignerOutcome,
     now: DateTime<Utc>,
 ) -> Result<arkret::VerifiedHistoryResponseRecord, WireError> {
     let mut future = std::pin::pin!(arkret::verify_history_response_record(
@@ -193,7 +193,7 @@ fn principal_source_verifies_real_signature_without_governance_checkpoint() {
         arkret::VerifiedHistoryResponseRecord::Manifest { .. }
     ));
     let mut wrong_key = signer.clone();
-    if let HistorySourceSignerResult::Authenticated {
+    if let HistorySourceSignerOutcome::Authenticated {
         public_key_b64u, ..
     } = &mut wrong_key
     {

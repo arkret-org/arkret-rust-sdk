@@ -11,7 +11,7 @@ use arkret_models_collaboration::history_key::{
     HistoryKeyResponseContent, HistoryKeyResponseLostRecord, HistoryKeyResponseRecord,
     HistoryKeyResponseSendRequestBody, HistoryManifestAdmission, HistoryResponseChunkDescriptor,
     HistoryResponseId, HistoryResponseManifest, HistorySecretChunkSealContext,
-    HistorySecretChunkSealPurpose, HistorySourceSignerKind, HistorySourceSignerResult,
+    HistorySecretChunkSealPurpose, HistorySourceSignerKind, HistorySourceSignerOutcome,
     MinimalMetadataMlsLeafSignerEvidence, SealedHistoryChunk,
 };
 use arkret_models_crypto::mls_payloads::MlsCommitPayload;
@@ -242,7 +242,7 @@ impl VerifiedHistoryResponseRecord {
 pub async fn verify_history_response_record<VerifyExternalSourceKey>(
     accepted: &HistoryKeyRequestCreateOutcome,
     record: &HistoryKeyResponseRecord,
-    signer_result: &HistorySourceSignerResult,
+    signer_result: &HistorySourceSignerOutcome,
     verified_manifest: Option<&VerifiedHistoryManifest>,
     now: DateTime<Utc>,
     verify_external_source_key: VerifyExternalSourceKey,
@@ -280,12 +280,12 @@ where
         return invalid("history source proof timestamp is outside its signed record lifetime");
     }
     let source_key = match signer_result {
-        HistorySourceSignerResult::Authenticated {
+        HistorySourceSignerOutcome::Authenticated {
             public_key_b64u, ..
         } => PublicKeyMaterial::Ed25519Raw {
             bytes: arkret_wire::base64url::base64url_decode(public_key_b64u.as_str().as_bytes())?,
         },
-        HistorySourceSignerResult::ReceiverMls {
+        HistorySourceSignerOutcome::ReceiverMls {
             signer_evidence,
             identity_link_public_key_b64u,
             ..
@@ -413,7 +413,7 @@ pub async fn verify_history_source_proof<VerifyExternalSourceKey>(
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     source_signer_dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
-) -> Result<HistorySourceSignerResult, WireError>
+) -> Result<HistorySourceSignerOutcome, WireError>
 where
     VerifyExternalSourceKey: for<'a> Fn(
             HistorySourceProofExternalVerificationRequest<'a>,
@@ -464,7 +464,7 @@ where
                 }
                 _ => return invalid("service evidence cannot authorize a history source"),
             };
-            HistorySourceSignerResult::Authenticated {
+            HistorySourceSignerOutcome::Authenticated {
                 source_signer_evidence_ref: source.source_signer_evidence_ref.clone(),
                 signer_kind,
                 signer_id: evidence.signer_id().clone(),
@@ -495,7 +495,7 @@ where
                 source_signer_dependencies,
                 link.effective_at,
             )?;
-            HistorySourceSignerResult::ReceiverMls {
+            HistorySourceSignerOutcome::ReceiverMls {
                 source_signer_evidence_ref: source.source_signer_evidence_ref.clone(),
                 signer_evidence: Box::new(evidence.clone()),
                 identity_link_public_key_b64u: arkret_wire::Base64UrlString::new(
@@ -831,7 +831,7 @@ fn verify_release_attestation(
     descriptor: &HistoryResponseChunkDescriptor,
     attestation: &arkret_models_collaboration::history_key::HistoryReleaseAttestation,
     manifest: &VerifiedHistoryManifest,
-    signer_result: &HistorySourceSignerResult,
+    signer_result: &HistorySourceSignerOutcome,
 ) -> Result<(), WireError> {
     let source_digest = source.source_record_digest()?;
     let request = &accepted.request;
@@ -860,12 +860,12 @@ fn verify_release_attestation(
         return invalid("history release attestation does not bind the exact request and chunk");
     }
     let evidence_kind = match signer_result {
-        HistorySourceSignerResult::Authenticated { signer_kind, .. } => match signer_kind {
+        HistorySourceSignerOutcome::Authenticated { signer_kind, .. } => match signer_kind {
             HistorySourceSignerKind::Principal => SourceEvidenceKind::Principal,
             HistorySourceSignerKind::AccountDevice => SourceEvidenceKind::AccountDevice,
             HistorySourceSignerKind::Agent => SourceEvidenceKind::Agent,
         },
-        HistorySourceSignerResult::ReceiverMls { .. } => SourceEvidenceKind::MinimalMetadata,
+        HistorySourceSignerOutcome::ReceiverMls { .. } => SourceEvidenceKind::MinimalMetadata,
     };
     let profile_matches = matches!(
         (attestation.source_author_profile, evidence_kind),
@@ -887,7 +887,7 @@ fn verify_release_attestation(
     }
     if evidence_kind == SourceEvidenceKind::MinimalMetadata {
         let minimal = match signer_result {
-            HistorySourceSignerResult::ReceiverMls {
+            HistorySourceSignerOutcome::ReceiverMls {
                 signer_evidence, ..
             } => Some(signer_evidence),
             _ => None,

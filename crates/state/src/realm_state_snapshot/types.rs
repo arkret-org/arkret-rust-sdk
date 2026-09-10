@@ -368,11 +368,11 @@ pub struct AuthorityBinding {
 /// [`DetachedJwsProof`] this crate signs and verifies, and it is the half that
 /// owns [`RealmStateSnapshotManifest::witness_attestation_projection`] and
 /// [`RealmStateSnapshotManifest::verify_witness_attestations`]. The **wire DTO** half is
-/// `arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotWitnessAttestationItem`,
+/// `arkret_models_collaboration::sync_frames::realm_state_snapshot::RealmStateSnapshotWitnessSignature`,
 /// which mirrors the schema verbatim with the full shared `PayloadProof` leaf.
 /// The two halves are named apart on purpose — same as
 /// [`RealmStateSnapshotChunkDescriptor`]
-/// vs `RealmStateSnapshotChunksItem` — so neither shadows the other in the
+/// vs `RealmStateSnapshotChunkRef` — so neither shadows the other in the
 /// `arkret_sdk` prelude.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -64,7 +64,7 @@ pub struct ProtocolInstance {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RejectedItem {
+pub struct AppletEventRejection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_id: Option<EventId>,
     pub reason_code: ReasonCode,

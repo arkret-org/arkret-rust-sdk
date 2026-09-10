@@ -384,7 +384,7 @@ pub enum BackupSeriesEraseStatus {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BackupSeriesEraseResultStatus {
+pub enum BackupSeriesEraseRowStatus {
     Erased,
     Pending,
     FailedRetryable,
@@ -407,11 +407,11 @@ pub struct BackupSeriesEraseRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct BackupSeriesEraseResult {
+pub struct BackupSeriesEraseRow {
     pub backup_kind: BackupRotationKind,
     pub previous_series_id: BackupSeriesId,
     pub new_series_id: BackupSeriesId,
-    pub status: BackupSeriesEraseResultStatus,
+    pub status: BackupSeriesEraseRowStatus,
     pub erased_backups: Vec<BackupObjectRef>,
     pub remaining_backups: Vec<BackupObjectRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -436,7 +436,7 @@ pub struct BackupSeriesEraseOutcome {
     pub transaction_id: TransactionId,
     pub request_digest: Hash,
     pub status: BackupSeriesEraseStatus,
-    pub series_results: Vec<BackupSeriesEraseResult>,
+    pub series_results: Vec<BackupSeriesEraseRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub confirmation: Option<BackupSeriesEraseConfirmation>,
 }
@@ -576,31 +576,31 @@ impl BackupSeriesEraseOutcome {
             validate_canonical_backup_object_refs(&result.erased_backups, "erased_backups")?;
             validate_canonical_backup_object_refs(&result.remaining_backups, "remaining_backups")?;
             match result.status {
-                BackupSeriesEraseResultStatus::Erased if !result.remaining_backups.is_empty() => {
+                BackupSeriesEraseRowStatus::Erased if !result.remaining_backups.is_empty() => {
                     return Err(WireError::Protocol(
                         "erased backup series cannot retain remaining backups".to_owned(),
                     ));
                 }
-                BackupSeriesEraseResultStatus::Erased if result.reason_code.is_some() => {
+                BackupSeriesEraseRowStatus::Erased if result.reason_code.is_some() => {
                     return Err(WireError::Protocol(
                         "erased backup series cannot carry a reason code".to_owned(),
                     ));
                 }
-                BackupSeriesEraseResultStatus::Pending if result.reason_code.is_some() => {
+                BackupSeriesEraseRowStatus::Pending if result.reason_code.is_some() => {
                     return Err(WireError::Protocol(
                         "pending backup series cannot carry a reason code".to_owned(),
                     ));
                 }
-                BackupSeriesEraseResultStatus::FailedRetryable if result.reason_code.is_none() => {
+                BackupSeriesEraseRowStatus::FailedRetryable if result.reason_code.is_none() => {
                     return Err(WireError::Protocol(
                         "failed-retryable backup series requires a reason code".to_owned(),
                     ));
                 }
-                BackupSeriesEraseResultStatus::Pending
-                | BackupSeriesEraseResultStatus::FailedRetryable => {
+                BackupSeriesEraseRowStatus::Pending
+                | BackupSeriesEraseRowStatus::FailedRetryable => {
                     has_incomplete = true;
                 }
-                BackupSeriesEraseResultStatus::Erased => {}
+                BackupSeriesEraseRowStatus::Erased => {}
             }
         }
         if (self.status == BackupSeriesEraseStatus::Partial) != has_incomplete {
@@ -734,7 +734,7 @@ pub struct KeyBackupSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery_policy_ref: Option<RecoveryPolicyRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub contents: Vec<KeyBackupContentItem>,
+    pub contents: Vec<KeyBackupContentIndex>,
 }
 
 /// The list-summary projection of [`KeyBackupEncryption`]: only the non-secret
@@ -770,7 +770,7 @@ pub struct KeyBackup {
     pub expires_at: Option<DateTime<Utc>>,
     pub encryption: KeyBackupEncryption,
     pub domain_separation: KeyBackupDomainSeparation,
-    pub contents: Vec<KeyBackupContentItem>,
+    pub contents: Vec<KeyBackupContentIndex>,
     pub ciphertext: String,
     pub ciphertext_digest: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1003,7 +1003,7 @@ impl KeyBackup {
                 }
             }
             BackupKind::MlsHistory => {
-                let [KeyBackupContentItem::HistorySecretRanges(index)] = self.contents.as_slice()
+                let [KeyBackupContentIndex::HistorySecretRanges(index)] = self.contents.as_slice()
                 else {
                     return Err(WireError::Protocol(
                         "mls_history key backup contents must be exactly one history_secret_ranges index"
@@ -1796,12 +1796,12 @@ impl HistorySecretRangeIndex {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum KeyBackupContentItem {
+pub enum KeyBackupContentIndex {
     SecretStorage(SecretStorageContentIndex),
     HistorySecretRanges(HistorySecretRangeIndex),
 }
 
-impl KeyBackupContentItem {
+impl KeyBackupContentIndex {
     /// The wire `item_kind` string this index carries.
     pub const fn item_kind(&self) -> &'static str {
         match self {

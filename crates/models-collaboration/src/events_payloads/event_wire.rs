@@ -22,7 +22,7 @@ pub use arkret_models_crypto::encrypted_envelope::{
 };
 pub use arkret_wire::event_receipt::{
     DeviceReanchorReceiptScope, DeviceReanchorReceiptScopeKind, EventBatchOrdinaryReceiptScope,
-    EventBatchReceipt, EventBatchReceiptItem, EventBatchReceiptScope, EventProofAudience,
+    EventBatchReceipt, EventBatchReceiptRow, EventBatchReceiptScope, EventProofAudience,
 };
 
 /// Counterpart for
