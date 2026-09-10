@@ -8,6 +8,7 @@ mod data;
 mod events;
 mod history_key;
 mod identity;
+mod invite;
 mod media;
 mod mimi;
 mod moderation;
