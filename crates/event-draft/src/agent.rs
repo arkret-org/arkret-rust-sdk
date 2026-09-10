@@ -170,11 +170,12 @@ mod tests {
     use arkret_identifiers::{Did, project_did_to_core_id};
     use arkret_models_collaboration::events_payloads::agent::{
         AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
+        AgentKeySupersession,
     };
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        AccountId, AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hash, Hlc,
+        AccountId, AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hlc,
         LatticeOp, LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
@@ -325,14 +326,14 @@ mod tests {
         assert_eq!(event.payload["key_id"], "runtime-key-1");
     }
 
-    /// A `(agent_id, key_id)` authorization is replaced, never overwritten:
-    /// `zh/identity/key-management.md` §3.6.1 requires the same Control Move to
-    /// observe-remove every active authorize dot on
-    /// `ak.component.agent.key.v1` and atomically add the replacement dot. The
-    /// registry encodes that as two `cell_writes[]` entries deriving the same
-    /// cell, so the add's dot is at `write_index` 1.
+    /// A first authorization projects exactly one add. The registry's
+    /// `cell_writes[0]` is the bounded `for_each` expansion over
+    /// `payload.supersedes` (`zh/models/event-and-patch.md` §2.4.2, "Agent
+    /// replacement 的有界旧 cell 展开"): with the set omitted it expands to zero
+    /// removals, and the add keeps `write_index` 1 regardless of how many old
+    /// authorizations a later Event names.
     #[test]
-    fn key_authorize_projects_atomic_replacement_pair() {
+    fn key_authorize_first_authorization_projects_single_add_at_dot_one() {
         let agent_id = core_id("agent");
         let agent_did = did("agent");
         let controller_principal_id = core_id("controller");
@@ -362,15 +363,59 @@ mod tests {
         add.value = Some(payload_object(&event));
         assert_eq!(
             project(&event),
+            vec![ProjectedCellWrite {
+                cell_id: cell,
+                op: ProjectedOp::Direct(add),
+            }]
+        );
+    }
+
+    /// Re-authorization names the exact old authorization set
+    /// (`zh/identity/key-management.md` §3.6). Each `supersedes[]` entry expands
+    /// to one explicit `remove` of `canonical_event_dot(authorized_event_ref, 1)`
+    /// on the old `(agent_id, key_id)` cell — never an observed remove of the
+    /// whole cell — and the replacement add follows at dot index 1.
+    #[test]
+    fn key_authorize_projects_exact_supersedes_removal_then_add() {
+        let agent_id = core_id("agent");
+        let agent_did = did("agent");
+        let controller_principal_id = core_id("controller");
+        let old = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [11; 32]);
+        let mut payload =
+            key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id.clone());
+        payload.supersedes = vec![AgentKeySupersession {
+            key_id: arkret_wire::NonEmptyString::new("runtime-key-0").unwrap(),
+            authorized_event_ref: old.clone(),
+        }];
+        let event = authored(
+            build_agent_key_authorize_intent(
+                &payload,
+                scope(),
+                account_actor(agent_id.clone()),
+                account_actor(controller_principal_id),
+                DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
+                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
+            )
+            .unwrap(),
+            7,
+        );
+
+        let mut remove = LatticeOp::empty();
+        remove.op_type = LatticeOpType::Remove;
+        remove.tag = Some(or_set_dot(old.as_str(), 1));
+        let mut add = LatticeOp::empty();
+        add.op_type = LatticeOpType::Add;
+        add.tag = Some(or_set_dot(event.event_id.as_str(), 1));
+        add.value = Some(payload_object(&event));
+        assert_eq!(
+            project(&event),
             vec![
                 ProjectedCellWrite {
-                    cell_id: cell.clone(),
-                    op: ProjectedOp::RemoveObserved {
-                        element_match: None
-                    },
+                    cell_id: agent_key_cell(&agent_id, "runtime-key-0"),
+                    op: ProjectedOp::Direct(remove),
                 },
                 ProjectedCellWrite {
-                    cell_id: cell,
+                    cell_id: agent_key_cell(&agent_id, "runtime-key-1"),
                     op: ProjectedOp::Direct(add),
                 },
             ]
