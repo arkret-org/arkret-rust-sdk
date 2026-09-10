@@ -300,6 +300,7 @@ event_payload_accessors! {
     event_spec::RelationCreate => (as_relation_create, RelationCreatePayload),
     event_spec::RelationUpdate => (as_relation_update, RelationUpdatePayload),
     event_spec::RelationTombstone => (as_relation_tombstone, RelationTombstonePayload),
+    event_spec::RelationResolve => (as_relation_resolve, RelationResolvePayload, RelationResolvePayload::validate),
     event_spec::ContainerMoveItem => (as_container_move_item, ContainerMoveItemPayload, ContainerMoveItemPayload::validate),
     event_spec::ContainerRebalance => (as_container_rebalance, ContainerRebalancePayload, ContainerRebalancePayload::validate),
     event_spec::ViewCreate => (as_view_create, ViewPayload, ViewPayload::validate_for_create),
