@@ -84,6 +84,40 @@ pub struct KeysUploadOutcome {
     pub fallback_keys: AlgorithmKeyRecords,
 }
 
+/// At most 16 accounts per directory read, local and cross-Station alike
+/// (`device-lifecycle.md` §8). An over-limit request fails whole; it is never
+/// truncated.
+pub const MAX_KEYS_QUERY_ACCOUNTS: usize = 16;
+/// At most 32 devices per selected account.
+pub const MAX_KEYS_QUERY_DEVICES_PER_ACCOUNT: usize = 32;
+/// Canonical byte budget of either direction of both keys query operations.
+pub const KEYS_QUERY_MAX_BYTES: usize = 65_536;
+
+fn validate_device_key_selectors(
+    selectors: &[QueryAccountDeviceSelector],
+) -> arkret_wire::Result<()> {
+    if selectors.is_empty() || selectors.len() > MAX_KEYS_QUERY_ACCOUNTS {
+        return Err(arkret_wire::WireError::Protocol(
+            "keys query selects 1..16 accounts and is never truncated".to_owned(),
+        ));
+    }
+    arkret_wire::validate_identity_entries(selectors)
+}
+
+fn validate_keys_query_bytes(value: &impl Serialize, request: bool) -> arkret_wire::Result<()> {
+    if arkret_canonical::canonical_json_bytes(value)?.len() > KEYS_QUERY_MAX_BYTES {
+        return Err(arkret_wire::WireError::ProtocolCode {
+            code: if request {
+                arkret_wire::ErrorCode::PayloadTooLarge
+            } else {
+                arkret_wire::ErrorCode::LimitExceeded
+            },
+            message: "keys query exceeds its canonical byte budget".to_owned(),
+        });
+    }
+    Ok(())
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -96,6 +130,13 @@ pub struct KeysQueryRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
     pub timeout_ms: Option<NonZeroU64>,
+}
+
+impl KeysQueryRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_device_key_selectors(&self.device_keys)?;
+        validate_keys_query_bytes(self, true)
+    }
 }
 
 /// Directory status of a `(principal_id, device_id)` pair at query time.
@@ -274,6 +315,62 @@ impl QueryDeviceRecord {
     }
 }
 
+/// Closed non-enumerating reason space of the device directory read surfaces.
+///
+/// `device_result_unavailable` covers absent, invisible, unrelated, revoked,
+/// fenced and policy-denied targets with one indistinguishable value.
+/// `device_directory_unavailable` states only that the requester's own Station
+/// could not obtain or verify a current attested projection this time; it never
+/// depends on target state.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryFailureReason {
+    DeviceResultUnavailable,
+    DeviceDirectoryUnavailable,
+}
+
+/// Closed failure row of `self/keys/query` and `peer/keys/query`.
+///
+/// A missing row and an empty `device_keys` map are *not* substitutes for this
+/// value: a caller that cannot fetch the directory must be able to tell that
+/// apart from a target that has no usable device.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QueryFailure {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<AccountId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<DeviceId>,
+    pub reason_code: QueryFailureReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<u64>)))]
+    pub retry_after_ms: Option<NonZeroU64>,
+}
+
+impl QueryFailure {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        if self.retry_after_ms.is_some()
+            && self.reason_code != QueryFailureReason::DeviceDirectoryUnavailable
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "a target-private device query failure must not carry retry_after_ms".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_query_failures(failures: &[QueryFailure]) -> arkret_wire::Result<()> {
+    if failures.len() > 512 {
+        return Err(arkret_wire::WireError::Protocol(
+            "device query failures exceed the registered bound".to_owned(),
+        ));
+    }
+    failures.iter().try_for_each(QueryFailure::validate)
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -284,7 +381,7 @@ pub struct KeysQueryOutcome {
     )]
     pub device_keys: Vec<QueryAccountDeviceEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub failures: Vec<KeysOperationFailure>,
+    pub failures: Vec<QueryFailure>,
     /// Reducer-managed B-model device generation fence by complete account.
     #[serde(
         default,
@@ -332,6 +429,11 @@ impl arkret_wire::CanonicalIdentityEntry for AccountDeviceGenerationEntry {
 }
 
 impl KeysQueryOutcome {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_query_failures(&self.failures)?;
+        validate_keys_query_bytes(self, false)
+    }
+
     pub fn devices_for(
         &self,
         account_id: &AccountId,
@@ -350,6 +452,164 @@ impl KeysQueryOutcome {
     }
 }
 
+/// Declared use of the requested directory rows. The destination authorizes
+/// each purpose independently and never clears the broadest one once.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PeerKeysQueryPurpose {
+    E2eeMessageEncryption,
+    MlsGroupAdmission,
+    CallMedia,
+}
+
+/// Closed relationship the requesting Station asserts. The destination
+/// re-derives it from its own accepted state; the assertion never authorizes by
+/// itself. The `contact` branch deliberately carries no `realm_id` because a
+/// legitimate Contact needs no shared Realm.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum PeerKeysRelationshipBasis {
+    RealmMembership {
+        realm_id: arkret_wire::RealmId,
+    },
+    /// Declared as an empty struct variant so `deny_unknown_fields` actually
+    /// applies: a unit variant of an internally tagged enum silently accepts a
+    /// smuggled `realm_id`, which is exactly the shape the closed contact branch
+    /// forbids.
+    Contact {},
+}
+
+/// Body of `ak.peer.keys.read.lookup.v1` (`POST /_arkret/peer/keys/query`).
+///
+/// This is the only registered carrier for a cross-Station `keys/query` target:
+/// the client asks its own Station, which authenticates itself with its own
+/// RFC 9421 service signature. No client SessionGrant, DPoP or local bearer is
+/// ever forwarded, and the client never connects to the origin Station itself.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerKeysQueryRequestBody {
+    pub request_id: arkret_wire::RequestId,
+    pub requester_account_id: AccountId,
+    pub purpose: PeerKeysQueryPurpose,
+    pub relationship_basis: PeerKeysRelationshipBasis,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub device_keys: Vec<QueryAccountDeviceSelector>,
+}
+
+impl PeerKeysQueryRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.requester_account_id.validate()?;
+        validate_device_key_selectors(&self.device_keys)?;
+        for selector in &self.device_keys {
+            selector.account_id.validate()?;
+        }
+        validate_keys_query_bytes(self, true)
+    }
+
+    /// Every selected target belongs to one destination Station, which the
+    /// caller MUST have authenticated as `Destination-Service-ID`.
+    pub fn destination_station_id(&self) -> arkret_wire::Result<&arkret_wire::DidCoreId> {
+        let first = self
+            .device_keys
+            .first()
+            .map(|selector| &selector.account_id.station_id)
+            .ok_or_else(|| {
+                arkret_wire::WireError::Protocol(
+                    "peer keys query selects no destination account".to_owned(),
+                )
+            })?;
+        if self
+            .device_keys
+            .iter()
+            .any(|selector| &selector.account_id.station_id != first)
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "peer keys query targets more than one destination Station".to_owned(),
+            ));
+        }
+        Ok(first)
+    }
+}
+
+/// Success body of `ak.peer.keys.read.lookup.v1`.
+///
+/// The destination adds no response signature layer: every row carries the
+/// origin's own `device_projection_attestation`, which the requesting Station
+/// verifies before handing the client a restricted typed result.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeerKeysQueryOutcome {
+    pub request_id: arkret_wire::RequestId,
+    pub requester_account_id: AccountId,
+    #[serde(
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub device_keys: Vec<QueryAccountDeviceEntry>,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "arkret_wire::deserialize_identity_entries",
+        serialize_with = "arkret_wire::serialize_identity_entries"
+    )]
+    pub device_generations: Vec<AccountDeviceGenerationEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub failures: Vec<QueryFailure>,
+}
+
+impl PeerKeysQueryOutcome {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        validate_query_failures(&self.failures)?;
+        validate_keys_query_bytes(self, false)
+    }
+
+    /// Reject a response that answers a different request or requester before
+    /// any row is installed.
+    pub fn validate_for_request(
+        &self,
+        request: &PeerKeysQueryRequestBody,
+    ) -> arkret_wire::Result<()> {
+        request.validate()?;
+        self.validate()?;
+        if self.request_id != request.request_id
+            || self.requester_account_id != request.requester_account_id
+        {
+            return Err(arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::StateMismatch,
+                message: "peer keys query result answers a different request or requester"
+                    .to_owned(),
+            });
+        }
+        let selected: std::collections::BTreeSet<_> = request
+            .device_keys
+            .iter()
+            .map(|selector| &selector.account_id)
+            .collect();
+        if self
+            .device_keys
+            .iter()
+            .any(|entry| !selected.contains(&entry.account_id))
+            || self
+                .device_generations
+                .iter()
+                .any(|entry| !selected.contains(&entry.account_id))
+        {
+            return Err(arkret_wire::WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::StateMismatch,
+                message: "peer keys query result carries an unselected account".to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -361,7 +621,12 @@ pub struct KeysClaimRequestBody {
     pub one_time_keys: Vec<AccountDeviceAlgorithmEntry>,
 }
 
-/// Per-target failure returned by keys query and claim operations.
+/// Per-target failure returned by the keys *claim* operations only.
+///
+/// The directory read surfaces (`self/keys/query`, `peer/keys/query`) use the
+/// closed [`QueryFailure`] instead: an open `reason_code` there would leak
+/// target state and let a caller distinguish an absent account from a revoked
+/// one.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -608,5 +873,231 @@ mod device_generation_tests {
         );
         assert!(value.get("principal_id").is_none());
         assert!(value.get("station_id").is_none());
+    }
+}
+
+#[cfg(test)]
+mod peer_keys_query_tests {
+    use arkret_wire::{DidCoreId, RealmId, RequestId};
+
+    use super::*;
+    use crate::artifacts_keys::QueryAccountDeviceSelector;
+
+    fn account(principal: &str, station: &str) -> AccountId {
+        AccountId::new(
+            DidCoreId::new(principal).unwrap(),
+            DidCoreId::new(station).unwrap(),
+        )
+    }
+
+    fn device(index: u32) -> DeviceId {
+        DeviceId::new(format!("ak:device:0196419b-0000-7000-8000-{index:012}")).unwrap()
+    }
+
+    fn selector(account_id: AccountId, devices: usize) -> QueryAccountDeviceSelector {
+        QueryAccountDeviceSelector {
+            account_id,
+            device_ids: (0..devices).map(|index| device(index as u32 + 1)).collect(),
+        }
+    }
+
+    fn request() -> PeerKeysQueryRequestBody {
+        PeerKeysQueryRequestBody {
+            request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000061").unwrap(),
+            requester_account_id: account(
+                "ak:did_core:web:alice.example",
+                "ak:did_core:web:home.example",
+            ),
+            purpose: PeerKeysQueryPurpose::E2eeMessageEncryption,
+            relationship_basis: PeerKeysRelationshipBasis::Contact {},
+            device_keys: vec![selector(
+                account(
+                    "ak:did_core:web:bob.example",
+                    "ak:did_core:web:remote.example",
+                ),
+                2,
+            )],
+        }
+    }
+
+    #[test]
+    fn peer_request_pins_one_destination_station() {
+        let request = request();
+        request.validate().unwrap();
+        assert_eq!(
+            request.destination_station_id().unwrap().as_str(),
+            "ak:did_core:web:remote.example"
+        );
+
+        let mut split = request;
+        split.device_keys.push(selector(
+            account(
+                "ak:did_core:web:carol.example",
+                "ak:did_core:web:other.example",
+            ),
+            1,
+        ));
+        split.device_keys.sort_by_key(|entry| {
+            arkret_canonical::canonical_json_bytes(&entry.account_id).unwrap()
+        });
+        assert!(split.destination_station_id().is_err());
+    }
+
+    #[test]
+    fn contact_basis_carries_no_realm_and_realm_basis_does() {
+        let contact = serde_json::to_value(PeerKeysRelationshipBasis::Contact {}).unwrap();
+        assert_eq!(contact, serde_json::json!({"kind": "contact"}));
+        let realm = serde_json::to_value(PeerKeysRelationshipBasis::RealmMembership {
+            realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
+                .unwrap(),
+        })
+        .unwrap();
+        assert_eq!(realm["kind"], "realm_membership");
+        assert!(realm.get("realm_id").is_some());
+        // A contact branch that smuggles a realm_id is not a valid wire shape.
+        assert!(
+            serde_json::from_value::<PeerKeysRelationshipBasis>(serde_json::json!({
+                "kind": "contact",
+                "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn selector_bounds_fail_whole_rather_than_truncate() {
+        let mut too_many_accounts = request();
+        too_many_accounts.device_keys = (0..17)
+            .map(|index| {
+                selector(
+                    account(
+                        &format!("ak:did_core:web:p{index:02}.example"),
+                        "ak:did_core:web:remote.example",
+                    ),
+                    1,
+                )
+            })
+            .collect();
+        too_many_accounts.device_keys.sort_by_key(|entry| {
+            arkret_canonical::canonical_json_bytes(&entry.account_id).unwrap()
+        });
+        assert!(too_many_accounts.validate().is_err());
+
+        let mut empty = request();
+        empty.device_keys.clear();
+        assert!(empty.validate().is_err());
+
+        let mut too_many_devices = request();
+        too_many_devices.device_keys = vec![selector(
+            account(
+                "ak:did_core:web:bob.example",
+                "ak:did_core:web:remote.example",
+            ),
+            33,
+        )];
+        assert!(too_many_devices.validate().is_err());
+
+        let local = KeysQueryRequestBody {
+            device_keys: vec![selector(
+                account(
+                    "ak:did_core:web:bob.example",
+                    "ak:did_core:web:home.example",
+                ),
+                32,
+            )],
+            timeout_ms: None,
+        };
+        local.validate().unwrap();
+    }
+
+    #[test]
+    fn directory_failures_are_a_closed_two_value_reason_space() {
+        let unavailable = QueryFailure {
+            account_id: None,
+            device_id: None,
+            reason_code: QueryFailureReason::DeviceDirectoryUnavailable,
+            retry_after_ms: Some(NonZeroU64::new(500).unwrap()),
+        };
+        unavailable.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(&unavailable).unwrap()["reason_code"],
+            "device_directory_unavailable"
+        );
+
+        // A target-private failure must not leak timing through retry_after_ms.
+        let private = QueryFailure {
+            retry_after_ms: Some(NonZeroU64::new(500).unwrap()),
+            reason_code: QueryFailureReason::DeviceResultUnavailable,
+            ..unavailable
+        };
+        assert!(private.validate().is_err());
+
+        // The free-form claim reason space is no longer reachable from a
+        // directory read.
+        assert!(
+            serde_json::from_value::<QueryFailure>(serde_json::json!({
+                "reason_code": "device_unknown"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<QueryFailure>(serde_json::json!({
+                "reason_code": "device_result_unavailable",
+                "algorithm": "ed25519"
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn peer_outcome_must_answer_the_exact_request_and_selected_accounts() {
+        let request = request();
+        let outcome = PeerKeysQueryOutcome {
+            request_id: request.request_id.clone(),
+            requester_account_id: request.requester_account_id.clone(),
+            device_keys: Vec::new(),
+            device_generations: Vec::new(),
+            failures: vec![QueryFailure {
+                account_id: None,
+                device_id: None,
+                reason_code: QueryFailureReason::DeviceResultUnavailable,
+                retry_after_ms: None,
+            }],
+        };
+        outcome.validate_for_request(&request).unwrap();
+
+        let mut other_request = outcome.clone();
+        other_request.request_id =
+            RequestId::new("ak:request:01970000-0000-7000-8000-000000000062").unwrap();
+        assert!(other_request.validate_for_request(&request).is_err());
+
+        let mut other_requester = outcome;
+        other_requester.requester_account_id = account(
+            "ak:did_core:web:mallory.example",
+            "ak:did_core:web:home.example",
+        );
+        assert!(other_requester.validate_for_request(&request).is_err());
+    }
+
+    #[test]
+    fn peer_outcome_rejects_an_unselected_account_row() {
+        let request = request();
+        let outcome = PeerKeysQueryOutcome {
+            request_id: request.request_id.clone(),
+            requester_account_id: request.requester_account_id.clone(),
+            device_keys: Vec::new(),
+            device_generations: vec![AccountDeviceGenerationEntry {
+                account_id: account(
+                    "ak:did_core:web:carol.example",
+                    "ak:did_core:web:remote.example",
+                ),
+                generation_state: DeviceGenerationState {
+                    current_device_generation_ref: 1,
+                    device_generation_status: DeviceGenerationStatus::Active,
+                },
+            }],
+            failures: Vec::new(),
+        };
+        assert!(outcome.validate_for_request(&request).is_err());
     }
 }

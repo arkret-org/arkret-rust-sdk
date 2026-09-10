@@ -825,17 +825,27 @@ pub struct QueryAccountDeviceSelector {
     pub device_ids: Vec<DeviceId>,
 }
 
+/// Upper bound on selected devices per account for either keys query
+/// direction (`device-lifecycle.md` §8). Over-limit selectors fail whole.
+pub const MAX_SELECTED_DEVICES_PER_ACCOUNT: usize = 32;
+
+fn validate_selected_device_ids(ids: &[DeviceId]) -> std::result::Result<(), &'static str> {
+    let unique = ids.iter().collect::<BTreeSet<_>>();
+    if ids.is_empty() || unique.len() != ids.len() {
+        return Err("device_ids must be non-empty and unique");
+    }
+    if ids.len() > MAX_SELECTED_DEVICES_PER_ACCOUNT {
+        return Err("device_ids selects at most 32 devices per account");
+    }
+    Ok(())
+}
+
 fn deserialize_device_ids<'de, D>(deserializer: D) -> std::result::Result<Vec<DeviceId>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let ids = Vec::<DeviceId>::deserialize(deserializer)?;
-    let unique = ids.iter().collect::<BTreeSet<_>>();
-    if ids.is_empty() || unique.len() != ids.len() {
-        return Err(serde::de::Error::custom(
-            "device_ids must be non-empty and unique",
-        ));
-    }
+    validate_selected_device_ids(&ids).map_err(serde::de::Error::custom)?;
     Ok(ids)
 }
 
@@ -859,13 +869,8 @@ impl arkret_wire::CanonicalIdentityEntry for QueryAccountDeviceSelector {
         &self.account_id
     }
     fn validate_entry(&self) -> Result<()> {
-        let unique = self.device_ids.iter().collect::<BTreeSet<_>>();
-        if self.device_ids.is_empty() || unique.len() != self.device_ids.len() {
-            return Err(WireError::Protocol(
-                "device_ids must be non-empty and unique".to_owned(),
-            ));
-        }
-        Ok(())
+        validate_selected_device_ids(&self.device_ids)
+            .map_err(|reason| WireError::Protocol(reason.to_owned()))
     }
 }
 
