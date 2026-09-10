@@ -363,6 +363,40 @@ fn portable_agent_resume_cold_context_retains_original_root_notary() {
             2,
         ),
     ] {
+        // A non-genesis Seal may omit the redundant covered list. Reconstruct
+        // the current frontier from its complete lineage before extending it.
+        let mut pending = vec![state.frontier_seal_id.clone()];
+        let mut visited = BTreeSet::new();
+        let mut predecessor_covered = BTreeSet::new();
+        while let Some(id) = pending.pop() {
+            if !visited.insert(id.clone()) {
+                continue;
+            }
+            let seal = state
+                .seal_lineages
+                .iter()
+                .find(|seal| seal.id == id)
+                .expect("the real fixture retains the complete predecessor lineage");
+            predecessor_covered.extend(seal.delta.iter().cloned());
+            pending.extend(seal.predecessor_refs.iter().cloned());
+        }
+        assert_eq!(
+            arkret_state::state::seal::control_event_set_root(
+                &predecessor_covered,
+                arkret_canonical::DigestSuite::Sha256,
+            )
+            .unwrap(),
+            state.agent_lifecycle_witness.seal.control_event_set_root,
+            "reconstructed coverage must preserve the original authenticated frontier"
+        );
+        assert_eq!(
+            predecessor_covered,
+            accepted_events
+                .iter()
+                .map(|event| event.event_id.event_digest())
+                .collect(),
+            "the test must retain every accepted predecessor Event"
+        );
         let mut resumed = state.key_authorization_event.clone();
         resumed.kind = kind;
         resumed.actor_seq += if transition == "pause" { 1 } else { 2 };
@@ -469,9 +503,8 @@ fn portable_agent_resume_cold_context_retains_original_root_notary() {
         let mut seal = witness.seal.clone();
         seal.predecessor_refs = vec![state.frontier_seal_id.clone()];
         seal.delta = vec![resumed.event_id.event_digest()];
-        seal.covered_event_digests
-            .push(resumed.event_id.event_digest());
-        seal.covered_event_digests.sort();
+        predecessor_covered.insert(resumed.event_id.event_digest());
+        seal.covered_event_digests = predecessor_covered.into_iter().collect();
         accepted_events.push(resumed.clone());
         let covered = seal
             .covered_event_digests

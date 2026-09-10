@@ -108,7 +108,6 @@ impl MlsEpochHead {
 #[serde(deny_unknown_fields)]
 pub struct MlsGovernanceFrontierOutcome {
     pub query_digest: Hash,
-    pub seal_basis: SealBasis,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub live_digest_suite: DigestSuite,
     pub governance_binding: MlsGovernanceBindingPayload,
@@ -123,11 +122,9 @@ pub struct MlsGovernanceFrontierOutcome {
 impl MlsGovernanceFrontierOutcome {
     pub fn validate_for_request(&self, request: &MlsGovernanceFrontierRequestBody) -> Result<()> {
         request.validate()?;
-        self.seal_basis.validate_protocol_bounds()?;
         let binding = &self.governance_binding;
         binding.validate()?;
         if self.query_digest != request.query_digest()?
-            || self.seal_basis != request.seal_basis
             || binding.effective_scope() != &request.effective_scope
             || binding.mls_group_id() != request.mls_group_id.as_str()
             || binding.previous_epoch() != request.previous_epoch
@@ -220,32 +217,22 @@ impl MlsAcceptedArtifactRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct MlsAcceptedArtifactOutcome {
     pub query_digest: Hash,
-    pub seal_basis: SealBasis,
     pub transition_head: MlsEpochHead,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub mls_frontier_leaves: Vec<MlsSecurityFrontierLeaf>,
-    pub current_epoch_head: MlsEpochHead,
 }
 
 impl MlsAcceptedArtifactOutcome {
     pub fn validate_for_request(&self, request: &MlsAcceptedArtifactRequestBody) -> Result<()> {
         request.validate()?;
-        self.seal_basis.validate_protocol_bounds()?;
         self.transition_head.validate()?;
-        self.current_epoch_head.validate()?;
         self.governance_binding.validate()?;
         arkret_wire::mls_transition::validate_mls_frontier_leaves(&self.mls_frontier_leaves)?;
         let head = &self.transition_head;
-        let current = &self.current_epoch_head;
         let binding = &self.governance_binding;
         if self.query_digest != request.query_digest()?
             || head.effective_scope != request.effective_scope
             || head.mls_group_id != request.mls_group_id
-            || current.effective_scope != request.effective_scope
-            || current.mls_group_id != request.mls_group_id
-            || head.next_epoch > current.next_epoch
-            || (head.next_epoch == current.next_epoch && head != current)
-            || head.content_scheme != current.content_scheme
             || binding.effective_scope() != &head.effective_scope
             || binding.mls_group_id() != head.mls_group_id.as_str()
             || binding.previous_epoch() != head.previous_epoch
@@ -324,8 +311,6 @@ impl MlsMembershipRemovalRequestBody {
 pub struct MlsMembershipRemovalOutcome {
     pub account_id: arkret_wire::AccountId,
     pub query_digest: Hash,
-    pub seal_basis: SealBasis,
-    pub epoch_head: MlsEpochHead,
     pub remove_leaf_indices: Vec<u32>,
 }
 
@@ -336,16 +321,8 @@ impl MlsMembershipRemovalOutcome {
         expected_account_id: &arkret_wire::AccountId,
     ) -> Result<()> {
         request.validate()?;
-        self.seal_basis.validate_protocol_bounds()?;
-        self.epoch_head.validate()?;
-        let head = &self.epoch_head;
         if &self.account_id != expected_account_id
             || self.query_digest != request.query_digest()?
-            || self.seal_basis != request.seal_basis
-            || head.effective_scope != request.effective_scope
-            || head.mls_group_id != request.mls_group_id
-            || head.transition_ref != request.base_group_state_ref
-            || head.next_epoch != request.epoch
             || self.remove_leaf_indices.len() > arkret_wire::mls_transition::MLS_FRONTIER_MAX_LEAVES
             || self
                 .remove_leaf_indices
@@ -435,17 +412,6 @@ mod tests {
                 DidCoreId::new("ak:did_core:web:station.example").unwrap(),
             ),
             query_digest: query.query_digest().unwrap(),
-            seal_basis: query.seal_basis.clone(),
-            epoch_head: MlsEpochHead {
-                transition_ref: query.base_group_state_ref.clone(),
-                transition_event_digest: digest.clone(),
-                mls_transition_digest: digest,
-                effective_scope: query.effective_scope.clone(),
-                mls_group_id: query.mls_group_id.clone(),
-                previous_epoch: 0,
-                next_epoch: 0,
-                content_scheme: ContentScheme::MlsRfc9420,
-            },
             remove_leaf_indices: vec![0],
         };
         (query, result)
@@ -484,7 +450,7 @@ mod tests {
                 .is_err()
         );
         let mut changed = result.clone();
-        changed.epoch_head.next_epoch = 1;
+        changed.query_digest = Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap();
         assert!(
             changed
                 .validate_for_request(&query, &result.account_id)
@@ -521,7 +487,6 @@ mod tests {
     fn outcome(request: &MlsGovernanceFrontierRequestBody) -> MlsGovernanceFrontierOutcome {
         MlsGovernanceFrontierOutcome {
             query_digest: request.query_digest().unwrap(),
-            seal_basis: request.seal_basis.clone(),
             live_digest_suite: DigestSuite::Sha256,
             governance_binding: MlsGovernanceBindingPayload::realm(
                 request.effective_scope.realm_id_opt().unwrap().clone(),
@@ -628,12 +593,12 @@ mod tests {
             other.query_digest().unwrap()
         );
         assert!(result.validate_for_request(&other).is_err());
-        let mut changed = result.clone();
+        let mut changed = request.clone();
         changed.seal_basis.leaves[0] = SealId::new(
             "ak:seal:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
         )
         .unwrap();
-        assert!(changed.validate_for_request(&request).is_err());
+        assert!(result.validate_for_request(&changed).is_err());
         let mut proposal = request.clone();
         proposal.proposed_group_genesis_binding = Some(ProposedMlsGroupGenesisBinding {
             content_scheme: ContentScheme::MlsExporterAeadV1,
@@ -693,11 +658,9 @@ mod tests {
         };
         let accepted = MlsAcceptedArtifactOutcome {
             query_digest: query.query_digest().unwrap(),
-            seal_basis: intent.seal_basis,
             transition_head: head.clone(),
             governance_binding: binding,
             mls_frontier_leaves: intent.local_mls_leaves,
-            current_epoch_head: head,
         };
         accepted.validate_for_request(&query).unwrap();
         let mut other_query = query.clone();
@@ -705,9 +668,7 @@ mod tests {
             EventId::new("ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
         assert!(accepted.validate_for_request(&other_query).is_err());
         let mut changed = accepted.clone();
-        changed.current_epoch_head.transition_ref = other_query.artifact_ref.clone();
-        changed.current_epoch_head.transition_event_digest =
-            other_query.artifact_ref.event_digest();
+        changed.query_digest = other_query.query_digest().unwrap();
         assert!(changed.validate_for_request(&query).is_err());
         let mut changed = accepted.clone();
         changed.mls_frontier_leaves.clear();

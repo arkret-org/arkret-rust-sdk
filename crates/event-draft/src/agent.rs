@@ -265,8 +265,11 @@ mod tests {
             agent_id,
             key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
             verification_method: DidUrl::new(format!("{agent_did}#runtime-key-1")).unwrap(),
-            public_key_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
-            signing_key_binding_digest: Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap(),
+            public_key: serde_json::from_value(serde_json::json!({
+                "kty": "OKP", "kid": format!("{agent_did}#runtime-key-1"),
+                "algorithm": "Ed25519", "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            }))
+            .unwrap(),
             accountable_principal_id: controller_principal_id.clone(),
             agent_key_scope: AgentKeyScope {
                 actions: vec!["ak.message.create".to_owned()],

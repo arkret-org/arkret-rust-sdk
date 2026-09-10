@@ -244,6 +244,7 @@ fn founding_authorize_payload(
     not_before: chrono::DateTime<Utc>,
 ) -> DeviceAuthorizePayload {
     DeviceAuthorizePayload {
+        pairing_challenge_transcript_digest: None,
         device_id: founding_device_id(),
         device_public_key_did: NonEmptyString::new(founding_device_public_key()).unwrap(),
         hpke_key: NonEmptyString::new("z6LSDeviceHpkeKey").unwrap(),

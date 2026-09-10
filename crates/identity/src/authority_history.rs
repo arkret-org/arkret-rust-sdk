@@ -233,7 +233,6 @@ mod tests {
             lease_fence: Some(1),
             operation_status: IdentityCreationOperationStatus::Accepted,
             operation_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-            head_event_digest: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
             issued_at,
             proof: PayloadProof {
                 kind: "detached_jws".to_owned(),

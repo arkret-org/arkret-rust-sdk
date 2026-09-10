@@ -3,7 +3,7 @@
 //!
 //! `KeyState` stays in the `arkret` umbrella because it binds the agent
 //! lifecycle/scope enums (`AgentLifecycleState`, `AgentRuntimeState`,
-//! `AgentPairingMode`) that remain core-resident.
+//! Agent lifecycle types) that remain core-resident.
 
 use arkret_wire::{Base64UrlString, DidUrl, EventId, GrantId, Hash, NonEmptyString, RealmId};
 use chrono::{DateTime, Utc};

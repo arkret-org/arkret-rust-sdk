@@ -452,7 +452,7 @@ mod device_pairing_tests {
         assert!(DevicePairingCode::new("TOO-SHORT".to_owned()).is_err());
     }
 
-    fn pair_request_fixture() -> (DevicePairingTargetAttestation, AccountDevicePairRequestBody) {
+    fn pair_request_fixture() -> (DevicePairingTargetProof, AccountDevicePairRequestBody) {
         let created_at = DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
@@ -473,7 +473,7 @@ mod device_pairing_tests {
         let transcript_digest = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
         let device_signature =
             SignatureMaterial::NonEmptyString(NonEmptyString::new("AA").unwrap());
-        let attestation = UnsignedDevicePairingTargetAttestation::new(
+        let attestation = UnsignedDevicePairingTargetProof::new(
             target_device.clone(),
             did_key.clone(),
             hpke_key.clone(),
@@ -496,6 +496,7 @@ mod device_pairing_tests {
             None,
         )
         .unwrap()
+        .with_pairing_challenge_transcript_digest(transcript_digest.clone())
         .attach_signature(Base64UrlString::new("AA").unwrap())
         .unwrap();
         let realm_id =
@@ -562,13 +563,6 @@ mod device_pairing_tests {
                     .unwrap(),
                 key_digest: None,
             },
-            challenge_proof: DevicePairingChallengeProof {
-                transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
-                kid: target_device,
-                signature_algorithm: NonEmptyString::new("Ed25519").unwrap(),
-                transcript_digest,
-                signature: Base64UrlString::new("AA").unwrap(),
-            },
             authorize_event: EventInitialSubmission {
                 mls_frontier_leaves: None,
                 event,
@@ -588,7 +582,7 @@ mod device_pairing_tests {
     }
 
     #[test]
-    fn target_attestation_preassembly_binds_exact_pair_request_and_event() {
+    fn target_proof_preassembly_binds_exact_pair_request_and_event() {
         let (attestation, request) = pair_request_fixture();
         attestation
             .validate_against_pair_request(&request, arkret_canonical::DigestSuite::Sha256)

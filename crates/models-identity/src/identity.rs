@@ -137,8 +137,6 @@ mod identity_resolve_tests {
 pub struct IdentityDocumentView {
     pub did_document: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub head_event_digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
@@ -188,6 +186,7 @@ pub enum DidOperationSubmitStatus {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DidOperationSubmitOutcome {
     pub status: DidOperationSubmitStatus,
     pub did: Did,
@@ -195,16 +194,56 @@ pub struct DidOperationSubmitOutcome {
     pub accepted_at: chrono::DateTime<chrono::Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seq: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub head_event_digest: Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub operation_ref: Option<String>,
+    pub operation_ref: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(
         feature = "openapi",
         salvo(schema(value_type = Vec<serde_json::Value>))
     )]
     pub receipts: Vec<IdentityReceipt>,
+}
+
+impl DidOperationSubmitOutcome {
+    /// Bind an authenticated registry acceptance to the frozen native request.
+    pub fn validate_accepted_for_request(
+        &self,
+        request: &DidOperationSubmitRequestBody,
+    ) -> Result<()> {
+        if self.status == DidOperationSubmitStatus::Pending {
+            return Err(WireError::Protocol(
+                "pending native operation is not an acceptance".to_owned(),
+            ));
+        }
+        self.validate_for_request(request)
+    }
+
+    /// Bind the response to the request without promoting pending to accepted.
+    pub fn validate_for_request(&self, request: &DidOperationSubmitRequestBody) -> Result<()> {
+        request.validate()?;
+        let version = request
+            .operation
+            .get("versionId")
+            .and_then(Value::as_str)
+            .filter(|version| !version.is_empty())
+            .ok_or_else(|| {
+                WireError::Protocol("accepted operation has no native version".to_owned())
+            })?;
+        let native_seq = version
+            .split_once('-')
+            .and_then(|(seq, _)| seq.parse::<u64>().ok());
+        if request.did_method != DidMethodName::Webvh
+            || self.did != request.did
+            || self.operation_ref != format!("{}?versionId={version}", request.did)
+            || native_seq.is_none()
+            || self.seq != native_seq
+            || request.seq.is_some_and(|seq| Some(seq) != native_seq)
+        {
+            return Err(WireError::Protocol(
+                "registry acceptance differs from frozen native operation".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -268,6 +307,30 @@ mod did_operation_tests {
 
         request.did_method = DidMethodName::Web;
         assert!(request.validate().is_err());
+    }
+
+    #[test]
+    fn accepted_operation_rejects_substituted_native_version_and_sequence() {
+        let mut request = native_request();
+        request.seq = Some(1);
+        let mut outcome = DidOperationSubmitOutcome {
+            status: DidOperationSubmitStatus::Accepted,
+            did: request.did.clone(),
+            accepted_at: chrono::Utc::now(),
+            seq: Some(1),
+            operation_ref: format!("{}?versionId=1-zabc", request.did),
+            receipts: Vec::new(),
+        };
+        outcome.validate_accepted_for_request(&request).unwrap();
+        outcome.status = DidOperationSubmitStatus::Pending;
+        outcome.validate_for_request(&request).unwrap();
+        assert!(outcome.validate_accepted_for_request(&request).is_err());
+        outcome.status = DidOperationSubmitStatus::Accepted;
+        outcome.operation_ref = format!("{}?versionId=1-zother", request.did);
+        assert!(outcome.validate_accepted_for_request(&request).is_err());
+        outcome.operation_ref = format!("{}?versionId=1-zabc", request.did);
+        outcome.seq = Some(2);
+        assert!(outcome.validate_accepted_for_request(&request).is_err());
     }
 
     #[test]

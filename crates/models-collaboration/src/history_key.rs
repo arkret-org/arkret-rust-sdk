@@ -50,7 +50,6 @@ impl HistoryAuthorityRequestBody {
 pub struct HistoryAuthorityOutcome {
     pub account_id: arkret_wire::AccountId,
     pub query_digest: Hash,
-    pub seal_basis: SealBasis,
     pub authorization_incarnation: AuthorizationIncarnation,
     pub join_epoch: u64,
     pub history_floor_epoch: u64,
@@ -60,9 +59,7 @@ impl HistoryAuthorityOutcome {
     pub fn validate_for_request(&self, request: &HistoryAuthorityRequestBody) -> Result<()> {
         request.validate()?;
         current_authority_size(self, arkret_wire::ErrorCode::LimitExceeded)?;
-        self.seal_basis.validate_protocol_bounds()?;
         if self.query_digest != request.query_digest()?
-            || self.seal_basis != request.seal_basis
             || (self.history_floor_epoch != 0 && self.history_floor_epoch != self.join_epoch)
             || !matches!(
                 (&request.effective_scope, &self.authorization_incarnation),
@@ -132,17 +129,14 @@ impl MembershipAuthorityRequestBody {
 pub struct MembershipAuthorityOutcome {
     pub account_id: arkret_wire::AccountId,
     pub query_digest: Hash,
-    pub seal_basis: SealBasis,
     pub authorization_incarnation: AuthorizationIncarnation,
 }
 
 impl MembershipAuthorityOutcome {
     pub fn validate_for_request(&self, request: &MembershipAuthorityRequestBody) -> Result<()> {
         request.validate()?;
-        self.seal_basis.validate_protocol_bounds()?;
         current_authority_size(self, arkret_wire::ErrorCode::LimitExceeded)?;
         if self.query_digest != request.query_digest()?
-            || self.seal_basis != request.seal_basis
             || !matches!(
                 (&request.effective_scope, &self.authorization_incarnation),
                 (
@@ -2109,7 +2103,7 @@ impl AgentEvidenceViewLocator {
             ));
         };
         let authority_state = &admission_evidence.agent_authority_state_evidence.state;
-        let binding = &authority_state.signing_key_binding;
+        let binding = authority_state.authorized_key()?;
         let lifecycle = &authority_state.agent_lifecycle_witness;
         let expected_basis = SealBasis {
             leaves: vec![authority_state.frontier_seal_id.clone()],
@@ -3789,7 +3783,6 @@ mod membership_authority_tests {
         MembershipAuthorityOutcome {
             account_id: query.actor_id.as_account_id().unwrap().clone(),
             query_digest: query.query_digest().unwrap(),
-            seal_basis: query.seal_basis.clone(),
             authorization_incarnation: AuthorizationIncarnation::Realm {
                 realm_membership_incarnation_ref: EventId::from_event_digest(
                     &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
@@ -3861,7 +3854,6 @@ mod history_authority_tests {
         HistoryAuthorityOutcome {
             account_id: query.actor_id.as_account_id().unwrap().clone(),
             query_digest: query.query_digest().unwrap(),
-            seal_basis: query.seal_basis.clone(),
             authorization_incarnation: AuthorizationIncarnation::Realm {
                 realm_membership_incarnation_ref: EventId::from_event_digest(
                     &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),

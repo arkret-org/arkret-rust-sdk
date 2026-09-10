@@ -43,6 +43,8 @@ pub struct DeviceAuthorizePayload {
     pub device_signature: SignatureMaterial,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_session_id: Option<RecoverySessionId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pairing_challenge_transcript_digest: Option<Hash>,
 }
 
 #[derive(Deserialize)]
@@ -65,6 +67,8 @@ struct DeviceAuthorizePayloadWire {
     device_signature: SignatureMaterial,
     #[serde(default)]
     recovery_session_id: Option<RecoverySessionId>,
+    #[serde(default)]
+    pairing_challenge_transcript_digest: Option<Hash>,
 }
 
 impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
@@ -86,6 +90,7 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             authorization_binding_kind: wire.authorization_binding_kind,
             device_signature: wire.device_signature,
             recovery_session_id: wire.recovery_session_id,
+            pairing_challenge_transcript_digest: wire.pairing_challenge_transcript_digest,
         };
         payload
             .validate_wire_constraints()
@@ -104,6 +109,11 @@ impl DeviceAuthorizePayload {
     }
 
     pub fn validate_wire_constraints(&self) -> std::result::Result<(), &'static str> {
+        if (self.authorization_binding_kind == DeviceAuthorizationBindingKind::AcceptedDevice)
+            != self.pairing_challenge_transcript_digest.is_some()
+        {
+            return Err("device_authorize_pairing_challenge_binding_mismatch");
+        }
         UnsignedDeviceAuthorizePayload::from_signed(self).validate_wire_constraints()
     }
 
@@ -137,6 +147,7 @@ pub struct UnsignedDeviceAuthorizePayload {
     expires_at: Option<Option<DateTime<Utc>>>,
     authorization_binding_kind: DeviceAuthorizationBindingKind,
     recovery_session_id: Option<RecoverySessionId>,
+    pairing_challenge_transcript_digest: Option<Hash>,
 }
 
 impl UnsignedDeviceAuthorizePayload {
@@ -166,11 +177,17 @@ impl UnsignedDeviceAuthorizePayload {
             expires_at,
             authorization_binding_kind,
             recovery_session_id,
+            pairing_challenge_transcript_digest: None,
         };
         payload
             .validate_wire_constraints()
             .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         Ok(payload)
+    }
+
+    pub fn with_pairing_challenge_transcript_digest(mut self, digest: Hash) -> Self {
+        self.pairing_challenge_transcript_digest = Some(digest);
+        self
     }
 
     fn from_signed(payload: &DeviceAuthorizePayload) -> Self {
@@ -186,6 +203,9 @@ impl UnsignedDeviceAuthorizePayload {
             expires_at: payload.expires_at,
             authorization_binding_kind: payload.authorization_binding_kind,
             recovery_session_id: payload.recovery_session_id.clone(),
+            pairing_challenge_transcript_digest: payload
+                .pairing_challenge_transcript_digest
+                .clone(),
         }
     }
 
@@ -271,10 +291,23 @@ impl UnsignedDeviceAuthorizePayload {
                 binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX.to_vec()
             }
             DeviceAuthorizationBindingKind::AcceptedDevice => {
-                return Err(WireError::Protocol(
-                    "accepted_device possession uses the pairing challenge attestation transcript"
-                        .to_owned(),
-                ));
+                let digest = self
+                    .pairing_challenge_transcript_digest
+                    .as_ref()
+                    .ok_or_else(|| {
+                        WireError::Protocol(
+                            "accepted_device requires retained pairing challenge digest".to_owned(),
+                        )
+                    })?;
+                return crate::http_bodies::UnsignedDevicePairingTargetProof::new(
+                    self.device_id.clone(),
+                    arkret_wire::DidKey::new(self.device_public_key_did.as_str())
+                        .map_err(|error| WireError::Protocol(error.to_string()))?,
+                    self.hpke_key.clone(),
+                    self.algorithms.clone(),
+                    digest.clone(),
+                )?
+                .signing_input();
             }
         };
         out.extend_from_slice(&canonical::canonical_json_bytes(&body)?);
@@ -297,6 +330,7 @@ impl UnsignedDeviceAuthorizePayload {
             authorization_binding_kind: self.authorization_binding_kind,
             device_signature: SignatureMaterial::NonEmptyString(signature),
             recovery_session_id: self.recovery_session_id,
+            pairing_challenge_transcript_digest: self.pairing_challenge_transcript_digest,
         })
     }
 }
@@ -798,6 +832,8 @@ mod tests {
         let mut accepted = device_authorize_value();
         accepted["authorization_binding_kind"] = json!("accepted_device");
         accepted["authorized_by"] = json!("ak:device:01904100-0000-7000-8000-000000000002");
+        accepted["pairing_challenge_transcript_digest"] =
+            json!(format!("sha256:{}", "1".repeat(64)));
         serde_json::from_value::<DeviceAuthorizePayload>(accepted).unwrap();
 
         let mut recovery = device_authorize_value();

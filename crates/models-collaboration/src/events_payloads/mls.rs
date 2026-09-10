@@ -180,8 +180,6 @@ pub struct MlsCommitFailedPayload {
     pub reporter_device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub diagnostic_digest: Option<Hash>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub failed_at: DateTime<Utc>,
 }

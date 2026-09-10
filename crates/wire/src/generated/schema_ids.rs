@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-10.19;
-//! sha256=b14ee87c8e50b5a25fa44bbda559aba71b90ef26cb18d32819a2ec21eb0c6dc7 Entries: schema_ids=224,
-//! active=224
+//! Input: registry/schema-registry.json; version=2026-09-10.21;
+//! sha256=70943fa8639d8d4c48718baee319017d879f0444dd8bad3d8573e70b2b762290 Entries: schema_ids=223,
+//! active=223
 
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,6 @@ pub enum SchemaId {
     AgentSidecarViewStateV1,
     AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
-    AgentSigningKeyBindingV1,
     AppletV1,
     AppletEdgeOperationsV1,
     AppletGhostAuthoringRequestBasisV1,
@@ -262,7 +261,6 @@ impl SchemaId {
         Self::AgentSidecarViewStateV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
-        Self::AgentSigningKeyBindingV1,
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
@@ -490,7 +488,6 @@ impl SchemaId {
         Self::AgentSidecarViewStateV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
-        Self::AgentSigningKeyBindingV1,
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
         Self::AppletGhostAuthoringRequestBasisV1,
@@ -763,9 +760,6 @@ impl SchemaId {
     /// Portable Agent signer authorization, state-witness, and freshness evidence used outside the
     /// ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
-    /// Controller-signed minimal public binding from an Agent verification method to raw Ed25519
-    /// key material and one accepted Agent key authorization.
-    pub const AGENT_SIGNING_KEY_BINDING_V1: &'static str = "ak.schema.agent_signing_key_binding.v1";
     /// Schema-registry object for applet protocol metadata snapshots. Event payloads for
     /// ak.applet.* use typed payload definitions in event-payload.schema.json.
     pub const APPLET_V1: &'static str = "ak.schema.applet.v1";
@@ -1363,7 +1357,6 @@ impl SchemaId {
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
-            Self::AgentSigningKeyBindingV1 => Self::AGENT_SIGNING_KEY_BINDING_V1,
             Self::AppletV1 => Self::APPLET_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
             Self::AppletGhostAuthoringRequestBasisV1 => {
@@ -1632,7 +1625,6 @@ impl SchemaId {
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
             Self::AgentSignerAdmissionReceiptV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AgentSignerEvidenceV1 => "schemas/agent-signer-evidence.schema.json",
-            Self::AgentSigningKeyBindingV1 => "schemas/agent-signing-key-binding.schema.json",
             Self::AppletV1 => "schemas/applet.schema.json",
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
             Self::AppletGhostAuthoringRequestBasisV1 => {
@@ -1907,7 +1899,6 @@ impl SchemaId {
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
-            Self::AGENT_SIGNING_KEY_BINDING_V1 => Some(Self::AgentSigningKeyBindingV1),
             Self::APPLET_V1 => Some(Self::AppletV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
             Self::APPLET_GHOST_AUTHORING_REQUEST_BASIS_V1 => {

@@ -106,7 +106,7 @@ pub enum RealmJoinIntent {
     },
     /// Public join-intent signal only. v1 carries no application text, so the
     /// knock path cannot become an external spam channel.
-    Knock,
+    Knock {},
 }
 
 /// `invite_token` is holder-private and MUST NOT be logged, so the derived
@@ -123,7 +123,7 @@ impl fmt::Debug for RealmJoinIntent {
                 .debug_struct("RealmJoinIntent::MemberJoin")
                 .field("gate_proofs", gate_proofs)
                 .finish(),
-            Self::Knock => formatter.write_str("RealmJoinIntent::Knock"),
+            Self::Knock {} => formatter.write_str("RealmJoinIntent::Knock"),
         }
     }
 }
@@ -150,7 +150,7 @@ impl RealmJoinIntent {
                 }
                 Ok(())
             }
-            Self::Knock => Ok(()),
+            Self::Knock {} => Ok(()),
         }
     }
 
@@ -158,7 +158,7 @@ impl RealmJoinIntent {
     pub fn event_kind(&self) -> &'static str {
         match self {
             Self::InviteAccept { .. } => event_kind_str::INVITE_ACCEPT,
-            Self::MemberJoin { .. } | Self::Knock => event_kind_str::MEMBER_STATE,
+            Self::MemberJoin { .. } | Self::Knock {} => event_kind_str::MEMBER_STATE,
         }
     }
 }
@@ -201,22 +201,11 @@ impl RealmJoinGovernanceFacts {
     }
 }
 
-/// The exact governance-derived authoring inputs of one join Control Move,
-/// frozen by the account's own Station.
-///
-/// The client supplies the remaining envelope members from its own actor chain
-/// and device state (`event_id`, `scope_ref`, `actor_id`, `actor_seq`,
-/// `created_at`, `hlc`, `prev_refs`, `refs`, `proofs`) and signs the canonical
-/// bytes. No reducer runs on the client, and no service may rewrite these
-/// members after the signature exists.
-///
-/// The variant discriminant is the wire `event_kind`, so the payload branch is
-/// not separately assertable: an `ak.invite.accept` core cannot hold a
-/// membership payload.
+/// Typed transition used while constructing a complete join Event.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "event_kind", deny_unknown_fields)]
-pub enum RealmJoinAuthoringCore {
+pub enum RealmJoinTransition {
     #[serde(rename = "ak.invite.accept")]
     InviteAccept {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -236,7 +225,7 @@ pub enum RealmJoinAuthoringCore {
     },
 }
 
-impl RealmJoinAuthoringCore {
+impl RealmJoinTransition {
     pub fn event_kind(&self) -> &'static str {
         match self {
             Self::InviteAccept { .. } => event_kind_str::INVITE_ACCEPT,
@@ -262,7 +251,7 @@ impl RealmJoinAuthoringCore {
                 // `governance-objects.md` section 5.3 makes the directed form
                 // the only one whose live-target write is derivable from the
                 // Event, and it is exactly the form that needs a frozen
-                // `head_eq`. A prepared core without one would ask the client
+                // `head_eq`. A prepared transition without one would ask the client
                 // to derive the predicate it was told never to derive.
                 if payload.invitee_account_id.is_some() && preconditions.is_empty() {
                     return Err(WireError::Protocol(
@@ -287,7 +276,7 @@ impl RealmJoinAuthoringCore {
         }
     }
 
-    /// The intent this core is a legal preparation of.
+    /// The intent this transition is a legal preparation of.
     fn matches_intent(&self, intent: &RealmJoinIntent) -> bool {
         match (self, intent) {
             (
@@ -297,11 +286,135 @@ impl RealmJoinAuthoringCore {
             (Self::MemberState { payload, .. }, RealmJoinIntent::MemberJoin { .. }) => {
                 payload.membership == MembershipPayloadState::Join
             }
-            (Self::MemberState { payload, .. }, RealmJoinIntent::Knock) => {
+            (Self::MemberState { payload, .. }, RealmJoinIntent::Knock {}) => {
                 payload.membership == MembershipPayloadState::Knock
             }
             _ => false,
         }
+    }
+}
+
+/// Closed payload branches for a prepared Realm join; serialization preserves
+/// the Event payload object without adding a second wire discriminator.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum RealmJoinPayload {
+    InviteAccept(InviteAcceptPayload),
+    MemberState(MembershipPayload),
+}
+
+/// Complete closed Event body returned before the producer attaches its proof.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmJoinUnsignedEvent {
+    pub event_id: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
+    pub kind: arkret_wire::EventKind,
+    pub realm_id: RealmId,
+    pub scope_ref: arkret_wire::ScopeRef,
+    pub actor_id: arkret_wire::ActorId,
+    pub actor_seq: u64,
+    #[serde(with = "canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hlc: Option<arkret_wire::Hlc>,
+    pub prev_refs: Vec<EventId>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<Object>)))]
+    pub refs: Vec<arkret_wire::EventRef>,
+    pub seal_basis: SealBasis,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub payload: RealmJoinPayload,
+    pub preconditions: Vec<Precondition>,
+}
+
+impl RealmJoinUnsignedEvent {
+    pub fn prepare(
+        request: &RealmJoinPrepareRequestBody,
+        frontier: &crate::event_sync::RealmActorFrontierView,
+        seal_basis: SealBasis,
+        transition: RealmJoinTransition,
+        digest_suite: DigestSuite,
+    ) -> Result<Self> {
+        transition.validate()?;
+        let payload = match &transition {
+            RealmJoinTransition::InviteAccept { payload, .. } => {
+                RealmJoinPayload::InviteAccept(payload.clone())
+            }
+            RealmJoinTransition::MemberState { payload, .. } => {
+                RealmJoinPayload::MemberState(payload.clone())
+            }
+        };
+        let mut event = Self {
+            event_id: EventId::from_digest(digest_suite, [0; 32]),
+            kind: arkret_wire::EventKind::from(transition.event_kind()),
+            realm_id: request.realm_id.clone(),
+            scope_ref: arkret_wire::ScopeRef::Realm {
+                realm_id: request.realm_id.clone(),
+            },
+            actor_id: arkret_wire::ActorId::account(request.account_id.clone()),
+            actor_seq: frontier.next_actor_seq,
+            created_at: request.created_at,
+            hlc: request.hlc.clone(),
+            prev_refs: frontier.frontier_event_ids.clone(),
+            refs: Vec::new(),
+            seal_basis,
+            payload,
+            preconditions: transition.preconditions().to_vec(),
+        };
+        let mut envelope = event.to_event()?;
+        envelope.refresh_content_bound_identity_with_digest_suite(digest_suite)?;
+        event.event_id = envelope.event_id;
+        Ok(event)
+    }
+
+    pub fn transition(&self) -> Result<RealmJoinTransition> {
+        match (self.kind.as_str(), &self.payload) {
+            (event_kind_str::INVITE_ACCEPT, RealmJoinPayload::InviteAccept(payload)) => {
+                Ok(RealmJoinTransition::InviteAccept {
+                    payload: payload.clone(),
+                    preconditions: self.preconditions.clone(),
+                })
+            }
+            (event_kind_str::MEMBER_STATE, RealmJoinPayload::MemberState(payload)) => {
+                Ok(RealmJoinTransition::MemberState {
+                    payload: payload.clone(),
+                    preconditions: self.preconditions.clone(),
+                })
+            }
+            _ => Err(WireError::Protocol(
+                "prepared join event kind and payload disagree".to_owned(),
+            )),
+        }
+    }
+
+    pub fn to_event(&self) -> Result<arkret_wire::Event> {
+        Ok(arkret_wire::Event {
+            event_id: self.event_id.clone(),
+            kind: self.kind.clone(),
+            realm_id: self.realm_id.clone(),
+            scope_ref: self.scope_ref.clone(),
+            actor_id: self.actor_id.clone(),
+            executed_by: None,
+            authorization_ref: None,
+            applet_id: None,
+            external_ref: None,
+            actor_kind: None,
+            actor_seq: self.actor_seq,
+            created_at: self.created_at,
+            hlc: self.hlc.clone(),
+            prev_refs: self.prev_refs.clone(),
+            refs: self.refs.clone(),
+            causal_refs: Vec::new(),
+            preconditions: self.preconditions.clone(),
+            seal_ref: None,
+            auth_context: None,
+            seal_basis: Some(self.seal_basis.clone()),
+            payload: serde_json::from_value(serde_json::to_value(&self.payload)?)?,
+            unsigned: Default::default(),
+            proofs: Vec::new(),
+            requirements: Default::default(),
+        })
     }
 }
 
@@ -320,6 +433,10 @@ pub struct RealmJoinPrepareRequestBody {
     /// outcome.
     pub realm_id: RealmId,
     pub intent: RealmJoinIntent,
+    #[serde(with = "canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hlc: Option<arkret_wire::Hlc>,
 }
 
 impl RealmJoinPrepareRequestBody {
@@ -358,7 +475,9 @@ pub struct RealmJoinPrepareOutcome {
     /// protected invite credential that is never echoed.
     pub request_digest: Hash,
     pub governance_facts: RealmJoinGovernanceFacts,
-    pub authoring_core: RealmJoinAuthoringCore,
+    pub unsigned_event: RealmJoinUnsignedEvent,
+    pub accepted_actor_frontier: crate::event_sync::RealmActorFrontierView,
+    pub authoring_device_generation_ref: u64,
     #[serde(with = "canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     /// Instant after which the client MUST prepare again instead of signing
@@ -374,7 +493,33 @@ impl RealmJoinPrepareOutcome {
     pub fn validate_structural(&self) -> Result<()> {
         self.account_id.validate()?;
         self.governance_facts.validate()?;
-        self.authoring_core.validate()?;
+        self.unsigned_event.transition()?.validate()?;
+        self.accepted_actor_frontier
+            .validate_with_suite(self.governance_facts.digest_algorithm)?;
+        let event = &self.unsigned_event;
+        let frontier = &self.accepted_actor_frontier;
+        if self.authoring_device_generation_ref == 0
+            || frontier.realm_id != self.realm_id
+            || frontier.actor_id != arkret_wire::ActorId::account(self.account_id.clone())
+            || event.realm_id != self.realm_id
+            || event.actor_id != frontier.actor_id
+            || event.scope_ref
+                != (arkret_wire::ScopeRef::Realm {
+                    realm_id: self.realm_id.clone(),
+                })
+            || event.actor_seq != frontier.next_actor_seq
+            || event.prev_refs != frontier.frontier_event_ids
+            || event.seal_basis != self.governance_facts.seal_basis
+        {
+            return Err(WireError::Protocol(
+                "prepared join differs from accepted frontier or authority".to_owned(),
+            ));
+        }
+        event
+            .to_event()?
+            .verify_event_id_matches_content_with_digest_suite(
+                self.governance_facts.digest_algorithm,
+            )?;
         validate_canonical_bytes(self, Self::MAX_CANONICAL_BYTES, "Realm join preparation")?;
         validate_window(self.observed_at, self.expires_at, "Realm join preparation")
     }
@@ -399,11 +544,92 @@ impl RealmJoinPrepareOutcome {
                 "Realm join preparation request_digest does not cover this request".to_owned(),
             ));
         }
-        if self.authoring_core.event_kind() != request.intent.event_kind()
-            || !self.authoring_core.matches_intent(&request.intent)
+        if self.unsigned_event.created_at != request.created_at
+            || self.unsigned_event.hlc != request.hlc
+            || self.unsigned_event.kind.as_str() != request.intent.event_kind()
+            || !self
+                .unsigned_event
+                .transition()?
+                .matches_intent(&request.intent)
         {
             return Err(WireError::Protocol(
                 "Realm join preparation prepares a different intent than requested".to_owned(),
+            ));
+        }
+        let actor = arkret_wire::ActorId::account(request.account_id.clone());
+        let (expected_payload, expected_cell, expected_invite_value) = match &request.intent {
+            RealmJoinIntent::InviteAccept { invite_id, .. } => {
+                let subject =
+                    arkret_wire::composite_subject(&[request.account_id.canonical_key()?])?;
+                (
+                    serde_json::to_value(InviteAcceptPayload::directed(
+                        invite_id.clone(),
+                        request.account_id.clone(),
+                    ))?,
+                    arkret_wire::CellRef::new(format!(
+                        "ak:cell:ak.component.invite.live_target.v1:{subject}"
+                    ))?,
+                    Some(serde_json::to_value(invite_id.event_id())?),
+                )
+            }
+            RealmJoinIntent::MemberJoin { .. } | RealmJoinIntent::Knock {} => {
+                let (membership, gate_proofs) = match &request.intent {
+                    RealmJoinIntent::MemberJoin { gate_proofs } => {
+                        (MembershipPayloadState::Join, gate_proofs.clone())
+                    }
+                    _ => (MembershipPayloadState::Knock, Vec::new()),
+                };
+                let subject = arkret_wire::composite_subject(&[actor.canonical_key()?])?;
+                (
+                    serde_json::to_value(MembershipPayload {
+                        strand_id: None,
+                        realm_id: Some(request.realm_id.clone()),
+                        member_id: actor,
+                        membership,
+                        gate_proofs,
+                        reason: None,
+                        membership_cause: None,
+                        agent_controller_binding: None,
+                        invite_ref: None,
+                    })?,
+                    arkret_wire::CellRef::new(format!(
+                        "ak:cell:ak.component.member.state.v1:{subject}"
+                    ))?,
+                    None,
+                )
+            }
+        };
+        if serde_json::to_value(&self.unsigned_event.payload)? != expected_payload
+            || !self.unsigned_event.refs.is_empty()
+        {
+            return Err(WireError::Protocol(
+                "prepared join payload or refs adds unrequested semantics".to_owned(),
+            ));
+        }
+        let [precondition] = self.unsigned_event.preconditions.as_slice() else {
+            return Err(WireError::Protocol(
+                "prepared join requires exactly one scoped head_eq precondition".to_owned(),
+            ));
+        };
+        let predicate = &precondition.predicate;
+        let valid_value = match expected_invite_value {
+            Some(expected) => predicate.value.as_ref() == Some(&expected),
+            None => predicate.value.as_ref().is_some_and(|value| {
+                value.is_null()
+                    || value
+                        .as_str()
+                        .is_some_and(|state| matches!(state, "join" | "knock" | "leave" | "ban"))
+            }),
+        };
+        if precondition.cell_id != expected_cell
+            || predicate.op != arkret_wire::PredicateOp::HeadEq
+            || predicate.values.is_some()
+            || predicate.predicate_id.is_some()
+            || !valid_value
+        {
+            return Err(WireError::Protocol(
+                "prepared join precondition changes the target cell, operator or legal state"
+                    .to_owned(),
             ));
         }
         Ok(())
@@ -892,16 +1118,21 @@ mod tests {
             account_id: account_id(),
             realm_id: realm_id(),
             intent: invite_intent(),
+            created_at: observed_at(),
+            hlc: Some(arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap()),
         }
     }
 
     fn head_eq_precondition() -> Precondition {
         Precondition {
-            cell_id: CellRef::new("ak:cell:ak.component.invite.live_target.v1:subject")
-                .expect("cell ref"),
+            cell_id: CellRef::new(format!(
+                "ak:cell:ak.component.invite.live_target.v1:{}",
+                arkret_wire::composite_subject(&[account_id().canonical_key().unwrap()]).unwrap()
+            ))
+            .expect("cell ref"),
             predicate: Predicate {
                 op: PredicateOp::HeadEq,
-                value: Some(json!(null)),
+                value: Some(json!(invite_id().event_id())),
                 values: None,
                 predicate_id: None,
             },
@@ -909,6 +1140,27 @@ mod tests {
     }
 
     fn prepare_outcome(request: &RealmJoinPrepareRequestBody) -> RealmJoinPrepareOutcome {
+        let frontier = crate::event_sync::RealmActorFrontierView::new(
+            request.realm_id.clone(),
+            arkret_wire::ActorId::account(request.account_id.clone()),
+            0,
+            Vec::new(),
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        let unsigned_event = RealmJoinUnsignedEvent::prepare(
+            request,
+            &frontier,
+            SealBasis {
+                leaves: vec![seal().id],
+            },
+            RealmJoinTransition::InviteAccept {
+                payload: InviteAcceptPayload::directed(invite_id(), account_id()),
+                preconditions: vec![head_eq_precondition()],
+            },
+            DigestSuite::Sha256,
+        )
+        .unwrap();
         RealmJoinPrepareOutcome {
             request_id: request.request_id.clone(),
             account_id: request.account_id.clone(),
@@ -917,10 +1169,9 @@ mod tests {
             governance_facts: governance_facts(SealBasis {
                 leaves: vec![seal().id],
             }),
-            authoring_core: RealmJoinAuthoringCore::InviteAccept {
-                payload: InviteAcceptPayload::directed(invite_id(), account_id()),
-                preconditions: vec![head_eq_precondition()],
-            },
+            unsigned_event,
+            accepted_actor_frontier: frontier,
+            authoring_device_generation_ref: 1,
             observed_at: observed_at(),
             expires_at: expires_at(),
         }
@@ -933,8 +1184,15 @@ mod tests {
         let restored: RealmJoinIntent = serde_json::from_value(value).expect("deserialize");
         assert_eq!(restored, invite_intent());
 
-        let knock = serde_json::to_value(RealmJoinIntent::Knock).expect("serialize");
+        let knock = serde_json::to_value(RealmJoinIntent::Knock {}).expect("serialize");
         assert_eq!(knock, json!({"intent": "knock"}));
+        let restored: RealmJoinIntent = serde_json::from_value(knock).unwrap();
+        assert_eq!(restored, RealmJoinIntent::Knock {});
+        for unrequested in ["gate_proofs", "application_text", "x_unrequested"] {
+            let mut value = json!({"intent": "knock"});
+            value[unrequested] = json!([]);
+            assert!(serde_json::from_value::<RealmJoinIntent>(value).is_err());
+        }
     }
 
     #[test]
@@ -1004,7 +1262,7 @@ mod tests {
     fn a_preparation_may_not_switch_the_intent() {
         let request = prepare_request();
         let mut outcome = prepare_outcome(&request);
-        outcome.authoring_core = RealmJoinAuthoringCore::MemberState {
+        let bad_transition = RealmJoinTransition::MemberState {
             payload: MembershipPayload {
                 strand_id: None,
                 realm_id: Some(realm_id()),
@@ -1018,20 +1276,169 @@ mod tests {
             },
             preconditions: Vec::new(),
         };
+        outcome.unsigned_event = RealmJoinUnsignedEvent::prepare(
+            &request,
+            &outcome.accepted_actor_frontier,
+            outcome.governance_facts.seal_basis.clone(),
+            bad_transition,
+            DigestSuite::Sha256,
+        )
+        .unwrap();
         let error = outcome
             .validate_for_request(&request)
             .expect_err("an invite acceptance may not come back as a self-authored join");
         assert!(error.to_string().contains("different intent"), "{error}");
     }
 
+    fn rehash_prepared_event(outcome: &mut RealmJoinPrepareOutcome) {
+        let mut event = outcome.unsigned_event.to_event().unwrap();
+        event
+            .refresh_content_bound_identity_with_digest_suite(
+                outcome.governance_facts.digest_algorithm,
+            )
+            .unwrap();
+        outcome.unsigned_event.event_id = event.event_id;
+    }
+
+    #[test]
+    fn prepared_join_rejects_rehashed_extra_payload_refs_and_predicates() {
+        let request = prepare_request();
+        let baseline = prepare_outcome(&request);
+        baseline.validate_for_request(&request).unwrap();
+        let mut variants = Vec::new();
+        let mut extra = serde_json::to_value(&baseline).unwrap();
+        extra["unsigned_event"]["payload"]["x_unrequested"] = json!("injected");
+        variants.push(serde_json::from_value(extra).unwrap());
+        let mut referenced = baseline.clone();
+        referenced
+            .unsigned_event
+            .refs
+            .push(arkret_wire::EventRef::new(
+                invite_id().event_id().to_string(),
+                "related",
+            ));
+        variants.push(referenced);
+        let mut wrong_subject = baseline.clone();
+        wrong_subject.unsigned_event.preconditions[0].cell_id =
+            CellRef::new("ak:cell:ak.component.invite.live_target.v1:another-account").unwrap();
+        variants.push(wrong_subject);
+        let mut wrong_invite = baseline.clone();
+        wrong_invite.unsigned_event.preconditions[0].predicate.value = Some(json!(null));
+        variants.push(wrong_invite);
+        let mut extra_predicate = baseline.clone();
+        extra_predicate
+            .unsigned_event
+            .preconditions
+            .push(head_eq_precondition());
+        variants.push(extra_predicate);
+        let mut wrong_operator = baseline.clone();
+        wrong_operator.unsigned_event.preconditions[0].predicate.op = PredicateOp::Contains;
+        variants.push(wrong_operator);
+        for mut tampered in variants {
+            rehash_prepared_event(&mut tampered);
+            assert!(tampered.validate_for_request(&request).is_err());
+        }
+    }
+
+    #[test]
+    fn prepared_member_join_and_knock_cannot_smuggle_strand_or_invite_semantics() {
+        for intent in [
+            RealmJoinIntent::MemberJoin {
+                gate_proofs: Vec::new(),
+            },
+            RealmJoinIntent::Knock {},
+        ] {
+            let mut request = prepare_request();
+            request.intent = intent;
+            let mut outcome = prepare_outcome(&request);
+            let actor = arkret_wire::ActorId::account(request.account_id.clone());
+            let subject =
+                arkret_wire::composite_subject(&[actor.canonical_key().unwrap()]).unwrap();
+            let transition = RealmJoinTransition::MemberState {
+                payload: MembershipPayload {
+                    strand_id: None,
+                    realm_id: Some(request.realm_id.clone()),
+                    member_id: actor,
+                    membership: if matches!(request.intent, RealmJoinIntent::Knock {}) {
+                        MembershipPayloadState::Knock
+                    } else {
+                        MembershipPayloadState::Join
+                    },
+                    gate_proofs: Vec::new(),
+                    reason: None,
+                    membership_cause: None,
+                    agent_controller_binding: None,
+                    invite_ref: None,
+                },
+                preconditions: vec![Precondition {
+                    cell_id: CellRef::new(format!(
+                        "ak:cell:ak.component.member.state.v1:{subject}"
+                    ))
+                    .unwrap(),
+                    predicate: Predicate {
+                        op: PredicateOp::HeadEq,
+                        value: Some(json!(null)),
+                        values: None,
+                        predicate_id: None,
+                    },
+                }],
+            };
+            outcome.unsigned_event = RealmJoinUnsignedEvent::prepare(
+                &request,
+                &outcome.accepted_actor_frontier,
+                outcome.governance_facts.seal_basis.clone(),
+                transition,
+                DigestSuite::Sha256,
+            )
+            .unwrap();
+            outcome.validate_for_request(&request).unwrap();
+            let mut value = serde_json::to_value(&outcome).unwrap();
+            value["unsigned_event"]["payload"]["invite_ref"] = json!(invite_id());
+            let mut injected = serde_json::from_value(value).unwrap();
+            rehash_prepared_event(&mut injected);
+            assert!(injected.validate_for_request(&request).is_err());
+            let mut value = serde_json::to_value(&outcome).unwrap();
+            value["unsigned_event"]["payload"]["strand_id"] =
+                json!("ak:strand:AXA352XtBodUhnMN_nDxOloEHVn0_yAotxiYxbyU38Df");
+            let mut injected = serde_json::from_value(value).unwrap();
+            rehash_prepared_event(&mut injected);
+            assert!(injected.validate_for_request(&request).is_err());
+        }
+    }
+
+    #[test]
+    fn rejoin_uses_accepted_chain_and_rejects_timestamp_or_zero_sequence_rewrite() {
+        let request = prepare_request();
+        let mut outcome = prepare_outcome(&request);
+        outcome.accepted_actor_frontier = crate::event_sync::RealmActorFrontierView::new(
+            request.realm_id.clone(),
+            arkret_wire::ActorId::account(request.account_id.clone()),
+            8,
+            vec![EventId::from_digest(DigestSuite::Sha256, [7; 32])],
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        outcome.unsigned_event = RealmJoinUnsignedEvent::prepare(
+            &request,
+            &outcome.accepted_actor_frontier,
+            outcome.governance_facts.seal_basis.clone(),
+            outcome.unsigned_event.transition().unwrap(),
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        outcome.validate_for_request(&request).unwrap();
+        outcome.unsigned_event.actor_seq = 0;
+        assert!(outcome.validate_for_request(&request).is_err());
+        outcome.unsigned_event.actor_seq = 8;
+        outcome.unsigned_event.created_at += chrono::Duration::seconds(1);
+        assert!(outcome.validate_for_request(&request).is_err());
+    }
+
     #[test]
     fn a_directed_invite_acceptance_requires_frozen_preconditions() {
         let request = prepare_request();
         let mut outcome = prepare_outcome(&request);
-        outcome.authoring_core = RealmJoinAuthoringCore::InviteAccept {
-            payload: InviteAcceptPayload::directed(invite_id(), account_id()),
-            preconditions: Vec::new(),
-        };
+        outcome.unsigned_event.preconditions.clear();
         let error = outcome
             .validate_structural()
             .expect_err("the client cannot derive head_eq itself");
@@ -1039,20 +1446,25 @@ mod tests {
     }
 
     #[test]
-    fn an_authoring_core_wire_tag_is_the_event_kind() {
+    fn typed_join_transition_preserves_the_event_kind() {
         let request = prepare_request();
-        let value =
-            serde_json::to_value(prepare_outcome(&request).authoring_core).expect("serialize");
+        let value = serde_json::to_value(
+            prepare_outcome(&request)
+                .unsigned_event
+                .transition()
+                .unwrap(),
+        )
+        .expect("serialize");
         assert_eq!(value["event_kind"], json!("ak.invite.accept"));
         assert!(value["payload"]["invite_id"].is_string());
-        let restored: RealmJoinAuthoringCore = serde_json::from_value(value).expect("deserialize");
+        let restored: RealmJoinTransition = serde_json::from_value(value).expect("deserialize");
         assert_eq!(restored.event_kind(), event_kind_str::INVITE_ACCEPT);
     }
 
     #[test]
     fn a_membership_payload_cannot_ride_the_invite_accept_branch() {
         assert!(
-            serde_json::from_value::<RealmJoinAuthoringCore>(json!({
+            serde_json::from_value::<RealmJoinTransition>(json!({
                 "event_kind": "ak.invite.accept",
                 "payload": {
                     "member_id": {"kind": "account", "account_id": {
@@ -1438,7 +1850,7 @@ mod tests {
                 "realm_join_governance_facts",
                 &prepare_outcome.governance_facts,
             );
-            assert_matches_schema("realm_join_authoring_core", &prepare_outcome.authoring_core);
+            assert_matches_schema("realm_join_unsigned_event", &prepare_outcome.unsigned_event);
 
             let bootstrap_request = bootstrap_request();
             let bootstrap_outcome = bootstrap_outcome(&bootstrap_request);
@@ -1486,7 +1898,7 @@ mod tests {
                     gate_proofs: vec![gate_proof()],
                 },
             );
-            assert_matches_schema("realm_join_knock_intent", &RealmJoinIntent::Knock);
+            assert_matches_schema("realm_join_knock_intent", &RealmJoinIntent::Knock {});
         }
 
         #[test]

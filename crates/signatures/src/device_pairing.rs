@@ -1,13 +1,15 @@
 //! Canonical device-pairing challenge transcript generation and verification.
 
 use arkret_models_collaboration::events_payloads::SignatureMaterial;
-use arkret_models_collaboration::governance::agent_artifacts::PublicKey;
+use arkret_models_collaboration::governance::agent_artifacts::{DeviceMetadata, PublicKey};
 use arkret_models_collaboration::http_bodies::{
-    DevicePairingBootstrap, DevicePairingChallengeProof, DevicePairingChallengeTranscriptKind,
-    DevicePairingCode, DevicePairingNonce, DevicePairingRequestId, DevicePairingStageOutcome,
-    DevicePairingTargetAttestation, UnsignedDevicePairingTargetAttestation,
+    DevicePairingBootstrap, DevicePairingCode, DevicePairingNonce, DevicePairingRequestId,
+    DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingTargetProof,
+    UnsignedDevicePairingTargetProof,
 };
-use arkret_wire::{Base64UrlString, DeviceId, Hash, NonEmptyString};
+#[cfg(test)]
+use arkret_wire::{Base64UrlString, DeviceId};
+use arkret_wire::{Hash, NonEmptyString};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
@@ -24,15 +26,19 @@ pub struct ServerDevicePairingChallenge {
     pub gate_audience_uri: String,
     pub pairing_code: DevicePairingCode,
     pub server_nonce: DevicePairingNonce,
+    pub display_name: Option<NonEmptyString>,
+    pub device_metadata: Option<DeviceMetadata>,
 }
 
 impl ServerDevicePairingChallenge {
     pub fn from_stage(
-        client_nonce: DevicePairingNonce,
+        request: &DevicePairingStageRequestBody,
         outcome: &DevicePairingStageOutcome,
     ) -> Self {
         Self {
-            client_nonce,
+            client_nonce: request.client_nonce.clone(),
+            display_name: request.display_name.clone(),
+            device_metadata: request.device_metadata.clone(),
             device_pairing_request_id: outcome.device_pairing_request_id.clone(),
             expires_at: outcome.expires_at,
             gate_audience_uri: outcome.gate_audience_uri.clone(),
@@ -44,6 +50,8 @@ impl ServerDevicePairingChallenge {
     pub fn from_bootstrap(bootstrap: &DevicePairingBootstrap) -> Self {
         Self {
             client_nonce: bootstrap.client_nonce.clone(),
+            display_name: bootstrap.display_name.clone(),
+            device_metadata: bootstrap.device_metadata.clone(),
             device_pairing_request_id: bootstrap.device_pairing_request_id.clone(),
             expires_at: bootstrap.expires_at,
             gate_audience_uri: bootstrap.gate_audience_uri.clone(),
@@ -72,7 +80,7 @@ pub enum DevicePairingProofError {
     #[error("device pairing signature verification failed")]
     SignatureInvalid,
     #[error("device pairing target attestation signature is not the closed Ed25519 string form")]
-    InvalidTargetAttestationSignatureShape,
+    InvalidTargetProofSignatureShape,
     #[error("device pairing transcript could not be canonicalized: {0}")]
     Canonical(#[from] arkret_canonical::CanonicalError),
     #[error("device pairing wire value is invalid: {0}")]
@@ -81,24 +89,24 @@ pub enum DevicePairingProofError {
 
 /// Sign the target-owned accepted-device possession attestation that travels
 /// out of band to the approving sibling.
-pub fn sign_device_pairing_target_attestation(
-    unsigned: UnsignedDevicePairingTargetAttestation,
+pub fn sign_device_pairing_target_proof(
+    unsigned: UnsignedDevicePairingTargetProof,
     signing_key: &ed25519_dalek::SigningKey,
-) -> Result<DevicePairingTargetAttestation, DevicePairingProofError> {
+) -> Result<DevicePairingTargetProof, DevicePairingProofError> {
     let input = unsigned.signing_input()?;
     let signature =
         NonEmptyString::new(URL_SAFE_NO_PAD.encode(signing_key.sign(&input).to_bytes()))
             .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?;
     let attestation = unsigned.attach_signature(SignatureMaterial::NonEmptyString(signature));
-    verify_device_pairing_target_attestation(&attestation)?;
+    verify_device_pairing_target_proof(&attestation)?;
     Ok(attestation)
 }
 
 /// Verify the target-device possession proof independently of the approving
-/// device Event. Call `DevicePairingTargetAttestation::validate_against_pair_request`
+/// device Event. Call `DevicePairingTargetProof::validate_against_pair_request`
 /// afterwards to bind the verified material to the exact preassembled request.
-pub fn verify_device_pairing_target_attestation(
-    attestation: &DevicePairingTargetAttestation,
+pub fn verify_device_pairing_target_proof(
+    attestation: &DevicePairingTargetProof,
 ) -> Result<(), DevicePairingProofError> {
     let multibase = attestation
         .device_public_key_did
@@ -110,7 +118,7 @@ pub fn verify_device_pairing_target_attestation(
     let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&public_key)
         .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
     let SignatureMaterial::NonEmptyString(signature) = &attestation.device_signature else {
-        return Err(DevicePairingProofError::InvalidTargetAttestationSignatureShape);
+        return Err(DevicePairingProofError::InvalidTargetProofSignatureShape);
     };
     let signature = URL_SAFE_NO_PAD
         .decode(signature.as_str())
@@ -128,7 +136,8 @@ struct ServerTranscriptBody<'a> {
     device_pairing_request_id: &'a str,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     expires_at: DateTime<Utc>,
-    gate_audience_uri: &'a str,
+    gate_audience: &'a str,
+    device_metadata_digest: &'a str,
     new_device_pubkey_digest: &'a str,
     pairing_code: &'a str,
     server_nonce: &'a str,
@@ -139,11 +148,15 @@ pub fn server_device_pairing_transcript(
     challenge: &ServerDevicePairingChallenge,
 ) -> Result<(Vec<u8>, Hash), DevicePairingProofError> {
     let public_key_digest = arkret_canonical::canonical_sha256(public_key)?;
+    let metadata_digest = arkret_canonical::canonical_sha256(&serde_json::json!({
+        "display_name": &challenge.display_name, "device_metadata": &challenge.device_metadata
+    }))?;
     let body = ServerTranscriptBody {
         client_nonce: challenge.client_nonce.as_str(),
         device_pairing_request_id: challenge.device_pairing_request_id.as_str(),
         expires_at: challenge.expires_at,
-        gate_audience_uri: &challenge.gate_audience_uri,
+        gate_audience: &challenge.gate_audience_uri,
+        device_metadata_digest: &metadata_digest,
         new_device_pubkey_digest: &public_key_digest,
         pairing_code: challenge.pairing_code.as_str(),
         server_nonce: challenge.server_nonce.as_str(),
@@ -155,67 +168,33 @@ pub fn server_device_pairing_transcript(
     Ok((bytes, digest))
 }
 
-pub fn sign_server_device_pairing_challenge(
+/// Verify the sole target proof against independently reconstructed stage inputs.
+pub fn verify_server_device_pairing_target_proof(
     public_key: &PublicKey,
     challenge: &ServerDevicePairingChallenge,
-    signing_key: &ed25519_dalek::SigningKey,
-) -> Result<DevicePairingChallengeProof, DevicePairingProofError> {
-    validate_public_key(public_key, signing_key.verifying_key().as_bytes())?;
-    let (bytes, transcript_digest) = server_device_pairing_transcript(public_key, challenge)?;
-    let kid = DeviceId::new(public_key.kid.as_str().to_owned())
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    Ok(DevicePairingChallengeProof {
-        transcript: DevicePairingChallengeTranscriptKind::ServerMediated,
-        kid,
-        signature_algorithm: NonEmptyString::new(public_key.algorithm.as_str().to_owned())
-            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
-        transcript_digest,
-        signature: Base64UrlString::new(
-            URL_SAFE_NO_PAD.encode(signing_key.sign(&bytes).to_bytes()),
-        )
-        .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
-    })
-}
-
-pub fn verify_server_device_pairing_challenge(
-    public_key: &PublicKey,
-    challenge: &ServerDevicePairingChallenge,
-    proof: &DevicePairingChallengeProof,
+    proof: &DevicePairingTargetProof,
     verification_time: DateTime<Utc>,
 ) -> Result<(), DevicePairingProofError> {
     if challenge.expires_at <= verification_time {
         return Err(DevicePairingProofError::Expired);
     }
-    if proof.transcript != DevicePairingChallengeTranscriptKind::ServerMediated {
-        return Err(DevicePairingProofError::TranscriptMismatch);
-    }
-    if proof.kid.as_str() != public_key.kid.as_str() {
+    if proof.device_id.as_str() != public_key.kid.as_str() {
         return Err(DevicePairingProofError::VerificationMethodMismatch);
     }
-    if proof.signature_algorithm.as_str() != public_key.algorithm.as_str() {
-        return Err(DevicePairingProofError::AlgorithmMismatch);
-    }
-    let public_key_bytes = URL_SAFE_NO_PAD
-        .decode(public_key.key.as_str())
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    let public_key_array: [u8; 32] = public_key_bytes
-        .try_into()
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    validate_public_key(public_key, &public_key_array)?;
-    let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(&public_key_array)
-        .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
-    let (bytes, digest) = server_device_pairing_transcript(public_key, challenge)?;
-    if digest != proof.transcript_digest {
+    let target_key = arkret_canonical::decode_ed25519_multibase(
+        proof
+            .device_public_key_did
+            .as_str()
+            .strip_prefix("did:key:")
+            .ok_or(DevicePairingProofError::UnsupportedKey)?,
+    )
+    .map_err(|_| DevicePairingProofError::UnsupportedKey)?;
+    validate_public_key(public_key, &target_key)?;
+    let (_, digest) = server_device_pairing_transcript(public_key, challenge)?;
+    if digest != proof.pairing_challenge_transcript_digest {
         return Err(DevicePairingProofError::DigestMismatch);
     }
-    let signature = URL_SAFE_NO_PAD
-        .decode(proof.signature.as_str())
-        .map_err(|_| DevicePairingProofError::MalformedSignature)?;
-    let signature = ed25519_dalek::Signature::from_slice(&signature)
-        .map_err(|_| DevicePairingProofError::MalformedSignature)?;
-    verifying_key
-        .verify_strict(&bytes, &signature)
-        .map_err(|_| DevicePairingProofError::SignatureInvalid)
+    verify_device_pairing_target_proof(proof)
 }
 
 fn validate_public_key(
@@ -268,6 +247,8 @@ mod tests {
             gate_audience_uri: "https://account.example".to_owned(),
             pairing_code: DevicePairingCode::new("ABCDEFGH".to_owned()).unwrap(),
             server_nonce: DevicePairingNonce::new("BBBBBBBBBBBBBBBBBBBBBB").unwrap(),
+            display_name: None,
+            device_metadata: None,
         };
         (public_key, challenge, signing_key)
     }
@@ -275,34 +256,81 @@ mod tests {
     #[test]
     fn server_transcript_round_trip_and_tamper_rejection() {
         let (public_key, challenge, signing_key) = fixture();
-        let proof =
-            sign_server_device_pairing_challenge(&public_key, &challenge, &signing_key).unwrap();
-        let verification_time = DateTime::parse_from_rfc3339("2026-07-26T00:05:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        verify_server_device_pairing_challenge(&public_key, &challenge, &proof, verification_time)
-            .unwrap();
-
-        let mut tampered = challenge;
+        let (_, digest) = server_device_pairing_transcript(&public_key, &challenge).unwrap();
+        let unsigned = UnsignedDevicePairingTargetProof::new(
+            DeviceId::new(public_key.kid.as_str()).unwrap(),
+            arkret_wire::DidKey::new(format!(
+                "did:key:{}",
+                arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                    signing_key.verifying_key().as_bytes()
+                )
+            ))
+            .unwrap(),
+            NonEmptyString::new("hpke-public-key-fixture").unwrap(),
+            vec![NonEmptyString::new("Ed25519").unwrap()],
+            digest,
+        )
+        .unwrap();
+        let proof = sign_device_pairing_target_proof(unsigned, &signing_key).unwrap();
+        let verification_time = challenge.expires_at - chrono::Duration::minutes(1);
+        verify_server_device_pairing_target_proof(
+            &public_key,
+            &challenge,
+            &proof,
+            verification_time,
+        )
+        .unwrap();
+        let mut tampered = challenge.clone();
         tampered.gate_audience_uri = "https://attacker.example".to_owned();
-        assert!(matches!(
-            verify_server_device_pairing_challenge(
+        assert!(
+            verify_server_device_pairing_target_proof(
                 &public_key,
                 &tampered,
                 &proof,
                 verification_time
-            ),
-            Err(DevicePairingProofError::DigestMismatch)
-        ));
+            )
+            .is_err()
+        );
+        let mut tampered = challenge.clone();
+        tampered.display_name = Some(NonEmptyString::new("attacker label").unwrap());
+        assert!(
+            verify_server_device_pairing_target_proof(
+                &public_key,
+                &tampered,
+                &proof,
+                verification_time
+            )
+            .is_err()
+        );
+        assert!(
+            verify_server_device_pairing_target_proof(
+                &public_key,
+                &challenge,
+                &proof,
+                challenge.expires_at
+            )
+            .is_err()
+        );
+        let mut tampered = proof;
+        tampered.hpke_key = NonEmptyString::new("wrong-hpke-key").unwrap();
+        assert!(
+            verify_server_device_pairing_target_proof(
+                &public_key,
+                &challenge,
+                &tampered,
+                verification_time
+            )
+            .is_err()
+        );
     }
 
-    fn target_attestation_fixture(
+    fn target_proof_fixture(
         signing_key: &ed25519_dalek::SigningKey,
-    ) -> UnsignedDevicePairingTargetAttestation {
+    ) -> UnsignedDevicePairingTargetProof {
         let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
             signing_key.verifying_key().as_bytes(),
         );
-        UnsignedDevicePairingTargetAttestation::new(
+        UnsignedDevicePairingTargetProof::new(
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap(),
             arkret_wire::DidKey::new(format!("did:key:{multibase}")).unwrap(),
             NonEmptyString::new("hpke-public-key-fixture").unwrap(),
@@ -313,9 +341,9 @@ mod tests {
     }
 
     #[test]
-    fn target_attestation_signing_input_and_wire_shape_are_fixed() {
+    fn target_proof_signing_input_and_wire_shape_are_fixed() {
         let signing_key = ed25519_dalek::SigningKey::from_bytes(&[9_u8; 32]);
-        let unsigned = target_attestation_fixture(&signing_key);
+        let unsigned = target_proof_fixture(&signing_key);
         let did_key = format!(
             "did:key:{}",
             arkret_canonical::ed25519_pubkey_to_did_key_multibase(
@@ -335,8 +363,8 @@ mod tests {
             )
         );
 
-        let attestation = sign_device_pairing_target_attestation(unsigned, &signing_key).unwrap();
-        verify_device_pairing_target_attestation(&attestation).unwrap();
+        let attestation = sign_device_pairing_target_proof(unsigned, &signing_key).unwrap();
+        verify_device_pairing_target_proof(&attestation).unwrap();
         let value = serde_json::to_value(&attestation).unwrap();
         assert_eq!(value["device_key_algorithm"], "Ed25519");
         assert_eq!(value["authorization_binding_kind"], "accepted_device");
@@ -344,28 +372,24 @@ mod tests {
     }
 
     #[test]
-    fn target_attestation_rejects_tampering_polymorphic_signature_and_bad_algorithm_set() {
+    fn target_proof_rejects_tampering_polymorphic_signature_and_bad_algorithm_set() {
         let signing_key = ed25519_dalek::SigningKey::from_bytes(&[10_u8; 32]);
-        let mut attestation = sign_device_pairing_target_attestation(
-            target_attestation_fixture(&signing_key),
-            &signing_key,
-        )
-        .unwrap();
+        let mut attestation =
+            sign_device_pairing_target_proof(target_proof_fixture(&signing_key), &signing_key)
+                .unwrap();
         attestation.hpke_key = NonEmptyString::new("tampered-hpke-key").unwrap();
         assert!(matches!(
-            verify_device_pairing_target_attestation(&attestation),
+            verify_device_pairing_target_proof(&attestation),
             Err(DevicePairingProofError::SignatureInvalid)
         ));
 
-        let mut map_signature = sign_device_pairing_target_attestation(
-            target_attestation_fixture(&signing_key),
-            &signing_key,
-        )
-        .unwrap();
+        let mut map_signature =
+            sign_device_pairing_target_proof(target_proof_fixture(&signing_key), &signing_key)
+                .unwrap();
         map_signature.device_signature = SignatureMaterial::Variant1(BTreeMap::new());
         assert!(matches!(
-            verify_device_pairing_target_attestation(&map_signature),
-            Err(DevicePairingProofError::InvalidTargetAttestationSignatureShape)
+            verify_device_pairing_target_proof(&map_signature),
+            Err(DevicePairingProofError::InvalidTargetProofSignatureShape)
         ));
 
         let device_id = DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap();
@@ -389,7 +413,7 @@ mod tests {
             ],
         ] {
             assert!(
-                UnsignedDevicePairingTargetAttestation::new(
+                UnsignedDevicePairingTargetProof::new(
                     device_id.clone(),
                     did_key.clone(),
                     NonEmptyString::new("hpke-public-key-fixture").unwrap(),

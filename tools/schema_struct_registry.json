@@ -46,6 +46,10 @@
       "schema": "agent-operations.schema.json#/$defs/key_state"
     },
     {
+      "rust_type": "crates/models-collaboration/src/direct_conversation_ops.rs::DirectConversationResolveRequestBody",
+      "schema": "direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/event_sync.rs::ActorAggregateFrontierView",
       "schema": "service-operation-dtos.schema.json#/$defs/ActorAggregateFrontierView"
     },
@@ -104,6 +108,10 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentKeyAuthorizePayload",
       "schema": "event-payload.schema.json#/$defs/agent_key_authorize_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentKeyAuthorizePayloadRuntimeAttestation",
+      "schema": "event-payload.schema.json#/$defs/agent_key_authorize_payload/properties/runtime_attestation"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentKeyRevokePayload",
@@ -348,6 +356,10 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/redaction.rs::CrossObjectRedactionPayload",
       "schema": "event-payload.schema.json#/$defs/cross_object_redaction_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/relation.rs::RelationResolvePayload",
+      "schema": "event-payload.schema.json#/$defs/relation_resolve_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/relation.rs::RelationTombstonePayload",
@@ -670,6 +682,10 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
+      "rust_type": "crates/models-collaboration/src/objects/read_receipts.rs::OrdinaryProjectionContent",
+      "schema": "notification.schema.json#/$defs/ordinary_projection_content"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/objects/view.rs::QueryValue",
       "schema": "view.schema.json#/$defs/query",
       "comparison": "rust_fields_subset",
@@ -716,6 +732,10 @@
       "schema": "account-subscribe-frame.schema.json#/$defs/timeline",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotChunkRef",
+      "schema": "realm-state-snapshot.schema.json#/properties/chunks/items"
     },
     {
       "rust_type": "crates/models-collaboration/src/sync_frames/realm_state_snapshot.rs::RealmStateSnapshotFrontierValue",
@@ -810,14 +830,6 @@
       "schema": "recovery-policy.schema.json#/properties/approval_requirement"
     },
     {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryAuditConfig",
-      "schema": "recovery-policy.schema.json#/properties/audit"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryDeviceQuorumConfig",
-      "schema": "recovery-policy.schema.json#/properties/device_quorum"
-    },
-    {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryKeyAgreementEntry",
       "schema": "recovery-policy.schema.json#/$defs/recovery_key_agreement_entry"
     },
@@ -856,8 +868,8 @@
       "reason": "serde(flatten) RecoveryShareHolder carries holder_kind/holder_principal_id/holder_service_id; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryThresholdConfig",
-      "schema": "recovery-policy.schema.json#/properties/threshold"
+      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryTrustedService",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_method/oneOf/4/properties/services/items"
     },
     {
       "rust_type": "crates/models-crypto/src/keys.rs::DeviceProjectionAttestationCore",
@@ -998,6 +1010,10 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
+      "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletEventRejection",
+      "schema": "applet-edge-operations.schema.json#/$defs/rejected_item"
+    },
+    {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::CapabilityConstraint",
       "schema": "applet-install-plan.schema.json#/$defs/capability_constraint"
     },
@@ -1036,10 +1052,6 @@
     {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::ProtocolInstance",
       "schema": "applet-edge-operations.schema.json#/$defs/protocol_instance"
-    },
-    {
-      "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletEventRejection",
-      "schema": "applet-edge-operations.schema.json#/$defs/rejected_item"
     },
     {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::Widget",
@@ -1114,6 +1126,10 @@
       "schema": "event-payload.schema.json#/$defs/organization_recovery_archive"
     },
     {
+      "rust_type": "crates/wire/src/pairwise_endpoint_possession.rs::PairwiseEndpointPossessionProof",
+      "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof"
+    },
+    {
       "rust_type": "crates/wire/src/seal.rs::MultiSignature",
       "schema": "seal.schema.json#/$defs/multi_signature"
     }
@@ -1142,10 +1158,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentKeyScopeResource",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'operation', 'realm_id', 'resource_ref', 'schema_ref', 'service_id'], Spec-only=['actions', 'constraints', 'resources']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentKeyAuthorizePayloadRuntimeAttestation",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['attestation_digest', 'attestation_ref', 'kind', 'software', 'version'], Spec-only=['accountable_principal_id', 'agent_id', 'agent_key_scope', 'approval_evidence', 'audience', 'expires_at', 'issued_at', 'key_id', 'public_key_digest', 'revocation_check_ref', 'runtime_attestation', 'signing_key_binding_digest', 'supersedes', 'verification_method']."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/call.rs::ParticipantBinding",
@@ -1218,10 +1230,6 @@
     {
       "rust_type": "crates/models-crypto/src/artifacts_keys.rs::ShareShareCommitment",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['algorithm', 'commitment_b64u'], Spec-only=['expires_at', 'holder_kind', 'holder_principal_id?', 'holder_service_id?', 'not_before', 'revocation_reason_code', 'revoked_at', 'share_commitment', 'share_id', 'transport']."
-    },
-    {
-      "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryTrustedService",
-      "reason": "Documented pointer is not a direct object node: 'trusted_recovery_services[]'."
     },
     {
       "rust_type": "crates/models-crypto/src/key_backup.rs::RecoveryBackupClassUnlocked",

@@ -522,6 +522,21 @@ impl Client {
     /// decryption. The full ciphertext is returned only through the
     /// proof-bearing command body registered as
     /// `POST /_arkret/self/keys/backups/{backup_id}/unlock`.
+    pub async fn issue_key_backup_unlock_challenge(
+        &self,
+        backup_id: &BackupId,
+        request: &arkret_models_crypto::KeysBackupsIssueUnlockChallengeRequestBody,
+    ) -> Result<arkret_models_crypto::KeysBackupsUnlockChallenge> {
+        self.post(
+            &format!(
+                "/_arkret/self/keys/backups/{}/unlock-challenge",
+                backup_id.as_str()
+            ),
+            request,
+        )
+        .await
+    }
+
     pub async fn unlock_key_backup(
         &self,
         backup_id: &BackupId,

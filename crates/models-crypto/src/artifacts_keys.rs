@@ -322,76 +322,271 @@ pub struct KeyBackupUnlockProofAuthData {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum KeyBackupUnlockAuthority {
+    CurrentDevice {
+        challenge_id: Base64UrlString,
+        nonce: Base64UrlString,
+    },
+    RecoverySession {
+        recovery_session_id: RecoverySessionId,
+    },
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeysBackupsIssueUnlockChallengeRequestBody {
+    pub request_id: Base64UrlString,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KeysBackupsUnlockChallenge {
+    pub challenge_id: Base64UrlString,
+    pub challenge: Base64UrlString,
+    pub nonce: Base64UrlString,
+    pub operation: String,
+    pub account_id: AccountId,
+    pub requesting_device_id: DeviceId,
+    pub backup_id: BackupId,
+    pub series_id: BackupSeriesId,
+    pub ciphertext_digest: Hash,
+    pub audience: NonEmptyString,
+    pub service_id: DidCoreId,
+    pub request_id: Base64UrlString,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(try_from = "KeyBackupUnlockProofWire")]
 pub struct KeyBackupUnlockProof {
     pub schema: String,
-    pub recovery_session_id: RecoverySessionId,
+    #[serde(flatten)]
+    pub authority: KeyBackupUnlockAuthority,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
     pub backup_id: BackupId,
     pub backup_kind: BackupKind,
     pub series_id: BackupSeriesId,
     pub ciphertext_digest: Hash,
-    pub proof_kind: ProofKind,
-    pub proof_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub challenge: Option<String>,
+    pub challenge: Base64UrlString,
+    pub service_id: DidCoreId,
+    pub audience: NonEmptyString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
     pub auth_data: KeyBackupUnlockProofAuthData,
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub extra: XExtensionMap,
+}
+
+// Decode through one closed carrier, then make the two authority branches exclusive.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KeyBackupUnlockProofWire {
+    schema: String,
+    kind: String,
+    #[serde(default)]
+    challenge_id: Option<Base64UrlString>,
+    #[serde(default)]
+    nonce: Option<Base64UrlString>,
+    #[serde(default)]
+    recovery_session_id: Option<RecoverySessionId>,
+    account_id: AccountId,
+    requesting_device_id: DeviceId,
+    backup_id: BackupId,
+    backup_kind: BackupKind,
+    series_id: BackupSeriesId,
+    ciphertext_digest: Hash,
+    challenge: Base64UrlString,
+    service_id: DidCoreId,
+    audience: NonEmptyString,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    expires_at: DateTime<Utc>,
+    auth_data: KeyBackupUnlockProofAuthData,
+}
+impl TryFrom<KeyBackupUnlockProofWire> for KeyBackupUnlockProof {
+    type Error = String;
+    fn try_from(wire: KeyBackupUnlockProofWire) -> std::result::Result<Self, String> {
+        let authority = match (
+            wire.kind.as_str(),
+            wire.challenge_id,
+            wire.nonce,
+            wire.recovery_session_id,
+        ) {
+            ("current_device", Some(challenge_id), Some(nonce), None) => {
+                KeyBackupUnlockAuthority::CurrentDevice {
+                    challenge_id,
+                    nonce,
+                }
+            }
+            ("recovery_session", None, None, Some(recovery_session_id)) => {
+                KeyBackupUnlockAuthority::RecoverySession {
+                    recovery_session_id,
+                }
+            }
+            _ => {
+                return Err(
+                    "unlock proof requires exactly one complete authority branch".to_owned(),
+                );
+            }
+        };
+        let proof = Self {
+            schema: wire.schema,
+            authority,
+            account_id: wire.account_id,
+            requesting_device_id: wire.requesting_device_id,
+            backup_id: wire.backup_id,
+            backup_kind: wire.backup_kind,
+            series_id: wire.series_id,
+            ciphertext_digest: wire.ciphertext_digest,
+            challenge: wire.challenge,
+            service_id: wire.service_id,
+            audience: wire.audience,
+            issued_at: wire.issued_at,
+            expires_at: wire.expires_at,
+            auth_data: wire.auth_data,
+        };
+        proof.validate().map_err(|error| error.to_string())?;
+        Ok(proof)
+    }
+}
+
+#[cfg(test)]
+mod unlock_authority_tests {
+    use super::*;
+    fn proof() -> Value {
+        serde_json::json!({
+            "schema":KeyBackupUnlockProof::SCHEMA,"kind":"current_device",
+            "challenge_id":"A".repeat(22),"nonce":"B".repeat(22),"challenge":"A".repeat(43),
+            "account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"},
+            "service_id":"ak:did_core:web:station.example","audience":"https://station.example",
+            "requesting_device_id":"ak:device:01964137-0000-7000-8000-000000000001",
+            "backup_id":"ak:backup:01964137-0000-7000-8000-000000000001","backup_kind":"secret_storage",
+            "series_id":"ak:backup_series:01964137-0000-7000-8000-000000000001","ciphertext_digest":format!("sha256:{}","a".repeat(64)),
+            "issued_at":"2026-09-10T00:00:00.000Z","expires_at":"2026-09-10T00:05:00.000Z",
+            "auth_data":{"verification_method":"did:web:alice.example#device","signature_algorithm":"Ed25519","signature":"AA"}
+        })
+    }
+    #[test]
+    fn unlock_rejects_unknown_and_mixed_authority_fields() {
+        let value = proof();
+        let decoded: KeyBackupUnlockProof = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+        for field in [
+            "recovery_session_id",
+            "proof_kind",
+            "proof_digest",
+            "x-extra",
+        ] {
+            let mut changed = value.clone();
+            changed[field] = Value::String("untrusted".to_owned());
+            assert!(
+                serde_json::from_value::<KeyBackupUnlockProof>(changed).is_err(),
+                "{field}"
+            );
+        }
+        for field in [
+            "challenge_id",
+            "nonce",
+            "challenge",
+            "audience",
+            "service_id",
+            "expires_at",
+        ] {
+            let mut changed = value.clone();
+            changed.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<KeyBackupUnlockProof>(changed).is_err(),
+                "{field}"
+            );
+        }
+    }
+    #[test]
+    fn unlock_recovery_branch_has_no_current_device_freshness_fields() {
+        let mut value = proof();
+        value["kind"] = Value::String("recovery_session".to_owned());
+        value["recovery_session_id"] =
+            Value::String("ak:recovery_session:01964137-0000-7000-8000-000000000001".to_owned());
+        assert!(serde_json::from_value::<KeyBackupUnlockProof>(value.clone()).is_err());
+        value.as_object_mut().unwrap().remove("challenge_id");
+        value.as_object_mut().unwrap().remove("nonce");
+        let decoded: KeyBackupUnlockProof = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(decoded).unwrap(), value);
+    }
+    #[test]
+    fn unlock_signature_authenticates_every_freshness_member() {
+        let value = proof();
+        let decoded: KeyBackupUnlockProof = serde_json::from_value(value.clone()).unwrap();
+        let original = decoded.signing_payload_bytes().unwrap();
+        for field in ["challenge_id", "nonce", "challenge", "audience"] {
+            let mut changed = value.clone();
+            let old = changed[field].as_str().unwrap();
+            changed[field] = Value::String(format!("C{}", &old[1..]));
+            let decoded: KeyBackupUnlockProof = serde_json::from_value(changed).unwrap();
+            assert_ne!(
+                decoded.signing_payload_bytes().unwrap(),
+                original,
+                "{field}"
+            );
+        }
+    }
 }
 
 impl KeyBackupUnlockProof {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_UNLOCK_PROOF_V1;
-
-    /// Validate the signed wire shape.
     pub fn validate(&self) -> Result<()> {
-        if self.schema != Self::SCHEMA {
-            return Err(WireError::Protocol(format!(
-                "key backup unlock proof schema must be {}",
-                Self::SCHEMA
-            )));
-        }
-        validate_unlock_proof_signature_algorithm(self.auth_data.signature_algorithm)?;
-        if self.challenge.as_deref().is_some_and(|challenge| {
-            challenge.len() != 43
-                || !challenge.chars().all(|character| {
-                    character.is_ascii_alphanumeric() || matches!(character, '-' | '_')
-                })
-        }) {
+        if self.schema != Self::SCHEMA
+            || self.challenge.as_str().len() != 43
+            || self.expires_at <= self.issued_at
+            || self.service_id != self.account_id.station_id
+        {
             return Err(WireError::Protocol(
-                "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
+                "invalid exact backup unlock binding".to_owned(),
             ));
         }
-        Ok(())
+        self.account_id.validate()?;
+        if let KeyBackupUnlockAuthority::CurrentDevice {
+            challenge_id,
+            nonce,
+        } = &self.authority
+        {
+            if !(22..=128).contains(&challenge_id.as_str().len())
+                || nonce.as_str().len() < 22
+                || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+            {
+                return Err(WireError::Protocol(
+                    "invalid current-device unlock freshness".to_owned(),
+                ));
+            }
+        }
+        validate_unlock_proof_signature_algorithm(self.auth_data.signature_algorithm)
     }
-
-    /// Canonical signature transcript for a fully formed receiver-side proof.
     pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
         self.validate()?;
         let mut unsigned = serde_json::to_value(self)?;
         unsigned
             .get_mut("auth_data")
             .and_then(Value::as_object_mut)
-            .ok_or_else(|| {
-                WireError::Protocol(
-                    "key backup unlock proof auth_data must be an object".to_owned(),
-                )
-            })?
+            .ok_or_else(|| WireError::Protocol("missing unlock auth_data".to_owned()))?
             .remove("signature");
         key_backup_unlock_proof_signing_payload_bytes(&unsigned)
     }
 }
 
-/// Signature metadata for an unlock proof before a signature exists.
 #[derive(Clone, Debug)]
 pub struct UnsignedKeyBackupUnlockProofAuthData {
     verification_method: DidUrl,
     signature_algorithm: KeyBackupSignatureAlgorithm,
 }
-
 impl UnsignedKeyBackupUnlockProofAuthData {
     pub fn new(
         verification_method: DidUrl,
@@ -405,145 +600,59 @@ impl UnsignedKeyBackupUnlockProofAuthData {
     }
 }
 
-/// Strongly typed unlock-proof authoring state. It is intentionally not
-/// serializable, so only [`Self::attach_signature`] can produce the outbound
-/// wire model.
+/// Private authoring state; only attach_signature yields the outbound wire object.
 #[derive(Clone, Debug)]
 pub struct UnsignedKeyBackupUnlockProof {
-    recovery_session_id: RecoverySessionId,
-    account_id: AccountId,
-    requesting_device_id: DeviceId,
-    backup_id: BackupId,
-    backup_kind: BackupKind,
-    series_id: BackupSeriesId,
-    ciphertext_digest: Hash,
-    proof_kind: ProofKind,
-    proof_digest: Hash,
-    challenge: Option<Base64UrlString>,
-    issued_at: DateTime<Utc>,
-    auth_data: UnsignedKeyBackupUnlockProofAuthData,
-    extra: XExtensionMap,
+    proof: KeyBackupUnlockProof,
 }
-
 impl UnsignedKeyBackupUnlockProof {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        recovery_session_id: RecoverySessionId,
+        authority: KeyBackupUnlockAuthority,
         account_id: AccountId,
         requesting_device_id: DeviceId,
         backup_id: BackupId,
         backup_kind: BackupKind,
         series_id: BackupSeriesId,
         ciphertext_digest: Hash,
-        proof_kind: ProofKind,
-        proof_digest: Hash,
-        challenge: Option<Base64UrlString>,
+        challenge: Base64UrlString,
+        service_id: DidCoreId,
+        audience: NonEmptyString,
         issued_at: DateTime<Utc>,
+        expires_at: DateTime<Utc>,
         auth_data: UnsignedKeyBackupUnlockProofAuthData,
     ) -> Result<Self> {
-        if challenge
-            .as_ref()
-            .is_some_and(|challenge| challenge.as_str().len() != 43)
-        {
-            return Err(WireError::Protocol(
-                "key backup unlock proof challenge must be 43 base64url characters".to_owned(),
-            ));
-        }
-        validate_unlock_proof_signature_algorithm(auth_data.signature_algorithm)?;
-        Ok(Self {
-            recovery_session_id,
+        let proof = KeyBackupUnlockProof {
+            schema: KeyBackupUnlockProof::SCHEMA.to_owned(),
+            authority,
             account_id,
             requesting_device_id,
             backup_id,
             backup_kind,
             series_id,
             ciphertext_digest,
-            proof_kind,
-            proof_digest,
             challenge,
+            service_id,
+            audience,
             issued_at,
-            auth_data,
-            extra: XExtensionMap::default(),
-        })
-    }
-
-    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
-        key_backup_unlock_proof_signing_payload_bytes(&self.unsigned_wire_value()?)
-    }
-
-    pub fn attach_signature(self, signature: Base64UrlString) -> Result<KeyBackupUnlockProof> {
-        let proof = KeyBackupUnlockProof {
-            schema: KeyBackupUnlockProof::SCHEMA.to_owned(),
-            recovery_session_id: self.recovery_session_id,
-            account_id: self.account_id,
-            requesting_device_id: self.requesting_device_id,
-            backup_id: self.backup_id,
-            backup_kind: self.backup_kind,
-            series_id: self.series_id,
-            ciphertext_digest: self.ciphertext_digest,
-            proof_kind: self.proof_kind,
-            proof_digest: self.proof_digest,
-            challenge: self.challenge.map(Base64UrlString::into_string),
-            issued_at: self.issued_at,
+            expires_at,
             auth_data: KeyBackupUnlockProofAuthData {
-                verification_method: self.auth_data.verification_method,
-                signature_algorithm: self.auth_data.signature_algorithm,
-                signature,
+                verification_method: auth_data.verification_method,
+                signature_algorithm: auth_data.signature_algorithm,
+                signature: Base64UrlString::new("AA")
+                    .map_err(|error| WireError::Protocol(error.to_owned()))?,
             },
-            extra: self.extra,
         };
         proof.validate()?;
-        Ok(proof)
+        Ok(Self { proof })
     }
-
-    fn unsigned_wire_value(&self) -> Result<Value> {
-        #[derive(Serialize)]
-        struct UnsignedAuthData<'a> {
-            verification_method: &'a DidUrl,
-            signature_algorithm: KeyBackupSignatureAlgorithm,
-        }
-
-        #[derive(Serialize)]
-        struct UnsignedProof<'a> {
-            schema: &'static str,
-            recovery_session_id: &'a RecoverySessionId,
-            account_id: &'a AccountId,
-            requesting_device_id: &'a DeviceId,
-            backup_id: &'a BackupId,
-            backup_kind: BackupKind,
-            series_id: &'a BackupSeriesId,
-            ciphertext_digest: &'a Hash,
-            proof_kind: ProofKind,
-            proof_digest: &'a Hash,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            challenge: Option<&'a Base64UrlString>,
-            #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-            issued_at: DateTime<Utc>,
-            auth_data: UnsignedAuthData<'a>,
-            #[serde(flatten)]
-            extra: &'a XExtensionMap,
-        }
-
-        serde_json::to_value(UnsignedProof {
-            schema: KeyBackupUnlockProof::SCHEMA,
-            recovery_session_id: &self.recovery_session_id,
-            account_id: &self.account_id,
-            requesting_device_id: &self.requesting_device_id,
-            backup_id: &self.backup_id,
-            backup_kind: self.backup_kind,
-            series_id: &self.series_id,
-            ciphertext_digest: &self.ciphertext_digest,
-            proof_kind: self.proof_kind,
-            proof_digest: &self.proof_digest,
-            challenge: self.challenge.as_ref(),
-            issued_at: self.issued_at,
-            auth_data: UnsignedAuthData {
-                verification_method: &self.auth_data.verification_method,
-                signature_algorithm: self.auth_data.signature_algorithm,
-            },
-            extra: &self.extra,
-        })
-        .map_err(WireError::from)
+    pub fn signing_payload_bytes(&self) -> Result<Vec<u8>> {
+        self.proof.signing_payload_bytes()
+    }
+    pub fn attach_signature(mut self, signature: Base64UrlString) -> Result<KeyBackupUnlockProof> {
+        self.proof.auth_data.signature = signature;
+        self.proof.validate()?;
+        Ok(self.proof)
     }
 }
 
@@ -558,20 +667,6 @@ fn validate_unlock_proof_signature_algorithm(algorithm: KeyBackupSignatureAlgori
 
 fn key_backup_unlock_proof_signing_payload_bytes(unsigned: &Value) -> Result<Vec<u8>> {
     Ok(arkret_canonical::canonical_json_bytes(unsigned)?)
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/key-backup-unlock-proof.schema.json#/$defs/proof_kind`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProofKind {
-    CurrentDevice,
-    DidRoot,
-    RecoveryUnlock,
-    DeviceQuorum,
-    TrustedRecoveryService,
-    ThresholdRecovery,
 }
 
 /// Counterpart for the shared signature object used by key operations:
@@ -1852,7 +1947,6 @@ pub struct RecoverySessionState {
     pub identity_model: RecoveryIdentityModel,
     pub current_device_generation_ref: u64,
     pub device_generation_status: DeviceGenerationStatus,
-    pub registry_head: Hash,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub accepted_seal_frontier: DeviceReanchorPreFenceSealFrontier,
     pub publication_authority_context: RecoveryPublicationAuthorityContext,
@@ -1903,7 +1997,6 @@ impl Serialize for RecoverySessionState {
             &self.current_device_generation_ref,
         )?;
         map.serialize_entry("device_generation_status", &self.device_generation_status)?;
-        map.serialize_entry("registry_head", &self.registry_head)?;
         map.serialize_entry("accepted_seal_frontier", &self.accepted_seal_frontier)?;
         map.serialize_entry(
             "publication_authority_context",
@@ -1948,7 +2041,6 @@ struct RecoverySessionStateWire {
     identity_model: RecoveryIdentityModel,
     current_device_generation_ref: u64,
     device_generation_status: DeviceGenerationStatus,
-    registry_head: Hash,
     accepted_seal_frontier: DeviceReanchorPreFenceSealFrontier,
     publication_authority_context: RecoveryPublicationAuthorityContext,
     publication_authority_context_digest: Hash,
@@ -2008,7 +2100,6 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
             identity_model: wire.identity_model,
             current_device_generation_ref: wire.current_device_generation_ref,
             device_generation_status: wire.device_generation_status,
-            registry_head: wire.registry_head,
             accepted_seal_frontier: wire.accepted_seal_frontier,
             publication_authority_context: wire.publication_authority_context,
             publication_authority_context_digest: wire.publication_authority_context_digest,

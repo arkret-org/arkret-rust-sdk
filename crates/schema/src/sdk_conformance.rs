@@ -30,9 +30,8 @@ pub struct SdkConformanceClaim {
 #[serde(deny_unknown_fields)]
 pub struct SdkBuildVariant {
     pub variant_id: String,
-    pub feature_set_digest: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub features: Option<Vec<String>>,
+    pub features: Vec<String>,
+    pub configuration: std::collections::BTreeMap<String, String>,
     pub claimed_profiles: Vec<String>,
 }
 
@@ -253,23 +252,22 @@ impl SdkConformanceClaim {
                     "build_variants.variant_id must be unique".to_owned(),
                 ));
             }
-            validate_nonzero_digest(
-                "build_variant.feature_set_digest",
-                &variant.feature_set_digest,
-            )?;
-            if let Some(features) = &variant.features {
-                if features.len() > 512 || !all_unique(features) {
-                    return Err(SdkConformanceClaimError::InvalidField(format!(
-                        "build_variants[{}].features",
-                        variant.variant_id
-                    )));
-                }
-                if features.iter().any(|feature| !is_build_feature(feature)) {
-                    return Err(SdkConformanceClaimError::InvalidField(format!(
-                        "build_variants[{}].features",
-                        variant.variant_id
-                    )));
-                }
+            if variant.features.len() > 512
+                || variant.features.windows(2).any(|pair| pair[0] >= pair[1])
+                || variant
+                    .features
+                    .iter()
+                    .any(|feature| !is_build_feature(feature))
+                || variant.configuration.len() > 128
+                || variant
+                    .configuration
+                    .iter()
+                    .any(|(key, value)| !is_build_feature(key) || value.chars().count() > 2048)
+            {
+                return Err(SdkConformanceClaimError::InvalidField(format!(
+                    "build_variants[{}].features/configuration",
+                    variant.variant_id
+                )));
             }
             if variant.claimed_profiles.len() > 256 || !all_unique(&variant.claimed_profiles) {
                 return Err(SdkConformanceClaimError::InvalidField(format!(
@@ -497,8 +495,12 @@ mod tests {
     fn claim_with_build_variants() -> SdkConformanceClaim {
         let variants = vec![SdkBuildVariant {
             variant_id: "full-native".to_owned(),
-            feature_set_digest: format!("sha256:{}", "5".repeat(64)),
-            features: Some(vec!["client".to_owned(), "mls".to_owned()]),
+            features: vec!["client".to_owned(), "mls".to_owned()],
+            configuration: [(
+                "rust:target".to_owned(),
+                "x86_64-pc-windows-msvc".to_owned(),
+            )]
+            .into(),
             claimed_profiles: vec!["ak.profile.chat_mvp.v1".to_owned()],
         }];
         let inventory_bytes = canonical::canonical_json_bytes(&variants).unwrap();
@@ -558,6 +560,21 @@ mod tests {
             claim.validate(["AK-SDK-001", "AK-SDK-015"]),
             Err(SdkConformanceClaimError::InvalidField(field))
                 if field.contains("variant_id")
+        ));
+    }
+
+    #[test]
+    fn changed_build_configuration_invalidates_inventory_commitment() {
+        let mut claim = claim_with_build_variants();
+        claim.build_variants.as_mut().unwrap()[0]
+            .configuration
+            .insert(
+                "rust:target".to_owned(),
+                "wasm32-unknown-unknown".to_owned(),
+            );
+        assert!(matches!(
+            claim.validate(["AK-SDK-001", "AK-SDK-015"]),
+            Err(SdkConformanceClaimError::BindingMismatch(_))
         ));
     }
 

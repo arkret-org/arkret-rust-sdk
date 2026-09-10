@@ -597,12 +597,10 @@ where
                         | arkret_models_identity::AgentSignerEvidence::HistoricalEvent {
                             admission_evidence,
                             ..
-                        } => {
-                            &admission_evidence
-                                .agent_authority_state_evidence
-                                .state
-                                .signing_key_binding
-                        }
+                        } => admission_evidence
+                            .agent_authority_state_evidence
+                            .state
+                            .authorized_key()?,
                     };
                     let expected = arkret_wire::base64url::base64url_decode(
                         binding.public_key.key.as_str().as_bytes(),

@@ -14,7 +14,6 @@ use arkret_wire::{
     IdempotencyKey, SchemaId, project_did_to_core_id,
 };
 
-use crate::agent_signer_evidence::AgentSigningKeyBinding;
 use crate::events_payloads::agent::{AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope};
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
 use crate::internal_prelude::*;
@@ -94,7 +93,7 @@ pub fn agent_runtime_key_binding_digest(
             "Agent runtime public key is not canonical 32-byte Ed25519 material".to_owned(),
         ));
     }
-    let public_key_digest = Hash::new(canonical::canonical_sha256(public_key)?)
+    let public_key_digest = Hash::new(canonical::sha256_digest(&raw_public_key))
         .map_err(|error| WireError::Protocol(error.to_string()))?;
     let attestation = runtime_attestation
         .map(serde_json::to_value)
@@ -205,19 +204,18 @@ impl AgentRuntimeKeyPossessionProof {
 }
 
 /// Sole SDK helper for the controller approval digest. It deliberately binds
-/// the current PoP wire digest, so refreshing a proof invalidates stale UI
-/// approval prompts without changing the stable runtime identity.
+/// the frozen candidate and approval identity; freshness PoP refresh does not
+/// alter the controller-approved intent.
 #[allow(clippy::too_many_arguments)]
 pub fn agent_key_pairing_request_binding_digest(
     operation_id: &str,
     controller_principal_id: &DidCoreId,
     agent_id: &DidCoreId,
     pairing_request_id: &OpaqueLocalId,
-    pairing_code: &str,
+    approval_request_id: &OpaqueLocalId,
     pairing_expires_at: DateTime<Utc>,
     audience: &DidCoreId,
     runtime_key_binding_digest: &Hash,
-    proof: &AgentRuntimeKeyPossessionProof,
 ) -> Result<Hash> {
     let value = serde_json::json!({
         "kind": AGENT_KEY_PAIRING_REQUEST_BINDING_KIND,
@@ -225,11 +223,10 @@ pub fn agent_key_pairing_request_binding_digest(
         "controller_principal_id": controller_principal_id,
         "agent_id": agent_id,
         "pairing_request_id": pairing_request_id,
-        "pairing_code": pairing_code,
+        "approval_request_id": approval_request_id,
         "expires_at": pairing_expires_at,
         "audience_id": audience,
         "runtime_key_binding_digest": runtime_key_binding_digest,
-        "proof_of_possession_digest": proof.wire_digest()?,
     });
     Hash::new(canonical::canonical_sha256(&value)?)
         .map_err(|error| WireError::Protocol(error.to_string()))
@@ -333,14 +330,8 @@ impl AgentRequestedScopeDisclosure {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentKeyPairRequestBody {
     pub pairing_request_id: OpaqueLocalId,
-    pub agent_id: DidCoreId,
-    pub verification_method: DidUrl,
-    pub public_key: PublicKey,
-    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
+    pub approval_request_id: OpaqueLocalId,
     pub requested_scope_disclosure: AgentRequestedScopeDisclosure,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
-    pub signing_key_binding: AgentSigningKeyBinding,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub authorize_event: EventInitialSubmission,
 }
@@ -348,15 +339,15 @@ pub struct AgentKeyPairRequestBody {
 /// Whether a submitted runtime-key authorization has merely been stored or is
 /// already covered by the accepted, controller-signed Agent-PCR frontier.
 ///
-/// A durable Event is not yet an authorization witness. Callers MUST close the
-/// Event into an Agent PCR Seal and retry the same idempotent pairing request
-/// before treating the runtime as active.
+/// Accepted Seal processing automatically advances the durable pairing command;
+/// a second pairing request is not an activation prerequisite.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum AgentKeyPairActivationState {
     AwaitingAcceptedFrontier,
     Active,
+    Cancelled,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -365,7 +356,6 @@ pub enum AgentKeyPairActivationState {
 pub struct AgentKeyPairOutcome {
     pub activation_state: AgentKeyPairActivationState,
     pub authorize_event_ref: EventId,
-    pub signing_key_binding: AgentSigningKeyBinding,
 }
 
 impl AgentKeyPairOutcome {
@@ -375,7 +365,7 @@ impl AgentKeyPairOutcome {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalRequestBody {
@@ -402,9 +392,21 @@ pub struct AgentRuntimeApprovalControllerProjection {
     pub agent_id: DidCoreId,
     pub verification_method: DidUrl,
     pub public_key: PublicKey,
-    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
+    pub approval_request_id: OpaqueLocalId,
+    pub runtime_key_binding_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_attestation: Option<AgentKeyAuthorizePayloadRuntimeAttestation>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentRuntimeVerifierMaterial {
+    #[serde(with = "canonical_timestamp")]
+    pub proof_verified_at: DateTime<Utc>,
+    pub approval_request_id: OpaqueLocalId,
+    pub candidate: AgentRuntimeApprovalControllerProjection,
+    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -449,8 +451,6 @@ pub struct AgentRuntimeApprovalStatusOutcome {
     pub authorized_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_public_key_digest: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_signing_key_binding: Option<AgentSigningKeyBinding>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -508,14 +508,6 @@ pub enum AgentProvisionRequestBody {
 pub struct AgentRenewPairingRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_ttl_ms: Option<u64>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum AgentPairingMode {
-    Bootstrap,
-    Replacement,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -580,10 +572,8 @@ pub struct AgentRenewPairingOutcome {
     pub principal_control_realm_id: RealmId,
     pub controller_authorization_ref: DidUrl,
     pub requested_scope_digest: Hash,
-    pub pairing_mode: AgentPairingMode,
     pub pairing_request_id: OpaqueLocalId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub pairing_code: Option<String>,
+    pub pairing_code: String,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
 }
@@ -2125,8 +2115,6 @@ pub struct KeyState {
     /// Branch of the current unconsumed, unexpired pairing handle. Present
     /// exactly when `pairing_request_id` and `pairing_expires_at` are present.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pairing_mode: Option<AgentPairingMode>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -2145,6 +2133,8 @@ pub struct KeyState {
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_authorizations: Vec<AgentKeyAuthorizationState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime_verifier_material: Option<AgentRuntimeVerifierMaterial>,
 }
 
 #[cfg(test)]
@@ -2160,7 +2150,7 @@ mod tests {
             "service_id": "ak:did_core:web:station.example",
             "agent_id": "ak:did_core:webvh:z6mkfixture",
             "pairing_request_id": "pair-1",
-            "pairing_code": "12345678",
+            "pairing_code": "AAAAAAAAAAAAAAAAAAAAAA",
             "pairing_expires_at": "2026-09-08T00:00:00.000Z",
             "runtime_identity": {
                 "controller_account_id": {
@@ -2290,7 +2280,7 @@ mod tests {
 
     fn runtime_approval_request(runtime_attestation: Value) -> Value {
         serde_json::json!({
-            "pairing_code": "12345678",
+            "pairing_code": "AAAAAAAAAAAAAAAAAAAAAA",
             "pairing_request_id": "agent_pairing_request:01964137-0000-7000-8000-000000000001",
             "agent_id": "ak:did_core:webvh:z6mkfixture",
             "verification_method": "did:webvh:z6mkfixture:agent.example#runtime-key-1",

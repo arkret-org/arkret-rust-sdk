@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-10.16;
-//! sha256=031446b2ca2ef0a41fa42883726cc40303043d0d703796af9e41199f176a1dee Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-10.17;
+//! sha256=acad38dab5c932b41fc89c686cf992e2ea685778aca074f318bd2e0fc16159bf Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -9,7 +9,7 @@
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-09-08.3;
-//! sha256=27bffd654557d827a4adc82768624f2927e0301909f42201eb82ac1535a49bf8 Input: registry/
+//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-09-10;
@@ -1334,7 +1334,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "authorization_binding_kind",
             "pairing_challenge_transcript_digest",
         ],
-        schema_ref: "schemas/device-pairing.schema.json#/$defs/device_pairing_target_attestation",
+        schema_ref: "schemas/device-pairing.schema.json#/$defs/device_pairing_target_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::DeviceAuthorizePossessionProofV1,

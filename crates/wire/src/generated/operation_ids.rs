@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-10.24;
-//! sha256=73b9206bda603f87d40b93e0836b93bd95f74414d08168279e8d6e6d17a110ab Entries: registered=253
+//! Input: registry/operation-registry.json; version=2026-09-10.25;
+//! sha256=d96f814c324b3de8ffd03d4b591e79532df7ed823612c876d4dd2b5cade22860 Entries: registered=254
 
 use serde::{Deserialize, Serialize};
 
@@ -209,6 +209,7 @@ pub enum ServiceOperationId {
     SelfInvitesCommandDispatchV1,
     SelfKeysBackupSeriesCommandEraseV1,
     SelfKeysBackupsCommandIssueDeleteChallengeV1,
+    SelfKeysBackupsCommandIssueUnlockChallengeV1,
     SelfKeysBackupsCommandUnlockV1,
     SelfKeysBackupsReadListV1,
     SelfKeysBackupsResourceDeleteV1,
@@ -465,6 +466,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_INVITES_COMMAND_DISPATCH_V1,
     ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1,
+    ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_RESOURCE_DELETE_V1,
@@ -763,6 +765,7 @@ impl ServiceOperationId {
         Self::SelfInvitesCommandDispatchV1,
         Self::SelfKeysBackupSeriesCommandEraseV1,
         Self::SelfKeysBackupsCommandIssueDeleteChallengeV1,
+        Self::SelfKeysBackupsCommandIssueUnlockChallengeV1,
         Self::SelfKeysBackupsCommandUnlockV1,
         Self::SelfKeysBackupsReadListV1,
         Self::SelfKeysBackupsResourceDeleteV1,
@@ -1161,6 +1164,8 @@ impl ServiceOperationId {
         "ak.self.keys.backup_series.command.erase.v1";
     pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1: &'static str =
         "ak.self.keys.backups.command.issue_delete_challenge.v1";
+    pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1: &'static str =
+        "ak.self.keys.backups.command.issue_unlock_challenge.v1";
     pub const SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1: &'static str =
         "ak.self.keys.backups.command.unlock.v1";
     pub const SELF_KEYS_BACKUPS_READ_LIST_V1: &'static str = "ak.self.keys.backups.read.list.v1";
@@ -1581,6 +1586,9 @@ impl ServiceOperationId {
             }
             Self::SelfKeysBackupsCommandIssueDeleteChallengeV1 => {
                 Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1
+            }
+            Self::SelfKeysBackupsCommandIssueUnlockChallengeV1 => {
+                Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1
             }
             Self::SelfKeysBackupsCommandUnlockV1 => Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
             Self::SelfKeysBackupsReadListV1 => Self::SELF_KEYS_BACKUPS_READ_LIST_V1,
@@ -2085,6 +2093,9 @@ impl ServiceOperationId {
             }
             Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1 => {
                 Some(Self::SelfKeysBackupsCommandIssueDeleteChallengeV1)
+            }
+            Self::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1 => {
+                Some(Self::SelfKeysBackupsCommandIssueUnlockChallengeV1)
             }
             Self::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1 => Some(Self::SelfKeysBackupsCommandUnlockV1),
             Self::SELF_KEYS_BACKUPS_READ_LIST_V1 => Some(Self::SelfKeysBackupsReadListV1),
@@ -3128,17 +3139,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/account_device_pair_request_body",
         ),
         response_schema_ref: Some(
             "schemas/agent-operations.schema.json#/$defs/account_device_pair_outcome",
         ),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.account.read.viewer.v1\",\"strategy\":\"query_operation\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
             target: Some(DurableEventTarget::Static(&["ak.device.authorize"])),
@@ -4186,15 +4195,15 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         max_canonical_body_bytes: None,
         success_shape_kind: "typed_response",
         idempotency_mechanism: Some("idempotency_key"),
-        retry_safe: Some(false),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/keypackage-operations.schema.json#/$defs/keypackages_claim_outcome",
+            "schemas/keypackage-operations.schema.json#/$defs/peer_keypackages_claim_command_outcome",
         ),
         uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.peer.keys.keypackages.read.claim.v1\",\"strategy\":\"query_operation\"}",
+            "{\"operation_id\":\"ak.peer.keys.keypackages.command.claim.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
         ),
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
@@ -6816,6 +6825,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfKeysBackupsCommandIssueUnlockChallengeV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/keys/backups/{backup_id}/unlock-challenge",
+        grpc: Some("SelfKeys/BackupsIssueUnlockChallenge"),
+        mq: Some("self.keys.backups.command.issue_unlock_challenge"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_issue_unlock_challenge_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_challenge",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfKeysBackupsCommandUnlockV1,
         http_method: "POST",
         http_path: "/_arkret/self/keys/backups/{backup_id}/unlock",
@@ -6824,15 +6858,13 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         body_class: Some("non_streaming_json"),
         max_canonical_body_bytes: None,
         success_shape_kind: "schema_resource",
-        idempotency_mechanism: Some("none"),
-        retry_safe: Some(false),
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
         request_schema_ref: Some(
             "schemas/keys-operations.schema.json#/$defs/keys_backups_unlock_request_body",
         ),
         response_schema_ref: Some("schemas/key-backup.schema.json"),
-        uncertain_outcome: Some(
-            "{\"operation_id\":\"ak.self.keys.backups.command.unlock.v1\",\"requires_fresh_request_identity\":true,\"strategy\":\"reissue_material\"}",
-        ),
+        uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::None,
             target: None,

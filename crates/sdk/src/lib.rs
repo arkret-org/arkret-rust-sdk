@@ -333,7 +333,7 @@ pub use arkret_signatures::contact_receipt::{
     contact_request_acceptance_receipt_signing_bytes, verify_contact_request_acceptance_receipt,
 };
 pub use arkret_signatures::device_pairing::{
-    sign_device_pairing_target_attestation, verify_device_pairing_target_attestation,
+    sign_device_pairing_target_proof, verify_device_pairing_target_proof,
 };
 pub use arkret_signatures::federation::*;
 pub use arkret_signatures::keypackages::{

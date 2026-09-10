@@ -32,7 +32,7 @@ pub struct IdentityReceipt {
     pub receipt_id: String,
     pub subject_did: Did,
     pub seq: u64,
-    pub head_event_digest: Hash,
+    pub accepted_entry_digest: Hash,
     pub registry_id: DidCoreId,
     pub witness_role: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -43,6 +43,23 @@ pub struct IdentityReceipt {
 }
 
 impl IdentityReceipt {
+    /// Check the byte-consensus commitment against a complete native entry.
+    pub fn validate_accepted_entry(
+        &self,
+        did: &Did,
+        seq: u64,
+        entry: &impl Serialize,
+    ) -> Result<()> {
+        if &self.subject_did != did
+            || self.seq != seq
+            || self.accepted_entry_digest.as_str() != canonical::canonical_sha256(entry)?
+        {
+            return Err(WireError::Protocol(
+                "identity receipt does not commit to the exact accepted entry".to_owned(),
+            ));
+        }
+        self.validate_proof_binding()
+    }
     pub const SCHEMA: &'static str = SchemaId::IDENTITY_RECEIPT_V1;
     /// `sha256(canonical_json(receipt with signature omitted))`.
     pub fn payload_digest(&self) -> Result<Hash> {
@@ -93,6 +110,11 @@ impl IdentityReceipt {
     /// Validate the receipt body and the plaintext proof bindings before JWS
     /// verification with the registry service key.
     pub fn validate_proof_binding(&self) -> Result<()> {
+        if !self.accepted_entry_digest.as_str().starts_with("sha256:") {
+            return Err(WireError::Protocol(
+                "accepted entry commitment requires SHA-256".to_owned(),
+            ));
+        }
         if self.schema != SchemaId::IDENTITY_RECEIPT_V1 {
             return Err(WireError::Protocol(format!(
                 "identity receipt schema '{}' is not {schemaid_identity_receipt_v1}",
@@ -426,7 +448,7 @@ mod tests {
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
             "subject_did": "did:webvh:z6mkfixture:alice.example",
             "seq": 1,
-            "head_event_digest":
+            "accepted_entry_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",
@@ -459,7 +481,7 @@ mod tests {
             "receipt_id": "ak:receipt:019a6aa0-0000-7000-8000-0000000000cc",
             "subject_did": "did:webvh:z6mkfixture:alice.example",
             "seq": 1,
-            "head_event_digest":
+            "accepted_entry_digest":
                 "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "registry_id": "ak:did_core:webvh:z6mkfixture",
             "witness_role": "writer",

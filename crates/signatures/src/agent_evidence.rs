@@ -1,4 +1,4 @@
-//! Agent signing-key binding and portable signer-evidence verification.
+//! Agent authorization Event and portable signer-evidence verification.
 //!
 //! Current admission and historical Event verification intentionally expose
 //! different entry points. Callers cannot pass current state as a substitute
@@ -8,12 +8,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::{base64url_decode, canonical};
 use arkret_models_identity::agent_signer_evidence::{
-    AGENT_KEY_COMPONENT, AGENT_SIGNING_KEY_BINDING_CONTEXT, AGENT_STATUS_COMPONENT,
-    AgentAdmissionEvidence, AgentAuthorizationStatus, AgentControllerProof, AgentDetachedJws,
-    AgentEventAdmission, AgentEventAdmissionReceipt, AgentLifecycleProvenance,
-    AgentLifecycleStatus, AgentLifecycleWitness, AgentSignerEvidence, AgentSigningKeyBinding,
-    AgentSigningKeyBindingCore, AgentSigningPublicKey, ControllerAccountEligibility,
-    ControllerAccountStatus,
+    AGENT_KEY_COMPONENT, AGENT_STATUS_COMPONENT, AgentAdmissionEvidence, AgentAuthorizationStatus,
+    AgentAuthorizedSigningKey, AgentDetachedJws, AgentEventAdmission, AgentEventAdmissionReceipt,
+    AgentLifecycleProvenance, AgentLifecycleStatus, AgentLifecycleWitness, AgentSignerEvidence,
+    AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
     ActorId, CellRef, Did, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString,
@@ -24,10 +22,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::agent::{
-    ValidatedAgentRuntimePublicKey, agent_runtime_public_key_digest,
-    validate_agent_runtime_public_key,
-};
+use crate::agent::agent_runtime_public_key_digest;
 use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
 const AUTHORITY_STATE_LEASE_DOMAIN: &str = DomainSeparationId::AGENT_AUTHORITY_STATE_EVIDENCE_V1;
@@ -344,7 +339,6 @@ pub struct AgentEvidenceStateVerificationContext<'a> {
     pub controller_principal_id: &'a DidCoreId,
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
-    pub authorize_signing_key_binding_digest: &'a Hash,
     pub verify_seal_signature: &'a dyn Fn(&Seal) -> Result<(), AgentEvidenceRejectedReason>,
     pub verify_control_event_signature:
         &'a dyn Fn(&arkret_wire::Event) -> Result<(), AgentEvidenceRejectedReason>,
@@ -360,7 +354,6 @@ pub struct AgentEvidenceCommonContext<'a> {
     pub verification_method: &'a DidUrl,
     pub agent_key_authorize_event_id: &'a EventId,
     pub authorize_public_key_digest: &'a Hash,
-    pub authorize_signing_key_binding_digest: &'a Hash,
     pub expected_authority_id: &'a DidCoreId,
     pub expected_authority_verification_method: &'a DidUrl,
     pub expected_account_authority_id: &'a DidCoreId,
@@ -425,89 +418,6 @@ pub fn dispatch_signer_regime(
         | SignerPrincipalKind::Integration => Ok(SignerRegime::AppletOrService),
         SignerPrincipalKind::Unknown => Err(AgentEvidenceRejectedReason::SigningKeyMismatch),
     }
-}
-
-fn agent_signing_key_binding_transcript_bytes(
-    value: &impl Serialize,
-) -> Result<Vec<u8>, AgentEvidenceRejectedReason> {
-    let canonical = canonical::canonical_json_bytes(value)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let mut bytes = Vec::with_capacity(AGENT_SIGNING_KEY_BINDING_CONTEXT.len() + canonical.len());
-    bytes.extend_from_slice(AGENT_SIGNING_KEY_BINDING_CONTEXT.as_bytes());
-    bytes.extend_from_slice(&canonical);
-    Ok(bytes)
-}
-
-/// Compute the controller-proof transcript from a finalized binding.
-///
-/// The JWS itself is excluded while the complete authorize Event identity
-/// and controller verification method remain covered.
-pub fn agent_signing_key_binding_signing_bytes(
-    binding: &AgentSigningKeyBinding,
-) -> Result<Vec<u8>, AgentEvidenceRejectedReason> {
-    agent_signing_key_binding_transcript_bytes(&AgentSigningKeyBindingProofInput {
-        core: &binding.core,
-        agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
-        controller_proof: AgentControllerProofInput {
-            kind: binding.controller_proof.kind.as_str(),
-            verification_method: &binding.controller_proof.verification_method,
-        },
-    })
-}
-
-/// Digest of the Event-covered binding core.
-pub fn agent_signing_key_binding_core_digest(
-    core: &AgentSigningKeyBindingCore,
-) -> Result<Hash, AgentEvidenceRejectedReason> {
-    canonical_digest(core)
-}
-
-/// Digest committed by `ak.agent.key.authorize.payload.signing_key_binding_digest`.
-///
-/// This deliberately excludes both the containing Event identity and the
-/// controller proof. Use [`agent_signing_key_binding_signing_bytes`] for the
-/// later controller-proof transcript.
-pub fn agent_signing_key_binding_digest(
-    binding: &AgentSigningKeyBinding,
-) -> Result<Hash, AgentEvidenceRejectedReason> {
-    agent_signing_key_binding_core_digest(&binding.core)
-}
-
-#[derive(Serialize)]
-struct AgentControllerProofInput<'a> {
-    kind: &'a str,
-    verification_method: &'a DidUrl,
-}
-
-#[derive(Serialize)]
-struct AgentSigningKeyBindingProofInput<'a> {
-    #[serde(flatten)]
-    core: &'a AgentSigningKeyBindingCore,
-    agent_key_authorize_event_id: &'a EventId,
-    controller_proof: AgentControllerProofInput<'a>,
-}
-
-/// Opaque, finalized controller-proof input. It can only be produced after the
-/// authorize Event's complete identity is known and cannot be serialized as a
-/// wire `AgentSigningKeyBinding` without a real controller JWS.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AgentSigningKeyBindingToSign {
-    core: AgentSigningKeyBindingCore,
-    agent_key_authorize_event_id: EventId,
-    controller_verification_method: DidUrl,
-}
-
-pub fn agent_signing_key_binding_to_sign_bytes(
-    binding: &AgentSigningKeyBindingToSign,
-) -> Result<Vec<u8>, AgentEvidenceRejectedReason> {
-    agent_signing_key_binding_transcript_bytes(&AgentSigningKeyBindingProofInput {
-        core: &binding.core,
-        agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
-        controller_proof: AgentControllerProofInput {
-            kind: DETACHED_JWS_KIND,
-            verification_method: &binding.controller_verification_method,
-        },
-    })
 }
 
 pub fn agent_authorization_cell_ref(
@@ -604,238 +514,31 @@ pub fn agent_admission_evidence_digest(
     })
 }
 
+/// Check the inline key and identity against independently established authority.
 #[allow(clippy::too_many_arguments)]
-pub fn build_agent_signing_key_binding(
-    agent_id: DidCoreId,
-    agent_key_id: NonEmptyString,
-    verification_method: DidUrl,
-    agent_public_key: [u8; 32],
-    agent_key_authorize_event_id: EventId,
-    issued_at: DateTime<Utc>,
-    expires_at: Option<DateTime<Utc>>,
-    controller_principal_id: DidCoreId,
-    controller_verification_method: DidUrl,
-    controller_signing_key: &SigningKey,
-) -> Result<AgentSigningKeyBinding, AgentEvidenceRejectedReason> {
-    let runtime_public_key = arkret_models_collaboration::governance::agent_artifacts::PublicKey {
-        kty: NonEmptyString::new("OKP".to_owned())
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        kid: NonEmptyString::new(verification_method.as_str().to_owned())
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        algorithm: NonEmptyString::new("Ed25519".to_owned())
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        key: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
-            agent_public_key,
-        ))
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        key_digest: None,
-    };
-    let core = prepare_agent_signing_key_binding_core(
-        agent_id,
-        agent_key_id,
-        verification_method,
-        &runtime_public_key,
-        issued_at,
-        expires_at,
-        controller_principal_id,
-    )?;
-    let binding = materialize_agent_signing_key_binding(
-        core,
-        agent_key_authorize_event_id,
-        controller_verification_method,
-    )?;
-    let jws = sign_ed25519_detached_jws(
-        controller_signing_key,
-        &agent_signing_key_binding_to_sign_bytes(&binding)?,
-    )
-    .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    finish_agent_signing_key_binding(binding, &jws)
-}
-
-/// Prepare the digest-covered binding core from a validated runtime key.
-///
-/// This stage intentionally has no Event identity or controller proof input.
-/// Its digest can therefore be placed in the authorize Event payload before
-/// that Event's content-bound identity exists.
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_agent_signing_key_binding_core(
-    agent_id: DidCoreId,
-    agent_key_id: NonEmptyString,
-    verification_method: DidUrl,
-    runtime_public_key: &arkret_models_collaboration::governance::agent_artifacts::PublicKey,
-    issued_at: DateTime<Utc>,
-    expires_at: Option<DateTime<Utc>>,
-    controller_principal_id: DidCoreId,
-) -> Result<AgentSigningKeyBindingCore, AgentEvidenceRejectedReason> {
-    let validated = validate_agent_runtime_public_key(runtime_public_key, &verification_method)
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let public_key = AgentSigningPublicKey {
-        kty: NonEmptyString::new("OKP".to_owned())
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        algorithm: NonEmptyString::new("Ed25519".to_owned())
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        key: validated.public_key.key,
-    };
-    if did_url_controller_core_id(&verification_method)? != agent_id {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    Ok(AgentSigningKeyBindingCore {
-        schema: NonEmptyString::new(SchemaId::AGENT_SIGNING_KEY_BINDING_V1.to_owned())
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        agent_id,
-        agent_key_id,
-        verification_method,
-        public_key,
-        public_key_digest: validated.authorization_digest,
-        issued_at,
-        expires_at,
-        controller_principal_id,
-    })
-}
-
-/// Append the already-finalized authorize Event identity and select the
-/// controller method whose JWS will cover the resulting final transcript.
-pub fn materialize_agent_signing_key_binding(
-    core: AgentSigningKeyBindingCore,
-    agent_key_authorize_event_id: EventId,
-    controller_verification_method: DidUrl,
-) -> Result<AgentSigningKeyBindingToSign, AgentEvidenceRejectedReason> {
-    if core.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
-        || did_url_controller_core_id(&core.verification_method)? != core.agent_id
-        || did_url_controller_core_id(&controller_verification_method)?
-            != core.controller_principal_id
-    {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    Ok(AgentSigningKeyBindingToSign {
-        core,
-        agent_key_authorize_event_id,
-        controller_verification_method,
-    })
-}
-
-/// Attach the controller-produced JWS and produce the only wire-serializable
-/// final binding. No placeholder proof state is representable.
-pub fn finish_agent_signing_key_binding(
-    binding: AgentSigningKeyBindingToSign,
-    controller_jws: &str,
-) -> Result<AgentSigningKeyBinding, AgentEvidenceRejectedReason> {
-    Ok(AgentSigningKeyBinding {
-        core: binding.core,
-        agent_key_authorize_event_id: binding.agent_key_authorize_event_id,
-        controller_proof: AgentControllerProof {
-            kind: NonEmptyString::new(DETACHED_JWS_KIND.to_owned())
-                .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-            verification_method: binding.controller_verification_method,
-            jws: NonEmptyString::new(controller_jws.to_owned())
-                .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?,
-        },
-    })
-}
-
-/// Validate that the private runtime-request DTO and the public authorization
-/// binding carry the same Ed25519 key while preserving their two distinct
-/// digest domains.
-pub fn validate_agent_pairing_key_material(
-    runtime_public_key: &arkret_models_collaboration::governance::agent_artifacts::PublicKey,
-    expected_verification_method: &DidUrl,
-    binding: &AgentSigningKeyBinding,
-) -> Result<ValidatedAgentRuntimePublicKey, AgentEvidenceRejectedReason> {
-    let validated =
-        validate_agent_runtime_public_key(runtime_public_key, expected_verification_method)
-            .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    if binding.public_key.key != validated.public_key.key {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    validate_agent_signing_key_binding_digest_domains(
-        binding,
-        expected_verification_method,
-        &validated.runtime_request_digest,
-        &validated.authorization_digest,
-    )?;
-    Ok(validated)
-}
-
-/// Verify both named digest domains for a persisted pairing where only the
-/// digests and public signing-key binding remain available.
-pub fn validate_agent_signing_key_binding_digest_domains(
-    binding: &AgentSigningKeyBinding,
-    expected_verification_method: &DidUrl,
-    expected_runtime_request_digest: &Hash,
-    expected_authorization_digest: &Hash,
-) -> Result<[u8; 32], AgentEvidenceRejectedReason> {
-    if binding.verification_method != *expected_verification_method
-        || binding.public_key.kty.as_str() != "OKP"
-        || binding.public_key.algorithm.as_str() != "Ed25519"
-    {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    let authorization_digest = agent_signing_public_key_digest(&binding.public_key)?;
-    let runtime_request_digest = agent_signing_public_key_runtime_request_digest(
-        expected_verification_method,
-        &binding.public_key,
-    )?;
-    if binding.public_key_digest != authorization_digest
-        || authorization_digest != *expected_authorization_digest
-        || runtime_request_digest != *expected_runtime_request_digest
-    {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    let raw = base64url_decode(binding.public_key.key.as_str())
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    raw.try_into()
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn verify_agent_signing_key_binding(
-    binding: &AgentSigningKeyBinding,
+pub fn verify_agent_authorized_signing_key(
+    key: &AgentAuthorizedSigningKey,
     expected_agent_id: &DidCoreId,
     expected_agent_key_id: &NonEmptyString,
     expected_controller_principal_id: &DidCoreId,
     expected_verification_method: &DidUrl,
     expected_authorize_event_id: &EventId,
     expected_public_key_digest: &Hash,
-    expected_binding_digest: &Hash,
-    controller_public_key: &PublicKeyMaterial,
 ) -> Result<[u8; 32], AgentEvidenceRejectedReason> {
-    let method_agent_id = did_url_controller_core_id(&binding.verification_method)?;
-    let proof_controller_principal_id =
-        did_url_controller_core_id(&binding.controller_proof.verification_method)?;
-    if binding.schema.as_str() != SchemaId::AGENT_SIGNING_KEY_BINDING_V1
-        || &binding.agent_id != expected_agent_id
-        || &binding.agent_key_id != expected_agent_key_id
-        || &binding.controller_principal_id != expected_controller_principal_id
-        || &binding.verification_method != expected_verification_method
-        || &binding.agent_key_authorize_event_id != expected_authorize_event_id
-        || method_agent_id != binding.agent_id
-        || proof_controller_principal_id != binding.controller_principal_id
-        || binding.controller_proof.kind.as_str() != DETACHED_JWS_KIND
-        || binding.public_key.kty.as_str() != "OKP"
-        || binding.public_key.algorithm.as_str() != "Ed25519"
+    if &key.agent_id != expected_agent_id
+        || &key.agent_key_id != expected_agent_key_id
+        || &key.controller_principal_id != expected_controller_principal_id
+        || &key.verification_method != expected_verification_method
+        || &key.agent_key_authorize_event_id != expected_authorize_event_id
+        || did_url_controller_core_id(&key.verification_method)? != key.agent_id
+        || agent_signing_public_key_digest(&key.public_key)? != *expected_public_key_digest
     {
         return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
     }
-    let raw = base64url_decode(binding.public_key.key.as_str())
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let key: [u8; 32] = raw
+    base64url_decode(key.public_key.key.as_str())
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?
         .try_into()
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let binding_public_key_digest = agent_signing_public_key_digest(&binding.public_key)?;
-    if binding_public_key_digest != binding.public_key_digest
-        || &binding_public_key_digest != expected_public_key_digest
-        || agent_signing_key_binding_digest(binding)? != *expected_binding_digest
-    {
-        return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
-    }
-    Ed25519DetachedJwsVerifier::new()
-        .verify_detached_jws(
-            binding.controller_proof.jws.as_str(),
-            &agent_signing_key_binding_signing_bytes(binding)?,
-            controller_public_key,
-        )
-        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    Ok(key)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
 pub fn validate_current_agent_signer_evidence(
@@ -1017,7 +720,8 @@ fn validate_common_evidence(
 ) -> Result<VerifiedAgentSigningKey, CommonEvidenceFailure> {
     let snapshot = &admission.agent_authority_state_evidence;
     let core = &snapshot.state;
-    let binding = &core.signing_key_binding;
+    let binding = AgentAuthorizedSigningKey::from_event(&core.key_authorization_event)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let authorization = &core.authorization;
     let key_witness = &core.key_state_witness;
     let lifecycle = &core.agent_lifecycle_witness;
@@ -1073,16 +777,14 @@ fn validate_common_evidence(
     }) {
         previous.key
     } else {
-        verify_agent_signing_key_binding(
-            binding,
+        verify_agent_authorized_signing_key(
+            &binding,
             context.signer_id,
             context.agent_key_id,
             context.controller_principal_id,
             context.verification_method,
             context.agent_key_authorize_event_id,
             context.authorize_public_key_digest,
-            context.authorize_signing_key_binding_digest,
-            context.controller_public_key,
         )?
     };
     if authorization.status == AgentAuthorizationStatus::Conflicted {
@@ -1268,7 +970,8 @@ fn validate_state_witnesses(
     let snapshot = &admission.agent_authority_state_evidence;
     let key = &snapshot.state.key_state_witness;
     let lifecycle = &snapshot.state.agent_lifecycle_witness;
-    let binding = &snapshot.state.signing_key_binding;
+    let binding = AgentAuthorizedSigningKey::from_event(&snapshot.state.key_authorization_event)
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let key_value = serde_json::to_value(&key.cell_value)
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     let lifecycle_value = serde_json::to_value(lifecycle.cell_value)
@@ -1295,22 +998,13 @@ fn validate_state_witnesses(
                     && event.executed_by.as_ref() == Some(&expected_controller)
                     && event.authorization_ref == genesis.authorization_ref
             })
-        && authorization_payload.signing_key_binding_digest
-            == *context.authorize_signing_key_binding_digest
-        && authorization_payload.public_key_digest == *context.authorize_public_key_digest
+        && binding.public_key_digest == *context.authorize_public_key_digest
         && authorization_payload.agent_id == binding.agent_id
         && authorization_payload.key_id == binding.agent_key_id
         && authorization_payload.issued_at == binding.issued_at
         && authorization_payload.expires_at == binding.expires_at
         && authorization_payload.verification_method == binding.verification_method
         && authorization_payload.accountable_principal_id == *context.controller_principal_id
-        && authorize
-            .proofs
-            .iter()
-            .find_map(arkret_wire::EventProof::as_station_admission)
-            .is_some_and(|proof| {
-                proof.producer_verification_method == binding.controller_proof.verification_method
-            })
         && key.component.as_str() == AGENT_KEY_COMPONENT
         && context.signer_actor_id.as_account_id().is_some()
         && snapshot.state.authority_id == *context.signer_actor_id.route_service_id()
@@ -1779,13 +1473,10 @@ fn remove_nested_jws(value: &mut Value) -> Result<(), AgentEvidenceRejectedReaso
     let object = value
         .as_object_mut()
         .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
-    let proof = if object.contains_key("proof") {
-        object.get_mut("proof")
-    } else {
-        object.get_mut("controller_proof")
-    }
-    .and_then(Value::as_object_mut)
-    .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
+    let proof = object
+        .get_mut("proof")
+        .and_then(Value::as_object_mut)
+        .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
     proof
         .remove("jws")
         .ok_or(AgentEvidenceRejectedReason::SigningKeyMismatch)?;
@@ -1798,15 +1489,12 @@ fn remove_nested_jws_for_signing(value: &mut Value) -> Result<(), AgentEvidenceS
         .ok_or(AgentEvidenceSigningError::InvalidProofShape(
             "signed value is not an object",
         ))?;
-    let proof = if object.contains_key("proof") {
-        object.get_mut("proof")
-    } else {
-        object.get_mut("controller_proof")
-    }
-    .and_then(Value::as_object_mut)
-    .ok_or(AgentEvidenceSigningError::InvalidProofShape(
-        "proof object is missing",
-    ))?;
+    let proof = object
+        .get_mut("proof")
+        .and_then(Value::as_object_mut)
+        .ok_or(AgentEvidenceSigningError::InvalidProofShape(
+            "proof object is missing",
+        ))?;
     proof
         .remove("jws")
         .ok_or(AgentEvidenceSigningError::InvalidProofShape(

@@ -215,8 +215,12 @@ impl Client {
         &self,
         request: &DidOperationSubmitRequestBody,
     ) -> Result<DidOperationSubmitOutcome> {
-        self.post("/_arkret/root/identity/submit-did-operation", request)
-            .await
+        request.validate()?;
+        let outcome: DidOperationSubmitOutcome = self
+            .post("/_arkret/root/identity/submit-did-operation", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
     }
 
     /// Publish a typed recovery-policy control Event using canonical JSON.

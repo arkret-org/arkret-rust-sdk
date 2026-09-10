@@ -239,9 +239,9 @@ pub use signal::{
     MAX_SIGNAL_CIPHERTEXT_CHARS, MAX_SIGNAL_ENVELOPE_BYTES, MAX_SIGNAL_PLAINTEXT_BYTES,
     MAX_SIGNAL_RELAY_CANONICAL_BODY_BYTES, MAX_SIGNAL_RELAY_ITEMS, MAX_SIGNAL_STREAM_REASON_CHARS,
     MAX_SIGNAL_STREAM_RECONNECT_AFTER_MS, MAX_SIGNAL_TTL, SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME,
-    SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalEncryptedPayload, SignalEnvelope,
-    SignalKeyRef, SignalProof, SignalRelayOutcome, SignalRelayRequest, SignalSenderEndpoint,
-    SignalStreamFrame,
+    SIGNAL_EXPORTER_LABEL, SignalAeadBinding, SignalClass, SignalDeliveryAuthority,
+    SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, SignalRelayOutcome,
+    SignalRelayRequest, SignalSenderEndpoint, SignalStreamFrame, StationSigningKey,
 };
 pub use signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use signer_evidence::SignerEvidenceRef;

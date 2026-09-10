@@ -1771,7 +1771,6 @@ pub struct AccountBindingReceipt {
     pub lease_fence: Option<u64>,
     pub operation_status: IdentityCreationOperationStatus,
     pub operation_digest: Hash,
-    pub head_event_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub proof: PayloadProof,
@@ -1793,7 +1792,6 @@ struct AccountBindingReceiptPayload<'a> {
     lease_fence: Option<u64>,
     operation_status: IdentityCreationOperationStatus,
     operation_digest: &'a Hash,
-    head_event_digest: &'a Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
 }
@@ -1827,7 +1825,6 @@ impl AccountBindingReceipt {
             lease_fence: self.lease_fence,
             operation_status: self.operation_status,
             operation_digest: &self.operation_digest,
-            head_event_digest: &self.head_event_digest,
             issued_at: self.issued_at,
         };
         Hash::new(canonical::canonical_sha256(&payload)?).map_err(Into::into)
@@ -1996,7 +1993,6 @@ mod account_handoff_tests {
             lease_fence: Some(1),
             operation_status: IdentityCreationOperationStatus::Accepted,
             operation_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-            head_event_digest: Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
             issued_at: now,
             proof: PayloadProof {
                 kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),

@@ -738,6 +738,15 @@ pub struct PeerKeyPackagesClaimQueryOutcome {
 }
 
 impl PeerKeyPackagesClaimQueryOutcome {
+    /// Peer command uses the same closed durable view, except that it cannot
+    /// return unknown after admitting a command identity.
+    pub fn validate_command_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
+        self.validate_shape()?;
+        if self.state == PeerKeyPackagesClaimQueryState::Unknown {
+            return Err(PeerKeyPackageClaimShapeError::InvalidQueryOutcome);
+        }
+        Ok(())
+    }
     pub fn validate_shape(&self) -> Result<(), PeerKeyPackageClaimShapeError> {
         if let Some(outcome) = &self.claim_outcome
             && (outcome.claim_request_id != self.claim_request_id

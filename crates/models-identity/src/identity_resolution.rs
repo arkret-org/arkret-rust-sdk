@@ -59,8 +59,6 @@ pub struct CurrentPrincipalOutcome {
     pub account_id: AccountId,
     pub principal_control_realm_id: RealmId,
     pub resolution_projection: PrincipalResolutionProjection,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub observed_at: DateTime<Utc>,
 }
 
 fn current_principal_error(code: arkret_wire::ErrorCode, message: &str) -> arkret_wire::WireError {
@@ -927,7 +925,6 @@ mod current_principal_tests {
                 .to_string(),
                 updated_at: at,
             },
-            observed_at: at,
         };
         (request, result)
     }

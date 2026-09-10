@@ -15,7 +15,6 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AccountId, ActorId, DeviceId, DidUrl, ErrorCode, EventId, RealmId, RequestId, Result,
-    SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -236,8 +235,6 @@ pub struct CurrentSignerKeyOutcome {
     pub selector: SignerKeyQuerySelector,
     pub status: SignerEvidenceResolvedStatus,
     pub key: StationSigningKey,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub checked_at: DateTime<Utc>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -262,7 +259,6 @@ pub struct HistoricalAgentSignerKeyOutcome {
     pub key: StationSigningKey,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
-    pub signer_evidence_ref: SignerEvidenceRef,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -508,7 +504,6 @@ mod tests {
                     selector: current_selector(),
                     status: SignerEvidenceResolvedStatus::Resolved,
                     key: station_key(),
-                    checked_at: "2026-09-10T00:00:00.000Z".parse().unwrap(),
                 }),
                 SignerKeyQueryOutcome::Unavailable(UnavailableSignerKeyOutcome {
                     selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
@@ -537,7 +532,6 @@ mod tests {
                 verification_method: DidUrl::new("did:web:alice.example#device-2").unwrap(),
                 ..station_key()
             },
-            checked_at: "2026-09-10T00:00:00.000Z".parse().unwrap(),
         });
         assert!(swapped.validate().is_err());
     }
@@ -548,7 +542,6 @@ mod tests {
             selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
             status: SignerEvidenceResolvedStatus::Resolved,
             key: station_key(),
-            checked_at: "2026-09-10T00:00:00.000Z".parse().unwrap(),
         });
         assert!(mismatched.validate().is_err());
     }

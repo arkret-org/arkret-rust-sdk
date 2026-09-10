@@ -2,14 +2,14 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-10.25;
-//! sha256=73f05ee94d42e61795ad9a8e142da754b196cc2a933e76993bce78a0afe55412 Input: registry/
-//! operation-registry.json; version=2026-09-10.24;
-//! sha256=73b9206bda603f87d40b93e0836b93bd95f74414d08168279e8d6e6d17a110ab Input: registry/
-//! event-kind-registry.json; version=2026-09-10.15;
-//! sha256=c49386a6728fa47ea5bb1bc3ccbcd90e0b9a155723268ed0807569ea0a2b8005 Input: registry/
-//! schema-registry.json; version=2026-09-10.19;
-//! sha256=b14ee87c8e50b5a25fa44bbda559aba71b90ef26cb18d32819a2ec21eb0c6dc7 Input: registry/
+//! contract-registry.json; version=2026-09-10.27;
+//! sha256=2e3a7a560aacfb9419b06ea16d006ae98e8a5bce1c3169f74572a4adae866fc6 Input: registry/
+//! operation-registry.json; version=2026-09-10.25;
+//! sha256=d96f814c324b3de8ffd03d4b591e79532df7ed823612c876d4dd2b5cade22860 Input: registry/
+//! event-kind-registry.json; version=2026-09-10.16;
+//! sha256=80d89b9a6a8b88f9be0401ba690412702e853205576bbb781317363544ee6d26 Input: registry/
+//! schema-registry.json; version=2026-09-10.21;
+//! sha256=70943fa8639d8d4c48718baee319017d879f0444dd8bad3d8573e70b2b762290 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -628,6 +628,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfKeysBackupsReadListV1,
             ServiceOperationId::SelfKeysBackupsCommandUnlockV1,
             ServiceOperationId::SelfKeysBackupsCommandIssueDeleteChallengeV1,
+            ServiceOperationId::SelfKeysBackupsCommandIssueUnlockChallengeV1,
             ServiceOperationId::SelfKeysBackupsResourceDeleteV1,
             ServiceOperationId::SelfKeysBackupSeriesCommandEraseV1,
         ],
@@ -807,8 +808,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-10.15";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-10.19";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-10.24";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-10.16";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-10.21";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-10.25";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

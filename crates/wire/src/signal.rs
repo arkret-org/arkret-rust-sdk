@@ -571,6 +571,85 @@ impl SignalEnvelope {
     }
 }
 
+/// A signing key returned by the authenticated recipient's own Station.
+/// The key bytes may be cached; a current authorization result may not.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct StationSigningKey {
+    pub actor: crate::ActorId,
+    pub verification_method: crate::DidUrl,
+    pub public_key_b64u: crate::Base64UrlString,
+    pub authorization_ref: crate::EventId,
+}
+impl StationSigningKey {
+    pub fn validate(&self) -> crate::Result<()> {
+        self.actor.validate()?;
+        let did = self
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(did, _)| did)
+            .ok_or_else(|| {
+                station_key_error(
+                    crate::ErrorCode::SchemaViolation,
+                    "signing method requires a fragment",
+                )
+            })?;
+        let did = crate::Did::new(did.to_owned())?;
+        if crate::project_did_to_core_id(&did)? != *self.actor.signing_principal_id() {
+            return Err(station_key_error(
+                crate::ErrorCode::SchemaViolation,
+                "signing method principal mismatch",
+            ));
+        }
+        let value = self.public_key_b64u.as_str();
+        if !matches!(self.actor, crate::ActorId::Account { .. })
+            || value.len() != 43
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            || !b"AEIMQUYcgkosw048".contains(&value.as_bytes()[42])
+        {
+            return Err(station_key_error(
+                crate::ErrorCode::SchemaViolation,
+                "invalid Station signing key",
+            ));
+        }
+        Ok(())
+    }
+}
+fn station_key_error(code: crate::ErrorCode, message: &str) -> crate::WireError {
+    crate::WireError::ProtocolCode {
+        code,
+        message: message.to_owned(),
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SignalDeliveryAuthority {
+    pub recipient_account_id: crate::AccountId,
+    pub key: StationSigningKey,
+}
+
+impl SignalDeliveryAuthority {
+    pub fn validate_for_envelope(&self, envelope: &SignalEnvelope) -> Result<()> {
+        self.recipient_account_id.validate()?;
+        self.key.validate()?;
+        if self.key.actor != envelope.sender_actor_id
+            || self.key.verification_method != envelope.proof.verification_method
+        {
+            return Err(station_key_error(
+                ErrorCode::SchemaViolation,
+                "Signal delivery authority does not bind the exact sender",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Closed frame union for `ak.self.signal.stream.subscribe.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -581,6 +660,7 @@ impl SignalEnvelope {
 pub enum SignalStreamFrame {
     Signal {
         envelope: SignalEnvelope,
+        delivery_authority: SignalDeliveryAuthority,
     },
     Heartbeat,
     Drain {
@@ -596,15 +676,24 @@ pub enum SignalStreamFrame {
 }
 
 impl SignalStreamFrame {
-    pub fn signal(envelope: SignalEnvelope) -> Self {
-        Self::Signal { envelope }
+    pub fn signal(envelope: SignalEnvelope, delivery_authority: SignalDeliveryAuthority) -> Self {
+        Self::Signal {
+            envelope,
+            delivery_authority,
+        }
     }
 
     pub const HEARTBEAT: Self = Self::Heartbeat;
 
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Signal { envelope } => envelope.validate_structural(),
+            Self::Signal {
+                envelope,
+                delivery_authority,
+            } => {
+                envelope.validate_structural()?;
+                delivery_authority.validate_for_envelope(envelope)
+            }
             Self::Heartbeat => Ok(()),
             Self::Drain {
                 reconnect_after_ms,
@@ -1037,7 +1126,20 @@ mod tests {
 
     #[test]
     fn stream_frames_are_closed_and_bounded() {
-        let signal = SignalStreamFrame::signal(envelope(SignalClass::Session, 30));
+        let envelope = envelope(SignalClass::Session, 30);
+        let authority = SignalDeliveryAuthority {
+            recipient_account_id: envelope.sender_actor_id.as_account_id().unwrap().clone(),
+            key: StationSigningKey {
+                actor: envelope.sender_actor_id.clone(),
+                verification_method: envelope.proof.verification_method.clone(),
+                public_key_b64u: crate::Base64UrlString::new("A".repeat(43)).unwrap(),
+                authorization_ref: crate::EventId::from_digest(
+                    crate::canonical::DigestSuite::Sha256,
+                    [0x42; 32],
+                ),
+            },
+        };
+        let signal = SignalStreamFrame::signal(envelope, authority);
         signal.validate().unwrap();
         assert_eq!(
             serde_json::to_value(signal).unwrap()["kind"],

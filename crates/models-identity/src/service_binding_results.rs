@@ -16,7 +16,7 @@
 
 use arkret_wire::{
     AccountId, ActorId, Did, DidCoreId, DidUrl, ErrorCode, NotaryValue, RealmId, ReasonCode,
-    RequestId, Result, SealBasis, ServiceKind, WireError,
+    RequestId, Result, ServiceKind, WireError,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -86,9 +86,8 @@ impl GenesisNotaryRequestBody {
 /// Success body of `ak.self.genesis_notary.read.resolve.v1`.
 ///
 /// `notary` is copied verbatim into `payload.object.notary`; the caller still
-/// authors and signs the `ak.realm.create` Event itself. `observed_at` records
-/// the evaluation instant and is never a validity window or an authorization
-/// lease.
+/// authors and signs the `ak.realm.create` Event itself. This result is scoped
+/// to the invocation and is not an authorization lease.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -97,8 +96,6 @@ pub struct GenesisNotaryOutcome {
     pub account_id: AccountId,
     pub intended_purpose: GenesisNotaryPurpose,
     pub notary: NotaryValue,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub observed_at: DateTime<Utc>,
 }
 
 impl GenesisNotaryOutcome {
@@ -223,7 +220,6 @@ impl MediaServiceBindingRequestBody {
 pub struct MediaServiceBindingOutcome {
     pub request_id: RequestId,
     pub realm_id: RealmId,
-    pub seal_basis: SealBasis,
     pub route: ServiceResolutionProjection,
     pub signing_keys: Vec<ServiceSigningKey>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -326,7 +322,7 @@ impl MediaServiceBindingOutcome {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, SealId};
+    use arkret_wire::{Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
 
     use super::*;
 
@@ -361,7 +357,6 @@ mod tests {
             account_id: account(),
             intended_purpose: GenesisNotaryPurpose::Collaboration,
             notary: NotaryValue::single_signer(service_signer()),
-            observed_at: "2026-09-10T00:00:00.000Z".parse().unwrap(),
         }
     }
 
@@ -396,9 +391,6 @@ mod tests {
             request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000042").unwrap(),
             realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
                 .unwrap(),
-            seal_basis: SealBasis {
-                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "1c".repeat(32))).unwrap()],
-            },
             route: ServiceResolutionProjection {
                 service_id: DidCoreId::new("ak:did_core:web:media.example").unwrap(),
                 service_kind: ServiceKind::MediaService.as_str().to_owned(),

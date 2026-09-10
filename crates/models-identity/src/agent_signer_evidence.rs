@@ -12,7 +12,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const AGENT_SIGNING_KEY_BINDING_CONTEXT: &str = "ak.agent-signing-key-binding-v1\n";
 pub const AGENT_KEY_COMPONENT: &str = arkret_wire::CellFamilyId::AGENT_KEY_V1;
 pub const AGENT_STATUS_COMPONENT: &str = arkret_wire::CellFamilyId::AGENT_STATUS_V1;
 
@@ -25,103 +24,74 @@ pub struct AgentSigningPublicKey {
     pub key: Base64UrlString,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AgentControllerProof {
-    pub kind: NonEmptyString,
-    pub verification_method: DidUrl,
-    pub jws: NonEmptyString,
-}
-
-/// Digest-covered public core of an Agent signing-key binding.
-///
-/// The authorizing Event commits only this value. The Event identity and the
-/// controller proof are appended after the Event has been finalized, so they
-/// cannot create an Event-digest fixed-point.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct AgentSigningKeyBindingCore {
-    pub schema: NonEmptyString,
+/// In-memory projection of the key authenticated by one complete authorize Event.
+/// This view is never a second wire certificate or an authority source.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentAuthorizedSigningKey {
     pub agent_id: DidCoreId,
     pub agent_key_id: NonEmptyString,
     pub verification_method: DidUrl,
     pub public_key: AgentSigningPublicKey,
     pub public_key_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub agent_key_authorize_event_id: EventId,
     pub issued_at: DateTime<Utc>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
     pub expires_at: Option<DateTime<Utc>>,
     pub controller_principal_id: DidCoreId,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentSigningKeyBinding {
-    #[serde(flatten)]
-    pub core: AgentSigningKeyBindingCore,
-    pub agent_key_authorize_event_id: EventId,
-    pub controller_proof: AgentControllerProof,
-}
-
-// Serde does not support combining deny_unknown_fields with flatten.
-// Decode through an explicit closed carrier so the public wire shape remains
-// flat while unknown members are still rejected.
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AgentSigningKeyBindingWire {
-    schema: NonEmptyString,
-    agent_id: DidCoreId,
-    agent_key_id: NonEmptyString,
-    verification_method: DidUrl,
-    public_key: AgentSigningPublicKey,
-    public_key_digest: Hash,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    issued_at: DateTime<Utc>,
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    expires_at: Option<DateTime<Utc>>,
-    controller_principal_id: DidCoreId,
-    agent_key_authorize_event_id: EventId,
-    controller_proof: AgentControllerProof,
-}
-
-impl<'de> Deserialize<'de> for AgentSigningKeyBinding {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = AgentSigningKeyBindingWire::deserialize(deserializer)?;
+impl AgentAuthorizedSigningKey {
+    /// Parse public key material; callers must separately verify Event/Seal authority.
+    pub fn from_event(event: &Event) -> Result<Self, arkret_wire::WireError> {
+        let invalid = |reason: &str| arkret_wire::WireError::Protocol(reason.to_owned());
+        if event.kind != arkret_wire::EventKind::AgentKeyAuthorize {
+            return Err(invalid("Agent key source must be an authorize Event"));
+        }
+        let field = |name: &str| {
+            event
+                .payload
+                .get(name)
+                .cloned()
+                .ok_or_else(|| invalid("authorize Event omits key material"))
+        };
+        let verification_method: DidUrl = serde_json::from_value(field("verification_method")?)?;
+        let key = field("public_key")?;
+        if key.get("kid").and_then(Value::as_str) != Some(verification_method.as_str())
+            || key.get("kty").and_then(Value::as_str) != Some("OKP")
+            || key.get("algorithm").and_then(Value::as_str) != Some("Ed25519")
+            || key.as_object().is_none_or(|key| key.len() != 4)
+        {
+            return Err(invalid(
+                "authorize Event has an invalid Ed25519 key profile",
+            ));
+        }
+        let public_key = AgentSigningPublicKey {
+            kty: serde_json::from_value(key["kty"].clone())?,
+            algorithm: serde_json::from_value(key["algorithm"].clone())?,
+            key: serde_json::from_value(key["key"].clone())?,
+        };
+        let raw = arkret_canonical::base64url_decode(public_key.key.as_str())?;
+        if raw.len() != 32 || arkret_canonical::base64url_encode(&raw) != public_key.key.as_str() {
+            return Err(invalid(
+                "authorize Event key is not canonical Ed25519 material",
+            ));
+        }
         Ok(Self {
-            core: AgentSigningKeyBindingCore {
-                schema: wire.schema,
-                agent_id: wire.agent_id,
-                agent_key_id: wire.agent_key_id,
-                verification_method: wire.verification_method,
-                public_key: wire.public_key,
-                public_key_digest: wire.public_key_digest,
-                issued_at: wire.issued_at,
-                expires_at: wire.expires_at,
-                controller_principal_id: wire.controller_principal_id,
-            },
-            agent_key_authorize_event_id: wire.agent_key_authorize_event_id,
-            controller_proof: wire.controller_proof,
+            agent_id: serde_json::from_value(field("agent_id")?)?,
+            agent_key_id: serde_json::from_value(field("key_id")?)?,
+            verification_method,
+            public_key,
+            public_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&raw))
+                .map_err(|error| invalid(&error.to_string()))?,
+            agent_key_authorize_event_id: event.event_id.clone(),
+            issued_at: serde_json::from_value(field("issued_at")?)?,
+            expires_at: event
+                .payload
+                .get("expires_at")
+                .cloned()
+                .map(serde_json::from_value)
+                .transpose()?,
+            controller_principal_id: serde_json::from_value(field("accountable_principal_id")?)?,
         })
-    }
-}
-
-impl core::ops::Deref for AgentSigningKeyBinding {
-    type Target = AgentSigningKeyBindingCore;
-
-    fn deref(&self) -> &Self::Target {
-        &self.core
     }
 }
 
@@ -298,7 +268,6 @@ pub struct AgentAuthorityState {
     pub key_authorization_event: Event,
     pub frontier_seal_id: SealId,
     pub frontier_state_root: Hash,
-    pub signing_key_binding: AgentSigningKeyBinding,
     pub authorization: AgentAuthorizationEvidence,
     pub key_state_witness: AgentAuthorizationStateWitness,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -306,6 +275,12 @@ pub struct AgentAuthorityState {
     pub agent_lifecycle_witness: AgentLifecycleWitness,
     pub seal_lineages: Vec<Seal>,
     pub accepted_delegated_notary_signers: Vec<arkret_wire::NotarySignerDescriptor>,
+}
+
+impl AgentAuthorityState {
+    pub fn authorized_key(&self) -> Result<AgentAuthorizedSigningKey, arkret_wire::WireError> {
+        AgentAuthorizedSigningKey::from_event(&self.key_authorization_event)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -407,7 +382,6 @@ impl AgentAdmissionEvidence {
         [
             state.lease.issued_at,
             self.controller_account_gate_attestation.issued_at,
-            state.state.signing_key_binding.issued_at,
             state.state.authorization.accepted_at,
             state.state.authorization.not_before,
         ]
@@ -421,7 +395,6 @@ impl AgentAdmissionEvidence {
         [
             Some(state.lease.expires_at),
             Some(self.controller_account_gate_attestation.expires_at),
-            state.state.signing_key_binding.expires_at,
             state.state.authorization.expires_at,
         ]
         .into_iter()
@@ -679,54 +652,7 @@ impl AgentSignerEvidence {
     }
 }
 
-/// A signing key returned by the authenticated recipient's own Station.
-/// The key bytes may be cached; a current authorization result may not.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct StationSigningKey {
-    pub actor: arkret_wire::ActorId,
-    pub verification_method: DidUrl,
-    pub public_key_b64u: Base64UrlString,
-    pub authorization_ref: EventId,
-}
-impl StationSigningKey {
-    pub fn validate(&self) -> arkret_wire::Result<()> {
-        self.actor.validate()?;
-        let did = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(did, _)| did)
-            .ok_or_else(|| {
-                self_signer_error(
-                    arkret_wire::ErrorCode::SchemaViolation,
-                    "signing method requires a fragment",
-                )
-            })?;
-        let did = arkret_wire::Did::new(did.to_owned())?;
-        if arkret_wire::project_did_to_core_id(&did)? != *self.actor.signing_principal_id() {
-            return Err(self_signer_error(
-                arkret_wire::ErrorCode::SchemaViolation,
-                "signing method principal mismatch",
-            ));
-        }
-        let value = self.public_key_b64u.as_str();
-        if !matches!(self.actor, arkret_wire::ActorId::Account { .. })
-            || value.len() != 43
-            || !value
-                .bytes()
-                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-            || !b"AEIMQUYcgkosw048".contains(&value.as_bytes()[42])
-        {
-            return Err(self_signer_error(
-                arkret_wire::ErrorCode::SchemaViolation,
-                "invalid Station signing key",
-            ));
-        }
-        Ok(())
-    }
-}
+pub use arkret_wire::StationSigningKey;
 pub const SELF_SIGNER_REQUEST_MAX_BYTES: usize = 64 * 1024;
 pub const SELF_SIGNER_OUTCOME_MAX_BYTES: usize = 1024 * 1024;
 pub const SELF_SIGNER_RESULT_MAX_BYTES: usize = 16 * 1024;

@@ -337,9 +337,9 @@ pub enum AgentKeyRuntimeAttestationKind {
     SelfAsserted,
 }
 
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload`
-/// `runtime_attestation` object.
+/// Closed runtime attestation carried by an Agent key authorize Event.
+///
+/// `event-payload.schema.json#/$defs/agent_key_authorize_payload/properties/runtime_attestation`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -371,8 +371,7 @@ pub struct AgentKeyAuthorizePayload {
     pub key_id: NonEmptyString,
     /// DID URL for the runtime signing key, including its key fragment.
     pub verification_method: DidUrl,
-    pub public_key_digest: Hash,
-    pub signing_key_binding_digest: Hash,
+    pub public_key: crate::governance::agent_artifacts::PublicKey,
     pub accountable_principal_id: DidCoreId,
     pub agent_key_scope: AgentKeyScope,
     pub audience: Vec<String>,
@@ -511,10 +510,7 @@ mod agent_key_authorize_payload_tests {
             "agent_id": "ak:did_core:web:agent.example",
             "key_id": "runtime-key-1",
             "verification_method": "did:web:agent.example#runtime-key-1",
-            "public_key_digest":
-                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "signing_key_binding_digest":
-                "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "public_key": {"kty":"OKP","kid":"did:web:agent.example#runtime-key-1","algorithm":"Ed25519","key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
             "accountable_principal_id": "ak:did_core:web:controller.example",
             "agent_key_scope": { "actions": ["ak.event.read"], "resources": [] },
             "audience": ["did:web:soland.local"],

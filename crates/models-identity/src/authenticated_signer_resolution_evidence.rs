@@ -182,7 +182,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 let binding = &admission
                     .agent_authority_state_evidence
                     .state
-                    .signing_key_binding;
+                    .authorized_key()?;
                 let matches_signer = &binding.agent_id == signer_id
                     && &binding.verification_method == verification_method;
                 if !matches_signer {

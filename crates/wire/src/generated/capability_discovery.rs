@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-10.25;
-//! sha256=73f05ee94d42e61795ad9a8e142da754b196cc2a933e76993bce78a0afe55412
+//! Input: registry/contract-registry.json; version=2026-09-10.27;
+//! sha256=2e3a7a560aacfb9419b06ea16d006ae98e8a5bce1c3169f74572a4adae866fc6
 //! Entries: operation_bundles=36 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -1010,6 +1010,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfKeysBackupsCommandIssueDeleteChallengeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfKeysBackupsCommandIssueUnlockChallengeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

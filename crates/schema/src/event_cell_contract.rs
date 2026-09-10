@@ -454,6 +454,20 @@ fn project_registered_operation_writes_with_pre_state(
         if !condition_matches(event, write.condition_rule, &kind)? {
             continue;
         }
+        if write.for_each_rule.is_some() {
+            if event.kind != EventKind::AgentKeyAuthorize || write_index != 0 {
+                return Err(effect_set_error(&kind, "unregistered cell-write expansion"));
+            }
+            let removals = project_agent_supersedes(event, frozen_pre_state, &kind)?;
+            for removal in removals {
+                seen.insert(
+                    removal.cell_id.as_str().to_owned(),
+                    ("or_set".to_owned(), EventCellRuleOperator::OrSetRemoveDots),
+                );
+                projected.push(removal);
+            }
+            continue;
+        }
         // `event-and-patch.md` §2.4.2: the one registered write whose target is
         // not statically addressable. A conflict recovery names one cell of an
         // arbitrary family, so the target is the signed `payload.target_cell_id`
@@ -522,10 +536,10 @@ fn project_registered_operation_writes_with_pre_state(
         // Two active writes on one cell are a registry error in general, because
         // nothing orders them. The one registered exception is an or_set
         // observed-remove paired with an add, which `key-management.md` §3.6.1
-        // requires be atomic on a single cell for agent-key re-authorization:
-        // remove every active dot, then add the replacement. The pair is ordered
-        // by construction (the remove reads the frozen pre-state, which the
-        // sibling add cannot be part of), so it is well defined.
+        // permits for agent-key re-authorization when old and new key ids coincide:
+        // remove only the named old authorization dot, then add the new one.
+        // The remove is checked against frozen pre-state, so it cannot consume
+        // the sibling add or any unrelated authorization or revocation dot.
         if let Some((previous_lattice, previous_kind)) = seen.insert(
             cell.as_str().to_owned(),
             (lattice.to_owned(), projection_kind),
@@ -558,6 +572,92 @@ fn project_registered_operation_writes_with_pre_state(
         }
     }
     Ok(projected)
+}
+
+/// Expand only exact old authorization dots; never remove a whole old-key cell.
+fn project_agent_supersedes(
+    event: &ProjectedEventInput,
+    frozen_pre_state: Option<&FrozenPreState>,
+    kind: &str,
+) -> Result<Vec<ProjectedCellWrite>, EventCellContractError> {
+    let Some(value) = event.payload.get("supersedes") else {
+        return Ok(Vec::new());
+    };
+    let entries = value
+        .as_array()
+        .filter(|entries| !entries.is_empty() && entries.len() <= 256)
+        .ok_or_else(|| {
+            effect_set_error(kind, "supersedes must contain 1..=256 exact authorizations")
+        })?;
+    let agent = event
+        .payload
+        .get("agent_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| effect_set_error(kind, "authorize omits agent_id"))?;
+    let mut previous: Option<(&str, &str)> = None;
+    let mut writes = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let key = entry
+            .get("key_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(kind, "supersedes omits key_id"))?;
+        let authorization = entry
+            .get("authorized_event_ref")
+            .and_then(Value::as_str)
+            .ok_or_else(|| effect_set_error(kind, "supersedes omits authorization Event"))?;
+        EventId::new(authorization.to_owned())
+            .map_err(|error| effect_set_error(kind, &error.to_string()))?;
+        if previous.is_some_and(|old| old >= (key, authorization)) {
+            return Err(effect_set_error(
+                kind,
+                "supersedes must be sorted and unique",
+            ));
+        }
+        previous = Some((key, authorization));
+        let subject = arkret_wire::composite_subject(&[agent, key])
+            .map_err(|error| effect_set_error(kind, &error.to_string()))?;
+        let cell = CellRef::new(format!("ak:cell:ak.component.agent.key.v1:{subject}"))
+            .map_err(|error| effect_set_error(kind, &error.to_string()))?;
+        let tag = or_set_dot(authorization, 1);
+        if let Some(state) = frozen_pre_state {
+            let observed = state
+                .get(&cell)
+                .and_then(Value::as_array)
+                .is_some_and(|entries| {
+                    entries.iter().any(|entry| {
+                        entry.get("tag").and_then(Value::as_str) == Some(tag.as_str())
+                            && entry
+                                .get("value")
+                                .and_then(|value| value.get("agent_id"))
+                                .and_then(Value::as_str)
+                                == Some(agent)
+                            && entry
+                                .get("value")
+                                .and_then(|value| value.get("key_id"))
+                                .and_then(Value::as_str)
+                                == Some(key)
+                            && entry
+                                .get("value")
+                                .and_then(|value| value.get("verification_method"))
+                                .is_some()
+                    })
+                });
+            if !observed {
+                return Err(effect_set_error(
+                    kind,
+                    "superseded authorization dot is not active in its exact old key cell",
+                ));
+            }
+        }
+        let mut op = LatticeOp::empty();
+        op.op_type = LatticeOpType::Remove;
+        op.tag = Some(tag);
+        writes.push(ProjectedCellWrite {
+            cell_id: cell,
+            op: ProjectedOp::Direct(op),
+        });
+    }
+    Ok(writes)
 }
 
 fn validate_pre_state_requirements(
@@ -3200,6 +3300,173 @@ mod tests {
                 "not_before": CREATED_AT,
                 "grant_status": "active"
             })),
+        );
+    }
+
+    fn agent_key_cell(key: &str) -> CellRef {
+        let subject =
+            arkret_wire::composite_subject(&["ak:did_core:web:agent.example", key]).unwrap();
+        CellRef::new(format!("ak:cell:ak.component.agent.key.v1:{subject}")).unwrap()
+    }
+
+    fn agent_replacement_fixture() -> (Event, EventId, FrozenPreState) {
+        let old = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [11; 32]);
+        let revoked = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [12; 32]);
+        let concurrent = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [13; 32]);
+        let old_authorization = json!({"agent_id":"ak:did_core:web:agent.example","key_id":"K1",
+            "verification_method":"did:web:agent.example#K1"});
+        let state = FrozenPreState::from([(
+            agent_key_cell("K1"),
+            json!([
+                {"tag":format!("{old}:1"),"value":old_authorization},
+                {"tag":format!("{revoked}:0"),"value":{"agent_id":"ak:did_core:web:agent.example","key_id":"K1","revoked_by":"ak:did_core:web:controller.example"}},
+                {"tag":format!("{concurrent}:1"),"value":old_authorization}
+            ]),
+        )]);
+        let event = realm_facet(
+            EventKind::AgentKeyAuthorize,
+            json!({
+                "agent_id":"ak:did_core:web:agent.example","key_id":"K2",
+                "verification_method":"did:web:agent.example#K2",
+                "public_key":{"kty":"OKP","kid":"did:web:agent.example#K2","algorithm":"Ed25519","key":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+                "supersedes":[{"key_id":"K1","authorized_event_ref":old}]
+            }),
+        );
+        (event, old, state)
+    }
+
+    #[test]
+    fn agent_replacement_removes_only_the_exact_old_authorization_and_adds_new_dot_one() {
+        let (event, old, state) = agent_replacement_fixture();
+        let writes = project_registered_cell_writes_with_pre_state(
+            &event,
+            arkret_canonical::DigestSuite::Sha256,
+            &state,
+        )
+        .unwrap();
+        assert_eq!(writes.len(), 2);
+        assert_eq!(writes[0].cell_id, agent_key_cell("K1"));
+        assert_eq!(writes[1].cell_id, agent_key_cell("K2"));
+        let ProjectedOp::Direct(remove) = &writes[0].op else {
+            panic!("replacement must remove one explicit dot, never observed-remove the cell")
+        };
+        assert_eq!(remove.op_type, LatticeOpType::Remove);
+        assert_eq!(remove.tag.as_deref(), Some(format!("{old}:1").as_str()));
+        // Both the revoke marker and the other authorization instance survive:
+        // the receiver sees one exact removal, with no bulk/observed removal.
+        let untouched = state
+            .get(&agent_key_cell("K1"))
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|entry| entry["tag"].as_str() != remove.tag.as_deref())
+            .collect::<Vec<_>>();
+        assert_eq!(untouched.len(), 2);
+        assert!(
+            untouched
+                .iter()
+                .any(|entry| entry["value"].get("revoked_by").is_some())
+        );
+        assert!(
+            untouched
+                .iter()
+                .any(|entry| entry["value"].get("verification_method").is_some())
+        );
+        let ProjectedOp::Direct(add) = &writes[1].op else {
+            panic!("new authorization must be an add")
+        };
+        assert_eq!(add.op_type, LatticeOpType::Add);
+        assert_eq!(
+            add.tag.as_deref(),
+            Some(format!("{}:1", event.event_id).as_str())
+        );
+        assert_eq!(add.value.as_ref().unwrap()["key_id"], "K2");
+
+        let mut first_authorization = event;
+        first_authorization.payload.remove("supersedes");
+        let first = project_registered_cell_writes_with_pre_state(
+            &first_authorization,
+            arkret_canonical::DigestSuite::Sha256,
+            &FrozenPreState::new(),
+        )
+        .unwrap();
+        assert_eq!(first.len(), 1);
+        let ProjectedOp::Direct(add) = &first[0].op else {
+            panic!("first authorization must add")
+        };
+        assert_eq!(
+            add.tag.as_deref(),
+            Some(format!("{}:1", first_authorization.event_id).as_str()),
+            "skipped supersedes expansion must not renumber the add write"
+        );
+    }
+
+    #[test]
+    fn agent_replacement_rejects_missing_duplicate_wrong_cell_and_wrong_event_dots() {
+        let (event, _, state) = agent_replacement_fixture();
+        let project = |candidate: &Event, snapshot: &FrozenPreState| {
+            project_registered_cell_writes_with_pre_state(
+                candidate,
+                arkret_canonical::DigestSuite::Sha256,
+                snapshot,
+            )
+        };
+        assert!(
+            project(&event, &FrozenPreState::new()).is_err(),
+            "missing old cell cannot authorize removal"
+        );
+        let mut duplicate = event.clone();
+        let entry = duplicate.payload["supersedes"][0].clone();
+        duplicate
+            .payload
+            .get_mut("supersedes")
+            .unwrap()
+            .as_array_mut()
+            .unwrap()
+            .push(entry);
+        assert!(
+            project(&duplicate, &state).is_err(),
+            "duplicate authorization pair must be rejected"
+        );
+        let mut wrong_key = event.clone();
+        wrong_key.payload.get_mut("supersedes").unwrap()[0]["key_id"] = json!("another-key");
+        assert!(
+            project(&wrong_key, &state).is_err(),
+            "Event must name the exact old key cell"
+        );
+        let mut wrong_event = event.clone();
+        wrong_event.payload.get_mut("supersedes").unwrap()[0]["authorized_event_ref"] = json!(
+            EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [14; 32])
+        );
+        assert!(
+            project(&wrong_event, &state).is_err(),
+            "a different authorization Event is not observed"
+        );
+        let mut wrong_index = state.get(&agent_key_cell("K1")).unwrap().clone();
+        wrong_index[0]["tag"] = json!(format!(
+            "{}:0",
+            event.payload["supersedes"][0]["authorized_event_ref"]
+                .as_str()
+                .unwrap()
+        ));
+        assert!(
+            project(
+                &event,
+                &FrozenPreState::from([(agent_key_cell("K1"), wrong_index)])
+            )
+            .is_err(),
+            "index zero is never the authorization add dot"
+        );
+        let mut wrong_value = state.get(&agent_key_cell("K1")).unwrap().clone();
+        wrong_value[0]["value"]["key_id"] = json!("another-key");
+        assert!(
+            project(
+                &event,
+                &FrozenPreState::from([(agent_key_cell("K1"), wrong_value)])
+            )
+            .is_err(),
+            "a tag cannot smuggle a different key value"
         );
     }
 

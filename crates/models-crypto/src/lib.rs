@@ -51,3 +51,8 @@ pub use security_transaction_resilience::{
 };
 
 mod serde_absence;
+
+pub use artifacts_keys::{
+    KeyBackupUnlockAuthority, KeysBackupsIssueUnlockChallengeRequestBody,
+    KeysBackupsUnlockChallenge,
+};

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-10.10;
-//! sha256=2a528ab379ee14b2eba920cc499359124958179b7ccabee4c173cbf1472e677e
+//! Input: registry/error-code-registry.json; version=2026-09-10.11;
+//! sha256=32f5c9672c62899dfb2eaace2ce2e5064733f92ac1440251a16b68d99e68af59
 //! Entries: reason_codes=434
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2246,7 +2246,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::ATTESTATION_MISSING,
         applies_to: &["crypto", "device_recovery", "schema_validation"],
-        description: "A `recipient_method=hardware_wrapped_key` key-backup envelope, or a recovery proof requiring hardware attestation, lacks an `attestation` chain that the receiver can verify against the active recovery policy's `trusted_recovery_services[]`. See zh/identity/key-management.md §7.5.5.",
+        description: "A `recipient_method=hardware_wrapped_key` key-backup envelope, or a recovery proof requiring hardware attestation, lacks an `attestation` chain that the receiver can verify against the active recovery policy's `methods[kind=trusted_recovery_service].services[]`. See zh/identity/key-management.md §7.5.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AUDIENCE_MISMATCH,
@@ -3674,7 +3674,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_PROOF_KIND_UNKNOWN,
         applies_to: &["schema_validation", "device_recovery"],
-        description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 allowed_proof_kinds enum. Producers MUST use one of did_root, recovery_unlock, device_quorum, trusted_recovery_service, or threshold_recovery.",
+        description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 methods kind union. Producers MUST use one of did_root, recovery_unlock, device_quorum, trusted_recovery_service, or threshold_recovery.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_REQUIRED,

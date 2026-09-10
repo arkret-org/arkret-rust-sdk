@@ -399,7 +399,7 @@ fn validate_agent_control_accounts(
     actor: &arkret_wire::ActorId,
 ) -> Result<(), WireError> {
     let controller = arkret_wire::ActorId::account(arkret_wire::AccountId::new(
-        state.signing_key_binding.controller_principal_id.clone(),
+        state.authorized_key()?.controller_principal_id,
         actor.route_service_id().clone(),
     ));
     for event in [
@@ -480,7 +480,7 @@ pub fn build_agent_signer_resolution_evidence(
         } => admission_evidence,
     };
     let snapshot = &admission.agent_authority_state_evidence;
-    let binding = &snapshot.state.signing_key_binding;
+    let binding = snapshot.state.authorized_key()?;
     let gate = &admission.controller_account_gate_attestation;
     for evidence in [authority_evidence, account_authority_evidence]
         .into_iter()
@@ -758,7 +758,7 @@ where
     };
     let authority_evidence_state = &admission_evidence.agent_authority_state_evidence;
     let core = &authority_evidence_state.state;
-    let binding = &core.signing_key_binding;
+    let binding = core.authorized_key()?;
     let gate = &admission_evidence.controller_account_gate_attestation;
 
     let authority_evidence = bound_evidence_by_ref(
@@ -805,9 +805,6 @@ where
     let public_key_digest =
         arkret_signatures::agent_evidence::agent_signing_public_key_digest(&binding.public_key)
             .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
-    let binding_digest =
-        arkret_signatures::agent_evidence::agent_signing_key_binding_digest(binding)
-            .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     for seal in &core.seal_lineages {
         verify_external_trust(AgentHistoricalTrustRequest::PcrSeal(seal)).await?;
     }
@@ -826,7 +823,7 @@ where
             controller_principal_id: &binding.controller_principal_id,
             agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
             authorize_public_key_digest: &public_key_digest,
-            authorize_signing_key_binding_digest: &binding_digest,
+
             verify_seal_signature: &verify_pcr_seal,
             verify_control_event_signature: &verify_control_event,
         },
@@ -919,7 +916,7 @@ where
                 verification_method,
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
-                authorize_signing_key_binding_digest: &binding_digest,
+
                 expected_authority_id: &core.authority_id,
                 expected_authority_verification_method: &authority_evidence_state
                     .lease
@@ -1151,7 +1148,7 @@ where
     }
     let authority_evidence_state = &admission_evidence.agent_authority_state_evidence;
     let core = &authority_evidence_state.state;
-    let binding = &core.signing_key_binding;
+    let binding = core.authorized_key()?;
     let gate = &admission_evidence.controller_account_gate_attestation;
     let authority_evidence = bound_evidence_by_ref(
         dependencies,
@@ -1193,9 +1190,6 @@ where
     let public_key_digest =
         arkret_signatures::agent_evidence::agent_signing_public_key_digest(&binding.public_key)
             .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
-    let binding_digest =
-        arkret_signatures::agent_evidence::agent_signing_key_binding_digest(binding)
-            .map_err(|reason| WireError::Protocol(reason.as_str().to_owned()))?;
     let unchanged_state = previous.filter(|previous| {
         previous.key.state_digest() == &authority_evidence_state.state_digest
             && previous.key.signer_actor_id() == actor
@@ -1222,7 +1216,7 @@ where
                 controller_principal_id: &binding.controller_principal_id,
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
-                authorize_signing_key_binding_digest: &binding_digest,
+
                 verify_seal_signature: &verify_pcr_seal,
                 verify_control_event_signature: &verify_control_event,
             },
@@ -1255,7 +1249,7 @@ where
                 verification_method,
                 agent_key_authorize_event_id: &binding.agent_key_authorize_event_id,
                 authorize_public_key_digest: &public_key_digest,
-                authorize_signing_key_binding_digest: &binding_digest,
+
                 expected_authority_id: &core.authority_id,
                 expected_authority_verification_method: &authority_evidence_state
                     .lease
@@ -2590,9 +2584,9 @@ mod tests {
             admission_evidence
                 .agent_authority_state_evidence
                 .state
-                .signing_key_binding
-                .controller_principal_id
-                .clone(),
+                .authorized_key()
+                .unwrap()
+                .controller_principal_id,
             other_station,
         )));
         let error = verify_public_agent_fixture(

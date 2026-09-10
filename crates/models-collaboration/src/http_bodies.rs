@@ -2660,39 +2660,6 @@ impl From<DevicePairingNonce> for String {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum DevicePairingChallengeTranscriptKind {
-    #[serde(rename = "ak.device-pairing.challenge.v1")]
-    ServerMediated,
-}
-
-impl DevicePairingChallengeTranscriptKind {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::ServerMediated => "ak.device-pairing.challenge.v1",
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DevicePairingChallengeProof {
-    pub transcript: DevicePairingChallengeTranscriptKind,
-    /// Device-local key selector — an `ak:device:` id, **not** a DID URL.
-    ///
-    /// Deliberately not named `verification_method`: every other field of that
-    /// name in the protocol resolves to the Arkret verification-method DID URL
-    /// profile (`did-usage-and-verification.md` §2.2.1), and carrying a typed
-    /// device id under that name was the one counterexample. Reusing the old
-    /// name for this value is a hard reject.
-    pub kid: DeviceId,
-    pub signature_algorithm: NonEmptyString,
-    pub transcript_digest: Hash,
-    pub signature: Base64UrlString,
-}
-
 /// The only target-device authority for accepted-device pairing key material.
 ///
 /// This closed object travels out of band. It is deliberately not a field of
@@ -2701,7 +2668,7 @@ pub struct DevicePairingChallengeProof {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct DevicePairingTargetAttestation {
+pub struct DevicePairingTargetProof {
     pub device_id: DeviceId,
     pub device_public_key_did: DidKey,
     pub hpke_key: NonEmptyString,
@@ -2723,7 +2690,7 @@ pub enum DevicePairingTargetKeyAlgorithm {
 /// This type is intentionally not serializable, so unsigned attestations cannot
 /// accidentally leave the device.
 #[derive(Clone, Debug)]
-pub struct UnsignedDevicePairingTargetAttestation {
+pub struct UnsignedDevicePairingTargetProof {
     device_id: DeviceId,
     device_public_key_did: DidKey,
     hpke_key: NonEmptyString,
@@ -2731,7 +2698,7 @@ pub struct UnsignedDevicePairingTargetAttestation {
     pairing_challenge_transcript_digest: Hash,
 }
 
-impl UnsignedDevicePairingTargetAttestation {
+impl UnsignedDevicePairingTargetProof {
     pub fn new(
         device_id: DeviceId,
         device_public_key_did: DidKey,
@@ -2758,7 +2725,7 @@ impl UnsignedDevicePairingTargetAttestation {
     }
 
     pub fn signing_input(&self) -> Result<Vec<u8>> {
-        device_pairing_target_attestation_signing_input(
+        device_pairing_target_proof_signing_input(
             &self.algorithms,
             self.device_id.as_str(),
             self.device_public_key_did.as_str(),
@@ -2767,11 +2734,8 @@ impl UnsignedDevicePairingTargetAttestation {
         )
     }
 
-    pub fn attach_signature(
-        self,
-        device_signature: SignatureMaterial,
-    ) -> DevicePairingTargetAttestation {
-        DevicePairingTargetAttestation {
+    pub fn attach_signature(self, device_signature: SignatureMaterial) -> DevicePairingTargetProof {
+        DevicePairingTargetProof {
             device_id: self.device_id,
             device_public_key_did: self.device_public_key_did,
             hpke_key: self.hpke_key,
@@ -2784,14 +2748,14 @@ impl UnsignedDevicePairingTargetAttestation {
     }
 }
 
-impl DevicePairingTargetAttestation {
+impl DevicePairingTargetProof {
     pub fn signing_input(&self) -> Result<Vec<u8>> {
         if self.authorization_binding_kind != DeviceAuthorizationBindingKind::AcceptedDevice {
             return Err(WireError::Protocol(
                 "pairing target attestation must use accepted_device binding".to_owned(),
             ));
         }
-        UnsignedDevicePairingTargetAttestation::new(
+        UnsignedDevicePairingTargetProof::new(
             self.device_id.clone(),
             self.device_public_key_did.clone(),
             self.hpke_key.clone(),
@@ -2824,7 +2788,8 @@ impl DevicePairingTargetAttestation {
         .map_err(|error| WireError::Protocol(format!("invalid attested did:key: {error}")))?;
         if self.device_id.as_str() != request.new_device_pubkey.kid.as_str()
             || public_key_bytes.as_slice() != attested_key_bytes.as_slice()
-            || self.pairing_challenge_transcript_digest != request.challenge_proof.transcript_digest
+            || Some(&self.pairing_challenge_transcript_digest)
+                != payload.pairing_challenge_transcript_digest.as_ref()
             || payload.device_id != self.device_id
             || payload.device_public_key_did.as_str() != self.device_public_key_did.as_str()
             || payload.hpke_key != self.hpke_key
@@ -2845,7 +2810,7 @@ impl DevicePairingTargetAttestation {
     }
 }
 
-fn device_pairing_target_attestation_signing_input(
+fn device_pairing_target_proof_signing_input(
     algorithms: &[NonEmptyString],
     device_id: &str,
     device_public_key_did: &str,
@@ -2882,7 +2847,6 @@ fn device_pairing_target_attestation_signing_input(
 pub struct AccountDevicePairRequestBody {
     pub pairing_code: DevicePairingCode,
     pub new_device_pubkey: PublicKey,
-    pub challenge_proof: DevicePairingChallengeProof,
     pub authorize_event: EventInitialSubmission,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<NonEmptyString>,
