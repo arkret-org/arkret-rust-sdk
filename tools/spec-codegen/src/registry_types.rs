@@ -472,7 +472,7 @@ fn generate_security_strings(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     )?;
 
     output.push_str(
-        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ProofContextDescriptor {\n    pub id: ProofContextId,\n    pub context: &'static str,\n    pub object_family: &'static str,\n    pub consumer_operation: Option<&'static str>,\n    pub binding_fields: &'static [&'static str],\n    pub schema_ref: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ExporterLabelDescriptor {\n    pub id: ExporterLabelId,\n    pub label: &'static str,\n    pub primitive: Option<&'static str>,\n    pub context_fields: &'static [&'static str],\n    pub output_bytes: &'static str,\n    pub empty_context_forbidden: bool,\n    pub forbid_reuse_with: &'static [&'static str],\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct AlgorithmSuiteDescriptor {\n    pub canonical_id: &'static str,\n    pub status: &'static str,\n    pub role: &'static str,\n    pub profile_gate: Option<&'static str>,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsExtensionDescriptor {\n    pub name: &'static str,\n    pub codepoint: &'static str,\n    pub status: &'static str,\n    pub profile_id: &'static str,\n}\n\npub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[\n",
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ProofContextDescriptor {\n    pub id: ProofContextId,\n    pub context: &'static str,\n    pub object_family: &'static str,\n    pub consumer_operation: Option<&'static str>,\n    pub binding_fields: &'static [&'static str],\n    pub schema_ref: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ExporterLabelDescriptor {\n    pub id: ExporterLabelId,\n    pub label: &'static str,\n    pub primitive: Option<&'static str>,\n    pub context_fields: &'static [&'static str],\n    pub output_bytes: &'static str,\n    pub empty_context_forbidden: bool,\n    pub forbid_reuse_with: &'static [&'static str],\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct AlgorithmSuiteDescriptor {\n    pub canonical_id: &'static str,\n    pub status: &'static str,\n    pub role: &'static str,\n    pub profile_gate: Option<&'static str>,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsExtensionDescriptor {\n    pub name: &'static str,\n    pub codepoint: &'static str,\n    pub status: &'static str,\n    pub profile_id: Option<&'static str>,\n    pub rejection_error: Option<&'static str>,\n}\n\npub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[\n",
     );
     for row in &proof {
         let binding_fields = strings(row, "binding_fields")?;
@@ -517,11 +517,12 @@ fn generate_security_strings(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     for row in mls_extensions {
         writeln!(
             output,
-            "    MlsExtensionDescriptor {{\n        name: {},\n        codepoint: {},\n        status: {},\n        profile_id: {},\n    }},",
+            "    MlsExtensionDescriptor {{\n        name: {},\n        codepoint: {},\n        status: {},\n        profile_id: {},\n        rejection_error: {},\n    }},",
             rust_string(string(row, "name")?),
             rust_string(&value_as_string(field(row, "codepoint")?, "codepoint")?),
             rust_string(string(row, "status")?),
-            rust_string(string(row, "profile_id")?)
+            option_string(row.get("profile_id").and_then(Value::as_str)),
+            option_string(row.get("rejection_error").and_then(Value::as_str))
         )?;
     }
     output.push_str("];\n\npub fn proof_context(value: &str) -> Option<&'static ProofContextDescriptor> {\n    ProofContextId::from_wire(value).map(proof_context_descriptor)\n}\n\npub const fn proof_context_descriptor(id: ProofContextId) -> &'static ProofContextDescriptor {\n    &PROOF_CONTEXTS[id as usize]\n}\n\npub fn exporter_label(value: &str) -> Option<&'static ExporterLabelDescriptor> {\n    ExporterLabelId::from_wire(value).map(exporter_label_descriptor)\n}\n\npub const fn exporter_label_descriptor(id: ExporterLabelId) -> &'static ExporterLabelDescriptor {\n    &EXPORTER_LABELS[id as usize]\n}\n");

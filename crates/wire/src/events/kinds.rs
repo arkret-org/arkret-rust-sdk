@@ -222,6 +222,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         EventKind::ContainerMoveItem
         | EventKind::ContainerRebalance
         | EventKind::RelationCreate
+        | EventKind::RelationResolve
         | EventKind::RelationTombstone
         | EventKind::RelationUpdate => EventProductClass::Relation,
         EventKind::RsvpSet => EventProductClass::Strand,

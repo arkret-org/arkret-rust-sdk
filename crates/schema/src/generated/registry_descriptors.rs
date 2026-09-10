@@ -2,13 +2,13 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886 Input: registry/
-//! capability-action-registry.json; version=2026-09-07.1;
-//! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Input: registry/
-//! schema-registry.json; version=2026-09-10.16;
-//! sha256=f0b3f14fdf5cfbe1748b4950f1849e400fb67009900d837514437c316fc6cc61 Input: registry/
+//! capability-action-registry.json; version=2026-09-10.18;
+//! sha256=92bb8d82019adc647d18c12c476f3044eb6642fd443dd890c947b6fffc874274 Input: registry/
+//! schema-registry.json; version=2026-09-10.19;
+//! sha256=b14ee87c8e50b5a25fa44bbda559aba71b90ef26cb18d32819a2ec21eb0c6dc7 Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.2;
 //! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=208, account_data_patterns=24
+//! special_forms=14, actions=163, schemas=224, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2149,6 +2149,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_UPGRADE,
             event_kind_str::REDACTION,
             event_kind_str::RELATION_CREATE,
+            event_kind_str::RELATION_RESOLVE,
             event_kind_str::RELATION_TOMBSTONE,
             event_kind_str::RELATION_UPDATE,
             event_kind_str::SCHEMA_DEFINE,
@@ -2257,6 +2258,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.upgrade",
             "ak.receipt.broadcast",
             "ak.relation.create",
+            "ak.relation.resolve",
             "ak.relation.tombstone",
             "ak.relation.update",
             "ak.rsvp.set",
@@ -2423,6 +2425,20 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::RELATION_CREATE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: false,
+        subject_only: false,
+        reducer_only: false,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RelationResolve,
+        category: "strand",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::RELATION_RESOLVE],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
@@ -3130,14 +3146,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-signer-evidence.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIGNING_KEY_BINDING_V1,
         file: "schemas/agent-signing-key-binding.schema.json",
     },
@@ -3322,14 +3330,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/identity-resolution.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-        file: "schemas/current-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
-        file: "schemas/current-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
     },
@@ -3416,6 +3416,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::FILE_TRANSFER_V1,
         file: "schemas/file-transfer.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::GENESIS_NOTARY_OUTCOME_V1,
+        file: "schemas/genesis-notary-binding.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::GENESIS_NOTARY_REQUEST_V1,
+        file: "schemas/genesis-notary-binding.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::GRANT_CONSTRAINT_V1,
@@ -3526,6 +3534,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/media-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::MEDIA_SERVICE_BINDING_OUTCOME_V1,
+        file: "schemas/media-service-binding-result.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MEDIA_SERVICE_BINDING_REQUEST_V1,
+        file: "schemas/media-service-binding-result.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::MEMBER_IDENTITY_V1,
         file: "schemas/member-identity.schema.json",
     },
@@ -3584,6 +3600,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::PATCH_V1,
         file: "schemas/patch.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
+        file: "schemas/current-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
+        file: "schemas/current-signer-evidence-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PERSONAL_PRODUCTIVITY_V1,
@@ -3650,8 +3674,56 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-genesis.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::REALM_JOIN_CANDIDATE_V1,
         file: "schemas/realm-join-candidate.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PEER_PREVIEW_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PREPARE_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_PREPARE_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1,
+        file: "schemas/realm-join-intake.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_JOIN_SELF_PREVIEW_REQUEST_V1,
+        file: "schemas/realm-join-intake.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_LINK_OPERATIONS_V1,
@@ -3772,6 +3844,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SIGNAL_TYPING_V1,
         file: "schemas/signal-typing.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SIGNER_KEY_QUERY_OUTCOME_V1,
+        file: "schemas/signer-key-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SIGNER_KEY_QUERY_REQUEST_V1,
+        file: "schemas/signer-key-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SPACE_V1,

@@ -52,18 +52,16 @@ fn station_http_core_advertises_service_resolution() {
     ));
 }
 
+/// The self hop left this bundle when signer-key results were consolidated into
+/// `ak.self.signer_keys.read.resolve.v1`; only the peer query hop remains here.
 #[test]
-fn station_current_signer_evidence_bundle_closes_both_query_hops() {
+fn station_current_signer_evidence_bundle_closes_the_peer_query_hop() {
     let bundle =
         operation_bundle_descriptor("ak.operation_bundle.station.current_signer_evidence.v1")
             .expect("Station current-signer evidence bundle must be registered");
 
     assert_eq!(bundle.service_kind, ServiceKind::Station);
-    assert_eq!(bundle.members.len(), 2);
-    assert!(bundle.contains(
-        ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
-        BindingKind::HttpJson,
-    ));
+    assert_eq!(bundle.members.len(), 1);
     assert!(bundle.contains(
         ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
         BindingKind::HttpJson,

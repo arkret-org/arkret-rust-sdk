@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-10.5;
-//! sha256=48ae2729af73af6110f3bde63a738e88a034a9481fb0fda593ad81193ab2c3fa
-//! Entries: reason_codes=423
+//! Input: registry/error-code-registry.json; version=2026-09-10.10;
+//! sha256=2a528ab379ee14b2eba920cc499359124958179b7ccabee4c173cbf1472e677e
+//! Entries: reason_codes=434
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -115,11 +115,13 @@ pub enum ReasonCode {
     DeltaContainsDataEvent,
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
+    DeviceDirectoryUnavailable,
     DeviceGenerationFenced,
     DeviceMessageIdConflict,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
+    DeviceResultUnavailable,
     DirectConversationBindingInvalid,
     DirectConversationFoundingUnitInvalid,
     DirectConversationInviteForbidden,
@@ -336,7 +338,11 @@ pub enum ReasonCode {
     ReducerProjectionFailed,
     RefsTooLarge,
     RelationAlreadyTerminal,
+    RelationConflictBaselineStale,
     RelationConflictFanoutExceeded,
+    RelationConflictGroupNotVisible,
+    RelationConflictMaterialPageGap,
+    RelationConflictMaterialUnavailable,
     RelationKindContainsDerived,
     RelationKindWatchesDerived,
     RelaxedWindowExceedsCeiling,
@@ -393,6 +399,11 @@ pub enum ReasonCode {
     StructureDepthExceeded,
     Superseded,
     SupersededByRepairing,
+    ThirdPartyInviteAcceptanceMissing,
+    ThirdPartyInviteAcceptanceStale,
+    ThirdPartyInviteMaterialMismatch,
+    ThirdPartyInviteProvisioningAlreadyBound,
+    ThirdPartyInviteProvisioningExpired,
     ThirdPartyInviteTokenInQuery,
     TokenExpired,
     TokenIssuerUnauthorised,
@@ -572,12 +583,14 @@ impl ReasonCode {
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
+    pub const DEVICE_DIRECTORY_UNAVAILABLE: &'static str = "device_directory_unavailable";
     pub const DEVICE_GENERATION_FENCED: &'static str = "device_generation_fenced";
     pub const DEVICE_MESSAGE_ID_CONFLICT: &'static str = "device_message_id_conflict";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
+    pub const DEVICE_RESULT_UNAVAILABLE: &'static str = "device_result_unavailable";
     pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
         "direct_conversation_binding_invalid";
     pub const DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID: &'static str =
@@ -840,7 +853,14 @@ impl ReasonCode {
     pub const REDUCER_PROJECTION_FAILED: &'static str = "reducer_projection_failed";
     pub const REFS_TOO_LARGE: &'static str = "refs_too_large";
     pub const RELATION_ALREADY_TERMINAL: &'static str = "relation_already_terminal";
+    pub const RELATION_CONFLICT_BASELINE_STALE: &'static str = "relation_conflict_baseline_stale";
     pub const RELATION_CONFLICT_FANOUT_EXCEEDED: &'static str = "relation_conflict_fanout_exceeded";
+    pub const RELATION_CONFLICT_GROUP_NOT_VISIBLE: &'static str =
+        "relation_conflict_group_not_visible";
+    pub const RELATION_CONFLICT_MATERIAL_PAGE_GAP: &'static str =
+        "relation_conflict_material_page_gap";
+    pub const RELATION_CONFLICT_MATERIAL_UNAVAILABLE: &'static str =
+        "relation_conflict_material_unavailable";
     pub const RELATION_KIND_CONTAINS_DERIVED: &'static str = "relation_kind_contains_derived";
     pub const RELATION_KIND_WATCHES_DERIVED: &'static str = "relation_kind_watches_derived";
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
@@ -900,6 +920,16 @@ impl ReasonCode {
     pub const STRUCTURE_DEPTH_EXCEEDED: &'static str = "structure_depth_exceeded";
     pub const SUPERSEDED: &'static str = "superseded";
     pub const SUPERSEDED_BY_REPAIRING: &'static str = "superseded_by_repairing";
+    pub const THIRD_PARTY_INVITE_ACCEPTANCE_MISSING: &'static str =
+        "third_party_invite_acceptance_missing";
+    pub const THIRD_PARTY_INVITE_ACCEPTANCE_STALE: &'static str =
+        "third_party_invite_acceptance_stale";
+    pub const THIRD_PARTY_INVITE_MATERIAL_MISMATCH: &'static str =
+        "third_party_invite_material_mismatch";
+    pub const THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND: &'static str =
+        "third_party_invite_provisioning_already_bound";
+    pub const THIRD_PARTY_INVITE_PROVISIONING_EXPIRED: &'static str =
+        "third_party_invite_provisioning_expired";
     pub const THIRD_PARTY_INVITE_TOKEN_IN_QUERY: &'static str = "third_party_invite_token_in_query";
     pub const TOKEN_EXPIRED: &'static str = "token_expired";
     pub const TOKEN_ISSUER_UNAUTHORISED: &'static str = "token_issuer_unauthorised";
@@ -1069,11 +1099,13 @@ impl ReasonCode {
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
             }
+            Self::DeviceDirectoryUnavailable => Self::DEVICE_DIRECTORY_UNAVAILABLE,
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
             Self::DeviceMessageIdConflict => Self::DEVICE_MESSAGE_ID_CONFLICT,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
             Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
+            Self::DeviceResultUnavailable => Self::DEVICE_RESULT_UNAVAILABLE,
             Self::DirectConversationBindingInvalid => Self::DIRECT_CONVERSATION_BINDING_INVALID,
             Self::DirectConversationFoundingUnitInvalid => {
                 Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID
@@ -1330,7 +1362,13 @@ impl ReasonCode {
             Self::ReducerProjectionFailed => Self::REDUCER_PROJECTION_FAILED,
             Self::RefsTooLarge => Self::REFS_TOO_LARGE,
             Self::RelationAlreadyTerminal => Self::RELATION_ALREADY_TERMINAL,
+            Self::RelationConflictBaselineStale => Self::RELATION_CONFLICT_BASELINE_STALE,
             Self::RelationConflictFanoutExceeded => Self::RELATION_CONFLICT_FANOUT_EXCEEDED,
+            Self::RelationConflictGroupNotVisible => Self::RELATION_CONFLICT_GROUP_NOT_VISIBLE,
+            Self::RelationConflictMaterialPageGap => Self::RELATION_CONFLICT_MATERIAL_PAGE_GAP,
+            Self::RelationConflictMaterialUnavailable => {
+                Self::RELATION_CONFLICT_MATERIAL_UNAVAILABLE
+            }
             Self::RelationKindContainsDerived => Self::RELATION_KIND_CONTAINS_DERIVED,
             Self::RelationKindWatchesDerived => Self::RELATION_KIND_WATCHES_DERIVED,
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
@@ -1389,6 +1427,15 @@ impl ReasonCode {
             Self::StructureDepthExceeded => Self::STRUCTURE_DEPTH_EXCEEDED,
             Self::Superseded => Self::SUPERSEDED,
             Self::SupersededByRepairing => Self::SUPERSEDED_BY_REPAIRING,
+            Self::ThirdPartyInviteAcceptanceMissing => Self::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING,
+            Self::ThirdPartyInviteAcceptanceStale => Self::THIRD_PARTY_INVITE_ACCEPTANCE_STALE,
+            Self::ThirdPartyInviteMaterialMismatch => Self::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,
+            Self::ThirdPartyInviteProvisioningAlreadyBound => {
+                Self::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND
+            }
+            Self::ThirdPartyInviteProvisioningExpired => {
+                Self::THIRD_PARTY_INVITE_PROVISIONING_EXPIRED
+            }
             Self::ThirdPartyInviteTokenInQuery => Self::THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
             Self::TokenExpired => Self::TOKEN_EXPIRED,
             Self::TokenIssuerUnauthorised => Self::TOKEN_ISSUER_UNAUTHORISED,
@@ -1564,11 +1611,13 @@ impl ReasonCode {
             Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
             }
+            Self::DEVICE_DIRECTORY_UNAVAILABLE => Self::DeviceDirectoryUnavailable,
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
             Self::DEVICE_MESSAGE_ID_CONFLICT => Self::DeviceMessageIdConflict,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
             Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
+            Self::DEVICE_RESULT_UNAVAILABLE => Self::DeviceResultUnavailable,
             Self::DIRECT_CONVERSATION_BINDING_INVALID => Self::DirectConversationBindingInvalid,
             Self::DIRECT_CONVERSATION_FOUNDING_UNIT_INVALID => {
                 Self::DirectConversationFoundingUnitInvalid
@@ -1825,7 +1874,13 @@ impl ReasonCode {
             Self::REDUCER_PROJECTION_FAILED => Self::ReducerProjectionFailed,
             Self::REFS_TOO_LARGE => Self::RefsTooLarge,
             Self::RELATION_ALREADY_TERMINAL => Self::RelationAlreadyTerminal,
+            Self::RELATION_CONFLICT_BASELINE_STALE => Self::RelationConflictBaselineStale,
             Self::RELATION_CONFLICT_FANOUT_EXCEEDED => Self::RelationConflictFanoutExceeded,
+            Self::RELATION_CONFLICT_GROUP_NOT_VISIBLE => Self::RelationConflictGroupNotVisible,
+            Self::RELATION_CONFLICT_MATERIAL_PAGE_GAP => Self::RelationConflictMaterialPageGap,
+            Self::RELATION_CONFLICT_MATERIAL_UNAVAILABLE => {
+                Self::RelationConflictMaterialUnavailable
+            }
             Self::RELATION_KIND_CONTAINS_DERIVED => Self::RelationKindContainsDerived,
             Self::RELATION_KIND_WATCHES_DERIVED => Self::RelationKindWatchesDerived,
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
@@ -1884,6 +1939,15 @@ impl ReasonCode {
             Self::STRUCTURE_DEPTH_EXCEEDED => Self::StructureDepthExceeded,
             Self::SUPERSEDED => Self::Superseded,
             Self::SUPERSEDED_BY_REPAIRING => Self::SupersededByRepairing,
+            Self::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING => Self::ThirdPartyInviteAcceptanceMissing,
+            Self::THIRD_PARTY_INVITE_ACCEPTANCE_STALE => Self::ThirdPartyInviteAcceptanceStale,
+            Self::THIRD_PARTY_INVITE_MATERIAL_MISMATCH => Self::ThirdPartyInviteMaterialMismatch,
+            Self::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND => {
+                Self::ThirdPartyInviteProvisioningAlreadyBound
+            }
+            Self::THIRD_PARTY_INVITE_PROVISIONING_EXPIRED => {
+                Self::ThirdPartyInviteProvisioningExpired
+            }
             Self::THIRD_PARTY_INVITE_TOKEN_IN_QUERY => Self::ThirdPartyInviteTokenInQuery,
             Self::TOKEN_EXPIRED => Self::TokenExpired,
             Self::TOKEN_ISSUER_UNAUTHORISED => Self::TokenIssuerUnauthorised,
@@ -2539,6 +2603,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "A non-bootstrap ak.device.authorize event was submitted outside the principal's bound principal_control Realm, or the Realm purpose/profile/created_by does not match the device owner and issuer principal. Reducer MUST fail closed. See zh/identity/key-management.md §4.1.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::DEVICE_DIRECTORY_UNAVAILABLE,
+        applies_to: &["service_call"],
+        description: "The requester's own Station could not obtain or verify a current attested device projection for an exact (account_id, device_id) on this call. It reports only the fetching Station's result, never target state, and MUST NOT be rendered as an omitted row or an empty device list. See zh/crypto-media/device-lifecycle.md section 8.2.1.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_GENERATION_FENCED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a reason_code and a top-level service code (see codes[]).",
@@ -2562,6 +2631,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DEVICE_REANCHOR_FRONTIER_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The re-anchor pre_fence_basis is null despite an accepted Seal, omits or adds frontier leaves, has unreconstructable roots, or lost the admission-time frontier compare-and-swap race. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::DEVICE_RESULT_UNAVAILABLE,
+        applies_to: &["service_call"],
+        description: "Single non-enumerating device directory failure. Absent, invisible, unrelated, revoked, fenced and policy-denied targets MUST all use this one value so a caller cannot probe device existence or revocation state. See zh/crypto-media/device-lifecycle.md section 8.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DIRECT_CONVERSATION_BINDING_INVALID,
@@ -3653,9 +3727,29 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "`ak.relation.tombstone` / `ak.relation.update` / equivalent Relation write rejected because the target Relation is already in the terminal state `tombstone`. In particular, `ak.relation.update` targeting a tombstoned Relation MUST be rejected with this reason_code.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::RELATION_CONFLICT_BASELINE_STALE,
+        applies_to: &["event_envelope", "state_resolution"],
+        description: "Sub-reason for failed_precondition when an `ak.relation.resolve` Control Move does not match the complete candidate set the receiver rebuilds for `payload.conflict_domain` under the Move's frozen predecessor view: a missing member, a superseded head, a duplicate, a member of another domain, a `member_count` / `members_digest` mismatch, or a `retain_candidate` naming an event outside the covered baseline. The Move is rejected with zero cell writes; the author re-reads the material through `ak.self.relation_conflicts.read.candidates.v1` and signs a new Move. A byte-identical replay of an already accepted resolve stays idempotent by EventId and MUST NOT be reported with this reason. See zh/models/relation.md §6.4.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::RELATION_CONFLICT_FANOUT_EXCEEDED,
         applies_to: &["state_resolution"],
-        description: "The number of concurrent candidates (winner + losers) under a single Relation dedupe key exceeded the conflict fanout limit (v1 public profile: 16, aligned with the sibling fork limit in zh/models/event-and-patch.md §2.6). The reducer rejects the whole candidate group rather than retaining unbounded loser records; reconvergence requires a repair Event/Control Move on the latest CBS query basis. See zh/models/relation.md §6.",
+        description: "The number of concurrent candidates (winner + losers) under a single Relation dedupe key exceeded the ordinary conflict fanout limit (v1 public profile: 16, aligned with the sibling fork limit in zh/models/event-and-patch.md §2.6). The reducer keeps every retained candidate and projects no active edge for the whole group; it MUST NOT truncate to the first 16. The limit bounds the ordinary diagnostic and projection surface only, never the repair evidence: reconvergence is one `ak.relation.resolve` covering the complete baseline read through `ak.self.relation_conflicts.read.candidates.v1`, whose `member_count` is not bounded by 16. Once a domain is in this state under the writer's own signed basis, a further `ak.relation.create` into it is rejected with this same reason so the repair material stays bounded by what already converged. See zh/models/relation.md §6.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::RELATION_CONFLICT_GROUP_NOT_VISIBLE,
+        applies_to: &["service_call", "state_resolution"],
+        description: "Sub-reason for failed_precondition when the caller may read only part of a Relation conflict domain. The Station MUST NOT return a shortened candidate list, a partial baseline or a partial diagnostic, and MUST NOT widen the caller's scope to complete the group; the caller cannot author a complete-set resolution it is not allowed to see. See zh/models/relation.md §6.2.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::RELATION_CONFLICT_MATERIAL_PAGE_GAP,
+        applies_to: &["service_call", "client_sync"],
+        description: "Sub-reason for failed_precondition when the paged Relation conflict repair material does not verify as one chain: a skipped or duplicated `page_index`, a `prev_page_digest` that does not equal the previous page's `page_digest`, a non-final page shorter than `page_size`, or a group that changed mid-read. No page takes effect on its own, so the reader discards the partial material and restarts at `page_index=0`. See zh/models/relation.md §6.3.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::RELATION_CONFLICT_MATERIAL_UNAVAILABLE,
+        applies_to: &["service_call"],
+        description: "Sub-reason for failed_precondition when a Station cannot serve the complete frozen Relation conflict repair material it is required to retain. The read fails closed; the Station MUST NOT answer with a truncated list, a recomputed subset or a baseline it cannot back with every member. See zh/models/relation.md §6.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RELATION_KIND_CONTAINS_DERIVED,
@@ -3942,6 +4036,31 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Reducer audit reason stamped when one controller-signed ak.agent.key.authorize runtime-replacement Event atomically observe-removes every prior active authorization dot named by its exact supersedes[] set and adds the new authorization. No synthetic ak.agent.key.revoke Event is authored. Sessions issued from superseded keys MUST fail closed within the revocation freshness window. See zh/identity/key-management.md §3.6.1.",
     },
     ReasonCodeDescriptor {
+        code: ReasonCode::THIRD_PARTY_INVITE_ACCEPTANCE_MISSING,
+        applies_to: &["service_call", "auth_decision"],
+        description: "Sub-reason for failed_precondition when ak.open.third_party_invite.command.activate.v1 has no usable Station acceptance attestation for the named invite: the attestation signature does not verify against the attesting Station service identity, its audience or verification_id is not this service, or it does not attest a pending ak.invite.third_party on an accepted basis. A caller-reported invite id, a caller-computed invite digest, an Event signature or an HTTP success MUST NOT be accepted in its place. See zh/sync/third-party-invites.md section 7.5.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::THIRD_PARTY_INVITE_ACCEPTANCE_STALE,
+        applies_to: &["service_call", "auth_decision"],
+        description: "Sub-reason for failed_precondition when a Station acceptance attestation is structurally valid but its observation is older than the target Realm revocation_freshness_window_ms, or its own expires_at has passed. The verification service MUST fail closed rather than bind private invite material on a basis that may have missed ak.invite.revoke, inviter capability loss or an allowlist removal. See zh/sync/third-party-invites.md section 7.5.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,
+        applies_to: &["service_call", "auth_decision"],
+        description: "Sub-reason for failed_precondition when the accepted ak.invite.third_party attested for activation differs from the frozen provisioning record in author, Realm, expiry or any member of the public third_party_invite object. The verification service MUST refuse rather than adopt the accepted cell values, because its private token, salt or pepper and ephemeral key were generated for the frozen material. See zh/sync/third-party-invites.md section 7.5.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::THIRD_PARTY_INVITE_PROVISIONING_ALREADY_BOUND,
+        applies_to: &["service_call", "auth_decision"],
+        description: "Sub-reason for duplicate_conflict when an activation attempt would bind an already bound provisioning record to a different invite, Realm or author. One provisioning record binds to exactly one invite for its whole life; the service MUST NOT rebind, rotate the ephemeral key or reissue the token. See zh/sync/third-party-invites.md section 7.5.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::THIRD_PARTY_INVITE_PROVISIONING_EXPIRED,
+        applies_to: &["service_call", "auth_decision"],
+        description: "Sub-reason for failed_precondition when activation is attempted after the provisioning record activation_expires_at. The record is cleaned up on the zh/sync/third-party-invites.md section 6.1 schedule and MUST NOT be revived; the inviter provisions fresh material and authors a new invite.",
+    },
+    ReasonCodeDescriptor {
         code: ReasonCode::THIRD_PARTY_INVITE_TOKEN_IN_QUERY,
         applies_to: &["service_call", "auth_decision"],
         description: "A 3PID invite claim arrived with the invite_token sourced from a URL query string or path segment instead of from a URL fragment or out-of-band code, in violation of zh/sync/third-party-invites.md §3.2. The verification service MUST reject and SHOULD invalidate the token to prevent referer / log replay.",
@@ -4023,8 +4142,8 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_FEATURE,
-        applies_to: &["service_call", "feature_discovery"],
-        description: "Implementation does not advertise the feature requested; caller SHOULD downgrade or pick another peer.",
+        applies_to: &["service_call", "feature_discovery", "event_envelope"],
+        description: "Implementation does not advertise the feature requested; caller SHOULD downgrade or pick another peer. At event_envelope scope it is the per-item reason_code for a structurally valid Event whose wire feature or producer class has no admissible v1 form, including an ak.mls.proposal whose decoded RFC 9420 sender class or Proposal type is a status=unsupported row of mls-proposal-admission-registry.json. Dual-registered with the top-level service code.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::UNSUPPORTED_HPKE_SUITE,

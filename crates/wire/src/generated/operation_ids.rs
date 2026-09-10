@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-10.16;
-//! sha256=d2d558d0657ae6cef648b39b65bfb0a0c8db63ec36c56db75efb7a6e2aab8c47 Entries: registered=240
+//! Input: registry/operation-registry.json; version=2026-09-10.24;
+//! sha256=73b9206bda603f87d40b93e0836b93bd95f74414d08168279e8d6e6d17a110ab Entries: registered=253
 
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +72,10 @@ pub enum ServiceOperationId {
     OpenMimiReadIdentifiersV1,
     OpenMimiReadProviderDirectoryV1,
     OpenServiceReadResolutionV1,
+    OpenThirdPartyInviteCommandActivateV1,
     OpenThirdPartyInviteCommandPresentTokenV1,
+    OpenThirdPartyInviteCommandProvisionV1,
+    OpenThirdPartyInviteReadProvisioningStatusV1,
     PeerAccountStatusCommandSubmitV1,
     PeerAccountStatusReadResolveV1,
     PeerContactsCommandSubmitV1,
@@ -90,9 +93,13 @@ pub enum ServiceOperationId {
     PeerInvitesCommandSubmitV1,
     PeerKeysKeypackagesCommandClaimV1,
     PeerKeysKeypackagesReadClaimV1,
+    PeerKeysReadLookupV1,
     PeerMlsReadGroupStateMaterialV1,
     PeerOrganizationRecoveryArchivesCommandReplicateV1,
     PeerPrincipalGenesisCommandSubmitV1,
+    PeerRealmJoinReadApplicationStatusV1,
+    PeerRealmJoinReadBootstrapV1,
+    PeerRealmJoinReadPreviewV1,
     PeerSealsReadFrontierV1,
     PeerSealsReadGovernanceDependenciesV1,
     PeerSealsReadMlsGovernanceProofV1,
@@ -138,7 +145,6 @@ pub enum ServiceOperationId {
     SelfAgentSidecarCommandEnsureV1,
     SelfAgentSidecarReadListV1,
     SelfAgentSidecarResourceGetV1,
-    SelfAgentSignerEvidenceReadResolveV1,
     SelfAppletCommandInstallV1,
     SelfAppletCommandRevokeV1,
     SelfAppletGhostCommandPreviewV1,
@@ -176,7 +182,6 @@ pub enum ServiceOperationId {
     SelfControlProposalDecisionsCommandSubmitV1,
     SelfControlProposalDecisionsReadGetV1,
     SelfCurrentPrincipalReadResolveV1,
-    SelfCurrentSignerEvidenceReadResolveV1,
     SelfDeviceMessagesCommandAckV1,
     SelfDeviceMessagesCommandSendV1,
     SelfDeviceMessagesReadListV1,
@@ -189,6 +194,7 @@ pub enum ServiceOperationId {
     SelfEventsReadScanV1,
     SelfEventsResourceGetV1,
     SelfEventsStreamSubscribeV1,
+    SelfGenesisNotaryReadResolveV1,
     SelfHistoryKeyRequestsCommandCreateV1,
     SelfHistoryKeyRequestsReadListV1,
     SelfHistoryKeyResponsesCommandAckV1,
@@ -215,6 +221,7 @@ pub enum ServiceOperationId {
     SelfKeysReadLookupV1,
     SelfKeysUploadCreateV1,
     SelfMediaReadIceConfigV1,
+    SelfMediaServiceBindingReadResolveV1,
     SelfModerationCommandReportV1,
     SelfModerationReadFrankingSealObservationV1,
     SelfMorphReadListV1,
@@ -224,10 +231,14 @@ pub enum ServiceOperationId {
     SelfReadCursorReadListV1,
     SelfRealmReadExportV1,
     SelfRealmResourceGetV1,
+    SelfRealmJoinCommandPrepareV1,
+    SelfRealmJoinReadApplicationStatusV1,
+    SelfRealmJoinReadPreviewV1,
     SelfRealmLinkReadEffectivePolicyV1,
     SelfRealmLinkReadListV1,
     SelfRealmOrganizationReadListV1,
     SelfRealmStateSnapshotReadManifestHeadV1,
+    SelfRelationConflictsReadCandidatesV1,
     SelfSealsCommandPrepareV1,
     SelfSealsCommandSubmitV1,
     SelfSealsReadFrontierV1,
@@ -245,8 +256,10 @@ pub enum ServiceOperationId {
     SelfSecurityTransactionResourceGetV1,
     SelfSignalCommandSendV1,
     SelfSignalStreamSubscribeV1,
+    SelfSignerKeysReadResolveV1,
     SelfSpaceReadListV1,
     SelfStrandReadListV1,
+    SelfThirdPartyInviteReadAcceptanceAttestationV1,
     ServerReadDescribeV1,
 }
 
@@ -315,7 +328,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::OPEN_MIMI_READ_IDENTIFIERS_V1,
     ServiceOperationId::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
     ServiceOperationId::OPEN_SERVICE_READ_RESOLUTION_V1,
+    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1,
     ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1,
+    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1,
+    ServiceOperationId::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
     ServiceOperationId::PEER_CONTACTS_COMMAND_SUBMIT_V1,
@@ -333,9 +349,13 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::PEER_INVITES_COMMAND_SUBMIT_V1,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
     ServiceOperationId::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1,
+    ServiceOperationId::PEER_KEYS_READ_LOOKUP_V1,
     ServiceOperationId::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
     ServiceOperationId::PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE_V1,
     ServiceOperationId::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1,
+    ServiceOperationId::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1,
+    ServiceOperationId::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
+    ServiceOperationId::PEER_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::PEER_SEALS_READ_FRONTIER_V1,
     ServiceOperationId::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
     ServiceOperationId::PEER_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
@@ -381,7 +401,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1,
     ServiceOperationId::SELF_AGENT_SIDECAR_READ_LIST_V1,
     ServiceOperationId::SELF_AGENT_SIDECAR_RESOURCE_GET_V1,
-    ServiceOperationId::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE_V1,
     ServiceOperationId::SELF_APPLET_COMMAND_INSTALL_V1,
     ServiceOperationId::SELF_APPLET_COMMAND_REVOKE_V1,
     ServiceOperationId::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
@@ -419,7 +438,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1,
     ServiceOperationId::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
-    ServiceOperationId::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -432,6 +450,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
     ServiceOperationId::SELF_EVENTS_RESOURCE_GET_V1,
     ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
+    ServiceOperationId::SELF_GENESIS_NOTARY_READ_RESOLVE_V1,
     ServiceOperationId::SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE_V1,
     ServiceOperationId::SELF_HISTORY_KEY_REQUESTS_READ_LIST_V1,
     ServiceOperationId::SELF_HISTORY_KEY_RESPONSES_COMMAND_ACK_V1,
@@ -458,6 +477,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
     ServiceOperationId::SELF_KEYS_UPLOAD_CREATE_V1,
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
+    ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT_V1,
     ServiceOperationId::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1,
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
@@ -467,10 +487,14 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_READ_EXPORT_V1,
     ServiceOperationId::SELF_REALM_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
+    ServiceOperationId::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1,
+    ServiceOperationId::SELF_REALM_JOIN_READ_PREVIEW_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1,
     ServiceOperationId::SELF_REALM_LINK_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_ORGANIZATION_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1,
+    ServiceOperationId::SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_SEALS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
@@ -488,8 +512,10 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
     ServiceOperationId::SELF_SIGNAL_COMMAND_SEND_V1,
     ServiceOperationId::SELF_SIGNAL_STREAM_SUBSCRIBE_V1,
+    ServiceOperationId::SELF_SIGNER_KEYS_READ_RESOLVE_V1,
     ServiceOperationId::SELF_SPACE_READ_LIST_V1,
     ServiceOperationId::SELF_STRAND_READ_LIST_V1,
+    ServiceOperationId::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1,
     ServiceOperationId::SERVER_READ_DESCRIBE_V1,
 ];
 
@@ -600,7 +626,10 @@ impl ServiceOperationId {
         Self::OpenMimiReadIdentifiersV1,
         Self::OpenMimiReadProviderDirectoryV1,
         Self::OpenServiceReadResolutionV1,
+        Self::OpenThirdPartyInviteCommandActivateV1,
         Self::OpenThirdPartyInviteCommandPresentTokenV1,
+        Self::OpenThirdPartyInviteCommandProvisionV1,
+        Self::OpenThirdPartyInviteReadProvisioningStatusV1,
         Self::PeerAccountStatusCommandSubmitV1,
         Self::PeerAccountStatusReadResolveV1,
         Self::PeerContactsCommandSubmitV1,
@@ -618,9 +647,13 @@ impl ServiceOperationId {
         Self::PeerInvitesCommandSubmitV1,
         Self::PeerKeysKeypackagesCommandClaimV1,
         Self::PeerKeysKeypackagesReadClaimV1,
+        Self::PeerKeysReadLookupV1,
         Self::PeerMlsReadGroupStateMaterialV1,
         Self::PeerOrganizationRecoveryArchivesCommandReplicateV1,
         Self::PeerPrincipalGenesisCommandSubmitV1,
+        Self::PeerRealmJoinReadApplicationStatusV1,
+        Self::PeerRealmJoinReadBootstrapV1,
+        Self::PeerRealmJoinReadPreviewV1,
         Self::PeerSealsReadFrontierV1,
         Self::PeerSealsReadGovernanceDependenciesV1,
         Self::PeerSealsReadMlsGovernanceProofV1,
@@ -666,7 +699,6 @@ impl ServiceOperationId {
         Self::SelfAgentSidecarCommandEnsureV1,
         Self::SelfAgentSidecarReadListV1,
         Self::SelfAgentSidecarResourceGetV1,
-        Self::SelfAgentSignerEvidenceReadResolveV1,
         Self::SelfAppletCommandInstallV1,
         Self::SelfAppletCommandRevokeV1,
         Self::SelfAppletGhostCommandPreviewV1,
@@ -704,7 +736,6 @@ impl ServiceOperationId {
         Self::SelfControlProposalDecisionsCommandSubmitV1,
         Self::SelfControlProposalDecisionsReadGetV1,
         Self::SelfCurrentPrincipalReadResolveV1,
-        Self::SelfCurrentSignerEvidenceReadResolveV1,
         Self::SelfDeviceMessagesCommandAckV1,
         Self::SelfDeviceMessagesCommandSendV1,
         Self::SelfDeviceMessagesReadListV1,
@@ -717,6 +748,7 @@ impl ServiceOperationId {
         Self::SelfEventsReadScanV1,
         Self::SelfEventsResourceGetV1,
         Self::SelfEventsStreamSubscribeV1,
+        Self::SelfGenesisNotaryReadResolveV1,
         Self::SelfHistoryKeyRequestsCommandCreateV1,
         Self::SelfHistoryKeyRequestsReadListV1,
         Self::SelfHistoryKeyResponsesCommandAckV1,
@@ -743,6 +775,7 @@ impl ServiceOperationId {
         Self::SelfKeysReadLookupV1,
         Self::SelfKeysUploadCreateV1,
         Self::SelfMediaReadIceConfigV1,
+        Self::SelfMediaServiceBindingReadResolveV1,
         Self::SelfModerationCommandReportV1,
         Self::SelfModerationReadFrankingSealObservationV1,
         Self::SelfMorphReadListV1,
@@ -752,10 +785,14 @@ impl ServiceOperationId {
         Self::SelfReadCursorReadListV1,
         Self::SelfRealmReadExportV1,
         Self::SelfRealmResourceGetV1,
+        Self::SelfRealmJoinCommandPrepareV1,
+        Self::SelfRealmJoinReadApplicationStatusV1,
+        Self::SelfRealmJoinReadPreviewV1,
         Self::SelfRealmLinkReadEffectivePolicyV1,
         Self::SelfRealmLinkReadListV1,
         Self::SelfRealmOrganizationReadListV1,
         Self::SelfRealmStateSnapshotReadManifestHeadV1,
+        Self::SelfRelationConflictsReadCandidatesV1,
         Self::SelfSealsCommandPrepareV1,
         Self::SelfSealsCommandSubmitV1,
         Self::SelfSealsReadFrontierV1,
@@ -773,8 +810,10 @@ impl ServiceOperationId {
         Self::SelfSecurityTransactionResourceGetV1,
         Self::SelfSignalCommandSendV1,
         Self::SelfSignalStreamSubscribeV1,
+        Self::SelfSignerKeysReadResolveV1,
         Self::SelfSpaceReadListV1,
         Self::SelfStrandReadListV1,
+        Self::SelfThirdPartyInviteReadAcceptanceAttestationV1,
         Self::ServerReadDescribeV1,
     ];
 
@@ -897,8 +936,14 @@ impl ServiceOperationId {
     pub const OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1: &'static str =
         "ak.open.mimi.read.provider_directory.v1";
     pub const OPEN_SERVICE_READ_RESOLUTION_V1: &'static str = "ak.open.service.read.resolution.v1";
+    pub const OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1: &'static str =
+        "ak.open.third_party_invite.command.activate.v1";
     pub const OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1: &'static str =
         "ak.open.third_party_invite.command.present_token.v1";
+    pub const OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1: &'static str =
+        "ak.open.third_party_invite.command.provision.v1";
+    pub const OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1: &'static str =
+        "ak.open.third_party_invite.read.provisioning_status.v1";
     pub const PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1: &'static str =
         "ak.peer.account_status.command.submit.v1";
     pub const PEER_ACCOUNT_STATUS_READ_RESOLVE_V1: &'static str =
@@ -927,12 +972,18 @@ impl ServiceOperationId {
         "ak.peer.keys.keypackages.command.claim.v1";
     pub const PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1: &'static str =
         "ak.peer.keys.keypackages.read.claim.v1";
+    pub const PEER_KEYS_READ_LOOKUP_V1: &'static str = "ak.peer.keys.read.lookup.v1";
     pub const PEER_MLS_READ_GROUP_STATE_MATERIAL_V1: &'static str =
         "ak.peer.mls.read.group_state_material.v1";
     pub const PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE_V1: &'static str =
         "ak.peer.organization_recovery_archives.command.replicate.v1";
     pub const PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1: &'static str =
         "ak.peer.principal_genesis.command.submit.v1";
+    pub const PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1: &'static str =
+        "ak.peer.realm_join.read.application_status.v1";
+    pub const PEER_REALM_JOIN_READ_BOOTSTRAP_V1: &'static str =
+        "ak.peer.realm_join.read.bootstrap.v1";
+    pub const PEER_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.peer.realm_join.read.preview.v1";
     pub const PEER_SEALS_READ_FRONTIER_V1: &'static str = "ak.peer.seals.read.frontier.v1";
     pub const PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1: &'static str =
         "ak.peer.seals.read.governance_dependencies.v1";
@@ -1009,8 +1060,6 @@ impl ServiceOperationId {
     pub const SELF_AGENT_SIDECAR_READ_LIST_V1: &'static str = "ak.self.agent.sidecar.read.list.v1";
     pub const SELF_AGENT_SIDECAR_RESOURCE_GET_V1: &'static str =
         "ak.self.agent.sidecar.resource.get.v1";
-    pub const SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE_V1: &'static str =
-        "ak.self.agent_signer_evidence.read.resolve.v1";
     pub const SELF_APPLET_COMMAND_INSTALL_V1: &'static str = "ak.self.applet.command.install.v1";
     pub const SELF_APPLET_COMMAND_REVOKE_V1: &'static str = "ak.self.applet.command.revoke.v1";
     pub const SELF_APPLET_GHOST_COMMAND_PREVIEW_V1: &'static str =
@@ -1065,8 +1114,6 @@ impl ServiceOperationId {
         "ak.self.control_proposal_decisions.read.get.v1";
     pub const SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1: &'static str =
         "ak.self.current_principal.read.resolve.v1";
-    pub const SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1: &'static str =
-        "ak.self.current_signer_evidence.read.resolve.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK_V1: &'static str =
         "ak.self.device_messages.command.ack.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_SEND_V1: &'static str =
@@ -1084,6 +1131,8 @@ impl ServiceOperationId {
     pub const SELF_EVENTS_READ_SCAN_V1: &'static str = "ak.self.events.read.scan.v1";
     pub const SELF_EVENTS_RESOURCE_GET_V1: &'static str = "ak.self.events.resource.get.v1";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
+    pub const SELF_GENESIS_NOTARY_READ_RESOLVE_V1: &'static str =
+        "ak.self.genesis_notary.read.resolve.v1";
     pub const SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE_V1: &'static str =
         "ak.self.history_key_requests.command.create.v1";
     pub const SELF_HISTORY_KEY_REQUESTS_READ_LIST_V1: &'static str =
@@ -1131,6 +1180,8 @@ impl ServiceOperationId {
     pub const SELF_KEYS_READ_LOOKUP_V1: &'static str = "ak.self.keys.read.lookup.v1";
     pub const SELF_KEYS_UPLOAD_CREATE_V1: &'static str = "ak.self.keys.upload.create.v1";
     pub const SELF_MEDIA_READ_ICE_CONFIG_V1: &'static str = "ak.self.media.read.ice_config.v1";
+    pub const SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1: &'static str =
+        "ak.self.media_service_binding.read.resolve.v1";
     pub const SELF_MODERATION_COMMAND_REPORT_V1: &'static str =
         "ak.self.moderation.command.report.v1";
     pub const SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1: &'static str =
@@ -1144,6 +1195,11 @@ impl ServiceOperationId {
     pub const SELF_READ_CURSOR_READ_LIST_V1: &'static str = "ak.self.read_cursor.read.list.v1";
     pub const SELF_REALM_READ_EXPORT_V1: &'static str = "ak.self.realm.read.export.v1";
     pub const SELF_REALM_RESOURCE_GET_V1: &'static str = "ak.self.realm.resource.get.v1";
+    pub const SELF_REALM_JOIN_COMMAND_PREPARE_V1: &'static str =
+        "ak.self.realm_join.command.prepare.v1";
+    pub const SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1: &'static str =
+        "ak.self.realm_join.read.application_status.v1";
+    pub const SELF_REALM_JOIN_READ_PREVIEW_V1: &'static str = "ak.self.realm_join.read.preview.v1";
     pub const SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1: &'static str =
         "ak.self.realm_link.read.effective_policy.v1";
     pub const SELF_REALM_LINK_READ_LIST_V1: &'static str = "ak.self.realm_link.read.list.v1";
@@ -1151,6 +1207,8 @@ impl ServiceOperationId {
         "ak.self.realm_organization.read.list.v1";
     pub const SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1: &'static str =
         "ak.self.realm_state_snapshot.read.manifest_head.v1";
+    pub const SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1: &'static str =
+        "ak.self.relation_conflicts.read.candidates.v1";
     pub const SELF_SEALS_COMMAND_PREPARE_V1: &'static str = "ak.self.seals.command.prepare.v1";
     pub const SELF_SEALS_COMMAND_SUBMIT_V1: &'static str = "ak.self.seals.command.submit.v1";
     pub const SELF_SEALS_READ_FRONTIER_V1: &'static str = "ak.self.seals.read.frontier.v1";
@@ -1179,8 +1237,12 @@ impl ServiceOperationId {
         "ak.self.security_transaction.resource.get.v1";
     pub const SELF_SIGNAL_COMMAND_SEND_V1: &'static str = "ak.self.signal.command.send.v1";
     pub const SELF_SIGNAL_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.signal.stream.subscribe.v1";
+    pub const SELF_SIGNER_KEYS_READ_RESOLVE_V1: &'static str =
+        "ak.self.signer_keys.read.resolve.v1";
     pub const SELF_SPACE_READ_LIST_V1: &'static str = "ak.self.space.read.list.v1";
     pub const SELF_STRAND_READ_LIST_V1: &'static str = "ak.self.strand.read.list.v1";
+    pub const SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1: &'static str =
+        "ak.self.third_party_invite.read.acceptance_attestation.v1";
     pub const SERVER_READ_DESCRIBE_V1: &'static str = "ak.server.read.describe.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -1297,8 +1359,17 @@ impl ServiceOperationId {
             Self::OpenMimiReadIdentifiersV1 => Self::OPEN_MIMI_READ_IDENTIFIERS_V1,
             Self::OpenMimiReadProviderDirectoryV1 => Self::OPEN_MIMI_READ_PROVIDER_DIRECTORY_V1,
             Self::OpenServiceReadResolutionV1 => Self::OPEN_SERVICE_READ_RESOLUTION_V1,
+            Self::OpenThirdPartyInviteCommandActivateV1 => {
+                Self::OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1
+            }
             Self::OpenThirdPartyInviteCommandPresentTokenV1 => {
                 Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1
+            }
+            Self::OpenThirdPartyInviteCommandProvisionV1 => {
+                Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1
+            }
+            Self::OpenThirdPartyInviteReadProvisioningStatusV1 => {
+                Self::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1
             }
             Self::PeerAccountStatusCommandSubmitV1 => Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1,
             Self::PeerAccountStatusReadResolveV1 => Self::PEER_ACCOUNT_STATUS_READ_RESOLVE_V1,
@@ -1325,6 +1396,7 @@ impl ServiceOperationId {
             Self::PeerInvitesCommandSubmitV1 => Self::PEER_INVITES_COMMAND_SUBMIT_V1,
             Self::PeerKeysKeypackagesCommandClaimV1 => Self::PEER_KEYS_KEYPACKAGES_COMMAND_CLAIM_V1,
             Self::PeerKeysKeypackagesReadClaimV1 => Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1,
+            Self::PeerKeysReadLookupV1 => Self::PEER_KEYS_READ_LOOKUP_V1,
             Self::PeerMlsReadGroupStateMaterialV1 => Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1,
             Self::PeerOrganizationRecoveryArchivesCommandReplicateV1 => {
                 Self::PEER_ORGANIZATION_RECOVERY_ARCHIVES_COMMAND_REPLICATE_V1
@@ -1332,6 +1404,11 @@ impl ServiceOperationId {
             Self::PeerPrincipalGenesisCommandSubmitV1 => {
                 Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1
             }
+            Self::PeerRealmJoinReadApplicationStatusV1 => {
+                Self::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1
+            }
+            Self::PeerRealmJoinReadBootstrapV1 => Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1,
+            Self::PeerRealmJoinReadPreviewV1 => Self::PEER_REALM_JOIN_READ_PREVIEW_V1,
             Self::PeerSealsReadFrontierV1 => Self::PEER_SEALS_READ_FRONTIER_V1,
             Self::PeerSealsReadGovernanceDependenciesV1 => {
                 Self::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1
@@ -1413,9 +1490,6 @@ impl ServiceOperationId {
             Self::SelfAgentSidecarCommandEnsureV1 => Self::SELF_AGENT_SIDECAR_COMMAND_ENSURE_V1,
             Self::SelfAgentSidecarReadListV1 => Self::SELF_AGENT_SIDECAR_READ_LIST_V1,
             Self::SelfAgentSidecarResourceGetV1 => Self::SELF_AGENT_SIDECAR_RESOURCE_GET_V1,
-            Self::SelfAgentSignerEvidenceReadResolveV1 => {
-                Self::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE_V1
-            }
             Self::SelfAppletCommandInstallV1 => Self::SELF_APPLET_COMMAND_INSTALL_V1,
             Self::SelfAppletCommandRevokeV1 => Self::SELF_APPLET_COMMAND_REVOKE_V1,
             Self::SelfAppletGhostCommandPreviewV1 => Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1,
@@ -1463,9 +1537,6 @@ impl ServiceOperationId {
                 Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1
             }
             Self::SelfCurrentPrincipalReadResolveV1 => Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
-            Self::SelfCurrentSignerEvidenceReadResolveV1 => {
-                Self::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1
-            }
             Self::SelfDeviceMessagesCommandAckV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
             Self::SelfDeviceMessagesCommandSendV1 => Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
             Self::SelfDeviceMessagesReadListV1 => Self::SELF_DEVICE_MESSAGES_READ_LIST_V1,
@@ -1480,6 +1551,7 @@ impl ServiceOperationId {
             Self::SelfEventsReadScanV1 => Self::SELF_EVENTS_READ_SCAN_V1,
             Self::SelfEventsResourceGetV1 => Self::SELF_EVENTS_RESOURCE_GET_V1,
             Self::SelfEventsStreamSubscribeV1 => Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
+            Self::SelfGenesisNotaryReadResolveV1 => Self::SELF_GENESIS_NOTARY_READ_RESOLVE_V1,
             Self::SelfHistoryKeyRequestsCommandCreateV1 => {
                 Self::SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE_V1
             }
@@ -1526,6 +1598,9 @@ impl ServiceOperationId {
             Self::SelfKeysReadLookupV1 => Self::SELF_KEYS_READ_LOOKUP_V1,
             Self::SelfKeysUploadCreateV1 => Self::SELF_KEYS_UPLOAD_CREATE_V1,
             Self::SelfMediaReadIceConfigV1 => Self::SELF_MEDIA_READ_ICE_CONFIG_V1,
+            Self::SelfMediaServiceBindingReadResolveV1 => {
+                Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
+            }
             Self::SelfModerationCommandReportV1 => Self::SELF_MODERATION_COMMAND_REPORT_V1,
             Self::SelfModerationReadFrankingSealObservationV1 => {
                 Self::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1
@@ -1539,6 +1614,11 @@ impl ServiceOperationId {
             Self::SelfReadCursorReadListV1 => Self::SELF_READ_CURSOR_READ_LIST_V1,
             Self::SelfRealmReadExportV1 => Self::SELF_REALM_READ_EXPORT_V1,
             Self::SelfRealmResourceGetV1 => Self::SELF_REALM_RESOURCE_GET_V1,
+            Self::SelfRealmJoinCommandPrepareV1 => Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
+            Self::SelfRealmJoinReadApplicationStatusV1 => {
+                Self::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1
+            }
+            Self::SelfRealmJoinReadPreviewV1 => Self::SELF_REALM_JOIN_READ_PREVIEW_V1,
             Self::SelfRealmLinkReadEffectivePolicyV1 => {
                 Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1
             }
@@ -1546,6 +1626,9 @@ impl ServiceOperationId {
             Self::SelfRealmOrganizationReadListV1 => Self::SELF_REALM_ORGANIZATION_READ_LIST_V1,
             Self::SelfRealmStateSnapshotReadManifestHeadV1 => {
                 Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1
+            }
+            Self::SelfRelationConflictsReadCandidatesV1 => {
+                Self::SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1
             }
             Self::SelfSealsCommandPrepareV1 => Self::SELF_SEALS_COMMAND_PREPARE_V1,
             Self::SelfSealsCommandSubmitV1 => Self::SELF_SEALS_COMMAND_SUBMIT_V1,
@@ -1580,8 +1663,12 @@ impl ServiceOperationId {
             }
             Self::SelfSignalCommandSendV1 => Self::SELF_SIGNAL_COMMAND_SEND_V1,
             Self::SelfSignalStreamSubscribeV1 => Self::SELF_SIGNAL_STREAM_SUBSCRIBE_V1,
+            Self::SelfSignerKeysReadResolveV1 => Self::SELF_SIGNER_KEYS_READ_RESOLVE_V1,
             Self::SelfSpaceReadListV1 => Self::SELF_SPACE_READ_LIST_V1,
             Self::SelfStrandReadListV1 => Self::SELF_STRAND_READ_LIST_V1,
+            Self::SelfThirdPartyInviteReadAcceptanceAttestationV1 => {
+                Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1
+            }
             Self::ServerReadDescribeV1 => Self::SERVER_READ_DESCRIBE_V1,
         }
     }
@@ -1726,8 +1813,17 @@ impl ServiceOperationId {
                 Some(Self::OpenMimiReadProviderDirectoryV1)
             }
             Self::OPEN_SERVICE_READ_RESOLUTION_V1 => Some(Self::OpenServiceReadResolutionV1),
+            Self::OPEN_THIRD_PARTY_INVITE_COMMAND_ACTIVATE_V1 => {
+                Some(Self::OpenThirdPartyInviteCommandActivateV1)
+            }
             Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PRESENT_TOKEN_V1 => {
                 Some(Self::OpenThirdPartyInviteCommandPresentTokenV1)
+            }
+            Self::OPEN_THIRD_PARTY_INVITE_COMMAND_PROVISION_V1 => {
+                Some(Self::OpenThirdPartyInviteCommandProvisionV1)
+            }
+            Self::OPEN_THIRD_PARTY_INVITE_READ_PROVISIONING_STATUS_V1 => {
+                Some(Self::OpenThirdPartyInviteReadProvisioningStatusV1)
             }
             Self::PEER_ACCOUNT_STATUS_COMMAND_SUBMIT_V1 => {
                 Some(Self::PeerAccountStatusCommandSubmitV1)
@@ -1764,6 +1860,7 @@ impl ServiceOperationId {
                 Some(Self::PeerKeysKeypackagesCommandClaimV1)
             }
             Self::PEER_KEYS_KEYPACKAGES_READ_CLAIM_V1 => Some(Self::PeerKeysKeypackagesReadClaimV1),
+            Self::PEER_KEYS_READ_LOOKUP_V1 => Some(Self::PeerKeysReadLookupV1),
             Self::PEER_MLS_READ_GROUP_STATE_MATERIAL_V1 => {
                 Some(Self::PeerMlsReadGroupStateMaterialV1)
             }
@@ -1773,6 +1870,11 @@ impl ServiceOperationId {
             Self::PEER_PRINCIPAL_GENESIS_COMMAND_SUBMIT_V1 => {
                 Some(Self::PeerPrincipalGenesisCommandSubmitV1)
             }
+            Self::PEER_REALM_JOIN_READ_APPLICATION_STATUS_V1 => {
+                Some(Self::PeerRealmJoinReadApplicationStatusV1)
+            }
+            Self::PEER_REALM_JOIN_READ_BOOTSTRAP_V1 => Some(Self::PeerRealmJoinReadBootstrapV1),
+            Self::PEER_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::PeerRealmJoinReadPreviewV1),
             Self::PEER_SEALS_READ_FRONTIER_V1 => Some(Self::PeerSealsReadFrontierV1),
             Self::PEER_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1 => {
                 Some(Self::PeerSealsReadGovernanceDependenciesV1)
@@ -1866,9 +1968,6 @@ impl ServiceOperationId {
             }
             Self::SELF_AGENT_SIDECAR_READ_LIST_V1 => Some(Self::SelfAgentSidecarReadListV1),
             Self::SELF_AGENT_SIDECAR_RESOURCE_GET_V1 => Some(Self::SelfAgentSidecarResourceGetV1),
-            Self::SELF_AGENT_SIGNER_EVIDENCE_READ_RESOLVE_V1 => {
-                Some(Self::SelfAgentSignerEvidenceReadResolveV1)
-            }
             Self::SELF_APPLET_COMMAND_INSTALL_V1 => Some(Self::SelfAppletCommandInstallV1),
             Self::SELF_APPLET_COMMAND_REVOKE_V1 => Some(Self::SelfAppletCommandRevokeV1),
             Self::SELF_APPLET_GHOST_COMMAND_PREVIEW_V1 => {
@@ -1930,9 +2029,6 @@ impl ServiceOperationId {
             Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1 => {
                 Some(Self::SelfCurrentPrincipalReadResolveV1)
             }
-            Self::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1 => {
-                Some(Self::SelfCurrentSignerEvidenceReadResolveV1)
-            }
             Self::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1 => Some(Self::SelfDeviceMessagesCommandAckV1),
             Self::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1 => {
                 Some(Self::SelfDeviceMessagesCommandSendV1)
@@ -1949,6 +2045,7 @@ impl ServiceOperationId {
             Self::SELF_EVENTS_READ_SCAN_V1 => Some(Self::SelfEventsReadScanV1),
             Self::SELF_EVENTS_RESOURCE_GET_V1 => Some(Self::SelfEventsResourceGetV1),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1 => Some(Self::SelfEventsStreamSubscribeV1),
+            Self::SELF_GENESIS_NOTARY_READ_RESOLVE_V1 => Some(Self::SelfGenesisNotaryReadResolveV1),
             Self::SELF_HISTORY_KEY_REQUESTS_COMMAND_CREATE_V1 => {
                 Some(Self::SelfHistoryKeyRequestsCommandCreateV1)
             }
@@ -2013,6 +2110,9 @@ impl ServiceOperationId {
             Self::SELF_KEYS_READ_LOOKUP_V1 => Some(Self::SelfKeysReadLookupV1),
             Self::SELF_KEYS_UPLOAD_CREATE_V1 => Some(Self::SelfKeysUploadCreateV1),
             Self::SELF_MEDIA_READ_ICE_CONFIG_V1 => Some(Self::SelfMediaReadIceConfigV1),
+            Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1 => {
+                Some(Self::SelfMediaServiceBindingReadResolveV1)
+            }
             Self::SELF_MODERATION_COMMAND_REPORT_V1 => Some(Self::SelfModerationCommandReportV1),
             Self::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1 => {
                 Some(Self::SelfModerationReadFrankingSealObservationV1)
@@ -2026,6 +2126,11 @@ impl ServiceOperationId {
             Self::SELF_READ_CURSOR_READ_LIST_V1 => Some(Self::SelfReadCursorReadListV1),
             Self::SELF_REALM_READ_EXPORT_V1 => Some(Self::SelfRealmReadExportV1),
             Self::SELF_REALM_RESOURCE_GET_V1 => Some(Self::SelfRealmResourceGetV1),
+            Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1 => Some(Self::SelfRealmJoinCommandPrepareV1),
+            Self::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1 => {
+                Some(Self::SelfRealmJoinReadApplicationStatusV1)
+            }
+            Self::SELF_REALM_JOIN_READ_PREVIEW_V1 => Some(Self::SelfRealmJoinReadPreviewV1),
             Self::SELF_REALM_LINK_READ_EFFECTIVE_POLICY_V1 => {
                 Some(Self::SelfRealmLinkReadEffectivePolicyV1)
             }
@@ -2035,6 +2140,9 @@ impl ServiceOperationId {
             }
             Self::SELF_REALM_STATE_SNAPSHOT_READ_MANIFEST_HEAD_V1 => {
                 Some(Self::SelfRealmStateSnapshotReadManifestHeadV1)
+            }
+            Self::SELF_RELATION_CONFLICTS_READ_CANDIDATES_V1 => {
+                Some(Self::SelfRelationConflictsReadCandidatesV1)
             }
             Self::SELF_SEALS_COMMAND_PREPARE_V1 => Some(Self::SelfSealsCommandPrepareV1),
             Self::SELF_SEALS_COMMAND_SUBMIT_V1 => Some(Self::SelfSealsCommandSubmitV1),
@@ -2071,8 +2179,12 @@ impl ServiceOperationId {
             }
             Self::SELF_SIGNAL_COMMAND_SEND_V1 => Some(Self::SelfSignalCommandSendV1),
             Self::SELF_SIGNAL_STREAM_SUBSCRIBE_V1 => Some(Self::SelfSignalStreamSubscribeV1),
+            Self::SELF_SIGNER_KEYS_READ_RESOLVE_V1 => Some(Self::SelfSignerKeysReadResolveV1),
             Self::SELF_SPACE_READ_LIST_V1 => Some(Self::SelfSpaceReadListV1),
             Self::SELF_STRAND_READ_LIST_V1 => Some(Self::SelfStrandReadListV1),
+            Self::SELF_THIRD_PARTY_INVITE_READ_ACCEPTANCE_ATTESTATION_V1 => {
+                Some(Self::SelfThirdPartyInviteReadAcceptanceAttestationV1)
+            }
             Self::SERVER_READ_DESCRIBE_V1 => Some(Self::ServerReadDescribeV1),
             _ => None,
         }
@@ -3620,6 +3732,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenThirdPartyInviteCommandActivateV1,
+        http_method: "POST",
+        http_path: "/_arkret/open/third-party-invites/activate",
+        grpc: Some("OpenThirdPartyInvite/Activate"),
+        mq: Some("open.third_party_invite.command.activate"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("object_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_activation_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_activation_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_only_the_verification_service_private_invite_binding_and_delivery_intent_no_event_is_authored",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
         http_method: "POST",
         http_path: "/_arkret/open/third-party-invites/present",
@@ -3645,6 +3784,55 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenThirdPartyInviteCommandProvisionV1,
+        http_method: "POST",
+        http_path: "/_arkret/open/third-party-invites/provision",
+        grpc: Some("OpenThirdPartyInvite/Provision"),
+        mq: Some("open.third_party_invite.command.provision"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_provision_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_provision_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.open.third_party_invite.command.provision.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
+        ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "mints_and_persists_only_verification_service_private_invite_material_no_event_is_authored",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::OpenThirdPartyInviteReadProvisioningStatusV1,
+        http_method: "POST",
+        http_path: "/_arkret/open/third-party-invites/status",
+        grpc: Some("OpenThirdPartyInvite/ProvisioningStatus"),
+        mq: Some("open.third_party_invite.query.provisioning_status"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_provisioning_status_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerAccountStatusCommandSubmitV1,
@@ -4036,6 +4224,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerKeysReadLookupV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/keys/query",
+        grpc: Some("PeerKeys/Query"),
+        mq: Some("peer.keys.query.lookup"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/peer_keys_query_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/keys-operations.schema.json#/$defs/peer_keys_query_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
         http_method: "POST",
         http_path: "/_arkret/peer/mls/group-state-material",
@@ -4107,6 +4315,66 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: None,
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerRealmJoinReadApplicationStatusV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/realm-joins/application-status",
+        grpc: Some("PeerRealmJoin/ApplicationStatus"),
+        mq: Some("peer.realm_join.query.application_status"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/peer_application_status_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/peer_application_status_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerRealmJoinReadBootstrapV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/realm-joins/bootstrap",
+        grpc: Some("PeerRealmJoin/Bootstrap"),
+        mq: Some("peer.realm_join.query.bootstrap"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/peer_bootstrap_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::PeerRealmJoinReadPreviewV1,
+        http_method: "POST",
+        http_path: "/_arkret/peer/realm-joins/preview",
+        grpc: Some("PeerRealmJoin/Preview"),
+        mq: Some("peer.realm_join.query.preview"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/peer_preview_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/peer_preview_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::PeerSealsReadFrontierV1,
@@ -5088,26 +5356,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfAgentSignerEvidenceReadResolveV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/agent-signer-evidence/query",
-        grpc: Some("SelfAgentSignerEvidence/Resolve"),
-        mq: Some("self.agent_signer_evidence.query.resolve"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(65536),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfAppletCommandInstallV1,
         http_method: "POST",
         http_path: "/_arkret/self/applets/install",
@@ -5974,26 +6222,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/current-signer-evidence/query",
-        grpc: Some("SelfCurrentSignerEvidence/Resolve"),
-        mq: Some("self.current_signer_evidence.query.resolve"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(65536),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/current-signer-evidence-operations.schema.json#/$defs/self_query_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/current-signer-evidence-operations.schema.json#/$defs/self_query_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfDeviceMessagesCommandAckV1,
         http_method: "POST",
         http_path: "/_arkret/self/device_messages/ack",
@@ -6238,6 +6466,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some("schemas/events-subscribe-frame.schema.json"),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfGenesisNotaryReadResolveV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/genesis-notary/query",
+        grpc: Some("SelfGenesisNotary/Resolve"),
+        mq: Some("self.genesis_notary.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/genesis-notary-binding.schema.json#/$defs/genesis_notary_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/genesis-notary-binding.schema.json#/$defs/genesis_notary_outcome",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -6794,7 +7042,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfKeys/Query"),
         mq: Some("self.keys.query.lookup"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
+        max_canonical_body_bytes: Some(65536),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
@@ -6845,6 +7093,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             "schemas/media-operations.schema.json#/$defs/media_ice_config_request_body",
         ),
         response_schema_ref: Some("schemas/ice-config-response.schema.json"),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfMediaServiceBindingReadResolveV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/media-service-bindings/query",
+        grpc: Some("SelfMediaServiceBinding/Resolve"),
+        mq: Some("self.media_service_binding.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/media-service-binding-result.schema.json#/$defs/media_service_binding_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/media-service-binding-result.schema.json#/$defs/media_service_binding_outcome",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },
@@ -7037,6 +7305,73 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinCommandPrepareV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/realm-joins/prepare",
+        grpc: Some("SelfRealmJoin/Prepare"),
+        mq: Some("self.realm_join.command.prepare"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/self_prepare_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/self_prepare_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "stores_bounded_verified_join_intake_state_but_does_not_commit_an_event_or_membership",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinReadApplicationStatusV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/realm-joins/application-status",
+        grpc: Some("SelfRealmJoin/ApplicationStatus"),
+        mq: Some("self.realm_join.query.application_status"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/self_application_status_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/self_application_status_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmJoinReadPreviewV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/realm-joins/preview",
+        grpc: Some("SelfRealmJoin/Preview"),
+        mq: Some("self.realm_join.query.preview"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/self_preview_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/realm-join-intake.schema.json#/$defs/self_preview_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfRealmLinkReadEffectivePolicyV1,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/effective-policy",
@@ -7107,6 +7442,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRelationConflictsReadCandidatesV1,
+        http_method: "QUERY",
+        http_path: "/_arkret/self/relation-conflicts/candidates",
+        grpc: Some("SelfRelationConflicts/Candidates"),
+        mq: Some("self.relation_conflicts.read.candidates"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/relation.schema.json#/$defs/relation_conflict_candidates_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/relation.schema.json#/$defs/relation_conflict_candidates_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSealsCommandPrepareV1,
         http_method: "POST",
         http_path: "/_arkret/self/seals/prepare",
@@ -7128,7 +7483,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "stores_content_addressed_governance_dependencies_but_does_not_commit_an_event_or_seal",
+                "stores_content_addressed_governance_dependencies_and_the_durable_signing_slot_fence_but_does_not_commit_an_event_or_seal",
             ),
             branch_contract_json: None,
         }),
@@ -7456,6 +7811,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSignerKeysReadResolveV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/signer-keys/query",
+        grpc: Some("SelfSignerKeys/Resolve"),
+        mq: Some("self.signer_keys.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/signer-key-operations.schema.json#/$defs/query_request_body",
+        ),
+        response_schema_ref: Some("schemas/signer-key-operations.schema.json#/$defs/query_outcome"),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSpaceReadListV1,
         http_method: "GET",
         http_path: "/_arkret/self/realms/{realm_id}/spaces",
@@ -7487,6 +7860,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         request_schema_ref: None,
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/ProjectionStrandList",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/third-party-invites/acceptance-attestation",
+        grpc: Some("SelfThirdPartyInvite/AcceptanceAttestation"),
+        mq: Some("self.third_party_invite.query.acceptance_attestation"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,

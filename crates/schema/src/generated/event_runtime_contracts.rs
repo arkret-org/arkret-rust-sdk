@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-10.13;
-//! sha256=36dc077367af8c36ca381b98d81757e4be6c14e52713fcd9b942bcd19d53193b Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-10.15;
+//! sha256=c49386a6728fa47ea5bb1bc3ccbcd90e0b9a155723268ed0807569ea0a2b8005 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
-//! Entries: active_events=170, pre_state_requirements=8
+//! Entries: active_events=171, pre_state_requirements=8
 
 use arkret_wire::{
     CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
@@ -1183,6 +1183,13 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         reducer_input: true,
         id_source: Some(EventIdSource::EventDerived),
         derived_id_kinds: &["relation"],
+        pre_state_requirements: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::RELATION_RESOLVE,
+        reducer_input: true,
+        id_source: None,
+        derived_id_kinds: &[],
         pre_state_requirements: &[],
     },
     EventRuntimeContractDescriptor {

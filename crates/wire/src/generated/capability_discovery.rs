@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-10.16;
-//! sha256=06b083b9338d1e25a389939c2c3abcf37de455244ef310dc4c9ad985eae00503
+//! Input: registry/contract-registry.json; version=2026-09-10.25;
+//! sha256=73f05ee94d42e61795ad9a8e142da754b196cc2a933e76993bce78a0afe55412
 //! Entries: operation_bundles=36 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -558,16 +558,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.current_signer_evidence.v1",
         service_kind: ServiceKind::Station,
-        members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-        ],
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.describe.v1",
@@ -731,11 +725,27 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::PeerKeysReadLookupV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::PeerPrincipalGenesisCommandSubmitV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerRealmJoinReadApplicationStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerRealmJoinReadBootstrapV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::PeerRealmJoinReadPreviewV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -788,10 +798,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfActorProfileReadResolveV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::SelfAgentSignerEvidenceReadResolveV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -967,6 +973,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfGenesisNotaryReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfIdentityReadResolutionAuditV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1051,6 +1061,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfMediaServiceBindingReadResolveV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfModerationCommandReportV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1083,6 +1097,18 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRealmJoinCommandPrepareV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRealmJoinReadApplicationStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRealmJoinReadPreviewV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmLinkReadEffectivePolicyV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1096,6 +1122,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRelationConflictsReadCandidatesV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1152,6 +1182,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::SelfSignalStreamSubscribeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfSignerKeysReadResolveV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1231,10 +1265,28 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.third_party_invite_handoff.v1",
         service_kind: ServiceKind::Station,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
+        members: &[
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenThirdPartyInviteCommandActivateV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenThirdPartyInviteCommandPresentTokenV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenThirdPartyInviteCommandProvisionV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::OpenThirdPartyInviteReadProvisioningStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::SelfThirdPartyInviteReadAcceptanceAttestationV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+        ],
     },
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.station.tus_upload.v1",

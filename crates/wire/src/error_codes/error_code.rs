@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-10.5;
-//! sha256=48ae2729af73af6110f3bde63a738e88a034a9481fb0fda593ad81193ab2c3fa Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-09-10.10;
+//! sha256=2a528ab379ee14b2eba920cc499359124958179b7ccabee4c173cbf1472e677e Entries: error_codes=283
 
 use serde::{Deserialize, Serialize};
 
@@ -260,6 +260,7 @@ pub enum ErrorCode {
     SealIncomplete,
     SealRefStale,
     SealRefUnknown,
+    SealSignerSlotFenced,
     SealSignerUnauthorized,
     SelectorTooComplex,
     ServiceIdentityConflict,
@@ -558,6 +559,7 @@ impl ErrorCode {
         Self::SealIncomplete,
         Self::SealRefStale,
         Self::SealRefUnknown,
+        Self::SealSignerSlotFenced,
         Self::SealSignerUnauthorized,
         Self::SelectorTooComplex,
         Self::ServiceIdentityConflict,
@@ -874,6 +876,7 @@ impl ErrorCode {
     pub const SEAL_INCOMPLETE: &'static str = "seal_incomplete";
     pub const SEAL_REF_STALE: &'static str = "seal_ref_stale";
     pub const SEAL_REF_UNKNOWN: &'static str = "seal_ref_unknown";
+    pub const SEAL_SIGNER_SLOT_FENCED: &'static str = "seal_signer_slot_fenced";
     pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
@@ -1184,6 +1187,7 @@ impl ErrorCode {
             Self::SealIncomplete => "seal_incomplete",
             Self::SealRefStale => "seal_ref_stale",
             Self::SealRefUnknown => "seal_ref_unknown",
+            Self::SealSignerSlotFenced => "seal_signer_slot_fenced",
             Self::SealSignerUnauthorized => "seal_signer_unauthorized",
             Self::SelectorTooComplex => "selector_too_complex",
             Self::ServiceIdentityConflict => "service_identity_conflict",
@@ -1513,6 +1517,7 @@ impl ErrorCode {
             "seal_incomplete" => Some(Self::SealIncomplete),
             "seal_ref_stale" => Some(Self::SealRefStale),
             "seal_ref_unknown" => Some(Self::SealRefUnknown),
+            "seal_signer_slot_fenced" => Some(Self::SealSignerSlotFenced),
             "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
             "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
@@ -3890,6 +3895,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The supplied seal_ref or seal_basis leaf does not identify a Seal known to the receiving service for the target Realm.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::SealSignerSlotFenced,
+        type_uri: "https://arkret.org/problems/seal_signer_slot_fenced",
+        title: "Seal signer slot fenced",
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A Seal preparation request differs from the canonical request already frozen for its (realm_id, signer slot, predecessor basis) signing-slot fence, so exactly one signable body ever leaves that signing position. The exact frozen request keeps replaying its byte-identical body instead. The fence is durable protocol state: internal timeouts, lease release or expiry, cache eviction, failover and restart MUST NOT release it, because the device may already have signed the frozen body offline. Only an actually advanced predecessor basis, a formal notary rotation, an advanced signer device generation or an accepted equivocation fault opens a new signing position. See zh/authz/event-auth-state-resolution.md section 7.1.1.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::SealSignerUnauthorized,
         type_uri: "https://arkret.org/problems/seal_signer_unauthorized",
         title: "Seal signer unauthorized",
@@ -4307,7 +4322,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A required protocol feature is not supported.",
+        description: "A required protocol feature is not supported. It also carries the per-item rejection for a structurally valid Event whose producer class or wire feature has no admissible v1 form, such as an ak.mls.proposal decoded to an unsupported RFC 9420 sender class or Proposal type (mls-proposal-admission-registry.json); that case MUST NOT be reported as schema_violation. Dual-registered as a reason_code for the event_envelope scope (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedHpkeSuite,

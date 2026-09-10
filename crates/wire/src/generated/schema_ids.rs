@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-10.16;
-//! sha256=f0b3f14fdf5cfbe1748b4950f1849e400fb67009900d837514437c316fc6cc61 Entries: schema_ids=208,
-//! active=208
+//! Input: registry/schema-registry.json; version=2026-09-10.19;
+//! sha256=b14ee87c8e50b5a25fa44bbda559aba71b90ef26cb18d32819a2ec21eb0c6dc7 Entries: schema_ids=224,
+//! active=224
 
 use serde::{Deserialize, Serialize};
 
@@ -34,8 +34,6 @@ pub enum SchemaId {
     AgentSidecarViewStateV1,
     AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
-    AgentSignerEvidenceQueryOutcomeV1,
-    AgentSignerEvidenceQueryRequestV1,
     AgentSigningKeyBindingV1,
     AppletV1,
     AppletEdgeOperationsV1,
@@ -82,8 +80,6 @@ pub enum SchemaId {
     ControllerAccountGateAttestationIssueRequestV1,
     CurrentPrincipalOutcomeV1,
     CurrentPrincipalRequestV1,
-    CurrentSignerEvidenceQueryOutcomeV1,
-    CurrentSignerEvidenceQueryRequestV1,
     CursorV1,
     DeviceMessageV1,
     DevicePairingBootstrapV1,
@@ -106,6 +102,8 @@ pub enum SchemaId {
     EventsSubscribeFrameV1,
     ExtensionManifestV1,
     FileTransferV1,
+    GenesisNotaryOutcomeV1,
+    GenesisNotaryRequestV1,
     GrantConstraintV1,
     HandleClaimV1,
     HandleClaimCoreV1,
@@ -133,6 +131,8 @@ pub enum SchemaId {
     ListHandlesForSubjectResponseV1,
     MediaMetadataV1,
     MediaOperationsV1,
+    MediaServiceBindingOutcomeV1,
+    MediaServiceBindingRequestV1,
     MemberIdentityV1,
     MessageV1,
     MimiInteropV1,
@@ -148,6 +148,8 @@ pub enum SchemaId {
     ObjectAddressingV1,
     OfflinePublicationV1,
     PatchV1,
+    PeerCurrentSignerEvidenceQueryOutcomeV1,
+    PeerCurrentSignerEvidenceQueryRequestV1,
     PersonalProductivityV1,
     PinV1,
     PolicyV1,
@@ -164,7 +166,19 @@ pub enum SchemaId {
     ReadReceiptV1,
     RealmV1,
     RealmGenesisV1,
+    RealmJoinBootstrapOutcomeV1,
+    RealmJoinBootstrapRequestV1,
     RealmJoinCandidateV1,
+    RealmJoinPeerApplicationStatusOutcomeV1,
+    RealmJoinPeerApplicationStatusRequestV1,
+    RealmJoinPeerPreviewOutcomeV1,
+    RealmJoinPeerPreviewRequestV1,
+    RealmJoinPrepareOutcomeV1,
+    RealmJoinPrepareRequestV1,
+    RealmJoinSelfApplicationStatusOutcomeV1,
+    RealmJoinSelfApplicationStatusRequestV1,
+    RealmJoinSelfPreviewOutcomeV1,
+    RealmJoinSelfPreviewRequestV1,
     RealmLinkOperationsV1,
     RealmOrganizationOperationsV1,
     RealmProfileV1,
@@ -195,6 +209,8 @@ pub enum SchemaId {
     SignalRelayV1,
     SignalStreamFrameV1,
     SignalTypingV1,
+    SignerKeyQueryOutcomeV1,
+    SignerKeyQueryRequestV1,
     SpaceV1,
     StrandV1,
     StringProfilesV1,
@@ -246,8 +262,6 @@ impl SchemaId {
         Self::AgentSidecarViewStateV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
-        Self::AgentSignerEvidenceQueryOutcomeV1,
-        Self::AgentSignerEvidenceQueryRequestV1,
         Self::AgentSigningKeyBindingV1,
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
@@ -294,8 +308,6 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CurrentPrincipalOutcomeV1,
         Self::CurrentPrincipalRequestV1,
-        Self::CurrentSignerEvidenceQueryOutcomeV1,
-        Self::CurrentSignerEvidenceQueryRequestV1,
         Self::CursorV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
@@ -318,6 +330,8 @@ impl SchemaId {
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
+        Self::GenesisNotaryOutcomeV1,
+        Self::GenesisNotaryRequestV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HandleClaimCoreV1,
@@ -345,6 +359,8 @@ impl SchemaId {
         Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
+        Self::MediaServiceBindingOutcomeV1,
+        Self::MediaServiceBindingRequestV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
         Self::MimiInteropV1,
@@ -360,6 +376,8 @@ impl SchemaId {
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
         Self::PatchV1,
+        Self::PeerCurrentSignerEvidenceQueryOutcomeV1,
+        Self::PeerCurrentSignerEvidenceQueryRequestV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -376,7 +394,19 @@ impl SchemaId {
         Self::ReadReceiptV1,
         Self::RealmV1,
         Self::RealmGenesisV1,
+        Self::RealmJoinBootstrapOutcomeV1,
+        Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinCandidateV1,
+        Self::RealmJoinPeerApplicationStatusOutcomeV1,
+        Self::RealmJoinPeerApplicationStatusRequestV1,
+        Self::RealmJoinPeerPreviewOutcomeV1,
+        Self::RealmJoinPeerPreviewRequestV1,
+        Self::RealmJoinPrepareOutcomeV1,
+        Self::RealmJoinPrepareRequestV1,
+        Self::RealmJoinSelfApplicationStatusOutcomeV1,
+        Self::RealmJoinSelfApplicationStatusRequestV1,
+        Self::RealmJoinSelfPreviewOutcomeV1,
+        Self::RealmJoinSelfPreviewRequestV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
         Self::RealmProfileV1,
@@ -407,6 +437,8 @@ impl SchemaId {
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
+        Self::SignerKeyQueryOutcomeV1,
+        Self::SignerKeyQueryRequestV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -458,8 +490,6 @@ impl SchemaId {
         Self::AgentSidecarViewStateV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
-        Self::AgentSignerEvidenceQueryOutcomeV1,
-        Self::AgentSignerEvidenceQueryRequestV1,
         Self::AgentSigningKeyBindingV1,
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
@@ -506,8 +536,6 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationIssueRequestV1,
         Self::CurrentPrincipalOutcomeV1,
         Self::CurrentPrincipalRequestV1,
-        Self::CurrentSignerEvidenceQueryOutcomeV1,
-        Self::CurrentSignerEvidenceQueryRequestV1,
         Self::CursorV1,
         Self::DeviceMessageV1,
         Self::DevicePairingBootstrapV1,
@@ -530,6 +558,8 @@ impl SchemaId {
         Self::EventsSubscribeFrameV1,
         Self::ExtensionManifestV1,
         Self::FileTransferV1,
+        Self::GenesisNotaryOutcomeV1,
+        Self::GenesisNotaryRequestV1,
         Self::GrantConstraintV1,
         Self::HandleClaimV1,
         Self::HandleClaimCoreV1,
@@ -557,6 +587,8 @@ impl SchemaId {
         Self::ListHandlesForSubjectResponseV1,
         Self::MediaMetadataV1,
         Self::MediaOperationsV1,
+        Self::MediaServiceBindingOutcomeV1,
+        Self::MediaServiceBindingRequestV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
         Self::MimiInteropV1,
@@ -572,6 +604,8 @@ impl SchemaId {
         Self::ObjectAddressingV1,
         Self::OfflinePublicationV1,
         Self::PatchV1,
+        Self::PeerCurrentSignerEvidenceQueryOutcomeV1,
+        Self::PeerCurrentSignerEvidenceQueryRequestV1,
         Self::PersonalProductivityV1,
         Self::PinV1,
         Self::PolicyV1,
@@ -588,7 +622,19 @@ impl SchemaId {
         Self::ReadReceiptV1,
         Self::RealmV1,
         Self::RealmGenesisV1,
+        Self::RealmJoinBootstrapOutcomeV1,
+        Self::RealmJoinBootstrapRequestV1,
         Self::RealmJoinCandidateV1,
+        Self::RealmJoinPeerApplicationStatusOutcomeV1,
+        Self::RealmJoinPeerApplicationStatusRequestV1,
+        Self::RealmJoinPeerPreviewOutcomeV1,
+        Self::RealmJoinPeerPreviewRequestV1,
+        Self::RealmJoinPrepareOutcomeV1,
+        Self::RealmJoinPrepareRequestV1,
+        Self::RealmJoinSelfApplicationStatusOutcomeV1,
+        Self::RealmJoinSelfApplicationStatusRequestV1,
+        Self::RealmJoinSelfPreviewOutcomeV1,
+        Self::RealmJoinSelfPreviewRequestV1,
         Self::RealmLinkOperationsV1,
         Self::RealmOrganizationOperationsV1,
         Self::RealmProfileV1,
@@ -619,6 +665,8 @@ impl SchemaId {
         Self::SignalRelayV1,
         Self::SignalStreamFrameV1,
         Self::SignalTypingV1,
+        Self::SignerKeyQueryOutcomeV1,
+        Self::SignerKeyQueryRequestV1,
         Self::SpaceV1,
         Self::StrandV1,
         Self::StringProfilesV1,
@@ -715,14 +763,6 @@ impl SchemaId {
     /// Portable Agent signer authorization, state-witness, and freshness evidence used outside the
     /// ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
-    /// Own-Station validated exact Agent keys or uniform unavailable results; historical
-    /// accepted_at binds the original producer admission time, never an independent receiver
-    /// receipt time; no portable closure.
-    pub const AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
-        "ak.schema.agent_signer_evidence_query_outcome.v1";
-    /// Own-Station exact current/historical Agent signing-key query body.
-    pub const AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
-        "ak.schema.agent_signer_evidence_query_request.v1";
     /// Controller-signed minimal public binding from an Agent verification method to raw Ed25519
     /// key material and one accepted Agent key authorization.
     pub const AGENT_SIGNING_KEY_BINDING_V1: &'static str = "ak.schema.agent_signing_key_binding.v1";
@@ -874,13 +914,6 @@ impl SchemaId {
     pub const CURRENT_PRINCIPAL_OUTCOME_V1: &'static str = "ak.schema.current_principal_outcome.v1";
     /// Authenticated own-account current principal and unique PCR request.
     pub const CURRENT_PRINCIPAL_REQUEST_V1: &'static str = "ak.schema.current_principal_request.v1";
-    /// Query-bound Station current signing-key results, separate from peer portable evidence.
-    pub const CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
-        "ak.schema.current_signer_evidence_query_outcome.v1";
-    /// Own-Station current signing-key query for one validation invocation, with no reusable
-    /// current grant.
-    pub const CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
-        "ak.schema.current_signer_evidence_query_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
     pub const DEVICE_MESSAGE_V1: &'static str = "ak.schema.device_message.v1";
     /// Pairing material DTO handed to an already-authorized device after resolving a device-pairing
@@ -941,6 +974,12 @@ impl SchemaId {
     /// Encrypted account-data plaintext shape and to-device key message content for
     /// principal-private cross-device file transfer.
     pub const FILE_TRANSFER_V1: &'static str = "ak.schema.file_transfer.v1";
+    /// Own-Station verified notary configuration copied verbatim into the genesis object;
+    /// observation is not a validity window or authorization lease.
+    pub const GENESIS_NOTARY_OUTCOME_V1: &'static str = "ak.schema.genesis_notary_outcome.v1";
+    /// Authenticated own-account request for the notary configuration of a Realm genesis the caller
+    /// will sign.
+    pub const GENESIS_NOTARY_REQUEST_V1: &'static str = "ak.schema.genesis_notary_request.v1";
     pub const GRANT_CONSTRAINT_V1: &'static str = "ak.schema.grant_constraint.v1";
     pub const HANDLE_CLAIM_V1: &'static str = "ak.schema.handle_claim.v1";
     /// Signed Handle Claim core binding one canonical handle to an exact Account subject and
@@ -1009,6 +1048,14 @@ impl SchemaId {
     pub const MEDIA_METADATA_V1: &'static str = "ak.schema.media_metadata.v1";
     /// Closed request DTO bundle for realtime media service operations.
     pub const MEDIA_OPERATIONS_V1: &'static str = "ak.schema.media_operations.v1";
+    /// Own-Station verified media service route and signing keys bound to the accepted anchor;
+    /// route reuse window only, no key release or plaintext authorization.
+    pub const MEDIA_SERVICE_BINDING_OUTCOME_V1: &'static str =
+        "ak.schema.media_service_binding_outcome.v1";
+    /// Authenticated member request for the media service anchored by one joined Realm; no
+    /// caller-supplied service identity, DID or candidate origin.
+    pub const MEDIA_SERVICE_BINDING_REQUEST_V1: &'static str =
+        "ak.schema.media_service_binding_request.v1";
     /// Realm-scoped member display/subject projection carried by ak.member.identity.update; handle
     /// lifecycle is carried by ak.schema.handle_claim.v1.
     pub const MEMBER_IDENTITY_V1: &'static str = "ak.schema.member_identity.v1";
@@ -1038,6 +1085,14 @@ impl SchemaId {
     pub const OFFLINE_PUBLICATION_V1: &'static str = "ak.schema.offline_publication.v1";
     /// Registered schema for the canonical Arkret field-patch wire format.
     pub const PATCH_V1: &'static str = "ak.schema.patch.v1";
+    /// Peer portable current signer evidence outcome; independent of the unified self signing-key
+    /// result.
+    pub const PEER_CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
+        "ak.schema.peer_current_signer_evidence_query_outcome.v1";
+    /// Peer portable current signer evidence request; independent of the unified self signing-key
+    /// result.
+    pub const PEER_CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
+        "ak.schema.peer_current_signer_evidence_query_request.v1";
     /// Encrypted account-data value shapes for reminders, scheduled send, snooze, and saved items.
     pub const PERSONAL_PRODUCTIVITY_V1: &'static str = "ak.schema.personal_productivity.v1";
     /// Payload schemas for shared pin events.
@@ -1081,11 +1136,59 @@ impl SchemaId {
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
+    /// Bounded join bootstrap material: effective join_rule, complete accepted seal_basis, live
+    /// digest suite, encryption profile and one dependency bundle per basis leaf. It is purpose
+    /// limited and expiring, never membership or a governance read grant.
+    pub const REALM_JOIN_BOOTSTRAP_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_bootstrap_outcome.v1";
+    /// Authenticated service-to-service request for the bounded material required to author and
+    /// verify exactly one first-contact Realm join attempt.
+    pub const REALM_JOIN_BOOTSTRAP_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_bootstrap_request.v1";
     /// Time-bounded transport hint returned by Realm discovery / resolve paths for reaching the
     /// already selected Station during join, invite-accept, knock, or restricted-join submission.
     /// It is neither an identity selector nor an authorization grant and cannot change an
     /// AccountId.
     pub const REALM_JOIN_CANDIDATE_V1: &'static str = "ak.schema.realm_join_candidate.v1";
+    /// Restricted receiving-Realm outcome of one join application, carrying the durable proposal
+    /// observation for that exact proposal and nothing else.
+    pub const REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_peer_application_status_outcome.v1";
+    /// Authenticated service-to-service read of the restricted outcome of exactly one forwarded
+    /// join application.
+    pub const REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_peer_application_status_request.v1";
+    /// Policy-permitted pre-join disclosure for exactly one invite and invitee, without Directory
+    /// result provenance or join routing hints.
+    pub const REALM_JOIN_PEER_PREVIEW_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_peer_preview_outcome.v1";
+    /// Authenticated service-to-service pre-join preview read against the exact inviter Station of
+    /// one directed invite.
+    pub const REALM_JOIN_PEER_PREVIEW_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_peer_preview_request.v1";
+    /// Own-Station validated join preparation: verified governance facts plus the exact Event kind,
+    /// canonical payload and preconditions to sign. It is not admission and not membership.
+    pub const REALM_JOIN_PREPARE_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_prepare_outcome.v1";
+    /// Authenticated account request to prepare exactly one join, knock or invite acceptance
+    /// through the account's own Station.
+    pub const REALM_JOIN_PREPARE_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_prepare_request.v1";
+    /// Own-Station validated join application progress: origin forwarding fact, receiving-Realm
+    /// state and the accepted covering Seal reference, with no Ack, authority set or Seal bytes.
+    pub const REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_self_application_status_outcome.v1";
+    /// Authenticated account read of one own join application before membership exists.
+    pub const REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_self_application_status_request.v1";
+    /// Own-Station validated pre-join preview bound to the exact account, Realm, request and
+    /// disclosure source.
+    pub const REALM_JOIN_SELF_PREVIEW_OUTCOME_V1: &'static str =
+        "ak.schema.realm_join_self_preview_outcome.v1";
+    /// Authenticated account request for a pre-join Realm preview through the account's own
+    /// Station.
+    pub const REALM_JOIN_SELF_PREVIEW_REQUEST_V1: &'static str =
+        "ak.schema.realm_join_self_preview_request.v1";
     /// Closed request/response DTO bundle for self-surface cross-Realm link operations
     /// (ak.self.realm_link.*); see zh/models/realm-links.md.
     pub const REALM_LINK_OPERATIONS_V1: &'static str = "ak.schema.realm_link_operations.v1";
@@ -1172,6 +1275,12 @@ impl SchemaId {
     pub const SIGNAL_STREAM_FRAME_V1: &'static str = "ak.schema.signal_stream_frame.v1";
     /// Closed decrypted Signal payload profile for ak.typing Strand composition indicators.
     pub const SIGNAL_TYPING_V1: &'static str = "ak.schema.signal_typing.v1";
+    /// Unified own-Station current/historical Device and Agent signing-key outcome; exact local
+    /// recipient, no evidence closure or reusable current grant.
+    pub const SIGNER_KEY_QUERY_OUTCOME_V1: &'static str = "ak.schema.signer_key_query_outcome.v1";
+    /// Unified own-Station current/historical Device and Agent signing-key request; exact local
+    /// recipient, no evidence closure or reusable current grant.
+    pub const SIGNER_KEY_QUERY_REQUEST_V1: &'static str = "ak.schema.signer_key_query_request.v1";
     pub const SPACE_V1: &'static str = "ak.schema.space.v1";
     pub const STRAND_V1: &'static str = "ak.schema.strand.v1";
     /// Shared coarse JSON Schema shapes for Arkret human identifiers, IDNA domains, handles, acct
@@ -1254,8 +1363,6 @@ impl SchemaId {
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
-            Self::AgentSignerEvidenceQueryOutcomeV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-            Self::AgentSignerEvidenceQueryRequestV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
             Self::AgentSigningKeyBindingV1 => Self::AGENT_SIGNING_KEY_BINDING_V1,
             Self::AppletV1 => Self::APPLET_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
@@ -1320,12 +1427,6 @@ impl SchemaId {
             }
             Self::CurrentPrincipalOutcomeV1 => Self::CURRENT_PRINCIPAL_OUTCOME_V1,
             Self::CurrentPrincipalRequestV1 => Self::CURRENT_PRINCIPAL_REQUEST_V1,
-            Self::CurrentSignerEvidenceQueryOutcomeV1 => {
-                Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1
-            }
-            Self::CurrentSignerEvidenceQueryRequestV1 => {
-                Self::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1
-            }
             Self::CursorV1 => Self::CURSOR_V1,
             Self::DeviceMessageV1 => Self::DEVICE_MESSAGE_V1,
             Self::DevicePairingBootstrapV1 => Self::DEVICE_PAIRING_BOOTSTRAP_V1,
@@ -1348,6 +1449,8 @@ impl SchemaId {
             Self::EventsSubscribeFrameV1 => Self::EVENTS_SUBSCRIBE_FRAME_V1,
             Self::ExtensionManifestV1 => Self::EXTENSION_MANIFEST_V1,
             Self::FileTransferV1 => Self::FILE_TRANSFER_V1,
+            Self::GenesisNotaryOutcomeV1 => Self::GENESIS_NOTARY_OUTCOME_V1,
+            Self::GenesisNotaryRequestV1 => Self::GENESIS_NOTARY_REQUEST_V1,
             Self::GrantConstraintV1 => Self::GRANT_CONSTRAINT_V1,
             Self::HandleClaimV1 => Self::HANDLE_CLAIM_V1,
             Self::HandleClaimCoreV1 => Self::HANDLE_CLAIM_CORE_V1,
@@ -1375,6 +1478,8 @@ impl SchemaId {
             Self::ListHandlesForSubjectResponseV1 => Self::LIST_HANDLES_FOR_SUBJECT_RESPONSE_V1,
             Self::MediaMetadataV1 => Self::MEDIA_METADATA_V1,
             Self::MediaOperationsV1 => Self::MEDIA_OPERATIONS_V1,
+            Self::MediaServiceBindingOutcomeV1 => Self::MEDIA_SERVICE_BINDING_OUTCOME_V1,
+            Self::MediaServiceBindingRequestV1 => Self::MEDIA_SERVICE_BINDING_REQUEST_V1,
             Self::MemberIdentityV1 => Self::MEMBER_IDENTITY_V1,
             Self::MessageV1 => Self::MESSAGE_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
@@ -1390,6 +1495,12 @@ impl SchemaId {
             Self::ObjectAddressingV1 => Self::OBJECT_ADDRESSING_V1,
             Self::OfflinePublicationV1 => Self::OFFLINE_PUBLICATION_V1,
             Self::PatchV1 => Self::PATCH_V1,
+            Self::PeerCurrentSignerEvidenceQueryOutcomeV1 => {
+                Self::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1
+            }
+            Self::PeerCurrentSignerEvidenceQueryRequestV1 => {
+                Self::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1
+            }
             Self::PersonalProductivityV1 => Self::PERSONAL_PRODUCTIVITY_V1,
             Self::PinV1 => Self::PIN_V1,
             Self::PolicyV1 => Self::POLICY_V1,
@@ -1406,7 +1517,27 @@ impl SchemaId {
             Self::ReadReceiptV1 => Self::READ_RECEIPT_V1,
             Self::RealmV1 => Self::REALM_V1,
             Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
+            Self::RealmJoinBootstrapOutcomeV1 => Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
+            Self::RealmJoinBootstrapRequestV1 => Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1,
             Self::RealmJoinCandidateV1 => Self::REALM_JOIN_CANDIDATE_V1,
+            Self::RealmJoinPeerApplicationStatusOutcomeV1 => {
+                Self::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1
+            }
+            Self::RealmJoinPeerApplicationStatusRequestV1 => {
+                Self::REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1
+            }
+            Self::RealmJoinPeerPreviewOutcomeV1 => Self::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1,
+            Self::RealmJoinPeerPreviewRequestV1 => Self::REALM_JOIN_PEER_PREVIEW_REQUEST_V1,
+            Self::RealmJoinPrepareOutcomeV1 => Self::REALM_JOIN_PREPARE_OUTCOME_V1,
+            Self::RealmJoinPrepareRequestV1 => Self::REALM_JOIN_PREPARE_REQUEST_V1,
+            Self::RealmJoinSelfApplicationStatusOutcomeV1 => {
+                Self::REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1
+            }
+            Self::RealmJoinSelfApplicationStatusRequestV1 => {
+                Self::REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1
+            }
+            Self::RealmJoinSelfPreviewOutcomeV1 => Self::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1,
+            Self::RealmJoinSelfPreviewRequestV1 => Self::REALM_JOIN_SELF_PREVIEW_REQUEST_V1,
             Self::RealmLinkOperationsV1 => Self::REALM_LINK_OPERATIONS_V1,
             Self::RealmOrganizationOperationsV1 => Self::REALM_ORGANIZATION_OPERATIONS_V1,
             Self::RealmProfileV1 => Self::REALM_PROFILE_V1,
@@ -1437,6 +1568,8 @@ impl SchemaId {
             Self::SignalRelayV1 => Self::SIGNAL_RELAY_V1,
             Self::SignalStreamFrameV1 => Self::SIGNAL_STREAM_FRAME_V1,
             Self::SignalTypingV1 => Self::SIGNAL_TYPING_V1,
+            Self::SignerKeyQueryOutcomeV1 => Self::SIGNER_KEY_QUERY_OUTCOME_V1,
+            Self::SignerKeyQueryRequestV1 => Self::SIGNER_KEY_QUERY_REQUEST_V1,
             Self::SpaceV1 => Self::SPACE_V1,
             Self::StrandV1 => Self::STRAND_V1,
             Self::StringProfilesV1 => Self::STRING_PROFILES_V1,
@@ -1499,12 +1632,6 @@ impl SchemaId {
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
             Self::AgentSignerAdmissionReceiptV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AgentSignerEvidenceV1 => "schemas/agent-signer-evidence.schema.json",
-            Self::AgentSignerEvidenceQueryOutcomeV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
-            }
-            Self::AgentSignerEvidenceQueryRequestV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
-            }
             Self::AgentSigningKeyBindingV1 => "schemas/agent-signing-key-binding.schema.json",
             Self::AppletV1 => "schemas/applet.schema.json",
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
@@ -1569,12 +1696,6 @@ impl SchemaId {
             }
             Self::CurrentPrincipalOutcomeV1 => "schemas/identity-resolution.schema.json",
             Self::CurrentPrincipalRequestV1 => "schemas/identity-resolution.schema.json",
-            Self::CurrentSignerEvidenceQueryOutcomeV1 => {
-                "schemas/current-signer-evidence-operations.schema.json"
-            }
-            Self::CurrentSignerEvidenceQueryRequestV1 => {
-                "schemas/current-signer-evidence-operations.schema.json"
-            }
             Self::CursorV1 => "schemas/cursor.schema.json",
             Self::DeviceMessageV1 => "schemas/device-message.schema.json",
             Self::DevicePairingBootstrapV1 => "schemas/device-pairing.schema.json",
@@ -1599,6 +1720,8 @@ impl SchemaId {
             Self::EventsSubscribeFrameV1 => "schemas/events-subscribe-frame.schema.json",
             Self::ExtensionManifestV1 => "schemas/extension-manifest.schema.json",
             Self::FileTransferV1 => "schemas/file-transfer.schema.json",
+            Self::GenesisNotaryOutcomeV1 => "schemas/genesis-notary-binding.schema.json",
+            Self::GenesisNotaryRequestV1 => "schemas/genesis-notary-binding.schema.json",
             Self::GrantConstraintV1 => "schemas/grant-constraint.schema.json",
             Self::HandleClaimV1 => "schemas/handle-claim.schema.json",
             Self::HandleClaimCoreV1 => "schemas/handle-claim.schema.json",
@@ -1628,6 +1751,12 @@ impl SchemaId {
             }
             Self::MediaMetadataV1 => "schemas/media-metadata.schema.json",
             Self::MediaOperationsV1 => "schemas/media-operations.schema.json",
+            Self::MediaServiceBindingOutcomeV1 => {
+                "schemas/media-service-binding-result.schema.json"
+            }
+            Self::MediaServiceBindingRequestV1 => {
+                "schemas/media-service-binding-result.schema.json"
+            }
             Self::MemberIdentityV1 => "schemas/member-identity.schema.json",
             Self::MessageV1 => "schemas/message.schema.json",
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
@@ -1643,6 +1772,12 @@ impl SchemaId {
             Self::ObjectAddressingV1 => "schemas/object-addressing.schema.json",
             Self::OfflinePublicationV1 => "schemas/offline-publication.schema.json",
             Self::PatchV1 => "schemas/patch.schema.json",
+            Self::PeerCurrentSignerEvidenceQueryOutcomeV1 => {
+                "schemas/current-signer-evidence-operations.schema.json"
+            }
+            Self::PeerCurrentSignerEvidenceQueryRequestV1 => {
+                "schemas/current-signer-evidence-operations.schema.json"
+            }
             Self::PersonalProductivityV1 => "schemas/personal-productivity.schema.json",
             Self::PinV1 => "schemas/pin.schema.json",
             Self::PolicyV1 => "schemas/policy.schema.json",
@@ -1659,7 +1794,27 @@ impl SchemaId {
             Self::ReadReceiptV1 => "schemas/read-receipt.schema.json",
             Self::RealmV1 => "schemas/realm.schema.json",
             Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
+            Self::RealmJoinBootstrapOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinBootstrapRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmJoinCandidateV1 => "schemas/realm-join-candidate.schema.json",
+            Self::RealmJoinPeerApplicationStatusOutcomeV1 => {
+                "schemas/realm-join-intake.schema.json"
+            }
+            Self::RealmJoinPeerApplicationStatusRequestV1 => {
+                "schemas/realm-join-intake.schema.json"
+            }
+            Self::RealmJoinPeerPreviewOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinPeerPreviewRequestV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinPrepareOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinPrepareRequestV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinSelfApplicationStatusOutcomeV1 => {
+                "schemas/realm-join-intake.schema.json"
+            }
+            Self::RealmJoinSelfApplicationStatusRequestV1 => {
+                "schemas/realm-join-intake.schema.json"
+            }
+            Self::RealmJoinSelfPreviewOutcomeV1 => "schemas/realm-join-intake.schema.json",
+            Self::RealmJoinSelfPreviewRequestV1 => "schemas/realm-join-intake.schema.json",
             Self::RealmLinkOperationsV1 => "schemas/realm-link-operations.schema.json",
             Self::RealmOrganizationOperationsV1 => {
                 "schemas/realm-organization-operations.schema.json"
@@ -1692,6 +1847,8 @@ impl SchemaId {
             Self::SignalRelayV1 => "schemas/signal-relay.schema.json",
             Self::SignalStreamFrameV1 => "schemas/signal-stream-frame.schema.json",
             Self::SignalTypingV1 => "schemas/signal-typing.schema.json",
+            Self::SignerKeyQueryOutcomeV1 => "schemas/signer-key-operations.schema.json",
+            Self::SignerKeyQueryRequestV1 => "schemas/signer-key-operations.schema.json",
             Self::SpaceV1 => "schemas/space.schema.json",
             Self::StrandV1 => "schemas/strand.schema.json",
             Self::StringProfilesV1 => "schemas/string-profiles.schema.json",
@@ -1750,12 +1907,6 @@ impl SchemaId {
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
-            Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
-                Some(Self::AgentSignerEvidenceQueryOutcomeV1)
-            }
-            Self::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1 => {
-                Some(Self::AgentSignerEvidenceQueryRequestV1)
-            }
             Self::AGENT_SIGNING_KEY_BINDING_V1 => Some(Self::AgentSigningKeyBindingV1),
             Self::APPLET_V1 => Some(Self::AppletV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
@@ -1824,12 +1975,6 @@ impl SchemaId {
             }
             Self::CURRENT_PRINCIPAL_OUTCOME_V1 => Some(Self::CurrentPrincipalOutcomeV1),
             Self::CURRENT_PRINCIPAL_REQUEST_V1 => Some(Self::CurrentPrincipalRequestV1),
-            Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
-                Some(Self::CurrentSignerEvidenceQueryOutcomeV1)
-            }
-            Self::CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1 => {
-                Some(Self::CurrentSignerEvidenceQueryRequestV1)
-            }
             Self::CURSOR_V1 => Some(Self::CursorV1),
             Self::DEVICE_MESSAGE_V1 => Some(Self::DeviceMessageV1),
             Self::DEVICE_PAIRING_BOOTSTRAP_V1 => Some(Self::DevicePairingBootstrapV1),
@@ -1852,6 +1997,8 @@ impl SchemaId {
             Self::EVENTS_SUBSCRIBE_FRAME_V1 => Some(Self::EventsSubscribeFrameV1),
             Self::EXTENSION_MANIFEST_V1 => Some(Self::ExtensionManifestV1),
             Self::FILE_TRANSFER_V1 => Some(Self::FileTransferV1),
+            Self::GENESIS_NOTARY_OUTCOME_V1 => Some(Self::GenesisNotaryOutcomeV1),
+            Self::GENESIS_NOTARY_REQUEST_V1 => Some(Self::GenesisNotaryRequestV1),
             Self::GRANT_CONSTRAINT_V1 => Some(Self::GrantConstraintV1),
             Self::HANDLE_CLAIM_V1 => Some(Self::HandleClaimV1),
             Self::HANDLE_CLAIM_CORE_V1 => Some(Self::HandleClaimCoreV1),
@@ -1881,6 +2028,8 @@ impl SchemaId {
             }
             Self::MEDIA_METADATA_V1 => Some(Self::MediaMetadataV1),
             Self::MEDIA_OPERATIONS_V1 => Some(Self::MediaOperationsV1),
+            Self::MEDIA_SERVICE_BINDING_OUTCOME_V1 => Some(Self::MediaServiceBindingOutcomeV1),
+            Self::MEDIA_SERVICE_BINDING_REQUEST_V1 => Some(Self::MediaServiceBindingRequestV1),
             Self::MEMBER_IDENTITY_V1 => Some(Self::MemberIdentityV1),
             Self::MESSAGE_V1 => Some(Self::MessageV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
@@ -1896,6 +2045,12 @@ impl SchemaId {
             Self::OBJECT_ADDRESSING_V1 => Some(Self::ObjectAddressingV1),
             Self::OFFLINE_PUBLICATION_V1 => Some(Self::OfflinePublicationV1),
             Self::PATCH_V1 => Some(Self::PatchV1),
+            Self::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
+                Some(Self::PeerCurrentSignerEvidenceQueryOutcomeV1)
+            }
+            Self::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1 => {
+                Some(Self::PeerCurrentSignerEvidenceQueryRequestV1)
+            }
             Self::PERSONAL_PRODUCTIVITY_V1 => Some(Self::PersonalProductivityV1),
             Self::PIN_V1 => Some(Self::PinV1),
             Self::POLICY_V1 => Some(Self::PolicyV1),
@@ -1912,7 +2067,27 @@ impl SchemaId {
             Self::READ_RECEIPT_V1 => Some(Self::ReadReceiptV1),
             Self::REALM_V1 => Some(Self::RealmV1),
             Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),
+            Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1 => Some(Self::RealmJoinBootstrapOutcomeV1),
+            Self::REALM_JOIN_BOOTSTRAP_REQUEST_V1 => Some(Self::RealmJoinBootstrapRequestV1),
             Self::REALM_JOIN_CANDIDATE_V1 => Some(Self::RealmJoinCandidateV1),
+            Self::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1 => {
+                Some(Self::RealmJoinPeerApplicationStatusOutcomeV1)
+            }
+            Self::REALM_JOIN_PEER_APPLICATION_STATUS_REQUEST_V1 => {
+                Some(Self::RealmJoinPeerApplicationStatusRequestV1)
+            }
+            Self::REALM_JOIN_PEER_PREVIEW_OUTCOME_V1 => Some(Self::RealmJoinPeerPreviewOutcomeV1),
+            Self::REALM_JOIN_PEER_PREVIEW_REQUEST_V1 => Some(Self::RealmJoinPeerPreviewRequestV1),
+            Self::REALM_JOIN_PREPARE_OUTCOME_V1 => Some(Self::RealmJoinPrepareOutcomeV1),
+            Self::REALM_JOIN_PREPARE_REQUEST_V1 => Some(Self::RealmJoinPrepareRequestV1),
+            Self::REALM_JOIN_SELF_APPLICATION_STATUS_OUTCOME_V1 => {
+                Some(Self::RealmJoinSelfApplicationStatusOutcomeV1)
+            }
+            Self::REALM_JOIN_SELF_APPLICATION_STATUS_REQUEST_V1 => {
+                Some(Self::RealmJoinSelfApplicationStatusRequestV1)
+            }
+            Self::REALM_JOIN_SELF_PREVIEW_OUTCOME_V1 => Some(Self::RealmJoinSelfPreviewOutcomeV1),
+            Self::REALM_JOIN_SELF_PREVIEW_REQUEST_V1 => Some(Self::RealmJoinSelfPreviewRequestV1),
             Self::REALM_LINK_OPERATIONS_V1 => Some(Self::RealmLinkOperationsV1),
             Self::REALM_ORGANIZATION_OPERATIONS_V1 => Some(Self::RealmOrganizationOperationsV1),
             Self::REALM_PROFILE_V1 => Some(Self::RealmProfileV1),
@@ -1943,6 +2118,8 @@ impl SchemaId {
             Self::SIGNAL_RELAY_V1 => Some(Self::SignalRelayV1),
             Self::SIGNAL_STREAM_FRAME_V1 => Some(Self::SignalStreamFrameV1),
             Self::SIGNAL_TYPING_V1 => Some(Self::SignalTypingV1),
+            Self::SIGNER_KEY_QUERY_OUTCOME_V1 => Some(Self::SignerKeyQueryOutcomeV1),
+            Self::SIGNER_KEY_QUERY_REQUEST_V1 => Some(Self::SignerKeyQueryRequestV1),
             Self::SPACE_V1 => Some(Self::SpaceV1),
             Self::STRAND_V1 => Some(Self::StrandV1),
             Self::STRING_PROFILES_V1 => Some(Self::StringProfilesV1),

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-10.14;
-//! sha256=92e7aa61a3c06b99790f8d2c7fb49901f165c0efe64a038805c99abbe12d1b07 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-10.16;
+//! sha256=031446b2ca2ef0a41fa42883726cc40303043d0d703796af9e41199f176a1dee Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -9,15 +9,15 @@
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-09-08.3;
-//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
+//! sha256=27bffd654557d827a4adc82768624f2927e0301909f42201eb82ac1535a49bf8 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
-//! mls-extension-registry.json; version=2026-08-25;
-//! sha256=298685c15b11d75b55b1b6ece6a3674b320ae00a90f488cc4d2d3545f4888b86 Input: registry/
+//! mls-extension-registry.json; version=2026-09-10;
+//! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=69, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=4, domain_separations=40, aead_profiles=2
+//! Entries: proof_contexts=72, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=40, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -89,8 +89,11 @@ pub enum ProofContextId {
     RegistrationDidEvidenceControlProofV1,
     ServiceRegistrationReceiptProofV1,
     SessionGrantAcceptedDevicePossessionProofV1,
+    SessionGrantPairwiseEndpointPossessionProofV1,
     SignalProofV1,
     StationAdmissionProofV1,
+    ThirdPartyInviteAcceptanceAttestationProofV1,
+    ThirdPartyInviteProvisionRequestProofV1,
 }
 
 impl ProofContextId {
@@ -162,8 +165,11 @@ impl ProofContextId {
         Self::RegistrationDidEvidenceControlProofV1,
         Self::ServiceRegistrationReceiptProofV1,
         Self::SessionGrantAcceptedDevicePossessionProofV1,
+        Self::SessionGrantPairwiseEndpointPossessionProofV1,
         Self::SignalProofV1,
         Self::StationAdmissionProofV1,
+        Self::ThirdPartyInviteAcceptanceAttestationProofV1,
+        Self::ThirdPartyInviteProvisionRequestProofV1,
     ];
 
     pub const ACCOUNT_BINDING_RECEIPT_PROOF_V1: &'static str =
@@ -276,8 +282,14 @@ impl ProofContextId {
         "ak.service_registration_receipt_proof.v1";
     pub const SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.session_grant_accepted_device_possession_proof.v1";
+    pub const SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1: &'static str =
+        "ak.session_grant_pairwise_endpoint_possession_proof.v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal_proof.v1";
     pub const STATION_ADMISSION_PROOF_V1: &'static str = "ak.station_admission_proof.v1";
+    pub const THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1: &'static str =
+        "ak.third_party_invite_acceptance_attestation_proof.v1";
+    pub const THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1: &'static str =
+        "ak.third_party_invite_provision_request_proof.v1";
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -390,8 +402,17 @@ impl ProofContextId {
             Self::SessionGrantAcceptedDevicePossessionProofV1 => {
                 Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
+            Self::SessionGrantPairwiseEndpointPossessionProofV1 => {
+                Self::SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1
+            }
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
             Self::StationAdmissionProofV1 => Self::STATION_ADMISSION_PROOF_V1,
+            Self::ThirdPartyInviteAcceptanceAttestationProofV1 => {
+                Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1
+            }
+            Self::ThirdPartyInviteProvisionRequestProofV1 => {
+                Self::THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1
+            }
         }
     }
 
@@ -532,8 +553,17 @@ impl ProofContextId {
             Self::SESSION_GRANT_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
                 Some(Self::SessionGrantAcceptedDevicePossessionProofV1)
             }
+            Self::SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1 => {
+                Some(Self::SessionGrantPairwiseEndpointPossessionProofV1)
+            }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
             Self::STATION_ADMISSION_PROOF_V1 => Some(Self::StationAdmissionProofV1),
+            Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1 => {
+                Some(Self::ThirdPartyInviteAcceptanceAttestationProofV1)
+            }
+            Self::THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1 => {
+                Some(Self::ThirdPartyInviteProvisionRequestProofV1)
+            }
             _ => None,
         }
     }
@@ -1021,7 +1051,8 @@ pub struct MlsExtensionDescriptor {
     pub name: &'static str,
     pub codepoint: &'static str,
     pub status: &'static str,
-    pub profile_id: &'static str,
+    pub profile_id: Option<&'static str>,
+    pub rejection_error: Option<&'static str>,
 }
 
 pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
@@ -2172,6 +2203,25 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/AcceptedDevicePossessionProof",
     },
     ProofContextDescriptor {
+        id: ProofContextId::SessionGrantPairwiseEndpointPossessionProofV1,
+        context: "ak.session_grant_pairwise_endpoint_possession_proof.v1",
+        object_family: "session_grant_pairwise_endpoint_possession",
+        consumer_operation: None,
+        binding_fields: &[
+            "request_id",
+            "account_id",
+            "realm_id",
+            "actor_id",
+            "audience_id",
+            "holder_jkt",
+            "session_intent_digest",
+            "issued_at",
+            "expires_at",
+            "verification_method",
+        ],
+        schema_ref: "schemas/service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof",
+    },
+    ProofContextDescriptor {
         id: ProofContextId::SignalProofV1,
         context: "ak.signal_proof.v1",
         object_family: "signal_envelope",
@@ -2204,6 +2254,38 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
         ],
         schema_ref: "schemas/event-envelope.schema.json#/$defs/station_admission_proof",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ThirdPartyInviteAcceptanceAttestationProofV1,
+        context: "ak.third_party_invite_acceptance_attestation_proof.v1",
+        object_family: "third_party_invite_acceptance_attestation",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "operation_id",
+            "verification_method",
+            "created_at",
+            "domain",
+            "audience",
+        ],
+        schema_ref: "schemas/invite.schema.json#/$defs/third_party_invite_acceptance_attestation",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::ThirdPartyInviteProvisionRequestProofV1,
+        context: "ak.third_party_invite_provision_request_proof.v1",
+        object_family: "third_party_invite_provision_request",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "issuer",
+            "operation_id",
+            "verification_method",
+            "created_at",
+            "domain",
+            "audience",
+        ],
+        schema_ref: "schemas/invite.schema.json#/$defs/third_party_invite_provision_request_body",
     },
 ];
 
@@ -2416,28 +2498,39 @@ pub const MLS_CIPHERSUITES: &[AlgorithmSuiteDescriptor] = &[
 
 pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[
     MlsExtensionDescriptor {
+        name: "external_senders",
+        codepoint: "0x0004",
+        status: "unsupported",
+        profile_id: None,
+        rejection_error: Some("unsupported_feature"),
+    },
+    MlsExtensionDescriptor {
         name: "keypackage_capabilities",
         codepoint: "0xF1C1",
         status: "active",
-        profile_id: "ak.profile.mls_governance_binding.full.v1",
+        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
+        rejection_error: None,
     },
     MlsExtensionDescriptor {
         name: "mls_governance_binding",
         codepoint: "0xF1C0",
         status: "active",
-        profile_id: "ak.profile.mls_governance_binding.full.v1",
+        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
+        rejection_error: None,
     },
     MlsExtensionDescriptor {
         name: "required_capabilities",
         codepoint: "0x0003",
         status: "active",
-        profile_id: "ak.profile.mls_governance_binding.full.v1",
+        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
+        rejection_error: None,
     },
     MlsExtensionDescriptor {
         name: "required_keypackage_capabilities",
         codepoint: "0xF1C2",
         status: "active",
-        profile_id: "ak.profile.mls_governance_binding.full.v1",
+        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
+        rejection_error: None,
     },
 ];
 
