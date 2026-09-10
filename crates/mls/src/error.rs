@@ -19,6 +19,10 @@ pub type Result<T> = std::result::Result<T, MlsError>;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum MlsError {
+    /// A structurally valid MLS wire feature has no admissible Arkret v1 form.
+    #[error("unsupported MLS feature: {0}")]
+    UnsupportedFeature(String),
+
     /// Spec-level MLS-protocol violation carrying the reason message verbatim.
     #[error("protocol error: {0}")]
     Protocol(String),

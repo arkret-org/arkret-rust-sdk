@@ -256,7 +256,9 @@ impl MlsPublicGroupTracker {
         epoch: u64,
         binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<Self> {
-        build_public_tracker(group_info, tree, group_id, epoch, binding)
+        let tracker = build_public_tracker(group_info, tree, group_id, epoch, binding)?;
+        tracker.ensure_supported_group_context_extensions()?;
+        Ok(tracker)
     }
     pub fn group_id(&self) -> String {
         base64url_encode(self.public_group.group_id().as_slice())
@@ -335,8 +337,24 @@ impl MlsPublicGroupTracker {
     ) -> Result<MlsPublicHandshakeTransition> {
         let mut candidate = Self::restore(&self.export_state()?, &self.group_id(), self.epoch())?;
         let transition = candidate.process_inner(bytes)?;
+        candidate.ensure_supported_group_context_extensions()?;
         *self = candidate;
         Ok(transition)
+    }
+
+    fn ensure_supported_group_context_extensions(&self) -> Result<()> {
+        if self
+            .public_group
+            .group_context()
+            .extensions()
+            .external_senders()
+            .is_some()
+        {
+            return Err(Error::UnsupportedFeature(
+                "v1 forbids the external_senders GroupContext extension".to_owned(),
+            ));
+        }
+        Ok(())
     }
     fn process_inner(&mut self, bytes: &[u8]) -> Result<MlsPublicHandshakeTransition> {
         let message = MlsMessageIn::tls_deserialize_exact(bytes).map_err(mls_error)?;
