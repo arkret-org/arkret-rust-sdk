@@ -214,6 +214,7 @@ impl RelationConflictDomainKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct RelationConflictDomain {
     pub domain_kind: RelationConflictDomainKind,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub relation_kind: RelationKind,
     pub from_ref: RelationEndpoint,
     #[serde(default, skip_serializing_if = "Option::is_none")]
