@@ -275,6 +275,7 @@ pub fn recovery_unlock_transcript(
         session_grant_cnf_jkt: session.session_grant_cnf_jkt.clone(),
         account_id: session.account_id.clone(),
         requesting_device_id: session.requesting_device_id.clone(),
+        requesting_device_public_key_did: session.requesting_device_public_key_did.clone(),
         trust_domain: session.trust_domain.clone(),
         policy_id: session.policy_id.clone(),
         policy_version: session.policy_version,

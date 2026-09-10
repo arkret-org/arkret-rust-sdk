@@ -7,7 +7,7 @@ use arkret_models_collaboration::governance_dependencies::{
     governance_runtime_dependency_selectors_for_replay,
 };
 use arkret_models_collaboration::history_key::{
-    AuthorizationIncarnation, HistoryKeyResponseSendRequest,
+    AuthorizationIncarnation, HistoryKeyResponseSendRequestBody,
 };
 use arkret_models_collaboration::objects::realm::AvailabilityEvidenceScope;
 use arkret_models_crypto::mls_governance_proof::{
@@ -970,7 +970,7 @@ where
 /// dependency closure. The result has no public constructor and retains the
 /// original expiry across messages, connections, and local cache operations.
 pub async fn verify_agent_history_source_key<VerifyExternalTrust>(
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     evidence: &AuthenticatedSignerResolutionEvidence,
     dependencies: &[GovernanceDependency],
     verify_external_trust: VerifyExternalTrust,

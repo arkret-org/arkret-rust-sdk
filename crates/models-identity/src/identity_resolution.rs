@@ -39,6 +39,91 @@ pub struct PrincipalResolutionUpdatePayload {
     pub next: ResolutionCommitment,
 }
 
+/// Maximum canonical bytes for either current-principal direction.
+pub const CURRENT_PRINCIPAL_MAX_BYTES: usize = 65_536;
+
+/// Authenticated self lookup; no portable history is returned.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CurrentPrincipalRequestBody {
+    pub request_id: arkret_wire::RequestId,
+    pub account_id: AccountId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct CurrentPrincipalOutcome {
+    pub request_id: arkret_wire::RequestId,
+    pub account_id: AccountId,
+    pub principal_control_realm_id: RealmId,
+    pub resolution_projection: PrincipalResolutionProjection,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub observed_at: DateTime<Utc>,
+}
+
+fn current_principal_error(code: arkret_wire::ErrorCode, message: &str) -> arkret_wire::WireError {
+    arkret_wire::WireError::ProtocolCode {
+        code,
+        message: message.to_owned(),
+    }
+}
+fn current_principal_bytes(value: &impl Serialize, request: bool) -> arkret_wire::Result<()> {
+    if arkret_canonical::canonical_json_bytes(value)?.len() > CURRENT_PRINCIPAL_MAX_BYTES {
+        return Err(current_principal_error(
+            if request {
+                arkret_wire::ErrorCode::PayloadTooLarge
+            } else {
+                arkret_wire::ErrorCode::LimitExceeded
+            },
+            "current principal exceeds its canonical byte budget",
+        ));
+    }
+    Ok(())
+}
+impl CurrentPrincipalRequestBody {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        current_principal_bytes(self, true)?;
+        self.account_id.validate()
+    }
+}
+impl CurrentPrincipalOutcome {
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        current_principal_bytes(self, false)?;
+        self.account_id.validate()?;
+        let projection = &self.resolution_projection;
+        if arkret_wire::project_did_to_core_id(&projection.did)? != self.account_id.principal_id
+            || projection.method_history_head.is_empty()
+            || projection.method_history_head.chars().count() > 512
+            || projection.version_id.is_empty()
+            || projection.version_id.chars().count() > 512
+            || projection.version_id.starts_with("ak:")
+            || EventId::new(projection.resolution_event_ref.clone()).is_err()
+        {
+            return Err(current_principal_error(
+                arkret_wire::ErrorCode::SchemaViolation,
+                "current principal projection is malformed or belongs to another principal",
+            ));
+        }
+        Ok(())
+    }
+    pub fn validate_for_request(
+        &self,
+        request: &CurrentPrincipalRequestBody,
+    ) -> arkret_wire::Result<()> {
+        request.validate()?;
+        self.validate()?;
+        if self.request_id != request.request_id || self.account_id != request.account_id {
+            return Err(current_principal_error(
+                arkret_wire::ErrorCode::StateMismatch,
+                "current principal result differs from the exact request/account",
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Domain-separation context for the Station projection attestation.
 pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_CONTEXT: &str =
     arkret_wire::ProofContextId::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1;
@@ -668,5 +753,76 @@ mod service_document_wire {
             ));
         }
         Ok(document)
+    }
+}
+
+#[cfg(test)]
+mod current_principal_tests {
+    use super::*;
+    fn fixture() -> (CurrentPrincipalRequestBody, CurrentPrincipalOutcome) {
+        let account_id = AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        );
+        let request = CurrentPrincipalRequestBody {
+            request_id: arkret_wire::RequestId::new(
+                "ak:request:01904100-0000-7000-8000-000000000001",
+            )
+            .unwrap(),
+            account_id,
+        };
+        let at = DateTime::<Utc>::from_timestamp(1_800_000_000, 0).unwrap();
+        let result = CurrentPrincipalOutcome {
+            request_id: request.request_id.clone(),
+            account_id: request.account_id.clone(),
+            principal_control_realm_id: RealmId::new(
+                "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            )
+            .unwrap(),
+            resolution_projection: PrincipalResolutionProjection {
+                did: Did::new("did:web:alice.example").unwrap(),
+                method_history_head: "head".to_owned(),
+                version_id: "version".to_owned(),
+                resolution_event_ref: EventId::from_digest(
+                    arkret_canonical::DigestSuite::Sha256,
+                    [1; 32],
+                )
+                .to_string(),
+                updated_at: at,
+            },
+            observed_at: at,
+        };
+        (request, result)
+    }
+    #[test]
+    fn current_principal_binds_request_account_and_source_projection() {
+        let (request, result) = fixture();
+        result.validate_for_request(&request).unwrap();
+        let mut changed = result.clone();
+        changed.account_id.station_id = DidCoreId::new("ak:did_core:web:other.example").unwrap();
+        assert!(changed.validate_for_request(&request).is_err());
+        let mut changed = result.clone();
+        changed.resolution_projection.did = Did::new("did:web:bob.example").unwrap();
+        assert!(changed.validate_for_request(&request).is_err());
+        let mut changed = result.clone();
+        changed.resolution_projection.resolution_event_ref = "not-an-event".to_owned();
+        assert!(changed.validate_for_request(&request).is_err());
+        let mut wire = serde_json::to_value(result).unwrap();
+        wire["history"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<CurrentPrincipalOutcome>(wire).is_err());
+    }
+    #[test]
+    fn current_principal_byte_budget_precedes_projection_shape_error() {
+        let (_, mut result) = fixture();
+        result.resolution_projection.method_history_head = "x".repeat(CURRENT_PRINCIPAL_MAX_BYTES);
+        assert_eq!(
+            result.validate().unwrap_err().error_code(),
+            Some(arkret_wire::ErrorCode::LimitExceeded)
+        );
+        result.resolution_projection.method_history_head = "x".repeat(513);
+        assert_eq!(
+            result.validate().unwrap_err().error_code(),
+            Some(arkret_wire::ErrorCode::SchemaViolation)
+        );
     }
 }

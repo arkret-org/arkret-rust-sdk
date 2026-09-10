@@ -67,71 +67,49 @@ pub enum WebSocketReauthReason {
 
 // ── Open parameters ─────────────────────────────────────────────────────────
 
-/// `open.parameters.filter` for the account operation (§5). Closed: the six
-/// members are exactly the canonical HTTP filter selectors this binding
-/// carries, spelled as the frame schema spells them.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct WebSocketAccountFilter {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_ids: Option<Vec<RealmId>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timeline_limit: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lazy_load_members: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub include_redundant_members: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub event_kinds: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub not_event_kinds: Option<Vec<String>>,
-}
-
-/// Maximum length of every selector array in an `open` frame (frame schema).
+/// Maximum selector count on the independent Event stream operation.
 pub const WEBSOCKET_MAX_SELECTOR_ITEMS: usize = 256;
-/// Maximum `filter.timeline_limit` (frame schema).
-pub const WEBSOCKET_MAX_TIMELINE_LIMIT: u32 = 1000;
-
-impl WebSocketAccountFilter {
-    fn validate(&self) -> Result<()> {
-        for (field, len) in [
-            ("realm_ids", self.realm_ids.as_ref().map(Vec::len)),
-            ("event_kinds", self.event_kinds.as_ref().map(Vec::len)),
-            (
-                "not_event_kinds",
-                self.not_event_kinds.as_ref().map(Vec::len),
-            ),
-        ] {
-            if len.is_some_and(|len| len > WEBSOCKET_MAX_SELECTOR_ITEMS) {
-                return Err(WireError::Protocol(format!(
-                    "WebSocket account filter {field} exceeds {WEBSOCKET_MAX_SELECTOR_ITEMS} items"
-                )));
-            }
-        }
-        if self
-            .timeline_limit
-            .is_some_and(|limit| limit > WEBSOCKET_MAX_TIMELINE_LIMIT)
-        {
-            return Err(WireError::Protocol(format!(
-                "WebSocket account filter timeline_limit exceeds {WEBSOCKET_MAX_TIMELINE_LIMIT}"
-            )));
-        }
-        Ok(())
-    }
-}
 
 /// `open.parameters` for `ak.self.account.stream.subscribe.v1` (§5).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WebSocketAccountOpenParameters {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub after: Option<Cursor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub catchup: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub filter: Option<WebSocketAccountFilter>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub filter: Option<super::client_sync::SyncFilter>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub realm_list: Option<super::demand_sync::RealmListRequest>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub replace_filter: Option<bool>,
     /// Corresponds to the canonical `X-Arkret-Wait-For` request header.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub wait_for: Option<Cursor>,
 }
 
@@ -223,10 +201,14 @@ impl WebSocketOpenParameters {
 
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Account(parameters) => match &parameters.filter {
-                Some(filter) => filter.validate(),
-                None => Ok(()),
-            },
+            Self::Account(parameters) => super::client_sync::SyncRequestBody {
+                after: parameters.after.as_ref().map(ToString::to_string),
+                catchup: parameters.catchup,
+                filter: parameters.filter.clone(),
+                realm_list: parameters.realm_list.clone(),
+                replace_filter: parameters.replace_filter,
+            }
+            .validate(),
             Self::Events(parameters) => {
                 let realm_ids = parameters.realm_ids.as_deref().unwrap_or_default();
                 let actor_ids = parameters.actor_ids.as_deref().unwrap_or_default();

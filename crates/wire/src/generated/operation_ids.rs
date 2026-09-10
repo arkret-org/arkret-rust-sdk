@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-10.2;
-//! sha256=c2ae2d334aebe6c78407cf1038c230b6ba6653d0df12cfabcad896a54dd74fcc Entries: registered=237
+//! Input: registry/operation-registry.json; version=2026-09-10.16;
+//! sha256=d2d558d0657ae6cef648b39b65bfb0a0c8db63ec36c56db75efb7a6e2aab8c47 Entries: registered=240
 
 use serde::{Deserialize, Serialize};
 
@@ -175,6 +175,7 @@ pub enum ServiceOperationId {
     SelfControlProposalAcksCommandIssueV1,
     SelfControlProposalDecisionsCommandSubmitV1,
     SelfControlProposalDecisionsReadGetV1,
+    SelfCurrentPrincipalReadResolveV1,
     SelfCurrentSignerEvidenceReadResolveV1,
     SelfDeviceMessagesCommandAckV1,
     SelfDeviceMessagesCommandSendV1,
@@ -235,6 +236,8 @@ pub enum ServiceOperationId {
     SelfSealsReadMembershipAuthorityV1,
     SelfSealsReadMlsAcceptedArtifactV1,
     SelfSealsReadMlsGovernanceProofV1,
+    SelfSealsReadMlsMembershipRemovalV1,
+    SelfSealsReadMlsWelcomeRefsV1,
     SelfSealsReadPendingControlV1,
     SelfSealsReadResolveV1,
     SelfSecurityTransactionCommandContinueV1,
@@ -415,6 +418,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_CONTROL_PROPOSAL_ACKS_COMMAND_ISSUE_V1,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_COMMAND_SUBMIT_V1,
     ServiceOperationId::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1,
+    ServiceOperationId::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
     ServiceOperationId::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_ACK_V1,
     ServiceOperationId::SELF_DEVICE_MESSAGES_COMMAND_SEND_V1,
@@ -475,6 +479,8 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
+    ServiceOperationId::SELF_SEALS_READ_MLS_MEMBERSHIP_REMOVAL_V1,
+    ServiceOperationId::SELF_SEALS_READ_MLS_WELCOME_REFS_V1,
     ServiceOperationId::SELF_SEALS_READ_PENDING_CONTROL_V1,
     ServiceOperationId::SELF_SEALS_READ_RESOLVE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
@@ -697,6 +703,7 @@ impl ServiceOperationId {
         Self::SelfControlProposalAcksCommandIssueV1,
         Self::SelfControlProposalDecisionsCommandSubmitV1,
         Self::SelfControlProposalDecisionsReadGetV1,
+        Self::SelfCurrentPrincipalReadResolveV1,
         Self::SelfCurrentSignerEvidenceReadResolveV1,
         Self::SelfDeviceMessagesCommandAckV1,
         Self::SelfDeviceMessagesCommandSendV1,
@@ -757,6 +764,8 @@ impl ServiceOperationId {
         Self::SelfSealsReadMembershipAuthorityV1,
         Self::SelfSealsReadMlsAcceptedArtifactV1,
         Self::SelfSealsReadMlsGovernanceProofV1,
+        Self::SelfSealsReadMlsMembershipRemovalV1,
+        Self::SelfSealsReadMlsWelcomeRefsV1,
         Self::SelfSealsReadPendingControlV1,
         Self::SelfSealsReadResolveV1,
         Self::SelfSecurityTransactionCommandContinueV1,
@@ -1054,6 +1063,8 @@ impl ServiceOperationId {
         "ak.self.control_proposal_decisions.command.submit.v1";
     pub const SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1: &'static str =
         "ak.self.control_proposal_decisions.read.get.v1";
+    pub const SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1: &'static str =
+        "ak.self.current_principal.read.resolve.v1";
     pub const SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1: &'static str =
         "ak.self.current_signer_evidence.read.resolve.v1";
     pub const SELF_DEVICE_MESSAGES_COMMAND_ACK_V1: &'static str =
@@ -1153,6 +1164,10 @@ impl ServiceOperationId {
         "ak.self.seals.read.mls_accepted_artifact.v1";
     pub const SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1: &'static str =
         "ak.self.seals.read.mls_governance_proof.v1";
+    pub const SELF_SEALS_READ_MLS_MEMBERSHIP_REMOVAL_V1: &'static str =
+        "ak.self.seals.read.mls_membership_removal.v1";
+    pub const SELF_SEALS_READ_MLS_WELCOME_REFS_V1: &'static str =
+        "ak.self.seals.read.mls_welcome_refs.v1";
     pub const SELF_SEALS_READ_PENDING_CONTROL_V1: &'static str =
         "ak.self.seals.read.pending_control.v1";
     pub const SELF_SEALS_READ_RESOLVE_V1: &'static str = "ak.self.seals.read.resolve.v1";
@@ -1447,6 +1462,7 @@ impl ServiceOperationId {
             Self::SelfControlProposalDecisionsReadGetV1 => {
                 Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1
             }
+            Self::SelfCurrentPrincipalReadResolveV1 => Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1,
             Self::SelfCurrentSignerEvidenceReadResolveV1 => {
                 Self::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1
             }
@@ -1547,6 +1563,10 @@ impl ServiceOperationId {
             Self::SelfSealsReadMlsGovernanceProofV1 => {
                 Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1
             }
+            Self::SelfSealsReadMlsMembershipRemovalV1 => {
+                Self::SELF_SEALS_READ_MLS_MEMBERSHIP_REMOVAL_V1
+            }
+            Self::SelfSealsReadMlsWelcomeRefsV1 => Self::SELF_SEALS_READ_MLS_WELCOME_REFS_V1,
             Self::SelfSealsReadPendingControlV1 => Self::SELF_SEALS_READ_PENDING_CONTROL_V1,
             Self::SelfSealsReadResolveV1 => Self::SELF_SEALS_READ_RESOLVE_V1,
             Self::SelfSecurityTransactionCommandContinueV1 => {
@@ -1907,6 +1927,9 @@ impl ServiceOperationId {
             Self::SELF_CONTROL_PROPOSAL_DECISIONS_READ_GET_V1 => {
                 Some(Self::SelfControlProposalDecisionsReadGetV1)
             }
+            Self::SELF_CURRENT_PRINCIPAL_READ_RESOLVE_V1 => {
+                Some(Self::SelfCurrentPrincipalReadResolveV1)
+            }
             Self::SELF_CURRENT_SIGNER_EVIDENCE_READ_RESOLVE_V1 => {
                 Some(Self::SelfCurrentSignerEvidenceReadResolveV1)
             }
@@ -2031,6 +2054,10 @@ impl ServiceOperationId {
             Self::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1 => {
                 Some(Self::SelfSealsReadMlsGovernanceProofV1)
             }
+            Self::SELF_SEALS_READ_MLS_MEMBERSHIP_REMOVAL_V1 => {
+                Some(Self::SelfSealsReadMlsMembershipRemovalV1)
+            }
+            Self::SELF_SEALS_READ_MLS_WELCOME_REFS_V1 => Some(Self::SelfSealsReadMlsWelcomeRefsV1),
             Self::SELF_SEALS_READ_PENDING_CONTROL_V1 => Some(Self::SelfSealsReadPendingControlV1),
             Self::SELF_SEALS_READ_RESOLVE_V1 => Some(Self::SelfSealsReadResolveV1),
             Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1 => {
@@ -4113,7 +4140,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PeerGovernanceDependencyResolveRequest",
+            "schemas/service-operation-dtos.schema.json#/$defs/PeerGovernanceDependencyResolveRequestBody",
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/GovernanceDependencyResolveOutcome",
@@ -5067,12 +5094,12 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfAgentSignerEvidence/Resolve"),
         mq: Some("self.agent_signer_evidence.query.resolve"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
+        max_canonical_body_bytes: Some(65536),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_request",
+            "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_request_body",
         ),
         response_schema_ref: Some(
             "schemas/agent-signer-evidence-operations.schema.json#/$defs/query_outcome",
@@ -5927,21 +5954,41 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfCurrentPrincipalReadResolveV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/account/current-principal",
+        grpc: Some("SelfCurrentPrincipal/Resolve"),
+        mq: Some("self.current_principal.query.resolve"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/current_principal_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/identity-resolution.schema.json#/$defs/current_principal_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfCurrentSignerEvidenceReadResolveV1,
         http_method: "POST",
         http_path: "/_arkret/self/current-signer-evidence/query",
         grpc: Some("SelfCurrentSignerEvidence/Resolve"),
         mq: Some("self.current_signer_evidence.query.resolve"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
+        max_canonical_body_bytes: Some(65536),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/current-signer-evidence-operations.schema.json#/$defs/query_request",
+            "schemas/current-signer-evidence-operations.schema.json#/$defs/self_query_request_body",
         ),
         response_schema_ref: Some(
-            "schemas/current-signer-evidence-operations.schema.json#/$defs/query_outcome",
+            "schemas/current-signer-evidence-operations.schema.json#/$defs/self_query_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -6249,7 +6296,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("protocol_sequence"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/history_key_response_ack_request",
+            "schemas/history-key.schema.json#/$defs/history_key_response_ack_request_body",
         ),
         response_schema_ref: Some(
             "schemas/history-key.schema.json#/$defs/history_key_response_ack_outcome",
@@ -6274,7 +6321,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("object_id"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/history_key_response_send_request",
+            "schemas/history-key.schema.json#/$defs/history_key_response_send_request_body",
         ),
         response_schema_ref: Some(
             "schemas/history-key.schema.json#/$defs/history_key_response_send_receipt",
@@ -7071,7 +7118,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareRequest",
+            "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareRequestBody",
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareOutcome",
@@ -7141,7 +7188,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/SelfGovernanceDependencyResolveRequest",
+            "schemas/service-operation-dtos.schema.json#/$defs/SelfGovernanceDependencyResolveRequestBody",
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/GovernanceDependencyResolveOutcome",
@@ -7161,7 +7208,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/history_authority_request",
+            "schemas/history-key.schema.json#/$defs/history_authority_request_body",
         ),
         response_schema_ref: Some(
             "schemas/history-key.schema.json#/$defs/history_authority_outcome",
@@ -7181,7 +7228,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/membership_authority_request",
+            "schemas/history-key.schema.json#/$defs/membership_authority_request_body",
         ),
         response_schema_ref: Some(
             "schemas/history-key.schema.json#/$defs/membership_authority_outcome",
@@ -7201,7 +7248,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_request",
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_request_body",
         ),
         response_schema_ref: Some(
             "schemas/mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_outcome",
@@ -7221,10 +7268,50 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/mls-governance-proof-bundle.schema.json#/$defs/self_read_request",
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/self_read_request_body",
         ),
         response_schema_ref: Some(
             "schemas/mls-governance-proof-bundle.schema.json#/$defs/self_read_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadMlsMembershipRemovalV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/mls-membership-removal",
+        grpc: Some("SelfSeals/MlsMembershipRemoval"),
+        mq: Some("self.seals.read.mls_membership_removal"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(8388608),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/membership_removal_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-governance-proof-bundle.schema.json#/$defs/membership_removal_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadMlsWelcomeRefsV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/mls-welcome-refs",
+        grpc: Some("SelfSeals/MlsWelcomeRefs"),
+        mq: Some("self.seals.read.mls_welcome_refs"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(65536),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/mls-welcome-refs.schema.json#/$defs/welcome_refs_request",
+        ),
+        response_schema_ref: Some(
+            "schemas/mls-welcome-refs.schema.json#/$defs/welcome_refs_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: None,
@@ -7241,7 +7328,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: None,
         retry_safe: None,
         request_schema_ref: Some(
-            "schemas/service-operation-dtos.schema.json#/$defs/PcrPendingControlRequest",
+            "schemas/service-operation-dtos.schema.json#/$defs/PcrPendingControlRequestBody",
         ),
         response_schema_ref: Some(
             "schemas/service-operation-dtos.schema.json#/$defs/PcrPendingControlOutcome",

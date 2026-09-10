@@ -14,7 +14,7 @@ use crate::events_payloads::state::{
     ForkResolutionVariantLocator,
 };
 use crate::history_key::{
-    HistoryKeyResponseLostRecord, HistoryKeyResponseRecord, HistoryKeyResponseSendRequest,
+    HistoryKeyResponseLostRecord, HistoryKeyResponseRecord, HistoryKeyResponseSendRequestBody,
     MinimalMetadataMlsLeafSignerEvidence, PeerHistoryTraversalAccess, SelfHistoryTraversalAccess,
 };
 
@@ -419,7 +419,7 @@ pub fn governance_transitive_signer_evidence_selectors(
 /// evidence object or the dedicated minimal-metadata MLS evidence. Service
 /// evidence is valid only as a recursively referenced attester leaf.
 pub fn validate_history_source_signer_dependency_closure(
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     dependencies: &[GovernanceDependency],
 ) -> Result<()> {
     let mut authenticated = BTreeMap::new();
@@ -586,7 +586,7 @@ fn validate_authenticated_evidence_reachability(
 /// Select the exact reachable signer-evidence closure for one response from a
 /// page-level dependency superset, then run the canonical closure validator.
 pub fn history_source_signer_dependency_closure(
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     dependencies: &[GovernanceDependency],
 ) -> Result<Vec<GovernanceDependency>> {
     let mut authenticated = BTreeMap::new();
@@ -1088,11 +1088,11 @@ macro_rules! governance_dependency_resolve_request {
 }
 
 governance_dependency_resolve_request!(
-    SelfGovernanceDependencyResolveRequest,
+    SelfGovernanceDependencyResolveRequestBody,
     SelfHistoryTraversalAccess
 );
 governance_dependency_resolve_request!(
-    PeerGovernanceDependencyResolveRequest,
+    PeerGovernanceDependencyResolveRequestBody,
     PeerHistoryTraversalAccess
 );
 
@@ -1183,7 +1183,7 @@ impl GovernanceDependencyResolveOutcome {
 
     pub fn validate_for_self_request(
         &self,
-        request: &SelfGovernanceDependencyResolveRequest,
+        request: &SelfGovernanceDependencyResolveRequestBody,
     ) -> Result<()> {
         request.validate()?;
         self.validate_for_request_parts(&request.selectors, request.byte_limit)
@@ -1191,7 +1191,7 @@ impl GovernanceDependencyResolveOutcome {
 
     pub fn validate_for_peer_request(
         &self,
-        request: &PeerGovernanceDependencyResolveRequest,
+        request: &PeerGovernanceDependencyResolveRequestBody,
     ) -> Result<()> {
         request.validate()?;
         self.validate_for_request_parts(&request.selectors, request.byte_limit)
@@ -1236,13 +1236,13 @@ impl GovernanceDependencyResolveOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct PcrPendingControlRequest {
+pub struct PcrPendingControlRequestBody {
     pub realm_id: RealmId,
     pub predecessor_refs: Vec<SealId>,
     pub limit: u32,
 }
 
-impl PcrPendingControlRequest {
+impl PcrPendingControlRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
         if !(1..=1024).contains(&self.limit) {
@@ -1265,7 +1265,7 @@ pub struct PcrPendingControlOutcome {
 }
 
 impl PcrPendingControlOutcome {
-    pub fn validate_for_request(&self, request: &PcrPendingControlRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &PcrPendingControlRequestBody) -> Result<()> {
         request.validate()?;
         if self.realm_id != request.realm_id
             || self.predecessor_refs != request.predecessor_refs
@@ -1289,14 +1289,14 @@ impl PcrPendingControlOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealPrepareRequest {
+pub struct SealPrepareRequestBody {
     pub realm_id: RealmId,
     pub predecessor_refs: Vec<SealId>,
     pub event_digests: Vec<Hash>,
     pub hlc: arkret_wire::Hlc,
 }
 
-impl SealPrepareRequest {
+impl SealPrepareRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
         validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
@@ -1343,7 +1343,7 @@ fn deserialize_ordinary_pcr_body<'de, D: serde::Deserializer<'de>>(
 }
 
 impl SealPrepareOutcome {
-    pub fn validate_for_request(&self, request: &SealPrepareRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &SealPrepareRequestBody) -> Result<()> {
         request.validate()?;
         let body = &self.seal_body;
         if body.realm_id != request.realm_id
@@ -1391,7 +1391,7 @@ impl SealPrepareOutcome {
     /// Caller identity and local key selection remain the host's responsibility.
     pub fn sign<S: arkret_wire::PayloadSigner + ?Sized>(
         &self,
-        request: &SealPrepareRequest,
+        request: &SealPrepareRequestBody,
         signer: &S,
     ) -> Result<Seal> {
         self.validate_for_request(request)?;
@@ -1429,7 +1429,7 @@ mod tests {
     #[test]
     fn pcr_prepared_body_binds_intent_without_history_and_rejects_legacy_fields() {
         let digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
-        let request = SealPrepareRequest {
+        let request = SealPrepareRequestBody {
             realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
                 .unwrap(),
             predecessor_refs: vec![
@@ -1478,8 +1478,8 @@ mod tests {
     #[test]
     fn governance_dependency_requests_have_distinct_wire_types() {
         assert_ne!(
-            TypeId::of::<SelfGovernanceDependencyResolveRequest>(),
-            TypeId::of::<PeerGovernanceDependencyResolveRequest>()
+            TypeId::of::<SelfGovernanceDependencyResolveRequestBody>(),
+            TypeId::of::<PeerGovernanceDependencyResolveRequestBody>()
         );
     }
 }

@@ -748,6 +748,10 @@ pub enum DirectConversationResolveOutcome {
         group_state_ref: Option<EventId>,
     },
     Found {
+        #[serde(
+            deserialize_with = "deserialize_found_coordinates",
+            serialize_with = "serialize_found_coordinates"
+        )]
         coordinates: DirectConversationCoordinates,
         group_state_ref: EventId,
         send_blockers: Vec<DirectConversationSendBlocker>,
@@ -762,6 +766,28 @@ pub enum DirectConversationResolveOutcome {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         retry_after_ms: Option<u64>,
     },
+}
+
+fn deserialize_found_coordinates<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<DirectConversationCoordinates, D::Error> {
+    let value = DirectConversationCoordinates::deserialize(deserializer)?;
+    if value.binding_event_ref.is_none() {
+        return Err(serde::de::Error::custom("found requires binding_event_ref"));
+    }
+    Ok(value)
+}
+
+fn serialize_found_coordinates<S: serde::Serializer>(
+    value: &DirectConversationCoordinates,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if value.binding_event_ref.is_none() {
+        return Err(serde::ser::Error::custom(
+            "found requires binding_event_ref",
+        ));
+    }
+    value.serialize(serializer)
 }
 
 impl DirectConversationResolveOutcome {
@@ -779,6 +805,13 @@ impl DirectConversationResolveOutcome {
 
     /// Validate the response shape.
     pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if let Self::Found { coordinates, .. } = self
+            && coordinates.binding_event_ref.is_none()
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "found requires binding_event_ref".into(),
+            ));
+        }
         Ok(())
     }
 }
@@ -904,6 +937,25 @@ impl DirectConversationFoundingAcceptanceReceipt {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+
+    #[test]
+    fn found_requires_authoring_endorsement_on_decode_validate_and_encode() {
+        let mut wire = json!({"state":"found","coordinates":{
+            "pair_key":"sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            "realm_id":"ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+            "main_strand_id":"ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS"},
+            "group_state_ref":"ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml","send_blockers":[]});
+        assert!(serde_json::from_value::<DirectConversationResolveOutcome>(wire.clone()).is_err());
+        wire["coordinates"]["binding_event_ref"] = wire["group_state_ref"].clone();
+        let mut found: DirectConversationResolveOutcome = serde_json::from_value(wire).unwrap();
+        assert!(found.validate_shape().is_ok());
+        assert!(serde_json::to_value(&found).is_ok());
+        if let DirectConversationResolveOutcome::Found { coordinates, .. } = &mut found {
+            coordinates.binding_event_ref = None;
+        }
+        assert!(found.validate_shape().is_err());
+        assert!(serde_json::to_value(&found).is_err());
+    }
 
     #[test]
     fn founding_member_cell_hashes_the_full_actor_including_station() {

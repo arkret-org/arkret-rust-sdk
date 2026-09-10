@@ -18,8 +18,8 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::governance_dependencies::{
-    GovernanceDependencyResolveOutcome, SealPrepareOutcome, SealPrepareRequest,
-    SelfGovernanceDependencyResolveRequest,
+    GovernanceDependencyResolveOutcome, SealPrepareOutcome, SealPrepareRequestBody,
+    SelfGovernanceDependencyResolveRequestBody,
 };
 use arkret_models_collaboration::http_bodies::{
     EventDeliveryStatusOutcome, EventDeliveryStatusRequestBody, EventSealSubmitOutcome,
@@ -766,7 +766,7 @@ impl Client {
     /// Consume the authenticated Account Station's exact MLS governance result.
     pub async fn mls_governance_frontier(
         &self,
-        request: &arkret_models_crypto::MlsGovernanceFrontierRequest,
+        request: &arkret_models_crypto::MlsGovernanceFrontierRequestBody,
     ) -> Result<arkret_models_crypto::MlsGovernanceFrontierOutcome> {
         request.validate()?;
         let outcome: arkret_models_crypto::MlsGovernanceFrontierOutcome = self
@@ -776,10 +776,24 @@ impl Client {
         Ok(outcome)
     }
 
+    /// Reconcile exact occupied leaves with the authenticated Account Station.
+    pub async fn mls_membership_removal(
+        &self,
+        request: &arkret_models_crypto::MlsMembershipRemovalRequestBody,
+        expected_account_id: &arkret_wire::AccountId,
+    ) -> Result<arkret_models_crypto::MlsMembershipRemovalOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_crypto::MlsMembershipRemovalOutcome = self
+            .post("/_arkret/self/seals/mls-membership-removal", request)
+            .await?;
+        outcome.validate_for_request(request, expected_account_id)?;
+        Ok(outcome)
+    }
+
     /// Read the current member history floor without fetching a governance checkpoint.
     pub async fn history_authority(
         &self,
-        request: &arkret_models_collaboration::history_key::HistoryAuthorityRequest,
+        request: &arkret_models_collaboration::history_key::HistoryAuthorityRequestBody,
     ) -> Result<arkret_models_collaboration::history_key::HistoryAuthorityOutcome> {
         request.validate()?;
         let outcome: arkret_models_collaboration::history_key::HistoryAuthorityOutcome = self
@@ -792,7 +806,7 @@ impl Client {
     /// Read the current join identity at the exact accepted frontier.
     pub async fn membership_authority(
         &self,
-        request: &arkret_models_collaboration::history_key::MembershipAuthorityRequest,
+        request: &arkret_models_collaboration::history_key::MembershipAuthorityRequestBody,
     ) -> Result<arkret_models_collaboration::history_key::MembershipAuthorityOutcome> {
         request.validate()?;
         let outcome: arkret_models_collaboration::history_key::MembershipAuthorityOutcome = self
@@ -805,11 +819,28 @@ impl Client {
     /// Read the Station's current acceptance of one already known MLS artifact.
     pub async fn mls_accepted_artifact(
         &self,
-        request: &arkret_models_crypto::MlsAcceptedArtifactRequest,
+        request: &arkret_models_crypto::MlsAcceptedArtifactRequestBody,
     ) -> Result<arkret_models_crypto::MlsAcceptedArtifactOutcome> {
         request.validate()?;
         let outcome: arkret_models_crypto::MlsAcceptedArtifactOutcome = self
             .post("/_arkret/self/seals/mls-accepted-artifact", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Discover bounded Welcome references for this session's exact recipient.
+    pub async fn mls_welcome_refs(
+        &self,
+        request: &arkret_models_crypto::MlsWelcomeRefsRequestBody,
+    ) -> Result<arkret_models_crypto::MlsWelcomeRefsOutcome> {
+        request.validate()?;
+        let builder = self.canonical_json_body(
+            self.request(Method::POST, "/_arkret/self/seals/mls-welcome-refs")?,
+            request,
+        )?;
+        let outcome: arkret_models_crypto::MlsWelcomeRefsOutcome = self
+            .send_json_limited(builder, arkret_models_crypto::MLS_WELCOME_REFS_MAX_BYTES)
             .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
@@ -820,7 +851,7 @@ impl Client {
     /// Replay consumers must require their selected dependency closure in full.
     pub async fn governance_dependencies_resolve(
         &self,
-        request: &SelfGovernanceDependencyResolveRequest,
+        request: &SelfGovernanceDependencyResolveRequestBody,
     ) -> Result<GovernanceDependencyResolveOutcome> {
         request.validate()?;
         let outcome: GovernanceDependencyResolveOutcome = self
@@ -833,7 +864,7 @@ impl Client {
     /// Read pending digests without scanning or replaying PCR history.
     pub async fn pcr_pending_control(
         &self,
-        request: &arkret_models_collaboration::governance_dependencies::PcrPendingControlRequest,
+        request: &arkret_models_collaboration::governance_dependencies::PcrPendingControlRequestBody,
     ) -> Result<arkret_models_collaboration::governance_dependencies::PcrPendingControlOutcome>
     {
         request.validate()?;
@@ -843,7 +874,10 @@ impl Client {
     }
 
     /// Request the exact Station-validated body for a device-signed PCR Seal.
-    pub async fn seals_prepare(&self, request: &SealPrepareRequest) -> Result<SealPrepareOutcome> {
+    pub async fn seals_prepare(
+        &self,
+        request: &SealPrepareRequestBody,
+    ) -> Result<SealPrepareOutcome> {
         request.validate()?;
         let outcome: SealPrepareOutcome = self.post("/_arkret/self/seals/prepare", request).await?;
         outcome.validate_for_request(request)?;

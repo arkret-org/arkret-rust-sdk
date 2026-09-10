@@ -27,6 +27,7 @@ openapi = [
 ]
 
 [dependencies]
+arkret-schema = { workspace = true }
 arkret-canonical = { workspace = true }
 arkret-identifiers = { workspace = true }
 arkret-models-crypto = { workspace = true }
@@ -47,7 +48,6 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 arkret-schema-conformance = { workspace = true }
-arkret-schema = { workspace = true }
 arkret-wire = { workspace = true, features = ["test-support"] }
 ed25519-dalek = { workspace = true }
 proptest = { workspace = true, default-features = false, features = ["std"] }

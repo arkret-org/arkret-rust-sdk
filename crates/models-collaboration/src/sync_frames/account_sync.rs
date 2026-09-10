@@ -707,26 +707,130 @@ pub struct RealmSyncEntryBottomsItem {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmSyncEntry {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub timeline: Option<Timeline>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub state_at_window_start: Option<StateAtWindowStart>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state: Option<EventContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_after: Option<EventContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub current: Option<super::current_results::CurrentEntries>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub account_data: Option<EventContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub summary: Option<AccountSubscribeRealmSummary>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub member_roster: Option<MemberRoster>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub unread_notifications: Option<AccountSubscribeUnreadCounts>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub event_states: Option<Vec<RealmSyncEntryEventStatesItem>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub bottoms: Option<Vec<RealmSyncEntryBottomsItem>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub baseline: Option<super::demand_sync::RealmDetailBaseline>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub unavailable: Option<super::demand_sync::RealmDetailUnavailable>,
+}
+
+impl RealmSyncEntry {
+    pub fn validate_demand(&self) -> Result<()> {
+        use super::demand_sync::{demand_error, validate_demand_cursor};
+        if let Some(baseline) = &self.baseline {
+            validate_demand_cursor(baseline.snapshot_cursor.as_str())?;
+            super::current_results::validate_current_revision(baseline.cut_revision)?;
+            baseline.coverage.validate()?;
+        }
+        if let Some(current) = &self.current {
+            current.validate()?;
+            if let Some(baseline) = &self.baseline {
+                for entry in &current.entries {
+                    if entry.revision() > baseline.cut_revision
+                        || !baseline.coverage.covers(entry.selector(), entry.target())
+                    {
+                        return Err(demand_error(
+                            "Current baseline entry exceeds its cut or coverage",
+                        ));
+                    }
+                }
+            }
+        }
+        if self.unavailable.is_some()
+            && (self.timeline.is_some()
+                || self.state_at_window_start.is_some()
+                || self.current.is_some()
+                || self.account_data.is_some()
+                || self.summary.is_some()
+                || self.member_roster.is_some()
+                || self.unread_notifications.is_some()
+                || self.event_states.is_some()
+                || self.bottoms.is_some()
+                || self.baseline.is_some())
+        {
+            return Err(demand_error(
+                "Unavailable Realm entries cannot carry detail data",
+            ));
+        }
+        for container in [&self.account_data].into_iter().flatten() {
+            if container.events.len() > 100 {
+                return Err(demand_error("Realm state exceeds 100 Events"));
+            }
+        }
+        if self
+            .timeline
+            .as_ref()
+            .is_some_and(|timeline| timeline.events.len() > 100)
+            || self
+                .member_roster
+                .as_ref()
+                .is_some_and(|roster| roster.entries.len() > 100)
+        {
+            return Err(demand_error("Realm timeline or roster exceeds 100 items"));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

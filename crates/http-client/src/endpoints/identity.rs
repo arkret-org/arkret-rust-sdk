@@ -28,6 +28,19 @@ use reqwest::Method;
 use crate::{Client, Error, Result};
 
 impl Client {
+    /// Read this authenticated Account's current principal projection and unique PCR.
+    pub async fn current_principal(
+        &self,
+        request: &arkret_models_identity::CurrentPrincipalRequestBody,
+    ) -> Result<arkret_models_identity::CurrentPrincipalOutcome> {
+        request.validate()?;
+        let outcome: arkret_models_identity::CurrentPrincipalOutcome = self
+            .post("/_arkret/self/account/current-principal", request)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
     /// Read the authenticated account's exact Principal Control Realm lineage.
     ///
     /// The authority pair is an explicit selector: the server must not choose

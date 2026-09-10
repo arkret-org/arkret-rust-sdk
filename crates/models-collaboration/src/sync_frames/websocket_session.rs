@@ -16,7 +16,7 @@
 //!   / §6.2);
 //! - the close-code → retry / HTTP-fallback decision table (§8.1).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 use arkret_wire::ErrorCode;
 use arkret_wire::websocket_binding::{
@@ -56,18 +56,35 @@ pub struct WebSocketChannel {
     /// The last cursor the receiver has actually checkpointed. Only this value
     /// may be used to resume on the next connection (§6.1).
     pub durable_cursor: Option<String>,
-    /// A cursor observed on an accepted frame that is not checkpointed yet.
-    pub pending_cursor: Option<String>,
+    /// Accepted cursor-bearing frames awaiting durable installation, in delivery order.
+    pending_cursors: VecDeque<String>,
 }
 
 impl WebSocketChannel {
-    /// Promote the observed cursor to the durable resume point. The client
-    /// calls this only after its own local durable write succeeded.
-    pub fn checkpoint(&mut self) -> Option<&str> {
-        if let Some(cursor) = self.pending_cursor.take() {
-            self.durable_cursor = Some(cursor);
+    /// Acknowledge exactly the oldest delivered cursor after the host transaction commits.
+    /// A later accepted frame must never advance this frame's durable checkpoint.
+    pub fn checkpoint_exact(&mut self, cursor: &str) -> Result<&str> {
+        if self.pending_cursors.front().map(String::as_str) != Some(cursor) {
+            return Err(WireError::Protocol(
+                "checkpoint must acknowledge the oldest accepted cursor".to_owned(),
+            ));
         }
-        self.durable_cursor.as_deref()
+        self.durable_cursor = self.pending_cursors.pop_front();
+        Ok(self.durable_cursor.as_deref().expect("acknowledged cursor"))
+    }
+
+    fn observe_cursor(&mut self, cursor: String) -> std::result::Result<(), WebSocketRejection> {
+        if self.operation == WebSocketOperationId::AccountStreamSubscribe
+            && self.pending_cursors.len() >= 2
+        {
+            return Err(WebSocketRejection::channel(
+                &self.channel_id,
+                ErrorCode::LimitExceeded,
+                "account channel has two uncommitted cursor-bearing frames",
+            ));
+        }
+        self.pending_cursors.push_back(cursor);
+        Ok(())
     }
 }
 
@@ -333,6 +350,13 @@ impl WebSocketConnectionState {
             .filter(|channel| !channel.open)
     }
 
+    /// Closed channels retain in-flight acknowledgements until their delivered frames commit.
+    pub fn retired_channel_mut(&mut self, channel_id: &str) -> Option<&mut WebSocketChannel> {
+        self.channels
+            .get_mut(channel_id)
+            .filter(|channel| !channel.open)
+    }
+
     pub fn operation_for(&self, channel_id: &str) -> Option<WebSocketOperationId> {
         self.channel(channel_id).map(|channel| channel.operation)
     }
@@ -416,7 +440,7 @@ impl WebSocketConnectionState {
                 operation: *operation_id,
                 open: true,
                 durable_cursor: None,
-                pending_cursor: None,
+                pending_cursors: VecDeque::new(),
             },
         );
         Ok(WebSocketOpenAdmission::Opened {
@@ -448,7 +472,7 @@ impl WebSocketConnectionState {
                 operation,
                 open: true,
                 durable_cursor: None,
-                pending_cursor: None,
+                pending_cursors: VecDeque::new(),
             },
         );
         Ok(())
@@ -564,7 +588,7 @@ impl WebSocketConnectionState {
                 if let Some(cursor) = &observed_cursor
                     && let Some(channel) = self.channel_mut(channel_id)
                 {
-                    channel.pending_cursor = Some(cursor.clone());
+                    channel.observe_cursor(cursor.clone())?;
                 }
                 Ok(WebSocketServerEvent::Data {
                     channel_id: channel_id.clone(),
@@ -605,7 +629,7 @@ impl WebSocketConnectionState {
                         .flatten()
                         && let Some(channel) = self.channel_mut(channel_id)
                     {
-                        channel.pending_cursor = Some(cursor);
+                        channel.observe_cursor(cursor)?;
                     }
                     Ok(WebSocketServerEvent::ChannelControl {
                         channel_id: channel_id.to_owned(),
@@ -993,8 +1017,9 @@ mod tests {
             state
                 .channel_mut("account-1")
                 .expect("account channel")
-                .checkpoint(),
-            Some("ak:cursor:YWNjountY3Vyc29yLTAwMDE")
+                .checkpoint_exact("ak:cursor:YWNjountY3Vyc29yLTAwMDE")
+                .unwrap(),
+            "ak:cursor:YWNjountY3Vyc29yLTAwMDE"
         );
         state
             .accept_server_frame(&WebSocketServerFrame::Control {
@@ -1005,7 +1030,59 @@ mod tests {
             .unwrap();
         let signal = state.channel("signal-1").expect("signal channel");
         assert_eq!(signal.durable_cursor, None);
-        assert_eq!(signal.pending_cursor, None);
+        assert!(signal.pending_cursors.is_empty());
+    }
+
+    #[test]
+    fn exact_checkpoint_does_not_promote_ahead_and_survives_channel_retirement() {
+        let mut state = authenticated();
+        state
+            .record_opened("a", WebSocketOperationId::AccountStreamSubscribe)
+            .unwrap();
+        for cursor in ["ak:cursor:YQ", "ak:cursor:Yg"] {
+            state
+                .accept_server_frame(&WebSocketServerFrame::Data {
+                    channel_id: "a".into(),
+                    payload: serde_json::json!({"kind":"delta","cursor":cursor}),
+                })
+                .unwrap();
+        }
+        let channel = state.channel_mut("a").unwrap();
+        assert!(channel.checkpoint_exact("ak:cursor:Yg").is_err());
+        assert_eq!(
+            channel.checkpoint_exact("ak:cursor:YQ").unwrap(),
+            "ak:cursor:YQ"
+        );
+        assert_eq!(channel.durable_cursor.as_deref(), Some("ak:cursor:YQ"));
+        channel.open = false;
+        assert_eq!(
+            state
+                .retired_channel_mut("a")
+                .unwrap()
+                .checkpoint_exact("ak:cursor:Yg")
+                .unwrap(),
+            "ak:cursor:Yg"
+        );
+    }
+
+    #[test]
+    fn account_pending_cursor_budget_rejects_without_promoting() {
+        let mut state = authenticated();
+        state
+            .record_opened("a", WebSocketOperationId::AccountStreamSubscribe)
+            .unwrap();
+        let frame = WebSocketServerFrame::Data {
+            channel_id: "a".into(),
+            payload: serde_json::json!({"kind":"delta","cursor":"ak:cursor:YQ"}),
+        };
+        state.accept_server_frame(&frame).unwrap();
+        state.accept_server_frame(&frame).unwrap();
+        assert!(state.accept_server_frame(&frame).is_err());
+        let channel = state.channel_mut("a").unwrap();
+        assert!(channel.durable_cursor.is_none());
+        channel.checkpoint_exact("ak:cursor:YQ").unwrap();
+        channel.checkpoint_exact("ak:cursor:YQ").unwrap();
+        assert!(channel.checkpoint_exact("ak:cursor:YQ").is_err());
     }
 
     #[test]

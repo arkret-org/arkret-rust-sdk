@@ -45,6 +45,142 @@ use crate::{MlsError as Error, Result};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
+/// Only canonical Realm and Circle group identities use public handshakes.
+/// Sidecar identities are composite and retain their independent policy.
+pub(super) fn requires_public_handshake(group_id: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(group_id) else {
+        return false;
+    };
+    arkret_wire::RealmId::new(text).is_ok_and(|id| id.as_str().as_bytes() == group_id)
+        || arkret_wire::CircleId::new(text).is_ok_and(|id| id.as_str().as_bytes() == group_id)
+}
+
+pub(super) fn handshake_policy(group_id: &[u8]) -> openmls::prelude::WireFormatPolicy {
+    if requires_public_handshake(group_id) {
+        openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
+    } else {
+        openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY
+    }
+}
+
+#[cfg(test)]
+mod handshake_policy_tests {
+    use arkret_wire::DeviceId;
+
+    use super::*;
+
+    fn identity(device: &str) -> ArkretMlsIdentity {
+        ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:handshake.example").unwrap(),
+            DeviceId::new(device).unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn public_message(encoded: &str) -> bool {
+        matches!(
+            MlsMessageIn::tls_deserialize_exact(&decode(encoded).unwrap())
+                .unwrap()
+                .extract(),
+            MlsMessageBodyIn::PublicMessage(_)
+        )
+    }
+
+    #[test]
+    fn realm_circle_create_join_restore_keep_public_handshakes_and_private_application() {
+        for group_id in [
+            "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+        ] {
+            assert!(requires_public_handshake(group_id.as_bytes()));
+            let alice = identity("ak:device:01904100-0000-7000-8000-000000000071");
+            let bob = identity("ak:device:01904100-0000-7000-8000-000000000072");
+            let endpoints = vec![
+                alice.endpoint_identity().clone(),
+                bob.endpoint_identity().clone(),
+            ];
+            let package = bob.key_package_record().unwrap();
+            let mut group = alice.create_group(group_id).unwrap();
+            let added = group.add_member(&package).unwrap();
+            assert!(public_message(&added.commit.commit));
+            let mut joined = ArkretMlsGroup::join_from_welcome(bob, &added.welcome).unwrap();
+            joined.install_test_leaf_bindings(endpoints).unwrap();
+            assert_eq!(
+                joined.group.configuration().wire_format_policy(),
+                openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
+            );
+            let record = joined.export_state_record().unwrap();
+            let mut restored = ArkretMlsGroup::restore_from_state_record(&record).unwrap();
+            let update = restored.self_update_commit().unwrap();
+            assert!(public_message(&update.commit));
+            group.apply_commit(&update).unwrap();
+            let message = restored
+                .group
+                .create_message(
+                    &restored.identity.provider,
+                    &restored.identity.signer,
+                    b"private application",
+                )
+                .unwrap();
+            let bytes = message.tls_serialize_detached().unwrap();
+            assert!(matches!(
+                MlsMessageIn::tls_deserialize_exact(&bytes)
+                    .unwrap()
+                    .extract(),
+                MlsMessageBodyIn::PrivateMessage(_)
+            ));
+            restored
+                .group
+                .set_configuration(
+                    restored.identity.provider.storage(),
+                    &MlsGroupJoinConfig::default(),
+                )
+                .unwrap();
+            assert!(
+                ArkretMlsGroup::restore_from_state_record(&restored.export_state_record().unwrap())
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn sidecar_policy_is_not_changed_by_the_realm_public_handshake_rule() {
+        let bytes = b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV\x1fak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV";
+        assert!(!requires_public_handshake(bytes));
+        let mut group = identity("ak:device:01904100-0000-7000-8000-000000000071")
+            .create_group(bytes)
+            .unwrap();
+        assert!(!public_message(&group.self_update_commit().unwrap().commit));
+    }
+
+    #[test]
+    fn exact_leaf_removal_does_not_expand_to_other_leaves_of_the_actor() {
+        let alice = identity("ak:device:01904100-0000-7000-8000-000000000071");
+        let bob = identity("ak:device:01904100-0000-7000-8000-000000000072");
+        let mut group = alice
+            .create_group(b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+            .unwrap();
+        group
+            .add_member(&bob.key_package_record().unwrap())
+            .unwrap();
+        let before = group.epoch();
+        for indices in [vec![], vec![1, 1], vec![99], vec![1, 0]] {
+            assert!(group.remove_members_by_leaf_indices(&indices).is_err());
+            assert_eq!(group.epoch(), before);
+        }
+        let removed = group.remove_members_by_leaf_indices(&[1]).unwrap();
+        assert_eq!(removed.removed_leaves, vec![1]);
+        assert!(public_message(&removed.commit.commit));
+        assert!(
+            removed
+                .proposals
+                .iter()
+                .all(|proposal| public_message(&proposal.proposal))
+        );
+        assert_eq!(group.group.members().count(), 1);
+    }
+}
+
 /// MLS exporter label for the per-epoch history secret.
 pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
 /// HKDF-Expand label deriving the content key from the history secret.
@@ -1357,6 +1493,12 @@ impl ArkretMlsGroup {
         let group = MlsGroup::load(provider.storage(), &group_id)
             .map_err(mls_error)?
             .ok_or_else(|| Error::Protocol("OpenMLS group state is missing".to_owned()))?;
+        if requires_public_handshake(group_id.as_slice())
+            && group.configuration().wire_format_policy()
+                != openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
+        {
+            return Err(Error::Protocol("Realm/Circle MLS snapshot does not enforce the required PublicMessage handshake policy".to_owned()));
+        }
         if group.epoch().as_u64() != record.epoch {
             return Err(Error::Protocol(
                 "OpenMLS restored epoch mismatch".to_owned(),
@@ -1735,6 +1877,45 @@ impl ArkretMlsGroup {
         self.remove_leaves(&leaves, governance_binding)
     }
 
+    /// Remove exactly the selected occupied leaves, preserving other endpoints
+    /// even when they belong to the same Actor.
+    pub fn remove_members_by_leaf_indices_with_governance_binding(
+        &mut self,
+        leaf_indices: &[u32],
+        governance_binding: &MlsGovernanceBindingPayload,
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_leaf_indices_internal(leaf_indices, Some(governance_binding))
+    }
+
+    pub fn remove_members_by_leaf_indices(
+        &mut self,
+        leaf_indices: &[u32],
+    ) -> Result<MlsRemoveMemberResult> {
+        self.remove_members_by_leaf_indices_internal(leaf_indices, None)
+    }
+
+    fn remove_members_by_leaf_indices_internal(
+        &mut self,
+        leaf_indices: &[u32],
+        governance_binding: Option<&MlsGovernanceBindingPayload>,
+    ) -> Result<MlsRemoveMemberResult> {
+        if leaf_indices.is_empty()
+            || leaf_indices.len() > arkret_wire::mls_transition::MLS_FRONTIER_MAX_LEAVES
+            || leaf_indices.windows(2).any(|pair| pair[0] >= pair[1])
+        {
+            return Err(Error::Protocol(
+                "MLS removal indices must be nonempty, bounded and strictly increasing".to_owned(),
+            ));
+        }
+        self.require_complete_leaf_bindings()?;
+        let leaves = leaf_indices
+            .iter()
+            .copied()
+            .map(LeafNodeIndex::new)
+            .collect::<Vec<_>>();
+        self.remove_leaves(&leaves, governance_binding)
+    }
+
     fn remove_leaves(
         &mut self,
         leaves: &[LeafNodeIndex],
@@ -1877,6 +2058,18 @@ impl ArkretMlsGroup {
         )
         .map_err(mls_error)?;
 
+        let context = staged_welcome.group_context();
+        if encode(context.group_id().as_slice()) != envelope.group_id
+            || context.epoch().as_u64() != envelope.epoch
+        {
+            return Err(Error::Protocol(
+                "MLS Welcome envelope differs from its authenticated group or epoch".to_owned(),
+            ));
+        }
+        let join_config = MlsGroupJoinConfig::builder()
+            .wire_format_policy(handshake_policy(context.group_id().as_slice()))
+            .build();
+
         let required_extension = staged_welcome
             .group_context()
             .extensions()
@@ -1897,6 +2090,9 @@ impl ArkretMlsGroup {
 
         let mut group = staged_welcome
             .into_group(&identity.provider)
+            .map_err(mls_error)?;
+        group
+            .set_configuration(identity.provider.storage(), &join_config)
             .map_err(mls_error)?;
         if let Err(error) = validate_group_capability_floor(&group, &required) {
             group

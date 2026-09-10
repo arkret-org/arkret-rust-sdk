@@ -4,11 +4,11 @@
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886 Input: registry/
 //! capability-action-registry.json; version=2026-09-07.1;
 //! sha256=d7f2a3a8f738515b73176669549118d4dae52c88ee047ba48a7c5150b35d6694 Input: registry/
-//! schema-registry.json; version=2026-09-08.1;
-//! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Input: registry/
+//! schema-registry.json; version=2026-09-10.16;
+//! sha256=f0b3f14fdf5cfbe1748b4950f1849e400fb67009900d837514437c316fc6cc61 Input: registry/
 //! account-data-key-registry.json; version=2026-09-05.2;
 //! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=205, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=208, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3042,6 +3042,10 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
 
 pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
+        schema_id: SchemaId::ACCOUNT_CURRENT_RESULT_V1,
+        file: "schemas/account-current-result.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
         file: "schemas/account-data-encrypted-value.schema.json",
     },
@@ -3124,10 +3128,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_V1,
         file: "schemas/agent-signer-evidence.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
@@ -3312,6 +3312,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1,
         file: "schemas/agent-signer-evidence-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CURRENT_PRINCIPAL_OUTCOME_V1,
+        file: "schemas/identity-resolution.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CURRENT_PRINCIPAL_REQUEST_V1,
+        file: "schemas/identity-resolution.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
@@ -3536,6 +3544,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
         file: "schemas/mls-governance-proof-bundle.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::MLS_WELCOME_REFS_V1,
+        file: "schemas/mls-welcome-refs.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_EVIDENCE_V1,

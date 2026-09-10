@@ -73,6 +73,9 @@ try {
         throw 'MLS security-frontier generation failed'
     }
 
+    & python (Join-Path $PSScriptRoot 'generate-current-result-schemas.py') --artifacts-dir $artifacts --output (Join-Path $targetRoot 'crates/schema/src/generated/current_result_schemas.rs')
+    if ($LASTEXITCODE -ne 0) { throw 'Current-result schema generation failed' }
+
     & cargo run --quiet --manifest-path (Join-Path $PSScriptRoot 'spec-codegen/Cargo.toml') -- --artifacts-dir $artifacts --output-root $targetRoot
     if ($LASTEXITCODE -ne 0) {
         throw 'Rust spec code generation failed'

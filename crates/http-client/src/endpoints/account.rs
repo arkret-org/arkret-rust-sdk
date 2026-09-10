@@ -58,6 +58,7 @@ pub struct AccountSubscribeFrameStream {
     inner: BoxAccountSubscribeFrameStream,
     trace: StreamTraceValidator,
     failed: bool,
+    round_budget: arkret_models_collaboration::sync_frames::demand_sync::AccountSyncRoundBudget,
 }
 
 impl AccountSubscribeFrameStream {
@@ -80,7 +81,11 @@ impl AccountSubscribeFrameStream {
                 return Ok(None);
             }
         };
+        self.failed = true;
+        self.round_budget
+            .observe(arkret_canonical::canonical_json_bytes(&frame)?.len())?;
         self.trace.push(&frame)?;
+        self.failed = false;
         Ok(Some(frame))
     }
 
@@ -266,7 +271,7 @@ impl Client {
         request: &SyncRequestBody,
         accept: &str,
     ) -> Result<RequestBuilder> {
-        // Account subscribe is a bodyless GET with the registered filter fields.
+        request.validate()?;
         let mut builder = self
             .request_unbounded(Method::GET, "/_arkret/self/account/subscribe")?
             .header("accept", accept);
@@ -276,34 +281,18 @@ impl Client {
         if let Some(catchup) = request.catchup {
             builder = builder.query(&[("catchup", catchup)]);
         }
+        if let Some(replace) = request.replace_filter {
+            builder = builder.query(&[("replace_filter", replace)]);
+        }
+        if let Some(page) = &request.realm_list {
+            let encoded = String::from_utf8(arkret_canonical::canonical_json_bytes(page)?)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            builder = builder.query(&[("realm_list", encoded)]);
+        }
         if let Some(filter) = &request.filter {
-            // deepObject encoding with the dotted parameter names from the
-            // client-sync.md §2 table (`filter.realms`, `filter.timeline_limit`, …).
-            if !filter.extra.is_empty() {
-                return Err(Error::Protocol(
-                    "account subscribe filter extensions are not representable as query \
-                     parameters"
-                        .to_owned(),
-                ));
-            }
-            for realm_id in &filter.realm_ids {
-                builder = builder.query(&[("filter.realms", realm_id.as_str())]);
-            }
-            if let Some(timeline_limit) = filter.timeline_limit {
-                builder = builder.query(&[("filter.timeline_limit", timeline_limit)]);
-            }
-            if filter.lazy_load_members {
-                builder = builder.query(&[("filter.lazy_load_members", true)]);
-            }
-            if filter.include_redundant_members {
-                builder = builder.query(&[("filter.include_redundant_members", true)]);
-            }
-            for event_type in &filter.event_types {
-                builder = builder.query(&[("filter.event_kinds", event_type.as_str())]);
-            }
-            for event_type in &filter.not_event_types {
-                builder = builder.query(&[("filter.not_event_kinds", event_type.as_str())]);
-            }
+            let encoded = String::from_utf8(arkret_canonical::canonical_json_bytes(filter)?)
+                .map_err(|error| Error::Protocol(error.to_string()))?;
+            builder = builder.query(&[("filter", encoded)]);
         }
         Ok(builder)
     }
@@ -459,13 +448,16 @@ impl Client {
                     ),
                 )
             } else {
-                let mut frames = Vec::new();
-                for line in crate::subscribe_body::bounded_response_lines(response).await? {
-                    if let Some(frame) = AccountSubscribeFrame::from_ndjson_line(&line)? {
-                        frames.push(Ok(frame));
-                    }
-                }
-                Box::pin(futures_util::stream::iter(frames))
+                let lines = crate::subscribe_body::bounded_response_lines(response).await?;
+                Box::pin(
+                    futures_util::stream::iter(lines).filter_map(|line| async move {
+                        match AccountSubscribeFrame::from_ndjson_line(&line) {
+                            Ok(Some(frame)) => Some(Ok(frame)),
+                            Ok(None) => None,
+                            Err(error) => Some(Err(Error::from(error))),
+                        }
+                    }),
+                )
             };
         Ok(AccountSubscribeFrameStream {
             inner,
@@ -474,6 +466,7 @@ impl Client {
                 request.after.clone(),
             ),
             failed: false,
+            round_budget: Default::default(),
         })
     }
 
@@ -550,6 +543,9 @@ mod tests {
             after: None,
             catchup: None,
             filter: None,
+
+            realm_list: None,
+            replace_filter: None,
         }
     }
 
@@ -975,58 +971,35 @@ mod tests {
     }
 
     #[test]
-    fn account_subscribe_request_serializes_filter_deep_object() {
-        let filter = SyncFilter {
-            realm_ids: vec![
-                RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            ],
-            timeline_limit: Some(20),
-            lazy_load_members: true,
-            include_redundant_members: false,
-            event_types: vec!["ak.message.create".to_owned()],
-            not_event_types: vec!["ak.reaction.add".to_owned()],
-            extra: Default::default(),
-        };
+    fn account_subscribe_query_preserves_canonical_empty_filter_and_false() {
         let request = SyncRequestBody {
-            after: Some("cur1".to_owned()),
-            catchup: Some(true),
-            filter: Some(filter),
+            after: Some("ak:cursor:resume".to_owned()),
+            filter: Some(
+                serde_json::from_value(
+                    serde_json::json!({"realm_ids":[],"lazy_load_members":false}),
+                )
+                .unwrap(),
+            ),
+            realm_list: Some(Default::default()),
+            replace_filter: Some(true),
             ..empty_request()
         };
-
         let built = client()
             .account_subscribe_request(&request, "application/x-ndjson")
             .unwrap()
             .build()
             .unwrap();
-        let query = built.url().query().unwrap().to_owned();
-
-        assert!(query.contains("after=cur1"), "query: {query}");
-        assert!(query.contains("catchup=true"), "query: {query}");
-        assert!(
-            query.contains(
-                "filter.realms=ak%3Arealm%3AAdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
-            ),
-            "query: {query}"
+        let query = built
+            .url()
+            .query_pairs()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(
+            query.get("filter").unwrap(),
+            "{\"lazy_load_members\":false,\"realm_ids\":[]}"
         );
-        assert!(query.contains("filter.timeline_limit=20"), "query: {query}");
-        assert!(
-            query.contains("filter.lazy_load_members=true"),
-            "query: {query}"
-        );
-        // Default-false booleans are omitted rather than sent as `false`.
-        assert!(
-            !query.contains("include_redundant_members"),
-            "query: {query}"
-        );
-        assert!(
-            query.contains("filter.event_kinds=ak.message.create"),
-            "query: {query}"
-        );
-        assert!(
-            query.contains("filter.not_event_kinds=ak.reaction.add"),
-            "query: {query}"
-        );
+        assert_eq!(query.get("realm_list").unwrap(), "{}");
+        assert_eq!(query.get("replace_filter").unwrap(), "true");
+        assert!(!query.keys().any(|name| name.starts_with("filter.")));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1124,26 +1097,11 @@ mod tests {
     }
 
     #[test]
-    fn account_subscribe_request_rejects_unrepresentable_filter_extension() {
-        let mut filter = SyncFilter {
-            realm_ids: Vec::new(),
-            timeline_limit: None,
-            lazy_load_members: false,
-            include_redundant_members: false,
-            event_types: Vec::new(),
-            not_event_types: Vec::new(),
-            extra: Default::default(),
-        };
-        filter
-            .extra
-            .insert("custom".to_owned(), serde_json::json!({"nested": true}));
-        let request = SyncRequestBody {
-            filter: Some(filter),
-            ..empty_request()
-        };
-        let error = client()
-            .account_subscribe_request(&request, "application/x-ndjson")
-            .unwrap_err();
-        assert!(matches!(error, Error::Protocol(message) if message.contains("filter extensions")));
+    fn account_subscribe_filter_extensions_are_closed_at_parse() {
+        assert!(
+            serde_json::from_value::<SyncFilter>(serde_json::json!({"custom":{"nested":true}}))
+                .is_err()
+        );
+        assert!(serde_json::from_value::<SyncFilter>(serde_json::json!({"realms":[]})).is_err());
     }
 }

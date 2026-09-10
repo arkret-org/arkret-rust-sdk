@@ -392,7 +392,7 @@ mod events_submit_tests {
     };
     use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
     use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-    use arkret_models_crypto::{MlsGovernanceFrontierRequest, MlsSecurityFrontierLeaf};
+    use arkret_models_crypto::{MlsGovernanceFrontierRequestBody, MlsSecurityFrontierLeaf};
     use arkret_wire::{
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
         AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
@@ -759,7 +759,7 @@ mod events_submit_tests {
                 )
                 .unwrap()],
             };
-        let request = MlsGovernanceFrontierRequest {
+        let request = MlsGovernanceFrontierRequestBody {
             effective_scope,
             mls_group_id: Base64UrlString::new(group_id.clone()).unwrap(),
             local_mls_leaves: vec![MlsSecurityFrontierLeaf {
@@ -1499,6 +1499,9 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
+
+                realm_list: None,
+                replace_filter: None,
             })
             .await
             .expect("stream init");
@@ -1534,6 +1537,9 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
+
+                realm_list: None,
+                replace_filter: None,
             })
             .await
             .unwrap();
@@ -1589,6 +1595,9 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
+
+                realm_list: None,
+                replace_filter: None,
             }),
         )
         .await
@@ -1617,6 +1626,9 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
+
+                realm_list: None,
+                replace_filter: None,
             })
             .await
             .unwrap_err();
@@ -1644,6 +1656,9 @@ mod events_submit_tests {
                 after: None,
                 catchup: Some(true),
                 filter: None,
+
+                realm_list: None,
+                replace_filter: None,
             })
             .await
             .unwrap_err();

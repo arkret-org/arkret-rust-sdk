@@ -1268,7 +1268,7 @@ pub struct MemoryCellRegistry {
     bindings: BTreeMap<String, BindingDescriptor>,
 }
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone)]
 struct BindingDescriptor {
     kind: LatticeKind,
     bottom_mode: EventCellBottom,
@@ -1473,10 +1473,25 @@ impl CellRegistry for MemoryCellRegistry {
             }
             arkret_canonical::sha256_digest(framed)
         });
+        let bindings = self
+            .bindings
+            .iter()
+            .map(|(family, descriptor)| {
+                (
+                    family,
+                    json!({
+                        "kind": descriptor.kind.as_wire_str(),
+                        "bottom_mode": descriptor.bottom_mode.as_str(),
+                        "fsm_initial": descriptor.fsm_initial,
+                        "fsm_transitions": descriptor.fsm_transitions,
+                    }),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
         let bytes = arkret_canonical::canonical_json_bytes(&json!({
             "evaluation_contract": "arkret-state-cell-evaluation-v1",
             "implementation": implementation,
-            "bindings": self.bindings,
+            "bindings": bindings,
         }))
         .map_err(|error| StoreError::Backend(error.to_string()))?;
         Hash::new(arkret_canonical::sha256_digest(bytes))

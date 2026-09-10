@@ -647,6 +647,7 @@ impl ArkretMlsIdentity {
 
     pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<ArkretMlsGroup> {
         let config = MlsGroupCreateConfig::builder()
+            .wire_format_policy(crate::group::handshake_policy(group_id.as_ref()))
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(governance_binding_openmls_capabilities())
             .with_group_context_extensions(governance_binding_group_context_extensions(None)?)
@@ -696,6 +697,7 @@ impl ArkretMlsIdentity {
         }
 
         let config = MlsGroupCreateConfig::builder()
+            .wire_format_policy(crate::group::handshake_policy(group_id_bytes))
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(governance_binding_openmls_capabilities())
             .with_group_context_extensions(governance_binding_group_context_extensions(Some(

@@ -12,7 +12,7 @@ use crate::{MlsGovernanceBindingPayload, MlsSecurityFrontierLeaf, ProposedMlsGro
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsGovernanceFrontierRequest {
+pub struct MlsGovernanceFrontierRequestBody {
     pub effective_scope: ScopeRef,
     pub mls_group_id: Base64UrlString,
     pub local_mls_leaves: Vec<MlsSecurityFrontierLeaf>,
@@ -33,8 +33,17 @@ pub struct MlsGovernanceFrontierRequest {
     pub next_epoch: u64,
 }
 
-impl MlsGovernanceFrontierRequest {
+impl MlsGovernanceFrontierRequestBody {
     pub fn validate(&self) -> Result<()> {
+        if arkret_canonical::canonical_json_bytes(self)?.len()
+            > crate::MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
+        {
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::PayloadTooLarge,
+                message: "MLS governance frontier request exceeds 8 MiB (payload_too_large)"
+                    .to_owned(),
+            });
+        }
         self.seal_basis.validate_protocol_bounds()?;
         crate::mls_governance_proof::validate_group_binding_query(
             &self.effective_scope,
@@ -45,11 +54,7 @@ impl MlsGovernanceFrontierRequest {
             self.previous_epoch,
             self.next_epoch,
         )?;
-        if arkret_canonical::canonical_json_bytes(self)?.len()
-            > crate::MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
-        {
-            return Err(WireError::Protocol("MLS governance frontier request exceeds 8 MiB (mls_governance_proof_bounds_exceeded)".to_owned()));
-        }
+
         Ok(())
     }
 
@@ -116,7 +121,7 @@ pub struct MlsGovernanceFrontierOutcome {
 }
 
 impl MlsGovernanceFrontierOutcome {
-    pub fn validate_for_request(&self, request: &MlsGovernanceFrontierRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &MlsGovernanceFrontierRequestBody) -> Result<()> {
         request.validate()?;
         self.seal_basis.validate_protocol_bounds()?;
         let binding = &self.governance_binding;
@@ -159,7 +164,10 @@ impl MlsGovernanceFrontierOutcome {
         if arkret_canonical::canonical_json_bytes(self)?.len()
             > crate::MLS_GOVERNANCE_PROOF_MAX_BYTES as usize
         {
-            return Err(WireError::Protocol("MLS governance frontier result exceeds 1 MiB (mls_governance_proof_bounds_exceeded)".to_owned()));
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::LimitExceeded,
+                message: "MLS governance frontier result exceeds 1 MiB (limit_exceeded)".to_owned(),
+            });
         }
         Ok(())
     }
@@ -169,14 +177,20 @@ impl MlsGovernanceFrontierOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MlsAcceptedArtifactRequest {
+pub struct MlsAcceptedArtifactRequestBody {
     pub effective_scope: ScopeRef,
     pub mls_group_id: Base64UrlString,
     pub artifact_ref: EventId,
 }
 
-impl MlsAcceptedArtifactRequest {
+impl MlsAcceptedArtifactRequestBody {
     pub fn validate(&self) -> Result<()> {
+        if arkret_canonical::canonical_json_bytes(self)?.len() > 64 * 1024 {
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::PayloadTooLarge,
+                message: "MLS artifact request exceeds 64 KiB (payload_too_large)".to_owned(),
+            });
+        }
         if !matches!(
             self.effective_scope,
             ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
@@ -184,11 +198,7 @@ impl MlsAcceptedArtifactRequest {
         {
             return mismatch("MLS artifact query has an inconsistent scope or group");
         }
-        if arkret_canonical::canonical_json_bytes(self)?.len() > 64 * 1024 {
-            return Err(WireError::Protocol(
-                "MLS artifact request exceeds 64 KiB (limit_exceeded)".to_owned(),
-            ));
-        }
+
         Ok(())
     }
 
@@ -218,7 +228,7 @@ pub struct MlsAcceptedArtifactOutcome {
 }
 
 impl MlsAcceptedArtifactOutcome {
-    pub fn validate_for_request(&self, request: &MlsAcceptedArtifactRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &MlsAcceptedArtifactRequestBody) -> Result<()> {
         request.validate()?;
         self.seal_basis.validate_protocol_bounds()?;
         self.transition_head.validate()?;
@@ -249,9 +259,116 @@ impl MlsAcceptedArtifactOutcome {
             );
         }
         if arkret_canonical::canonical_json_bytes(self)?.len() > 16 * 1024 * 1024 {
-            return Err(WireError::Protocol(
-                "MLS artifact result exceeds 16 MiB (limit_exceeded)".to_owned(),
-            ));
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::LimitExceeded,
+                message: "MLS artifact result exceeds 16 MiB (limit_exceeded)".to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Exact occupied local tree evaluated against current accepted membership.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsMembershipRemovalRequestBody {
+    pub effective_scope: ScopeRef,
+    pub mls_group_id: Base64UrlString,
+    pub local_mls_leaves: Vec<MlsSecurityFrontierLeaf>,
+    pub seal_basis: SealBasis,
+    pub base_group_state_ref: EventId,
+    pub epoch: u64,
+}
+
+impl MlsMembershipRemovalRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if arkret_canonical::canonical_json_bytes(self)?.len()
+            > crate::MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
+        {
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::PayloadTooLarge,
+                message: "MLS membership removal request exceeds 8 MiB (payload_too_large)"
+                    .to_owned(),
+            });
+        }
+        self.seal_basis.validate_protocol_bounds()?;
+        if !matches!(
+            self.effective_scope,
+            ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
+        ) || self.effective_scope.canonical_mls_group_id()? != self.mls_group_id.as_str()
+        {
+            return mismatch("MLS membership removal query has an inconsistent scope or group");
+        }
+        arkret_wire::mls_transition::validate_mls_frontier_leaves(&self.local_mls_leaves)?;
+
+        Ok(())
+    }
+
+    pub fn query_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        let bytes = arkret_canonical::canonical_json_bytes(self)?;
+        Hash::new(arkret_canonical::canonical::sha256_digest_from_slices(&[
+            b"ak.mls-membership-removal-query-v1",
+            &[0],
+            &bytes,
+        ]))
+        .map_err(Into::into)
+    }
+}
+
+/// An atomic removal decision; indices never expand to every leaf of an Actor.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsMembershipRemovalOutcome {
+    pub account_id: arkret_wire::AccountId,
+    pub query_digest: Hash,
+    pub seal_basis: SealBasis,
+    pub epoch_head: MlsEpochHead,
+    pub remove_leaf_indices: Vec<u32>,
+}
+
+impl MlsMembershipRemovalOutcome {
+    pub fn validate_for_request(
+        &self,
+        request: &MlsMembershipRemovalRequestBody,
+        expected_account_id: &arkret_wire::AccountId,
+    ) -> Result<()> {
+        request.validate()?;
+        self.seal_basis.validate_protocol_bounds()?;
+        self.epoch_head.validate()?;
+        let head = &self.epoch_head;
+        if &self.account_id != expected_account_id
+            || self.query_digest != request.query_digest()?
+            || self.seal_basis != request.seal_basis
+            || head.effective_scope != request.effective_scope
+            || head.mls_group_id != request.mls_group_id
+            || head.transition_ref != request.base_group_state_ref
+            || head.next_epoch != request.epoch
+            || self.remove_leaf_indices.len() > arkret_wire::mls_transition::MLS_FRONTIER_MAX_LEAVES
+            || self
+                .remove_leaf_indices
+                .windows(2)
+                .any(|pair| pair[0] >= pair[1])
+            || self.remove_leaf_indices.iter().any(|index| {
+                request
+                    .local_mls_leaves
+                    .binary_search_by_key(index, |leaf| leaf.leaf_index)
+                    .is_err()
+            })
+        {
+            return mismatch(
+                "MLS membership removal result differs from the authenticated account, query, base or occupied leaves",
+            );
+        }
+        if arkret_canonical::canonical_json_bytes(self)?.len()
+            > crate::MLS_GOVERNANCE_PROOF_MAX_BYTES as usize
+        {
+            return Err(WireError::ProtocolCode {
+                code: arkret_wire::ErrorCode::LimitExceeded,
+                message: "MLS membership removal result exceeds 1 MiB (limit_exceeded)".to_owned(),
+            });
         }
         Ok(())
     }
@@ -267,12 +384,12 @@ mod tests {
 
     use super::*;
 
-    fn request() -> MlsGovernanceFrontierRequest {
+    fn request() -> MlsGovernanceFrontierRequestBody {
         let effective_scope = ScopeRef::Realm {
             realm_id: RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI")
                 .unwrap(),
         };
-        MlsGovernanceFrontierRequest {
+        MlsGovernanceFrontierRequestBody {
             mls_group_id: Base64UrlString::new(effective_scope.canonical_mls_group_id().unwrap())
                 .unwrap(),
             effective_scope,
@@ -299,7 +416,109 @@ mod tests {
         }
     }
 
-    fn outcome(request: &MlsGovernanceFrontierRequest) -> MlsGovernanceFrontierOutcome {
+    fn removal_fixture() -> (MlsMembershipRemovalRequestBody, MlsMembershipRemovalOutcome) {
+        let source = request();
+        let digest =
+            Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+                .unwrap();
+        let query = MlsMembershipRemovalRequestBody {
+            effective_scope: source.effective_scope,
+            mls_group_id: source.mls_group_id,
+            local_mls_leaves: source.local_mls_leaves,
+            seal_basis: source.seal_basis,
+            base_group_state_ref: EventId::from_event_digest(&digest).unwrap(),
+            epoch: 0,
+        };
+        let result = MlsMembershipRemovalOutcome {
+            account_id: AccountId::new(
+                DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
+            query_digest: query.query_digest().unwrap(),
+            seal_basis: query.seal_basis.clone(),
+            epoch_head: MlsEpochHead {
+                transition_ref: query.base_group_state_ref.clone(),
+                transition_event_digest: digest.clone(),
+                mls_transition_digest: digest,
+                effective_scope: query.effective_scope.clone(),
+                mls_group_id: query.mls_group_id.clone(),
+                previous_epoch: 0,
+                next_epoch: 0,
+                content_scheme: ContentScheme::MlsRfc9420,
+            },
+            remove_leaf_indices: vec![0],
+        };
+        (query, result)
+    }
+
+    #[test]
+    fn membership_removal_binds_account_base_and_exact_leaf_subset() {
+        let (query, result) = removal_fixture();
+        result
+            .validate_for_request(&query, &result.account_id)
+            .unwrap();
+        let other_account = AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:other.example").unwrap(),
+        );
+        assert!(result.validate_for_request(&query, &other_account).is_err());
+        for indices in [vec![1], vec![0, 0], vec![1, 0]] {
+            let mut invalid = result.clone();
+            invalid.remove_leaf_indices = indices;
+            assert!(
+                invalid
+                    .validate_for_request(&query, &result.account_id)
+                    .is_err()
+            );
+        }
+        let mut empty = result.clone();
+        empty.remove_leaf_indices.clear();
+        empty
+            .validate_for_request(&query, &result.account_id)
+            .unwrap();
+        let mut changed = query.clone();
+        changed.epoch = 1;
+        assert!(
+            result
+                .validate_for_request(&changed, &result.account_id)
+                .is_err()
+        );
+        let mut changed = result.clone();
+        changed.epoch_head.next_epoch = 1;
+        assert!(
+            changed
+                .validate_for_request(&query, &result.account_id)
+                .is_err()
+        );
+        let mut changed = query.clone();
+        changed.local_mls_leaves[0].credential_ref = NonEmptyString::new("another-leaf").unwrap();
+        assert!(
+            result
+                .validate_for_request(&changed, &result.account_id)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn membership_removal_rejects_missing_base_and_legacy_proof_fields() {
+        let (query, result) = removal_fixture();
+        let mut missing = serde_json::to_value(&query).unwrap();
+        missing
+            .as_object_mut()
+            .unwrap()
+            .remove("base_group_state_ref");
+        assert!(serde_json::from_value::<MlsMembershipRemovalRequestBody>(missing).is_err());
+        let mut extra = serde_json::to_value(&result).unwrap();
+        extra["checkpoint"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<MlsMembershipRemovalOutcome>(extra).is_err());
+        let mut invalid = query.clone();
+        invalid
+            .local_mls_leaves
+            .push(invalid.local_mls_leaves[0].clone());
+        assert!(invalid.validate().is_err());
+    }
+
+    fn outcome(request: &MlsGovernanceFrontierRequestBody) -> MlsGovernanceFrontierOutcome {
         MlsGovernanceFrontierOutcome {
             query_digest: request.query_digest().unwrap(),
             seal_basis: request.seal_basis.clone(),
@@ -328,7 +547,7 @@ mod tests {
         for name in ["base_group_state_ref", "proposed_group_genesis_binding"] {
             let mut wire = serde_json::to_value(request()).unwrap();
             wire[name] = serde_json::Value::Null;
-            assert!(serde_json::from_value::<MlsGovernanceFrontierRequest>(wire).is_err());
+            assert!(serde_json::from_value::<MlsGovernanceFrontierRequestBody>(wire).is_err());
         }
         let mut wire = serde_json::to_value(outcome(&request())).unwrap();
         wire["epoch_head"] = serde_json::Value::Null;
@@ -348,7 +567,7 @@ mod tests {
             for value in [serde_json::Value::Null, serde_json::json!({})] {
                 let mut json = serde_json::to_value(&request).unwrap();
                 json[name] = value;
-                assert!(serde_json::from_value::<MlsGovernanceFrontierRequest>(json).is_err());
+                assert!(serde_json::from_value::<MlsGovernanceFrontierRequestBody>(json).is_err());
             }
         }
     }
@@ -375,6 +594,16 @@ mod tests {
         assert!(size < crate::MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES);
         request.validate().unwrap();
         request.local_mls_leaves = leaves(5000);
+        assert_eq!(
+            request.validate().unwrap_err().error_code(),
+            Some(arkret_wire::ErrorCode::PayloadTooLarge)
+        );
+        // Even simultaneous duplicate-leaf and byte violations retain the byte code.
+        request.local_mls_leaves[1] = request.local_mls_leaves[0].clone();
+        assert_eq!(
+            request.validate().unwrap_err().error_code(),
+            Some(arkret_wire::ErrorCode::PayloadTooLarge)
+        );
         assert!(
             request
                 .validate()
@@ -447,7 +676,7 @@ mod tests {
         let intent = request();
         let binding = outcome(&intent).governance_binding;
         let event = EventId::new("ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap();
-        let query = MlsAcceptedArtifactRequest {
+        let query = MlsAcceptedArtifactRequestBody {
             effective_scope: intent.effective_scope.clone(),
             mls_group_id: intent.mls_group_id.clone(),
             artifact_ref: event.clone(),
@@ -488,6 +717,6 @@ mod tests {
         assert!(serde_json::from_value::<MlsAcceptedArtifactOutcome>(old).is_err());
         let mut old = serde_json::to_value(&query).unwrap();
         old["proof_base_basis"] = serde_json::Value::Null;
-        assert!(serde_json::from_value::<MlsAcceptedArtifactRequest>(old).is_err());
+        assert!(serde_json::from_value::<MlsAcceptedArtifactRequestBody>(old).is_err());
     }
 }

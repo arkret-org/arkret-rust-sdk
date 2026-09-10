@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-08.5;
-//! sha256=b4ae3fea7769586f392a5e354a16e8f4a4d9446cfdaff61b8d446a632f7dbf3f Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-09-10.5;
+//! sha256=48ae2729af73af6110f3bde63a738e88a034a9481fb0fda593ad81193ab2c3fa Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -2257,7 +2257,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The supplied cursor fails syntax, schema, purpose, binding, or integrity validation before the operation can advance state.",
+        description: "The supplied cursor fails syntax, schema, purpose, binding, or integrity validation before the operation can advance state. Welcome recipient discovery also uses this code when its bound current eligibility revision changed or its frozen window is no longer retained; unrelated Seal advancement alone does not invalidate it.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorRevoked,

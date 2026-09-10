@@ -209,8 +209,10 @@ pub use arkret_models_collaboration::sync_frames::client_sync::{
     BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
     MembershipBucket, RealmUpdate, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequestBody,
     SyncSemantics, SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineOrderKey,
-    ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, sync_filter_digest,
+    ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, normalized_sync_filter, sync_filter_digest,
 };
+pub use arkret_models_collaboration::sync_frames::current_results::*;
+pub use arkret_models_collaboration::sync_frames::demand_sync::*;
 pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
 pub use arkret_models_collaboration::sync_frames::stream_trace::{
     StreamTraceError, StreamTraceFrame, StreamTraceFrameKind, StreamTraceUpdate,
@@ -241,6 +243,7 @@ pub use arkret_models_crypto::mls_records::{
     MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
     RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
 };
+pub use arkret_models_crypto::mls_welcome_refs::*;
 pub use arkret_models_crypto::protected_payload::{
     MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
 };
@@ -396,13 +399,12 @@ pub use arkret_wire::{
 };
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,
-    VerifiedHistoryChunk, VerifiedHistoryEpochSuite, VerifiedHistoryManifest,
-    VerifiedHistoryResponseRecord, history_access_from_verified_checkpoint,
-    registered_mls_ciphersuite_kdf_nh, verify_history_response_lost_record,
-    verify_history_response_record, verify_history_source_proof,
-    verify_minimal_metadata_history_source_local_state,
+    VerifiedHistoryChunk, VerifiedHistoryManifest, VerifiedHistoryResponseRecord,
+    history_access_from_verified_checkpoint, registered_mls_ciphersuite_kdf_nh,
+    verify_history_response_lost_record, verify_history_response_record,
+    verify_history_source_proof, verify_minimal_metadata_history_source_local_state,
     verify_minimal_metadata_identity_link_signature,
-    winning_history_epoch_suites_from_verified_checkpoint,
+    winning_history_cipher_suite_from_verified_checkpoint,
 };
 pub use keypackage_claim_receipt::verify_peer_keypackage_claim_receipt_signature;
 pub use managed_actor_authoring::{

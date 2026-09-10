@@ -19,16 +19,16 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryAuthorityRequest {
+pub struct HistoryAuthorityRequestBody {
     pub effective_scope: HistoryEffectiveScope,
     pub actor_id: ActorId,
     pub seal_basis: SealBasis,
 }
 
-impl HistoryAuthorityRequest {
+impl HistoryAuthorityRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.seal_basis.validate_protocol_bounds()?;
-        current_authority_size(self)
+        current_authority_size(self, arkret_wire::ErrorCode::PayloadTooLarge)?;
+        self.seal_basis.validate_protocol_bounds()
     }
 
     pub fn query_digest(&self) -> Result<Hash> {
@@ -57,10 +57,10 @@ pub struct HistoryAuthorityOutcome {
 }
 
 impl HistoryAuthorityOutcome {
-    pub fn validate_for_request(&self, request: &HistoryAuthorityRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &HistoryAuthorityRequestBody) -> Result<()> {
         request.validate()?;
+        current_authority_size(self, arkret_wire::ErrorCode::LimitExceeded)?;
         self.seal_basis.validate_protocol_bounds()?;
-        current_authority_size(self)?;
         if self.query_digest != request.query_digest()?
             || self.seal_basis != request.seal_basis
             || (self.history_floor_epoch != 0 && self.history_floor_epoch != self.join_epoch)
@@ -84,7 +84,7 @@ impl HistoryAuthorityOutcome {
 
     pub fn validate_for_account(
         &self,
-        request: &HistoryAuthorityRequest,
+        request: &HistoryAuthorityRequestBody,
         account: &arkret_wire::AccountId,
     ) -> Result<()> {
         self.validate_for_request(request)?;
@@ -101,16 +101,16 @@ impl HistoryAuthorityOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MembershipAuthorityRequest {
+pub struct MembershipAuthorityRequestBody {
     pub effective_scope: HistoryEffectiveScope,
     pub actor_id: ActorId,
     pub seal_basis: SealBasis,
 }
 
-impl MembershipAuthorityRequest {
+impl MembershipAuthorityRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.seal_basis.validate_protocol_bounds()?;
-        current_authority_size(self)
+        current_authority_size(self, arkret_wire::ErrorCode::PayloadTooLarge)?;
+        self.seal_basis.validate_protocol_bounds()
     }
 
     pub fn query_digest(&self) -> Result<Hash> {
@@ -137,10 +137,10 @@ pub struct MembershipAuthorityOutcome {
 }
 
 impl MembershipAuthorityOutcome {
-    pub fn validate_for_request(&self, request: &MembershipAuthorityRequest) -> Result<()> {
+    pub fn validate_for_request(&self, request: &MembershipAuthorityRequestBody) -> Result<()> {
         request.validate()?;
         self.seal_basis.validate_protocol_bounds()?;
-        current_authority_size(self)?;
+        current_authority_size(self, arkret_wire::ErrorCode::LimitExceeded)?;
         if self.query_digest != request.query_digest()?
             || self.seal_basis != request.seal_basis
             || !matches!(
@@ -163,7 +163,7 @@ impl MembershipAuthorityOutcome {
 
     pub fn validate_for_account(
         &self,
-        request: &MembershipAuthorityRequest,
+        request: &MembershipAuthorityRequestBody,
         account: &arkret_wire::AccountId,
     ) -> Result<()> {
         self.validate_for_request(request)?;
@@ -176,11 +176,15 @@ impl MembershipAuthorityOutcome {
     }
 }
 
-fn current_authority_size(value: &impl Serialize) -> Result<()> {
+fn current_authority_size(
+    value: &impl Serialize,
+    error_code: arkret_wire::ErrorCode,
+) -> Result<()> {
     if arkret_canonical::canonical_json_bytes(value)?.len() > 64 * 1024 {
-        return Err(WireError::Protocol(
-            "membership authority exceeds 64 KiB".to_owned(),
-        ));
+        return Err(WireError::ProtocolCode {
+            code: error_code,
+            message: "current authority exceeds 64 KiB".to_owned(),
+        });
     }
     Ok(())
 }
@@ -1393,7 +1397,7 @@ impl SourceRelayAttestation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeySourceRelay {
-    pub response: HistoryKeyResponseSendRequest,
+    pub response: HistoryKeyResponseSendRequestBody,
     pub source_relay_attestation: SourceRelayAttestation,
 }
 
@@ -1673,7 +1677,7 @@ impl HistoryKeyResponseSigningInput {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryKeyResponseSendRequest {
+pub struct HistoryKeyResponseSendRequestBody {
     pub response_id: HistoryResponseId,
     pub effective_scope: HistoryEffectiveScope,
     pub source_actor_id: ActorId,
@@ -1687,7 +1691,7 @@ pub struct HistoryKeyResponseSendRequest {
     pub source_proof: PayloadProof,
 }
 
-impl HistoryKeyResponseSendRequest {
+impl HistoryKeyResponseSendRequestBody {
     pub fn validate(&self) -> Result<()> {
         HistoryKeyResponseSigningInput {
             response_id: self.response_id.clone(),
@@ -2450,7 +2454,7 @@ pub struct HistoryKeyResponseRecord {
     pub manifest_admission: Option<HistoryManifestAdmission>,
     pub release_service_signer_evidence_ref: SignerEvidenceRef,
     pub service_proof: PayloadProof,
-    pub source_record: HistoryKeyResponseSendRequest,
+    pub source_record: HistoryKeyResponseSendRequestBody,
 }
 
 impl HistoryKeyResponseRecord {
@@ -2525,6 +2529,112 @@ pub enum HistoryResponsePageEntry {
     },
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HistorySourceSignerKind {
+    AccountDevice,
+    Principal,
+    Agent,
+}
+
+/// Historical public keys resolved by the request's Account Station.
+/// Minimal-metadata leaf authority remains a receiver-local MLS check.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HistorySourceSignerResult {
+    Authenticated {
+        source_signer_evidence_ref: SignerEvidenceRef,
+        signer_kind: HistorySourceSignerKind,
+        signer_id: DidCoreId,
+        verification_method: DidUrl,
+        public_key_b64u: Base64UrlString,
+    },
+    ReceiverMls {
+        source_signer_evidence_ref: SignerEvidenceRef,
+        signer_evidence: Box<MinimalMetadataMlsLeafSignerEvidence>,
+        identity_link_public_key_b64u: Base64UrlString,
+    },
+}
+
+impl HistorySourceSignerResult {
+    pub fn evidence_ref(&self) -> &SignerEvidenceRef {
+        match self {
+            Self::Authenticated {
+                source_signer_evidence_ref,
+                ..
+            }
+            | Self::ReceiverMls {
+                source_signer_evidence_ref,
+                ..
+            } => source_signer_evidence_ref,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.evidence_ref().content_digest()?;
+        let key = match self {
+            Self::Authenticated {
+                public_key_b64u, ..
+            } => public_key_b64u,
+            Self::ReceiverMls {
+                signer_evidence,
+                identity_link_public_key_b64u,
+                ..
+            } => {
+                signer_evidence.validate()?;
+                if &signer_evidence.evidence_ref()? != self.evidence_ref() {
+                    return Err(WireError::Protocol(
+                        "history signer result evidence ref mismatch".to_owned(),
+                    ));
+                }
+                identity_link_public_key_b64u
+            }
+        };
+        let bytes = arkret_wire::base64url::base64url_decode(key.as_str().as_bytes())?;
+        if bytes.len() != 32 || arkret_wire::base64url::base64url_encode(&bytes) != key.as_str() {
+            return Err(WireError::Protocol(
+                "history signer result requires a canonical Ed25519 public key".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn validate_for_source(&self, source: &HistoryKeyResponseSendRequestBody) -> Result<()> {
+        self.validate()?;
+        if self.evidence_ref() != &source.source_signer_evidence_ref {
+            return Err(WireError::Protocol(
+                "history source signer result does not bind the source ref".to_owned(),
+            ));
+        }
+        let matches = match self {
+            Self::Authenticated {
+                signer_id,
+                verification_method,
+                ..
+            } => {
+                signer_id == source.source_actor_id.signing_principal_id()
+                    && verification_method == &source.source_proof.verification_method
+            }
+            Self::ReceiverMls {
+                signer_evidence, ..
+            } => {
+                signer_evidence.source_actor_id == source.source_actor_id
+                    && signer_evidence.verification_method
+                        == source.source_proof.verification_method
+                    && signer_evidence.effective_scope == source.effective_scope
+            }
+        };
+        if !matches {
+            return Err(WireError::Protocol(
+                "history signer result actor, method or scope mismatch".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl HistoryResponsePageEntry {
     pub fn sequence(&self) -> u64 {
         match self {
@@ -2539,6 +2649,13 @@ impl HistoryResponsePageEntry {
 #[serde(deny_unknown_fields)]
 pub struct HistoryKeyResponseListOutcome {
     pub entries: Vec<HistoryResponsePageEntry>,
+    pub source_signer_results: Vec<HistorySourceSignerResult>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub cipher_suite: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ack_token: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2549,11 +2666,58 @@ pub struct HistoryKeyResponseListOutcome {
 impl HistoryKeyResponseListOutcome {
     pub fn validate(&self) -> Result<()> {
         if self.entries.len() > 100
+            || self.source_signer_results.len() > 100
             || arkret_canonical::canonical_json_bytes(self)?.len() > 8 * 1024 * 1024
         {
             return Err(WireError::Protocol(
                 "history response page exceeds 100 entries or 8 MiB".to_owned(),
             ));
+        }
+        let mut required = std::collections::BTreeSet::new();
+        for entry in &self.entries {
+            if let HistoryResponsePageEntry::Record { record } = entry {
+                required.insert(&record.source_record.source_signer_evidence_ref);
+            }
+        }
+        if self
+            .source_signer_results
+            .windows(2)
+            .any(|pair| pair[0].evidence_ref() >= pair[1].evidence_ref())
+            || self
+                .source_signer_results
+                .iter()
+                .map(HistorySourceSignerResult::evidence_ref)
+                .collect::<std::collections::BTreeSet<_>>()
+                != required
+        {
+            return Err(WireError::Protocol("history response page signer results must exactly cover its records in canonical order".to_owned()));
+        }
+        for result in &self.source_signer_results {
+            result.validate()?;
+        }
+        match (required.is_empty(), &self.cipher_suite) {
+            (true, None) => {}
+            (false, Some(suite))
+                if arkret_wire::MLS_CIPHERSUITES
+                    .iter()
+                    .any(|row| row.canonical_id == suite.as_str()) => {}
+            _ => {
+                return Err(WireError::Protocol(
+                    "history response page group suite is missing, surplus or unregistered"
+                        .to_owned(),
+                ));
+            }
+        }
+        for entry in &self.entries {
+            if let HistoryResponsePageEntry::Record { record } = entry {
+                self.source_signer_results
+                    .iter()
+                    .find(|result| {
+                        result.evidence_ref() == &record.source_record.source_signer_evidence_ref
+                    })
+                    .expect("exact signer set checked above")
+                    .validate_for_source(&record.source_record)?;
+            }
         }
         if self.entries.is_empty() {
             if self.ack_token.is_some() {
@@ -2656,13 +2820,13 @@ impl HistoryResponseAckEntry {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct HistoryKeyResponseAckRequest {
+pub struct HistoryKeyResponseAckRequestBody {
     pub ack_token: String,
     pub high_water_cursor: String,
     pub entries: Vec<HistoryResponseAckEntry>,
 }
 
-impl HistoryKeyResponseAckRequest {
+impl HistoryKeyResponseAckRequestBody {
     pub fn validate(&self) -> Result<()> {
         validate_non_empty(&self.ack_token, "ack_token")?;
         validate_non_empty(&self.high_water_cursor, "high_water_cursor")?;
@@ -3233,7 +3397,7 @@ history_proof_binding!(
     ProofContextId::HISTORY_KEY_SOURCE_RELAY_ATTESTATION_PROOF_V1
 );
 history_proof_binding!(
-    HistoryKeyResponseSendRequest,
+    HistoryKeyResponseSendRequestBody,
     source_proof,
     ProofContextId::HISTORY_KEY_RESPONSE_PROOF_V1
 );
@@ -3298,7 +3462,7 @@ pub fn response_capability_commitment(capability_b64u: &str) -> Result<Hash> {
     )
 }
 
-impl HistoryKeyResponseSendRequest {
+impl HistoryKeyResponseSendRequestBody {
     pub fn source_record_digest(&self) -> Result<Hash> {
         full_object_digest(self, "ak.history-source-record-v1")
     }
@@ -3613,7 +3777,7 @@ mod membership_authority_tests {
 
     use super::*;
 
-    fn request() -> MembershipAuthorityRequest {
+    fn request() -> MembershipAuthorityRequestBody {
         serde_json::from_value(json!({
             "effective_scope":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
             "actor_id":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"}},
@@ -3621,7 +3785,7 @@ mod membership_authority_tests {
         })).unwrap()
     }
 
-    fn outcome(query: &MembershipAuthorityRequest) -> MembershipAuthorityOutcome {
+    fn outcome(query: &MembershipAuthorityRequestBody) -> MembershipAuthorityOutcome {
         MembershipAuthorityOutcome {
             account_id: query.actor_id.as_account_id().unwrap().clone(),
             query_digest: query.query_digest().unwrap(),
@@ -3675,7 +3839,7 @@ mod membership_authority_tests {
         assert!(serde_json::from_value::<MembershipAuthorityOutcome>(wire).is_err());
         let mut wire = serde_json::to_value(&query).unwrap();
         wire["proof"] = json!({});
-        assert!(serde_json::from_value::<MembershipAuthorityRequest>(wire).is_err());
+        assert!(serde_json::from_value::<MembershipAuthorityRequestBody>(wire).is_err());
     }
 }
 
@@ -3685,7 +3849,7 @@ mod history_authority_tests {
 
     use super::*;
 
-    fn query() -> HistoryAuthorityRequest {
+    fn query() -> HistoryAuthorityRequestBody {
         serde_json::from_value(json!({
             "effective_scope":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
             "actor_id":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"}},
@@ -3693,7 +3857,7 @@ mod history_authority_tests {
         })).unwrap()
     }
 
-    fn result(query: &HistoryAuthorityRequest) -> HistoryAuthorityOutcome {
+    fn result(query: &HistoryAuthorityRequestBody) -> HistoryAuthorityOutcome {
         HistoryAuthorityOutcome {
             account_id: query.actor_id.as_account_id().unwrap().clone(),
             query_digest: query.query_digest().unwrap(),
@@ -3732,7 +3896,7 @@ mod history_authority_tests {
             .parse()
             .unwrap();
         assert!(result.validate_for_request(&other).is_err());
-        let member = MembershipAuthorityRequest {
+        let member = MembershipAuthorityRequestBody {
             effective_scope: query.effective_scope.clone(),
             actor_id: query.actor_id.clone(),
             seal_basis: query.seal_basis.clone(),
@@ -3813,5 +3977,62 @@ mod history_authority_tests {
             old[field] = json!({"leaves":query.seal_basis.leaves});
             assert!(serde_json::from_value::<HistoryKeyRequest>(old).is_err());
         }
+    }
+}
+
+#[cfg(test)]
+mod receiver_result_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn receiver_page_requires_explicit_empty_dictionary_and_absent_suite() {
+        let wire = json!({"entries":[],"source_signer_results":[],"limited":false});
+        serde_json::from_value::<HistoryKeyResponseListOutcome>(wire.clone())
+            .unwrap()
+            .validate()
+            .unwrap();
+        let mut old = wire.clone();
+        old.as_object_mut().unwrap().remove("source_signer_results");
+        assert!(serde_json::from_value::<HistoryKeyResponseListOutcome>(old).is_err());
+        let mut null_suite = wire.clone();
+        null_suite["cipher_suite"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<HistoryKeyResponseListOutcome>(null_suite).is_err());
+        let mut surplus = wire;
+        surplus["cipher_suite"] = json!(arkret_wire::MLS_CIPHERSUITES[0].canonical_id);
+        assert!(
+            serde_json::from_value::<HistoryKeyResponseListOutcome>(surplus)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn receiver_signer_result_rejects_noncanonical_keys_and_surplus_evidence() {
+        let wire = json!({"kind":"authenticated",
+            "source_signer_evidence_ref":format!("ak:signer_evidence:sha256:{}", "a".repeat(64)),
+            "signer_kind":"principal", "signer_id":"ak:did_core:web:alice.example",
+            "verification_method":"did:web:alice.example#key", "public_key_b64u":"A".repeat(43)});
+        let result: HistorySourceSignerResult = serde_json::from_value(wire.clone()).unwrap();
+        result.validate().unwrap();
+        let page = HistoryKeyResponseListOutcome {
+            entries: vec![],
+            source_signer_results: vec![result],
+            cipher_suite: None,
+            ack_token: None,
+            cursor: None,
+            limited: false,
+        };
+        assert!(page.validate().is_err());
+        let mut bad = wire;
+        bad["public_key_b64u"] = json!("A".repeat(42));
+        assert!(
+            serde_json::from_value::<HistorySourceSignerResult>(bad)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
     }
 }

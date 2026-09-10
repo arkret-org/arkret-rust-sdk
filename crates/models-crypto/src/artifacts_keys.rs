@@ -1071,6 +1071,7 @@ pub struct GenericRecoveryTranscript {
     pub session_grant_cnf_jkt: String,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
+    pub requesting_device_public_key_did: arkret_wire::DidKey,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -1097,6 +1098,7 @@ struct GenericRecoveryTranscriptWire {
     session_grant_cnf_jkt: String,
     account_id: AccountId,
     requesting_device_id: DeviceId,
+    requesting_device_public_key_did: arkret_wire::DidKey,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
     policy_version: u64,
@@ -1125,6 +1127,7 @@ impl TryFrom<GenericRecoveryTranscriptWire> for GenericRecoveryTranscript {
             session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
             account_id: wire.account_id,
             requesting_device_id: wire.requesting_device_id,
+            requesting_device_public_key_did: wire.requesting_device_public_key_did,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
             policy_version: wire.policy_version,
@@ -1156,6 +1159,7 @@ impl GenericRecoveryTranscript {
                 "recovery transcript generation must be a positive PCR generation".to_owned(),
             ));
         }
+        validate_recovery_device_public_key(&self.requesting_device_public_key_did)?;
         validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
         if self.kind == RecoveryProofKind::DidRoot
             || self.kind != self.proof_body.kind()
@@ -1183,6 +1187,7 @@ pub struct DidRootTranscript {
     pub session_grant_cnf_jkt: String,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
+    pub requesting_device_public_key_did: arkret_wire::DidKey,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -1208,6 +1213,7 @@ struct DidRootTranscriptWire {
     session_grant_cnf_jkt: String,
     account_id: AccountId,
     requesting_device_id: DeviceId,
+    requesting_device_public_key_did: arkret_wire::DidKey,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
     policy_version: u64,
@@ -1235,6 +1241,7 @@ impl TryFrom<DidRootTranscriptWire> for DidRootTranscript {
             session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
             account_id: wire.account_id,
             requesting_device_id: wire.requesting_device_id,
+            requesting_device_public_key_did: wire.requesting_device_public_key_did,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
             policy_version: wire.policy_version,
@@ -1267,6 +1274,7 @@ impl DidRootTranscript {
                 "did_root generation must be a positive PCR generation".to_owned(),
             ));
         }
+        validate_recovery_device_public_key(&self.requesting_device_public_key_did)?;
         validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
         Ok(())
     }
@@ -1395,9 +1403,102 @@ pub struct RecoverySessionCreateRequestBody {
     pub request_id: RequestId,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
+    pub requesting_device_public_key_did: arkret_wire::DidKey,
+    pub requesting_device_signature: Base64UrlString,
     pub trust_domain: TrustDomainId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub expected_recovery_policy_ref: Option<RecoveryPolicyRef>,
+}
+
+/// Closed create-time proof transcript bound to the authenticated recovery grant.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoveryDevicePossessionTranscript {
+    pub schema: String,
+    pub request_id: RequestId,
+    pub session_grant_id: SessionGrantId,
+    pub session_grant_cnf_jkt: String,
+    pub account_id: AccountId,
+    pub requesting_device_id: DeviceId,
+    pub requesting_device_public_key_did: arkret_wire::DidKey,
+    pub trust_domain: TrustDomainId,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub expected_recovery_policy_ref: Option<RecoveryPolicyRef>,
+}
+
+impl RecoveryDevicePossessionTranscript {
+    pub fn signing_bytes(&self) -> Result<Vec<u8>> {
+        if self.schema != "ak.identity.recovery_device_possession.v1" {
+            return Err(WireError::Protocol(
+                "invalid recovery device possession domain".to_owned(),
+            ));
+        }
+        validate_recovery_device_public_key(&self.requesting_device_public_key_did)?;
+        validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
+        let mut bytes = b"ak.identity.recovery_device_possession.v1\n".to_vec();
+        bytes.extend(arkret_canonical::canonical_json_bytes(self)?);
+        Ok(bytes)
+    }
+
+    pub fn into_request(
+        self,
+        signature: Base64UrlString,
+    ) -> Result<RecoverySessionCreateRequestBody> {
+        let request = RecoverySessionCreateRequestBody {
+            request_id: self.request_id,
+            account_id: self.account_id,
+            requesting_device_id: self.requesting_device_id,
+            requesting_device_public_key_did: self.requesting_device_public_key_did,
+            requesting_device_signature: signature,
+            trust_domain: self.trust_domain,
+            expected_recovery_policy_ref: self.expected_recovery_policy_ref,
+        };
+        request.validate()?;
+        Ok(request)
+    }
+}
+
+impl RecoverySessionCreateRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        validate_recovery_device_public_key(&self.requesting_device_public_key_did)?;
+        if self.requesting_device_signature.as_str().len() != 86
+            || arkret_canonical::base64url_decode(self.requesting_device_signature.as_str())?.len()
+                != 64
+        {
+            return Err(WireError::Protocol(
+                "recovery device possession signature must encode 64 Ed25519 bytes".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn possession_transcript(
+        &self,
+        grant: SessionGrantId,
+        jkt: String,
+    ) -> Result<RecoveryDevicePossessionTranscript> {
+        self.validate()?;
+        Ok(RecoveryDevicePossessionTranscript {
+            schema: "ak.identity.recovery_device_possession.v1".to_owned(),
+            request_id: self.request_id.clone(),
+            session_grant_id: grant,
+            session_grant_cnf_jkt: jkt,
+            account_id: self.account_id.clone(),
+            requesting_device_id: self.requesting_device_id.clone(),
+            requesting_device_public_key_did: self.requesting_device_public_key_did.clone(),
+            trust_domain: self.trust_domain.clone(),
+            expected_recovery_policy_ref: self.expected_recovery_policy_ref.clone(),
+        })
+    }
 }
 
 /// Counterpart for
@@ -1738,6 +1839,7 @@ pub struct RecoverySessionState {
     pub session_grant_cnf_jkt: String,
     pub account_id: AccountId,
     pub requesting_device_id: DeviceId,
+    pub requesting_device_public_key_did: arkret_wire::DidKey,
     pub trust_domain: TrustDomainId,
     pub policy_id: PolicyId,
     pub policy_version: u64,
@@ -1782,6 +1884,10 @@ impl Serialize for RecoverySessionState {
         map.serialize_entry("session_grant_cnf_jkt", &self.session_grant_cnf_jkt)?;
         map.serialize_entry("account_id", &self.account_id)?;
         map.serialize_entry("requesting_device_id", &self.requesting_device_id)?;
+        map.serialize_entry(
+            "requesting_device_public_key_did",
+            &self.requesting_device_public_key_did,
+        )?;
         map.serialize_entry("trust_domain", &self.trust_domain)?;
         map.serialize_entry("policy_id", &self.policy_id)?;
         map.serialize_entry("policy_version", &self.policy_version)?;
@@ -1829,6 +1935,7 @@ struct RecoverySessionStateWire {
     session_grant_cnf_jkt: String,
     account_id: AccountId,
     requesting_device_id: DeviceId,
+    requesting_device_public_key_did: arkret_wire::DidKey,
     trust_domain: TrustDomainId,
     policy_id: PolicyId,
     policy_version: u64,
@@ -1888,6 +1995,7 @@ impl<'de> Deserialize<'de> for RecoverySessionState {
             session_grant_cnf_jkt: wire.session_grant_cnf_jkt,
             account_id: wire.account_id,
             requesting_device_id: wire.requesting_device_id,
+            requesting_device_public_key_did: wire.requesting_device_public_key_did,
             trust_domain: wire.trust_domain,
             policy_id: wire.policy_id,
             policy_version: wire.policy_version,
@@ -1929,6 +2037,7 @@ impl RecoverySessionState {
                 "current_device_generation_ref must be positive".to_owned(),
             ));
         }
+        validate_recovery_device_public_key(&self.requesting_device_public_key_did)?;
         validate_recovery_grant_jkt(&self.session_grant_cnf_jkt)?;
         validate_recovery_session_state_shape(self.identity_model)
             .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
@@ -1954,6 +2063,19 @@ impl RecoverySessionState {
         }
         Ok(())
     }
+}
+
+fn validate_recovery_device_public_key(value: &arkret_wire::DidKey) -> Result<()> {
+    let encoded = value.as_str().strip_prefix("did:key:").ok_or_else(|| {
+        WireError::Protocol("recovery device key must be a fragmentless Ed25519 did:key".to_owned())
+    })?;
+    let key = arkret_canonical::decode_ed25519_multibase(encoded)?;
+    if arkret_canonical::ed25519_pubkey_to_did_key_multibase(&key) != encoded {
+        return Err(WireError::Protocol(
+            "recovery device key is not canonical".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn validate_recovery_grant_jkt(value: &str) -> Result<()> {
@@ -2180,6 +2302,80 @@ impl GenericRecoveryProofBody {
 #[cfg(test)]
 mod untagged_contract_tests {
     use super::*;
+
+    #[test]
+    fn recovery_possession_binds_the_new_key_grant_and_create_request() {
+        use ed25519_dalek::{Signer, SigningKey};
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/recovery-transcript-fixture.json",
+        )
+        .unwrap();
+        let source: DidRootTranscript =
+            serde_json::from_value(fixture.pointer("/cases/0/transcript").unwrap().clone())
+                .unwrap();
+        let signer = SigningKey::from_bytes(&[27; 32]);
+        let transcript = RecoveryDevicePossessionTranscript {
+            schema: "ak.identity.recovery_device_possession.v1".to_owned(),
+            request_id: source.request_id,
+            session_grant_id: source.session_grant_id,
+            session_grant_cnf_jkt: source.session_grant_cnf_jkt,
+            account_id: source.account_id,
+            requesting_device_id: source.requesting_device_id,
+            requesting_device_public_key_did: arkret_wire::DidKey::new(format!(
+                "did:key:{}",
+                arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                    signer.verifying_key().as_bytes()
+                )
+            ))
+            .unwrap(),
+            trust_domain: source.trust_domain,
+            expected_recovery_policy_ref: None,
+        };
+        let bytes = transcript.signing_bytes().unwrap();
+        let signature = signer.sign(&bytes);
+        let request = transcript
+            .clone()
+            .into_request(
+                Base64UrlString::new(arkret_canonical::base64url_encode(signature.to_bytes()))
+                    .unwrap(),
+            )
+            .unwrap();
+        let rebound = request
+            .possession_transcript(
+                transcript.session_grant_id.clone(),
+                transcript.session_grant_cnf_jkt.clone(),
+            )
+            .unwrap();
+        assert_eq!(rebound.signing_bytes().unwrap(), bytes);
+        let mut tampered = rebound.clone();
+        tampered.session_grant_cnf_jkt = "B".repeat(43);
+        assert!(
+            signer
+                .verifying_key()
+                .verify_strict(&tampered.signing_bytes().unwrap(), &signature)
+                .is_err()
+        );
+        let mut tampered = rebound;
+        tampered.requesting_device_public_key_did = arkret_wire::DidKey::new(format!(
+            "did:key:{}",
+            arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+                SigningKey::from_bytes(&[28; 32]).verifying_key().as_bytes()
+            )
+        ))
+        .unwrap();
+        assert!(
+            signer
+                .verifying_key()
+                .verify_strict(&tampered.signing_bytes().unwrap(), &signature)
+                .is_err()
+        );
+        let mut value = serde_json::to_value(request).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("requesting_device_public_key_did");
+        assert!(serde_json::from_value::<RecoverySessionCreateRequestBody>(value).is_err());
+    }
 
     #[test]
     fn embedded_recovery_transcript_kat_closes_all_five_factors() {

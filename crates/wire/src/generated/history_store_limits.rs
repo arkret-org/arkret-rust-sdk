@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/history-recovery-scalability-registry.json; version=2026-09-04.1;
-//! sha256=505386add5674e0eee0f3af87d9007e3e4f65b408e37a8b4d72d5ec6fc39f5c8
+//! Input: registry/history-recovery-scalability-registry.json; version=2026-09-10.5;
+//! sha256=f27ed12dac3753c4daceecab2248784fd4f551f188311648c67db1ea54f898c8
 //! Entries: history_store_limits=7
 
 /// Machine-readable `history_store` section of

@@ -1,6 +1,6 @@
 use arkret_models_collaboration::history_key::{
-    HistoryKeyResponseAckRequest, HistoryKeyResponseListOutcome, HistoryKeyResponseSendReceipt,
-    HistoryKeyResponseSendRequest,
+    HistoryKeyResponseAckRequestBody, HistoryKeyResponseListOutcome, HistoryKeyResponseSendReceipt,
+    HistoryKeyResponseSendRequestBody,
 };
 use arkret_models_collaboration::http_bodies::EventsSubscribeFrameKind;
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountSubscribeFrame;
@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 fn history_response_stream_fixture_uses_production_wire_helpers() {
     let fixture = spec_json_artifact("fixtures/history-key-recovery-fixture.json").unwrap();
     let kat = &fixture["response_stream_cases"];
-    let send: HistoryKeyResponseSendRequest =
+    let send: HistoryKeyResponseSendRequestBody =
         serde_json::from_value(kat["wire_instances"]["manifest_send"].clone()).unwrap();
     send.validate().unwrap();
     let receipt: HistoryKeyResponseSendReceipt =
@@ -35,10 +35,10 @@ fn history_response_stream_fixture_uses_production_wire_helpers() {
     let mut ackable_empty = empty;
     ackable_empty.ack_token = Some("must-not-exist".to_owned());
     assert!(ackable_empty.validate().is_err());
-    let ack: HistoryKeyResponseAckRequest =
+    let ack: HistoryKeyResponseAckRequestBody =
         serde_json::from_value(kat["wire_instances"]["ack_request"].clone()).unwrap();
     ack.validate().unwrap();
-    let out_of_order: HistoryKeyResponseAckRequest =
+    let out_of_order: HistoryKeyResponseAckRequestBody =
         serde_json::from_value(kat["negative_cases"][2]["input"].clone()).unwrap();
     assert!(out_of_order.validate().is_err());
 

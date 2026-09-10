@@ -9,9 +9,10 @@ use arkret_models_collaboration::governance_dependencies::GovernanceDependency;
 use arkret_models_collaboration::history_key::{
     AuthorProfile, EpochRange, HistoryGovernanceTraversalIntent, HistoryKeyRequestCreateOutcome,
     HistoryKeyResponseContent, HistoryKeyResponseLostRecord, HistoryKeyResponseRecord,
-    HistoryKeyResponseSendRequest, HistoryManifestAdmission, HistoryResponseChunkDescriptor,
+    HistoryKeyResponseSendRequestBody, HistoryManifestAdmission, HistoryResponseChunkDescriptor,
     HistoryResponseId, HistoryResponseManifest, HistorySecretChunkSealContext,
-    HistorySecretChunkSealPurpose, MinimalMetadataMlsLeafSignerEvidence, SealedHistoryChunk,
+    HistorySecretChunkSealPurpose, HistorySourceSignerKind, HistorySourceSignerResult,
+    MinimalMetadataMlsLeafSignerEvidence, SealedHistoryChunk,
 };
 use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
@@ -26,12 +27,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HistorySourceProofExternalVerificationRequest<'a> {
     Agent {
-        source_record: &'a HistoryKeyResponseSendRequest,
+        source_record: &'a HistoryKeyResponseSendRequestBody,
         signer_evidence: &'a AuthenticatedSignerResolutionEvidence,
         dependencies: &'a [GovernanceDependency],
     },
     MinimalMetadata {
-        source_record: &'a HistoryKeyResponseSendRequest,
+        source_record: &'a HistoryKeyResponseSendRequestBody,
         signer_evidence: &'a MinimalMetadataMlsLeafSignerEvidence,
         verified_checkpoint: &'a MlsGovernanceVerificationCheckpoint,
     },
@@ -94,16 +95,16 @@ pub fn verify_minimal_metadata_identity_link_signature(
 /// cache and the group view must come from its independently verified winning
 /// MLS state. The signer evidence is not an authority for either input.
 pub fn verify_minimal_metadata_history_source_local_state(
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     signer_evidence: &MinimalMetadataMlsLeafSignerEvidence,
-    verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
+    accepted_transition: &arkret_models_crypto::MlsEpochHead,
     received_identity_link: &arkret_models_collaboration::objects::profiles::IdentityLink,
     received_identity_link_canonical_bytes: &[u8],
     winning_group_state: &arkret_policy::minimal_metadata_author::AuthorGroupStateView,
 ) -> Result<PublicKeyMaterial, WireError> {
     source.validate()?;
     signer_evidence.validate()?;
-    verified_checkpoint.validate_checkpoint()?;
+    accepted_transition.validate()?;
     received_identity_link.validate_minimal()?;
     let canonical_received = arkret_canonical::canonical_json_bytes(received_identity_link)?;
     let expected_identity_link = arkret_wire::base64url::base64url_decode(
@@ -115,7 +116,6 @@ pub fn verify_minimal_metadata_history_source_local_state(
     if canonical_received != received_identity_link_canonical_bytes
         || received_identity_link_canonical_bytes != expected_identity_link
         || received_identity_link != &signer_evidence.validate_identity_link_binding()?
-        || signer_evidence.target_basis != verified_checkpoint.basis
         || source.source_actor_id != signer_evidence.source_actor_id
         || source.source_proof.verification_method != signer_evidence.verification_method
         || source.effective_scope != signer_evidence.effective_scope
@@ -136,49 +136,19 @@ pub fn verify_minimal_metadata_history_source_local_state(
     {
         return invalid("minimal-metadata winning transition Event digest mismatch");
     }
-    let transition = verified_checkpoint
-        .accepted_events
-        .iter()
-        .find(|event| event.event_id == signer_evidence.winning_group_state_transition_ref)
-        .ok_or_else(|| {
-            WireError::Protocol(
-                "minimal-metadata winning transition is absent from the verified checkpoint"
-                    .to_owned(),
-            )
-        })?;
-    let transition_digest = match transition.kind.as_str() {
-        arkret_wire::event_kind_str::MLS_GENESIS => {
-            let value = serde_json::to_value(&transition.payload)
-                .map_err(|error| WireError::Protocol(error.to_string()))?;
-            let payload: MlsGenesisPayload = serde_json::from_value(value.clone())
-                .map_err(|error| WireError::Protocol(error.to_string()))?;
-            payload.validate()?;
-            if payload.mls_group_id.as_str() != signer_evidence.mls_group_id
-                || signer_evidence.epoch != 0
-            {
-                return invalid("minimal-metadata Genesis transition coordinate mismatch");
-            }
-            arkret_models_collaboration::events_payloads::mls::mls_genesis_transition_digest(
-                &value,
-            )?
-        }
-        arkret_wire::event_kind_str::MLS_COMMIT => {
-            let payload: MlsCommitPayload = serde_json::from_value(
-                serde_json::to_value(&transition.payload)
-                    .map_err(|error| WireError::Protocol(error.to_string()))?,
-            )
-            .map_err(|error| WireError::Protocol(error.to_string()))?;
-            if payload.mls_group_id() != signer_evidence.mls_group_id
-                || payload.next_epoch() != signer_evidence.epoch
-            {
-                return invalid("minimal-metadata Commit transition coordinate mismatch");
-            }
-            payload.commit_digest().clone()
-        }
-        _ => return invalid("minimal-metadata group-state ref is not an MLS transition"),
-    };
-    if transition_digest != signer_evidence.winning_mls_transition_digest {
-        return invalid("minimal-metadata MLS transition digest mismatch");
+    if accepted_transition.transition_ref != signer_evidence.winning_group_state_transition_ref
+        || accepted_transition.transition_event_digest
+            != signer_evidence.winning_group_state_event_digest
+        || accepted_transition.mls_transition_digest
+            != signer_evidence.winning_mls_transition_digest
+        || accepted_transition.mls_group_id.as_str() != signer_evidence.mls_group_id
+        || accepted_transition.next_epoch != signer_evidence.epoch
+        || !scope_matches(
+            &signer_evidence.effective_scope,
+            &accepted_transition.effective_scope,
+        )
+    {
+        return invalid("minimal-metadata source does not bind the accepted MLS transition");
     }
     let leaf_index = u32::try_from(signer_evidence.leaf_index).map_err(|_| {
         WireError::Protocol("minimal-metadata leaf index exceeds RFC 9420 bounds".to_owned())
@@ -262,33 +232,31 @@ impl VerifiedHistoryResponseRecord {
     }
 }
 
-/// Verify one response record against the exact accepted request and its
-/// independently replayed governance checkpoint.
-///
-/// The source key is resolved from the exact content-addressed signer evidence
-/// bound by the signed source record. The callback is invoked only for the
-/// Agent PCR/lifecycle/transparency anchors and the minimal-metadata
-/// encrypted IdentityLink plus LeafNode check against the receiver's verified local MLS
-/// state; it cannot substitute a key outside the signed evidence.
+/// Verify source signatures and end-to-end bindings using the Account Station result.
+/// The caller must obtain the record and signer result from the accepted
+/// request account's trusted Station and bind that transport to its current
+/// account session. This API does not independently verify Station governance
+/// or release-service signer authority. The callback checks only receiver-local
+/// minimal-metadata MLS state.
 #[allow(clippy::too_many_arguments)]
 pub async fn verify_history_response_record<VerifyExternalSourceKey>(
     accepted: &HistoryKeyRequestCreateOutcome,
     record: &HistoryKeyResponseRecord,
-    verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
+    signer_result: &HistorySourceSignerResult,
     verified_manifest: Option<&VerifiedHistoryManifest>,
-    signer_dependencies: &[GovernanceDependency],
     now: DateTime<Utc>,
     verify_external_source_key: VerifyExternalSourceKey,
 ) -> Result<VerifiedHistoryResponseRecord, WireError>
 where
     VerifyExternalSourceKey: for<'a> Fn(
-            HistorySourceProofExternalVerificationRequest<'a>,
+            &'a HistoryKeyResponseSendRequestBody,
+            &'a MinimalMetadataMlsLeafSignerEvidence,
         ) -> HistorySourceProofVerificationFuture<'a>
         + Clone,
 {
     accepted.validate()?;
     record.validate()?;
-    verified_checkpoint.validate_checkpoint()?;
+    signer_result.validate_for_source(&record.source_record)?;
     if now >= accepted.request.expires_at
         || record.sent_at > accepted.request.expires_at
         || record.source_record.expires_at != accepted.request.expires_at
@@ -306,34 +274,58 @@ where
         return invalid("history source record does not bind the accepted request");
     }
 
-    verify_release_service_proof(
-        accepted,
-        &record.service_proof,
-        &record.proof_binding_bytes()?,
-        record.sent_at,
-        &record.release_service_signer_evidence_ref,
-        signer_dependencies,
-    )?;
     if source.source_proof.created_at > record.sent_at
         || source.source_proof.created_at > source.expires_at
     {
         return invalid("history source proof timestamp is outside its signed record lifetime");
     }
-    let source_signer_dependencies =
-        arkret_models_collaboration::governance_dependencies::history_source_signer_dependency_closure(
-            source,
-            signer_dependencies,
-        )?;
-    verify_history_source_proof(
-        source,
-        verified_checkpoint,
-        &source_signer_dependencies,
-        verify_external_source_key,
+    let source_key = match signer_result {
+        HistorySourceSignerResult::Authenticated {
+            public_key_b64u, ..
+        } => PublicKeyMaterial::Ed25519Raw {
+            bytes: arkret_wire::base64url::base64url_decode(public_key_b64u.as_str().as_bytes())?,
+        },
+        HistorySourceSignerResult::ReceiverMls {
+            signer_evidence,
+            identity_link_public_key_b64u,
+            ..
+        } => {
+            let link = signer_evidence.validate_identity_link_binding()?;
+            let key = PublicKeyMaterial::Ed25519Raw {
+                bytes: arkret_wire::base64url::base64url_decode(
+                    identity_link_public_key_b64u.as_str().as_bytes(),
+                )?,
+            };
+            if link.proof.signature_algorithm != "Ed25519" {
+                return invalid("minimal-metadata IdentityLink proof algorithm is unsupported");
+            }
+            arkret_signatures::proof::verify_ed25519_raw_transcript_signature(
+                &link.canonical_proof_input()?,
+                &link.proof.signature,
+                &key,
+            )
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+            let verified = verify_external_source_key(source, signer_evidence).await?;
+            let expected = arkret_wire::base64url::base64url_decode(
+                signer_evidence
+                    .response_signing_public_key_b64u
+                    .as_str()
+                    .as_bytes(),
+            )?;
+            if verified != (PublicKeyMaterial::Ed25519Raw { bytes: expected }) {
+                return invalid("receiver-local MLS check returned an unrelated source key");
+            }
+            verified
+        }
+    };
+    arkret_signatures::verify_ed25519_detached_jws_payload_proof(
+        &source.source_proof,
+        &source.proof_binding_bytes()?,
+        &source_key,
     )
-    .await?;
+    .map_err(|error| WireError::Protocol(format!("history source proof is invalid: {error}")))?;
 
     let intent = member_history_intent(accepted)?;
-    verify_checkpoint_binding(verified_checkpoint, intent)?;
     match (
         &source.content,
         &record.manifest_admission,
@@ -381,7 +373,7 @@ where
                 descriptor,
                 attestation,
                 manifest,
-                &source_signer_dependencies,
+                signer_result,
             )?;
             let seal_context = HistorySecretChunkSealContext {
                 purpose: HistorySecretChunkSealPurpose::Value,
@@ -417,11 +409,11 @@ where
 /// surplus signer evidence fails closed so a service can atomically pin the
 /// same verified bytes it used for admission.
 pub async fn verify_history_source_proof<VerifyExternalSourceKey>(
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     source_signer_dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
-) -> Result<(), WireError>
+) -> Result<HistorySourceSignerResult, WireError>
 where
     VerifyExternalSourceKey: for<'a> Fn(
             HistorySourceProofExternalVerificationRequest<'a>,
@@ -446,11 +438,83 @@ where
         &source.proof_binding_bytes()?,
         &source_key,
     )
-    .map_err(|error| WireError::Protocol(format!("history source proof is invalid: {error}")))
+    .map_err(|error| WireError::Protocol(format!("history source proof is invalid: {error}")))?;
+    let root_digest = source.source_signer_evidence_ref.content_digest()?;
+    let root = source_signer_dependencies.iter().find(|item| match item {
+        GovernanceDependency::AuthenticatedSignerResolutionEvidence { selector:
+            arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence { content_digest }, .. }
+        | GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence { selector:
+            arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::MinimalMetadataMlsLeafSignerEvidence { content_digest }, .. } => content_digest == &root_digest,
+        _ => false,
+    }).ok_or_else(|| WireError::Protocol("history source root is absent".to_owned()))?;
+    let result = match root {
+        GovernanceDependency::AuthenticatedSignerResolutionEvidence {
+            authenticated_signer_resolution_evidence: evidence,
+            ..
+        } => {
+            let signer_kind = match evidence.as_ref() {
+                AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+                    HistorySourceSignerKind::AccountDevice
+                }
+                AuthenticatedSignerResolutionEvidence::Principal { .. } => {
+                    HistorySourceSignerKind::Principal
+                }
+                AuthenticatedSignerResolutionEvidence::Agent { .. } => {
+                    HistorySourceSignerKind::Agent
+                }
+                _ => return invalid("service evidence cannot authorize a history source"),
+            };
+            HistorySourceSignerResult::Authenticated {
+                source_signer_evidence_ref: source.source_signer_evidence_ref.clone(),
+                signer_kind,
+                signer_id: evidence.signer_id().clone(),
+                verification_method: evidence.verification_method().clone(),
+                public_key_b64u: arkret_wire::Base64UrlString::new(
+                    arkret_wire::base64url::base64url_encode(
+                        source_key
+                            .ed25519_bytes()
+                            .map_err(|error| WireError::Protocol(error.to_string()))?,
+                    ),
+                )
+                .map_err(|error| WireError::Protocol(error.to_owned()))?,
+            }
+        }
+        GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
+            minimal_metadata_mls_leaf_signer_evidence: evidence,
+            ..
+        } => {
+            let link = evidence.validate_identity_link_binding()?;
+            let principal = super::mls_governance::bound_evidence_by_ref(
+                source_signer_dependencies,
+                &evidence.identity_link_signer_evidence_ref,
+                &link.principal_id,
+                &link.proof.verification_method,
+            )?;
+            let key = super::mls_governance::authenticated_document_key(
+                principal,
+                source_signer_dependencies,
+                link.effective_at,
+            )?;
+            HistorySourceSignerResult::ReceiverMls {
+                source_signer_evidence_ref: source.source_signer_evidence_ref.clone(),
+                signer_evidence: Box::new(evidence.clone()),
+                identity_link_public_key_b64u: arkret_wire::Base64UrlString::new(
+                    arkret_wire::base64url::base64url_encode(
+                        key.ed25519_bytes()
+                            .map_err(|error| WireError::Protocol(error.to_string()))?,
+                    ),
+                )
+                .map_err(|error| WireError::Protocol(error.to_owned()))?,
+            }
+        }
+        _ => return invalid("history source root is not signer evidence"),
+    };
+    result.validate_for_source(source)?;
+    Ok(result)
 }
 
 async fn resolve_source_proof_key<VerifyExternalSourceKey>(
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     verified_checkpoint: &MlsGovernanceVerificationCheckpoint,
     dependencies: &[GovernanceDependency],
     verify_external_source_key: VerifyExternalSourceKey,
@@ -730,46 +794,9 @@ fn member_history_intent(
     Ok(intent)
 }
 
-fn verify_checkpoint_binding(
-    checkpoint: &MlsGovernanceVerificationCheckpoint,
-    intent: &HistoryGovernanceTraversalIntent,
-) -> Result<(), WireError> {
-    let HistoryGovernanceTraversalIntent::MemberHistoryDelivery {
-        effective_scope,
-        trusted_history_base_basis,
-        trusted_current_basis,
-        target_basis,
-        ..
-    } = intent
-    else {
-        return invalid("history traversal intent is not member delivery");
-    };
-    let realm_id = match effective_scope {
-        HistoryEffectiveScope::Realm { realm_id }
-        | HistoryEffectiveScope::Circle { realm_id, .. } => realm_id,
-    };
-    if checkpoint.realm_id != *realm_id || checkpoint.basis != *target_basis {
-        return invalid("verified history checkpoint does not match the receipt target basis");
-    }
-    let seal_ids = checkpoint
-        .accepted_seals
-        .iter()
-        .map(|seal| &seal.id)
-        .collect::<BTreeSet<_>>();
-    if trusted_history_base_basis
-        .leaves
-        .iter()
-        .chain(&trusted_current_basis.leaves)
-        .any(|leaf| !seal_ids.contains(leaf))
-    {
-        return invalid("verified history checkpoint does not dominate both trusted bases");
-    }
-    Ok(())
-}
-
 fn verify_manifest(
     accepted: &HistoryKeyRequestCreateOutcome,
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     manifest: &HistoryResponseManifest,
     admission: &HistoryManifestAdmission,
     intent: &HistoryGovernanceTraversalIntent,
@@ -799,12 +826,12 @@ fn verify_manifest(
 
 fn verify_release_attestation(
     accepted: &HistoryKeyRequestCreateOutcome,
-    source: &HistoryKeyResponseSendRequest,
+    source: &HistoryKeyResponseSendRequestBody,
     chunk: &SealedHistoryChunk,
     descriptor: &HistoryResponseChunkDescriptor,
     attestation: &arkret_models_collaboration::history_key::HistoryReleaseAttestation,
     manifest: &VerifiedHistoryManifest,
-    source_signer_dependencies: &[GovernanceDependency],
+    signer_result: &HistorySourceSignerResult,
 ) -> Result<(), WireError> {
     let source_digest = source.source_record_digest()?;
     let request = &accepted.request;
@@ -832,7 +859,14 @@ fn verify_release_attestation(
     {
         return invalid("history release attestation does not bind the exact request and chunk");
     }
-    let evidence_kind = source_evidence_kind(source, source_signer_dependencies)?;
+    let evidence_kind = match signer_result {
+        HistorySourceSignerResult::Authenticated { signer_kind, .. } => match signer_kind {
+            HistorySourceSignerKind::Principal => SourceEvidenceKind::Principal,
+            HistorySourceSignerKind::AccountDevice => SourceEvidenceKind::AccountDevice,
+            HistorySourceSignerKind::Agent => SourceEvidenceKind::Agent,
+        },
+        HistorySourceSignerResult::ReceiverMls { .. } => SourceEvidenceKind::MinimalMetadata,
+    };
     let profile_matches = matches!(
         (attestation.source_author_profile, evidence_kind),
         (
@@ -852,15 +886,12 @@ fn verify_release_attestation(
         return invalid("history release source profile does not match signer evidence kind");
     }
     if evidence_kind == SourceEvidenceKind::MinimalMetadata {
-        let minimal = source_signer_dependencies
-            .iter()
-            .find_map(|dependency| match dependency {
-                GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
-                    minimal_metadata_mls_leaf_signer_evidence,
-                    ..
-                } => Some(minimal_metadata_mls_leaf_signer_evidence),
-                _ => None,
-            });
+        let minimal = match signer_result {
+            HistorySourceSignerResult::ReceiverMls {
+                signer_evidence, ..
+            } => Some(signer_evidence),
+            _ => None,
+        };
         if attestation.source_authorization_incarnation
             != minimal.map(|evidence| evidence.authorization_incarnation.clone())
         {
@@ -898,66 +929,10 @@ enum SourceEvidenceKind {
     MinimalMetadata,
 }
 
-fn source_evidence_kind(
-    source: &HistoryKeyResponseSendRequest,
-    dependencies: &[GovernanceDependency],
-) -> Result<SourceEvidenceKind, WireError> {
-    let source_signer_evidence_digest = source.source_signer_evidence_ref.content_digest()?;
-    let mut found = None;
-    for dependency in dependencies {
-        let kind = match dependency {
-            GovernanceDependency::AuthenticatedSignerResolutionEvidence {
-                selector:
-                    arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                        content_digest,
-                    },
-                authenticated_signer_resolution_evidence,
-            } if content_digest == &source_signer_evidence_digest => {
-                match authenticated_signer_resolution_evidence.as_ref() {
-                    AuthenticatedSignerResolutionEvidence::Service { .. } => {
-                        return invalid("service evidence cannot be a history response source root");
-                    }
-                    AuthenticatedSignerResolutionEvidence::Principal { .. } => {
-                        SourceEvidenceKind::Principal
-                    }
-                    AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => SourceEvidenceKind::AccountDevice,
-                    AuthenticatedSignerResolutionEvidence::Agent { .. } => {
-                        SourceEvidenceKind::Agent
-                    }
-                }
-            }
-            GovernanceDependency::MinimalMetadataMlsLeafSignerEvidence {
-                selector:
-                    arkret_models_collaboration::governance_dependencies::GovernanceDependencySelector::MinimalMetadataMlsLeafSignerEvidence {
-                        content_digest,
-                    },
-                ..
-            } if content_digest == &source_signer_evidence_digest => {
-                SourceEvidenceKind::MinimalMetadata
-            }
-            _ => continue,
-        };
-        if found.replace(kind).is_some() {
-            return invalid("history source signer evidence root is ambiguous");
-        }
-    }
-    found.ok_or_else(|| {
-        WireError::Protocol("history source signer evidence root is missing".to_owned())
-    })
-}
-
 fn range_is_authorized(candidate: &EpochRange, authorized: &[EpochRange]) -> bool {
     authorized.iter().any(|range| {
         range.from_epoch <= candidate.from_epoch && candidate.to_epoch <= range.to_epoch
     })
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct VerifiedHistoryEpochSuite {
-    pub epoch: u64,
-    pub cipher_suite: String,
-    pub kdf_nh: u16,
 }
 
 /// Read the effective scope's own winning history policy from verified replay.
@@ -1003,14 +978,13 @@ pub async fn history_access_from_verified_checkpoint(
         .map_err(|error| WireError::Protocol(format!("winning history policy is invalid: {error}")))
 }
 
-/// Extract the exact registered MLS suite and `KDF.Nh` for every requested
-/// epoch from a fully verified governance checkpoint.
-pub async fn winning_history_epoch_suites_from_verified_checkpoint(
+/// Resolve the pinned suite after checking the complete winning lineage.
+pub async fn winning_history_cipher_suite_from_verified_checkpoint(
     checkpoint: &MlsGovernanceVerificationCheckpoint,
     effective_scope: &HistoryEffectiveScope,
     mls_group_id: &str,
     requested_ranges: &[EpochRange],
-) -> Result<Vec<VerifiedHistoryEpochSuite>, WireError> {
+) -> Result<String, WireError> {
     checkpoint.validate_checkpoint()?;
     arkret_models_collaboration::history_key::validate_canonical_ranges(requested_ranges, 64)?;
     if effective_scope.canonical_mls_group_id()? != mls_group_id {
@@ -1124,7 +1098,7 @@ pub async fn winning_history_epoch_suites_from_verified_checkpoint(
         return invalid("history secret ranges require mls_exporter_aead_v1");
     }
     let cipher_suite = genesis.cipher_suite.as_str().to_owned();
-    let kdf_nh = registered_mls_ciphersuite_kdf_nh(&cipher_suite)?;
+    registered_mls_ciphersuite_kdf_nh(&cipher_suite)?;
     let maximum_epoch = requested_ranges
         .last()
         .expect("canonical non-empty ranges validated above")
@@ -1139,17 +1113,7 @@ pub async fn winning_history_epoch_suites_from_verified_checkpoint(
             return invalid("verified MLS winning transition chain is discontinuous");
         }
     }
-    let mut result = Vec::new();
-    for range in requested_ranges {
-        for epoch in range.from_epoch..=range.to_epoch {
-            result.push(VerifiedHistoryEpochSuite {
-                epoch,
-                cipher_suite: cipher_suite.clone(),
-                kdf_nh,
-            });
-        }
-    }
-    Ok(result)
+    Ok(cipher_suite)
 }
 
 /// Resolve `KDF.Nh` for one exact MLS ciphersuite identifier registered by the

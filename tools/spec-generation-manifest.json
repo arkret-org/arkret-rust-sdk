@@ -419,6 +419,18 @@
       "artifacts": [
         "profiles/conformance-profiles.json"
       ]
+    },
+    {
+      "generator": "current-result-schemas",
+      "outputs": [
+        "crates/schema/src/generated/current_result_schemas.rs"
+      ],
+      "owner": "arkret-schema",
+      "mode": "closed-schema-bundle",
+      "artifacts": [
+        "registry/current-result-registry.json",
+        "schemas/account-current-result.schema.json"
+      ]
     }
   ]
 }

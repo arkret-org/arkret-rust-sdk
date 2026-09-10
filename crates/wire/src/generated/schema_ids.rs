@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-08.1;
-//! sha256=7b19879e6ddd743edbb561e654311cd8c4def3206a7da5969aa490034d470b65 Entries: schema_ids=205,
-//! active=205
+//! Input: registry/schema-registry.json; version=2026-09-10.16;
+//! sha256=f0b3f14fdf5cfbe1748b4950f1849e400fb67009900d837514437c316fc6cc61 Entries: schema_ids=208,
+//! active=208
 
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum SchemaId {
+    AccountCurrentResultV1,
     AccountDataEncryptedValueV1,
     AccountDataOperationsV1,
     AccountOperationsV1,
@@ -33,7 +34,6 @@ pub enum SchemaId {
     AgentSidecarViewStateV1,
     AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
-    AgentSignerEvidenceBundleV1,
     AgentSignerEvidenceQueryOutcomeV1,
     AgentSignerEvidenceQueryRequestV1,
     AgentSigningKeyBindingV1,
@@ -80,6 +80,8 @@ pub enum SchemaId {
     ControllerAccountGateAttestationV1,
     ControllerAccountGateAttestationIssueOutcomeV1,
     ControllerAccountGateAttestationIssueRequestV1,
+    CurrentPrincipalOutcomeV1,
+    CurrentPrincipalRequestV1,
     CurrentSignerEvidenceQueryOutcomeV1,
     CurrentSignerEvidenceQueryRequestV1,
     CursorV1,
@@ -136,6 +138,7 @@ pub enum SchemaId {
     MimiInteropV1,
     MimiOperationsV1,
     MlsGovernanceProofBundleV1,
+    MlsWelcomeRefsV1,
     ModerationEvidenceV1,
     ModerationQueueItemV1,
     ModerationReportV1,
@@ -221,6 +224,7 @@ pub enum SchemaId {
 
 impl SchemaId {
     pub const ALL: &'static [Self] = &[
+        Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
         Self::AccountOperationsV1,
@@ -242,7 +246,6 @@ impl SchemaId {
         Self::AgentSidecarViewStateV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
-        Self::AgentSignerEvidenceBundleV1,
         Self::AgentSignerEvidenceQueryOutcomeV1,
         Self::AgentSignerEvidenceQueryRequestV1,
         Self::AgentSigningKeyBindingV1,
@@ -289,6 +292,8 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
+        Self::CurrentPrincipalOutcomeV1,
+        Self::CurrentPrincipalRequestV1,
         Self::CurrentSignerEvidenceQueryOutcomeV1,
         Self::CurrentSignerEvidenceQueryRequestV1,
         Self::CursorV1,
@@ -345,6 +350,7 @@ impl SchemaId {
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
+        Self::MlsWelcomeRefsV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
@@ -430,6 +436,7 @@ impl SchemaId {
 
     /// Rows the registry declares `active`; excludes `candidate` rows.
     pub const ACTIVE: &'static [Self] = &[
+        Self::AccountCurrentResultV1,
         Self::AccountDataEncryptedValueV1,
         Self::AccountDataOperationsV1,
         Self::AccountOperationsV1,
@@ -451,7 +458,6 @@ impl SchemaId {
         Self::AgentSidecarViewStateV1,
         Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
-        Self::AgentSignerEvidenceBundleV1,
         Self::AgentSignerEvidenceQueryOutcomeV1,
         Self::AgentSignerEvidenceQueryRequestV1,
         Self::AgentSigningKeyBindingV1,
@@ -498,6 +504,8 @@ impl SchemaId {
         Self::ControllerAccountGateAttestationV1,
         Self::ControllerAccountGateAttestationIssueOutcomeV1,
         Self::ControllerAccountGateAttestationIssueRequestV1,
+        Self::CurrentPrincipalOutcomeV1,
+        Self::CurrentPrincipalRequestV1,
         Self::CurrentSignerEvidenceQueryOutcomeV1,
         Self::CurrentSignerEvidenceQueryRequestV1,
         Self::CursorV1,
@@ -554,6 +562,7 @@ impl SchemaId {
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
+        Self::MlsWelcomeRefsV1,
         Self::ModerationEvidenceV1,
         Self::ModerationQueueItemV1,
         Self::ModerationReportV1,
@@ -637,6 +646,9 @@ impl SchemaId {
         Self::WebsocketWelcomeFrameV1,
     ];
 
+    /// Server-trusted typed current cell results, complete MV heads, versioned removal and exact
+    /// baseline coverage.
+    pub const ACCOUNT_CURRENT_RESULT_V1: &'static str = "ak.schema.account_current_result.v1";
     /// Closed XChaCha20-Poly1305 envelope for principal-private encrypted Account Data values.
     pub const ACCOUNT_DATA_ENCRYPTED_VALUE_V1: &'static str =
         "ak.schema.account_data_encrypted_value.v1";
@@ -703,15 +715,12 @@ impl SchemaId {
     /// Portable Agent signer authorization, state-witness, and freshness evidence used outside the
     /// ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
-    /// Deduplicated transport-level Agent signer evidence bundle shared by sync, backfill, and
-    /// federation.
-    pub const AGENT_SIGNER_EVIDENCE_BUNDLE_V1: &'static str =
-        "ak.schema.agent_signer_evidence_bundle.v1";
-    /// Closed outcome carrying portable Agent signer evidence or non-enumerating per-selector
-    /// failures.
+    /// Own-Station validated exact Agent keys or uniform unavailable results; historical
+    /// accepted_at binds the original producer admission time, never an independent receiver
+    /// receipt time; no portable closure.
     pub const AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
         "ak.schema.agent_signer_evidence_query_outcome.v1";
-    /// Authenticated shared-context Agent signer evidence query request.
+    /// Own-Station exact current/historical Agent signing-key query body.
     pub const AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
         "ak.schema.agent_signer_evidence_query_request.v1";
     /// Controller-signed minimal public binding from an Agent verification method to raw Ed25519
@@ -860,12 +869,16 @@ impl SchemaId {
     /// lifecycle gate needed to assemble signer evidence.
     pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1: &'static str =
         "ak.schema.controller_account_gate_attestation_issue_request.v1";
-    /// Origin-Station-signed response binding exact Signal, recipient, proxy verifier, challenge
-    /// and closed current signer evidence.
+    /// Own-Station accepted current principal projection and unique PCR; observation is not an
+    /// authorization lease.
+    pub const CURRENT_PRINCIPAL_OUTCOME_V1: &'static str = "ak.schema.current_principal_outcome.v1";
+    /// Authenticated own-account current principal and unique PCR request.
+    pub const CURRENT_PRINCIPAL_REQUEST_V1: &'static str = "ak.schema.current_principal_request.v1";
+    /// Query-bound Station current signing-key results, separate from peer portable evidence.
     pub const CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1: &'static str =
         "ak.schema.current_signer_evidence_query_outcome.v1";
-    /// Request-bound cold-recipient query selecting exactly one current account-device or Agent
-    /// authority branch per sender.
+    /// Own-Station current signing-key query for one validation invocation, with no reusable
+    /// current grant.
     pub const CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1: &'static str =
         "ak.schema.current_signer_evidence_query_request.v1";
     pub const CURSOR_V1: &'static str = "ak.schema.cursor.v1";
@@ -1003,10 +1016,13 @@ impl SchemaId {
     pub const MIMI_INTEROP_V1: &'static str = "ak.schema.mimi_interop.v1";
     /// Closed request/response DTO bundle for MIMI provider interop operations.
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
-    /// Closed near-current stateless MLS group-security frontier query carrier. Bulk and old
-    /// history use receipt-bound direct accepted-Seal traversal through standard resolve surfaces.
+    /// Closed own-Station MLS binding, accepted-artifact and exact current leaf-removal results,
+    /// with separate peer governance proof carriers.
     pub const MLS_GOVERNANCE_PROOF_BUNDLE_V1: &'static str =
         "ak.schema.mls_governance_proof_bundle.v1";
+    /// Authenticated exact-recipient Welcome reference discovery with bounded frozen-window
+    /// continuation.
+    pub const MLS_WELCOME_REFS_V1: &'static str = "ak.schema.mls_welcome_refs.v1";
     pub const MODERATION_EVIDENCE_V1: &'static str = "ak.schema.moderation_evidence.v1";
     pub const MODERATION_QUEUE_ITEM_V1: &'static str = "ak.schema.moderation_queue_item.v1";
     pub const MODERATION_REPORT_V1: &'static str = "ak.schema.moderation_report.v1";
@@ -1214,6 +1230,7 @@ impl SchemaId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::AccountCurrentResultV1 => Self::ACCOUNT_CURRENT_RESULT_V1,
             Self::AccountDataEncryptedValueV1 => Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1,
             Self::AccountDataOperationsV1 => Self::ACCOUNT_DATA_OPERATIONS_V1,
             Self::AccountOperationsV1 => Self::ACCOUNT_OPERATIONS_V1,
@@ -1237,7 +1254,6 @@ impl SchemaId {
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
             Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
-            Self::AgentSignerEvidenceBundleV1 => Self::AGENT_SIGNER_EVIDENCE_BUNDLE_V1,
             Self::AgentSignerEvidenceQueryOutcomeV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
             Self::AgentSignerEvidenceQueryRequestV1 => Self::AGENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
             Self::AgentSigningKeyBindingV1 => Self::AGENT_SIGNING_KEY_BINDING_V1,
@@ -1302,6 +1318,8 @@ impl SchemaId {
             Self::ControllerAccountGateAttestationIssueRequestV1 => {
                 Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1
             }
+            Self::CurrentPrincipalOutcomeV1 => Self::CURRENT_PRINCIPAL_OUTCOME_V1,
+            Self::CurrentPrincipalRequestV1 => Self::CURRENT_PRINCIPAL_REQUEST_V1,
             Self::CurrentSignerEvidenceQueryOutcomeV1 => {
                 Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1
             }
@@ -1362,6 +1380,7 @@ impl SchemaId {
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
             Self::MlsGovernanceProofBundleV1 => Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
+            Self::MlsWelcomeRefsV1 => Self::MLS_WELCOME_REFS_V1,
             Self::ModerationEvidenceV1 => Self::MODERATION_EVIDENCE_V1,
             Self::ModerationQueueItemV1 => Self::MODERATION_QUEUE_ITEM_V1,
             Self::ModerationReportV1 => Self::MODERATION_REPORT_V1,
@@ -1450,6 +1469,7 @@ impl SchemaId {
     /// `spec/v1/artifacts/`.
     pub const fn file(self) -> &'static str {
         match self {
+            Self::AccountCurrentResultV1 => "schemas/account-current-result.schema.json",
             Self::AccountDataEncryptedValueV1 => "schemas/account-data-encrypted-value.schema.json",
             Self::AccountDataOperationsV1 => "schemas/account-data-operations.schema.json",
             Self::AccountOperationsV1 => "schemas/account-operations.schema.json",
@@ -1479,9 +1499,6 @@ impl SchemaId {
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
             Self::AgentSignerAdmissionReceiptV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AgentSignerEvidenceV1 => "schemas/agent-signer-evidence.schema.json",
-            Self::AgentSignerEvidenceBundleV1 => {
-                "schemas/agent-signer-evidence-operations.schema.json"
-            }
             Self::AgentSignerEvidenceQueryOutcomeV1 => {
                 "schemas/agent-signer-evidence-operations.schema.json"
             }
@@ -1550,6 +1567,8 @@ impl SchemaId {
             Self::ControllerAccountGateAttestationIssueRequestV1 => {
                 "schemas/agent-signer-evidence-operations.schema.json"
             }
+            Self::CurrentPrincipalOutcomeV1 => "schemas/identity-resolution.schema.json",
+            Self::CurrentPrincipalRequestV1 => "schemas/identity-resolution.schema.json",
             Self::CurrentSignerEvidenceQueryOutcomeV1 => {
                 "schemas/current-signer-evidence-operations.schema.json"
             }
@@ -1614,6 +1633,7 @@ impl SchemaId {
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
             Self::MlsGovernanceProofBundleV1 => "schemas/mls-governance-proof-bundle.schema.json",
+            Self::MlsWelcomeRefsV1 => "schemas/mls-welcome-refs.schema.json",
             Self::ModerationEvidenceV1 => "schemas/moderation-evidence.schema.json",
             Self::ModerationQueueItemV1 => "schemas/moderation-queue-item.schema.json",
             Self::ModerationReportV1 => "schemas/moderation-report.schema.json",
@@ -1702,6 +1722,7 @@ impl SchemaId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
+            Self::ACCOUNT_CURRENT_RESULT_V1 => Some(Self::AccountCurrentResultV1),
             Self::ACCOUNT_DATA_ENCRYPTED_VALUE_V1 => Some(Self::AccountDataEncryptedValueV1),
             Self::ACCOUNT_DATA_OPERATIONS_V1 => Some(Self::AccountDataOperationsV1),
             Self::ACCOUNT_OPERATIONS_V1 => Some(Self::AccountOperationsV1),
@@ -1729,7 +1750,6 @@ impl SchemaId {
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
             Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
-            Self::AGENT_SIGNER_EVIDENCE_BUNDLE_V1 => Some(Self::AgentSignerEvidenceBundleV1),
             Self::AGENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
                 Some(Self::AgentSignerEvidenceQueryOutcomeV1)
             }
@@ -1802,6 +1822,8 @@ impl SchemaId {
             Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1 => {
                 Some(Self::ControllerAccountGateAttestationIssueRequestV1)
             }
+            Self::CURRENT_PRINCIPAL_OUTCOME_V1 => Some(Self::CurrentPrincipalOutcomeV1),
+            Self::CURRENT_PRINCIPAL_REQUEST_V1 => Some(Self::CurrentPrincipalRequestV1),
             Self::CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1 => {
                 Some(Self::CurrentSignerEvidenceQueryOutcomeV1)
             }
@@ -1864,6 +1886,7 @@ impl SchemaId {
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
             Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1 => Some(Self::MlsGovernanceProofBundleV1),
+            Self::MLS_WELCOME_REFS_V1 => Some(Self::MlsWelcomeRefsV1),
             Self::MODERATION_EVIDENCE_V1 => Some(Self::ModerationEvidenceV1),
             Self::MODERATION_QUEUE_ITEM_V1 => Some(Self::ModerationQueueItemV1),
             Self::MODERATION_REPORT_V1 => Some(Self::ModerationReportV1),

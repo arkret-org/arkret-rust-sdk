@@ -1,5 +1,5 @@
 use arkret_models_collaboration::history_key::{
-    EpochRange, HistoryKeyResponseContent, HistoryKeyResponseSendRequest,
+    EpochRange, HistoryKeyResponseContent, HistoryKeyResponseSendRequestBody,
     HistoryKeyResponseSigningInput, HistoryResponseChunkDescriptor, HistoryResponseId,
     HistoryResponseManifest, HistoryResponseManifestKind,
 };
@@ -61,10 +61,10 @@ fn source_proof_binds_reusable_evidence_reference() {
     let evidence_ref =
         SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence_digest}")).unwrap();
     let verification_method = DidUrl::new("did:web:agent.example#response-1").unwrap();
-    let source = HistoryKeyResponseSendRequest::build_signed_proof(
+    let source = HistoryKeyResponseSendRequestBody::build_signed_proof(
         verification_method,
         observation.expires_at - chrono::Duration::minutes(1),
-        |source_proof| HistoryKeyResponseSendRequest {
+        |source_proof| HistoryKeyResponseSendRequestBody {
             response_id: observation.response_id.clone(),
             effective_scope: observation.effective_scope.clone(),
             source_actor_id: observation.source_actor_id.clone(),

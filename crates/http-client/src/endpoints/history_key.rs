@@ -2,10 +2,10 @@
 
 use arkret_models_collaboration::history_key::{
     HistoryKeyRequest, HistoryKeyRequestCreateOutcome, HistoryKeyRequestListOutcome,
-    HistoryKeyRequestListQuery, HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequest,
+    HistoryKeyRequestListQuery, HistoryKeyResponseAckOutcome, HistoryKeyResponseAckRequestBody,
     HistoryKeyResponseListOutcome, HistoryKeyResponseListQuery, HistoryKeyResponseSendReceipt,
-    HistoryKeyResponseSendRequest, HistoryKeySourceRelay, OrganizationRecoveryArchiveListOutcome,
-    OrganizationRecoveryArchiveListQuery,
+    HistoryKeyResponseSendRequestBody, HistoryKeySourceRelay,
+    OrganizationRecoveryArchiveListOutcome, OrganizationRecoveryArchiveListQuery,
 };
 use reqwest::Method;
 use reqwest::header::{AUTHORIZATION, HeaderValue};
@@ -73,7 +73,7 @@ impl Client {
 
     pub async fn history_key_response_send(
         &self,
-        request: &HistoryKeyResponseSendRequest,
+        request: &HistoryKeyResponseSendRequestBody,
     ) -> Result<HistoryKeyResponseSendReceipt> {
         request.validate()?;
         let outcome: HistoryKeyResponseSendReceipt = self
@@ -109,7 +109,7 @@ impl Client {
     pub async fn history_key_response_ack(
         &self,
         capability_b64u: &str,
-        request: &HistoryKeyResponseAckRequest,
+        request: &HistoryKeyResponseAckRequestBody,
     ) -> Result<HistoryKeyResponseAckOutcome> {
         request.validate()?;
         let builder = self
@@ -186,7 +186,7 @@ mod tests {
             .allow_insecure_localhost()
             .build()
             .unwrap();
-        let request: HistoryKeyResponseAckRequest = serde_json::from_value(serde_json::json!({
+        let request: HistoryKeyResponseAckRequestBody = serde_json::from_value(serde_json::json!({
             "ack_token": "test-ack",
             "high_water_cursor": "test-cursor",
             "entries": [{

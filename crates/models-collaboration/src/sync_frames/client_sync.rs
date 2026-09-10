@@ -6,7 +6,7 @@
 //! - Device message handling
 //! - Selective filters
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use arkret_wire::{ActorId, DidCoreId};
 use chrono::{DateTime, Utc};
@@ -15,49 +15,158 @@ use serde_json::Value;
 
 use crate::internal_prelude::*;
 
-/// Query parameters for `ak.self.account.stream.subscribe.v1`.
-///
-/// The read-your-writes barrier travels in the `X-Arkret-Wait-For` header, not
-/// in this request; the closed shape keeps a stale `wait_for` member from being
-/// accepted and then silently ignored.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// Closed account-subscribe query, shared with the WebSocket account operation.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SyncRequestBody {
-    /// Exclusive stream cursor used to resume account-aggregate delivery.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub after: Option<String>,
-    /// Ask the server to replay account-aggregate deltas before live tail.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub catchup: Option<bool>,
-    /// Filter for selective sync
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub filter: Option<SyncFilter>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub realm_list: Option<super::demand_sync::RealmListRequest>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub replace_filter: Option<bool>,
 }
 
-/// Sync filter for selective synchronization.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+impl SyncRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(after) = &self.after {
+            super::demand_sync::validate_demand_cursor(after)?;
+        }
+        if self.replace_filter == Some(true) && (self.after.is_none() || self.filter.is_none()) {
+            return Err(WireError::Protocol(
+                "replace_filter requires after and an explicit filter".to_owned(),
+            ));
+        }
+        if let Some(filter) = &self.filter {
+            filter.validate()?;
+        }
+        if let Some(realm_list) = &self.realm_list {
+            realm_list.validate()?;
+        }
+        Ok(())
+    }
+}
+
+/// Explicit bounded detail interest. None and an empty Realm set select no details.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SyncFilter {
-    /// Realm IDs to sync.
-    #[serde(default, rename = "realms")]
-    pub realm_ids: Vec<RealmId>,
-    /// Per-Realm timeline limit.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub realm_ids: Option<Vec<RealmId>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub strand_ids: Option<Vec<StrandId>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub timeline_limit: Option<u32>,
-    /// Whether member state may be lazy-loaded
-    #[serde(default)]
-    pub lazy_load_members: bool,
-    /// Whether redundant member state should be included
-    #[serde(default)]
-    pub include_redundant_members: bool,
-    /// Event kind allow list
-    #[serde(default, rename = "event_kinds")]
-    pub event_types: Vec<String>,
-    /// Event kind deny list
-    #[serde(default, rename = "not_event_kinds")]
-    pub not_event_types: Vec<String>,
-    /// Forward-compatible service-specific filter extensions.
-    #[serde(default, flatten)]
-    pub extra: BTreeMap<String, Value>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub lazy_load_members: Option<bool>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub include_redundant_members: Option<bool>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub event_kinds: Option<Vec<String>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub not_event_kinds: Option<Vec<String>>,
+}
+
+impl SyncFilter {
+    pub fn validate(&self) -> Result<()> {
+        use super::demand_sync::*;
+        bounded_unique(
+            self.realm_ids.as_deref().unwrap_or_default(),
+            ACCOUNT_SYNC_MAX_REALMS,
+            "filter.realm_ids",
+        )?;
+        bounded_unique(
+            self.strand_ids.as_deref().unwrap_or_default(),
+            ACCOUNT_SYNC_MAX_STRANDS,
+            "filter.strand_ids",
+        )?;
+        for (field, items) in [
+            ("event_kinds", &self.event_kinds),
+            ("not_event_kinds", &self.not_event_kinds),
+        ] {
+            let items = items.as_deref().unwrap_or_default();
+            bounded_unique(items, ACCOUNT_SYNC_MAX_KIND_FILTERS, field)?;
+            for item in items {
+                ProtocolKind::new(item.clone())
+                    .map_err(|error| WireError::Protocol(error.to_owned()))?;
+            }
+        }
+        if self.timeline_limit.is_some_and(|value| value > 100) {
+            return Err(demand_error("filter.timeline_limit exceeds 100"));
+        }
+        if self
+            .strand_ids
+            .as_ref()
+            .is_some_and(|items| !items.is_empty())
+            && self.realm_ids.as_ref().is_none_or(Vec::is_empty)
+        {
+            return Err(demand_error(
+                "Strand detail interest requires selected Realms",
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn effective_timeline_limit(&self) -> u32 {
+        self.timeline_limit
+            .unwrap_or(super::demand_sync::ACCOUNT_SYNC_DEFAULT_TIMELINE_LIMIT)
+    }
+
+    pub fn effective_lazy_load_members(&self) -> bool {
+        self.lazy_load_members.unwrap_or(true)
+    }
 }
 
 /// Backfill request for historical events.
@@ -168,59 +277,25 @@ impl SyncStreamPosition {
 
 /// Digest the canonical account filter for token binding.
 pub fn sync_filter_digest(filter: Option<&SyncFilter>) -> Result<String> {
-    Ok(canonical::canonical_sha256(&serde_json::json!({
-        "filter": normalized_sync_filter(filter)
-    }))?)
+    Ok(canonical::canonical_sha256(&normalized_sync_filter(
+        filter,
+    ))?)
 }
 
-fn sorted_unique_strings<'a>(values: impl IntoIterator<Item = &'a str>) -> Vec<String> {
-    values
-        .into_iter()
-        .map(ToOwned::to_owned)
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
-}
-
-fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
+pub fn normalized_sync_filter(filter: Option<&SyncFilter>) -> Value {
     let Some(filter) = filter else {
         return serde_json::json!({});
     };
-    let mut object = filter
-        .extra
-        .clone()
-        .into_iter()
-        .collect::<serde_json::Map<_, _>>();
-
-    let realm_ids = sorted_unique_strings(filter.realm_ids.iter().map(RealmId::as_str));
-    if !realm_ids.is_empty() {
-        object.insert("realms".to_owned(), serde_json::json!(realm_ids));
+    let mut value = serde_json::json!(filter);
+    if let Some(object) = value.as_object_mut() {
+        for field in ["realm_ids", "strand_ids", "event_kinds", "not_event_kinds"] {
+            if let Some(Value::Array(items)) = object.get_mut(field) {
+                items.sort_by(|left, right| left.as_str().cmp(&right.as_str()));
+                items.dedup();
+            }
+        }
     }
-    if let Some(timeline_limit) = filter.timeline_limit {
-        object.insert(
-            "timeline_limit".to_owned(),
-            serde_json::json!(timeline_limit),
-        );
-    }
-    if filter.lazy_load_members {
-        object.insert("lazy_load_members".to_owned(), Value::Bool(true));
-    }
-    if filter.include_redundant_members {
-        object.insert("include_redundant_members".to_owned(), Value::Bool(true));
-    }
-    let event_types = sorted_unique_strings(filter.event_types.iter().map(String::as_str));
-    if !event_types.is_empty() {
-        object.insert("event_kinds".to_owned(), serde_json::json!(event_types));
-    }
-    let not_event_types = sorted_unique_strings(filter.not_event_types.iter().map(String::as_str));
-    if !not_event_types.is_empty() {
-        object.insert(
-            "not_event_kinds".to_owned(),
-            serde_json::json!(not_event_types),
-        );
-    }
-
-    Value::Object(object)
+    value
 }
 
 /// Sync token binding context.
@@ -272,7 +347,7 @@ impl SyncTokenBinding {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncMode {
-    /// No `after` token. The response should establish full local state.
+    /// No `after` token. Begins bounded per-channel baseline delivery.
     Initial,
     /// An `after` token is present. The response is an incremental delta.
     Incremental,
@@ -286,8 +361,6 @@ pub struct SyncSemantics {
     /// Token used for incremental account subscribe, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<String>,
-    /// Initial sync establishes state for the requested scope.
-    pub expects_full_state: bool,
     /// Incremental sync requires the token binding context to match.
     pub requires_token_binding: bool,
 }
@@ -444,10 +517,6 @@ pub struct SyncUpdates {
         Vec<crate::sync_frames::account_subscribe::StationCasAccountDataContainer>,
     /// Notification deltas
     pub notifications: Vec<NotificationDelta>,
-    /// Independently verifiable Agent signer evidence delivered by
-    /// the account stream, never by Event federation.
-    #[serde(default)]
-    pub agent_signer_evidence: Vec<crate::agent_signer_evidence::AgentSignerEvidence>,
     /// Partial response flag
     pub partial: bool,
 }
@@ -461,8 +530,6 @@ pub struct RealmUpdate {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use arkret_wire::{DidCoreId, project_did_to_core_id};
 
     use super::*;
@@ -478,6 +545,9 @@ mod tests {
             after: Some("token123".to_owned()),
             catchup: Some(true),
             filter: None,
+
+            realm_list: None,
+            replace_filter: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -501,67 +571,57 @@ mod tests {
     }
 
     #[test]
-    fn sync_filter_wire_names_bind_the_same_scope_as_the_typed_filter() {
-        let wire = serde_json::json!({
-            "realms": ["ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t"],
-            "timeline_limit": 2,
-            "event_kinds": ["ak.message.create"],
-            "not_event_kinds": ["ak.reaction.add"]
-        });
+    fn sync_filter_preserves_empty_arrays_and_false_and_rejects_retired_names() {
+        let wire = serde_json::json!({"realm_ids":[],"lazy_load_members":false});
         let filter: SyncFilter = serde_json::from_value(wire.clone()).unwrap();
-        assert!(filter.extra.is_empty());
-        assert_eq!(filter.realm_ids.len(), 1);
-        assert_eq!(filter.event_types, ["ak.message.create"]);
-        assert_eq!(filter.not_event_types, ["ak.reaction.add"]);
+        filter.validate().unwrap();
+        assert_eq!(serde_json::to_value(&filter).unwrap(), wire);
         assert_eq!(normalized_sync_filter(Some(&filter)), wire);
-        let serialized = serde_json::to_value(&filter).unwrap();
-        for key in ["realms", "event_kinds", "not_event_kinds"] {
-            assert_eq!(serialized[key], wire[key]);
+        for old in [
+            serde_json::json!({"realms":[]}),
+            serde_json::json!({"custom":true}),
+        ] {
+            assert!(serde_json::from_value::<SyncFilter>(old).is_err());
         }
-        for key in ["realm_ids", "event_types", "not_event_types"] {
-            assert!(serialized.get(key).is_none());
-        }
+        assert_ne!(
+            sync_filter_digest(Some(&filter)).unwrap(),
+            sync_filter_digest(None).unwrap()
+        );
     }
 
     #[test]
-    fn sync_filter_digest_normalizes_collection_fields() {
-        let realm_a =
-            RealmId::new("ak:realm:AYqEzQ3jW02EHkMjxFQTlyeowxPQXJE4fI6JGOnzi23t").unwrap();
-        let realm_b =
-            RealmId::new("ak:realm:AUZVSPb9v-NuEN6dQgTA44vXJnQ1d-pxAvvfplV4zgOc").unwrap();
-        let filter_a = SyncFilter {
-            realm_ids: vec![realm_b.clone(), realm_a.clone(), realm_a.clone()],
-            timeline_limit: Some(20),
-            lazy_load_members: true,
-            include_redundant_members: false,
-            event_types: vec![
-                "ak.reaction.add".to_owned(),
-                "ak.message.create".to_owned(),
-                "ak.message.create".to_owned(),
-            ],
-            not_event_types: vec!["ak.audit.accessed".to_owned(), "ak.redaction".to_owned()],
-            extra: BTreeMap::new(),
-        };
-        let filter_b = SyncFilter {
-            realm_ids: vec![realm_a.clone(), realm_b.clone()],
-            timeline_limit: Some(20),
-            lazy_load_members: true,
-            include_redundant_members: false,
-            event_types: vec!["ak.message.create".to_owned(), "ak.reaction.add".to_owned()],
-            not_event_types: vec!["ak.redaction".to_owned(), "ak.audit.accessed".to_owned()],
-            extra: BTreeMap::new(),
-        };
+    fn sync_filter_digest_normalizes_collections_without_inserting_defaults() {
+        let first: SyncFilter = serde_json::from_value(
+            serde_json::json!({"event_kinds":["ak.reaction.add","ak.message.create"]}),
+        )
+        .unwrap();
+        let second: SyncFilter = serde_json::from_value(
+            serde_json::json!({"event_kinds":["ak.message.create","ak.reaction.add"]}),
+        )
+        .unwrap();
         assert_eq!(
-            sync_filter_digest(Some(&filter_a)).unwrap(),
-            sync_filter_digest(Some(&filter_b)).unwrap()
+            sync_filter_digest(Some(&first)).unwrap(),
+            sync_filter_digest(Some(&second)).unwrap()
         );
+        assert_eq!(
+            sync_filter_digest(None).unwrap(),
+            canonical::canonical_sha256(&serde_json::json!({})).unwrap()
+        );
+    }
 
-        let mut changed = filter_b;
-        changed.event_types = vec!["ak.message.create".to_owned()];
-        assert_ne!(
-            sync_filter_digest(Some(&filter_a)).unwrap(),
-            sync_filter_digest(Some(&changed)).unwrap()
-        );
+    #[test]
+    fn sync_filter_replacement_requires_a_resume_origin() {
+        let request = SyncRequestBody {
+            filter: Some(SyncFilter::default()),
+            replace_filter: Some(true),
+            ..Default::default()
+        };
+        assert!(request.validate().is_err());
+        let request = SyncRequestBody {
+            after: Some("ak:cursor:origin".to_owned()),
+            ..request
+        };
+        request.validate().unwrap();
     }
 
     #[test]

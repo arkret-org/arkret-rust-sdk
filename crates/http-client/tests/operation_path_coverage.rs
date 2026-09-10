@@ -111,6 +111,7 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/subscribe_body.rs"),
     ),
     ("tests.rs", include_str!("../src/tests.rs")),
+    ("tls_roots.rs", include_str!("../src/tls_roots.rs")),
 ];
 
 /// Literals that are deliberately not operation paths. Each entry states why,

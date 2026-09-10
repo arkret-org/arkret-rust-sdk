@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-10;
-//! sha256=c00bbe81f1abb17e0b2141ef06f64d64624fc41b0b10bba98c830f7e51fee3e2 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-10.14;
+//! sha256=92e7aa61a3c06b99790f8d2c7fb49901f165c0efe64a038805c99abbe12d1b07 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
 //! digest-suite-registry.json; version=2026-08-31;
@@ -1631,7 +1631,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "verification_method",
             "created_at",
         ],
-        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_response_send_request",
+        schema_ref: "schemas/history-key.schema.json#/$defs/history_key_response_send_request_body",
     },
     ProofContextDescriptor {
         id: ProofContextId::HistoryKeyResponseRecordProofV1,

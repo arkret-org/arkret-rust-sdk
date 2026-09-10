@@ -13,7 +13,7 @@ use arkret_models_collaboration::sidecar_operations::{
     SidecarEnsureOutcome, SidecarEnsureRequestBody,
 };
 use arkret_models_collaboration::{
-    CurrentSignerEvidenceQueryOutcome, CurrentSignerEvidenceQueryRequestBody,
+    SelfCurrentSignerEvidenceQueryOutcome, SelfCurrentSignerEvidenceQueryRequestBody,
 };
 use arkret_models_identity::agent_signer_evidence::{
     AgentSignerEvidenceQueryOutcome, AgentSignerEvidenceQueryRequestBody,
@@ -31,16 +31,21 @@ const AGENT_SIDECARS_PATH: &str = "/_arkret/self/agent-sidecars";
 const AGENT_SIDECAR_ENSURE_PATH: &str = "/_arkret/self/agent-sidecars:ensure";
 
 impl Client {
-    /// Fetch reusable authority and the missing pieces of its dependency closure.
+    /// Check current signing authority once through the recipient’s own Station.
     pub async fn current_signer_evidence_query(
         &self,
-        request: &CurrentSignerEvidenceQueryRequestBody,
-    ) -> Result<CurrentSignerEvidenceQueryOutcome> {
+        request: &SelfCurrentSignerEvidenceQueryRequestBody,
+    ) -> Result<SelfCurrentSignerEvidenceQueryOutcome> {
         request.validate()?;
-        let outcome: CurrentSignerEvidenceQueryOutcome = self
-            .post(CURRENT_SIGNER_EVIDENCE_QUERY_PATH, request)
+        let builder = self.request(Method::POST, CURRENT_SIGNER_EVIDENCE_QUERY_PATH)?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: SelfCurrentSignerEvidenceQueryOutcome = self
+            .send_json_limited(
+                builder,
+                arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
+            )
             .await?;
-        outcome.validate_transport_for_request(request)?;
+        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -50,8 +55,15 @@ impl Client {
         &self,
         request: &AgentSignerEvidenceQueryRequestBody,
     ) -> Result<AgentSignerEvidenceQueryOutcome> {
-        let outcome: AgentSignerEvidenceQueryOutcome =
-            self.post(AGENT_SIGNER_EVIDENCE_QUERY_PATH, request).await?;
+        request.validate()?;
+        let builder = self.request(Method::POST, AGENT_SIGNER_EVIDENCE_QUERY_PATH)?;
+        let builder = self.canonical_json_body(builder, request)?;
+        let outcome: AgentSignerEvidenceQueryOutcome = self
+            .send_json_limited(
+                builder,
+                arkret_models_identity::SELF_SIGNER_OUTCOME_MAX_BYTES,
+            )
+            .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }

@@ -5,6 +5,7 @@ use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::SchemaId;
 use chrono::{DateTime, Utc};
 
+use super::demand_sync::*;
 use crate::internal_prelude::*;
 
 /// One NDJSON frame on `ak.self.account.stream.subscribe.v1`.
@@ -12,27 +13,84 @@ use crate::internal_prelude::*;
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeFrame {
     pub kind: AccountSubscribeFrameKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub cursor: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub realms: Option<AccountSubscribeRealms>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub to_device: Option<DeviceMessageContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub device_lists: Option<AccountSubscribeDeviceListChanges>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub account_data: Option<AccountDataContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub notifications: Option<NotificationContainer>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_signer_evidence_bundle:
-        Option<crate::agent_signer_evidence::AgentSignerEvidenceBundle>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub partial: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub priority: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub reconnect_after_ms: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub realm_list: Option<RealmListPage>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub realm_list_changes: Option<RealmListChanges>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub baseline: Option<AccountBaselineSegment>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub realm_invalidations: Option<Vec<RealmInvalidation>>,
 }
 
 /// Account-subscribe NDJSON frame discriminator.
@@ -94,20 +152,93 @@ impl AccountSubscribeFrame {
         if trimmed.is_empty() {
             return Ok(None);
         }
+        if line.len() > ACCOUNT_SYNC_MAX_WIRE_FRAME_BYTES {
+            return Err(demand_error("Account frame exceeds its wire byte limit"));
+        }
         let frame: Self = canonical::from_canonical_json_str(trimmed)?;
         frame.validate()?;
         Ok(Some(frame))
     }
 
     pub fn validate(&self) -> Result<()> {
+        if let Some(cursor) = &self.cursor {
+            validate_demand_cursor(cursor)?;
+        }
+        if arkret_canonical::canonical_json_bytes(self)?.len() > ACCOUNT_SYNC_MAX_FRAME_BYTES {
+            return Err(demand_error(
+                "Account frame exceeds its canonical byte limit",
+            ));
+        }
+        if let Some(page) = &self.realm_list {
+            page.validate()?;
+        }
+        if let Some(changes) = &self.realm_list_changes {
+            changes.validate()?;
+        }
+        if let Some(baseline) = &self.baseline {
+            baseline.validate()?;
+            if baseline
+                .channels
+                .contains(&AccountBaselineChannel::StationCas)
+                && self
+                    .account_data
+                    .as_ref()
+                    .and_then(|data| data.station_cas.as_ref())
+                    .is_some_and(|data| !data.removals.is_empty())
+            {
+                return Err(demand_error(
+                    "Station-CAS baseline segments cannot contain removals",
+                ));
+            }
+        }
+        if let Some(invalidations) = &self.realm_invalidations {
+            if invalidations.len() > ACCOUNT_SYNC_MAX_COLLECTION_ITEMS {
+                return Err(demand_error("Realm invalidations exceed 100 items"));
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            for item in invalidations {
+                item.validate()?;
+                if !seen.insert(&item.realm_id) {
+                    return Err(demand_error("Realm invalidations repeat a Realm"));
+                }
+            }
+        }
+        if let Some(realms) = &self.realms {
+            if realms.entries.len() > ACCOUNT_SYNC_MAX_REALMS {
+                return Err(demand_error("Account frame exceeds 16 Realm details"));
+            }
+            for (realm_key, realm) in &realms.entries {
+                let realm_id = RealmId::new(realm_key.clone())?;
+                realm.validate_demand()?;
+                if let Some(current) = &realm.current {
+                    for entry in &current.entries {
+                        entry.selector().validate_for_realm(&realm_id)?;
+                    }
+                }
+            }
+        }
+        if let Some(devices) = &self.device_lists {
+            bounded_unique(&devices.changed_ids, 100, "device_lists.changed_ids")?;
+            bounded_unique(&devices.left_ids, 100, "device_lists.left_ids")?;
+        }
+        if self
+            .notifications
+            .as_ref()
+            .is_some_and(|items| items.items.len() > 100)
+        {
+            return Err(demand_error("Account notifications exceed 100 items"));
+        }
         let has_data = self.realms.is_some()
             || self.to_device.is_some()
             || self.device_lists.is_some()
             || self.account_data.is_some()
             || self.notifications.is_some()
-            || self.agent_signer_evidence_bundle.is_some()
             || self.partial.is_some()
-            || self.priority.is_some();
+            || self.priority.is_some()
+            || self.realm_list.is_some()
+            || self.realm_list_changes.is_some()
+            || self.baseline.is_some()
+            || self.realm_invalidations.is_some();
         if self.reconnect_after_ms == Some(0) {
             return Err(WireError::Protocol(
                 "reconnect_after_ms must be greater than zero".to_owned(),
@@ -118,14 +249,6 @@ impl AccountSubscribeFrame {
         }
         if let Some(account_data) = &self.account_data {
             account_data.validate()?;
-        }
-        if let Some(bundle) = &self.agent_signer_evidence_bundle
-            && (bundle.schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_BUNDLE_V1
-                || bundle.evidence_items.len() > 256)
-        {
-            return Err(WireError::Protocol(
-                "agent_signer_evidence_bundle is invalid".to_owned(),
-            ));
         }
         let valid = match self.kind {
             AccountSubscribeFrameKind::Delta => {
@@ -211,6 +334,9 @@ pub struct AccountDataContainer {
 
 impl AccountDataContainer {
     pub fn validate(&self) -> Result<()> {
+        if self.events.len() > 100 {
+            return Err(demand_error("Account Data exceeds 100 Events"));
+        }
         if let Some(station_cas) = &self.station_cas {
             station_cas.validate()?;
         }
@@ -222,7 +348,6 @@ impl AccountDataContainer {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StationCasAccountDataContainer {
-    pub complete: bool,
     #[serde(default)]
     pub upserts: Vec<AccountDataRow>,
     #[serde(default)]
@@ -231,10 +356,8 @@ pub struct StationCasAccountDataContainer {
 
 impl StationCasAccountDataContainer {
     pub fn validate(&self) -> Result<()> {
-        if self.complete && !self.removals.is_empty() {
-            return Err(WireError::Protocol(
-                "complete station_cas baseline must not contain removals".to_owned(),
-            ));
+        if self.upserts.len() > 100 || self.removals.len() > 100 {
+            return Err(demand_error("Station-CAS data exceeds 100 items"));
         }
 
         let mut keys = std::collections::BTreeSet::new();
@@ -371,20 +494,33 @@ mod account_subscribe_frame_tests {
     }
 
     #[test]
-    fn account_subscribe_delta_accepts_complete_station_cas_baseline() {
-        let line = r#"{"account_data":{"events":[],"station_cas":{"complete":true,"removals":[],"upserts":[{"account_data_key":"ak.account.invite_delivery","content":{"schema":"ak.schema.invite_delivery.v1"},"revision":2,"updated_at":"2026-09-03T12:00:00.000Z"}]}},"cursor":"ak:cursor:account-data-1","kind":"delta"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        let station_cas = frame.account_data.unwrap().station_cas.unwrap();
-        assert!(station_cas.complete);
-        assert_eq!(station_cas.upserts.len(), 1);
+    fn account_subscribe_station_cas_uses_the_segment_completion_marker() {
+        let value = serde_json::json!({"kind":"delta","cursor":"ak:cursor:next",
+            "baseline":{"snapshot_cursor":"ak:cursor:snapshot","channels":["station_cas"],"completed_channels":[]},
+            "account_data":{"events":[],"station_cas":{"upserts":[],"removals":[]}}});
+        let frame: AccountSubscribeFrame = serde_json::from_value(value.clone()).unwrap();
+        frame.validate().unwrap();
+        assert!(frame.baseline.unwrap().completed_channels.is_empty());
+        let mut retired = value.clone();
+        retired["account_data"]["station_cas"]["complete"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<AccountSubscribeFrame>(retired).is_err());
+        let mut wrong = value;
+        wrong["baseline"]["completed_channels"] = serde_json::json!(["device_lists"]);
+        assert!(
+            serde_json::from_value::<AccountSubscribeFrame>(wrong)
+                .unwrap()
+                .validate()
+                .is_err()
+        );
     }
 
     #[test]
-    fn account_subscribe_delta_rejects_removal_in_complete_station_cas_baseline() {
-        let line = r#"{"account_data":{"events":[],"station_cas":{"complete":true,"removals":[{"account_data_key":"ak.account.invite_delivery","revision":3,"updated_at":"2026-09-03T12:00:00.000Z"}],"upserts":[]}},"cursor":"ak:cursor:account-data-2","kind":"delta"}"#;
-        assert!(AccountSubscribeFrame::from_ndjson_line(line).is_err());
+    fn account_subscribe_rejects_removal_inside_station_cas_snapshot() {
+        let frame:AccountSubscribeFrame=serde_json::from_value(serde_json::json!({"kind":"delta","cursor":"ak:cursor:next",
+            "baseline":{"snapshot_cursor":"ak:cursor:snapshot","channels":["station_cas"],"completed_channels":["station_cas"]},
+            "account_data":{"events":[],"station_cas":{"upserts":[],"removals":[{"account_data_key":"ak.account.invite_delivery","revision":3,"updated_at":"2026-09-03T12:00:00.000Z"}]}}
+        })).unwrap();
+        assert!(frame.validate().is_err());
     }
 
     #[test]
