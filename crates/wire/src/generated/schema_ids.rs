@@ -987,7 +987,7 @@ impl SchemaId {
     pub const HANDLE_CLAIM_CORE_V1: &'static str = "ak.schema.handle_claim_core.v1";
     /// Signed issuer-or-holder revocation of one exact Handle Claim digest.
     pub const HANDLE_CLAIM_REVOCATION_V1: &'static str = "ak.schema.handle_claim_revocation.v1";
-    /// Shared high-risk authority proof family (principal_signing / device_quorum /
+    /// Shared high-risk authority proof family (recovery_unlock / device_quorum /
     /// trusted_recovery_service) over an operation's canonical transcript, each branch reusing the
     /// common detached-JWS leaf. First consumer: active-series key backup tail deletion
     /// (key-management.md §7.8).

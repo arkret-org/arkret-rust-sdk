@@ -566,7 +566,8 @@ fn key_backup_unlock_proof_signing_payload_bytes(unsigned: &Value) -> Result<Vec
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProofKind {
-    PrincipalSigning,
+    CurrentDevice,
+    DidRoot,
     RecoveryUnlock,
     DeviceQuorum,
     TrustedRecoveryService,

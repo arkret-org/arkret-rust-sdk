@@ -235,14 +235,13 @@ pub const KEY_BACKUP_DELETE_TRANSCRIPT_CONTEXT: &str = ProofContextId::KEY_BACKU
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum KeyBackupDeleteProof {
-    /// Principal-control-key proof. The proof's `verification_method` MUST be a
-    /// principal-grade DID control method whose controller DID is byte-identical
-    /// to the transcript's `account_id.principal_id`, while the accepted
-    /// authorization independently binds the exact `account_id.station_id`;
-    /// that key MUST be a currently
-    /// accepted principal control key at `created_at`. Device, service and
-    /// retired keys are rejected.
-    PrincipalSigning { proof: PayloadProof },
+    /// Recovery-unlock proof. The session MUST be verified and unexpired for
+    /// the exact account, and its accepted proof summary MUST bind this proof's
+    /// verification method to a recovery key in the frozen policy.
+    RecoveryUnlock {
+        recovery_session_id: RecoverySessionId,
+        proof: PayloadProof,
+    },
     /// Device-quorum proof. The wire shape only floors the quorum
     /// (`threshold >= 2`); the receiver verifies every signature over the same
     /// canonical transcript, deduplicates by `device_id`, and requires the
@@ -254,7 +253,7 @@ pub enum KeyBackupDeleteProof {
     },
     /// Trusted recovery service proof. The service is never a sufficient factor
     /// on its own: the referenced recovery session MUST be unexpired, unconsumed
-    /// and established by principal signing, recovery unlock or device quorum.
+    /// and established by recovery unlock or device quorum.
     TrustedRecoveryService {
         service_id: DidCoreId,
         recovery_session_id: RecoverySessionId,
