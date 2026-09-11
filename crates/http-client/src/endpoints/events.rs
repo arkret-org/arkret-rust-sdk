@@ -318,7 +318,7 @@ impl Client {
             submissions: events
                 .iter()
                 .cloned()
-                .map(arkret_wire::EventInitialSubmission::online)
+                .map(EventInitialSubmission::online)
                 .collect(),
             intents: Vec::new(),
         };
@@ -780,7 +780,7 @@ impl Client {
     pub async fn mls_membership_removal(
         &self,
         request: &arkret_models_crypto::MlsMembershipRemovalRequestBody,
-        expected_account_id: &arkret_wire::AccountId,
+        expected_account_id: &AccountId,
     ) -> Result<arkret_models_crypto::MlsMembershipRemovalOutcome> {
         request.validate()?;
         let outcome: arkret_models_crypto::MlsMembershipRemovalOutcome = self

@@ -1814,7 +1814,6 @@ struct RecoveryWitnessFixture {
     seals: MemorySealStore,
     cells: MemoryCellStore,
     registry: MemoryCellRegistry,
-    conflict_a_id: SealId,
     witness_id: SealId,
 }
 
@@ -2064,7 +2063,6 @@ async fn recovery_witness_fixture_for(
         seals,
         cells,
         registry,
-        conflict_a_id: conflict_a.id,
         witness_id: witness.id,
     }
 }

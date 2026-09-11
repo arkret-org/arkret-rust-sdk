@@ -2151,14 +2151,15 @@
     },
     {
       "finding": "crates/models-integration/src/artifacts_applet.rs::ScopeGrant.constraints",
-      "classification": "polymorphic_boundary",
+      "classification": "open_json",
       "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Vec<BTreeMap<String, Value>>",
+      "decision": "open",
+      "authority": "applet-install-plan.schema.json#/$defs/scope_grant/properties/constraints",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "applet-install-plan.schema.json#/$defs/scope_grant/properties/constraints"
     },
     {
       "finding": "crates/models-integration/src/integration.rs::IntegrationDescribeOutcome.examples",

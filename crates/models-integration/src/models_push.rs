@@ -173,7 +173,7 @@ pub struct PushRegisterDeviceRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PushRegisterDeviceOutcome {
     /// Server-derived pairwise pseudonym for this registration
-    /// (`push-operations.schema.json#/$defs/push_target_id`); the caller and the
+    /// (`common-ids.schema.json#/$defs/push_target_id`); the caller and the
     /// device MUST use this exact value as the notify target and MUST NOT mint
     /// their own.
     pub push_target_id: PushTargetId,

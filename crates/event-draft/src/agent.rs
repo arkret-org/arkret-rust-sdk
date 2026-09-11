@@ -169,14 +169,13 @@ pub fn build_agent_deactivate_intent(
 mod tests {
     use arkret_identifiers::{Did, project_did_to_core_id};
     use arkret_models_collaboration::events_payloads::agent::{
-        AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope,
-        AgentKeySupersession,
+        AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope, AgentKeySupersession,
     };
     use arkret_schema::{or_set_dot, project_registered_cell_writes};
     use arkret_wire::cell::composite_subject;
     use arkret_wire::{
-        AccountId, AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hlc,
-        LatticeOp, LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
+        AccountId, AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hlc, LatticeOp,
+        LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
     };
     use chrono::TimeZone;
     use serde_json::{Value, json};
@@ -381,8 +380,11 @@ mod tests {
         let agent_did = did("agent");
         let controller_principal_id = core_id("controller");
         let old = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [11; 32]);
-        let mut payload =
-            key_authorize_payload(agent_id.clone(), &agent_did, controller_principal_id.clone());
+        let mut payload = key_authorize_payload(
+            agent_id.clone(),
+            &agent_did,
+            controller_principal_id.clone(),
+        );
         payload.supersedes = vec![AgentKeySupersession {
             key_id: arkret_wire::NonEmptyString::new("runtime-key-0").unwrap(),
             authorized_event_ref: old.clone(),

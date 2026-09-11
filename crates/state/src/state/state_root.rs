@@ -276,14 +276,12 @@ pub fn state_leaf_canonical_preimage(
 /// and any disagreement is `Bottom`, which has no single value to publish. A
 /// receiver holding only the portable leaf has no op log to re-join, so this is
 /// the one rule it can apply to the bytes it was given.
-pub fn causal_register_leaf_value(
-    heads: &serde_json::Value,
-) -> Result<serde_json::Value, crate::WireError> {
+pub fn causal_register_leaf_value(heads: &Value) -> Result<Value, crate::WireError> {
     #[derive(serde::Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Head {
         event_id: arkret_wire::EventId,
-        value: serde_json::Value,
+        value: Value,
     }
     let heads: Vec<Head> = serde_json::from_value(heads.clone()).map_err(|error| {
         crate::WireError::Protocol(format!("invalid causal leaf heads: {error}"))
@@ -434,7 +432,7 @@ pub fn verify_state_inclusion_proof(
 /// to be paired with unrelated disclosed state.
 pub fn state_value_leaf_digest(
     cell: &CellRef,
-    value: &serde_json::Value,
+    value: &Value,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, crate::WireError> {
     hash_from_raw(
@@ -620,7 +618,7 @@ pub fn leaf_hash(
 /// leaf is byte-identical to its `state_root` leaf.
 pub fn state_leaf_hash_from_state_object(
     cell: &CellRef,
-    state_object: serde_json::Value,
+    state_object: Value,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<Hash, crate::WireError> {
     hash_from_raw(
@@ -635,7 +633,7 @@ pub fn state_leaf_hash_from_state_object(
 /// canonical-JSON encoding have exactly one implementation.
 fn leaf_hash_from_state_object(
     cell: &CellRef,
-    state_object: serde_json::Value,
+    state_object: Value,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<[u8; 32], crate::WireError> {
     let leaf_input = json!({

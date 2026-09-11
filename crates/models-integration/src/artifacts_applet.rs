@@ -73,7 +73,7 @@ pub struct AppletEventRejection {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/e2ee_policy`.
+/// `spec/v1/artifacts/schemas/applet-install-authoring.schema.json#/$defs/e2ee_policy`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -83,7 +83,7 @@ pub struct E2eePolicy {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-install-operations.schema.json#/$defs/scope_grant`.
+/// `spec/v1/artifacts/schemas/applet-install-plan.schema.json#/$defs/scope_grant`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

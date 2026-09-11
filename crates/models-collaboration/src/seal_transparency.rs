@@ -27,7 +27,8 @@ impl InclusionList {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/seal-transparency.schema.json#/$defs/auditor_attestation/checks`.
+/// `spec/v1/artifacts/schemas/seal-transparency.schema.json#/$defs/auditor_attestation/properties/
+/// checks`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SealTransparencyVerifiedCheck;
 

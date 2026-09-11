@@ -23,8 +23,8 @@ pub const AEAD_NONCE_COUNTER_LEN: usize = 8;
 pub const AEAD_NONCE_XCHACHA20_POLY1305_LEN: usize = 24;
 /// `N_AEAD` for AES-GCM (`encoding.md` §10.1).
 pub const AEAD_NONCE_AES_GCM_LEN: usize = 12;
-/// `alg` value of the XChaCha20-Poly1305 **blob** AEAD scheme
-/// (`blob.schema.json#/properties/encryption/properties/alg`,
+/// `encryption_algorithm` value of the XChaCha20-Poly1305 **blob** AEAD scheme
+/// (`blob.schema.json#/$defs/encrypted_attachment/properties/encryption_algorithm`,
 /// `crypto-media/media-and-blob.md` §3.1).
 ///
 /// This is a blob/attachment algorithm id, NOT an `aead_profile`. §10.1 routes

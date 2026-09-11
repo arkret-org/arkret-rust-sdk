@@ -99,7 +99,7 @@ fn deserialize_optional_mls_proof_limits<'de, D: serde::Deserializer<'de>>(
 impl Default for MlsGovernanceProofLimits {
     fn default() -> Self {
         Self {
-            max_exact_response_bytes: arkret_wire::constants::MLS_GOVERNANCE_PROOF_MAX_BYTES,
+            max_exact_response_bytes: MLS_GOVERNANCE_PROOF_MAX_BYTES,
         }
     }
 }
@@ -108,7 +108,7 @@ fn deserialize_mls_proof_response_bound<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<u32, D::Error> {
     let value = u32::deserialize(deserializer)?;
-    if value != arkret_wire::constants::MLS_GOVERNANCE_PROOF_MAX_BYTES {
+    if value != MLS_GOVERNANCE_PROOF_MAX_BYTES {
         return Err(serde::de::Error::custom(
             "MLS governance proof response bound must be 1048576",
         ));
@@ -731,8 +731,7 @@ impl ServiceDescribe {
                 .mls_governance_proof
                 .as_ref()
                 .is_some_and(|limits| {
-                    limits.max_exact_response_bytes
-                        != arkret_wire::constants::MLS_GOVERNANCE_PROOF_MAX_BYTES
+                    limits.max_exact_response_bytes != MLS_GOVERNANCE_PROOF_MAX_BYTES
                 })
             || (self.supports_operation(ServiceOperationId::SelfSealsReadMlsGovernanceProofV1)
                 && self.limits.mls_governance_proof.is_none())
@@ -1121,7 +1120,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .max_exact_response_bytes(),
-            arkret_wire::constants::MLS_GOVERNANCE_PROOF_MAX_BYTES
+            MLS_GOVERNANCE_PROOF_MAX_BYTES
         );
         assert_eq!(serde_json::to_value(limits).unwrap(), value);
         for invalid in [

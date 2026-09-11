@@ -301,7 +301,7 @@ impl UnsignedDeviceAuthorizePayload {
                     })?;
                 return crate::http_bodies::UnsignedDevicePairingTargetProof::new(
                     self.device_id.clone(),
-                    arkret_wire::DidKey::new(self.device_public_key_did.as_str())
+                    DidKey::new(self.device_public_key_did.as_str())
                         .map_err(|error| WireError::Protocol(error.to_string()))?,
                     self.hpke_key.clone(),
                     self.algorithms.clone(),

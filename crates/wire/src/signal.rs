@@ -26,8 +26,8 @@ use crate::event_envelope::ScopeRef;
 use crate::generated::ProofContextId;
 use crate::primitives::Audience;
 use crate::{
-    ActorId, DeviceId, Did, DidUrl, ExporterLabelId, Hash, RealmId, SealId, canonical,
-    project_did_to_core_id,
+    AccountId, ActorId, Base64UrlString, DeviceId, Did, DidUrl, EventId, ExporterLabelId, Hash,
+    RealmId, SealId, canonical, project_did_to_core_id,
 };
 
 /// Construction identifier of the v1 Signal payload.
@@ -475,7 +475,7 @@ impl SignalEnvelope {
         if payload.scheme != SIGNAL_AEAD_SCHEME
             || payload.purpose != SIGNAL_AEAD_PURPOSE
             || payload.key_ref.algorithm != "MLS-EXPORTER-AEAD"
-            || (crate::EventId::new(&payload.key_ref.group_state_ref).is_err()
+            || (EventId::new(&payload.key_ref.group_state_ref).is_err()
                 && Hash::new(&payload.key_ref.group_state_ref).is_err())
             || payload.nonce.len() != 16
             || !b64_chars(&payload.nonce)
@@ -577,13 +577,13 @@ impl SignalEnvelope {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct StationSigningKey {
-    pub actor: crate::ActorId,
-    pub verification_method: crate::DidUrl,
-    pub public_key_b64u: crate::Base64UrlString,
-    pub authorization_ref: crate::EventId,
+    pub actor: ActorId,
+    pub verification_method: DidUrl,
+    pub public_key_b64u: Base64UrlString,
+    pub authorization_ref: EventId,
 }
 impl StationSigningKey {
-    pub fn validate(&self) -> crate::Result<()> {
+    pub fn validate(&self) -> Result<()> {
         self.actor.validate()?;
         let did = self
             .verification_method
@@ -592,19 +592,19 @@ impl StationSigningKey {
             .map(|(did, _)| did)
             .ok_or_else(|| {
                 station_key_error(
-                    crate::ErrorCode::SchemaViolation,
+                    ErrorCode::SchemaViolation,
                     "signing method requires a fragment",
                 )
             })?;
-        let did = crate::Did::new(did.to_owned())?;
-        if crate::project_did_to_core_id(&did)? != *self.actor.signing_principal_id() {
+        let did = Did::new(did.to_owned())?;
+        if project_did_to_core_id(&did)? != *self.actor.signing_principal_id() {
             return Err(station_key_error(
-                crate::ErrorCode::SchemaViolation,
+                ErrorCode::SchemaViolation,
                 "signing method principal mismatch",
             ));
         }
         let value = self.public_key_b64u.as_str();
-        if !matches!(self.actor, crate::ActorId::Account { .. })
+        if !matches!(self.actor, ActorId::Account { .. })
             || value.len() != 43
             || !value
                 .bytes()
@@ -612,15 +612,15 @@ impl StationSigningKey {
             || !b"AEIMQUYcgkosw048".contains(&value.as_bytes()[42])
         {
             return Err(station_key_error(
-                crate::ErrorCode::SchemaViolation,
+                ErrorCode::SchemaViolation,
                 "invalid Station signing key",
             ));
         }
         Ok(())
     }
 }
-fn station_key_error(code: crate::ErrorCode, message: &str) -> crate::WireError {
-    crate::WireError::ProtocolCode {
+fn station_key_error(code: ErrorCode, message: &str) -> WireError {
+    WireError::ProtocolCode {
         code,
         message: message.to_owned(),
     }
@@ -630,7 +630,7 @@ fn station_key_error(code: crate::ErrorCode, message: &str) -> crate::WireError 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SignalDeliveryAuthority {
-    pub recipient_account_id: crate::AccountId,
+    pub recipient_account_id: AccountId,
     pub key: StationSigningKey,
 }
 
