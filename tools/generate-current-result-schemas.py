@@ -72,7 +72,8 @@ for row in catalog['families']:
             raise ValueError('Materialized object id needs an unambiguous typed-id subject: ' + row['cell_family'])
     row['materialized_id_from_subject'] = derived
     writes = [write for contract in contracts.values() for write in contract['cell_writes'] if write.get('cell_family') == row['cell_family']]
-    row['singleton'] = bool(writes) and all('cell_subject' not in write for write in writes)
+    # Contracts spell a singleton subject as JSON null, not an omitted key.
+    row['singleton'] = bool(writes) and all(write.get('cell_subject') is None for write in writes)
 bundle = {'documents': [pruned[key] for key in sorted(pruned)], 'families': catalog['families']}
 wire = json.dumps(bundle, ensure_ascii=False, separators=(',', ':'))
 output = Path(args.output)

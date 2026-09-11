@@ -577,6 +577,25 @@ mod tests {
 
     #[test]
     fn one_frame_cannot_repeat_a_selector_and_baseline_is_explicit() {
+        for family in [
+            "ak.component.realm.genesis.v1",
+            "ak.component.realm.policy.v1",
+            "ak.component.realm.policy_bundle.v1",
+            "ak.component.realm.set_default_strand.v1",
+        ] {
+            assert!(
+                current_family_descriptor(family)
+                    .unwrap()
+                    .unwrap()
+                    .singleton
+            );
+        }
+        assert!(
+            !current_family_descriptor("ak.component.strand.object.v1")
+                .unwrap()
+                .unwrap()
+                .singleton
+        );
         let entry = CurrentResultEntry::try_from_json(scalar(json!(false))).unwrap();
         assert!(
             CurrentEntries {
