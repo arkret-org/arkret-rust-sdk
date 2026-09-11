@@ -1144,6 +1144,10 @@ pub struct ProjectionStrandRow {
     pub strand_id: StrandId,
     pub realm_id: RealmId,
     pub state: ProjectionObjectState,
+    /// Complete current head set for `ak.component.strand.object.v1`, from
+    /// the same accepted frontier as this row. Ordinary patch authoring is
+    /// permitted only when this contains exactly one digest.
+    pub object_revision_heads: Vec<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(
         default,
