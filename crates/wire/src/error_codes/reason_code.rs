@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-11.3;
-//! sha256=3fe7354970d81e18f7cce68691ba9ad4862cb509ac9416f4cba77b1523e514b7
-//! Entries: reason_codes=431
+//! Input: registry/error-code-registry.json; version=2026-09-12;
+//! sha256=a9288e40a08d64ac910ad59b49a8208433ff24d887c6e8bb6db3cc12117f7667
+//! Entries: reason_codes=430
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -117,7 +117,6 @@ pub enum ReasonCode {
     DeviceGenerationFenced,
     DeviceMessageIdConflict,
     DeviceReanchorAuthorizeMismatch,
-    DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
     DeviceResultUnavailable,
     DirectConversationBindingInvalid,
@@ -583,7 +582,6 @@ impl ReasonCode {
     pub const DEVICE_MESSAGE_ID_CONFLICT: &'static str = "device_message_id_conflict";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
-    pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
     pub const DEVICE_RESULT_UNAVAILABLE: &'static str = "device_result_unavailable";
     pub const DIRECT_CONVERSATION_BINDING_INVALID: &'static str =
@@ -1095,7 +1093,6 @@ impl ReasonCode {
             Self::DeviceGenerationFenced => Self::DEVICE_GENERATION_FENCED,
             Self::DeviceMessageIdConflict => Self::DEVICE_MESSAGE_ID_CONFLICT,
             Self::DeviceReanchorAuthorizeMismatch => Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
-            Self::DeviceReanchorEntryNotHead => Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
             Self::DeviceReanchorFrontierMismatch => Self::DEVICE_REANCHOR_FRONTIER_MISMATCH,
             Self::DeviceResultUnavailable => Self::DEVICE_RESULT_UNAVAILABLE,
             Self::DirectConversationBindingInvalid => Self::DIRECT_CONVERSATION_BINDING_INVALID,
@@ -1604,7 +1601,6 @@ impl ReasonCode {
             Self::DEVICE_GENERATION_FENCED => Self::DeviceGenerationFenced,
             Self::DEVICE_MESSAGE_ID_CONFLICT => Self::DeviceMessageIdConflict,
             Self::DEVICE_REANCHOR_AUTHORIZE_MISMATCH => Self::DeviceReanchorAuthorizeMismatch,
-            Self::DEVICE_REANCHOR_ENTRY_NOT_HEAD => Self::DeviceReanchorEntryNotHead,
             Self::DEVICE_REANCHOR_FRONTIER_MISMATCH => Self::DeviceReanchorFrontierMismatch,
             Self::DEVICE_RESULT_UNAVAILABLE => Self::DeviceResultUnavailable,
             Self::DIRECT_CONVERSATION_BINDING_INVALID => Self::DirectConversationBindingInvalid,
@@ -2599,11 +2595,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::DEVICE_REANCHOR_AUTHORIZE_MISMATCH,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "The atomic replacement ak.device.authorize payload digest, prev_refs, principal, device, session, or enrollment-authority proof does not exactly match the binding in ak.device.reanchor. Dual-registered as a reason_code and a top-level service code (see codes[]).",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::DEVICE_REANCHOR_ENTRY_NOT_HEAD,
-        applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "Live B-model re-anchor references a verified DID entry that is not the registry head at admission time. Historical replay uses the accepted batch receipt instead of this live-head check. Dual-registered as a reason_code and a top-level service code (see codes[]).",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_REANCHOR_FRONTIER_MISMATCH,

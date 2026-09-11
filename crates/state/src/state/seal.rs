@@ -487,6 +487,90 @@ where
             )
             .await?;
         }
+        if event.kind == arkret_wire::EventKind::AgentSelectorClaim {
+            let controller = event
+                .payload
+                .get("controller_subject_id")
+                .and_then(Value::as_str);
+            let slug = event.payload.get("agent_slug").and_then(Value::as_str);
+            let genesis = pre_state.cells.get(
+                &CellRef::new(arkret_wire::REALM_GENESIS_CELL.to_owned())
+                    .map_err(|error| SealReject::Structural(error.to_string()))?,
+            );
+            let own_pcr = match genesis {
+                Some(CellState::Value(value)) => {
+                    value.get("purpose").and_then(Value::as_str) == Some("principal_control")
+                        && covered_events.iter().any(|(genesis, _)| {
+                            genesis.kind == arkret_wire::EventKind::RealmCreate
+                                && genesis.realm_id == event.realm_id
+                                && genesis.actor_id == event.actor_id
+                        })
+                }
+                _ => false,
+            };
+            if !own_pcr
+                || controller != Some(event.actor_id.signing_principal_id().as_str())
+                || event.payload.get("issuer_id").and_then(Value::as_str) != controller
+            {
+                return Err(SealReject::Structural(
+                    "selector write must belong to its controller PCR".into(),
+                ));
+            }
+            if event.payload.get("subject_account_id") == Some(&Value::Null) {
+                let sources = event
+                    .payload
+                    .get("source_refs")
+                    .and_then(Value::as_array)
+                    .filter(|sources| !sources.is_empty())
+                    .ok_or_else(|| {
+                        SealReject::Structural("selector unbind source missing".into())
+                    })?;
+                let basis = event
+                    .seal_basis
+                    .as_ref()
+                    .ok_or_else(|| SealReject::Structural("selector basis missing".into()))?;
+                let source_coverage =
+                    union_predecessor_covered_events(&basis.leaves, seals).await?;
+                for source in sources {
+                    let (source_event, suite) = covered_events
+                        .iter()
+                        .find(|(candidate, _)| Some(candidate.event_id.as_str()) == source.as_str())
+                        .ok_or_else(|| {
+                            SealReject::Structural("selector unbind source unavailable".into())
+                        })?;
+                    let source_digest = Hash::new(
+                        source_event
+                            .event_digest_with_digest_suite(*suite)
+                            .map_err(|error| SealReject::Structural(error.to_string()))?,
+                    )
+                    .map_err(|error| SealReject::Structural(error.to_string()))?;
+                    let source_controller = match source_event.kind {
+                        arkret_wire::EventKind::AgentSelectorClaim => {
+                            source_event.payload.get("controller_subject_id")
+                        }
+                        arkret_wire::EventKind::AgentProvision => {
+                            source_event.payload.get("controller_principal_id")
+                        }
+                        _ => None,
+                    }
+                    .and_then(Value::as_str);
+                    if !source_coverage.contains(&source_digest)
+                        || source_event.realm_id != event.realm_id
+                        || source_controller != controller
+                        || source_event
+                            .payload
+                            .get("agent_slug")
+                            .and_then(Value::as_str)
+                            != slug
+                    {
+                        return Err(SealReject::Structural(
+                            "selector unbind source is outside its namespace or causal basis"
+                                .into(),
+                        ));
+                    }
+                }
+            }
+        }
         let verification = match proof_regime {
             SealEventProofRegime::FederationAccepted => verify_accepted_control_move_in_context(
                 &event,

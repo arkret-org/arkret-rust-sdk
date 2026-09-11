@@ -115,6 +115,12 @@ impl RealmState {
     pub(super) fn reduce_generic_state_event(&mut self, event: &Event) -> Result<()> {
         let subject = self.subject_for_event(event)?;
         let family = match event.kind.as_str() {
+            arkret_wire::event_kind_str::REALM_RESTORE => {
+                arkret_wire::event_kind_str::REALM_ARCHIVE
+            }
+            arkret_wire::event_kind_str::REALM_UNFREEZE => {
+                arkret_wire::event_kind_str::REALM_FREEZE
+            }
             arkret_wire::event_kind_str::CAPABILITY_GRANT
             | arkret_wire::event_kind_str::CAPABILITY_REVOKE
             | arkret_wire::event_kind_str::CAPABILITY_RELINQUISH

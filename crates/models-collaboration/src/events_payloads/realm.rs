@@ -761,25 +761,13 @@ impl RealmDigestSuiteTransitionPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmFreezePayload {
-    pub frozen: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub effective_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
 impl RealmFreezePayload {
-    pub fn new(frozen: bool) -> Self {
-        Self {
-            frozen,
-            reason: None,
-            effective_at: None,
-            freeze_expires_at: None,
-        }
+    pub fn new() -> Self {
+        Self { reason: None }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {

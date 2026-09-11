@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-11.1;
-//! sha256=3a43945bf7e4f68fcc6cd6a76de5e3bf45be4c0f059e5b8ddb786f64e206f780 Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-12.2;
+//! sha256=153db91288d2b05f75a41ca4cc782575d59be4d7bf6c32ea7266cfe24aaeae0f Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
-//! Entries: active_events=171, pre_state_requirements=8
+//! Entries: active_events=173, pre_state_requirements=8
 
 use arkret_wire::{
     CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
@@ -1137,6 +1137,13 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         pre_state_requirements: &[],
     },
     EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_RESTORE,
+        reducer_input: true,
+        id_source: None,
+        derived_id_kinds: &[],
+        pre_state_requirements: &[],
+    },
+    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_SCHEMA,
         reducer_input: true,
         id_source: None,
@@ -1159,6 +1166,13 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_TOMBSTONE,
+        reducer_input: true,
+        id_source: None,
+        derived_id_kinds: &[],
+        pre_state_requirements: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_UNFREEZE,
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],

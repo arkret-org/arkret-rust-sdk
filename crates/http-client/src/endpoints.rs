@@ -10,6 +10,7 @@ mod history_key;
 mod identity;
 mod invite;
 mod media;
+mod message_authoring;
 mod mimi;
 mod moderation;
 mod peer;

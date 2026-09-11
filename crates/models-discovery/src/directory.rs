@@ -778,7 +778,7 @@ impl DirectoryAgentSelectorResolutionOutcome {
                     .to_owned(),
             ));
         }
-        if self.selector_claim.subject_account_id != self.subject_account_id {
+        if self.selector_claim.subject_account_id.as_ref() != Some(&self.subject_account_id) {
             return Err(WireError::Protocol(
                 "selector_claim.subject_account_id must match response.subject_account_id"
                     .to_owned(),
@@ -1351,7 +1351,7 @@ mod agent_selector_outcome_tests {
     use std::collections::BTreeMap;
 
     use arkret_models_identity::claim_presentation::AgentSelectorClaim;
-    use arkret_models_identity::handle::{HandleBindingState, HandleVisibility};
+    use arkret_models_identity::handle::HandleVisibility;
     use arkret_wire::{AccountId, DidCoreId, DidUrl, Hash, PayloadProof, SchemaId};
     use chrono::Utc;
 
@@ -1381,10 +1381,9 @@ mod agent_selector_outcome_tests {
             schema: SchemaId::AGENT_SELECTOR_CLAIM_V1.to_owned(),
             controller_subject_id: principal("did:webvh:z6mkfixture:example.com:users:alice"),
             agent_slug: "summary".to_owned(),
-            subject_account_id: agent_account("ak:did_core:web:acme.example"),
-            issuer_id: actor("did:webvh:z6mkfixture:example.com"),
+            subject_account_id: Some(agent_account("ak:did_core:web:acme.example")),
+            issuer_id: principal("did:webvh:z6mkfixture:example.com:users:alice"),
             vouching_id: Some(service("did:webvh:z6mkfixture:example.com")),
-            binding_state: HandleBindingState::Verified,
             visibility: HandleVisibility::Restricted,
             audience: Some("ak:realm:ASOikrLmQRDmUfDmMaw1Bx-NCkNptz9Sw2olIhr_M_23".to_owned()),
             claim_scope: BTreeMap::new(),
@@ -1411,7 +1410,10 @@ mod agent_selector_outcome_tests {
         let selector_claim = selector_claim();
         let outcome = DirectoryAgentSelectorResolutionOutcome {
             controller_subject_id: selector_claim.controller_subject_id.clone(),
-            subject_account_id: selector_claim.subject_account_id.clone(),
+            subject_account_id: selector_claim
+                .subject_account_id
+                .clone()
+                .expect("bound fixture"),
             agent_slug: selector_claim.agent_slug.clone(),
             selector_claim,
             source_refs: Vec::new(),

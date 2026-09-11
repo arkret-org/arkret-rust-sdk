@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-11.3;
-//! sha256=3fe7354970d81e18f7cce68691ba9ad4862cb509ac9416f4cba77b1523e514b7 Entries: error_codes=282
+//! Input: registry/error-code-registry.json; version=2026-09-12;
+//! sha256=a9288e40a08d64ac910ad59b49a8208433ff24d887c6e8bb6db3cc12117f7667 Entries: error_codes=281
 
 use serde::{Deserialize, Serialize};
 
@@ -105,7 +105,6 @@ pub enum ErrorCode {
     DeviceReanchorAuthorityMismatch,
     DeviceReanchorAuthorizeMismatch,
     DeviceReanchorConflict,
-    DeviceReanchorEntryNotHead,
     DeviceReanchorFrontierMismatch,
     DeviceRecoveryGenerationMismatch,
     DeviceRevocationPending,
@@ -403,7 +402,6 @@ impl ErrorCode {
         Self::DeviceReanchorAuthorityMismatch,
         Self::DeviceReanchorAuthorizeMismatch,
         Self::DeviceReanchorConflict,
-        Self::DeviceReanchorEntryNotHead,
         Self::DeviceReanchorFrontierMismatch,
         Self::DeviceRecoveryGenerationMismatch,
         Self::DeviceRevocationPending,
@@ -695,7 +693,6 @@ impl ErrorCode {
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
-    pub const DEVICE_REANCHOR_ENTRY_NOT_HEAD: &'static str = "device_reanchor_entry_not_head";
     pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
     pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
         "device_recovery_generation_mismatch";
@@ -1015,7 +1012,6 @@ impl ErrorCode {
             Self::DeviceReanchorAuthorityMismatch => "device_reanchor_authority_mismatch",
             Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
             Self::DeviceReanchorConflict => "device_reanchor_conflict",
-            Self::DeviceReanchorEntryNotHead => "device_reanchor_entry_not_head",
             Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
             Self::DeviceRecoveryGenerationMismatch => "device_recovery_generation_mismatch",
             Self::DeviceRevocationPending => "device_revocation_pending",
@@ -1326,7 +1322,6 @@ impl ErrorCode {
             "device_reanchor_authority_mismatch" => Some(Self::DeviceReanchorAuthorityMismatch),
             "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
             "device_reanchor_conflict" => Some(Self::DeviceReanchorConflict),
-            "device_reanchor_entry_not_head" => Some(Self::DeviceReanchorEntryNotHead),
             "device_reanchor_frontier_mismatch" => Some(Self::DeviceReanchorFrontierMismatch),
             "device_recovery_generation_mismatch" => Some(Self::DeviceRecoveryGenerationMismatch),
             "device_revocation_pending" => Some(Self::DeviceRevocationPending),
@@ -2338,16 +2333,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Concurrent device re-anchor completions conflict on the same principal generation state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeviceReanchorEntryNotHead,
-        type_uri: "https://arkret.org/problems/device_reanchor_entry_not_head",
-        title: "Device reanchor entry not head",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "A device re-anchor completion references a DID key-log entry that is not the current head. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorFrontierMismatch,

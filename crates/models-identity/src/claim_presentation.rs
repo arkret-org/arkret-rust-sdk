@@ -11,7 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::handle::{HandleBindingState, HandleVisibility};
+use crate::handle::HandleVisibility;
 
 pub const DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND: &str =
     "ak.directory.restricted_claim_presentation.v1";
@@ -87,11 +87,11 @@ pub struct AgentSelectorClaim {
     /// rebuilt from a bare principal, the controller handle's Station, a DID
     /// default Station or the resolving facade. Ruling:
     /// review/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md.
-    pub subject_account_id: AccountId,
+    #[serde(deserialize_with = "required_nullable_account")]
+    pub subject_account_id: Option<AccountId>,
     pub issuer_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vouching_id: Option<DidCoreId>,
-    pub binding_state: HandleBindingState,
     pub visibility: HandleVisibility,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audience: Option<String>,
@@ -111,6 +111,12 @@ pub struct AgentSelectorClaim {
     pub source_refs: Vec<String>,
     #[serde(default)]
     pub proofs: Vec<PayloadProof>,
+}
+
+fn required_nullable_account<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<AccountId>, D::Error> {
+    Option::<AccountId>::deserialize(deserializer)
 }
 
 impl AgentSelectorClaim {
@@ -183,9 +189,38 @@ impl AgentSelectorClaim {
             )));
         }
         validate_agent_slug(&self.agent_slug)?;
-        if matches!(self.binding_state, HandleBindingState::Verified) && self.proofs.is_empty() {
+        if self.issuer_id != self.controller_subject_id {
             return Err(WireError::Protocol(
-                "verified agent_selector_claim requires proofs".to_owned(),
+                "selector issuer must be its controller".to_owned(),
+            ));
+        }
+        if self.subject_account_id.is_none() && self.source_refs.is_empty() {
+            return Err(WireError::Protocol(
+                "selector unbind requires source_refs".to_owned(),
+            ));
+        }
+        {
+            let mut seen = BTreeSet::new();
+            for source in &self.source_refs {
+                arkret_wire::EventId::new(source.clone())?;
+                if !seen.insert(source) {
+                    return Err(WireError::Protocol(
+                        "duplicate selector unbind source".to_owned(),
+                    ));
+                }
+            }
+        }
+        if self
+            .expires_at
+            .is_some_and(|expiry| expiry <= self.created_at)
+        {
+            return Err(WireError::Protocol(
+                "selector expiry must follow creation".to_owned(),
+            ));
+        }
+        if self.proofs.is_empty() {
+            return Err(WireError::Protocol(
+                "agent_selector_claim requires proofs".to_owned(),
             ));
         }
         Ok(())

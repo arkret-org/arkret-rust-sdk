@@ -578,8 +578,6 @@ pub struct RealmJoinUnsignedEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hlc: Option<arkret_wire::Hlc>,
     pub prev_refs: Vec<EventId>,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<Object>)))]
-    pub refs: Vec<arkret_wire::EventRef>,
     pub seal_basis: SealBasis,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub payload: RealmJoinPayload,
@@ -615,7 +613,6 @@ impl RealmJoinUnsignedEvent {
             created_at: request.created_at,
             hlc: request.hlc.clone(),
             prev_refs: frontier.frontier_event_ids.clone(),
-            refs: Vec::new(),
             seal_basis,
             payload,
             preconditions: transition.preconditions().to_vec(),
@@ -661,7 +658,7 @@ impl RealmJoinUnsignedEvent {
             created_at: self.created_at,
             hlc: self.hlc.clone(),
             prev_refs: self.prev_refs.clone(),
-            refs: self.refs.clone(),
+            refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: self.preconditions.clone(),
             seal_ref: None,
@@ -854,9 +851,7 @@ impl RealmJoinPrepareOutcome {
                 )
             }
         };
-        if serde_json::to_value(&self.unsigned_event.payload)? != expected_payload
-            || !self.unsigned_event.refs.is_empty()
-        {
+        if serde_json::to_value(&self.unsigned_event.payload)? != expected_payload {
             return Err(WireError::Protocol(
                 "prepared join payload or refs adds unrequested semantics".to_owned(),
             ));
@@ -1622,15 +1617,11 @@ mod tests {
         let mut extra = serde_json::to_value(&baseline).unwrap();
         extra["unsigned_event"]["payload"]["x_unrequested"] = json!("injected");
         variants.push(serde_json::from_value(extra).unwrap());
-        let mut referenced = baseline.clone();
-        referenced
-            .unsigned_event
-            .refs
-            .push(arkret_wire::EventRef::new(
-                invite_id().event_id().to_string(),
-                "related",
-            ));
-        variants.push(referenced);
+        let mut referenced = serde_json::to_value(&baseline).unwrap();
+        referenced["unsigned_event"]["refs"] = json!([{
+            "id": invite_id().event_id(), "role": "related", "critical": true,
+        }]);
+        assert!(serde_json::from_value::<RealmJoinPrepareOutcome>(referenced).is_err());
         let mut wrong_subject = baseline.clone();
         wrong_subject.unsigned_event.preconditions[0].cell_id =
             CellRef::new("ak:cell:ak.component.invite.live_target.v1:another-account").unwrap();

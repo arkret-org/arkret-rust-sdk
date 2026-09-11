@@ -25,6 +25,7 @@ pub mod governance_payloads;
 pub mod history_key;
 pub mod http_bodies;
 mod internal_prelude;
+pub mod message_authoring;
 pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod objects;

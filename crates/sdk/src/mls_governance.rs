@@ -1309,6 +1309,56 @@ where
         + VerifyAgentHistoryKeySend
         + 'static,
 {
+    if event.kind == arkret_wire::EventKind::AgentSelectorClaim {
+        let claim: arkret_models_identity::AgentSelectorClaim =
+            serde_json::from_value(serde_json::to_value(&event.payload)?)?;
+        claim.validate()?;
+        if event.actor_id.signing_principal_id() != &claim.controller_subject_id {
+            return Err(WireError::Protocol(
+                "selector Event actor must be its controller".into(),
+            ));
+        }
+        let producer = event
+            .proofs
+            .first()
+            .and_then(|proof| match proof {
+                EventProof::Producer(producer) => Some(producer),
+                _ => None,
+            })
+            .ok_or_else(|| WireError::Protocol("selector producer proof missing".into()))?;
+        let evidence_ref = producer
+            .signer_resolution_evidence_ref
+            .as_ref()
+            .or_else(|| {
+                event.proofs.iter().find_map(|proof| match proof {
+                    EventProof::StationAdmission(admission) => {
+                        admission.producer_signer_resolution_evidence_ref.as_ref()
+                    }
+                    _ => None,
+                })
+            })
+            .ok_or_else(|| WireError::Protocol("selector controller evidence missing".into()))?;
+        let evidence = evidence_by_digest(dependencies, &evidence_ref.content_digest()?)?;
+        if evidence.signer_id() != &claim.controller_subject_id {
+            return Err(WireError::Protocol(
+                "selector evidence names another controller".into(),
+            ));
+        }
+        for proof in &claim.proofs {
+            let key = authenticated_document_method_key(
+                evidence,
+                dependencies,
+                &proof.verification_method,
+                proof.created_at,
+            )?;
+            arkret_signatures::verify_ed25519_detached_jws_payload_proof(
+                proof,
+                &claim.canonical_proof_binding_bytes(proof)?,
+                &key,
+            )
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        }
+    }
     let envelope_bytes = arkret_signatures::EventProofBuilder::new()
         .envelope_bytes(event)
         .map_err(|error| WireError::Protocol(error.to_string()))?;

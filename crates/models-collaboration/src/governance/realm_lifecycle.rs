@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use arkret_wire::serde_helpers::serialize_optional_canonical_timestamp;
 use arkret_wire::{
     CircleId, DidCoreId, HistoryAccess, ObjectRef, PolicyId, RealmId, Result, SchemaId, WireError,
 };
@@ -282,31 +281,19 @@ pub struct RealmSchemaPayload {
 /// Strong type for `ak.realm.archive` payloads
 /// (`event-payload.schema.json#/$defs/realm_archive_payload`).
 ///
-/// Reversible boolean register (there is no separate `ak.realm.restore`):
-/// `archived:false` un-archives. `additionalProperties:false`.
+/// Shared closed payload for explicit archive/restore operations.
+/// The registered Event kind determines the state change.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmArchivePayload {
-    pub archived: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    /// Canonical `Z`-suffixed timestamp; the reducer treats absence as "now".
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl RealmArchivePayload {
-    pub fn new(archived: bool) -> Self {
-        Self {
-            archived,
-            reason: None,
-            effective_at: None,
-        }
+    pub fn new() -> Self {
+        Self { reason: None }
     }
 
     pub fn with_reason(mut self, reason: impl Into<String>) -> Self {
@@ -339,12 +326,6 @@ pub struct RealmTombstonePayload {
     /// carried as a bare string per the spec wire shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replacement_event_id: Option<ObjectRef>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl RealmTombstonePayload {
@@ -353,7 +334,6 @@ impl RealmTombstonePayload {
             reason: reason.into(),
             successor_realm_id,
             replacement_event_id: None,
-            effective_at: None,
         }
     }
 
@@ -374,12 +354,6 @@ impl RealmTombstonePayload {
 #[serde(deny_unknown_fields)]
 pub struct RealmDestroyPayload {
     pub reason: String,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
     /// Optional retention-policy `object_ref` (bare string per spec wire shape).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<ObjectRef>,
@@ -391,7 +365,6 @@ impl RealmDestroyPayload {
     pub fn new(reason: impl Into<String>) -> Self {
         Self {
             reason: reason.into(),
-            effective_at: None,
             retention_policy_id: None,
             verification_stub_required: None,
         }
@@ -421,12 +394,6 @@ pub struct ObjectLifecyclePayload {
     pub target_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        serialize_with = "serialize_optional_canonical_timestamp"
-    )]
-    pub effective_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl ObjectLifecyclePayload {
@@ -435,7 +402,6 @@ impl ObjectLifecyclePayload {
             target_ref: target_ref.into(),
             target_state: None,
             reason: None,
-            effective_at: None,
         }
     }
 

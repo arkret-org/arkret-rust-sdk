@@ -172,7 +172,9 @@ impl RealmState {
             | EventKind::RealmHistoryAccess
             | EventKind::RealmDiscovery
             | EventKind::RealmArchive
+        | EventKind::RealmRestore
             | EventKind::RealmFreeze
+        | EventKind::RealmUnfreeze
             | EventKind::RealmDestroy => self.reduce_realm_lifecycle_event(event)?,
 
             // Member / capability / invite / policy / read-marker state

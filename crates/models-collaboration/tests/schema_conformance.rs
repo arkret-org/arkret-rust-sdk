@@ -355,27 +355,27 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
     };
     let catalog = event_payload_validator_catalog().unwrap();
 
-    // ak.realm.archive: reversible boolean register; `archived:false` un-archives.
-    let archive = RealmArchivePayload::new(true).with_reason("retiring inactive realm");
+    // Explicit archive and restore share a closed payload.
+    let archive = RealmArchivePayload::new().with_reason("retiring inactive realm");
     catalog
         .validate_payload("ak.realm.archive", &archive.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            "ak.realm.archive",
-            &RealmArchivePayload::new(false).to_value().unwrap(),
+            "ak.realm.restore",
+            &RealmArchivePayload::new().to_value().unwrap(),
         )
         .unwrap();
 
-    // ak.realm.freeze: reversible boolean register; `frozen:false` unfreezes.
-    let freeze = RealmFreezePayload::new(true).with_reason("incident response hold");
+    // Explicit freeze and unfreeze share a closed payload.
+    let freeze = RealmFreezePayload::new().with_reason("incident response hold");
     catalog
         .validate_payload("ak.realm.freeze", &freeze.to_value().unwrap())
         .unwrap();
     catalog
         .validate_payload(
-            "ak.realm.freeze",
-            &RealmFreezePayload::new(false).to_value().unwrap(),
+            "ak.realm.unfreeze",
+            &RealmFreezePayload::new().to_value().unwrap(),
         )
         .unwrap();
 
@@ -405,117 +405,28 @@ fn realm_lifecycle_payloads_strong_types_pass_spec_validator() {
     );
 }
 
-/// The 2026-08-20 ruling (0550) registered the optional lifecycle timestamps
-/// the strong types already carried: `effective_at` on the four lifecycle
-/// payload defs, `freeze_expires_at` on `realm_freeze_payload` and on
-/// `realm_lifecycle_view`. Pin both directions per def: an instance carrying
-/// the new field validates, and one without it still validates (optional
-/// semantics — absence is never serialized).
 #[test]
-fn lifecycle_optional_timestamps_pass_spec_schemas() {
-    use chrono::{DateTime, Utc};
-
+fn lifecycle_rejects_hidden_inverse_and_clock_driven_transitions() {
     let catalog = event_payload_validator_catalog().unwrap();
-    let at = || {
-        DateTime::parse_from_rfc3339("2026-08-20T01:02:03Z")
-            .unwrap()
-            .with_timezone(&Utc)
-    };
-    let strand_ref = "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9";
-
-    // object_lifecycle_payload (carried by e.g. ak.strand.archive).
-    let mut lifecycle = ObjectLifecyclePayload::new(strand_ref);
-    catalog
-        .validate_payload("ak.strand.archive", &lifecycle.to_value().unwrap())
-        .unwrap();
-    lifecycle.effective_at = Some(at());
-    let value = lifecycle.to_value().unwrap();
-    assert_eq!(value["effective_at"], json!("2026-08-20T01:02:03.000Z"));
-    catalog
-        .validate_payload("ak.strand.archive", &value)
-        .unwrap();
-
-    // realm_archive_payload.
-    let mut archive = RealmArchivePayload::new(true);
-    catalog
-        .validate_payload("ak.realm.archive", &archive.to_value().unwrap())
-        .unwrap();
-    archive.effective_at = Some(at());
-    catalog
-        .validate_payload("ak.realm.archive", &archive.to_value().unwrap())
-        .unwrap();
-
-    // realm_destroy_payload.
-    let mut destroy = RealmDestroyPayload::new("permanent retirement");
-    catalog
-        .validate_payload("ak.realm.destroy", &destroy.to_value().unwrap())
-        .unwrap();
-    destroy.effective_at = Some(at());
-    catalog
-        .validate_payload("ak.realm.destroy", &destroy.to_value().unwrap())
-        .unwrap();
-
-    // realm_tombstone_payload.
-    let mut tombstone = RealmTombstonePayload::new(
-        RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K").unwrap(),
-        "migrated to successor",
-    );
-    catalog
-        .validate_payload("ak.realm.tombstone", &tombstone.to_value().unwrap())
-        .unwrap();
-    tombstone.effective_at = Some(at());
-    catalog
-        .validate_payload("ak.realm.tombstone", &tombstone.to_value().unwrap())
-        .unwrap();
-
-    // realm_freeze_payload: effective_at + freeze_expires_at.
-    let freeze = RealmFreezePayload::new(true);
-    let bare = freeze.to_value().unwrap();
-    assert!(bare.get("effective_at").is_none());
-    assert!(bare.get("freeze_expires_at").is_none());
-    catalog.validate_payload("ak.realm.freeze", &bare).unwrap();
-    let mut freeze = freeze;
-    freeze.freeze_expires_at = Some(at());
-    freeze.effective_at = Some(at());
-    let value = freeze.to_value().unwrap();
-    assert_eq!(
-        value["freeze_expires_at"],
-        json!("2026-08-20T01:02:03.000Z")
-    );
-    catalog.validate_payload("ak.realm.freeze", &value).unwrap();
-
-    // realm_lifecycle_view: freeze_expires_at on the read-side DTO.
-    let registry = schema_registry_from_default_spec_artifacts()
-        .unwrap()
-        .expect("spec artifact registry available (live co-checkout or embedded)");
-    let view_ref = format!(
-        "{}#/$defs/realm_lifecycle_view",
-        SchemaId::REALM_READ_OPERATIONS_V1
-    );
-    let mut view = arkret_models_collaboration::governance::realm_governance::RealmLifecycleView {
-        realm_id: RealmId::new("ak:realm:ARkAfriCBkEJNgK9UxfUciMBt-L3mtRcFLO8ICOBW_9K").unwrap(),
-        owner_id: DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-        member_ids: vec![ActorId::account(AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
-        ))],
-        deleted: false,
-        archived: false,
-        frozen: true,
-        terminal_state: None,
-        successor_realm_id: None,
-        freeze_expires_at: None,
-    };
-    registry
-        .validate_value(&view_ref, &serde_json::to_value(&view).unwrap())
-        .unwrap();
-    view.freeze_expires_at = Some(at());
-    let value = serde_json::to_value(&view).unwrap();
-    assert_eq!(
-        value["freeze_expires_at"],
-        json!("2026-08-20T01:02:03.000Z")
-    );
-    registry.validate_value(&view_ref, &value).unwrap();
+    for kind in [
+        "ak.realm.archive",
+        "ak.realm.restore",
+        "ak.realm.freeze",
+        "ak.realm.unfreeze",
+    ] {
+        catalog.validate_payload(kind, &json!({})).unwrap();
+        for payload in [
+            json!({"archived": false}),
+            json!({"frozen": false}),
+            json!({"effective_at": "2026-08-20T01:02:03.000Z"}),
+            json!({"freeze_expires_at": "2026-08-20T01:02:03.000Z"}),
+        ] {
+            assert!(
+                catalog.validate_payload(kind, &payload).is_err(),
+                "{kind}: {payload}"
+            );
+        }
+    }
 }
 
 #[test]

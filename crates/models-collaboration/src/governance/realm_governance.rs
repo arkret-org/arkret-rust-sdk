@@ -376,9 +376,6 @@ pub struct RealmLifecycleView {
     pub terminal_state: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub successor_realm_id: Option<RealmId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub freeze_expires_at: Option<DateTime<Utc>>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

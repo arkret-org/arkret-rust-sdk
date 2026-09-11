@@ -13,6 +13,30 @@ pub fn is_receipt_object_only(kind: &str) -> bool {
     RECEIPT_OBJECT_KINDS.contains(&kind)
 }
 
+/// Closed escape set for an archived or frozen Realm. Authorization and the
+/// stricter terminal gate still apply to every exempt Event.
+pub fn realm_write_gate_exempt(kind: &EventKind, payload: &serde_json::Value) -> bool {
+    is_audit_kind(kind)
+        || matches!(
+            kind,
+            EventKind::RealmArchive
+                | EventKind::RealmRestore
+                | EventKind::RealmFreeze
+                | EventKind::RealmUnfreeze
+                | EventKind::RealmTombstone
+                | EventKind::RealmDestroy
+                | EventKind::CapabilityRevoke
+                | EventKind::CapabilityRelinquish
+                | EventKind::DeviceRevoke
+                | EventKind::AgentKeyRevoke
+        )
+        || (*kind == EventKind::MemberState
+            && payload
+                .get("membership")
+                .and_then(serde_json::Value::as_str)
+                == Some("leave"))
+}
+
 pub fn event_wire_scope(kind: &str) -> EventWireScope {
     EventKind::try_new(kind)
         .and_then(|kind| kind.descriptor().map(|descriptor| descriptor.wire_scope))
@@ -190,11 +214,13 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         }
         EventKind::ReadCursorAdvance => EventProductClass::Read,
         EventKind::RealmArchive
+        | EventKind::RealmRestore
         | EventKind::RealmAssetPrivacyPolicy
         | EventKind::RealmCreate
         | EventKind::RealmDestroy
         | EventKind::RealmDiscovery
         | EventKind::RealmFreeze
+        | EventKind::RealmUnfreeze
         | EventKind::RealmAlias
         | EventKind::RealmHistoryAccess
         | EventKind::RealmInheritancePolicy
@@ -268,7 +294,9 @@ pub fn is_realm_lifecycle_kind(kind: &EventKind) -> bool {
         EventKind::RealmCreate
             | EventKind::RealmProfile
             | EventKind::RealmArchive
+            | EventKind::RealmRestore
             | EventKind::RealmFreeze
+            | EventKind::RealmUnfreeze
             | EventKind::RealmDestroy
             | EventKind::RealmTombstone
     )
