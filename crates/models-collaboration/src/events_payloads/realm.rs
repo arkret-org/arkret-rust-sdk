@@ -190,8 +190,6 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_policy: Option<RealmAuditPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_freshness_window_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_witness_freshness_window_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_intake_sla_ms: Option<u64>,
@@ -238,7 +236,6 @@ impl RealmPolicyBundlePayload {
             account_deactivation: None,
             availability_policy: None,
             audit_policy: None,
-            revocation_freshness_window_ms: None,
             recovery_witness_freshness_window_ms: None,
             proposal_intake_sla_ms: None,
             proposal_decision_window_ms: None,
@@ -1306,7 +1303,6 @@ mod realm_policy_bundle_tests {
         bundle.proposal_decision_window_ms = Some(30_000);
         bundle.proposal_absolute_deadline_ms = Some(90_000);
         bundle.max_proposal_defers = Some(2);
-        bundle.revocation_freshness_window_ms = Some(60_000);
         bundle.max_authority_lifetime_ms = Some(120_000);
         let value = bundle.to_value().unwrap();
         assert_eq!(value["proposal_decision_window_ms"], Value::from(30_000));

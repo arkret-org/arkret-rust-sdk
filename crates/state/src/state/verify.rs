@@ -1198,7 +1198,6 @@ mod tests {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_kind: None,
             actor_seq: 1,
             created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
             hlc: Some(Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()),

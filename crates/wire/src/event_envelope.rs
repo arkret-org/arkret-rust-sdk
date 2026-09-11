@@ -12,13 +12,13 @@
 //!   string instead of failing the whole envelope; whether an unknown *standard* kind is acceptable
 //!   is the validation layer's decision (`schema_violation`), not the parser's.
 //!
-//! - **Closed-set wire enums hard-reject unknown values** (e.g. [`EnvelopeActorKind`],
-//!   [`ScopeRef`], cursor purpose, subscribe frame kinds): no `#[serde(other)]` catch-all, so an
-//!   unrecognised value fails deserialisation of the surrounding object. These enums gate
-//!   authorization, scope and stream-control decisions; silently mapping an unknown value to a
-//!   default could *widen* what the message is allowed to do. `conformance-profiles.md` requires
-//!   implementations to reject illegal enum values — hard failure is the fail-closed behaviour, and
-//!   a spec revision that extends a closed set is a coordinated upgrade, not a silent downgrade.
+//! - **Closed-set wire enums hard-reject unknown values** (e.g. [`ScopeRef`], cursor purpose,
+//!   subscribe frame kinds): no `#[serde(other)]` catch-all, so an unrecognised value fails
+//!   deserialisation of the surrounding object. These enums gate authorization, scope and
+//!   stream-control decisions; silently mapping an unknown value to a default could *widen* what
+//!   the message is allowed to do. `conformance-profiles.md` requires implementations to reject
+//!   illegal enum values — hard failure is the fail-closed behaviour, and a spec revision that
+//!   extends a closed set is a coordinated upgrade, not a silent downgrade.
 //!
 //! Consequently: adding an event kind is a non-breaking registry evolution
 //! (old SDKs keep parsing), while extending a closed-set enum intentionally
@@ -38,7 +38,6 @@ use serde_json::Value;
 
 use crate::cbs::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
-use crate::error_codes::ReasonCode;
 use crate::events::kinds::{CbsEffectPlane, EventKind};
 use crate::primitives::{
     ActorId, Audience, CriticalExtension, EventProof, ProofBindingRequirements,
@@ -49,8 +48,8 @@ use crate::{
     canonical,
 };
 
-/// Full canonical Event Envelope bound, measured over the reducer-accepted envelope including
-/// reducer-stamped top-level fields and every producer proof, excluding the read-view `unsigned`.
+/// Full canonical Event Envelope bound, measured over the accepted envelope including every
+/// producer and Station-admission proof, excluding the read-view `unsigned`.
 ///
 /// See `zh/conformance/scalability-constraints.md` section 2.1.1.
 pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
@@ -135,15 +134,6 @@ pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
             .collect(),
     ))?)
 }
-
-/// Reducer-stamped projection of the exact Actor Profile classification.
-///
-/// Event `actor_kind` and `ActorProfile.actor_kind` share one closed wire enum;
-/// the field is not a runtime-origin classifier. In particular, devices are
-/// endpoints rather than actors, Ghost Actor is provenance rather than an
-/// actor kind, Agent is reserved for controller-provisioned Agents, and
-/// Applet-managed automation uses `Bot`.
-pub type EnvelopeActorKind = crate::ActorKind;
 
 /// RFC 6962 inclusion proof for one leaf under a Seal-signed root.
 ///
@@ -314,15 +304,13 @@ pub struct Event {
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<BTreeMap<String, Value>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub actor_kind: Option<EnvelopeActorKind>,
     pub actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hlc: Option<Hlc>,
     pub prev_refs: Vec<EventId>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<EventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub causal_refs: Vec<Hash>,
@@ -641,8 +629,8 @@ pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
 /// `Value -> Value` function, not just as [`Event::digest_payload`], because
 /// every verifier that holds an envelope it has not parsed into [`Event`] used
 /// to delete the excluded fields by hand — and every hand-rolled copy drifted
-/// from the rule at a different point (one forgot `event_id`, one forgot
-/// `actor_kind`, one hashed the envelope itself). A drifted preimage does not
+/// from the rule at a different point (one forgot `event_id`, one hashed the
+/// envelope itself). A drifted preimage does not
 /// fail loudly: it produces bytes no other implementation can reproduce, so a
 /// valid signature verifies as invalid.
 ///
@@ -650,8 +638,6 @@ pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
 ///
 /// * `proofs` — the signature cannot cover itself.
 /// * `unsigned` — receiver-local projection context, attached after signing.
-/// * `actor_kind` — the one v1 field the reducer stamps after the producer signs, so a peer
-///   recomputing the digest would never see the producer's value.
 /// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in would put a function of
 ///   the digest inside the digest's own input.
 ///
@@ -663,12 +649,9 @@ pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
         ));
     };
     let mut map = map.clone();
+    map.remove("event_id");
     map.remove("proofs");
     map.remove("unsigned");
-    for field in Event::REDUCER_STAMPED_TOP_LEVEL_FIELDS {
-        map.remove(field);
-    }
-    map.remove("event_id");
     Ok(Value::Object(map))
 }
 
@@ -699,14 +682,13 @@ struct EventSer<'a> {
     applet_id: &'a Option<AppletId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     external_ref: &'a Option<BTreeMap<String, Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    actor_kind: &'a Option<EnvelopeActorKind>,
     actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
     hlc: &'a Option<Hlc>,
     prev_refs: &'a Vec<EventId>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     refs: &'a Vec<EventRef>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     causal_refs: &'a Vec<Hash>,
@@ -738,7 +720,6 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             authorization_ref: &event.authorization_ref,
             applet_id: &event.applet_id,
             external_ref: &event.external_ref,
-            actor_kind: &event.actor_kind,
             actor_seq: event.actor_seq,
             created_at: event.created_at,
             hlc: &event.hlc,
@@ -784,8 +765,6 @@ struct EventWire {
     pub applet_id: Option<AppletId>,
     #[serde(default)]
     pub external_ref: Option<BTreeMap<String, Value>>,
-    #[serde(default)]
-    pub actor_kind: Option<EnvelopeActorKind>,
     pub actor_seq: u64,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
@@ -793,9 +772,9 @@ struct EventWire {
     pub hlc: Option<Hlc>,
     pub prev_refs: Vec<EventId>,
     #[serde(default)]
-    pub refs: Vec<EventRef>,
+    pub refs: Option<Vec<EventRef>>,
     #[serde(default)]
-    pub causal_refs: Vec<Hash>,
+    pub causal_refs: Option<Vec<Hash>>,
     #[serde(default)]
     pub preconditions: Vec<Precondition>,
     #[serde(default)]
@@ -817,6 +796,20 @@ impl TryFrom<EventWire> for Event {
 
     fn try_from(wire: EventWire) -> std::result::Result<Self, Self::Error> {
         let kind = EventKind::from_wire(&wire.kind);
+        let refs = match wire.refs {
+            None => Vec::new(),
+            Some(refs) if refs.is_empty() => {
+                return Err("refs must be omitted when empty".to_owned());
+            }
+            Some(refs) => refs,
+        };
+        let causal_refs = match wire.causal_refs {
+            None => Vec::new(),
+            Some(causal_refs) if causal_refs.is_empty() => {
+                return Err("causal_refs must be omitted when empty".to_owned());
+            }
+            Some(causal_refs) => causal_refs,
+        };
         // zh/models/realm-and-space.md section 2.5.0: the genesis envelope
         // omits realm_id and receivers derive it from the Event's own id.
         let realm_id = match wire.realm_id {
@@ -845,13 +838,12 @@ impl TryFrom<EventWire> for Event {
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
-            actor_kind: wire.actor_kind,
             actor_seq: wire.actor_seq,
             created_at: wire.created_at,
             hlc: wire.hlc,
             prev_refs: wire.prev_refs,
-            refs: wire.refs,
-            causal_refs: wire.causal_refs,
+            refs,
+            causal_refs,
             preconditions: wire.preconditions,
             seal_ref: wire.seal_ref,
             auth_context: wire.auth_context,
@@ -1193,7 +1185,7 @@ impl Event {
         let object = value.as_object_mut().ok_or_else(|| {
             WireError::Protocol("Event digest payload must be a JSON object".to_owned())
         })?;
-        for forbidden in ["proofs", "unsigned", "actor_kind"] {
+        for forbidden in ["event_id", "proofs", "unsigned"] {
             if object.contains_key(forbidden) {
                 return Err(WireError::Protocol(format!(
                     "Event digest payload must omit {forbidden}"
@@ -1219,21 +1211,6 @@ impl Event {
         }
         Ok(event)
     }
-
-    /// Top-level Envelope fields that are stamped by the reducer AFTER the
-    /// producer signs, and therefore MUST NOT enter the signature/digest
-    /// input (otherwise a federated peer independently recomputing the
-    /// digest would mismatch the producer's `proof.event_digest`).
-    ///
-    /// Kept in lockstep with `conformance/encoding.md` §2 / §6. v1 has exactly
-    /// one such field: `actor_kind`. `scope_ref` is producer-signed and MUST
-    /// stay inside the transcript.
-    ///
-    /// Deliberately private: it is one *part* of the exclusion rule, and every
-    /// caller that ever held it went on to hand-roll the rest of
-    /// [`event_digest_preimage`] — and each hand-rolled copy drifted. Callers
-    /// outside this module get the whole rule or nothing.
-    const REDUCER_STAMPED_TOP_LEVEL_FIELDS: [&'static str; 1] = ["actor_kind"];
 
     pub fn digest_payload(&self) -> Result<Value> {
         event_digest_preimage(&serde_json::to_value(self)?)
@@ -1324,7 +1301,7 @@ impl Event {
     /// Structural (payload-agnostic) submit gate.
     ///
     /// Covers every wire-level check that does not need a schema registry:
-    /// reducer-stamped field rejection, applet provenance invariants, proof
+    /// applet provenance invariants, proof
     /// presence, critical-extension fail-closed flags, and CBS field shape.
     /// It deliberately does NOT run event-payload schema validation — the
     /// submit gate for callers is `arkret_schema::validate_event_for_submit`,
@@ -1421,11 +1398,6 @@ impl Event {
         } else if self.scope_ref.realm_id_opt() != Some(&self.realm_id) {
             return Err(WireError::Protocol(
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
-            ));
-        }
-        if self.actor_kind.is_some() {
-            return Err(WireError::Protocol(
-                ReasonCode::ACTOR_KIND_REDUCER_MANAGED.to_owned(),
             ));
         }
         for reference in &self.refs {
@@ -1796,7 +1768,6 @@ impl Event {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         })
@@ -1860,7 +1831,6 @@ mod event_wire_surface_tests {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_kind: None,
             unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         }
@@ -1897,7 +1867,6 @@ mod event_wire_surface_tests {
         assert_eq!(reconstructed, event);
         assert!(reconstructed.proofs.is_empty());
         assert!(reconstructed.unsigned.is_empty());
-        assert!(reconstructed.actor_kind.is_none());
     }
 
     #[test]
@@ -2087,29 +2056,22 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn actor_kind_is_the_only_field_outside_the_signed_transcript() {
-        // `actor_kind` is stamped by the reducer AFTER the producer signs, so
-        // it MUST NOT change the `event_digest`; a federated peer recomputing
-        // the digest from the accepted envelope must reach the same value.
-        // See `encoding.md` §2 / §6.
+    fn empty_optional_reference_sets_are_omitted_and_explicit_empty_is_rejected() {
         let event = base_event();
-        let baseline = event
-            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
+        let value = serde_json::to_value(&event).unwrap();
+        assert!(value.get("refs").is_none());
+        assert!(value.get("causal_refs").is_none());
+        assert_eq!(value.get("prev_refs"), Some(&json!([])));
 
-        let mut stamped = event;
-        stamped.actor_kind = Some(EnvelopeActorKind::Agent);
-
-        assert_eq!(
-            baseline,
-            stamped
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap()
-        );
-        let digest_payload = stamped.digest_payload().unwrap();
-        assert!(digest_payload.get("actor_kind").is_none());
-        assert!(digest_payload.get("proofs").is_none());
-        assert!(digest_payload.get("unsigned").is_none());
+        for field in ["refs", "causal_refs"] {
+            let mut invalid = value.clone();
+            invalid[field] = json!([]);
+            let err = serde_json::from_value::<Event>(invalid).unwrap_err();
+            assert!(
+                err.to_string().contains("must be omitted when empty"),
+                "{field}: {err}"
+            );
+        }
     }
 
     #[test]
@@ -2148,7 +2110,12 @@ mod event_wire_surface_tests {
 
     #[test]
     fn event_wire_rejects_the_deleted_producer_reducer_instruction_fields() {
-        for field in ["effects", "conflict_keys_digest", "effective_scope"] {
+        for field in [
+            "effects",
+            "conflict_keys_digest",
+            "effective_scope",
+            "actor_kind",
+        ] {
             let mut value = serde_json::to_value(base_event()).unwrap();
             value
                 .as_object_mut()
@@ -2188,19 +2155,6 @@ mod event_wire_surface_tests {
         assert!(
             err.to_string()
                 .contains("applet_id requires authorization_ref"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn submit_rejects_actor_supplied_actor_kind() {
-        let mut event = base_event();
-        event.actor_kind = Some(EnvelopeActorKind::Agent);
-
-        let err = event.validate_for_submit_structural().unwrap_err();
-        assert!(
-            err.to_string()
-                .contains(ReasonCode::ACTOR_KIND_REDUCER_MANAGED),
             "unexpected error: {err}"
         );
     }

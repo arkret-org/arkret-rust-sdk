@@ -68,7 +68,6 @@ fn event(kind: EventKind, seq: u64, content: Value) -> Event {
         authorization_ref: None,
         applet_id: None,
         external_ref: None,
-        actor_kind: None,
         unsigned: BTreeMap::new(),
         causal_refs: Vec::new(),
         proofs: vec![],

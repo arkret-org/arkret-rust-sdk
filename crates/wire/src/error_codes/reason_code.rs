@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-11.2;
-//! sha256=989628a94d919649c16a24236f417f46ad2fe94eb7be3e38e38676d38805acf9
-//! Entries: reason_codes=432
+//! Input: registry/error-code-registry.json; version=2026-09-11.3;
+//! sha256=3fe7354970d81e18f7cce68691ba9ad4862cb509ac9416f4cba77b1523e514b7
+//! Entries: reason_codes=431
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -16,7 +16,6 @@ pub enum ReasonCode {
     AccountStatusRecordStale,
     AccountStatusTransitionInvalid,
     AccountabilityGrantMissing,
-    ActorKindReducerManaged,
     ActorSessionMismatch,
     ActorSignatureRevoked,
     AeadNonceCounterReplay,
@@ -460,7 +459,6 @@ impl ReasonCode {
     pub const ACCOUNT_STATUS_RECORD_STALE: &'static str = "account_status_record_stale";
     pub const ACCOUNT_STATUS_TRANSITION_INVALID: &'static str = "account_status_transition_invalid";
     pub const ACCOUNTABILITY_GRANT_MISSING: &'static str = "accountability_grant_missing";
-    pub const ACTOR_KIND_REDUCER_MANAGED: &'static str = "actor_kind_reducer_managed";
     pub const ACTOR_SESSION_MISMATCH: &'static str = "actor_session_mismatch";
     pub const ACTOR_SIGNATURE_REVOKED: &'static str = "actor_signature_revoked";
     pub const AEAD_NONCE_COUNTER_REPLAY: &'static str = "aead_nonce_counter_replay";
@@ -978,7 +976,6 @@ impl ReasonCode {
             Self::AccountStatusRecordStale => Self::ACCOUNT_STATUS_RECORD_STALE,
             Self::AccountStatusTransitionInvalid => Self::ACCOUNT_STATUS_TRANSITION_INVALID,
             Self::AccountabilityGrantMissing => Self::ACCOUNTABILITY_GRANT_MISSING,
-            Self::ActorKindReducerManaged => Self::ACTOR_KIND_REDUCER_MANAGED,
             Self::ActorSessionMismatch => Self::ACTOR_SESSION_MISMATCH,
             Self::ActorSignatureRevoked => Self::ACTOR_SIGNATURE_REVOKED,
             Self::AeadNonceCounterReplay => Self::AEAD_NONCE_COUNTER_REPLAY,
@@ -1488,7 +1485,6 @@ impl ReasonCode {
             Self::ACCOUNT_STATUS_RECORD_STALE => Self::AccountStatusRecordStale,
             Self::ACCOUNT_STATUS_TRANSITION_INVALID => Self::AccountStatusTransitionInvalid,
             Self::ACCOUNTABILITY_GRANT_MISSING => Self::AccountabilityGrantMissing,
-            Self::ACTOR_KIND_REDUCER_MANAGED => Self::ActorKindReducerManaged,
             Self::ACTOR_SESSION_MISMATCH => Self::ActorSessionMismatch,
             Self::ACTOR_SIGNATURE_REVOKED => Self::ActorSignatureRevoked,
             Self::AEAD_NONCE_COUNTER_REPLAY => Self::AeadNonceCounterReplay,
@@ -2094,11 +2090,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::ACCOUNTABILITY_GRANT_MISSING,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
         description: "Returned in three surfaces. (1) `event_envelope` / `auth_decision`: an Actor Profile update declares an `accountable_principal_ids[]` entry without a corresponding active `ak.identity.accountability_grant` (issuer=that DID, subject=profile.principal_id, grant_status=active, within validity window). Reducer MUST reject the entire Event with this reason and MUST NOT accept a field-stripped projection. See zh/models/actor.md §3.3.1. (2) `service_call`: returned by orchestrator HTTP operations that fan-out an accountability grant — `ak.self.agent.command.provision.v1` rejects when the controller cannot present an issuable accountability grant for the new agent principal, and `ak.self.agent.command.resume.v1` rejects when the controller's accountability grant over the agent has been revoked or has lapsed its freshness window since `ak.self.agent.command.pause.v1`. HTTP callers MUST treat this as a precondition-class failure, not transient.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::ACTOR_KIND_REDUCER_MANAGED,
-        applies_to: &["schema_validation", "event_envelope"],
-        description: "Sub-reason for schema_violation when actor-side submit payload carries `actor_kind`. The reducer derives actor_kind immutably from actor_id's Actor Profile after acceptance; submitters MUST NOT supply it. See zh/models/event-and-patch.md §2.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::ACTOR_SESSION_MISMATCH,
@@ -3591,7 +3582,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_STATE_SNAPSHOT_ISSUER_REVOKED,
         applies_to: &["client_sync", "realm_state_snapshot_verification"],
-        description: "Snapshot signer's authority (Realm owner / admin / trusted snapshot issuer / witness quorum membership) was revoked at or before the manifest's `created_at`, or revoke freshness cannot be sealed within the verifier's revocation_freshness_window_ms. Client MUST quarantine or reject the snapshot. A revoke that takes effect strictly after `created_at` does not retroactively invalidate a previously valid snapshot.",
+        description: "Snapshot signer's authority (Realm owner / admin / trusted snapshot issuer / witness quorum membership) was revoked before the snapshot's origin admission/issuance gate, or the verifier cannot prove the frozen authority basis. Client MUST quarantine or reject the snapshot. A revoke accepted after a valid snapshot issuance does not retroactively invalidate that snapshot.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_TERMINAL_STATE,
@@ -4025,7 +4016,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::THIRD_PARTY_INVITE_ACCEPTANCE_STALE,
         applies_to: &["service_call", "auth_decision"],
-        description: "Sub-reason for failed_precondition when a Station acceptance attestation is structurally valid but its observation is older than the target Realm revocation_freshness_window_ms, or its own expires_at has passed. The verification service MUST fail closed rather than bind private invite material on a basis that may have missed ak.invite.revoke, inviter capability loss or an allowlist removal. See zh/sync/third-party-invites.md section 7.5.",
+        description: "Sub-reason for failed_precondition when a Station acceptance attestation is structurally valid but its signed expires_at has passed, observed_at is later than expires_at, or expires_at exceeds invite_expires_at. The verification service MUST fail closed rather than bind private invite material with an invalid or expired attestation. See zh/sync/third-party-invites.md section 7.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::THIRD_PARTY_INVITE_MATERIAL_MISMATCH,

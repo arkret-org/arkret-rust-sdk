@@ -2732,13 +2732,6 @@ mod tests {
     #[tokio::test]
     async fn control_seal_schedule_outcomes_use_bounded_and_time_aware_backoff() {
         assert_eq!(
-            ControlSealAttemptOutcome::MixedRecoveryNotYetEligible {
-                eligible_at_ms: 42_000,
-            }
-            .next_eligible_at_ms(10_000, 0),
-            42_000
-        );
-        assert_eq!(
             ControlSealAttemptOutcome::SigningFailed.next_eligible_at_ms(10_000, 1),
             11_000
         );

@@ -195,7 +195,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
             if signer.actor_id.signing_principal_id().as_str()
                 == "ak:did_core:webvh:z6mkfixture"
     ));
-    assert!(realm.revocation_freshness_window_ms.is_none());
     assert_eq!(realm.max_authority_lifetime_ms, 86_400_000);
     assert!(realm.bottom_escalation_after_ms.is_none());
     assert!(realm.cell_lattices.is_empty());
@@ -210,7 +209,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         ],
         forensic_attribution: arkret_wire::ForensicAttribution::QuorumIntersection,
     };
-    realm.revocation_freshness_window_ms = Some(60_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
         cell_family: arkret_wire::CellFamilyId::STRAND_OBJECT_V1.to_owned(),
         lattice: "cas_register".to_owned(),
@@ -232,7 +230,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         &realm.notary,
         NotaryValue::Threshold { threshold: 2, .. }
     ));
-    assert_eq!(realm.revocation_freshness_window_ms, Some(60_000));
     assert_eq!(realm.max_authority_lifetime_ms, 3_600_000);
     assert_eq!(realm.bottom_escalation_after_ms, Some(120_000));
     assert_eq!(realm.cell_lattices.len(), 1);
@@ -250,7 +247,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         "ak:policy:0196419b-0000-7000-8000-000000000003"
     );
     assert_eq!(json["digest_algorithm"], "blake3");
-    assert_eq!(json["revocation_freshness_window_ms"], 60_000);
     assert_eq!(json["max_authority_lifetime_ms"], 3_600_000);
     assert_eq!(json["bottom_escalation_after_ms"], 120_000);
     assert_eq!(
@@ -268,10 +264,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         realm.preview_policy_id.as_ref().map(PolicyId::as_str)
     );
     assert_eq!(restored.digest_algorithm, realm.digest_algorithm);
-    assert_eq!(
-        restored.revocation_freshness_window_ms,
-        realm.revocation_freshness_window_ms
-    );
     assert_eq!(
         restored.max_authority_lifetime_ms,
         realm.max_authority_lifetime_ms
@@ -304,7 +296,6 @@ fn realm_anchor_fields_include_required_notary() {
         json["notary"]["signer"]["actor_id"],
         json!({"kind":"service","service_id":"ak:did_core:webvh:z6mkfixture"})
     );
-    assert!(!obj.contains_key("revocation_freshness_window_ms"));
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
     assert_eq!(
         obj.get("max_authority_lifetime_ms"),
@@ -526,7 +517,6 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f4").unwrap());
     realm.federation_policy = Some(FederationPolicy::Restricted);
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
-    realm.revocation_freshness_window_ms = Some(30_000);
     realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
     realm.cell_lattices.push(CellLatticeDeclaration {
@@ -543,7 +533,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     assert!(realm_pos("preview_policy_id") < realm_pos("default_discoverability"));
     assert!(realm_pos("federation_policy") < realm_pos("digest_algorithm"));
     assert!(realm_pos("digest_algorithm") < realm_pos("notary"));
-    assert!(realm_pos("revocation_freshness_window_ms") < realm_pos("max_authority_lifetime_ms"));
+    assert!(realm_pos("notary") < realm_pos("max_authority_lifetime_ms"));
     assert!(realm_pos("max_authority_lifetime_ms") < realm_pos("bottom_escalation_after_ms"));
     assert!(realm_pos("bottom_escalation_after_ms") < realm_pos("cell_lattices"));
 

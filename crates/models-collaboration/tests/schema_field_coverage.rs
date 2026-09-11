@@ -227,7 +227,6 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "seal_transparency_min_attestations": 1,
                 "seal_transparency_auditor_independence": "distinct_did"
             },
-            "revocation_freshness_window_ms": 60000,
             "recovery_witness_freshness_window_ms": 60000,
             "proposal_intake_sla_ms": 60000,
             "proposal_decision_window_ms": 30000,

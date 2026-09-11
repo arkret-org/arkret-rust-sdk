@@ -112,12 +112,6 @@ pub struct Realm {
     /// Subsequent notary changes strand through Move on the
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
     pub notary: NotaryValue,
-    /// Soft cap on how stale the latest Seal leaf may be before clients
-    /// SHOULD warn / re-fetch. `None` means "implementation default" (spec
-    /// suggests 30s for single-DID, longer for threshold). Reducer-derived
-    /// field; passing a value at create time is a hint only.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_freshness_window_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recovery_witness_freshness_window_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -291,7 +285,6 @@ impl Realm {
             audit_policy: None,
             digest_algorithm: canonical::DigestSuite::Sha256,
             notary,
-            revocation_freshness_window_ms: None,
             recovery_witness_freshness_window_ms: None,
             proposal_intake_sla_ms: None,
             proposal_decision_window_ms: None,

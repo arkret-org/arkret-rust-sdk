@@ -299,7 +299,6 @@ mod tests {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_kind: None,
             actor_seq: 7,
             created_at: "2026-08-09T01:02:03.000Z".parse().unwrap(),
             hlc: Some(Hlc::new("01970e589d21-0001-a13f9c2e").unwrap()),

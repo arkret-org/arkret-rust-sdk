@@ -411,7 +411,6 @@ impl EventIntent {
             authorization_ref: self.authorization_ref,
             applet_id: self.applet_id,
             external_ref: self.external_ref,
-            actor_kind: None,
             actor_seq,
             created_at: arkret_canonical::normalize_timestamp_canonical(self.created_at),
             hlc: Some(hlc),

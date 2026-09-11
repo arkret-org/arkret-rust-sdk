@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-11.2;
-//! sha256=989628a94d919649c16a24236f417f46ad2fe94eb7be3e38e38676d38805acf9 Entries: error_codes=283
+//! Input: registry/error-code-registry.json; version=2026-09-11.3;
+//! sha256=3fe7354970d81e18f7cce68691ba9ad4862cb509ac9416f4cba77b1523e514b7 Entries: error_codes=282
 
 use serde::{Deserialize, Serialize};
 
@@ -258,7 +258,6 @@ pub enum ErrorCode {
     SchemaViolation,
     SealDeferredFutureSkew,
     SealIncomplete,
-    SealRefStale,
     SealRefUnknown,
     SealSignerSlotFenced,
     SealSignerUnauthorized,
@@ -557,7 +556,6 @@ impl ErrorCode {
         Self::SchemaViolation,
         Self::SealDeferredFutureSkew,
         Self::SealIncomplete,
-        Self::SealRefStale,
         Self::SealRefUnknown,
         Self::SealSignerSlotFenced,
         Self::SealSignerUnauthorized,
@@ -874,7 +872,6 @@ impl ErrorCode {
     pub const SCHEMA_VIOLATION: &'static str = "schema_violation";
     pub const SEAL_DEFERRED_FUTURE_SKEW: &'static str = "seal_deferred_future_skew";
     pub const SEAL_INCOMPLETE: &'static str = "seal_incomplete";
-    pub const SEAL_REF_STALE: &'static str = "seal_ref_stale";
     pub const SEAL_REF_UNKNOWN: &'static str = "seal_ref_unknown";
     pub const SEAL_SIGNER_SLOT_FENCED: &'static str = "seal_signer_slot_fenced";
     pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
@@ -1185,7 +1182,6 @@ impl ErrorCode {
             Self::SchemaViolation => "schema_violation",
             Self::SealDeferredFutureSkew => "seal_deferred_future_skew",
             Self::SealIncomplete => "seal_incomplete",
-            Self::SealRefStale => "seal_ref_stale",
             Self::SealRefUnknown => "seal_ref_unknown",
             Self::SealSignerSlotFenced => "seal_signer_slot_fenced",
             Self::SealSignerUnauthorized => "seal_signer_unauthorized",
@@ -1515,7 +1511,6 @@ impl ErrorCode {
             "schema_violation" => Some(Self::SchemaViolation),
             "seal_deferred_future_skew" => Some(Self::SealDeferredFutureSkew),
             "seal_incomplete" => Some(Self::SealIncomplete),
-            "seal_ref_stale" => Some(Self::SealRefStale),
             "seal_ref_unknown" => Some(Self::SealRefUnknown),
             "seal_signer_slot_fenced" => Some(Self::SealSignerSlotFenced),
             "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
@@ -3873,16 +3868,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Seal coverage has gaps within the receiver's control auth-chain backfill bound; soft-fail per zh/conformance/scalability-constraints.md.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SealRefStale,
-        type_uri: "https://arkret.org/problems/seal_ref_stale",
-        title: "Seal ref stale",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The supplied seal_ref or seal_basis exceeds the operation or policy tier's verifiable historical Seal-distance grace (or a separately defined frontier token freshness rule). For Event revocation admission this is not age since signing, first delivery, receiver admission, or replay.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealRefUnknown,

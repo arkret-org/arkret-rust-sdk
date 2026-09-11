@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reject hand-rolled Event digest preimages.
 
-`conformance/encoding.md` §6 excludes four top-level Envelope members from the
-Event digest preimage: `proofs`, `unsigned`, `actor_kind` and `event_id`. The
+`conformance/encoding.md` §6 excludes exactly three top-level Envelope members from the
+Event digest preimage: `event_id`, `proofs` and `unsigned`. The
 SDK has exactly one implementation of that rule,
 `arkret_wire::event_digest_preimage` (and `Event::digest_payload`, which
 delegates to it).
@@ -16,16 +16,15 @@ reproduces, so a *valid* signature verifies as invalid:
     every well-formed Agent evidence Event failed as `SigningKeyMismatch`;
   * `inkson/src/views/chat/tests.rs` -- fixture signer with its own copy;
   * `soland/crates/server/tests/http_api/common.rs` -- kept `event_id` and
-    `actor_kind`, stripped two slots that no longer exist on the envelope;
+    stripped slots that do not exist on the envelope;
   * `arkret-spec` crypto-signature vector -- hashed the envelope, not the
     preimage.
 
 So the guard does not look for "a wrong preimage" (undecidable in text); it
-looks for the *act of building one by hand*: deleting either Event-only excluded
+looks for the *act of building one by hand*: deleting the Event-only `event_id`
 member from a JSON map. Removing `proofs` alone stays allowed -- many non-Event
 signed objects (`EventBatchReceipt`, `PrincipalLocator`, DID documents) legally
-strip their own `proofs` before signing, and those objects have no `event_id` or
-`actor_kind` to drop.
+strip their own `proofs` before signing, and those objects have no `event_id` to drop.
 
 Runs over any sibling repository via `--root`, because the rule is cross-repo
 and the drift was too:
@@ -43,10 +42,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ALLOWLIST = REPO_ROOT / "tools" / "event_preimage_allowlist.json"
 
-# `map.remove("event_id")`, `object.remove("actor_kind")`, `.swap_remove(...)`,
-# `remove_entry(...)` -- any deletion of an Event-only excluded member.
+# `map.remove("event_id")`, `.swap_remove(...)`, `remove_entry(...)` -- any
+# deletion of the Event-only excluded member.
 HAND_ROLLED = re.compile(
-    r"""(?:remove|remove_entry|swap_remove|shift_remove)\s*\(\s*"(event_id|actor_kind)"\s*\)"""
+    r"""(?:remove|remove_entry|swap_remove|shift_remove)\s*\(\s*"(event_id)"\s*\)"""
 )
 SKIP_DIRS = {".git", "target", "node_modules", "vendor", "dist", "artifacts"}
 # The downstream repo-local copies of this guard (inkson and soland run one in

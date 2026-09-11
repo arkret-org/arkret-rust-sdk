@@ -9,6 +9,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
+- Removed the reducer-stamped `Event.actor_kind` wire field. Authoritative
+  attribution now comes from the signed `actor_id`, optional `executed_by`, and
+  immutable historical provenance; Actor Profile `actor_kind` remains display
+  metadata only.
+- `Event.refs` and `Event.causal_refs` are now omitted when empty and explicit
+  empty arrays are rejected during decoding. `prev_refs` remains required and
+  may be empty.
+- Removed the Realm-configured DataEvent revocation grace window and its stale-Seal error,
+  and Seal-distance grace handling. Origin admission freezes its validated
+  proof atomically; later revocation blocks new admissions without invalidating
+  events already admitted.
 - Renamed `ServiceRegistrationReceipt.receipt_id` to the spec-defined
   `registration_receipt_id` and changed it to `ServiceRegistrationReceiptId`;
   `AppletInstallPlan.plan_id` now uses `PlanId`.

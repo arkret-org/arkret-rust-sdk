@@ -40,8 +40,7 @@ class EventPreimageAuthoringGuardTests(unittest.TestCase):
             finally:
                 LINT.parse_args = original
 
-    def test_flags_the_inkson_agent_evidence_shape(self) -> None:
-        # The copy that omitted `event_id` and rejected every valid evidence Event.
+    def test_actor_kind_removal_is_not_an_event_preimage_rule(self) -> None:
         source = """
 fn verify(event: &Event) {
     object.remove("proofs");
@@ -49,7 +48,7 @@ fn verify(event: &Event) {
     object.remove("actor_kind");
 }
 """
-        self.assertEqual(self.scan({"src/evidence.rs": source}, []), 1)
+        self.assertEqual(self.scan({"src/evidence.rs": source}, []), 0)
 
     def test_flags_a_hand_rolled_event_id_exclusion(self) -> None:
         source = 'fn preimage() { map.remove("event_id"); }\n'

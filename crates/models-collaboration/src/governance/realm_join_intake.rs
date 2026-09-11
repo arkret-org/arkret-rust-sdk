@@ -657,7 +657,6 @@ impl RealmJoinUnsignedEvent {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_kind: None,
             actor_seq: self.actor_seq,
             created_at: self.created_at,
             hlc: self.hlc.clone(),

@@ -190,7 +190,6 @@ pub enum ControlSealAttemptOutcome {
     NoAcceptedMoves,
     LocalSignerNotMember,
     ThresholdRequiresExternalCoordinator,
-    MixedRecoveryNotYetEligible { eligible_at_ms: i64 },
     MixedRecoveryRequiresExternalCoordinator,
     NotaryValueUnavailable,
     SignerSlotUnavailable,
@@ -209,7 +208,6 @@ impl ControlSealAttemptOutcome {
             Self::NoAcceptedMoves => "no_accepted_moves",
             Self::LocalSignerNotMember => "local_signer_not_member",
             Self::ThresholdRequiresExternalCoordinator => "threshold_requires_external_coordinator",
-            Self::MixedRecoveryNotYetEligible { .. } => "mixed_recovery_not_yet_eligible",
             Self::MixedRecoveryRequiresExternalCoordinator => {
                 "mixed_recovery_requires_external_coordinator"
             }
@@ -244,9 +242,6 @@ impl ControlSealAttemptOutcome {
             Self::ProgressPublished => 0,
             Self::SigningLeaseBusy => 1_000,
             Self::NoAcceptedMoves | Self::NotaryValueUnavailable => 5_000,
-            Self::MixedRecoveryNotYetEligible { eligible_at_ms } => {
-                return (*eligible_at_ms).max(observed_at_ms);
-            }
             Self::LocalSignerNotMember
             | Self::ThresholdRequiresExternalCoordinator
             | Self::MixedRecoveryRequiresExternalCoordinator => 60_000,

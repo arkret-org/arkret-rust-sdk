@@ -145,7 +145,6 @@ pub fn validate_self_principal_pcr_genesis_unit(
         || authorize.authorization_ref.is_some()
         || authorize.applet_id.is_some()
         || authorize.external_ref.is_some()
-        || authorize.actor_kind.is_some()
         || !authorize.unsigned.is_empty()
         || authorize.refs.iter().any(|reference| {
             matches!(
@@ -265,7 +264,6 @@ pub(crate) fn validate_self_principal_pcr_create(
         || event.authorization_ref.is_some()
         || event.applet_id.is_some()
         || event.external_ref.is_some()
-        || event.actor_kind.is_some()
         || !event.unsigned.is_empty()
     {
         return Err(WireError::Protocol(

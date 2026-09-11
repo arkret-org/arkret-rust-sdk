@@ -69,7 +69,6 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         authorization_ref: None,
         applet_id: None,
         external_ref: None,
-        actor_kind: None,
         unsigned: BTreeMap::from([("local_receive_time".to_owned(), json!("ignored"))]),
         causal_refs: Vec::new(),
         proofs: Vec::new(),
@@ -166,8 +165,8 @@ fn auth_context_rejects_a_producer_selected_capability_list() {
 ///
 /// The two used to be independent copies of the same rule — one for callers
 /// holding a typed `Event`, one open-coded at every verifier holding raw JSON.
-/// The copies drifted: one forgot `event_id`, one forgot `actor_kind`, one
-/// hashed the envelope itself. None failed loudly; each produced bytes no other
+/// The copies drifted: one forgot `event_id`, another hashed the envelope
+/// itself. None failed loudly; each produced bytes no other
 /// implementation reproduces, so valid signatures verified as invalid.
 #[test]
 fn event_digest_preimage_agrees_with_typed_digest_payload() {
@@ -195,16 +194,15 @@ fn event_digest_preimage_agrees_with_typed_digest_payload() {
 ///
 /// Spelled out per field so a future edit that widens or narrows the set has to
 /// state which field it is changing and why: `proofs` (a signature cannot cover
-/// itself), `unsigned` (receiver-local, attached after signing), `actor_kind`
-/// (reducer-stamped after signing) and `event_id` (§4.0 derives it *from* this
-/// digest, so leaving it in has no fixed point).
+/// itself), `unsigned` (receiver-local, attached after signing) and `event_id`
+/// (§4.0 derives it *from* this digest, so leaving it in has no fixed point).
 #[test]
 fn event_digest_preimage_drops_exactly_the_excluded_fields() {
     let envelope = json!({
         "event_id": "ak:event:AZL87nwhLc8pnnvIhrfEQSfNkZvdPzaV3rFGVoJCQWW6",
         "kind": "ak.message.create",
-        "actor_kind": "person",
         "actor_id": "ak:did_core:webvh:z6mkfixture",
+        "authorization_ref": "ak:grant:AexFmdraZt6B8bFfhx2bo_5tSexCveR9J0cIyonQUfe_",
         "scope_ref": {"realm_id": "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
         "payload": {"body": "hello"},
         "proofs": [{"kind": "detached_jws"}],
@@ -213,7 +211,7 @@ fn event_digest_preimage_drops_exactly_the_excluded_fields() {
 
     let preimage = arkret_wire::event_digest_preimage(&envelope).unwrap();
     let object = preimage.as_object().expect("preimage is an object");
-    for excluded in ["proofs", "unsigned", "actor_kind", "event_id"] {
+    for excluded in ["event_id", "proofs", "unsigned"] {
         assert!(
             !object.contains_key(excluded),
             "{excluded} must not enter the digest preimage"
@@ -221,7 +219,13 @@ fn event_digest_preimage_drops_exactly_the_excluded_fields() {
     }
     assert_eq!(
         object.keys().map(String::as_str).collect::<Vec<_>>(),
-        ["actor_id", "kind", "payload", "scope_ref"],
+        [
+            "actor_id",
+            "authorization_ref",
+            "kind",
+            "payload",
+            "scope_ref"
+        ],
         "the preimage must keep every producer-signed member, `scope_ref` included"
     );
 }
