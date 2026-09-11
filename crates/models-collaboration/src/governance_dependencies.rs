@@ -1285,7 +1285,7 @@ impl PcrPendingControlOutcome {
     }
 }
 
-/// Exact ordinary PCR signing intent, frozen before preparation and retries.
+/// Exact successor PCR signing intent, frozen before preparation and retries.
 ///
 /// # The signing-slot fence
 ///
@@ -1333,18 +1333,43 @@ impl SealPrepareRequestBody {
         .map_err(WireError::from)
     }
 
-    pub fn validate(&self) -> Result<()> {
-        validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
-        validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
+    /// Digest suite locked by the Realm that owns this successor.
+    ///
+    /// Digest-suite transitions do not use this operation, so every delta
+    /// digest and every predecessor Seal must use one identical suite.
+    pub fn digest_suite(&self) -> Result<arkret_canonical::DigestSuite> {
+        let suite = self
+            .event_digests
+            .first()
+            .ok_or_else(|| WireError::Protocol("event_digests must not be empty".to_owned()))?
+            .digest_suite()?;
         if self
             .event_digests
             .iter()
-            .any(|digest| !digest.as_str().starts_with("sha256:"))
+            .any(|digest| digest.digest_suite().ok() != Some(suite))
         {
             return Err(WireError::Protocol(
-                "ordinary PCR delta requires SHA-256".to_owned(),
+                "PCR delta digests must use one Realm digest suite".to_owned(),
             ));
         }
+        for predecessor in &self.predecessor_refs {
+            let digest = predecessor
+                .as_str()
+                .strip_prefix("ak:seal:")
+                .ok_or_else(|| WireError::Protocol("invalid predecessor Seal id".to_owned()))?;
+            if Hash::new(digest)?.digest_suite()? != suite {
+                return Err(WireError::Protocol(
+                    "PCR predecessor and delta must use the same Realm digest suite".to_owned(),
+                ));
+            }
+        }
+        Ok(suite)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
+        validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
+        self.digest_suite()?;
         Ok(())
     }
 }
@@ -1354,11 +1379,11 @@ impl SealPrepareRequestBody {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealPrepareOutcome {
-    #[serde(deserialize_with = "deserialize_ordinary_pcr_body")]
+    #[serde(deserialize_with = "deserialize_successor_pcr_body")]
     pub seal_body: arkret_wire::UnsignedSeal,
 }
 
-fn deserialize_ordinary_pcr_body<'de, D: serde::Deserializer<'de>>(
+fn deserialize_successor_pcr_body<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> std::result::Result<arkret_wire::UnsignedSeal, D::Error> {
     let value = serde_json::Value::deserialize(deserializer)?;
@@ -1371,7 +1396,7 @@ fn deserialize_ordinary_pcr_body<'de, D: serde::Deserializer<'de>>(
     ] {
         if value.get(field).is_some() {
             return Err(serde::de::Error::custom(format!(
-                "ordinary PCR preparation forbids {field}"
+                "successor PCR preparation forbids {field}"
             )));
         }
     }
@@ -1381,6 +1406,7 @@ fn deserialize_ordinary_pcr_body<'de, D: serde::Deserializer<'de>>(
 impl SealPrepareOutcome {
     pub fn validate_for_request(&self, request: &SealPrepareRequestBody) -> Result<()> {
         request.validate()?;
+        let digest_suite = request.digest_suite()?;
         let body = &self.seal_body;
         if body.realm_id != request.realm_id
             || body.predecessor_refs != request.predecessor_refs
@@ -1399,7 +1425,7 @@ impl SealPrepareOutcome {
             || body.notary_seq == 0
         {
             return Err(WireError::Protocol(
-                "PCR preparation requires an ordinary successor Seal".to_owned(),
+                "PCR preparation requires a successor Seal".to_owned(),
             ));
         }
         validate_sorted_unique_nonempty(
@@ -1414,10 +1440,10 @@ impl SealPrepareOutcome {
         ]
         .into_iter()
         .chain(body.availability_receipt_digests.iter())
-        .any(|digest| !digest.as_str().starts_with("sha256:"))
+        .any(|digest| digest.digest_suite().ok() != Some(digest_suite))
         {
             return Err(WireError::Protocol(
-                "ordinary PCR preparation requires SHA-256 roots and receipts".to_owned(),
+                "PCR preparation roots and receipts must use the Realm digest suite".to_owned(),
             ));
         }
         Ok(())
@@ -1431,13 +1457,13 @@ impl SealPrepareOutcome {
         signer: &S,
     ) -> Result<Seal> {
         self.validate_for_request(request)?;
+        let digest_suite = request.digest_suite()?;
         let bytes = arkret_canonical::canonical_json_bytes(&self.seal_body)?;
-        let signature = signer
-            .sign_notary_payload_with_digest_suite(&bytes, arkret_canonical::DigestSuite::Sha256)?;
+        let signature = signer.sign_notary_payload_with_digest_suite(&bytes, digest_suite)?;
         Seal::from_canonical_body_and_signature(
             &bytes,
             arkret_wire::NotarySig::Single(signature.into()),
-            arkret_canonical::DigestSuite::Sha256,
+            digest_suite,
         )
     }
 }
@@ -1544,6 +1570,71 @@ mod tests {
         other_basis.predecessor_refs =
             vec![SealId::new(format!("ak:seal:sha256:{}", "4".repeat(64))).unwrap()];
         assert_ne!(other_basis.canonical_request_hash().unwrap(), identity);
+    }
+
+    #[test]
+    fn seal_prepare_uses_the_single_suite_locked_by_the_realm() {
+        for suite in [
+            arkret_canonical::DigestSuite::Sha256,
+            arkret_canonical::DigestSuite::Blake3,
+        ] {
+            let digest = Hash::new(arkret_canonical::digest(suite, b"agent-authorize")).unwrap();
+            let request = SealPrepareRequestBody {
+                realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
+                    .unwrap(),
+                predecessor_refs: vec![
+                    SealId::new(format!("ak:seal:{}:{}", suite.as_str(), "2".repeat(64))).unwrap(),
+                ],
+                event_digests: vec![digest.clone()],
+                hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+            };
+            assert_eq!(request.digest_suite().unwrap(), suite);
+            request.validate().unwrap();
+
+            let prepared = SealPrepareOutcome {
+                seal_body: arkret_wire::UnsignedSeal {
+                    realm_id: request.realm_id.clone(),
+                    predecessor_refs: request.predecessor_refs.clone(),
+                    delta: request.event_digests.clone(),
+                    control_event_set_root: digest.clone(),
+                    state_root: digest.clone(),
+                    completeness_root: digest.clone(),
+                    notary_seq: 1,
+                    data_view_root: None,
+                    data_event_set_root: None,
+                    availability_receipt_digests: vec![digest.clone()],
+                    covered_event_digests: Vec::new(),
+                    previous_state_root: None,
+                    previous_digest_algorithm: None,
+                    sealed_at: "2026-09-09T11:00:00.000Z".parse().unwrap(),
+                    hlc: request.hlc.clone(),
+                },
+            };
+            prepared.validate_for_request(&request).unwrap();
+        }
+
+        let sha = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        let blake = Hash::new(format!("blake3:{}", "2".repeat(64))).unwrap();
+        let mixed_delta = SealPrepareRequestBody {
+            realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
+                .unwrap(),
+            predecessor_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "3".repeat(64))).unwrap(),
+            ],
+            event_digests: vec![blake.clone(), sha],
+            hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
+        };
+        assert!(mixed_delta.validate().is_err());
+
+        let mixed_basis = SealPrepareRequestBody {
+            realm_id: mixed_delta.realm_id,
+            predecessor_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "3".repeat(64))).unwrap(),
+            ],
+            event_digests: vec![blake],
+            hlc: mixed_delta.hlc,
+        };
+        assert!(mixed_basis.validate().is_err());
     }
 
     #[test]

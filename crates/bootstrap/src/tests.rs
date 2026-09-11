@@ -1,12 +1,18 @@
 use std::collections::BTreeSet;
 
-use arkret_models_collaboration::events_payloads::agent::AgentProvisionPayload;
+use arkret_event_draft::build_agent_key_authorize_intent;
+use arkret_models_collaboration::events_payloads::agent::{
+    AgentKeyAuthorizePayload, AgentProvisionPayload,
+};
 use arkret_models_collaboration::events_payloads::device_identity::{
     DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
 };
 use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, FoundingDeviceHpkeKeyAlgorithm, FoundingDeviceKeyAlgorithm,
     FoundingDeviceKeyPurpose, SignatureMaterial, device_authorize_payload_digest,
+};
+use arkret_models_collaboration::governance_dependencies::{
+    SealPrepareOutcome, SealPrepareRequestBody,
 };
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
@@ -16,8 +22,8 @@ use arkret_wire::{
     NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
     NotaryValue, PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId,
     ScopeRef, SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, SemanticRefProofRootField,
-    StationAdmissionProof, StationAdmissionProofKind, TrustDomainId, WireError, composite_subject,
-    project_did_to_core_id, proof_kind,
+    StationAdmissionProof, StationAdmissionProofKind, TrustDomainId, UnsignedSeal, WireError,
+    composite_subject, project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -901,6 +907,190 @@ fn agent_pcr_bootstrap_seal_follows_the_genesis_declared_digest_suite() {
 
         let NotarySig::Single(signature) = &seal.notary_signature else {
             panic!("Agent PCR bootstrap Seal must use one controller signature")
+        };
+        assert_eq!(
+            signature.payload_digest.digest_suite().unwrap(),
+            digest_suite
+        );
+        let public_key = signer.verifying_key().to_bytes();
+        let descriptor = NotarySignerDescriptor {
+            actor_id: ActorId::service(project_did_to_core_id(&agent_controller_did()).unwrap()),
+            verification_method: signer.verification_method_id().clone(),
+            key_kind: NotaryKeyKind::Ed25519Raw32,
+            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+            frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
+            frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
+                .unwrap(),
+        };
+        arkret_signatures::verify_frozen_notary_signature(
+            signature,
+            &descriptor,
+            &seal.canonical_bytes_for_id().unwrap(),
+            digest_suite,
+        )
+        .unwrap();
+    }
+}
+
+/// A real `ak.agent.key.authorize` successor exercises the registered OR-Set
+/// write and the same suite all the way through materialization, roots, Seal
+/// identity and the controller's Ed25519 notary signature.
+#[test]
+fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
+    for digest_suite in [
+        arkret_canonical::DigestSuite::Sha256,
+        arkret_canonical::DigestSuite::Blake3,
+    ] {
+        let create = agent_pcr_genesis_with_digest_suite(digest_suite);
+        let signer = agent_controller_seal_signer();
+        let genesis_seal = build_agent_pcr_bootstrap_seal(
+            std::slice::from_ref(&create),
+            Hlc::new("01970e589d21-0016-a13f9c2e").unwrap(),
+            &signer,
+            &registry_projection,
+        )
+        .unwrap();
+        let payload: AgentKeyAuthorizePayload = serde_json::from_value(serde_json::json!({
+            "agent_id": create.actor_id.signing_principal_id(),
+            "key_id": "runtime-key-1",
+            "verification_method": "did:webvh:z6mkfixtureagent:agent.example#runtime-key-1",
+            "public_key": {
+                "kty": "OKP",
+                "kid": "did:webvh:z6mkfixtureagent:agent.example#runtime-key-1",
+                "algorithm": "Ed25519",
+                "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+            },
+            "accountable_principal_id": create
+                .executed_by
+                .as_ref()
+                .unwrap()
+                .signing_principal_id(),
+            "agent_key_scope": {
+                "actions": ["ak.message.create"],
+                "resources": []
+            },
+            "audience": ["https://arkret.example"],
+            "issued_at": "2026-07-15T00:01:00.000Z",
+            "approval_evidence": {
+                "kind": "pairing_request",
+                "pairing_request_id":
+                    "agent_pairing_request:01999999-0000-7000-8000-00000000feed",
+                "request_canonical_digest":
+                    "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                "approved_by": create
+                    .executed_by
+                    .as_ref()
+                    .unwrap()
+                    .signing_principal_id()
+            }
+        }))
+        .unwrap();
+        let intent = build_agent_key_authorize_intent(
+            &payload,
+            ScopeRef::Realm {
+                realm_id: create.realm_id.clone(),
+            },
+            create.actor_id.clone(),
+            create.executed_by.clone().unwrap(),
+            DidUrl::new(create.authorization_ref.as_ref().unwrap().as_str()).unwrap(),
+            "2026-07-15T00:01:00.000Z".parse().unwrap(),
+        )
+        .unwrap()
+        .with_prev_refs(vec![create.event_id.clone()])
+        .with_seal_basis(SealBasis {
+            leaves: vec![genesis_seal.id.clone()],
+        });
+        let mut authored = intent
+            .author_with_digest_suite(
+                1,
+                Hlc::new("01970e589d21-0017-a13f9c2e").unwrap(),
+                digest_suite,
+            )
+            .unwrap();
+        arkret_signatures::sign_event(
+            &mut authored,
+            &signer,
+            signer.verification_method_id(),
+            arkret_signatures::SignEventOptions::new()
+                .with_created_at("2026-07-15T00:01:00.000Z".parse().unwrap()),
+        )
+        .unwrap();
+        authored
+            .validate_proof_bindings_with_digest_suite(digest_suite)
+            .unwrap();
+        let authorize = authored.into_event();
+        AgentKeyAuthorizePayload::try_from(&authorize).unwrap();
+
+        let material = materialize_agent_pcr_control(
+            &[create.clone(), authorize.clone()],
+            &registry_projection,
+        )
+        .unwrap();
+        assert_eq!(material.digest_suite, digest_suite);
+        assert_eq!(material.state_root.digest_suite().unwrap(), digest_suite);
+        assert!(material.event_ops.iter().any(|(cell, _)| {
+            cell.as_str()
+                .starts_with("ak:cell:ak.component.agent.key.v1:")
+        }));
+
+        let authorize_digest = Hash::new(
+            authorize
+                .event_digest_with_digest_suite(digest_suite)
+                .unwrap(),
+        )
+        .unwrap();
+        let covered = material
+            .covered_event_digests
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let control_event_set_root =
+            arkret_state::control_event_set_root(&covered, digest_suite).unwrap();
+        let completeness_root = arkret_state::control_event_completeness_root(
+            &[
+                (create.clone(), arkret_canonical::DigestSuite::Sha256),
+                (authorize, digest_suite),
+            ],
+            &covered,
+            digest_suite,
+        )
+        .unwrap();
+        let request = SealPrepareRequestBody {
+            realm_id: create.realm_id.clone(),
+            predecessor_refs: vec![genesis_seal.id],
+            event_digests: vec![authorize_digest],
+            hlc: Hlc::new("01970e589d21-0018-a13f9c2e").unwrap(),
+        };
+        let prepared = SealPrepareOutcome {
+            seal_body: UnsignedSeal {
+                realm_id: request.realm_id.clone(),
+                predecessor_refs: request.predecessor_refs.clone(),
+                delta: request.event_digests.clone(),
+                control_event_set_root,
+                state_root: material.state_root,
+                completeness_root,
+                notary_seq: 1,
+                data_view_root: None,
+                data_event_set_root: None,
+                availability_receipt_digests: vec![
+                    Hash::new(arkret_canonical::digest(
+                        digest_suite,
+                        b"availability-receipt",
+                    ))
+                    .unwrap(),
+                ],
+                covered_event_digests: Vec::new(),
+                previous_state_root: None,
+                previous_digest_algorithm: None,
+                sealed_at: "2026-07-15T00:02:00.000Z".parse().unwrap(),
+                hlc: request.hlc.clone(),
+            },
+        };
+        let seal = prepared.sign(&request, &signer).unwrap();
+        seal.validate_id(digest_suite).unwrap();
+        assert_eq!(seal.state_root.digest_suite().unwrap(), digest_suite);
+        let NotarySig::Single(signature) = &seal.notary_signature else {
+            panic!("Agent PCR successor Seal must use one controller signature")
         };
         assert_eq!(
             signature.payload_digest.digest_suite().unwrap(),
