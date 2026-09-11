@@ -96,7 +96,7 @@ impl SealDigestSuites {
 impl SealEffect {
     /// The accepted set in the one order a peer can reproduce.
     ///
-    /// `service-operation-dtos.schema.json#/$defs/EventSealSubmitOutcome`
+    /// `service-operation-dtos.schema.json#/$defs/SealSubmitOutcome`
     /// defines `accepted_event_digests` as a *set*: byte-wise ascending and
     /// unique, the same normalization `Seal.delta` carries. Apply order is a
     /// local reducer detail and is deliberately not observable — a client cannot

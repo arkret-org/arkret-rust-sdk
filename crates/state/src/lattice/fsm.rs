@@ -56,11 +56,11 @@ impl Fsm {
 /// resolves that contract, and repeating the literal at each of them is how
 /// three separate copies of this fold came to exist.
 ///
-/// The transition algebra itself is resolved (§9.3.1.5-§9.3.1.8, ruling in
-/// `arkret-work/review/spec-done/
-/// 2026-09-06-2056-station-sealed-control-chain-and-independent-recovery.md` section 8), and the
-/// fold is gone: this is now the registry literal that one caller still reaches for, not a parallel
-/// state machine.
+/// The transition algebra itself is resolved (§9.3.1.5-§9.3.1.8) and the fold
+/// is gone: this is now the registry literal that one caller still reaches for,
+/// not a parallel state machine. The ruling is section 8 of
+///
+/// review/spec-done/2026-09-06-2056-station-sealed-control-chain-and-independent-recovery.md
 pub const MEMBERSHIP_INITIAL_STATE: &str = "leave";
 
 /// The active head identities that put a membership cell in `target`
