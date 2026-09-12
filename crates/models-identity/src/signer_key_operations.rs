@@ -14,7 +14,8 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, DeviceId, DidUrl, ErrorCode, EventId, RealmId, RequestId, Result,
+    AccountId, ActorId, Base64UrlString, DeviceId, DidUrl, ErrorCode, EventId, RealmId, RequestId,
+    Result,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -82,20 +83,53 @@ fn validate_ed25519_public_key(value: &str) -> Result<()> {
     Ok(())
 }
 
+/// Query-local key material. Identity is bound by the complete enclosing
+/// selector and is never duplicated in this wire object.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct QuerySigningKey {
+    pub public_key_b64u: Base64UrlString,
+    pub authorization_ref: EventId,
+}
+
+impl QuerySigningKey {
+    pub fn validate(&self) -> Result<()> {
+        validate_ed25519_public_key(self.public_key_b64u.as_str())
+    }
+
+    pub fn from_station_key(
+        key: StationSigningKey,
+        selector: &SignerKeyQuerySelector,
+    ) -> Result<Self> {
+        key.validate()?;
+        selector.validate()?;
+        if key.actor != *selector.actor()
+            || key.verification_method != *selector.verification_method()
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "signing key does not match the complete query selector",
+            ));
+        }
+        Ok(Self {
+            public_key_b64u: key.public_key_b64u,
+            authorization_ref: key.authorization_ref,
+        })
+    }
+}
+
 /// Historical device signing key. It carries no `authorization_ref`: the
 /// authority question was already settled when the Event was accepted.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HistoricalDeviceSigningKey {
-    pub actor: ActorId,
-    pub verification_method: DidUrl,
     pub public_key_b64u: String,
 }
 
 impl HistoricalDeviceSigningKey {
     pub fn validate(&self) -> Result<()> {
-        validate_signing_actor(&self.actor)?;
         validate_ed25519_public_key(&self.public_key_b64u)
     }
 }
@@ -234,7 +268,7 @@ impl SignerKeysQueryRequestBody {
 pub struct CurrentSignerKeyOutcome {
     pub selector: SignerKeyQuerySelector,
     pub status: SignerEvidenceResolvedStatus,
-    pub key: StationSigningKey,
+    pub key: QuerySigningKey,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -256,7 +290,7 @@ pub struct HistoricalAccountDeviceSignerKeyOutcome {
 pub struct HistoricalAgentSignerKeyOutcome {
     pub selector: HistoricalAgentSelector,
     pub status: SignerEvidenceResolvedStatus,
-    pub key: StationSigningKey,
+    pub key: QuerySigningKey,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
 }
@@ -304,9 +338,9 @@ impl SignerKeyQueryOutcome {
     #[must_use]
     pub fn verification_method(&self) -> Option<&DidUrl> {
         match self {
-            Self::Current(result) => Some(&result.key.verification_method),
-            Self::HistoricalAgent(result) => Some(&result.key.verification_method),
-            Self::HistoricalAccountDevice(result) => Some(&result.key.verification_method),
+            Self::Current(result) => Some(result.selector.verification_method()),
+            Self::HistoricalAgent(result) => Some(&result.selector.verification_method),
+            Self::HistoricalAccountDevice(result) => Some(&result.selector.verification_method),
             Self::Unavailable(_) => None,
         }
     }
@@ -332,14 +366,6 @@ impl SignerKeyQueryOutcome {
             Self::HistoricalAgent(result) => result.key.validate()?,
             Self::HistoricalAccountDevice(result) => result.key.validate()?,
             Self::Unavailable(_) => return Ok(()),
-        }
-        // The answered key must be the exact method the selector asked about;
-        // a Station that substitutes another key is not answering the question.
-        if self.verification_method() != Some(selector.verification_method()) {
-            return Err(self_signer_error(
-                ErrorCode::SchemaViolation,
-                "signer key result answers a different verification method than its selector",
-            ));
         }
         Ok(())
     }
@@ -503,7 +529,8 @@ mod tests {
                 SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
                     selector: current_selector(),
                     status: SignerEvidenceResolvedStatus::Resolved,
-                    key: station_key(),
+                    key: QuerySigningKey::from_station_key(station_key(), &current_selector())
+                        .unwrap(),
                 }),
                 SignerKeyQueryOutcome::Unavailable(UnavailableSignerKeyOutcome {
                     selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
@@ -525,15 +552,40 @@ mod tests {
 
     #[test]
     fn a_result_may_not_substitute_another_verification_method() {
-        let swapped = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
+        let mut key = station_key();
+        key.verification_method = DidUrl::new("did:web:alice.example#device-2").unwrap();
+        assert!(QuerySigningKey::from_station_key(key, &current_selector()).is_err());
+        let mut result = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
             selector: current_selector(),
             status: SignerEvidenceResolvedStatus::Resolved,
-            key: StationSigningKey {
-                verification_method: DidUrl::new("did:web:alice.example#device-2").unwrap(),
-                ..station_key()
-            },
+            key: QuerySigningKey::from_station_key(station_key(), &current_selector()).unwrap(),
         });
-        assert!(swapped.validate().is_err());
+        if let SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
+            selector: SignerKeyQuerySelector::CurrentAccountDevice(selector),
+            ..
+        }) = &mut result
+        {
+            selector.verification_method = DidUrl::new("did:web:alice.example#device-2").unwrap();
+        }
+        let mut request = request();
+        request.queries.truncate(1);
+        let outcome = SignerKeysQueryOutcome {
+            request_id: request.request_id.clone(),
+            realm_id: request.realm_id.clone(),
+            recipient_account_id: request.recipient_account_id.clone(),
+            results: vec![result],
+        };
+        assert!(outcome.validate_for_request(&request).is_err());
+    }
+
+    #[test]
+    fn query_key_rejects_duplicate_identity_fields() {
+        let key = QuerySigningKey::from_station_key(station_key(), &current_selector()).unwrap();
+        let mut value = serde_json::to_value(key).unwrap();
+        assert!(value.get("actor").is_none());
+        assert!(value.get("verification_method").is_none());
+        value["actor"] = serde_json::to_value(ActorId::account(account())).unwrap();
+        assert!(serde_json::from_value::<QuerySigningKey>(value).is_err());
     }
 
     #[test]
@@ -541,7 +593,7 @@ mod tests {
         let mismatched = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
             selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
             status: SignerEvidenceResolvedStatus::Resolved,
-            key: station_key(),
+            key: QuerySigningKey::from_station_key(station_key(), &current_selector()).unwrap(),
         });
         assert!(mismatched.validate().is_err());
     }
