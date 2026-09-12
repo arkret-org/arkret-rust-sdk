@@ -327,7 +327,7 @@ mod tests {
             .unwrap();
         let pre = std::collections::BTreeMap::from([(
             cell.clone(),
-            crate::ResolvedCellState::Sequenced(crate::SequencedStateValue {
+            ResolvedCellState::Sequenced(crate::SequencedStateValue {
                 revision_event_id: event.event_id.clone(),
                 value: Value::String("leave".into()),
             }),

@@ -3390,10 +3390,7 @@ mod tests {
         for family in [arkret_wire::CellFamilyId::MEMBER_STATE_V1] {
             let cell = CellRef::new(format!("ak:cell:{family}:fixture")).unwrap();
             let value = json!("joined");
-            let revision_event_id = arkret_wire::EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [0x11; 32],
-            );
+            let revision_event_id = EventId::from_digest(DigestSuite::Sha256, [0x11; 32]);
             let sequence = SequencedStateValue {
                 revision_event_id: revision_event_id.clone(),
                 value: value.clone(),

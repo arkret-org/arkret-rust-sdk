@@ -164,7 +164,8 @@ fn wider_later_cut_cannot_revive_an_excluded_event() {
         classify_ordinary_history(&b, &inventory, &source).unwrap(),
         OrdinaryHistoryEligibility::Quarantined {
             closing_commands: BTreeSet::from([id("first")]),
-            unauthorized_events: BTreeSet::new()
+            unauthorized_events: BTreeSet::new(),
+            rejected_commands: BTreeSet::new(),
         }
     );
 }
@@ -308,7 +309,8 @@ fn historical_authorization_denial_is_quarantine_not_invalid_evidence() {
         classify_ordinary_history(&target, &inventory(vec![]), &source).unwrap(),
         OrdinaryHistoryEligibility::Quarantined {
             closing_commands: BTreeSet::new(),
-            unauthorized_events: BTreeSet::from([target.clone()])
+            unauthorized_events: BTreeSet::from([target.clone()]),
+            rejected_commands: BTreeSet::new(),
         }
     );
     assert!(frontier_for_complete_history(&BTreeSet::from([target]), &source).is_err());

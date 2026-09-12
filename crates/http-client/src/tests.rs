@@ -1182,18 +1182,17 @@ mod events_submit_tests {
         let empty_list = arkret_models_crypto::KeysBackupsList {
             backups: Vec::new(),
             active_series: arkret_models_crypto::BackupActiveSeriesState {
-                account_id: arkret_wire::AccountId::new(
-                    arkret_wire::DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-                    arkret_wire::DidCoreId::new("ak:did_core:web:service.example").unwrap(),
+                account_id: AccountId::new(
+                    DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+                    DidCoreId::new("ak:did_core:web:service.example").unwrap(),
                 ),
-                control_realm_id: arkret_wire::RealmId::new(
+                control_realm_id: RealmId::new(
                     "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5",
                 )
                 .unwrap(),
-                seal_basis: arkret_wire::SealBasis {
+                seal_basis: SealBasis {
                     leaves: vec![
-                        arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64)))
-                            .unwrap(),
+                        SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap(),
                     ],
                 },
                 secret_storage: arkret_models_crypto::BackupActiveSeriesPointer::Absent {},

@@ -134,7 +134,7 @@ fn space_events_create_update_parent_and_tombstone() {
     let space_id_owned = derived_object_id("ak:space:", 1);
     let space_id = space_id_owned.as_str();
     let parent_create = space_create_event(5);
-    let parent_id = arkret_wire::SpaceId::from_event_id(&parent_create.event_id);
+    let parent_id = SpaceId::from_event_id(&parent_create.event_id);
     let parent_space_id = parent_id.as_str();
     let create = event(
         EventKind::SpaceCreate,

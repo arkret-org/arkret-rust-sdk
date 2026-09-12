@@ -262,17 +262,11 @@ fn restore_realm_state_snapshot<F>(
     chunks: &[Vec<u8>],
     options: &RealmStateSnapshotVerifyOptions,
     verify: F,
-) -> std::result::Result<RealmStateSnapshotRestore, RealmStateSnapshotValidationError>
+) -> Result<RealmStateSnapshotRestore, RealmStateSnapshotValidationError>
 where
-    F: FnOnce(&DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+    F: FnOnce(&DidUrl, &[u8], &str) -> Result<(), String>,
 {
-    super::restore::restore_realm_state_snapshot(
-        manifest,
-        chunks,
-        options,
-        verify,
-        |_, _, _| Ok(()),
-    )
+    restore::restore_realm_state_snapshot(manifest, chunks, options, verify, |_, _, _| Ok(()))
 }
 
 fn replay_evidence() -> SnapshotReplayEvidence {
@@ -293,7 +287,7 @@ fn build_realm_state_snapshot_chunks(
     items: Vec<RealmStateSnapshotMaterializedItem>,
     size: usize,
 ) -> crate::Result<Vec<BuiltRealmStateSnapshotChunk>> {
-    super::chunking::build_realm_state_snapshot_chunks(id, profile, items, size, replay_evidence())
+    chunking::build_realm_state_snapshot_chunks(id, profile, items, size, replay_evidence())
 }
 
 fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
@@ -303,7 +297,7 @@ fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
     size: usize,
     lists: SnapshotAuxiliaryLists,
 ) -> crate::Result<Vec<BuiltRealmStateSnapshotChunk>> {
-    super::chunking::build_realm_state_snapshot_chunks_with_auxiliary_lists(
+    chunking::build_realm_state_snapshot_chunks_with_auxiliary_lists(
         id,
         profile,
         items,
@@ -1802,7 +1796,7 @@ fn changed_coverage_changes_the_snapshot_commitment() {
 fn restore_rejects_an_unverified_replay_even_with_a_valid_snapshot_signature() {
     let (manifest, chunk_bytes, _) = restore_fixture();
     let transcript = manifest.unsigned_canonical_bytes().unwrap();
-    let result = super::restore::restore_realm_state_snapshot(
+    let result = restore::restore_realm_state_snapshot(
         &manifest,
         &chunk_bytes,
         &restore_options(),

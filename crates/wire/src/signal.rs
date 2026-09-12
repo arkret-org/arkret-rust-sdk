@@ -800,7 +800,7 @@ mod tests {
     }
 
     fn actor() -> ActorId {
-        ActorId::account(crate::AccountId::new(
+        ActorId::account(AccountId::new(
             crate::DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             crate::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
         ))
@@ -1132,11 +1132,8 @@ mod tests {
             key: StationSigningKey {
                 actor: envelope.sender_actor_id.clone(),
                 verification_method: envelope.proof.verification_method.clone(),
-                public_key_b64u: crate::Base64UrlString::new("A".repeat(43)).unwrap(),
-                authorization_ref: crate::EventId::from_digest(
-                    crate::canonical::DigestSuite::Sha256,
-                    [0x42; 32],
-                ),
+                public_key_b64u: Base64UrlString::new("A".repeat(43)).unwrap(),
+                authorization_ref: EventId::from_digest(canonical::DigestSuite::Sha256, [0x42; 32]),
             },
         };
         let signal = SignalStreamFrame::signal(envelope, authority);
