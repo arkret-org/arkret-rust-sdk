@@ -38,7 +38,7 @@ use serde_json::Value;
 
 use crate::cbs::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
-use crate::events::kinds::{CbsEffectPlane, EventKind};
+use crate::events::kinds::EventKind;
 use crate::primitives::{
     ActorId, Audience, CriticalExtension, ProducerEventProof, ProofBindingRequirements,
     SignatureBindingPayload,
@@ -1437,27 +1437,15 @@ impl Event {
             let is_anchor_unit = context == EventSubmitContext::AnchorUnit
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
-            match self.kind.cbs_plane() {
-                Some(CbsEffectPlane::Data) if is_ordinary_event || is_anchor_unit => {}
-                Some(CbsEffectPlane::Control) if is_control_move || is_anchor_unit => {}
-                Some(CbsEffectPlane::Data) => {
-                    return Err(WireError::Protocol(format!(
-                        "data-plane Event kind {} requires auth_context and forbids seal_basis",
-                        self.kind
-                    )));
-                }
-                Some(CbsEffectPlane::Control) => {
-                    return Err(WireError::Protocol(format!(
-                        "control-plane Event kind {} requires seal_basis and forbids auth_context",
-                        self.kind
-                    )));
-                }
-                None => {
-                    return Err(WireError::Protocol(format!(
-                        "reducer-input Event kind {} has no registered CBS plane",
-                        self.kind
-                    )));
-                }
+            // This leaf layer validates only the mutually exclusive envelope
+            // shape. Schema admission derives the actual execution plane from
+            // registered payload predicates; a kind can select data, security
+            // or both. Structural validity alone grants no execution lane.
+            if !is_ordinary_event && !is_control_move && !is_anchor_unit {
+                return Err(WireError::Protocol(format!(
+                    "reducer Event {} requires exactly one auth_context or seal_basis, except in an explicit anchor unit",
+                    self.kind
+                )));
             }
         } else if self.auth_context.is_some()
             || self.seal_basis.is_some()

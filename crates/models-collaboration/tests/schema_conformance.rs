@@ -615,8 +615,9 @@ fn typed_patch_payloads_match_registered_event_payload_schemas() {
         .unwrap();
     let space = SpacePatchPayload {
         space_id: SpaceId::new("ak:space:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
-        patch: space_patch,
+        patch: Some(space_patch),
         expected_state_digest: None,
+        child_scope_policy: None,
     };
     let morph = MorphUpdatePayload::for_morph(
         arkret_wire::MorphId::new("ak:morph:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),

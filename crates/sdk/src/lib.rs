@@ -59,7 +59,6 @@ mod mls_governance;
 mod sdk_error;
 mod sidecar_recovery;
 
-pub use control_projection::{project_control_writes_at_state, project_control_writes_with_revision_guard};
 pub use arkret_auth as auth;
 pub use arkret_auth::session_grant;
 pub use arkret_bootstrap as bootstrap;
@@ -325,7 +324,8 @@ pub use arkret_schema as schema;
 pub use arkret_schema::protocol::*;
 pub use arkret_schema::{
     EventSchemaExt, InviteLiveTargetSlot, PreparedControlMove, PreparedEventPlane,
-    PreparedNonReducerEvent, PreparedOrdinaryEvent, PreparedStandardEvent, invite_live_target_cell,
+    PreparedNonReducerEvent, PreparedOrdinaryEvent, PreparedStandardEvent,
+    classify_event_execution, classify_registered_operation_execution, invite_live_target_cell,
     invite_live_target_free_value,
 };
 #[cfg(feature = "server")]
@@ -401,17 +401,21 @@ pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::tsp_vid::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
-    AccountDataKey, BindingKind, CORE_REDUCER_PROFILE, CapabilityActionId, DIGEST_SUITES,
-    DidFreshnessProfileId, DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass,
-    EventInitialSubmission, EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey,
-    KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId,
-    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofAuthenticatedPublication, ProofContextId,
-    ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES,
-    RELATION_KIND_DESCRIPTORS, ReservationHandle, ResourceMatchScope, ResourceSelectorKind,
-    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
-    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
+    AccountDataKey, BindingKind, CORE_REDUCER_PROFILE, CapabilityActionId, CbsEffectPlane,
+    DIGEST_SUITES, DidFreshnessProfileId, DidFreshnessRiskTier, EXPORTER_LABELS, EffectId,
+    EvaluationClass, EventCellRule, EventCellRuleKey, EventInitialSubmission, EventKind,
+    ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey, KeyPackageClaimId, KeyPackageRef,
+    MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId, PROOF_CONTEXTS, ProfileId, ProfileRole,
+    ProofAuthenticatedPublication, ProofContextId, ProtocolOpaqueId, ProtocolOperationId,
+    ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
+    ResourceMatchScope, ResourceSelectorKind, SERVICE_KIND_DESCRIPTORS,
+    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKind,
+    ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
     WireResourceSelector, XExtensionMap, contains_query_auth_material, error_codes, event_spec,
     is_query_auth_parameter,
+};
+pub use control_projection::{
+    project_control_writes_at_state, project_control_writes_with_revision_guard,
 };
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,
@@ -573,8 +577,67 @@ pub fn pre_authoring_cell_writes(
     intent: &EventIntent,
     digest_suite: DigestSuite,
 ) -> std::result::Result<Vec<ProjectedCellWrite>, arkret_schema::EventCellContractError> {
+    let input = pre_authoring_projection_input(intent, digest_suite);
+    let sentinel = &input.event_id;
+    let writes = arkret_schema::project_registered_operation_writes(&input, digest_suite)?;
+    // Registry-driven, not a substring guess: these are exactly the object ids
+    // this kind would retype from the sentinel identity, so a cell naming one is
+    // a cell that moves when the real identity is derived.
+    let derived = arkret_schema::derived_object_ids_for_kind(intent.kind().as_str(), sentinel);
+    if writes.iter().any(|write| {
+        derived
+            .iter()
+            .any(|object_id| write.cell_id.as_str().contains(object_id))
+    }) {
+        return Err(arkret_schema::EventCellContractError::SubjectDerivation {
+            kind: intent.kind().as_str().to_owned(),
+            message: "the cell is keyed by this Event's own identity, which does not exist before authoring"
+                .to_owned(),
+        });
+    }
+    Ok(writes)
+}
+
+/// Classify an unsigned intent from the registered payload predicates without
+/// deriving self-addressed cells. No placeholder identity enters an envelope
+/// or affects the result; a registry predicate requiring an unavailable
+/// envelope coordinate fails closed instead of guessing its eventual value.
+pub fn classify_intent_execution(
+    intent: &EventIntent,
+) -> std::result::Result<Option<CbsEffectPlane>, arkret_schema::EventCellContractError> {
+    if let Some(descriptor) = intent.kind().descriptor() {
+        for write in descriptor.cell_writes {
+            for rule in [write.condition_rule, write.for_each_rule]
+                .into_iter()
+                .flatten()
+            {
+                if !rule
+                    .field(EventCellRuleKey::Field)
+                    .and_then(EventCellRule::as_str)
+                    .is_some_and(|field| field.starts_with("payload."))
+                {
+                    return Err(arkret_schema::EventCellContractError::SubjectDerivation {
+                        kind: intent.kind().as_str().to_owned(),
+                        message:
+                            "execution predicate requires unavailable pre-authoring coordinates"
+                                .to_owned(),
+                    });
+                }
+            }
+        }
+    }
+    classify_registered_operation_execution(&pre_authoring_projection_input(
+        intent,
+        DigestSuite::Sha256,
+    ))
+}
+
+fn pre_authoring_projection_input(
+    intent: &EventIntent,
+    digest_suite: DigestSuite,
+) -> ProjectedEventInput {
     let sentinel = EventId::from_digest(digest_suite, CELL_PROJECTION_SENTINEL);
-    let input = ProjectedEventInput {
+    ProjectedEventInput {
         kind: intent.kind().clone(),
         event_id: sentinel.clone(),
         actor_id: intent.actor_id().clone(),
@@ -589,24 +652,7 @@ pub fn pre_authoring_cell_writes(
         refs: intent.refs().to_vec(),
         preconditions: intent.preconditions().to_vec(),
         seal_basis: intent.seal_basis().cloned(),
-    };
-    let writes = arkret_schema::project_registered_operation_writes(&input, digest_suite)?;
-    // Registry-driven, not a substring guess: these are exactly the object ids
-    // this kind would retype from the sentinel identity, so a cell naming one is
-    // a cell that moves when the real identity is derived.
-    let derived = arkret_schema::derived_object_ids_for_kind(intent.kind().as_str(), &sentinel);
-    if writes.iter().any(|write| {
-        derived
-            .iter()
-            .any(|object_id| write.cell_id.as_str().contains(object_id))
-    }) {
-        return Err(arkret_schema::EventCellContractError::SubjectDerivation {
-            kind: intent.kind().as_str().to_owned(),
-            message: "the cell is keyed by this Event's own identity, which does not exist before authoring"
-                .to_owned(),
-        });
     }
-    Ok(writes)
 }
 
 pub mod calendar {

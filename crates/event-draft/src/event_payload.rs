@@ -281,7 +281,7 @@ event_payload_accessors! {
     event_spec::StrandReorder => (as_strand_reorder, StrandReorderPayload),
     event_spec::StrandWatchSet => (as_strand_watch_set, StrandWatchSetPayload),
     event_spec::SpaceCreate => (as_space_create, SpaceCreatePayload),
-    event_spec::SpaceUpdate => (as_space_update, SpacePatchPayload),
+    event_spec::SpaceUpdate => (as_space_update, SpacePatchPayload, SpacePatchPayload::validate),
     event_spec::SpaceParent => (as_space_parent, SpaceParentPayload),
     event_spec::SpaceArchive => (as_space_archive, SpaceStateTransitionPayload),
     event_spec::SpaceRestore => (as_space_restore, SpaceStateTransitionPayload),

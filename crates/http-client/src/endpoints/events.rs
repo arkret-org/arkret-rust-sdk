@@ -343,7 +343,9 @@ impl Client {
                 control_proposal_ack: None,
                 membership_compensation_evidence: None,
             };
-            let is_control_move = event.kind.is_control_plane();
+            let is_control_move = arkret_schema::classify_event_execution(event)
+                .map_err(|error| Error::Protocol(error.to_string()))?
+                == Some(arkret_wire::CbsEffectPlane::Control);
             if is_control_move && (!anchor_unit || collect_anchor_receipts) {
                 let request = ControlProposalAckIssueRequest {
                     event: event.clone(),

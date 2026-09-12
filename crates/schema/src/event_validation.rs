@@ -18,7 +18,12 @@ pub fn validate_event_for_submit(event: &Event) -> Result<()> {
     event
         .validate_for_submit_structural()
         .map_err(|error| SchemaError::Protocol(error.to_string()))?;
-    validate_event_wire_schema(event)
+    validate_event_wire_schema(event)?;
+    crate::validate_registered_cell_plane_in_context(
+        event,
+        crate::EventCellContractContext::Standard,
+    )
+    .map_err(|error| SchemaError::Protocol(error.to_string()))
 }
 
 /// Typed wire validation layered on top of the wire [`Event`].

@@ -8,7 +8,11 @@
 
 use arkret_wire::{CbsEffectPlane, Event};
 
-use crate::{Result, SchemaError, validate_event_for_submit};
+use crate::{Result, SchemaError, classify_event_execution, validate_event_for_submit};
+
+fn actual_plane(event: &Event) -> Result<Option<CbsEffectPlane>> {
+    classify_event_execution(event).map_err(|error| SchemaError::Protocol(error.to_string()))
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PreparedEventPlane {
@@ -51,7 +55,7 @@ impl TryFrom<Event> for PreparedOrdinaryEvent {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        if !event.kind.is_data_plane()
+        if actual_plane(&event)? != Some(CbsEffectPlane::Data)
             || event.auth_context.is_none()
             || event.seal_basis.is_some()
         {
@@ -68,7 +72,7 @@ impl TryFrom<Event> for PreparedControlMove {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        if !event.kind.is_control_plane()
+        if actual_plane(&event)? != Some(CbsEffectPlane::Control)
             || event.auth_context.is_some()
             || event.seal_basis.is_none()
         {
@@ -86,7 +90,7 @@ impl TryFrom<Event> for PreparedNonReducerEvent {
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
         if event.kind.is_reducer_input()
-            || event.kind.cbs_plane().is_some()
+            || actual_plane(&event)?.is_some()
             || event.auth_context.is_some()
             || event.seal_basis.is_some()
             || !event.preconditions.is_empty()
@@ -143,14 +147,12 @@ impl TryFrom<Event> for PreparedStandardEvent {
 
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
-        match event.kind.cbs_plane() {
-            Some(CbsEffectPlane::Data) => Ok(Self::Data(PreparedOrdinaryEvent(event))),
-            Some(CbsEffectPlane::Control) => Ok(Self::Control(PreparedControlMove(event))),
-            None if event.kind.is_reducer_input() => Err(SchemaError::Protocol(format!(
-                "reducer-input Event kind {} has no registered CBS plane",
-                event.kind
-            ))),
-            None => Ok(Self::NonReducer(PreparedNonReducerEvent(event))),
+        match actual_plane(&event)? {
+            Some(CbsEffectPlane::Data) => PreparedOrdinaryEvent::try_from(event).map(Self::Data),
+            Some(CbsEffectPlane::Control) => {
+                PreparedControlMove::try_from(event).map(Self::Control)
+            }
+            None => PreparedNonReducerEvent::try_from(event).map(Self::NonReducer),
         }
     }
 }
@@ -273,5 +275,94 @@ mod tests {
     fn standard_event_classification_preserves_the_validated_plane() {
         let prepared = PreparedStandardEvent::try_from(message_event()).expect("prepared Event");
         assert_eq!(prepared.plane(), PreparedEventPlane::Data);
+    }
+
+    fn space_update(payload: serde_json::Value) -> Event {
+        let mut event = message_event();
+        event.kind = arkret_wire::EventKind::SpaceUpdate;
+        event.payload = serde_json::from_value(payload).unwrap();
+        event
+    }
+
+    fn with_control_basis(mut event: Event) -> Event {
+        event.auth_context = None;
+        event.seal_basis = Some(arkret_wire::SealBasis {
+            leaves: vec![
+                arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
+            ],
+        });
+        event
+    }
+
+    #[test]
+    fn conditional_metadata_update_remains_ordinary_without_an_ack() {
+        let event = space_update(json!({
+            "space_id": "ak:space:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "patch": {"title": "renamed"}
+        }));
+        assert_eq!(
+            classify_event_execution(&event).unwrap(),
+            Some(CbsEffectPlane::Data)
+        );
+        assert_eq!(
+            crate::project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            PreparedStandardEvent::try_from(event.clone())
+                .unwrap()
+                .plane(),
+            PreparedEventPlane::Data
+        );
+        assert!(PreparedOrdinaryEvent::try_from(event.clone()).is_ok());
+        assert!(PreparedControlMove::try_from(with_control_basis(event)).is_err());
+    }
+
+    #[test]
+    fn conditional_policy_and_mixed_updates_are_atomic_control_commands() {
+        for patch in [None, Some(json!({"title": "renamed"}))] {
+            let mut event = space_update(json!({
+                "space_id": "ak:space:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+                "child_scope_policy": {"kind": "allow_any"}
+            }));
+            let expected_writes = if let Some(patch) = patch {
+                event.payload.insert("patch".into(), patch);
+                2
+            } else {
+                1
+            };
+            assert_eq!(
+                classify_event_execution(&event).unwrap(),
+                Some(CbsEffectPlane::Control)
+            );
+            assert_eq!(
+                crate::project_registered_cell_writes(
+                    &event,
+                    arkret_canonical::DigestSuite::Sha256
+                )
+                .unwrap()
+                .len(),
+                expected_writes
+            );
+            assert!(PreparedOrdinaryEvent::try_from(event.clone()).is_err());
+            assert!(PreparedStandardEvent::try_from(event.clone()).is_err());
+            assert_eq!(
+                PreparedStandardEvent::try_from(with_control_basis(event))
+                    .unwrap()
+                    .plane(),
+                PreparedEventPlane::Control
+            );
+        }
+    }
+
+    #[test]
+    fn reducer_with_no_selected_effect_is_not_an_ordinary_noop() {
+        let event = space_update(json!({
+            "space_id": "ak:space:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+        }));
+        assert!(classify_event_execution(&event).is_err());
+        assert!(PreparedStandardEvent::try_from(event).is_err());
     }
 }

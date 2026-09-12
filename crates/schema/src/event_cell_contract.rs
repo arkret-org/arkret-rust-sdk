@@ -10,10 +10,10 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    AccountId, ActorId, CbsEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey,
-    EventCellRuleOperator, EventCellValueShape, EventCellWriteDescriptor, EventId, EventKind,
-    LatticeOp, LatticeOpType, NULL_SUBJECT, Precondition, Predicate, PredicateOp,
-    ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
+    AccountId, ActorId, CbsEffectPlane, CellRef, Event, EventCellExecution, EventCellRule,
+    EventCellRuleKey, EventCellRuleOperator, EventCellValueShape, EventCellWriteDescriptor,
+    EventId, EventKind, LatticeOp, LatticeOpType, NULL_SUBJECT, Precondition, Predicate,
+    PredicateOp, ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -475,7 +475,7 @@ fn project_registered_operation_writes_with_pre_state(
         // `condition` still consumes one. The dot must be reproducible from the
         // registry alone; renumbering the surviving writes would make it depend
         // on payload shape.
-        if !condition_matches(event, write.condition_rule, &kind)? {
+        if !write_applies(event, write, &kind)? {
             continue;
         }
         if write.for_each_rule.is_some() {
@@ -790,9 +790,94 @@ pub fn validate_registered_cell_plane_in_context(
     context: EventCellContractContext,
 ) -> Result<(), EventCellContractError> {
     if event.kind.is_reducer_input() {
-        validate_plane(event, event.kind.cbs_plane(), context)?;
+        validate_plane(event, classify_event_execution(event)?, context)?;
     }
     Ok(())
+}
+
+/// Classify the actual registered writes selected by this Event's signed
+/// payload. Any selected security write makes the whole Event a control
+/// command. Kind-level metadata is only an index of possible effects.
+/// This evaluates the same conditions as projection without inventing a
+/// frozen pre-state or requiring authority material merely to choose a lane.
+/// Callers still validate the full payload, authorization and projected effects.
+pub fn classify_event_execution(
+    event: &Event,
+) -> Result<Option<CbsEffectPlane>, EventCellContractError> {
+    classify_registered_operation_execution(&ProjectedEventInput::from(event))
+}
+
+/// The same actual-write classifier for an immutable accepted operation.
+pub fn classify_registered_operation_execution(
+    event: &ProjectedEventInput,
+) -> Result<Option<CbsEffectPlane>, EventCellContractError> {
+    let kind = event.kind.as_str();
+    if !event.kind.is_reducer_input() {
+        return Ok(None);
+    }
+    let descriptor = event
+        .kind
+        .descriptor()
+        .ok_or_else(|| EventCellContractError::UnregisteredReducerInput(kind.to_owned()))?;
+    if descriptor.cell_writes.is_empty() {
+        return Err(EventCellContractError::MissingCellContract(kind.to_owned()));
+    }
+    let mut plane = None;
+    for write in descriptor.cell_writes {
+        if !write_applies(event, write, kind)? {
+            continue;
+        }
+        match write
+            .execution
+            .ok_or_else(|| effect_set_error(kind, "registered write omits execution"))?
+        {
+            EventCellExecution::Data => {
+                if plane.is_none() {
+                    plane = Some(CbsEffectPlane::Data);
+                }
+            }
+            EventCellExecution::Security => {
+                plane = Some(CbsEffectPlane::Control);
+            }
+        }
+    }
+    plane
+        .map(Some)
+        .ok_or_else(|| effect_set_error(kind, "reducer Event has no applicable registered writes"))
+}
+
+fn write_applies(
+    event: &ProjectedEventInput,
+    write: &EventCellWriteDescriptor,
+    kind: &str,
+) -> Result<bool, EventCellContractError> {
+    if !condition_matches(event, write.condition_rule, kind)? {
+        return Ok(false);
+    }
+    let Some(expansion) = write.for_each_rule else {
+        return Ok(true);
+    };
+    let field = expansion
+        .field(EventCellRuleKey::Field)
+        .and_then(EventCellRule::as_str)
+        .ok_or_else(|| effect_set_error(kind, "write expansion omits field"))?;
+    let Some(value) = field_value(event, field) else {
+        return Ok(false);
+    };
+    let max_items = expansion
+        .field(EventCellRuleKey::MaxItems)
+        .and_then(EventCellRule::as_u64)
+        .ok_or_else(|| effect_set_error(kind, "write expansion omits max_items"))?;
+    let entries = value
+        .as_array()
+        .ok_or_else(|| effect_set_error(kind, "write expansion requires an array"))?;
+    if entries.is_empty() || entries.len() as u64 > max_items {
+        return Err(effect_set_error(
+            kind,
+            "write expansion violates its registered bounds",
+        ));
+    }
+    Ok(true)
 }
 
 /// Locate the registered `ak.component.invite.live_target.v1` write on one
