@@ -411,7 +411,7 @@ fn device_history_authenticates_genesis_and_exact_authorize_revoke_instances() {
     );
     let added_id = added.event_id.clone();
     f.append(vec![added]);
-    let revoke=f.event(EventKind::DeviceRevoke,json!({"device_id":device(2),"revoked_by":device(1),"revoked_at":at(),"reason":"user_requested"}));
+    let revoke=f.event(EventKind::DeviceRevoke,json!({"device_id":device(2),"revoked_by":device(1),"revoked_at":"2026-09-12T00:00:00.000Z","reason":"user_requested"}));
     let revoke_id = revoke.event_id.clone();
     f.append(vec![revoke]);
     let verified = f.verify().unwrap();
@@ -523,7 +523,7 @@ fn device_history_rejects_fenced_and_revoked_producers_even_with_valid_event_sig
     let mut fenced = Fixture::new();
     fenced.append(fenced.reanchor(false));
     let stale = fenced.event(EventKind::DeviceRevoke,
-        json!({"device_id":device(3),"revoked_by":device(1),"revoked_at":at(),"reason":"user_requested"}));
+        json!({"device_id":device(3),"revoked_by":device(1),"revoked_at":"2026-09-12T00:00:00.000Z","reason":"user_requested"}));
     fenced.append(vec![stale]);
     assert!(matches!(
         fenced.verify(),
@@ -532,7 +532,7 @@ fn device_history_rejects_fenced_and_revoked_producers_even_with_valid_event_sig
 
     let mut revoked = Fixture::new();
     let revoke = revoked.event(EventKind::DeviceRevoke,
-        json!({"device_id":device(1),"revoked_by":device(1),"revoked_at":at(),"reason":"user_requested"}));
+        json!({"device_id":device(1),"revoked_by":device(1),"revoked_at":"2026-09-12T00:00:00.000Z","reason":"user_requested"}));
     revoked.append(vec![revoke]);
     let stale = revoked.event(
         EventKind::DeviceAuthorize,
@@ -565,7 +565,7 @@ fn device_history_new_authorization_does_not_revive_the_revoked_instance() {
     let first_id = first.event_id.clone();
     f.append(vec![first]);
     let revoke = f.event(EventKind::DeviceRevoke,
-        json!({"device_id":device(2),"revoked_by":device(1),"revoked_at":at(),"reason":"user_requested"}));
+        json!({"device_id":device(2),"revoked_by":device(1),"revoked_at":"2026-09-12T00:00:00.000Z","reason":"user_requested"}));
     f.append(vec![revoke]);
     let replacement = f.event(
         EventKind::DeviceAuthorize,
