@@ -964,13 +964,9 @@ pub async fn history_access_from_verified_checkpoint(
     let cell = arkret_wire::CellRef::new(cell)?;
     let registry = arkret_lattice_registry::try_build_sdk_state_registry()
         .map_err(|error| WireError::Protocol(error.to_string()))?;
-    let audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
     let value = arkret_state::mls_governance_proof::materialize_registered_cell_value_from_verified_checkpoint(
         checkpoint, &cell, &registry,
-        |event, digest_suite| arkret_schema::project_registered_cell_writes_with_authority_resolver(
-            event, digest_suite, &|grant_id| audits.resolve(grant_id),
-        ).map_err(|error| error.to_string()),
+        crate::project_control_writes_at_state,
     ).await?;
     serde_json::from_value(value)
         .map_err(|error| WireError::Protocol(format!("winning history policy is invalid: {error}")))
@@ -995,20 +991,11 @@ pub async fn winning_history_cipher_suite_from_verified_checkpoint(
         &ScopeRef::from(effective_scope.clone()),
         mls_group_id,
     )?;
-    let authority_audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
     let target = arkret_state::mls_governance_proof::materialize_registered_cell_value_from_verified_checkpoint(
         checkpoint,
         &cell,
         &registry,
-        |event, digest_suite| {
-            arkret_schema::project_registered_cell_writes_with_authority_resolver(
-                event,
-                digest_suite,
-                &|grant_id| authority_audits.resolve(grant_id),
-            )
-            .map_err(|error| error.to_string())
-        },
+        crate::project_control_writes_at_state,
     )
     .await?;
     let target_ref = target

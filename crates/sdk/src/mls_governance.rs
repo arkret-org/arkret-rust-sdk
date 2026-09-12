@@ -32,19 +32,6 @@ pub struct VerifiedMlsGovernanceClosure {
     pub event_digest_suites: BTreeMap<Hash, arkret_canonical::DigestSuite>,
 }
 
-fn project_governance_cell_writes(
-    event: &Event,
-    digest_suite: arkret_canonical::DigestSuite,
-    authority_audits: &arkret_schema::CapabilityAuthorityAuditIndex,
-) -> Result<Vec<arkret_wire::cbs::ProjectedCellWrite>, String> {
-    arkret_schema::project_registered_cell_writes_with_authority_resolver(
-        event,
-        digest_suite,
-        &|grant_id| authority_audits.resolve(grant_id),
-    )
-    .map_err(|error| error.to_string())
-}
-
 /// Derive the exact current membership incarnation from a fully verified
 /// reducer checkpoint for use in an MLS Add proposal.
 pub async fn current_authorization_incarnation_from_verified_checkpoint(
@@ -80,16 +67,12 @@ pub async fn verified_membership_from_checkpoint(
             "MLS authorization-incarnation registry construction failed: {error}"
         ))
     })?;
-    let authority_audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
     arkret_state::mls_governance_proof::membership_from_verified_checkpoint(
         checkpoint,
         scope,
         target,
         &registry,
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
@@ -128,16 +111,12 @@ pub async fn verified_member_history_from_checkpoint(
 > {
     let registry = arkret_lattice_registry::try_build_sdk_state_registry()
         .map_err(|error| WireError::Protocol(error.to_string()))?;
-    let authority_audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
     arkret_state::mls_governance_proof::member_history_from_verified_checkpoint(
         checkpoint,
         scope,
         actor,
         &registry,
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
@@ -1496,8 +1475,6 @@ where
         .iter()
         .map(|event| Ok((signed_event_digest_claim(event)?, event.clone())))
         .collect::<Result<BTreeMap<_, _>, WireError>>()?;
-    let authority_audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&candidate.accepted_events);
     arkret_state::mls_governance_proof::verify_mls_governance_checkpoint_with_registry(
         candidate,
         &registry,
@@ -1518,9 +1495,7 @@ where
                 dependencies,
             )
         },
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
@@ -1558,7 +1533,6 @@ where
         .iter()
         .map(|event| Ok((signed_event_digest_claim(event)?, event.clone())))
         .collect::<Result<BTreeMap<_, _>, WireError>>()?;
-    let authority_audits = arkret_schema::CapabilityAuthorityAuditIndex::from_events(events);
     let (checkpoint, event_digest_suites) =
         arkret_state::mls_governance_proof::verify_mls_governance_closure_with_registry(
             realm_id,
@@ -1584,9 +1558,7 @@ where
                     dependencies,
                 )
             },
-            |event, digest_suite| {
-                project_governance_cell_writes(event, digest_suite, &authority_audits)
-            },
+            crate::project_control_writes_at_state,
         )
         .await?;
     Ok(VerifiedMlsGovernanceClosure {
@@ -1626,9 +1598,6 @@ where
         .iter()
         .map(|event| Ok((signed_event_digest_claim(event)?, event.clone())))
         .collect::<Result<BTreeMap<_, _>, WireError>>()?;
-    let authority_audits = arkret_schema::CapabilityAuthorityAuditIndex::from_events(
-        &existing_checkpoint.accepted_events,
-    );
     let (verified, requested_live_digest_suite, verified_event_digest_suites) =
         arkret_state::mls_governance_proof::verified_live_digest_suite_at_basis_with_registry(
             existing_checkpoint,
@@ -1651,9 +1620,7 @@ where
                     dependencies,
                 )
             },
-            |event, digest_suite| {
-                project_governance_cell_writes(event, digest_suite, &authority_audits)
-            },
+            crate::project_control_writes_at_state,
         )
         .await?;
     let seals_by_id = verified
@@ -1825,9 +1792,6 @@ where
         .chain(cut_events)
         .map(|event| Ok((signed_event_digest_claim(event)?, event.clone())))
         .collect::<Result<BTreeMap<_, _>, WireError>>()?;
-    let authority_audits = arkret_schema::CapabilityAuthorityAuditIndex::from_events(
-        verified_base.accepted_events.iter().chain(cut_events),
-    );
     arkret_state::mls_governance_proof::verify_mls_governance_cut_with_registry(
         &verified_base,
         target_basis,
@@ -1852,9 +1816,7 @@ where
                 dependencies,
             )
         },
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
@@ -1900,13 +1862,6 @@ where
         .chain(resolved_delta_events)
         .map(|event| Ok((signed_event_digest_claim(event)?, event.clone())))
         .collect::<Result<BTreeMap<_, _>, WireError>>()?;
-    let authority_audits = arkret_schema::CapabilityAuthorityAuditIndex::from_events(
-        base_checkpoint
-            .accepted_events
-            .iter()
-            .chain(resolved_delta_events)
-            .chain(resolved_provenance_events),
-    );
     arkret_state::mls_governance_proof::verify_mls_governance_frontier_with_registry(
         request,
         bundle,
@@ -1935,9 +1890,7 @@ where
                 dependencies,
             )
         },
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
@@ -1971,17 +1924,13 @@ where
     })?;
     let verified =
         verify_mls_governance_checkpoint(target_checkpoint, verify_agent_history_key).await?;
-    let authority_audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(&verified.accepted_events);
     arkret_state::mls_governance_proof::materialize_mls_governance_frontier_from_verified_checkpoint(
         request,
         &verified,
         group_genesis_binding,
         local_mls_leaves,
         &registry,
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
@@ -2038,8 +1987,6 @@ where
         .iter()
         .map(|event| Ok((signed_event_digest_claim(event)?, event.clone())))
         .collect::<Result<BTreeMap<_, _>, WireError>>()?;
-    let authority_audits =
-        arkret_schema::CapabilityAuthorityAuditIndex::from_events(accepted_events);
     arkret_state::mls_governance_proof::verify_mls_governance_checkpoint_with_registry(
         &candidate,
         &registry,
@@ -2060,9 +2007,7 @@ where
                 dependencies,
             )
         },
-        |event, digest_suite| {
-            project_governance_cell_writes(event, digest_suite, &authority_audits)
-        },
+        crate::project_control_writes_at_state,
     )
     .await
 }
