@@ -1315,8 +1315,6 @@ impl AccountRegisterOutcome {
                 (
                     "receipt did log pins",
                     receipt_scope.did_version_id == identity_creation.control_proof.did_version_id
-                        && receipt_scope.log_head_digest
-                            == identity_creation.control_proof.log_head_digest
                         && receipt_scope.control_key_digest
                             == identity_creation.control_proof.control_key_digest,
                 ),

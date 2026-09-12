@@ -58,7 +58,6 @@ pub enum IdentityMethodEvidenceKind {
 pub enum IdentityMethodEvidence {
     DidWebvh {
         version_id: NonEmptyString,
-        log_head_digest: Hash,
         control_key_digest: Hash,
     },
 }
@@ -90,7 +89,6 @@ mod identity_resolve_tests {
         let complete = serde_json::json!({
             "kind": "did_webvh",
             "version_id": "2-zQmHead",
-            "log_head_digest": format!("sha256:{}", "1".repeat(64)),
             "control_key_digest": format!("sha256:{}", "2".repeat(64)),
         });
         assert!(serde_json::from_value::<IdentityMethodEvidence>(complete.clone()).is_ok());
@@ -101,6 +99,10 @@ mod identity_resolve_tests {
             .unwrap()
             .remove("control_key_digest");
         assert!(serde_json::from_value::<IdentityMethodEvidence>(missing).is_err());
+
+        let mut old_mirror = complete.clone();
+        old_mirror["log_head_digest"] = serde_json::json!(format!("sha256:{}", "1".repeat(64)));
+        assert!(serde_json::from_value::<IdentityMethodEvidence>(old_mirror).is_err());
 
         let mut mixed = complete;
         mixed["document_key"] = Value::String("not-method-evidence".to_owned());

@@ -1213,7 +1213,6 @@ pub struct DidBindingChallengeOutcome {
     pub principal_id: DidCoreId,
     pub did: Did,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub witness_evidence: Option<String>,
@@ -1265,7 +1264,6 @@ pub struct AccountRegistrationControlProof {
     pub principal_id: DidCoreId,
     pub did: Did,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub dpop_jkt: String,
     pub audience_id: DidCoreId,
@@ -1408,24 +1406,6 @@ pub struct IdentityBindingChallengeOutcome {
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
-    pub account_subject: Hash,
-    pub principal_id: DidCoreId,
-    pub did: Did,
-    pub operation_digest: Hash,
-    pub did_version_id: String,
-    pub log_head_digest: Hash,
-    pub control_key_digest: Hash,
-    pub pcr_realm_id: RealmId,
-    pub realm_create_payload_digest: Hash,
-    pub founding_authorize_payload_digest: Hash,
-    pub initial_session_request_digest: Hash,
-    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
-    pub identity_creation_lease_id: String,
-    pub lease_fence: u64,
-    pub dpop_jkt: String,
-    pub audience_id: DidCoreId,
-    pub origin: WebOrigin,
-    pub trust_domain: TrustDomainId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1452,7 +1432,6 @@ pub struct IdentityCreationControlProof {
     pub did: Did,
     pub operation_digest: Hash,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
@@ -1495,7 +1474,6 @@ impl IdentityCreationControlProof {
             did: self.did.clone(),
             operation_digest: self.operation_digest.clone(),
             did_version_id: self.did_version_id.clone(),
-            log_head_digest: self.log_head_digest.clone(),
             control_key_digest: self.control_key_digest.clone(),
             pcr_realm_id: self.pcr_realm_id.clone(),
             realm_create_payload_digest: self.realm_create_payload_digest.clone(),
@@ -1526,7 +1504,6 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub did: Did,
     pub operation_digest: Hash,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
@@ -1575,7 +1552,6 @@ impl UnsignedIdentityCreationControlProof {
             did: body.did,
             operation_digest: body.operation_digest,
             did_version_id: body.did_version_id,
-            log_head_digest: body.log_head_digest,
             control_key_digest: body.control_key_digest,
             pcr_realm_id: body.pcr_realm_id,
             realm_create_payload_digest: body.realm_create_payload_digest,
@@ -1629,7 +1605,6 @@ fn identity_creation_control_proof_signing_bytes(
         "did": &body.did,
         "operation_digest": &body.operation_digest,
         "did_version_id": &body.did_version_id,
-        "log_head_digest": &body.log_head_digest,
         "control_key_digest": &body.control_key_digest,
         "pcr_realm_id": &body.pcr_realm_id,
         "realm_create_payload_digest": &body.realm_create_payload_digest,
@@ -1686,7 +1661,7 @@ impl IdentityCreationRegistration {
             || self.registration_did_evidence_draft.did != self.did
             || self.registration_did_evidence_draft.version_id != self.control_proof.did_version_id
             || self.registration_did_evidence_draft.method_history_head
-                != self.control_proof.log_head_digest.as_str()
+                != canonical::canonical_sha256(&self.did_operation.operation)?
             || self.registration_did_evidence_draft.control_key_digest
                 != self.control_proof.control_key_digest
             || project_did_to_core_id(&self.did)?.as_str()

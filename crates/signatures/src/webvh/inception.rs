@@ -466,7 +466,6 @@ pub fn verify_identity_creation_control_proof(
     if proof.principal_id != validated.principal_id
         || proof.operation_digest != validated.operation_digest
         || proof.did_version_id != validated.did_version_id
-        || proof.log_head_digest != validated.log_head_digest
         || proof.control_key_digest != validated.control_key_digest
         || proof.verification_key_multibase != validated.root_public_key_multibase
     {

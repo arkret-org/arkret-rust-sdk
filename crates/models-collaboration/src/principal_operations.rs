@@ -25,7 +25,6 @@ pub struct PcrGenesisSubmitRequestBody {
     pub idempotency_key: IdempotencyKey,
     pub registration_request_digest: Hash,
     pub did_version_id: String,
-    pub log_head_digest: Hash,
     pub control_key_digest: Hash,
     pub registration_did_operation: DidOperationSubmitRequestBody,
     pub registration_did_evidence: RegistrationDidEvidence,
@@ -50,7 +49,6 @@ impl PcrGenesisSubmitRequestBody {
             || project_did_to_core_id(&self.did)? != self.principal_id
             || self.pcr_realm_id != proof.pcr_realm_id
             || self.did_version_id != proof.did_version_id
-            || self.log_head_digest != proof.log_head_digest
             || self.control_key_digest != proof.control_key_digest
             || self.registration_did_operation.did != self.did
             || Hash::new(canonical::canonical_sha256(
@@ -59,7 +57,8 @@ impl PcrGenesisSubmitRequestBody {
             || self.registration_did_evidence.principal_id != self.principal_id
             || self.registration_did_evidence.did != self.did
             || self.registration_did_evidence.version_id != self.did_version_id
-            || self.registration_did_evidence.method_history_head != self.log_head_digest.as_str()
+            || self.registration_did_evidence.method_history_head
+                != canonical::canonical_sha256(&self.registration_did_operation.operation)?
             || self.registration_did_evidence.control_key_digest != self.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
             || create.actor_id.signing_principal_id() != &self.principal_id
@@ -186,7 +185,6 @@ impl PcrGenesisSubmitOutcome {
             || scope.realm_id != request.pcr_realm_id
             || scope.audience_id.as_core_id() != request.account_authority_id.as_core_id()
             || scope.did_version_id != request.did_version_id
-            || scope.log_head_digest != request.log_head_digest
             || scope.control_key_digest != request.control_key_digest
             || scope.registration_evidence_digest
                 != request.registration_did_evidence.canonical_digest()?
