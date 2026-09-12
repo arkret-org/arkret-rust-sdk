@@ -46,7 +46,7 @@ fn signature(bytes: &[u8], seed: u8) -> SealSignature {
     }
 }
 fn member() -> Event {
-    arkret_wire::test_support::raw_event_at(
+    test_support::raw_event_at(
         "ak.member.state", ScopeRef::Realm { realm_id: realm() },
         DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
         DidCoreId::new("ak:did_core:web:station-a.example").unwrap(), 1,
@@ -83,7 +83,7 @@ impl Fixture {
             .filter_map(|write| {
                 let value = match &write.op {
                     ProjectedOp::TransitionTo { to } => to.clone(),
-                    ProjectedOp::Direct(op) if op.kind == LatticeOpType::Set => {
+                    ProjectedOp::Direct(op) if op.op_type == LatticeOpType::Set => {
                         op.value.clone().unwrap()
                     }
                     _ => return None,
@@ -181,7 +181,7 @@ impl Fixture {
             }],
         }
     }
-    fn verify(&self) -> Result<ConfirmedAuthorizationSources, HistoryEvidenceError> {
+    fn verify(&self) -> std::result::Result<ConfirmedAuthorizationSources, HistoryEvidenceError> {
         ConfirmedAuthorizationSources::verify_at_seal(
             &self.seal.realm_id,
             &self.configuration_ref,
@@ -421,7 +421,7 @@ fn genesis_independent_dependencies_share_event_without_sharing_kind() {
         )
         .unwrap(),
     );
-    let event = arkret_wire::test_support::raw_event_for_actor_at(
+    let event = test_support::raw_event_for_actor_at(
         "ak.realm.create",
         ScopeRef::RealmGenesis,
         member().actor_id,

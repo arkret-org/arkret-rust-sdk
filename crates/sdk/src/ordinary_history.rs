@@ -175,7 +175,7 @@ impl ConfirmedAuthorizationSources {
                 }
                 let expected_value = match &write.op {
                     ProjectedOp::TransitionTo { to } => to,
-                    ProjectedOp::Direct(op) if op.kind == arkret_wire::LatticeOpType::Set => op
+                    ProjectedOp::Direct(op) if op.op_type == arkret_wire::LatticeOpType::Set => op
                         .value
                         .as_ref()
                         .ok_or_else(|| invalid("source set has no value"))?,
