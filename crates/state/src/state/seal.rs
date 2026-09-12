@@ -1996,8 +1996,8 @@ pub fn join_cell_seal_batches(
 #[cfg(test)]
 mod ordered_command_tests {
     use arkret_wire::{
-        DidCoreId, EventCellExecution, EventCellValueShape, Hlc, LatticeOp, LatticeOpType,
-        ProjectionEffect, ReasonCode, ScopeRef,
+        CausalRegisterBottomPolicy, DidCoreId, EventCellExecution, EventCellValueShape, Hlc,
+        LatticeOp, LatticeOpType, ProjectionEffect, ReasonCode, ScopeRef,
     };
     use serde_json::json;
 
@@ -2078,7 +2078,7 @@ mod ordered_command_tests {
             EventCellExecution::Data,
             StateModelKind::CausalRegister,
             EventCellValueShape::Register,
-            None,
+            Some(CausalRegisterBottomPolicy::Expose),
         );
         let data_cell = CellRef::new("ak:cell:ak.component.test.data.v1:slot").unwrap();
         let initial = initial_state();

@@ -543,7 +543,7 @@ mod tests {
 
         let mut widened = cell;
         widened.quarantine_entries[1].surface = HolderQuarantineSurface::ConsentRequest {
-            consent_scope: ConsentRequestScope::VoiceCall,
+            consent_scope: ConsentRequestScope::Presence,
         };
         widened.validate_holder(&account_id).unwrap();
 
@@ -561,7 +561,7 @@ mod tests {
                     &first.source_peer_principal_id,
                     ConsentRequestScope::Presence
                 )
-                .is_none()
+                .is_some()
         );
         assert_eq!(
             widened

@@ -21,7 +21,7 @@ use arkret_canonical::{base64url_decode, base64url_encode, canonical};
 use arkret_schema_conformance::spec_json_artifact;
 use arkret_signatures::proof::{PublicKeyMaterial, verify_detached_ed25519_signature};
 use arkret_signatures::{PRODUCTION_ALGORITHMS, verify_ed25519_detached_jws_proof};
-use arkret_wire::{Did, DidUrl, Hash, ProducerEventProof, project_did_to_core_id};
+use arkret_wire::{Did, ProducerEventProof, project_did_to_core_id};
 use ed25519_dalek::Signer as _;
 use serde_json::Value;
 
@@ -220,17 +220,10 @@ fn non_ed25519_vectors_pin_canonical_chain_and_stay_wire_reserved() {
 /// path under test (alg gate / payload segment) is reached with everything
 /// else valid.
 fn proof_for_negative(base: &Value, jws: &str) -> ProducerEventProof {
-    ProducerEventProof {
-        kind: "detached_jws".to_owned(),
-        verification_method: DidUrl::new(s(&base["proof"], "verification_method")).unwrap(),
-        event_digest: Hash::new(s(base, "event_digest")).unwrap(),
-        signer_resolution_evidence_ref: None,
-        created_at: s(&base["proof"], "created_at").parse().unwrap(),
-        domain: base["proof"]["domain"].as_str().map(str::to_owned),
-        audience: None,
-        proof_purpose: None,
-        jws: jws.to_owned(),
-    }
+    let mut proof: ProducerEventProof = serde_json::from_value(base["proof"].clone())
+        .expect("base fixture carries a complete typed producer proof");
+    proof.jws = jws.to_owned();
+    proof
 }
 
 #[test]
@@ -248,12 +241,26 @@ fn negative_cases_reject_through_sdk_verifiers() {
             .0,
     )
     .unwrap();
-    let actor = arkret_wire::ActorId::service(project_did_to_core_id(&actor_did).unwrap());
+    let actor: arkret_wire::ActorId =
+        serde_json::from_value(base["event_without_proofs"]["actor_id"].clone()).unwrap();
     let fixture_actor: arkret_wire::ActorId =
         serde_json::from_value(base["binding_object"]["actor_id"].clone()).unwrap();
     assert_eq!(actor, fixture_actor);
+    assert_eq!(
+        actor.signing_principal_id(),
+        &project_did_to_core_id(&actor_did).unwrap()
+    );
     let canonical_event_bytes =
         canonical::canonical_json_bytes(&digest_preimage(&base["event_without_proofs"])).unwrap();
+
+    let valid_proof = proof_for_negative(&base, s(&base["proof"], "jws"));
+    verify_ed25519_detached_jws_proof(
+        &valid_proof,
+        &canonical_event_bytes,
+        &actor,
+        &base_public_key,
+    )
+    .expect("unmodified fixture must pass the same verifier before negative mutations");
 
     // reject_flipped_signature_bit: raw Ed25519 verification must fail.
     let flipped = negative_case(&fixture, "reject_flipped_signature_bit");
