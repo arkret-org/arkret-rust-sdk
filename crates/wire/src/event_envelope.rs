@@ -254,6 +254,7 @@ pub struct EventRequirements {
 /// decisions independently; no origin callback or newly advanced Seal is part
 /// of ordinary admission. The unique producer proof separately binds the exact
 /// historical signer evidence; this object does not identify a signing key.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {

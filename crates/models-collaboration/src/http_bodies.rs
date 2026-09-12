@@ -410,21 +410,127 @@ impl EventsSubmitOutcome {
     }
 }
 
-/// `ak.edge.applet.command.transaction.v1` request body. Carries wire `Event`s
-/// plus an optional `SignalEnvelope` batch, so it lives here rather than with
-/// the other applet DTOs in `arkret-models-integration` (which does not depend
-/// on this crate).
+/// Closed Event/Signal delivery or a Station-to-Applet authoring completion.
+/// Completion cannot be mixed into an Event batch or used in the reverse
+/// direction. Delivery authentication and installation binding are separate.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppletTransactionRequestBody {
+    Events(AppletEventTransactionRequestBody),
+    Authoring(Box<AppletAuthoringTransactionRequestBody>),
+}
+
+impl AppletTransactionRequestBody {
+    pub fn applet_id(&self) -> &AppletId {
+        match self {
+            Self::Events(body) => &body.applet_id,
+            Self::Authoring(body) => &body.applet_id,
+        }
+    }
+
+    pub fn source_id(&self) -> &DidCoreId {
+        match self {
+            Self::Events(body) => &body.source_id,
+            Self::Authoring(body) => &body.source_id,
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletTransactionRequestBody {
+pub struct AppletAuthoringTransactionRequestBody {
     pub applet_id: AppletId,
     pub source_id: DidCoreId,
-    #[serde(default)]
+    pub authoring_result: crate::applet_authoring::AppletManagedActorAuthoringResult,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AppletEventTransactionRequestBody {
+    pub applet_id: AppletId,
+    pub source_id: DidCoreId,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub events: Vec<Event>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub signals: Option<Vec<SignalEnvelope>>,
+}
+
+impl<'de> Deserialize<'de> for AppletEventTransactionRequestBody {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        struct TransactionVisitor;
+        impl<'de> serde::de::Visitor<'de> for TransactionVisitor {
+            type Value = AppletEventTransactionRequestBody;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a closed Applet transaction with a nonempty Event or Signal batch")
+            }
+
+            fn visit_map<M: serde::de::MapAccess<'de>>(
+                self,
+                mut map: M,
+            ) -> std::result::Result<Self::Value, M::Error> {
+                use serde::de::Error as _;
+                let mut applet_id = None;
+                let mut source_id = None;
+                let mut events: Option<Vec<Event>> = None;
+                let mut signals: Option<Vec<SignalEnvelope>> = None;
+                while let Some(field) = map.next_key::<String>()? {
+                    match field.as_str() {
+                        "applet_id" => {
+                            if applet_id.is_some() {
+                                return Err(M::Error::duplicate_field("applet_id"));
+                            }
+                            applet_id = Some(map.next_value()?);
+                        }
+                        "source_id" => {
+                            if source_id.is_some() {
+                                return Err(M::Error::duplicate_field("source_id"));
+                            }
+                            source_id = Some(map.next_value()?);
+                        }
+                        "events" => {
+                            if events.is_some() {
+                                return Err(M::Error::duplicate_field("events"));
+                            }
+                            events = Some(map.next_value()?);
+                        }
+                        "signals" => {
+                            if signals.is_some() {
+                                return Err(M::Error::duplicate_field("signals"));
+                            }
+                            signals = Some(map.next_value()?);
+                        }
+                        _ => {
+                            return Err(M::Error::unknown_field(
+                                &field,
+                                &["applet_id", "source_id", "events", "signals"],
+                            ));
+                        }
+                    }
+                }
+                if events.as_ref().is_some_and(Vec::is_empty)
+                    || signals.as_ref().is_some_and(Vec::is_empty)
+                    || (events.is_none() && signals.is_none())
+                {
+                    return Err(M::Error::custom(
+                        "Applet transaction requires at least one nonempty batch; present empty arrays are forbidden",
+                    ));
+                }
+                Ok(AppletEventTransactionRequestBody {
+                    applet_id: applet_id.ok_or_else(|| M::Error::missing_field("applet_id"))?,
+                    source_id: source_id.ok_or_else(|| M::Error::missing_field("source_id"))?,
+                    events: events.unwrap_or_default(),
+                    signals,
+                })
+            }
+        }
+        deserializer.deserialize_map(TransactionVisitor)
+    }
 }
 
 /// Result of `ak.self.events.command.submit_seal` after the receiver has

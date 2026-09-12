@@ -3,7 +3,9 @@ use arkret_models_collaboration::governance::third_party_invite::{
     ThirdPartyInvite, ThirdPartyInviteOobKind,
 };
 use arkret_models_collaboration::governance_payloads::ConsentRevokePayload;
-use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
+use arkret_models_collaboration::http_bodies::{
+    AppletEventTransactionRequestBody, AppletTransactionRequestBody,
+};
 use arkret_wire::signal::{SIGNAL_AEAD_PURPOSE, SIGNAL_AEAD_SCHEME};
 use arkret_wire::{
     ConsentId, DeviceId, DidCoreId, DidUrl, Hash, RealmId, ScopeRef, SealId, SignalClass,
@@ -78,8 +80,8 @@ fn signal_envelope(signal_class: SignalClass, ttl_seconds: i64) -> SignalEnvelop
     envelope
 }
 
-fn applet_transaction(signal: SignalEnvelope) -> AppletTransactionRequestBody {
-    AppletTransactionRequestBody {
+fn applet_transaction(signal: SignalEnvelope) -> AppletEventTransactionRequestBody {
+    AppletEventTransactionRequestBody {
         applet_id: arkret_wire::AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa")
             .unwrap(),
         source_id: DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
@@ -108,8 +110,11 @@ fn applet_transaction_signal_lane_preserves_closed_sender_branches_and_unknown_f
     let body = applet_transaction(signal_envelope(SignalClass::Session, 30));
     let value = serde_json::to_value(&body).unwrap();
     assert_eq!(
-        serde_json::from_value::<AppletTransactionRequestBody>(value.clone()).unwrap(),
-        body
+        serde_json::to_value(
+            serde_json::from_value::<AppletTransactionRequestBody>(value.clone()).unwrap()
+        )
+        .unwrap(),
+        value
     );
 
     let mut without_device = value.clone();
