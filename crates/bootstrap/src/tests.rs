@@ -1059,7 +1059,6 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 authorization_closures: Vec::new(),
                 existence_anchors: Vec::new(),
             },
-            view: 0,
         };
         let seal = prepared.sign(&request, &signer).unwrap();
         seal.validate_id(digest_suite).unwrap();
