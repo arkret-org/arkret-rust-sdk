@@ -75,6 +75,7 @@ thiserror = { workspace = true }
 url = { workspace = true, features = ["serde"], optional = true }
 
 [dev-dependencies]
+arkret-wire = { workspace = true, features = ["test-support"] }
 ed25519-dalek = { workspace = true }
 rand_chacha = { workspace = true }
 rand_core = { workspace = true }
