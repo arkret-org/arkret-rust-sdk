@@ -536,7 +536,9 @@ pub trait CellStore: Send + Sync {
     ///
     /// The batch boundary is consensus-significant for registers: writes in
     /// one Seal share the frozen predecessor view and are concurrent siblings,
-    /// while a write in a successor Seal causally replaces the prior head.
+    /// while ordinary MV properties use a successor batch to replace prior heads.
+    /// Selector MV writes instead retain the supersession derived from their own
+    /// signed basis; their current heads do not depend on batch arrival order.
     async fn sealed_op_batches_for_cell(
         &self,
         realm_id: &RealmId,

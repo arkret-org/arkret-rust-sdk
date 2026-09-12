@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-11.8;
-//! sha256=6aecb0b65c43706199d7c93d87debcbb6bef241e8900bf9cb0698c23823a3690 Entries: registered=254
+//! Input: registry/operation-registry.json; version=2026-09-12.4;
+//! sha256=0039b4e044ab8a6c4d16f7087ec4fef777fde8bfd646d63c571b39b0ab736d0a Entries: registered=255
 
 use serde::{Deserialize, Serialize};
 
@@ -223,6 +223,7 @@ pub enum ServiceOperationId {
     SelfKeysUploadCreateV1,
     SelfMediaReadIceConfigV1,
     SelfMediaServiceBindingReadResolveV1,
+    SelfMessagesCommandPrepareV1,
     SelfModerationCommandReportV1,
     SelfModerationReadFrankingSealObservationV1,
     SelfMorphReadListV1,
@@ -480,6 +481,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_KEYS_UPLOAD_CREATE_V1,
     ServiceOperationId::SELF_MEDIA_READ_ICE_CONFIG_V1,
     ServiceOperationId::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1,
+    ServiceOperationId::SELF_MESSAGES_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_MODERATION_COMMAND_REPORT_V1,
     ServiceOperationId::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1,
     ServiceOperationId::SELF_MORPH_READ_LIST_V1,
@@ -779,6 +781,7 @@ impl ServiceOperationId {
         Self::SelfKeysUploadCreateV1,
         Self::SelfMediaReadIceConfigV1,
         Self::SelfMediaServiceBindingReadResolveV1,
+        Self::SelfMessagesCommandPrepareV1,
         Self::SelfModerationCommandReportV1,
         Self::SelfModerationReadFrankingSealObservationV1,
         Self::SelfMorphReadListV1,
@@ -1187,6 +1190,8 @@ impl ServiceOperationId {
     pub const SELF_MEDIA_READ_ICE_CONFIG_V1: &'static str = "ak.self.media.read.ice_config.v1";
     pub const SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1: &'static str =
         "ak.self.media_service_binding.read.resolve.v1";
+    pub const SELF_MESSAGES_COMMAND_PREPARE_V1: &'static str =
+        "ak.self.messages.command.prepare.v1";
     pub const SELF_MODERATION_COMMAND_REPORT_V1: &'static str =
         "ak.self.moderation.command.report.v1";
     pub const SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1: &'static str =
@@ -1609,6 +1614,7 @@ impl ServiceOperationId {
             Self::SelfMediaServiceBindingReadResolveV1 => {
                 Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1
             }
+            Self::SelfMessagesCommandPrepareV1 => Self::SELF_MESSAGES_COMMAND_PREPARE_V1,
             Self::SelfModerationCommandReportV1 => Self::SELF_MODERATION_COMMAND_REPORT_V1,
             Self::SelfModerationReadFrankingSealObservationV1 => {
                 Self::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1
@@ -2124,6 +2130,7 @@ impl ServiceOperationId {
             Self::SELF_MEDIA_SERVICE_BINDING_READ_RESOLVE_V1 => {
                 Some(Self::SelfMediaServiceBindingReadResolveV1)
             }
+            Self::SELF_MESSAGES_COMMAND_PREPARE_V1 => Some(Self::SelfMessagesCommandPrepareV1),
             Self::SELF_MODERATION_COMMAND_REPORT_V1 => Some(Self::SelfModerationCommandReportV1),
             Self::SELF_MODERATION_READ_FRANKING_SEAL_OBSERVATION_V1 => {
                 Some(Self::SelfModerationReadFrankingSealObservationV1)
@@ -7147,6 +7154,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfMessagesCommandPrepareV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/messages/prepare",
+        grpc: Some("SelfMessages/Prepare"),
+        mq: Some("self.messages.command.prepare"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: Some(1048576),
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/message-authoring.schema.json#/$defs/message_prepare_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/message-authoring.schema.json#/$defs/message_prepare_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "Only a bounded expiring preparation cache; no accepted Event, sequence, membership or projection mutation.",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfModerationCommandReportV1,

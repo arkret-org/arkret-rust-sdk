@@ -96,7 +96,7 @@ impl Client {
     /// join attempt from an existing member Station.
     ///
     /// The returned facts are not trusted as they stand: the caller verifies
-    /// them against `dependency_bundles` and its own accepted state before
+    /// them by complete governance replay and its own accepted state before
     /// preparing anything from them.
     pub async fn peer_realm_join_bootstrap(
         &self,
@@ -107,6 +107,24 @@ impl Client {
             .post("/_arkret/peer/realm-joins/bootstrap", request)
             .await?;
         outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    pub async fn peer_realm_join_bootstrap_continue(
+        &self,
+        cursor: &str,
+    ) -> Result<RealmJoinBootstrapOutcome> {
+        use arkret_models_collaboration::governance::realm_join_bootstrap::{
+            RealmJoinBootstrapContinuation, RealmJoinBootstrapReadRequest,
+        };
+        let request = RealmJoinBootstrapReadRequest::Continue(RealmJoinBootstrapContinuation {
+            cursor: cursor.to_owned(),
+        });
+        request.validate()?;
+        let outcome: RealmJoinBootstrapOutcome = self
+            .post("/_arkret/peer/realm-joins/bootstrap", &request)
+            .await?;
+        outcome.validate_structural()?;
         Ok(outcome)
     }
 

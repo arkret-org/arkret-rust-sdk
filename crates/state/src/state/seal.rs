@@ -715,33 +715,36 @@ where
             None => BTreeMap::new(),
         };
         for effect in effects {
-            let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
-            let kind = binding.lattice.kind();
-            if effect.recovery_reset {
-                // §9.5.1 `fsm` additional admission. The recovery supersedes
-                // every divergent head, so each of their `to` values is one of
-                // its sources and each has to be a registered transition into
-                // the resolved state. This is the one site with those values:
-                // the pre-state the Move verifier sees is `⊥`, which carries no
-                // usable head list, and the whole point of §9.5.1 item 1 is that
-                // the proof comes from the write's *own* signed basis.
-                let sources: Vec<Value> = basis_heads
-                    .get(&effect.cell_id)
-                    .into_iter()
-                    .flatten()
-                    .map(|head| head.value.clone())
-                    .collect();
-                binding
-                    .lattice
-                    .validate_recovery_sources(&sources, &effect.op)
-                    .map_err(|error| SealReject::ControlMoveRejected {
-                        event_digest: digest.as_str().to_owned(),
-                        reason: format!(
-                            "recovery write on {} is not admissible: {error}",
-                            effect.cell_id.as_str()
-                        ),
-                    })?;
-            }
+            let kind = {
+                let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
+                let kind = binding.lattice.kind();
+                if effect.recovery_reset {
+                    // §9.5.1 `fsm` additional admission. The recovery supersedes
+                    // every divergent head, so each of their `to` values is one of
+                    // its sources and each has to be a registered transition into
+                    // the resolved state. This is the one site with those values:
+                    // the pre-state the Move verifier sees is `⊥`, which carries no
+                    // usable head list, and the whole point of §9.5.1 item 1 is that
+                    // the proof comes from the write's *own* signed basis.
+                    let sources: Vec<Value> = basis_heads
+                        .get(&effect.cell_id)
+                        .into_iter()
+                        .flatten()
+                        .map(|head| head.value.clone())
+                        .collect();
+                    binding
+                        .lattice
+                        .validate_recovery_sources(&sources, &effect.op)
+                        .map_err(|error| SealReject::ControlMoveRejected {
+                            event_digest: digest.as_str().to_owned(),
+                            reason: format!(
+                                "recovery write on {} is not admissible: {error}",
+                                effect.cell_id.as_str()
+                            ),
+                        })?;
+                }
+                kind
+            };
             let supersedes = if is_causal_register(kind) {
                 let observed = head_identities(basis_heads.get(&effect.cell_id));
                 if event.seal_basis.is_some() {
@@ -761,6 +764,50 @@ where
                                 frozen.iter().map(Hash::as_str).collect::<Vec<_>>(),
                             ),
                         });
+                    }
+                }
+                observed
+            } else if kind == crate::lattice::LatticeKind::MvRegister
+                && is_selector_cell(&effect.cell_id)
+            {
+                let observed = match &event.seal_basis {
+                    Some(basis) => {
+                        let coverage =
+                            union_predecessor_covered_events(&basis.leaves, seals).await?;
+                        let ops = cells
+                            .sealed_ops_for_cell(&seal.realm_id, &effect.cell_id)
+                            .await?
+                            .into_iter()
+                            .filter(|issued| coverage.contains(&issued.op.move_id))
+                            .collect::<Vec<_>>();
+                        selector_current_heads(&ops)
+                            .into_iter()
+                            .map(|issued| issued.op.move_id.clone())
+                            .collect::<BTreeSet<_>>()
+                            .into_iter()
+                            .collect::<Vec<_>>()
+                    }
+                    None => Vec::new(),
+                };
+                if event.kind == arkret_wire::EventKind::AgentSelectorClaim
+                    && event.payload.get("subject_account_id") == Some(&Value::Null)
+                {
+                    let sources = event
+                        .payload
+                        .get("source_refs")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                        .map(|source| {
+                            arkret_wire::EventId::new(source.as_str().unwrap_or_default())
+                                .map(|id| id.event_digest())
+                                .map_err(|error| SealReject::Structural(error.to_string()))
+                        })
+                        .collect::<Result<BTreeSet<_>, _>>()?;
+                    if sources != observed.iter().cloned().collect() {
+                        return Err(SealReject::Structural(
+                            "selector unbind must name exactly its observed current heads".into(),
+                        ));
                     }
                 }
                 observed
@@ -2308,6 +2355,17 @@ pub fn join_cell_seal_batches(
     cell: &CellRef,
     batches: &[Vec<IssuedOp>],
 ) -> CellState {
+    // Selector writes observe their own signed basis, not the order in which
+    // a notary later batches them. Keep unseen siblings until a successor
+    // explicitly observes them; expiry is evaluated only after this join.
+    if lattice.kind() == crate::lattice::LatticeKind::MvRegister && is_selector_cell(cell) {
+        let ops = batches.iter().flatten().cloned().collect::<Vec<_>>();
+        let heads = selector_current_heads(&ops)
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        return join_cell(lattice, cell, &heads);
+    }
     // A §9.5 recovery reset ends the prior history for the lattices that still
     // express recovery by truncation. Neither causal register is one of them:
     // their recovery is an ordinary identity write (§9.5.1), so every batch
@@ -2339,6 +2397,21 @@ pub fn join_cell_seal_batches(
             join_cell(lattice, cell, &ops)
         }
     }
+}
+
+fn is_selector_cell(cell: &CellRef) -> bool {
+    arkret_wire::CellId::parse(cell.as_str())
+        .is_ok_and(|id| id.component() == arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1)
+}
+
+fn selector_current_heads(ops: &[IssuedOp]) -> Vec<&IssuedOp> {
+    let superseded = ops
+        .iter()
+        .flat_map(|issued| issued.op.supersedes.iter())
+        .collect::<BTreeSet<_>>();
+    ops.iter()
+        .filter(|issued| !superseded.contains(&issued.op.move_id))
+        .collect()
 }
 
 #[cfg(test)]

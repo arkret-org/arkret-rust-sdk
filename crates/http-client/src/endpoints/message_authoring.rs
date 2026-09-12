@@ -27,6 +27,7 @@ impl Client {
         request: &MessagePrepareRequestBody,
         scope: &arkret_wire::ScopeRef,
         signer_context: &arkret_wire::AuthContext,
+        direct_binding: Option<&arkret_wire::EventId>,
         known_frontier: Option<&arkret_models_collaboration::event_sync::RealmActorFrontierView>,
         sign: F,
     ) -> Result<arkret_wire::EventInitialSubmission>
@@ -38,6 +39,7 @@ impl Client {
             request,
             scope,
             signer_context,
+            direct_binding,
             known_frontier,
             chrono::Utc::now(),
         )?;

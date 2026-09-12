@@ -69,8 +69,11 @@ ALLOWED_EDGES: dict[str, set[str]] = {
     # identity edge is removed, so the declared graph stays acyclic.
     "arkret-models-identity": _WIRE | {"arkret-locale", "arkret-models-crypto"},
     "arkret-models-crypto": _WIRE,
+    # Current-result DTOs validate the generated family schemas with the pure
+    # schema registry. That registry depends only on the wire layer, so this
+    # edge introduces neither a cycle nor transport/runtime machinery.
     "arkret-models-collaboration": _WIRE
-    | {"arkret-models-identity", "arkret-models-crypto"},
+    | {"arkret-models-identity", "arkret-models-crypto", "arkret-schema"},
     "arkret-models-integration": _WIRE | {"arkret-models-identity"},
     "arkret-models-discovery": _WIRE | {"arkret-models-identity"},
     "arkret-models": _WIRE

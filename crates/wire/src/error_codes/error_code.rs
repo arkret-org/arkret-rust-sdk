@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12;
-//! sha256=a9288e40a08d64ac910ad59b49a8208433ff24d887c6e8bb6db3cc12117f7667 Entries: error_codes=281
+//! Input: registry/error-code-registry.json; version=2026-09-12.1;
+//! sha256=e412bfa02ad19698d0672d193ace3ad7637da56400bc59b3d146180d78022acb Entries: error_codes=281
 
 use serde::{Deserialize, Serialize};
 
@@ -1952,7 +1952,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A first Applet managed-actor authoring or install commit attempt arrived after the Station-signed authoring request expiry. Exact durable replay of an already successful request remains available; the caller must otherwise obtain a fresh preview.",
+        description: "A new authoring attempt arrived after its registered preparation expiry. Message prepare uses client created_at plus 300 seconds. The caller needs a new request identity; accepted Event validity and exact replay/recovery of an existing submission are unaffected.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AuthorizedGrantRevoked,

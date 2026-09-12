@@ -4,8 +4,8 @@ use arkret_canonical::serde_helpers::canonical_timestamp;
 use arkret_models_crypto::EncryptedEnvelope;
 use arkret_wire::{
     AccountId, ActorId, AuthContext, AuthoredEvent, AuthorizationRef, Base64UrlString,
-    EncryptedPayloadScheme, Event, EventId, EventKind, Hash, Hlc, RealmId, RequestId, Result,
-    ScopeRef, SealId, StrandId, WireError,
+    EncryptedPayloadScheme, Event, EventId, EventKind, EventRef, Hash, Hlc, RealmId, RequestId,
+    Result, ScopeRef, SealId, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -192,6 +192,7 @@ impl MessagePrepareOutcome {
         seal_ref: SealId,
         auth_context: AuthContext,
         authorization_ref: Option<AuthorizationRef>,
+        direct_binding: Option<EventId>,
         suite: DigestSuite,
         now: DateTime<Utc>,
     ) -> Result<Self> {
@@ -215,7 +216,10 @@ impl MessagePrepareOutcome {
             applet_id: None,
             external_ref: None,
             seal_basis: None,
-            refs: vec![],
+            refs: direct_binding
+                .map(|id| EventRef::new(id.to_string(), "direct_conversation_binding"))
+                .into_iter()
+                .collect(),
             causal_refs: vec![],
             preconditions: vec![],
             payload: serde_json::from_value(serde_json::to_value(request.intent.payload())?)?,
@@ -251,11 +255,19 @@ impl MessagePrepareOutcome {
     /// Bind all canonical request members, including explicitly carried empty
     /// optional collections which a typed serialization may omit.
     pub fn validate_for_canonical_request(&self, bytes: &[u8]) -> Result<AuthoredEvent> {
-        let request: MessagePrepareRequestBody = arkret_canonical::from_canonical_json_slice(bytes)?;
-        self.validate_request_digest(&request, &Hash::new(arkret_canonical::sha256_digest(bytes))?)
+        let request: MessagePrepareRequestBody =
+            arkret_canonical::from_canonical_json_slice(bytes)?;
+        self.validate_request_digest(
+            &request,
+            &Hash::new(arkret_canonical::sha256_digest(bytes))?,
+        )
     }
 
-    fn validate_request_digest(&self, request: &MessagePrepareRequestBody, digest: &Hash) -> Result<AuthoredEvent> {
+    fn validate_request_digest(
+        &self,
+        request: &MessagePrepareRequestBody,
+        digest: &Hash,
+    ) -> Result<AuthoredEvent> {
         request.validate()?;
         self.accepted_actor_frontier.validate()?;
         request.validate_time(self.observed_at)?;
@@ -277,7 +289,7 @@ impl MessagePrepareOutcome {
             || e.seal_ref.is_none()
             || e.auth_context.is_none()
             || e.seal_basis.is_some()
-            || !e.refs.is_empty()
+            || !valid_message_refs(e)
             || !e.causal_refs.is_empty()
             || !e.preconditions.is_empty()
             || e.executed_by.is_some()
@@ -315,12 +327,16 @@ impl MessagePrepareOutcome {
         request: &MessagePrepareRequestBody,
         scope: &ScopeRef,
         signer: &AuthContext,
+        direct_binding: Option<&EventId>,
         known: Option<&RealmActorFrontierView>,
         now: DateTime<Utc>,
     ) -> Result<AuthoredEvent> {
         request.validate_time(now)?;
         let event = self.validate_for_request(request)?;
-        if &event.event().scope_ref != scope || event.event().auth_context.as_ref() != Some(signer)
+        if &event.event().scope_ref != scope
+            || event.event().auth_context.as_ref() != Some(signer)
+            || event.event().refs.first().map(|r| r.id.as_str())
+                != direct_binding.map(EventId::as_str)
         {
             return Err(invalid(
                 "prepared message target or signer context differs from local intent",
@@ -344,6 +360,18 @@ impl MessagePrepareOutcome {
             }
         }
         Ok(event)
+    }
+}
+
+fn valid_message_refs(event: &Event) -> bool {
+    let direct = event.authorization_ref.as_ref().is_some_and(|r| {
+        r.as_str() == arkret_wire::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1
+    });
+    if direct {
+        matches!(event.refs.as_slice(), [r] if r.role == "direct_conversation_binding"
+            && r.critical && r.proof.is_none() && EventId::new(r.id.clone()).is_ok())
+    } else {
+        event.refs.is_empty()
     }
 }
 
@@ -376,10 +404,8 @@ mod tests {
     }
     fn auth() -> AuthContext {
         AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new(
-                "device:01970000-0000-7000-8000-000000000031",
-            )
-            .unwrap(),
+            key_id: arkret_wire::OpaqueLocalId::new("device:01970000-0000-7000-8000-000000000031")
+                .unwrap(),
             key_epoch: 0,
             credential_epoch: None,
         }
@@ -406,10 +432,75 @@ mod tests {
             SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
             auth(),
             None,
+            None,
             DigestSuite::Sha256,
             request.created_at,
         )
         .unwrap()
+    }
+    #[test]
+    fn direct_message_requires_exact_locally_known_binding() {
+        let request = request();
+        let binding = EventId::from_digest(DigestSuite::Sha256, [7; 32]);
+        let frontier = RealmActorFrontierView::new(
+            request.realm_id.clone(),
+            ActorId::account(request.account_id.clone()),
+            0,
+            vec![],
+            DigestSuite::Sha256,
+        )
+        .unwrap();
+        let scope = ScopeRef::Realm {
+            realm_id: request.realm_id.clone(),
+        };
+        let make = |id| {
+            MessagePrepareOutcome::prepare(
+                &request,
+                frontier.clone(),
+                scope.clone(),
+                SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
+                auth(),
+                Some(
+                    AuthorizationRef::new(
+                        arkret_wire::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1,
+                    )
+                    .unwrap(),
+                ),
+                id,
+                DigestSuite::Sha256,
+                request.created_at,
+            )
+        };
+        assert!(make(None).is_err());
+        let outcome = make(Some(binding.clone())).unwrap();
+        outcome
+            .verify_for_signing(
+                &request,
+                &scope,
+                &auth(),
+                Some(&binding),
+                None,
+                request.created_at,
+            )
+            .unwrap();
+        assert!(
+            outcome
+                .verify_for_signing(&request, &scope, &auth(), None, None, request.created_at)
+                .is_err()
+        );
+        let other = EventId::from_digest(DigestSuite::Sha256, [8; 32]);
+        assert!(
+            outcome
+                .verify_for_signing(
+                    &request,
+                    &scope,
+                    &auth(),
+                    Some(&other),
+                    None,
+                    request.created_at
+                )
+                .is_err()
+        );
     }
     #[test]
     fn exact_intent_and_expiry_are_checked_before_signing() {
@@ -419,11 +510,11 @@ mod tests {
             realm_id: request.realm_id.clone(),
         };
         outcome
-            .verify_for_signing(&request, &scope, &auth(), None, request.created_at)
+            .verify_for_signing(&request, &scope, &auth(), None, None, request.created_at)
             .unwrap();
         assert!(
             outcome
-                .verify_for_signing(&request, &scope, &auth(), None, request.expires_at())
+                .verify_for_signing(&request, &scope, &auth(), None, None, request.expires_at())
                 .is_err()
         );
         let mut changed = request.clone();
@@ -437,7 +528,7 @@ mod tests {
         wrong_key.key_epoch += 1;
         assert!(
             outcome
-                .verify_for_signing(&request, &scope, &wrong_key, None, request.created_at)
+                .verify_for_signing(&request, &scope, &wrong_key, None, None, request.created_at)
                 .is_err()
         );
     }
@@ -461,12 +552,26 @@ mod tests {
             realm_id: request.realm_id.clone(),
         };
         outcome
-            .verify_for_signing(&request, &scope, &auth(), Some(&known), request.created_at)
+            .verify_for_signing(
+                &request,
+                &scope,
+                &auth(),
+                None,
+                Some(&known),
+                request.created_at,
+            )
             .unwrap();
         let reset = prepare(&request, 0, vec![]);
         assert!(
             reset
-                .verify_for_signing(&request, &scope, &auth(), Some(&known), request.created_at)
+                .verify_for_signing(
+                    &request,
+                    &scope,
+                    &auth(),
+                    None,
+                    Some(&known),
+                    request.created_at
+                )
                 .is_err()
         );
     }
@@ -509,7 +614,8 @@ mod tests {
 
     #[test]
     fn raw_request_digest_preserves_explicit_empty_collections() {
-        let request = request(); let mut outcome = prepare(&request, 0, vec![]);
+        let request = request();
+        let mut outcome = prepare(&request, 0, vec![]);
         let mut value = serde_json::to_value(&request).unwrap();
         value["intent"]["blob_refs"] = serde_json::json!([]);
         let canonical = arkret_canonical::canonical_json_bytes(&value).unwrap();
@@ -529,13 +635,19 @@ mod tests {
             encryption_context: MessageEncryptionContext {scheme:EncryptedPayloadScheme::MlsExporterAeadV1,
                 effective_scope:ScopeRef::Realm {realm_id:request.realm_id.clone()}, sender_domain:"device:sender".into()},
         };
-        let outcome = prepare(&request,0,vec![]);
-        let before=arkret_canonical::canonical_json_bytes(&request).unwrap();
+        let outcome = prepare(&request, 0, vec![]);
+        let before = arkret_canonical::canonical_json_bytes(&request).unwrap();
         outcome.validate_for_request(&request).unwrap();
         outcome.validate_for_request(&request).unwrap();
-        assert_eq!(before,arkret_canonical::canonical_json_bytes(&request).unwrap());
-        if let MessageAuthoringContent::Mls {encrypted_content,..}=&mut request.intent.content {
-            encrypted_content.ciphertext="ZGVm".into();
+        assert_eq!(
+            before,
+            arkret_canonical::canonical_json_bytes(&request).unwrap()
+        );
+        if let MessageAuthoringContent::Mls {
+            encrypted_content, ..
+        } = &mut request.intent.content
+        {
+            encrypted_content.ciphertext = "ZGVm".into();
         }
         assert!(outcome.validate_for_request(&request).is_err());
     }

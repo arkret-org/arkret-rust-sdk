@@ -1752,6 +1752,84 @@ async fn mv_register_seal_batches_distinguish_successors_from_siblings() {
     ));
 }
 
+#[test]
+fn selector_unbind_preserves_unseen_siblings_and_can_rebind_without_arrival_order() {
+    let cell = CellRef::new(format!(
+        "ak:cell:{}:controller-assistant",
+        arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1,
+    ))
+    .unwrap();
+    let write = |id, value: Value, observed: &[u8]| {
+        issued(SealedOp::superseding(
+            move_id(id),
+            LatticeOp {
+                op_type: LatticeOpType::Set,
+                value: Some(value),
+                tag: None,
+                from: None,
+                to: None,
+                reason: None,
+                issuer_seq: None,
+            },
+            observed.iter().copied().map(move_id).collect(),
+        ))
+    };
+    let first = write(1, json!({"subject_account_id":"first"}), &[]);
+    let concurrent_bind = write(2, json!({"subject_account_id":"second"}), &[1]);
+    let unbind = write(3, json!({"subject_account_id":null}), &[1]);
+    let rebind = write(4, json!({"subject_account_id":"third"}), &[2, 3]);
+    let lattice = crate::lattice::MvRegister;
+    for batches in [
+        vec![
+            vec![first.clone()],
+            vec![concurrent_bind.clone()],
+            vec![unbind.clone()],
+        ],
+        vec![
+            vec![first.clone()],
+            vec![unbind.clone()],
+            vec![concurrent_bind.clone()],
+        ],
+        vec![
+            vec![first.clone()],
+            vec![concurrent_bind.clone(), unbind.clone()],
+        ],
+    ] {
+        assert!(matches!(
+            join_cell_seal_batches(&lattice, &cell, &batches),
+            CellState::Bottom(_)
+        ));
+        let mut resolved = batches;
+        resolved.push(vec![rebind.clone()]);
+        assert_eq!(
+            join_cell_seal_batches(&lattice, &cell, &resolved),
+            CellState::Value(json!({"subject_account_id":"third"}))
+        );
+        resolved.reverse();
+        assert_eq!(
+            join_cell_seal_batches(&lattice, &cell, &resolved),
+            CellState::Value(json!({"subject_account_id":"third"}))
+        );
+    }
+    let expired = write(
+        5,
+        json!({"subject_account_id":"expired", "expires_at":"2020-01-01T00:00:00.000Z"}),
+        &[4],
+    );
+    let history = vec![
+        vec![first],
+        vec![concurrent_bind, unbind],
+        vec![rebind],
+        vec![expired.clone()],
+    ];
+    // Resolution rejects the expired current claim; the join cannot fall back
+    // to any historically valid target, even after a reload or reordered scan.
+    assert_eq!(
+        join_cell_seal_batches(&lattice, &cell, &history),
+        CellState::Value(expired.op.op.value.unwrap())
+    );
+}
+
 /// A `cas_register` cell is joined over its whole covered history: heads are
 /// derived from the identities each write superseded (§9.3.1.1), so truncating
 /// to the last Seal batch would resurrect a write whose superseder was cut away.

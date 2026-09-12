@@ -2,14 +2,14 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-12.3;
-//! sha256=a6b3b55ba31b7b7f0994d67b38ec21cb6fdfef9f20134789f5a95301a3691375 Input: registry/
-//! operation-registry.json; version=2026-09-11.8;
-//! sha256=6aecb0b65c43706199d7c93d87debcbb6bef241e8900bf9cb0698c23823a3690 Input: registry/
+//! contract-registry.json; version=2026-09-12.7;
+//! sha256=a84b212eeba239661596f8e00ea9069672ede4c40553240fb94e80c35f9b8ebc Input: registry/
+//! operation-registry.json; version=2026-09-12.4;
+//! sha256=0039b4e044ab8a6c4d16f7087ec4fef777fde8bfd646d63c571b39b0ab736d0a Input: registry/
 //! event-kind-registry.json; version=2026-09-12.2;
 //! sha256=153db91288d2b05f75a41ca4cc782575d59be4d7bf6c32ea7266cfe24aaeae0f Input: registry/
-//! schema-registry.json; version=2026-09-11.1;
-//! sha256=096690d39d72cabec2bbf6b024e3e6d188e0eed3860ba6ca5af75283b0486e77 Input: registry/
+//! schema-registry.json; version=2026-09-12.2;
+//! sha256=b2a12a38ed81c1d6540c74a5acb897d32db8f0c696b389416e26ed594f8a346b Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -454,6 +454,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerRealmJoinReadApplicationStatusV1,
             ServiceOperationId::PeerRealmJoinReadBootstrapV1,
             ServiceOperationId::PeerRealmJoinReadPreviewV1,
+            ServiceOperationId::SelfMessagesCommandPrepareV1,
             ServiceOperationId::SelfRealmJoinCommandPrepareV1,
             ServiceOperationId::SelfRealmJoinReadApplicationStatusV1,
             ServiceOperationId::SelfRealmJoinReadPreviewV1,
@@ -809,7 +810,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 ];
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-12.2";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-11.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-11.8";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-12.2";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-12.4";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

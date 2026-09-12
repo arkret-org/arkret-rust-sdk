@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-11.1;
-//! sha256=096690d39d72cabec2bbf6b024e3e6d188e0eed3860ba6ca5af75283b0486e77 Entries: schema_ids=223,
-//! active=223
+//! Input: registry/schema-registry.json; version=2026-09-12.2;
+//! sha256=b2a12a38ed81c1d6540c74a5acb897d32db8f0c696b389416e26ed594f8a346b Entries: schema_ids=228,
+//! active=228
 
 use serde::{Deserialize, Serialize};
 
@@ -134,6 +134,11 @@ pub enum SchemaId {
     MediaServiceBindingRequestV1,
     MemberIdentityV1,
     MessageV1,
+    MessageAuthoringContentV1,
+    MessageAuthoringIntentV1,
+    MessageEncryptionContextV1,
+    MessagePrepareOutcomeV1,
+    MessagePrepareRequestV1,
     MimiInteropV1,
     MimiOperationsV1,
     MlsGovernanceProofBundleV1,
@@ -361,6 +366,11 @@ impl SchemaId {
         Self::MediaServiceBindingRequestV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
+        Self::MessageAuthoringContentV1,
+        Self::MessageAuthoringIntentV1,
+        Self::MessageEncryptionContextV1,
+        Self::MessagePrepareOutcomeV1,
+        Self::MessagePrepareRequestV1,
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
@@ -588,6 +598,11 @@ impl SchemaId {
         Self::MediaServiceBindingRequestV1,
         Self::MemberIdentityV1,
         Self::MessageV1,
+        Self::MessageAuthoringContentV1,
+        Self::MessageAuthoringIntentV1,
+        Self::MessageEncryptionContextV1,
+        Self::MessagePrepareOutcomeV1,
+        Self::MessagePrepareRequestV1,
         Self::MimiInteropV1,
         Self::MimiOperationsV1,
         Self::MlsGovernanceProofBundleV1,
@@ -1054,6 +1069,17 @@ impl SchemaId {
     /// lifecycle is carried by ak.schema.handle_claim.v1.
     pub const MEMBER_IDENTITY_V1: &'static str = "ak.schema.member_identity.v1";
     pub const MESSAGE_V1: &'static str = "ak.schema.message.v1";
+    /// Closed ordinary message authoring carrier: message_authoring_content.
+    pub const MESSAGE_AUTHORING_CONTENT_V1: &'static str = "ak.schema.message_authoring_content.v1";
+    /// Closed ordinary message authoring carrier: message_authoring_intent.
+    pub const MESSAGE_AUTHORING_INTENT_V1: &'static str = "ak.schema.message_authoring_intent.v1";
+    /// Closed ordinary message authoring carrier: message_encryption_context.
+    pub const MESSAGE_ENCRYPTION_CONTEXT_V1: &'static str =
+        "ak.schema.message_encryption_context.v1";
+    /// Closed ordinary message authoring carrier: message_prepare_outcome.
+    pub const MESSAGE_PREPARE_OUTCOME_V1: &'static str = "ak.schema.message_prepare_outcome.v1";
+    /// Closed ordinary message authoring carrier: message_prepare_request_body.
+    pub const MESSAGE_PREPARE_REQUEST_V1: &'static str = "ak.schema.message_prepare_request.v1";
     pub const MIMI_INTEROP_V1: &'static str = "ak.schema.mimi_interop.v1";
     /// Closed request/response DTO bundle for MIMI provider interop operations.
     pub const MIMI_OPERATIONS_V1: &'static str = "ak.schema.mimi_operations.v1";
@@ -1130,11 +1156,9 @@ impl SchemaId {
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
-    /// Bounded join bootstrap material: effective join_rule, complete accepted seal_basis, live
-    /// digest suite, encryption profile, one dependency bundle per basis leaf, the
-    /// exact-precondition proof for the single control cell of this intent, and the applicant's own
-    /// predecessor Events as unverified authoring input. It is purpose limited and expiring, never
-    /// membership, never a governance read grant and never a frontier completeness proof.
+    /// One bounded page of the request-authorized complete governance replay closure. Includes
+    /// necessary other-member control payloads; never message/key access or accepted state.
+    /// Terminal cursor is not a completeness proof.
     pub const REALM_JOIN_BOOTSTRAP_OUTCOME_V1: &'static str =
         "ak.schema.realm_join_bootstrap_outcome.v1";
     /// Authenticated service-to-service request for the bounded material required to author and
@@ -1477,6 +1501,11 @@ impl SchemaId {
             Self::MediaServiceBindingRequestV1 => Self::MEDIA_SERVICE_BINDING_REQUEST_V1,
             Self::MemberIdentityV1 => Self::MEMBER_IDENTITY_V1,
             Self::MessageV1 => Self::MESSAGE_V1,
+            Self::MessageAuthoringContentV1 => Self::MESSAGE_AUTHORING_CONTENT_V1,
+            Self::MessageAuthoringIntentV1 => Self::MESSAGE_AUTHORING_INTENT_V1,
+            Self::MessageEncryptionContextV1 => Self::MESSAGE_ENCRYPTION_CONTEXT_V1,
+            Self::MessagePrepareOutcomeV1 => Self::MESSAGE_PREPARE_OUTCOME_V1,
+            Self::MessagePrepareRequestV1 => Self::MESSAGE_PREPARE_REQUEST_V1,
             Self::MimiInteropV1 => Self::MIMI_INTEROP_V1,
             Self::MimiOperationsV1 => Self::MIMI_OPERATIONS_V1,
             Self::MlsGovernanceProofBundleV1 => Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
@@ -1753,6 +1782,11 @@ impl SchemaId {
             }
             Self::MemberIdentityV1 => "schemas/member-identity.schema.json",
             Self::MessageV1 => "schemas/message.schema.json",
+            Self::MessageAuthoringContentV1 => "schemas/message-authoring.schema.json",
+            Self::MessageAuthoringIntentV1 => "schemas/message-authoring.schema.json",
+            Self::MessageEncryptionContextV1 => "schemas/message-authoring.schema.json",
+            Self::MessagePrepareOutcomeV1 => "schemas/message-authoring.schema.json",
+            Self::MessagePrepareRequestV1 => "schemas/message-authoring.schema.json",
             Self::MimiInteropV1 => "schemas/mimi-interop.schema.json",
             Self::MimiOperationsV1 => "schemas/mimi-operations.schema.json",
             Self::MlsGovernanceProofBundleV1 => "schemas/mls-governance-proof-bundle.schema.json",
@@ -2025,6 +2059,11 @@ impl SchemaId {
             Self::MEDIA_SERVICE_BINDING_REQUEST_V1 => Some(Self::MediaServiceBindingRequestV1),
             Self::MEMBER_IDENTITY_V1 => Some(Self::MemberIdentityV1),
             Self::MESSAGE_V1 => Some(Self::MessageV1),
+            Self::MESSAGE_AUTHORING_CONTENT_V1 => Some(Self::MessageAuthoringContentV1),
+            Self::MESSAGE_AUTHORING_INTENT_V1 => Some(Self::MessageAuthoringIntentV1),
+            Self::MESSAGE_ENCRYPTION_CONTEXT_V1 => Some(Self::MessageEncryptionContextV1),
+            Self::MESSAGE_PREPARE_OUTCOME_V1 => Some(Self::MessagePrepareOutcomeV1),
+            Self::MESSAGE_PREPARE_REQUEST_V1 => Some(Self::MessagePrepareRequestV1),
             Self::MIMI_INTEROP_V1 => Some(Self::MimiInteropV1),
             Self::MIMI_OPERATIONS_V1 => Some(Self::MimiOperationsV1),
             Self::MLS_GOVERNANCE_PROOF_BUNDLE_V1 => Some(Self::MlsGovernanceProofBundleV1),

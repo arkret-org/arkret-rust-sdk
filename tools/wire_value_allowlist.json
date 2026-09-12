@@ -3522,6 +3522,18 @@
       "adjudication": "manual"
     },
     {
+      "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::build_card_version_selection:2afaf6f174faa9bc",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_sdk::StrandPatchPayload; selected.value.as_strand()",
+      "owner_repository": "inkson",
+      "action": "A selected, typed current Strand value is projected to the closed identity patch and immediately deserialized into the SDK StrandPatchPayload before TypedOperationBuilder signs it. This is not an independent wire DTO.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "A selected, typed current Strand value is projected to the closed identity patch and immediately deserialized into the SDK StrandPatchPayload before TypedOperationBuilder signs it. This is not an independent wire DTO.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:6c78ef1661ad1c6f",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -3531,6 +3543,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+    },
+    {
+      "finding": "json_authoring:inkson/src/views/kanban/model/board_projection.rs::install_current_card_sources:9faf072e55106c0c",
+      "classification": "internal_or_fixture",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "local Strand projection cache; CurrentResultEntry::as_strand",
+      "owner_repository": "inkson",
+      "action": "Local display projection initialization after a single typed current head has been selected. This value is not submitted as an Event, schema, or authoritative lifecycle result; authoring and lifecycle acceptance remain on their existing validated paths.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Local display projection initialization after a single typed current head has been selected. This value is not submitted as an Event, schema, or authoritative lifecycle result; authoring and lifecycle acceptance remain on their existing validated paths.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:inkson/src/views/realm_admin/members_panel/controller.rs::invite_contacts:17dbed716088a4d6",
@@ -5157,28 +5181,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/spaces/directory/agent_selector.rs::signed_agent_selector_claim:0821fbcdf7bb5cf5",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning realm_id",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/spaces/directory/realm_resolution.rs::realm_preview_for_policy:911cd70c49cc9676",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning realm_id",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/services/src/projection/tombstone.rs::erasure_tombstone_payload_value:ddfb83365e757d2d",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5387,6 +5389,18 @@
       "adjudication": "manual"
     },
     {
+      "finding": "paired_api:crates/wire/src/events/kinds.rs::realm_write_gate_exempt",
+      "classification": "independent",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "arkret_wire::EventKind; models/realm-and-space.md write-gate exemptions",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Read-only predicate over an already selected Event kind and its payload. It only recognizes the closed self-leave spelling; it neither constructs a DTO nor replaces schema or authority validation.",
+      "test": "cargo test -p soland-http lifecycle_escape_preserves_terminal_and_authority_boundaries",
+      "reason": "Read-only predicate over an already selected Event kind and its payload. It only recognizes the closed self-leave spelling; it neither constructs a DTO nor replaces schema or authority validation.",
+      "adjudication": "manual"
+    },
+    {
       "finding": "paired_api:crates/wire/src/forbidden_wire.rs::forbidden_wire_violation",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -5444,6 +5458,18 @@
       "action": "Rejects forbidden legacy fields in incoming patch paths and nested whole-object replacement values. It must inspect the original raw patch before narrowing can discard prohibited members; object_kind chooses the registry rejection rule.",
       "test": "cargo test -p soland-domain --lib patch_helpers",
       "reason": "Rejects forbidden legacy fields in incoming patch paths and nested whole-object replacement values. It must inspect the original raw patch before narrowing can discard prohibited members; object_kind chooses the registry rejection rule.",
+      "adjudication": "manual"
+    },
+    {
+      "finding": "paired_api:soland/crates/http/src/routing/events/event_log/admission.rs::frozen_realm_check",
+      "classification": "independent",
+      "lifecycle": "retained_boundary",
+      "decision": "independent",
+      "authority": "arkret_wire::realm_write_gate_exempt",
+      "owner_repository": "soland",
+      "action": "HTTP adapter for the shared read-only Realm write-gate predicate. The original Event envelope, schema and authority validation remain responsible for acceptance.",
+      "test": "cargo test -p soland-http lifecycle_escape_preserves_terminal_and_authority_boundaries",
+      "reason": "HTTP adapter for the shared read-only Realm write-gate predicate. The original Event envelope, schema and authority validation remain responsible for acceptance.",
       "adjudication": "manual"
     },
     {
@@ -6933,6 +6959,18 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "soland/crates/storage/src/projection.rs::StrandProjectionRecord.fields",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "arkret_models_collaboration::objects::strand::StrandMetadata.fields; strand.schema.json#/$defs/metadata_fields",
+      "owner_repository": "soland",
+      "action": "Persistence projection of the schema-defined extensible metadata map. Keys and registered structured values are validated through StrandMetadata before protocol use; this storage record does not define a second wire schema.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "Persistence projection of the schema-defined extensible metadata map. Keys and registered structured values are validated through StrandMetadata before protocol use; this storage record does not define a second wire schema.",
+      "adjudication": "manual"
     },
     {
       "finding": "soland/crates/storage/src/records.rs::AccountDataRecord.payload",
