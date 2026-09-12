@@ -24,6 +24,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 
 use arkret_canonical::DigestSuite;
+use arkret_wire::seal_conclusion::{SealConclusionOutcome, SealConclusionSet};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, ActorId, CellRef, ControlProposalDecisionReadOutcome, ControlProposalState,
@@ -776,10 +777,13 @@ pub struct RealmJoinPeerApplicationStatusOutcome {
     /// every `realm_state` other than `received`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decision: Option<ControlProposalDecisionReadOutcome>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub conclusion_set: Option<arkret_wire::SealConclusionSet>,
     #[serde(with = "canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
+    /// Quorum-authenticated results for the exact application command and its
+    /// necessary membership effects. Present exactly when `realm_state` is
+    /// `sealed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conclusion_set: Option<SealConclusionSet>,
 }
 
 impl RealmJoinPeerApplicationStatusOutcome {
@@ -793,24 +797,6 @@ impl RealmJoinPeerApplicationStatusOutcome {
             Self::MAX_CANONICAL_BYTES,
             "Realm join application status",
         )?;
-        if (self.realm_state == RealmJoinRealmState::Sealed) != self.conclusion_set.is_some() {
-            return Err(WireError::Protocol(
-                "sealed application status requires conclusions; other states forbid them"
-                    .to_owned(),
-            ));
-        }
-        if let Some(set) = &self.conclusion_set {
-            set.validate_structural()?;
-            if set
-                .conclusions
-                .iter()
-                .any(|certificate| certificate.statement.realm_id != self.realm_id)
-            {
-                return Err(WireError::Protocol(
-                    "application conclusion crosses Realm".to_owned(),
-                ));
-            }
-        }
         match (self.realm_state.proposal_state(), &self.decision) {
             (None, None) => Ok(()),
             (None, Some(_)) => Err(WireError::Protocol(
@@ -832,6 +818,40 @@ impl RealmJoinPeerApplicationStatusOutcome {
                 }
                 Ok(())
             }
+        }?;
+        match (&self.realm_state, &self.conclusion_set) {
+            (RealmJoinRealmState::Sealed, Some(set)) => {
+                set.validate_structural()?;
+                let application_digest = self.event_id.event_digest();
+                if set
+                    .conclusions
+                    .iter()
+                    .any(|certificate| certificate.statement.realm_id != self.realm_id)
+                    || !set.conclusions.iter().any(|certificate| {
+                        certificate.statement.results.iter().any(|result| {
+                            matches!(
+                                result,
+                                SealConclusionOutcome::Command(command)
+                                    if command.selector.event_digest == application_digest
+                                        && command.result.is_some()
+                            )
+                        })
+                    })
+                {
+                    return Err(WireError::Protocol(
+                        "sealed Realm join conclusion must authenticate the exact application command"
+                            .to_owned(),
+                    ));
+                }
+                Ok(())
+            }
+            (RealmJoinRealmState::Sealed, None) => Err(WireError::Protocol(
+                "sealed Realm join application requires its conclusion set".to_owned(),
+            )),
+            (_, Some(_)) => Err(WireError::Protocol(
+                "unsealed Realm join application must not carry a conclusion set".to_owned(),
+            )),
+            (_, None) => Ok(()),
         }
     }
 
@@ -1039,6 +1059,51 @@ mod tests {
             .derive_id(DigestSuite::Sha256)
             .expect("derived seal id");
         seal
+    }
+
+    fn sealed_application_conclusion_set() -> SealConclusionSet {
+        use arkret_wire::seal_conclusion::{
+            SealConclusionCertificate, SealConclusionCommandOutcome, SealConclusionCommandSelector,
+            SealConclusionCommandSelectorKind, SealConclusionStatement,
+        };
+
+        let event_digest = event_id().event_digest();
+        let statement = SealConclusionStatement {
+            realm_id: realm_id(),
+            configuration_ref: event_id(),
+            authority_seal_ref: seal().id,
+            target_seal_ref: seal().id,
+            results: vec![SealConclusionOutcome::Command(
+                SealConclusionCommandOutcome {
+                    selector: SealConclusionCommandSelector {
+                        kind: SealConclusionCommandSelectorKind::Command,
+                        event_digest: event_digest.clone(),
+                    },
+                    result: Some(SealCommandOutcome {
+                        event_digest: event_digest.clone(),
+                        outcome: CommandOutcome::Committed,
+                        result_digest: hash('9'),
+                        reason_code: None,
+                        unit_event_digests: vec![event_digest],
+                    }),
+                },
+            )],
+        };
+        let payload_digest = statement
+            .signing_payload_digest()
+            .expect("conclusion digest");
+        SealConclusionSet {
+            configuration_handoffs: Vec::new(),
+            conclusions: vec![SealConclusionCertificate {
+                statement,
+                signatures: vec![SealSignature {
+                    verification_method: DidUrl::new("did:web:notary.example#key-1")
+                        .expect("method"),
+                    payload_digest,
+                    jws: "AAAA..CCCC".to_owned(),
+                }],
+            }],
+        }
     }
 
     fn governance_facts(basis: SealBasis) -> RealmJoinGovernanceFacts {
@@ -1580,40 +1645,9 @@ mod tests {
             event_id: event_id(),
             realm_state,
             decision,
-            conclusion_set: (realm_state == RealmJoinRealmState::Sealed).then(|| {
-                use arkret_wire::seal_conclusion::*;
-                let statement = SealConclusionStatement {
-                    realm_id: realm_id(),
-                    configuration_ref: event_id(),
-                    authority_seal_ref: seal().id.clone(),
-                    target_seal_ref: seal().id,
-                    results: vec![SealConclusionOutcome::Command(
-                        SealConclusionCommandOutcome {
-                            selector: SealConclusionCommandSelector {
-                                kind: SealConclusionCommandSelectorKind::Command,
-                                event_digest: event_id().event_digest(),
-                            },
-                            result: Some(SealCommandOutcome {
-                                event_digest: event_id().event_digest(),
-                                outcome: CommandOutcome::Committed,
-                                result_digest: hash('4'),
-                                reason_code: None,
-                                unit_event_digests: vec![event_id().event_digest()],
-                            }),
-                        },
-                    )],
-                };
-                let mut signature = seal().notary_signature.signatures[0].clone();
-                signature.payload_digest = statement.signing_payload_digest().unwrap();
-                SealConclusionSet {
-                    configuration_handoffs: vec![],
-                    conclusions: vec![SealConclusionCertificate {
-                        statement,
-                        signatures: vec![signature],
-                    }],
-                }
-            }),
             observed_at: observed_at(),
+            conclusion_set: (realm_state == RealmJoinRealmState::Sealed)
+                .then(sealed_application_conclusion_set),
         }
     }
 

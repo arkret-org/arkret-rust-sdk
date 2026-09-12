@@ -18,11 +18,7 @@ STATE_MODEL_VARIANTS = {
     "sequenced_state": "SequencedState",
 }
 
-BOTTOM_VARIANTS = {
-    "reject": "Reject",
-    "expose": "Expose",
-    "inert": "Inert",
-}
+BOTTOM_VARIANTS = {"expose": "Expose"}
 
 
 def cell_family_constant(family: str) -> str:
@@ -72,12 +68,17 @@ def collect_bindings(
                 )
             if execution == "security" and state_model != "sequenced_state":
                 raise ValueError(f"{family} security write must use sequenced_state")
-            if execution == "security" and bottom is not None:
-                raise ValueError(f"{family} security write must not declare bottom")
             if execution == "data" and state_model == "sequenced_state":
                 raise ValueError(f"{family} data write cannot use sequenced_state")
-            if execution == "data" and bottom not in BOTTOM_VARIANTS:
-                raise ValueError(f"{family} data write must declare a supported bottom")
+            if state_model == "causal_register":
+                if execution != "data" or bottom != "expose":
+                    raise ValueError(
+                        f"{family} causal_register must be ordinary data with bottom=expose"
+                    )
+            elif bottom is not None:
+                raise ValueError(
+                    f"{family} {state_model} write must not declare bottom"
+                )
             binding = (execution, state_model, value_shape, bottom)
             previous = bindings.setdefault(family, binding)
             if previous != binding:
@@ -99,7 +100,7 @@ def render(source_path: Path, registry: dict) -> str:
         execution_variant = execution.title()
         value_shape_variant = value_shape.title()
         bottom_value = (
-            f"Some(EventCellBottom::{BOTTOM_VARIANTS[bottom]})"
+            f"Some(CausalRegisterBottomPolicy::{BOTTOM_VARIANTS[bottom]})"
             if bottom is not None
             else "None"
         )
@@ -121,9 +122,9 @@ def render(source_path: Path, registry: dict) -> str:
             f"// Source sha256: {source_digest}",
             "",
             "use arkret_state::state_model::StateModelKind;",
-            "use arkret_wire::{CellFamilyId, EventCellBottom, EventCellExecution, EventCellValueShape};",
+            "use arkret_wire::{CellFamilyId, CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};",
             "",
-            "pub(crate) const SPEC_STATE_MODEL_BINDINGS: &[(&str, EventCellExecution, StateModelKind, EventCellValueShape, Option<EventCellBottom>)] = &[",
+            "pub(crate) const SPEC_STATE_MODEL_BINDINGS: &[(&str, EventCellExecution, StateModelKind, EventCellValueShape, Option<CausalRegisterBottomPolicy>)] = &[",
             *rows,
             "];",
             "",

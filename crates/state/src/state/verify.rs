@@ -33,7 +33,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
 
-use super::store::{CellStateRegistry, EventCellBottom, StoreError};
+use super::store::{CausalRegisterBottomPolicy, CellStateRegistry, StoreError};
 use crate::state_model::ResolvedCellState;
 use crate::{
     BottomKind, CellRef, LatticeOp, LatticeOpType, ObservedRemoveMatch, Predicate, PredicateOp,
@@ -322,7 +322,7 @@ where
             let binding = registry
                 .resolve(realm_id, &pre.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode != Some(EventCellBottom::Expose) {
+            if binding.bottom_policy != Some(CausalRegisterBottomPolicy::Expose) {
                 return Err(ControlMoveReject::FailedBottom {
                     cell: pre.cell_id.as_str().to_owned(),
                     kind: b.kind,
@@ -604,7 +604,7 @@ fn frozen_cell_value(
             let binding = registry
                 .resolve(realm_id, cell)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode == Some(EventCellBottom::Expose) {
+            if binding.bottom_policy == Some(CausalRegisterBottomPolicy::Expose) {
                 Ok(Value::Null)
             } else {
                 Err(ControlMoveReject::FailedBottom {

@@ -50,7 +50,7 @@ pub enum ModerationAction {
 
 /// `ak.self.moderation.command.report.v1` request body.
 ///
-/// The service forwards this exact caller-authored and caller-signed DataEvent
+/// The service forwards this exact caller-authored and caller-signed ordinary Event
 /// through ordinary Event admission. It never constructs a report Event from
 /// an unsigned report projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,7 +91,7 @@ impl ModerationReportRequestBody {
         }
         if event.seal_basis.is_some() || !event.preconditions.is_empty() {
             return Err(arkret_wire::WireError::Protocol(
-                "self moderation report must be a DataEvent without seal_basis or preconditions"
+                "self moderation report must be an ordinary Event without seal_basis or preconditions"
                     .to_owned(),
             ));
         }
@@ -126,7 +126,7 @@ impl ModerationReportRequestBody {
 
         let auth_context = event.auth_context.as_ref().ok_or_else(|| {
             arkret_wire::WireError::Protocol(
-                "moderation report DataEvent requires auth_context".to_owned(),
+                "moderation report ordinary Event requires auth_context".to_owned(),
             )
         })?;
         if auth_context.key_id.is_empty()

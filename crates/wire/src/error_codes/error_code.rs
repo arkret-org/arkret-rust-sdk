@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json; version=2026-09-12.12;
-//! sha256=e9d68bcc1620261366eabd671995cd9c5a250cf89a20510c70118ad176c6722d Entries: error_codes=280
+//! sha256=d389a78f4571712dc0d41aea84511be8c31b548c61e7e51f42ac330fd4330af6 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -2607,7 +2607,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBS plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a DataEvent targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
+        description: "CBS plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a ordinary Event targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,

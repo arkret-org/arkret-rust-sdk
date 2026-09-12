@@ -42,11 +42,11 @@ macro_rules! prepared_event_newtype {
     };
 }
 
-prepared_event_newtype!(PreparedDataEvent);
+prepared_event_newtype!(PreparedOrdinaryEvent);
 prepared_event_newtype!(PreparedControlMove);
 prepared_event_newtype!(PreparedNonReducerEvent);
 
-impl TryFrom<Event> for PreparedDataEvent {
+impl TryFrom<Event> for PreparedOrdinaryEvent {
     type Error = SchemaError;
 
     fn try_from(event: Event) -> Result<Self> {
@@ -57,7 +57,7 @@ impl TryFrom<Event> for PreparedDataEvent {
             || !event.preconditions.is_empty()
         {
             return Err(SchemaError::Protocol(
-                "prepared DataEvent requires auth_context and forbids seal_basis + preconditions"
+                "prepared ordinary Event requires auth_context and forbids seal_basis + preconditions"
                     .to_owned(),
             ));
         }
@@ -106,7 +106,7 @@ impl TryFrom<Event> for PreparedNonReducerEvent {
 /// be inferred from an Event with missing CBS fields.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PreparedStandardEvent {
-    Data(PreparedDataEvent),
+    Data(PreparedOrdinaryEvent),
     Control(PreparedControlMove),
     NonReducer(PreparedNonReducerEvent),
 }
@@ -146,7 +146,7 @@ impl TryFrom<Event> for PreparedStandardEvent {
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
         match event.kind.cbs_plane() {
-            Some(CbsEffectPlane::Data) => Ok(Self::Data(PreparedDataEvent(event))),
+            Some(CbsEffectPlane::Data) => Ok(Self::Data(PreparedOrdinaryEvent(event))),
             Some(CbsEffectPlane::Control) => Ok(Self::Control(PreparedControlMove(event))),
             None if event.kind.is_reducer_input() => Err(SchemaError::Protocol(format!(
                 "reducer-input Event kind {} has no registered CBS plane",
@@ -157,8 +157,8 @@ impl TryFrom<Event> for PreparedStandardEvent {
     }
 }
 
-impl From<PreparedDataEvent> for PreparedStandardEvent {
-    fn from(event: PreparedDataEvent) -> Self {
+impl From<PreparedOrdinaryEvent> for PreparedStandardEvent {
+    fn from(event: PreparedOrdinaryEvent) -> Self {
         Self::Data(event)
     }
 }
@@ -236,17 +236,18 @@ mod tests {
     }
 
     #[test]
-    fn prepared_data_event_accepts_only_complete_data_plane_shape() {
-        let prepared = PreparedDataEvent::try_from(message_event()).expect("prepared DataEvent");
+    fn prepared_ordinary_event_accepts_only_complete_data_plane_shape() {
+        let prepared =
+            PreparedOrdinaryEvent::try_from(message_event()).expect("prepared ordinary Event");
         assert_eq!(prepared.event().kind.as_str(), "ak.message.create");
     }
 
     #[test]
-    fn prepared_data_event_rejects_missing_authority_context() {
+    fn prepared_ordinary_event_rejects_missing_authority_context() {
         let mut event = message_event();
         event.auth_context = None;
 
-        assert!(PreparedDataEvent::try_from(event).is_err());
+        assert!(PreparedOrdinaryEvent::try_from(event).is_err());
     }
 
     #[test]

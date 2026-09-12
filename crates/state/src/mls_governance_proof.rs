@@ -36,7 +36,7 @@ use crate::state::store::memory::{MemoryCellStore, MemoryControlEventStore, Memo
 use crate::state_model::ResolvedCellState;
 use crate::{
     CellStateRegistry, CellStore, ControlEventStore, SealDigestSuites, SealStore,
-    apply_replayed_seal_in_context, effective_state_at, union_predecessor_covered_events,
+    apply_replayed_seal_in_context, covered_events_for_seal_basis, effective_state_at,
     verify_state_inclusion_proof,
 };
 
@@ -775,9 +775,11 @@ where
     )
     .await?;
     let leaves = seal_store
-        .list_leaves(&candidate.realm_id)
+        .confirmed_head(&candidate.realm_id)
         .await
-        .map_err(replay_store_error)?;
+        .map_err(replay_store_error)?
+        .into_iter()
+        .collect::<Vec<_>>();
     if canonical_seal_set(&leaves) != canonical_seal_set(&candidate.basis.leaves) {
         return frontier_rejected("verified checkpoint replay does not end at its pinned basis");
     }
@@ -1526,7 +1528,7 @@ async fn materialize_frontier_entry(
     let value = cell_state.value;
     let proof = crate::state_inclusion_proof(state.as_governance_view(), cell, digest_suite)?;
     let preimage = state_leaf_canonical_preimage(state.as_governance_view(), cell)?;
-    let covered = union_predecessor_covered_events(std::slice::from_ref(&seal.id), seal_store)
+    let covered = covered_events_for_seal_basis(std::slice::from_ref(&seal.id), seal_store)
         .await
         .map_err(replay_reject_error)?;
     let provenance_digests = cell_store
@@ -1894,9 +1896,11 @@ where
     )
     .await?;
     let base_leaves = seal_store
-        .list_leaves(expected_realm)
+        .confirmed_head(expected_realm)
         .await
-        .map_err(replay_store_error)?;
+        .map_err(replay_store_error)?
+        .into_iter()
+        .collect::<Vec<_>>();
     if canonical_seal_set(&base_leaves) != canonical_seal_set(&checkpoint.basis.leaves) {
         return frontier_rejected("replayed checkpoint leaf set does not equal its pinned basis");
     }
@@ -1933,9 +1937,11 @@ where
     )
     .await?;
     let target_leaves = seal_store
-        .list_leaves(expected_realm)
+        .confirmed_head(expected_realm)
         .await
-        .map_err(replay_store_error)?;
+        .map_err(replay_store_error)?
+        .into_iter()
+        .collect::<Vec<_>>();
     if canonical_seal_set(&target_leaves) != canonical_seal_set(&target_basis.leaves) {
         return frontier_rejected("replayed target leaf set does not equal the query target basis");
     }
@@ -2002,7 +2008,7 @@ where
         let mut ready = Vec::new();
         for (id, seal) in &pending {
             if seal_store
-                .predecessors_known(seal_predecessor_slice(seal))
+                .predecessor_known(seal.predecessor_ref.as_ref())
                 .await
                 .unwrap_or(false)
             {
@@ -2151,7 +2157,7 @@ where
     )
     .await
     .map_err(replay_reject_error)?;
-    let mut covered = union_predecessor_covered_events(seal_predecessor_slice(seal), seal_store)
+    let mut covered = covered_events_for_seal_basis(seal_predecessor_basis(seal), seal_store)
         .await
         .map_err(replay_reject_error)?;
     covered.extend(seal.delta.iter().cloned());
@@ -2177,7 +2183,7 @@ where
     Ok(())
 }
 
-fn seal_predecessor_slice(seal: &Seal) -> &[SealId] {
+fn seal_predecessor_basis(seal: &Seal) -> &[SealId] {
     seal.predecessor_ref
         .as_ref()
         .map(std::slice::from_ref)
@@ -2326,7 +2332,7 @@ async fn predecessor_notary_and_state(
     }
 
     let state = effective_state_at(
-        seal_predecessor_slice(seal),
+        seal_predecessor_basis(seal),
         &seal.realm_id,
         seal_store,
         cell_store,
@@ -2428,7 +2434,7 @@ async fn seal_dependency_replay_context(
         && !add_pcr_holder_from_verified_create_anchor(seal, all_events, seal_store, &mut context)
             .await?
     {
-        let covered = union_predecessor_covered_events(seal_predecessor_slice(seal), seal_store)
+        let covered = covered_events_for_seal_basis(seal_predecessor_basis(seal), seal_store)
             .await
             .map_err(replay_reject_error)?;
         for (cell, state) in predecessor_state {
@@ -2688,7 +2694,7 @@ async fn verify_frontier_entry(
     }
 
     let covered =
-        union_predecessor_covered_events(std::slice::from_ref(&witness.root_seal_ref), seal_store)
+        covered_events_for_seal_basis(std::slice::from_ref(&witness.root_seal_ref), seal_store)
             .await
             .map_err(replay_reject_error)?;
     let replayed_provenance = cell_store

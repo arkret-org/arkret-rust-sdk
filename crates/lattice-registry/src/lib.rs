@@ -36,7 +36,7 @@ mod tests {
     }
 
     fn event(byte: u8) -> EventId {
-        EventId::new(format!("ak:event:{}", format!("{byte:02x}").repeat(32))).unwrap()
+        EventId::from_digest(arkret_wire::canonical::DigestSuite::Sha256, [byte; 32])
     }
 
     #[test]
@@ -53,14 +53,9 @@ mod tests {
             bindings
                 .iter()
                 .all(|(_, execution, state_model, _, bottom)| {
-                    match execution {
-                        EventCellExecution::Security => {
-                            *state_model == StateModelKind::SequencedState && bottom.is_none()
-                        }
-                        EventCellExecution::Data => {
-                            *state_model != StateModelKind::SequencedState && bottom.is_some()
-                        }
-                    }
+                    (*execution == EventCellExecution::Security)
+                        == (*state_model == StateModelKind::SequencedState)
+                        && bottom.is_some() == (*state_model == StateModelKind::CausalRegister)
                 })
         );
 

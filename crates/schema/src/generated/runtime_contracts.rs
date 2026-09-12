@@ -3,11 +3,11 @@
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
 //! contract-registry.json; version=2026-09-12.18;
-//! sha256=7bf0fe6c3f8264c4daabc983e56db8eae4a72606d4377f4396a9990a8ab19d43 Input: registry/
+//! sha256=f39f56e1e3f787ec5766a744ca745efa40bcb0c61c0329c09174c512de85feee Input: registry/
 //! operation-registry.json; version=2026-09-12.16;
-//! sha256=e811a486750bc009da9ec7a7f4044cfd2decb6214aa9de02eb649a2518f56f0d Input: registry/
+//! sha256=ee5f17d876d77c0d4c6d5f5bf9489fc9d769e882216bdf5ef4ca524ec1904895 Input: registry/
 //! event-kind-registry.json; version=2026-09-12.13;
-//! sha256=c2b4220c97baeef08f40b0de31843f0a745e8788027812c55cc6c6fbe41a4a03 Input: registry/
+//! sha256=4e4e8c58ce5f20e4b0e424b8825af201b11382818acd53762eb4cf684712606b Input: registry/
 //! schema-registry.json; version=2026-09-12.12;
 //! sha256=59cdd1ff7620d3d800f9052caa1c18728d160be728607f716ac1433944f9d994 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;

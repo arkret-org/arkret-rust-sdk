@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_crypto::DeviceProjectionAttestation;
 use arkret_models_identity::{
-    AgentAdmissionEvidence, AgentAuthorityState, AgentAuthorityStateEvidence,
-    AgentAuthorityStateLease, AgentEvidenceTransparency, AgentSignerEvidence,
+    AgentAdmissionEvidence, AgentAuthorityState, AgentAuthorityStateAttestation,
+    AgentAuthorityStateEvidence, AgentEvidenceTransparency, AgentSignerEvidence,
     AuthenticatedSignerResolutionEvidence, ControllerAccountGateAttestation,
 };
 use arkret_wire::{
@@ -350,8 +350,8 @@ impl CurrentSignerEvidence {
                 let gate = &admission_evidence.controller_account_gate_attestation;
                 if now < admission_evidence.valid_from()
                     || now >= admission_evidence.expires_at()
-                    || snapshot.lease.issued_at >= snapshot.lease.expires_at
-                    || snapshot.lease.expires_at - snapshot.lease.issued_at
+                    || snapshot.attestation.issued_at >= snapshot.attestation.expires_at
+                    || snapshot.attestation.expires_at - snapshot.attestation.issued_at
                         > chrono::Duration::seconds(300)
                     || gate.issued_at >= gate.expires_at
                     || gate.expires_at - gate.issued_at > chrono::Duration::seconds(300)
@@ -649,7 +649,7 @@ pub struct CompactAgentAuthorityStateEvidence {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<AgentAuthorityState>,
     pub state_digest: Hash,
-    pub lease: AgentAuthorityStateLease,
+    pub attestation: AgentAuthorityStateAttestation,
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -727,7 +727,7 @@ impl CompactAgentSignerResolutionEvidence {
                         state: (!known.contains(&snapshot.state_digest))
                             .then(|| snapshot.state.clone()),
                         state_digest: snapshot.state_digest.clone(),
-                        lease: snapshot.lease.clone(),
+                        attestation: snapshot.attestation.clone(),
                     },
                     controller_account_gate_attestation: admission_evidence
                         .controller_account_gate_attestation
@@ -780,7 +780,7 @@ impl CompactAgentSignerResolutionEvidence {
                     agent_authority_state_evidence: AgentAuthorityStateEvidence {
                         state: state.clone(),
                         state_digest: compact.state_digest.clone(),
-                        lease: compact.lease.clone(),
+                        attestation: compact.attestation.clone(),
                     },
                     controller_account_gate_attestation: admission_evidence
                         .controller_account_gate_attestation

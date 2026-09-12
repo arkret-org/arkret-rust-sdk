@@ -91,21 +91,19 @@ mod seal_transparency_tests {
     use super::*;
 
     #[test]
-    fn auditor_checks_require_dag_edges_and_true_values() {
+    fn auditor_checks_require_every_registered_true_value() {
         let valid = serde_json::json!({
             "append_only": true,
             "seal_signatures": true,
             "dag_edges_verified": true,
-            "set_root_monotonic": true,
-            "completeness_monotonic": true
+            "set_root_monotonic": true
         });
         assert!(serde_json::from_value::<SealTransparencyChecks>(valid).is_ok());
 
         let missing = serde_json::json!({
             "append_only": true,
             "seal_signatures": true,
-            "set_root_monotonic": true,
-            "completeness_monotonic": true
+            "set_root_monotonic": true
         });
         assert!(serde_json::from_value::<SealTransparencyChecks>(missing).is_err());
 
@@ -113,8 +111,7 @@ mod seal_transparency_tests {
             "append_only": true,
             "seal_signatures": true,
             "dag_edges_verified": false,
-            "set_root_monotonic": true,
-            "completeness_monotonic": true
+            "set_root_monotonic": true
         });
         assert!(serde_json::from_value::<SealTransparencyChecks>(false_check).is_err());
     }

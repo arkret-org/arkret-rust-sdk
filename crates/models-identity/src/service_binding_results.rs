@@ -382,6 +382,7 @@ mod tests {
         let mut outcome = notary_outcome();
         let mut signer = service_signer();
         signer.actor_id = ActorId::account(account());
+        signer.verification_method = DidUrl::new("did:web:alice.example#notary-key-1").unwrap();
         outcome.notary = NotaryValue::new(vec![signer], 0, 0).unwrap();
         assert!(outcome.validate().is_err());
     }

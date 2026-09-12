@@ -249,10 +249,10 @@ pub struct AnchorUnitLeaseBasisRef {
 
 /// Accepted authorization basis a lease narrows.
 ///
-/// Single-chain finality profiles cite one accepted Seal; `open_set` MUST
-/// carry the complete signed multi-leaf basis, because no single leaf can
-/// stand in for the joined view. The object-form anchor-unit commitment is
-/// permitted only for a caller-validated registered genesis unit.
+/// A single-Realm basis cites one confirmed Seal. A cross-Realm operation
+/// carries the complete signed basis with exactly one confirmed head for each
+/// participating Realm. The object-form anchor-unit commitment is permitted
+/// only for a caller-validated registered genesis unit.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]

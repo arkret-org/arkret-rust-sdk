@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/error-code-registry.json; version=2026-09-12.12;
-//! sha256=e9d68bcc1620261366eabd671995cd9c5a250cf89a20510c70118ad176c6722d
+//! sha256=d389a78f4571712dc0d41aea84511be8c31b548c61e7e51f42ac330fd4330af6
 //! Entries: reason_codes=422
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -110,7 +110,7 @@ pub enum ReasonCode {
     DecryptionPending,
     DelegationRevoked,
     DeliveryTargetUnreachable,
-    DeltaContainsDataEvent,
+    DeltaContainsOrdinaryEvent,
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceDirectoryUnavailable,
@@ -565,7 +565,7 @@ impl ReasonCode {
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
     pub const DELEGATION_REVOKED: &'static str = "delegation_revoked";
     pub const DELIVERY_TARGET_UNREACHABLE: &'static str = "delivery_target_unreachable";
-    pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
+    pub const DELTA_CONTAINS_ORDINARY_EVENT: &'static str = "delta_contains_ordinary_event";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
@@ -1067,7 +1067,7 @@ impl ReasonCode {
             Self::DecryptionPending => Self::DECRYPTION_PENDING,
             Self::DelegationRevoked => Self::DELEGATION_REVOKED,
             Self::DeliveryTargetUnreachable => Self::DELIVERY_TARGET_UNREACHABLE,
-            Self::DeltaContainsDataEvent => Self::DELTA_CONTAINS_DATA_EVENT,
+            Self::DeltaContainsOrdinaryEvent => Self::DELTA_CONTAINS_ORDINARY_EVENT,
             Self::DependencyMissing => Self::DEPENDENCY_MISSING,
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
@@ -1567,7 +1567,7 @@ impl ReasonCode {
             Self::DECRYPTION_PENDING => Self::DecryptionPending,
             Self::DELEGATION_REVOKED => Self::DelegationRevoked,
             Self::DELIVERY_TARGET_UNREACHABLE => Self::DeliveryTargetUnreachable,
-            Self::DELTA_CONTAINS_DATA_EVENT => Self::DeltaContainsDataEvent,
+            Self::DELTA_CONTAINS_ORDINARY_EVENT => Self::DeltaContainsOrdinaryEvent,
             Self::DEPENDENCY_MISSING => Self::DependencyMissing,
             Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
@@ -2529,9 +2529,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason carried by the ak.invite.revoke that moves a pending Invite to target_state=send_failed: the delivery service could not reach the private invite delivery target after its retry budget. It is a delivery diagnostic only and MUST NOT leak the 3PID plaintext, the invite token or a verification code. See zh/models/governance-objects.md section 5 and zh/sync/third-party-invites.md section 6.1.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DELTA_CONTAINS_DATA_EVENT,
+        code: ReasonCode::DELTA_CONTAINS_ORDINARY_EVENT,
         applies_to: &["event_auth_state", "state_resolution"],
-        description: "A Seal delta contained a data-plane (DataEvent) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a DataEvent digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cbs-lattice-fixture.json.",
+        description: "A Seal delta contained a data-plane (ordinary Event) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a ordinary Event digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEPENDENCY_MISSING,
@@ -3300,7 +3300,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PLANE_CROSS_WRITE,
         applies_to: &["event_envelope", "schema_validation"],
-        description: "Sub-reason for schema_violation when a DataEvent's registered reducer projection targets a control-plane cell. Data-plane events MUST only project writes to data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
+        description: "Sub-reason for schema_violation when a ordinary Event's registered reducer projection targets a control-plane cell. Data-plane events MUST only project writes to data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_DENIED,

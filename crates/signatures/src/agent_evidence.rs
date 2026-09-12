@@ -25,7 +25,8 @@ use serde_json::Value;
 use crate::agent::agent_runtime_public_key_digest;
 use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached_jws};
 
-const AUTHORITY_STATE_LEASE_DOMAIN: &str = DomainSeparationId::AGENT_AUTHORITY_STATE_EVIDENCE_V1;
+const AUTHORITY_STATE_ATTESTATION_DOMAIN: &str =
+    DomainSeparationId::AGENT_AUTHORITY_STATE_EVIDENCE_V1;
 const CONTROLLER_GATE_DOMAIN: &str = DomainSeparationId::CONTROLLER_ACCOUNT_GATE_V1;
 const DETACHED_JWS_KIND: &str = "detached_jws";
 const MAX_SEAL_LINEAGE: usize = 4096;
@@ -73,13 +74,16 @@ pub fn sign_controller_account_gate_attestation(
     Ok(())
 }
 
-/// Sign the short-lived Agent Authority lease after `state_digest` has
-/// been computed from the complete snapshot core.
-pub fn sign_agent_authority_state_lease(
-    lease: &mut arkret_models_identity::agent_signer_evidence::AgentAuthorityStateLease,
+/// Sign an Agent Authority state observation after `state_digest` has been
+/// computed from the complete snapshot core. `expires_at` bounds initial
+/// current-query consumption; it does not invalidate publication evidence
+/// that was verified and retained during that window.
+pub fn sign_agent_authority_state_attestation(
+    attestation: &mut arkret_models_identity::agent_signer_evidence::AgentAuthorityStateAttestation,
     signing_key: &SigningKey,
 ) -> Result<(), AgentEvidenceSigningError> {
-    lease.proof.jws = domain_proof_jws(AUTHORITY_STATE_LEASE_DOMAIN, lease, signing_key)?;
+    attestation.proof.jws =
+        domain_proof_jws(AUTHORITY_STATE_ATTESTATION_DOMAIN, attestation, signing_key)?;
     Ok(())
 }
 
@@ -162,7 +166,7 @@ pub struct VerifiedAgentSigningKey {
     controller_public_key: PublicKeyMaterial,
     authority_public_key: PublicKeyMaterial,
     account_authority_public_key: PublicKeyMaterial,
-    lease_digest: Hash,
+    attestation_digest: Hash,
     gate_digest: Hash,
 }
 
@@ -584,33 +588,36 @@ fn validate_common_evidence(
 
     let expected_state_digest = canonical_digest(&snapshot.state)?;
     let expected_admission_digest = agent_admission_evidence_digest(snapshot, gate)?;
-    let lease_digest = canonical_digest(&snapshot.lease)?;
+    let attestation_digest = canonical_digest(&snapshot.attestation)?;
     let gate_digest = canonical_digest(gate)?;
-    let unchanged_lease = previous.is_some_and(|key| {
-        key.lease_digest == lease_digest
+    let unchanged_attestation = previous.is_some_and(|key| {
+        key.attestation_digest == attestation_digest
             && key.authority_public_key == *context.authority_public_key
     });
     let unchanged_gate = previous.is_some_and(|key| {
         key.gate_digest == gate_digest
             && key.account_authority_public_key == *context.account_authority_public_key
     });
-    let lease_authority_id = did_url_controller_core_id(&snapshot.lease.verification_method)?;
+    let attestation_authority_id =
+        did_url_controller_core_id(&snapshot.attestation.verification_method)?;
     if snapshot.state_digest != expected_state_digest
         || admission.admission_evidence_digest != expected_admission_digest
-        || snapshot.lease.authority_kind.as_str() != "agent_authority"
-        || snapshot.lease.authority_id != core.authority_id
-        || snapshot.lease.authority_id != *context.expected_authority_id
-        || snapshot.lease.verification_method != *context.expected_authority_verification_method
-        || snapshot.lease.state_digest != snapshot.state_digest
-        || lease_authority_id != snapshot.lease.authority_id
-        || snapshot.lease.issued_at >= snapshot.lease.expires_at
-        || snapshot.lease.expires_at > snapshot.lease.issued_at + chrono::Duration::seconds(300)
-        || basis_time < snapshot.lease.issued_at
-        || (!unchanged_lease
+        || snapshot.attestation.authority_kind.as_str() != "agent_authority"
+        || snapshot.attestation.authority_id != core.authority_id
+        || snapshot.attestation.authority_id != *context.expected_authority_id
+        || snapshot.attestation.verification_method
+            != *context.expected_authority_verification_method
+        || snapshot.attestation.state_digest != snapshot.state_digest
+        || attestation_authority_id != snapshot.attestation.authority_id
+        || snapshot.attestation.issued_at >= snapshot.attestation.expires_at
+        || snapshot.attestation.expires_at
+            > snapshot.attestation.issued_at + chrono::Duration::seconds(300)
+        || basis_time < snapshot.attestation.issued_at
+        || (!unchanged_attestation
             && verify_domain_proof(
-                AUTHORITY_STATE_LEASE_DOMAIN,
-                &snapshot.lease,
-                &snapshot.lease.proof,
+                AUTHORITY_STATE_ATTESTATION_DOMAIN,
+                &snapshot.attestation,
+                &snapshot.attestation.proof,
                 context.authority_public_key,
             )
             .is_err())
@@ -619,7 +626,7 @@ fn validate_common_evidence(
             AgentEvidenceRejectedReason::SigningKeyMismatch,
         ));
     }
-    if basis_time >= snapshot.lease.expires_at || basis_time >= gate.expires_at {
+    if basis_time >= snapshot.attestation.expires_at || basis_time >= gate.expires_at {
         return Err(CommonEvidenceFailure::Unresolved(
             AgentEvidenceUnresolvedReason::Stale,
         ));
@@ -724,7 +731,7 @@ fn validate_common_evidence(
         controller_public_key: context.controller_public_key.clone(),
         authority_public_key: context.authority_public_key.clone(),
         account_authority_public_key: context.account_authority_public_key.clone(),
-        lease_digest,
+        attestation_digest,
         gate_digest,
         signer: context.signer_id.clone(),
         authority_id: context.expected_authority_id.clone(),
@@ -1256,15 +1263,15 @@ fn did_url_controller_core_id(method: &DidUrl) -> Result<DidCoreId, AgentEvidenc
 
 #[cfg(test)]
 mod producer_tests {
-    use arkret_models_identity::agent_signer_evidence::AgentAuthorityStateLease;
+    use arkret_models_identity::agent_signer_evidence::AgentAuthorityStateAttestation;
     use serde_json::json;
 
     use super::*;
 
     #[test]
-    fn signed_authority_state_lease_rejects_evidence_tamper() {
+    fn signed_authority_state_attestation_rejects_evidence_tamper() {
         let signing_key = SigningKey::from_bytes(&[29_u8; 32]);
-        let mut lease: AgentAuthorityStateLease = serde_json::from_value(json!({
+        let mut attestation: AgentAuthorityStateAttestation = serde_json::from_value(json!({
             "authority_kind": "agent_authority",
             "authority_id": "ak:did_core:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
             "verification_method": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH#z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
@@ -1274,24 +1281,24 @@ mod producer_tests {
             "proof": {"kind": "detached_jws", "jws": "pending"}
         }))
         .unwrap();
-        sign_agent_authority_state_lease(&mut lease, &signing_key).unwrap();
+        sign_agent_authority_state_attestation(&mut attestation, &signing_key).unwrap();
         let material = PublicKeyMaterial::Ed25519Raw {
             bytes: signing_key.verifying_key().to_bytes().to_vec(),
         };
         verify_domain_proof(
-            AUTHORITY_STATE_LEASE_DOMAIN,
-            &lease,
-            &lease.proof,
+            AUTHORITY_STATE_ATTESTATION_DOMAIN,
+            &attestation,
+            &attestation.proof,
             &material,
         )
         .unwrap();
 
-        lease.state_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
+        attestation.state_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
         assert!(
             verify_domain_proof(
-                AUTHORITY_STATE_LEASE_DOMAIN,
-                &lease,
-                &lease.proof,
+                AUTHORITY_STATE_ATTESTATION_DOMAIN,
+                &attestation,
+                &attestation.proof,
                 &material
             )
             .is_err()
@@ -1404,7 +1411,7 @@ mod reusable_authority_tests {
             controller_public_key: PublicKeyMaterial::Ed25519Raw { bytes: vec![7; 32] },
             authority_public_key: PublicKeyMaterial::Ed25519Raw { bytes: vec![7; 32] },
             account_authority_public_key: PublicKeyMaterial::Ed25519Raw { bytes: vec![7; 32] },
-            lease_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+            attestation_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             gate_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             signer: actor.signing_principal_id().clone(),
             authority_id: actor.route_service_id().clone(),

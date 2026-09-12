@@ -244,7 +244,7 @@ pub use signal::{
     SignalEncryptedPayload, SignalEnvelope, SignalKeyRef, SignalProof, SignalRelayOutcome,
     SignalRelayRequest, SignalSenderEndpoint, SignalStreamFrame, StationSigningKey,
 };
-pub use signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
+pub use signer::PayloadSigner;
 pub use signer_evidence::SignerEvidenceRef;
 pub use string_profiles::*;
 pub use tsp_vid::*;

@@ -1512,7 +1512,7 @@ fn validate_account_profile_create_payload(
 mod account_update_profile_request_tests {
     use arkret_wire::{
         AccountId, ActorId, CellRef, DidUrl, Hlc, Precondition, Predicate, PredicateOp,
-        ProducerEventProof, SealBasis, SealId, proof_kind,
+        ProducerEventProof, SealId, proof_kind,
     };
     use chrono::{DateTime, Utc};
     use serde_json::json;
@@ -1556,8 +1556,13 @@ mod account_update_profile_request_tests {
             created_at,
         )
         .unwrap();
-        event.seal_basis = Some(SealBasis {
-            leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap()],
+        event.auth_context = Some(arkret_wire::AuthContext {
+            key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
+            key_epoch: 7,
+            credential_epoch: None,
+            authority_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            ],
         });
         event
             .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
@@ -1574,7 +1579,13 @@ mod account_update_profile_request_tests {
                 verification_method: DidUrl::new("did:webvh:z6mkfixture:fixture.example#device-1")
                     .unwrap(),
                 event_digest,
-                signer_resolution_evidence_ref: None,
+                signer_resolution_evidence_ref: Some(
+                    arkret_wire::SignerEvidenceRef::new(format!(
+                        "ak:signer_evidence:sha256:{}",
+                        "d".repeat(64)
+                    ))
+                    .unwrap(),
+                ),
                 created_at,
                 domain: None,
                 audience: None,

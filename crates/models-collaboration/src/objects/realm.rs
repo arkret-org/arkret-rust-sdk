@@ -113,8 +113,6 @@ pub struct Realm {
     /// `ak:cell:ak.component.notary.v1:<realm_id>` cell.
     pub notary: NotaryValue,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub recovery_witness_freshness_window_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_intake_sla_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_decision_window_ms: Option<u64>,
@@ -263,7 +261,6 @@ impl Realm {
             audit_policy: None,
             digest_algorithm: canonical::DigestSuite::Sha256,
             notary,
-            recovery_witness_freshness_window_ms: None,
             proposal_intake_sla_ms: None,
             proposal_decision_window_ms: None,
             proposal_absolute_deadline_ms: None,
@@ -321,14 +318,6 @@ impl Realm {
         }
         self.notary.validate()?;
         self.control_proposal_decision_policy()?;
-        if self
-            .recovery_witness_freshness_window_ms
-            .is_some_and(|value| value > 604_800_000)
-        {
-            return Err(WireError::Protocol(
-                "recovery_witness_freshness_window_ms exceeds 7 days".to_owned(),
-            ));
-        }
         if self
             .seal_compaction_max_interval_ms
             .is_some_and(|value| !(300_000..=604_800_000).contains(&value))

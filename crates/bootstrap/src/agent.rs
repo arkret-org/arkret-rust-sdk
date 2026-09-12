@@ -133,8 +133,9 @@ pub struct AgentPcrControlMaterial {
 /// likewise contributes exactly what its registered contract projects. Keeping
 /// this materialization in the SDK gives the controller-side Seal builder and
 /// receiver admission one byte-identical state-root implementation.
-/// Successor Events must already have passed Seal-DAG basis verification; this
-/// pure fold groups identical leaf sets but does not resolve Seal objects.
+/// Successor Events must already have passed confirmed Seal-chain basis
+/// verification; this pure fold groups identical basis heads but does not
+/// resolve Seal objects.
 pub fn materialize_agent_pcr_control(
     events: &[Event],
     project: CellWriteProjector<'_>,
