@@ -1152,6 +1152,13 @@ pub enum EventSubmitContext {
     AnchorUnit,
 }
 
+#[derive(Clone, Copy)]
+enum SignerMaterialSource {
+    Referenced,
+    NativeUnit,
+    ContactProjection,
+}
+
 /// A canonical-shaped `event_id` that stands in while the real one is being
 /// derived. It never enters a digest preimage, so its value is arbitrary — it
 /// only has to parse.
@@ -1374,7 +1381,45 @@ impl Event {
         self.validate_structural_in_context(EventSubmitContext::Standard)
     }
 
+    /// Validate an original Event carried by one of the five Contact source
+    /// receipts. This is only a structural gate: callers must first authenticate
+    /// the source projection and must independently verify the producer JWS with
+    /// its exact projected key. It grants no generic Event admission exception.
+    pub fn validate_for_contact_history_structural(&self) -> Result<()> {
+        self.validate_structural_with_signer_material(
+            EventSubmitContext::Standard,
+            SignerMaterialSource::ContactProjection,
+        )
+    }
+
     fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
+        let source = match context {
+            EventSubmitContext::Standard => SignerMaterialSource::Referenced,
+            EventSubmitContext::AnchorUnit => SignerMaterialSource::NativeUnit,
+        };
+        self.validate_structural_with_signer_material(context, source)
+    }
+
+    fn validate_structural_with_signer_material(
+        &self,
+        context: EventSubmitContext,
+        signer_source: SignerMaterialSource,
+    ) -> Result<()> {
+        if matches!(signer_source, SignerMaterialSource::ContactProjection)
+            && (!matches!(
+                self.kind,
+                EventKind::ContactRequested
+                    | EventKind::ContactAccepted
+                    | EventKind::ContactRejected
+                    | EventKind::ContactScopeUpdate
+                    | EventKind::ContactTombstone
+            ) || self.seal_basis.is_none()
+                || self.auth_context.is_some()
+                || !self.unsigned.is_empty())
+        {
+            return Err(WireError::Protocol("Contact source projection requires an original Contact Control Event with normal seal_basis".into()));
+        }
+
         // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
         // no realm_id, so the equality check applies to every other kind and
         // the genesis branch instead pins the closed scope shape.
@@ -1401,12 +1446,17 @@ impl Event {
                 "Event must carry exactly one producer proof".to_owned(),
             ));
         };
-        match context {
-            EventSubmitContext::Standard => {
-                producer.validate_signer_resolution_evidence_ref()?;
+        match signer_source {
+            SignerMaterialSource::Referenced => {
+                producer.validate_signer_resolution_evidence_ref()?
             }
-            EventSubmitContext::AnchorUnit => {
-                producer.validate_unit_local_signer_resolution()?;
+            SignerMaterialSource::NativeUnit => producer.validate_unit_local_signer_resolution()?,
+            SignerMaterialSource::ContactProjection => {
+                if producer.signer_resolution_evidence_ref.is_some() {
+                    producer.validate_signer_resolution_evidence_ref()?;
+                } else {
+                    producer.validate_unit_local_signer_resolution()?;
+                }
             }
         }
         if let Some(auth_context) = &self.auth_context {

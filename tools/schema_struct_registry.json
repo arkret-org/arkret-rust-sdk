@@ -46,6 +46,26 @@
       "schema": "agent-operations.schema.json#/$defs/key_state"
     },
     {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactLineage",
+      "schema": "contact-operations.schema.json#/$defs/contact_lineage"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactProducerSigner",
+      "schema": "contact-operations.schema.json#/$defs/contact_producer_signer"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::NormalResponseAcceptanceReceipt",
+      "schema": "contact-operations.schema.json#/$defs/normal_response_acceptance_receipt"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::RejectAcceptanceReceipt",
+      "schema": "contact-operations.schema.json#/$defs/reject_acceptance_receipt"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::RequestAcceptanceReceiptCore",
+      "schema": "contact-operations.schema.json#/$defs/request_acceptance_receipt_core"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/direct_conversation_ops.rs::DirectConversationResolveRequestBody",
       "schema": "direct-conversation-operations.schema.json#/$defs/direct_conversation_resolve_request"
     },

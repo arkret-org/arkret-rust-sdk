@@ -49,137 +49,111 @@ pub fn verify_contact_request_acceptance_receipt(
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::contact_operations::{
-        ContactPeer, RequestAcceptanceReceiptCore,
-    };
-    use arkret_wire::{AccountId, Base64UrlString, DidCoreId, DidUrl, Hash, ProtocolSignature};
-    use base64::Engine as _;
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use chrono::{DateTime, Utc};
-    use ed25519_dalek::Signer as _;
+    use arkret_wire::{Base64UrlString, DidUrl};
 
     use super::*;
 
-    const REQUEST_EVENT_REF: &str = "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD";
-    const CORE_DIGEST: &str =
-        "sha256:c77074c88fb287b4aa9c3cfb528108400fc601762c327ecc544824ffc9989f0d";
-
-    fn hash(fill: char) -> Hash {
-        Hash::new(format!("sha256:{}", fill.to_string().repeat(64))).unwrap()
+    fn fixture() -> serde_json::Value {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
+            .expect("Contact KAT requires the spec artifacts");
+        serde_json::from_str(
+            &std::fs::read_to_string(artifacts.join("fixtures/contact-round-kat.json")).unwrap(),
+        )
+        .unwrap()
     }
-
-    fn signed_receipt(signing_key: &ed25519_dalek::SigningKey) -> RequestAcceptanceReceipt {
-        let accepted_at = DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
+    fn material() -> (RequestAcceptanceReceipt, ed25519_dalek::VerifyingKey) {
+        let fixture = fixture();
+        let case = fixture["producer_signer_kat"]["cases"]
+            .as_array()
             .unwrap()
-            .with_timezone(&Utc);
-        let mut receipt = RequestAcceptanceReceipt {
-            core: RequestAcceptanceReceiptCore {
-                holder: ContactPeer::Human {
-                    account_id: AccountId::new(
-                        DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-                        DidCoreId::new("ak:did_core:webvh:z6mkfixturealice-station").unwrap(),
-                    ),
-                },
-                peer: ContactPeer::Human {
-                    account_id: AccountId::new(
-                        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-                        DidCoreId::new("ak:did_core:webvh:z6mkfixturebob-station").unwrap(),
-                    ),
-                },
-                slot_version: 1,
-                slot_predecessor: None,
-                previous_terminal_contact_round_id: None,
-                request_event_ref: EventId::new(REQUEST_EVENT_REF).unwrap(),
-                source_checkpoint: hash('b'),
-                accepted_at,
-                issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
-            },
-            receipt_digest: hash('0'),
-            signature: ProtocolSignature {
-                verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
-                created_at: accepted_at,
-                jws: Base64UrlString::new("AA").unwrap(),
-            },
-        };
-        receipt.receipt_digest = receipt.computed_core_digest().unwrap();
-        let signature =
-            signing_key.sign(&contact_request_acceptance_receipt_signing_bytes(&receipt).unwrap());
-        receipt.signature.jws =
-            Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature.to_bytes())).unwrap();
-        receipt
+            .iter()
+            .find(|case| case["name"] == "request_0")
+            .unwrap();
+        let receipt = serde_json::from_value(case["signed_object"].clone()).unwrap();
+        let key: [u8; 32] = arkret_canonical::base64url_decode(
+            fixture["producer_signer_kat"]["source_public_key_b64u"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+        (
+            receipt,
+            ed25519_dalek::VerifyingKey::from_bytes(&key).unwrap(),
+        )
     }
-
     #[test]
     fn contact_receipt_known_signing_fixture_verifies() {
-        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[23_u8; 32]);
-        let receipt = signed_receipt(&signing_key);
-        assert_eq!(receipt.receipt_digest.as_str(), CORE_DIGEST);
+        let fixture = fixture();
+        let case = fixture["producer_signer_kat"]["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|case| case["name"] == "request_0")
+            .unwrap();
+        let (receipt, key) = material();
         assert_eq!(
-            receipt.core.request_digest().as_str(),
-            "sha256:02664a0d6cf50cb3a6915e24be3474df766151d978b74106ddd45876bd5cd383"
+            contact_request_acceptance_receipt_signing_bytes(&receipt).unwrap(),
+            case["canonical_unsigned"].as_str().unwrap().as_bytes()
         );
         assert_eq!(
-            String::from_utf8(contact_request_acceptance_receipt_signing_bytes(&receipt).unwrap())
-                .unwrap(),
-            concat!(
-                "{\"core\":{\"accepted_at\":\"2026-08-08T00:00:00.000Z\",",
-                "\"holder\":{\"account_id\":{\"principal_id\":\"ak:did_core:webvh:z6mkfixturealice\",",
-                "\"station_id\":\"ak:did_core:webvh:z6mkfixturealice-station\"},\"kind\":\"human\"},",
-                "\"issuer_id\":\"ak:did_core:web:ps.example\",",
-                "\"peer\":{\"account_id\":{\"principal_id\":\"ak:did_core:webvh:z6mkfixturebob\",",
-                "\"station_id\":\"ak:did_core:webvh:z6mkfixturebob-station\"},\"kind\":\"human\"},",
-                "\"request_event_ref\":\"ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD\",",
-                "\"slot_version\":1,",
-                "\"source_checkpoint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},",
-                "\"receipt_digest\":\"sha256:c77074c88fb287b4aa9c3cfb528108400fc601762c327ecc544824ffc9989f0d\"}"
-            )
+            receipt.computed_receipt_digest().unwrap().as_str(),
+            case["expected_signed_digest"].as_str().unwrap()
         );
-        verify_contact_request_acceptance_receipt(
-            &receipt,
-            &receipt.core.request_event_ref,
-            &signing_key.verifying_key(),
-        )
-        .unwrap();
-        assert_eq!(
-            serde_json::to_value(&receipt).unwrap()["core"]["slot_version"],
-            1
-        );
+        verify_contact_request_acceptance_receipt(&receipt, &receipt.core.request_event_ref, &key)
+            .unwrap();
     }
-
     #[test]
     fn contact_receipt_rejects_wrong_request_tampering_and_signer() {
-        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[24_u8; 32]);
-        let receipt = signed_receipt(&signing_key);
-        let wrong_event =
-            EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA").unwrap();
-        assert!(
-            verify_contact_request_acceptance_receipt(
-                &receipt,
-                &wrong_event,
-                &signing_key.verifying_key(),
-            )
-            .is_err()
-        );
-
-        let mut signature_tampered = receipt.clone();
-        let mut signature = URL_SAFE_NO_PAD
-            .decode(signature_tampered.signature.jws.as_str())
-            .unwrap();
+        let (receipt, key) = material();
+        let wrong_event = EventId::from_event_digest(
+            &arkret_wire::Hash::new(arkret_canonical::sha256_digest([44; 32])).unwrap(),
+        )
+        .unwrap();
+        assert!(verify_contact_request_acceptance_receipt(&receipt, &wrong_event, &key).is_err());
+        let mut tampered = receipt.clone();
+        let mut signature =
+            arkret_canonical::base64url_decode(tampered.signature.jws.as_str()).unwrap();
         signature[0] ^= 1;
-        signature_tampered.signature.jws =
-            Base64UrlString::new(URL_SAFE_NO_PAD.encode(signature)).unwrap();
+        tampered.signature.jws =
+            Base64UrlString::new(arkret_canonical::base64url_encode(signature)).unwrap();
         assert!(
             verify_contact_request_acceptance_receipt(
-                &signature_tampered,
-                &signature_tampered.core.request_event_ref,
-                &signing_key.verifying_key(),
+                &tampered,
+                &tampered.core.request_event_ref,
+                &key
             )
             .is_err()
         );
-
-        let mut wrong_signer = receipt;
-        wrong_signer.signature.verification_method =
+        let mut tampered = receipt.clone();
+        tampered.signature.verification_method =
             DidUrl::new("did:web:attacker.example#key-1").unwrap();
-        assert!(wrong_signer.validate_shape().is_err());
+        assert!(tampered.validate_shape().is_err());
+        let mut tampered = receipt.clone();
+        tampered.core.producer_signer.public_key_b64u =
+            Base64UrlString::new(arkret_canonical::base64url_encode([21; 32])).unwrap();
+        tampered.receipt_digest = tampered.computed_core_digest().unwrap();
+        assert!(
+            verify_contact_request_acceptance_receipt(
+                &tampered,
+                &tampered.core.request_event_ref,
+                &key
+            )
+            .is_err(),
+            "recomputing the core digest cannot replace source-bound producer material"
+        );
+        let mut tampered = receipt;
+        tampered.core.producer_signer.verification_method =
+            DidUrl::new("did:web:attacker.example#device").unwrap();
+        tampered.receipt_digest = tampered.computed_core_digest().unwrap();
+        assert!(
+            verify_contact_request_acceptance_receipt(
+                &tampered,
+                &tampered.core.request_event_ref,
+                &key
+            )
+            .is_err()
+        );
     }
 }

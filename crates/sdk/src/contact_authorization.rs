@@ -11,8 +11,9 @@ use std::collections::BTreeSet;
 use arkret_canonical::DigestSuite;
 use arkret_identity::{AuthorityDidHistoryResolver, DidVerificationRelationship};
 use arkret_models_collaboration::contact_operations::{
-    ContactCurrentProof, ContactPeer, ContactRound, ContactRoundEvidenceBundle, ContactScope,
-    ContactScopeUpdatePayload, PeerContactSubmitRequestBody, RequestAcceptanceReceipt,
+    ContactCurrentProof, ContactPeer, ContactProducerSigner, ContactRound,
+    ContactRoundEvidenceBundle, ContactScope, ContactScopeUpdatePayload,
+    PeerContactSubmitRequestBody, RequestAcceptanceReceipt,
 };
 use arkret_models_collaboration::events_payloads::contact::{
     ContactAcceptedPayload, ContactRejectedPayload, ContactRequestedPayload,
@@ -108,16 +109,6 @@ impl VerifiedContactDirection {
     }
 }
 
-/// Independently authenticated holder material. A source Station signature is
-/// never a substitute for one of these producer identities.
-pub enum ContactHolderEvidence<'a> {
-    Device(&'a arkret_signatures::device_projection::VerifiedDeviceProjection),
-    Agent(&'a arkret_signatures::agent_evidence::VerifiedAgentSigningKey),
-    /// The complete Agent DID history is resolved independently. This permits
-    /// only controller-authored Contact management in the DID-bound Agent PCR.
-    ControllerDevice(&'a arkret_signatures::device_projection::VerifiedDeviceProjection),
-}
-
 #[derive(Clone, Debug)]
 struct ContactTransition {
     contact_round_id: Hash,
@@ -211,72 +202,51 @@ fn payload<T: serde::de::DeserializeOwned>(event: &Event) -> Result<T> {
     serde_json::from_value(serde_json::to_value(&event.payload).map_err(invalid)?).map_err(invalid)
 }
 
-fn verify_device_producer(
-    device: &arkret_signatures::device_projection::VerifiedDeviceProjection,
-    account: &arkret_wire::AccountId,
+fn verify_agent_holder_binding(
     event: &Event,
-) -> Result<arkret_signatures::proof::PublicKeyMaterial> {
-    let [proof] = event.proofs.as_slice() else {
-        return Err(invalid("Contact requires one holder producer proof"));
-    };
-    let core = device.authorization();
-    if &core.account_id != account || proof.created_at != event.created_at {
-        return Err(invalid(
-            "device evidence does not bind the exact holder and publication",
-        ));
-    }
-    let (did, fragment) = proof
-        .verification_method
-        .as_str()
-        .split_once('#')
-        .ok_or_else(|| invalid("device method has no fragment"))?;
-    let did = arkret_wire::Did::new(did).map_err(invalid)?;
-    if arkret_wire::project_did_to_core_id(&did).map_err(invalid)? != account.principal_id
-        || fragment != core.device_id.as_str()
-    {
-        return Err(invalid(
-            "producer method differs from the authorized device",
-        ));
-    }
-    device
-        .validate_publication_time(event.created_at)
-        .map_err(invalid)?;
-    let multibase = core
-        .device_signing_key_did
-        .as_str()
-        .strip_prefix("did:key:")
-        .ok_or_else(|| invalid("device signing key is not did:key"))?;
-    Ok(arkret_signatures::proof::PublicKeyMaterial::Ed25519Raw {
-        bytes: arkret_canonical::decode_ed25519_multibase(multibase)
-            .map_err(invalid)?
-            .to_vec(),
-    })
-}
-
-fn verify_controller_delegation(
-    event: &Event,
-    actor: &arkret_wire::ActorId,
-    controller: &arkret_wire::AccountId,
+    holder: &ContactPeer,
+    agent_did: Option<&arkret_wire::Did>,
     resolver: &dyn AuthorityDidHistoryResolver,
 ) -> Result<()> {
-    let reference = event
-        .authorization_ref
-        .as_ref()
-        .ok_or_else(|| invalid("controller Contact Event has no accepted delegation"))?;
-    let (did, fragment) = reference.as_str().split_once('#').ok_or_else(|| {
-        ContactAuthorizationError::MissingMaterial(
-            "materialized controller grant evidence is absent".into(),
-        )
-    })?;
-    let did = arkret_wire::Did::new(did).map_err(invalid)?;
-    if actor.route_service_id() != &controller.station_id
-        || fragment != "managed-controller"
-        || arkret_wire::project_did_to_core_id(&did).map_err(invalid)?
-            != *actor.signing_principal_id()
-        || event.executed_by.as_ref() != Some(&arkret_wire::ActorId::account(controller.clone()))
+    let ContactPeer::Agent {
+        actor_id: actor,
+        controller_account_id: controller,
+    } = holder
+    else {
+        return Ok(());
+    };
+    if actor.as_account_id().is_none()
+        || actor != &event.actor_id
+        || actor.route_service_id() != &controller.station_id
+        || event
+            .executed_by
+            .as_ref()
+            .is_some_and(|executor| executor != &arkret_wire::ActorId::account(controller.clone()))
     {
         return Err(invalid(
-            "controller delegation does not bind the exact Agent and executor",
+            "Agent holder, source Station and controller do not form the exact accepted account pair",
+        ));
+    }
+    let candidate = agent_did.cloned().or_else(|| {
+        event
+            .proofs
+            .first()
+            .map(|p| p.verification_method.as_str())
+            .into_iter()
+            .chain(event.authorization_ref.as_ref().map(|r| r.as_str()))
+            .filter_map(|reference| reference.split_once('#'))
+            .filter_map(|(did, _)| arkret_wire::Did::new(did).ok())
+            .find(|did| {
+                arkret_wire::project_did_to_core_id(did).ok().as_ref()
+                    == Some(actor.signing_principal_id())
+            })
+    });
+    let did = candidate.ok_or_else(|| ContactAuthorizationError::MissingMaterial(
+        "public Agent DID locator is absent; resolve the exact Agent account through public identity resolution".into()))?;
+    if arkret_wire::project_did_to_core_id(&did).map_err(invalid)? != *actor.signing_principal_id()
+    {
+        return Err(invalid(
+            "public Agent DID does not bind the expected full account principal",
         ));
     }
     let history = resolver
@@ -305,15 +275,27 @@ fn verify_controller_delegation(
         &[],
     )
     .map_err(invalid)?;
-    let inception_delegation = history.entries[0].pointer("/state/service/1");
-    let initial_binding = history
+    // The complete native chain was authenticated above. Later binding changes
+    // affect new authorization, not the historical identity of this Event.
+    // Exact eligibility at command confirmation is the independently signed
+    // source projection's responsibility; created_at is not live authority.
+    let historical_end = history
         .entries
+        .iter()
+        .position(|entry| {
+            entry.get("versionId").and_then(serde_json::Value::as_str)
+                == Some(point.version_id.as_str())
+        })
+        .ok_or_else(|| invalid("verified Agent history point is absent from its chain"))?;
+    let historical_entries = &history.entries[..=historical_end];
+    let inception_delegation = historical_entries[0].pointer("/state/service/1");
+    let initial_binding = historical_entries
         .get(1)
         .and_then(|e| e.pointer("/state/service/2/serviceEndpoint"));
-    if history.entries[0].pointer("/state/service/2").is_some() || initial_binding.is_none() {
+    if historical_entries[0].pointer("/state/service/2").is_some() || initial_binding.is_none() {
         return Err(invalid("Agent binding must first appear in entry one"));
     }
-    for (index, entry) in history.entries.iter().enumerate() {
+    for (index, entry) in historical_entries.iter().enumerate() {
         let document = entry
             .get("state")
             .ok_or_else(|| invalid("Agent history entry has no document"))?;
@@ -345,10 +327,6 @@ fn verify_controller_delegation(
             .get("controller_did")
             .and_then(serde_json::Value::as_str)
             != Some(controller.principal_id.as_str())
-        || binding
-            .get("authorization_ref")
-            .and_then(serde_json::Value::as_str)
-            != Some(reference.as_str())
         || event.scope_ref
             != (arkret_wire::ScopeRef::Realm {
                 realm_id: event.realm_id.clone(),
@@ -358,71 +336,94 @@ fn verify_controller_delegation(
             "Contact management exceeds the accepted Agent PCR delegation",
         ));
     }
-    // The closed document validator authenticates the immutable requested-scope
-    // commitment and the exact agent_control_authoring purpose. This adapter
-    // does not grant runtime/session capabilities from the controller identity.
+    if event.executed_by.is_some() {
+        let reference = event
+            .authorization_ref
+            .as_ref()
+            .ok_or_else(|| invalid("controller Contact Event omits its authorization source"))?;
+        if arkret_wire::DidUrl::new(reference.as_str()).is_ok()
+            && binding
+                .get("authorization_ref")
+                .and_then(serde_json::Value::as_str)
+                != Some(reference.as_str())
+        {
+            return Err(invalid(
+                "controller DID delegation differs from the locked Agent binding",
+            ));
+        }
+        if arkret_wire::DidUrl::new(reference.as_str()).is_err()
+            && arkret_wire::GrantId::new(reference.as_str()).is_err()
+            && arkret_wire::EventId::new(reference.as_str()).is_err()
+        {
+            return Err(invalid(
+                "controller authorization is not the accepted delegation or a materialized grant",
+            ));
+        }
+    }
+    // Source confirmation attests the exact command's internal authorization.
+    // Private key/grant/scope histories do not cross this Contact boundary.
     Ok(())
 }
 
 fn verify_holder(
     event: &Event,
     holder: &ContactPeer,
-    evidence: ContactHolderEvidence<'_>,
+    signer: &ContactProducerSigner,
     suite: DigestSuite,
-    resolver: &dyn AuthorityDidHistoryResolver,
 ) -> Result<()> {
-    if event.actor_id != holder.contact_actor_id() {
-        return Err(invalid("Event actor differs from expected Contact holder"));
+    if event.actor_id != holder.contact_actor_id() || event.actor_id.as_account_id().is_none() {
+        return Err(invalid(
+            "Event actor differs from the expected complete Contact holder account",
+        ));
     }
-    arkret_schema::validate_event_for_submit(event).map_err(invalid)?;
+    event
+        .validate_for_contact_history_structural()
+        .map_err(invalid)?;
+    arkret_schema::validate_event_wire_schema(event).map_err(invalid)?;
     event
         .verify_event_id_matches_content_with_digest_suite(suite)
         .map_err(invalid)?;
     let [proof] = event.proofs.as_slice() else {
         return Err(invalid("Contact requires exactly one producer proof"));
     };
-    if proof.created_at != event.created_at {
-        return Err(invalid("producer time differs from Event publication"));
+    proof.validate_production().map_err(invalid)?;
+    if proof.created_at != event.created_at
+        || proof.verification_method != signer.verification_method
+    {
+        return Err(invalid(
+            "producer method or time differs from the source-authenticated exact Event",
+        ));
     }
-    let key = match (holder, evidence) {
-        (ContactPeer::Human { account_id }, ContactHolderEvidence::Device(device)) => {
-            if event.executed_by.is_some() {
-                return Err(invalid(
-                    "human device Contact Event must not name a delegated executor",
-                ));
-            }
-            verify_device_producer(device, account_id, event)?
+    let producer = event.executed_by.as_ref().unwrap_or(&event.actor_id);
+    match holder {
+        ContactPeer::Human { .. } if event.executed_by.is_some() => {
+            return Err(invalid(
+                "human Contact Event cannot have a delegated executor",
+            ));
         }
-        (
-            ContactPeer::Agent {
-                actor_id,
-                controller_account_id,
-            },
-            ContactHolderEvidence::Agent(agent),
-        ) => {
-            if event.executed_by.is_some()
-                || agent.controller_account_id() != controller_account_id
-                || !agent.permits(actor_id, &proof.verification_method, event.created_at)
-            {
-                return Err(invalid(
-                    "runtime evidence does not bind the exact Agent/controller/publication",
-                ));
-            }
-            arkret_signatures::proof::PublicKeyMaterial::Ed25519Raw {
-                bytes: agent.key().to_vec(),
-            }
+        ContactPeer::Agent {
+            controller_account_id,
+            ..
+        } if event.executed_by.is_some()
+            && producer != &arkret_wire::ActorId::account(controller_account_id.clone()) =>
+        {
+            return Err(invalid(
+                "Agent executor is not its exact controller account",
+            ));
         }
-        (
-            ContactPeer::Agent {
-                actor_id,
-                controller_account_id,
-            },
-            ContactHolderEvidence::ControllerDevice(device),
-        ) => {
-            verify_controller_delegation(event, actor_id, controller_account_id, resolver)?;
-            verify_device_producer(device, controller_account_id, event)?
-        }
-        _ => return Err(invalid("producer evidence has the wrong holder class")),
+        _ => {}
+    }
+    let did = arkret_identity::verification_method_did(signer.verification_method.as_str())
+        .map_err(invalid)?;
+    if arkret_wire::project_did_to_core_id(&did).map_err(invalid)?
+        != *producer.signing_principal_id()
+    {
+        return Err(invalid(
+            "source-projected method does not belong to the actual Event producer",
+        ));
+    }
+    let key = arkret_signatures::proof::PublicKeyMaterial::Ed25519Raw {
+        bytes: signer.public_key_bytes().map_err(invalid)?.to_vec(),
     };
     let bytes = arkret_canonical::canonical_json_bytes(&event.digest_payload().map_err(invalid)?)
         .map_err(invalid)?;
@@ -494,13 +495,18 @@ fn verify_checkpoint_identity(
     )
 }
 
-/// Authenticate all five actual signed-Event carriers. An optional or expired
+/// Authenticate all five original signed-Event carriers using the producer key
+/// covered by their source receipt/lineage. `agent_did` is only a public lookup
+/// locator: its complete native history and exact principal/controller/Station
+/// binding are independently verified. It is required when a controller-signed
+/// Agent Event has no full Agent DID locator in its original envelope.
+/// An optional or expired
 /// current proof never becomes current authority here. A later head requires
 /// its complete exact predecessor chain in verify_contact_direction_history.
 pub fn authenticate_contact_event_carrier(
     carrier: &PeerContactSubmitRequestBody,
     expected_holder: &ContactPeer,
-    evidence: ContactHolderEvidence<'_>,
+    agent_did: Option<&arkret_wire::Did>,
     suite: DigestSuite,
     observed_at: DateTime<Utc>,
     resolver: &dyn AuthorityDidHistoryResolver,
@@ -528,7 +534,7 @@ pub fn authenticate_contact_event_carrier(
             "carrier kind or observation conflicts with its Event",
         ));
     }
-    verify_holder(event, expected_holder, evidence, suite, resolver)?;
+    verify_agent_holder_binding(event, expected_holder, agent_did, resolver)?;
     let (peer, transition) = match carrier {
         PeerContactSubmitRequestBody::Request {
             request_receipt,
@@ -745,6 +751,21 @@ pub fn authenticate_contact_event_carrier(
         }
         _ => unreachable!(),
     };
+    let producer_signer = match carrier {
+        PeerContactSubmitRequestBody::Request {
+            request_receipt, ..
+        } => &request_receipt.core.producer_signer,
+        PeerContactSubmitRequestBody::Response {
+            response_receipt, ..
+        } => &response_receipt.producer_signer,
+        PeerContactSubmitRequestBody::Reject { reject_receipt, .. } => {
+            &reject_receipt.producer_signer
+        }
+        PeerContactSubmitRequestBody::ScopeUpdate { lineage, .. }
+        | PeerContactSubmitRequestBody::Tombstone { lineage, .. } => &lineage.producer_signer,
+        _ => unreachable!(),
+    };
+    verify_holder(event, expected_holder, producer_signer, suite)?;
     let address = match carrier {
         PeerContactSubmitRequestBody::Request {
             contact_address, ..

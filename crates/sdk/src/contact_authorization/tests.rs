@@ -88,6 +88,13 @@ impl Fixture {
             version: u64::from(version),
             predecessor_event_ref: (version > 1).then(|| event_id(version - 1)),
             event_ref: event_id(version),
+            producer_signer: ContactProducerSigner {
+                verification_method: self.signature.verification_method.clone(),
+                public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                    self.key.verifying_key().to_bytes(),
+                ))
+                .unwrap(),
+            },
             granted_to_peer_scopes: scopes.to_vec(),
             terminal: terminal.then_some(true),
             signature: self.signature.clone(),
@@ -334,7 +341,6 @@ fn verify_test_lineage_history(
 struct CarrierFixture {
     source: Fixture,
     device_key: SigningKey,
-    device: arkret_signatures::device_projection::VerifiedDeviceProjection,
     method: DidUrl,
 }
 impl CarrierFixture {
@@ -344,53 +350,24 @@ impl CarrierFixture {
             unreachable!()
         };
         peer.station_id = source.issuer.delivery_station_id().clone();
-        let ContactPeer::Human { account_id } = &source.issuer else {
-            unreachable!()
-        };
         let device_key = SigningKey::from_bytes(&[39; 32]);
         let device_id =
             arkret_wire::DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap();
         let method =
             DidUrl::new(format!("did:webvh:zfixturealice:alice.example#{device_id}")).unwrap();
-        let core = arkret_models_crypto::DeviceProjectionAttestationCore {
-            account_id: account_id.clone(),
-            device_id,
-            device_signing_key_did: arkret_wire::DidKey::new(format!(
-                "did:key:{}",
-                arkret_canonical::ed25519_pubkey_to_did_key_multibase(
-                    &device_key.verifying_key().to_bytes()
-                )
-            ))
-            .unwrap(),
-            hpke_key: arkret_wire::NonEmptyString::new("hpke-test").unwrap(),
-            device_authorize_event_id: event_id(82),
-            authorized_generation_ref: 4,
-            device_status: arkret_models_crypto::DeviceStatus::Active,
-            authorization_window: arkret_models_crypto::DeviceAuthorizationWindow {
-                not_before: source.signature.created_at,
-                expires_at: None,
-            },
-            attested_at: source.signature.created_at,
-            expires_at: source.signature.created_at + Duration::minutes(10),
-        };
-        let attestation = arkret_signatures::device_projection::sign_device_projection_attestation(
-            core,
-            source.signature.verification_method.clone(),
-            &source.key,
-        )
-        .unwrap();
-        let device =
-            arkret_signatures::device_projection::authenticate_device_projection_for_caching(
-                &attestation,
-                &source.key.verifying_key(),
-                source.signature.created_at,
-            )
-            .unwrap();
         Self {
             source,
             device_key,
-            device,
             method,
+        }
+    }
+    fn producer_signer(&self) -> ContactProducerSigner {
+        ContactProducerSigner {
+            verification_method: self.method.clone(),
+            public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                self.device_key.verifying_key().to_bytes(),
+            ))
+            .unwrap(),
         }
     }
     fn event(&self, kind: EventKind, value: serde_json::Value) -> Event {
@@ -440,13 +417,7 @@ impl CarrierFixture {
             kind: arkret_wire::proof_kind::DETACHED_JWS.into(),
             verification_method: self.method.clone(),
             event_digest: digest,
-            signer_resolution_evidence_ref: Some(
-                arkret_wire::SignerEvidenceRef::new(format!(
-                    "ak:signer_evidence:sha256:{}",
-                    "5".repeat(64)
-                ))
-                .unwrap(),
-            ),
+            signer_resolution_evidence_ref: None,
             created_at: event.created_at,
             domain: None,
             audience: None,
@@ -486,6 +457,7 @@ impl CarrierFixture {
                 slot_predecessor: None,
                 previous_terminal_contact_round_id: None,
                 request_event_ref: event.event_id.clone(),
+                producer_signer: self.producer_signer(),
                 source_checkpoint: self.source.round.clone(),
                 accepted_at: event.created_at,
                 issuer_id: self.source.issuer.delivery_station_id().clone(),
@@ -510,7 +482,7 @@ impl CarrierFixture {
         authenticate_contact_event_carrier(
             carrier,
             &self.source.issuer,
-            ContactHolderEvidence::Device(&self.device),
+            None,
             DigestSuite::Sha256,
             self.source.signature.created_at,
             &self.source,
@@ -547,6 +519,7 @@ impl CarrierFixture {
             terminal,
         );
         lineage.event_ref = event.event_id.clone();
+        lineage.producer_signer = self.producer_signer();
         lineage.predecessor_event_ref = Some(previous.clone());
         self.source.resign(&mut lineage);
         let checkpoint = self.source.checkpoint(&lineage);
@@ -611,7 +584,7 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
         authenticate_contact_event_carrier(
             &carrier,
             &wrong_account,
-            ContactHolderEvidence::Device(&fixture.device),
+            None,
             DigestSuite::Sha256,
             fixture.source.signature.created_at,
             &fixture.source
@@ -627,6 +600,118 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
         *introduction_evidence = arkret_models_collaboration::governance::peer_contact::ContactIntroductionEvidence::ExplicitAddress;
     }
     assert!(fixture.authenticate(&bad_intro).is_err());
+}
+
+#[test]
+fn carrier_projection_binds_exact_method_and_key_without_changing_original_event() {
+    let fixture = CarrierFixture::new();
+    let carrier = fixture.request();
+    let PeerContactSubmitRequestBody::Request { signed_event, .. } = &carrier else {
+        unreachable!()
+    };
+    let original = arkret_canonical::canonical_json_bytes(signed_event).unwrap();
+    assert!(
+        signed_event.proofs[0]
+            .signer_resolution_evidence_ref
+            .is_none()
+    );
+    assert!(signed_event.validate_for_submit_structural().is_err());
+    assert!(
+        signed_event
+            .validate_for_contact_history_structural()
+            .is_ok()
+    );
+    for _ in 0..2 {
+        let verified = fixture.authenticate(&carrier).unwrap();
+        let PeerContactSubmitRequestBody::Request { signed_event, .. } = verified.carrier() else {
+            unreachable!()
+        };
+        assert_eq!(
+            arkret_canonical::canonical_json_bytes(signed_event).unwrap(),
+            original
+        );
+    }
+    for change_method in [false, true] {
+        let mut tampered = carrier.clone();
+        let PeerContactSubmitRequestBody::Request {
+            request_receipt, ..
+        } = &mut tampered
+        else {
+            unreachable!()
+        };
+        if change_method {
+            request_receipt.core.producer_signer.verification_method =
+                DidUrl::new("did:webvh:zfixturealice:alice.example#another-device").unwrap();
+        } else {
+            request_receipt.core.producer_signer.public_key_b64u = Base64UrlString::new(
+                arkret_canonical::base64url_encode(fixture.source.key.verifying_key().to_bytes()),
+            )
+            .unwrap();
+        }
+        request_receipt.receipt_digest = request_receipt.computed_core_digest().unwrap();
+        assert!(
+            fixture.authenticate(&tampered).is_err(),
+            "descriptor mutation must invalidate the source signature"
+        );
+    }
+    let mut changed_method = carrier;
+    let PeerContactSubmitRequestBody::Request { signed_event, .. } = &mut changed_method else {
+        unreachable!()
+    };
+    let event_id = signed_event.event_id.clone();
+    signed_event.proofs[0].verification_method =
+        DidUrl::new("did:webvh:zfixturealice:alice.example#another-device").unwrap();
+    signed_event.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
+        &signed_event.proofs[0]
+            .canonical_binding_bytes(&signed_event.actor_id)
+            .unwrap(),
+        &fixture.device_key,
+    )
+    .unwrap();
+    assert_eq!(
+        signed_event.event_id, event_id,
+        "proof metadata is outside the Event content ID"
+    );
+    assert!(
+        fixture.authenticate(&changed_method).is_err(),
+        "a valid replacement proof must still match the frozen descriptor"
+    );
+}
+
+#[test]
+fn carrier_history_structure_is_not_generic_admission_or_anchor_permission() {
+    let fixture = CarrierFixture::new();
+    let PeerContactSubmitRequestBody::Request {
+        signed_event: event,
+        ..
+    } = fixture.request()
+    else {
+        unreachable!()
+    };
+    let mut no_basis = event.clone();
+    no_basis.seal_basis = None;
+    assert!(no_basis.validate_for_contact_history_structural().is_err());
+    let mut unrelated = event.clone();
+    unrelated.kind = EventKind::MessageCreate;
+    assert!(unrelated.validate_for_contact_history_structural().is_err());
+    let mut development_proof = event;
+    development_proof.proofs[0].kind = "dev".to_owned();
+    development_proof.proofs[0].jws = arkret_signatures::jws::sign_jws_ed25519(
+        &development_proof.proofs[0]
+            .canonical_binding_bytes(&development_proof.actor_id)
+            .unwrap(),
+        &fixture.device_key,
+    )
+    .unwrap();
+    assert!(
+        verify_holder(
+            &development_proof,
+            &fixture.source.issuer,
+            &fixture.producer_signer(),
+            DigestSuite::Sha256
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -755,29 +840,10 @@ impl CarrierFixture {
     fn reversed(&self) -> Self {
         let mut reverse = Self::new();
         std::mem::swap(&mut reverse.source.issuer, &mut reverse.source.peer);
-        let ContactPeer::Human { account_id } = &reverse.source.issuer else {
-            unreachable!()
-        };
-        let mut core = reverse.device.authorization().clone();
-        core.account_id = account_id.clone();
-        reverse.method = DidUrl::new(format!(
-            "did:webvh:zfixturebob:bob.example#{}",
-            core.device_id
-        ))
-        .unwrap();
-        let attestation = arkret_signatures::device_projection::sign_device_projection_attestation(
-            core,
-            reverse.source.signature.verification_method.clone(),
-            &reverse.source.key,
+        reverse.method = DidUrl::new(
+            "did:webvh:zfixturebob:bob.example#ak:device:0196419b-0000-7000-8000-000000000001",
         )
         .unwrap();
-        reverse.device =
-            arkret_signatures::device_projection::authenticate_device_projection_for_caching(
-                &attestation,
-                &reverse.source.key.verifying_key(),
-                reverse.source.signature.created_at,
-            )
-            .unwrap();
         reverse
     }
     fn initial_proof(&self, round: &Hash, event: &EventId) -> ContactCurrentProof {
@@ -823,6 +889,7 @@ fn carrier_normal_round_uses_exact_request_and_response_origins_and_reject_never
         contact_round_id: round.clone(),
         request_receipt: request_receipt.clone(),
         response_event_ref: accept.event_id.clone(),
+        producer_signer: b.producer_signer(),
         outgoing_slot_absence_digest: a.source.round.clone(),
         accepted_at: accept.created_at,
         issuer_id: b.source.issuer.delivery_station_id().clone(),
@@ -910,6 +977,7 @@ fn carrier_normal_round_uses_exact_request_and_response_origins_and_reject_never
     let mut receipt = RejectAcceptanceReceipt {
         request_receipt: request_receipt.clone(),
         reject_event_ref: reject.event_id.clone(),
+        producer_signer: b.producer_signer(),
         accepted_at: reject.created_at,
         issuer_id: b.source.issuer.delivery_station_id().clone(),
         signature: b.source.signature.clone(),
@@ -1024,7 +1092,12 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         prepare_agent_inception,
     };
     let f = CarrierFixture::new();
-    let controller = f.device.authorization().account_id.clone();
+    let ContactPeer::Human {
+        account_id: controller,
+    } = f.source.issuer.clone()
+    else {
+        unreachable!()
+    };
     let mut event= f.event(EventKind::ContactTombstone,serde_json::json!({"peer":f.source.peer,"contact_round_id":f.source.round,"version":2,"predecessor_event_ref":event_id(1)}));
     let at = f.source.signature.created_at;
     let endpoint = "https://agents.example/".parse().unwrap();
@@ -1080,14 +1153,47 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         next_cursor: None,
         has_more: false,
     };
-    verify_holder(
-        &event,
-        &holder,
-        ContactHolderEvidence::ControllerDevice(&f.device),
-        DigestSuite::Sha256,
-        &history,
+    verify_agent_holder_binding(&event, &holder, None, &history).unwrap();
+    verify_holder(&event, &holder, &f.producer_signer(), DigestSuite::Sha256).unwrap();
+    let mut removed_binding = history.history.entries[1]["state"].clone();
+    removed_binding["service"]
+        .as_array_mut()
+        .unwrap()
+        .truncate(1);
+    let next_root = arkret_canonical::ed25519_pubkey_to_did_key_multibase(
+        &SigningKey::from_bytes(&[44; 32]).verifying_key().to_bytes(),
+    );
+    let later = arkret_signatures::webvh::prepare_principal_rotation(
+        &arkret_signatures::webvh::PrincipalRotationInput {
+            did: history.history.did.as_str(),
+            local_id: "contact-agent",
+            previous_entries: &history.history.entries,
+            version_time: at + Duration::seconds(1),
+            current_root_seed: &[43; 32],
+            next_root_public_key_multibase: &next_root,
+            state: &removed_binding,
+        },
     )
     .unwrap();
+    history.history.entries.push(later.log_entry);
+    verify_agent_holder_binding(&event, &holder, None, &history).unwrap();
+    let mut new_event = event.clone();
+    new_event.created_at = at + Duration::seconds(2);
+    new_event = f.sign_event(new_event);
+    assert!(
+        verify_agent_holder_binding(&new_event, &holder, None, &history).is_err(),
+        "a later binding removal rejects new Agent identity claims without revoking old facts"
+    );
+    history.history.entries[2]["state"]["unproven"] = serde_json::json!(true);
+    assert!(
+        verify_agent_holder_binding(&event, &holder, None, &history).is_err(),
+        "even later native history must remain fully authentic"
+    );
+    history.history.entries[2]["state"]
+        .as_object_mut()
+        .unwrap()
+        .remove("unproven");
+
     let mut wrong = event.clone();
     wrong.realm_id =
         arkret_wire::RealmId::new("ak:realm:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e").unwrap();
@@ -1095,28 +1201,21 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         realm_id: wrong.realm_id.clone(),
     };
     wrong = f.sign_event(wrong);
-    assert!(
-        verify_holder(
-            &wrong,
-            &holder,
-            ContactHolderEvidence::ControllerDevice(&f.device),
-            DigestSuite::Sha256,
-            &history
-        )
-        .is_err()
-    );
+    assert!(verify_agent_holder_binding(&wrong, &holder, None, &history).is_err());
+    let mut materialized = event.clone();
+    materialized.authorization_ref = Some(event_id(91).into());
+    materialized = f.sign_event(materialized);
+    assert!(matches!(
+        verify_agent_holder_binding(&materialized, &holder, None, &history),
+        Err(ContactAuthorizationError::MissingMaterial(_))
+    ));
+    verify_agent_holder_binding(&materialized, &holder, Some(&history.history.did), &history)
+        .unwrap();
     let mut wrong = event;
     wrong.authorization_ref = None;
     wrong = f.sign_event(wrong);
     assert!(
-        verify_holder(
-            &wrong,
-            &holder,
-            ContactHolderEvidence::ControllerDevice(&f.device),
-            DigestSuite::Sha256,
-            &history
-        )
-        .is_err()
+        verify_agent_holder_binding(&wrong, &holder, Some(&history.history.did), &history).is_err()
     );
 }
 

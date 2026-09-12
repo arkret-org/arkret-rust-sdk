@@ -56,6 +56,49 @@ pub enum ContactScope {
     Presence,
 }
 
+/// The exact producer key authenticated by an enclosing Contact source
+/// receipt or lineage. It has no reusable authorization or notary semantics.
+///
+/// `schemas/contact-operations.schema.json#/$defs/contact_producer_signer`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactProducerSigner {
+    pub verification_method: arkret_wire::DidUrl,
+    #[serde(deserialize_with = "deserialize_contact_producer_key")]
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+}
+fn deserialize_contact_producer_key<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<arkret_wire::Base64UrlString, D::Error> {
+    let value = arkret_wire::Base64UrlString::deserialize(deserializer)?;
+    let bytes =
+        arkret_canonical::base64url_decode(value.as_str()).map_err(serde::de::Error::custom)?;
+    if bytes.len() != 32 || arkret_canonical::base64url_encode(&bytes) != value.as_str() {
+        return Err(serde::de::Error::custom(
+            "Contact producer key must be canonical Ed25519 raw32",
+        ));
+    }
+    Ok(value)
+}
+impl ContactProducerSigner {
+    pub fn public_key_bytes(&self) -> arkret_wire::Result<[u8; 32]> {
+        let bytes = arkret_canonical::base64url_decode(self.public_key_b64u.as_str())
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+        if arkret_canonical::base64url_encode(&bytes) != self.public_key_b64u.as_str() {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact producer key is not canonical unpadded base64url".into(),
+            ));
+        }
+        bytes.try_into().map_err(|_| {
+            arkret_wire::WireError::Protocol("Contact producer key must be Ed25519 raw32".into())
+        })
+    }
+    pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.public_key_bytes().map(|_| ())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -68,6 +111,7 @@ pub struct RequestAcceptanceReceiptCore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_terminal_contact_round_id: Option<Hash>,
     pub request_event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     pub source_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -80,6 +124,7 @@ impl RequestAcceptanceReceiptCore {
     }
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
+        self.producer_signer.validate()?;
         if self.slot_version == 0
             || (self.slot_version == 1) == self.slot_predecessor.is_some()
             || self.holder.contact_actor_id() == self.peer.contact_actor_id()
@@ -321,6 +366,7 @@ pub struct NormalResponseAcceptanceReceipt {
     pub contact_round_id: Hash,
     pub request_receipt: RequestAcceptanceReceipt,
     pub response_event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     pub outgoing_slot_absence_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
@@ -413,6 +459,7 @@ impl OutgoingSlotAbsenceTranscript {
 pub struct RejectAcceptanceReceipt {
     pub request_receipt: RequestAcceptanceReceipt,
     pub reject_event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accepted_at: DateTime<Utc>,
     pub issuer_id: DidCoreId,
@@ -440,6 +487,7 @@ pub struct ContactLineage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub predecessor_event_ref: Option<EventId>,
     pub event_ref: EventId,
+    pub producer_signer: ContactProducerSigner,
     pub granted_to_peer_scopes: Vec<ContactScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub terminal: Option<bool>,
@@ -1544,6 +1592,49 @@ mod event_digest_derivation_tests {
         ActorId::account(account(principal))
     }
 
+    fn producer_signer() -> ContactProducerSigner {
+        ContactProducerSigner {
+            verification_method: DidUrl::new("did:web:holder.example#device").unwrap(),
+            public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
+                [17; 32],
+            ))
+            .unwrap(),
+        }
+    }
+    #[test]
+    fn contact_producer_signer_rejects_noncanonical_or_non_ed25519_keys() {
+        let valid = serde_json::to_value(producer_signer()).unwrap();
+        let decoded: ContactProducerSigner = serde_json::from_value(valid.clone()).unwrap();
+        assert_eq!(decoded.public_key_bytes().unwrap(), [17; 32]);
+        for key in [
+            arkret_canonical::base64url_encode([17; 31]),
+            arkret_canonical::base64url_encode([17; 33]),
+            format!("{}=", valid["public_key_b64u"].as_str().unwrap()),
+        ] {
+            let mut bad = valid.clone();
+            bad["public_key_b64u"] = serde_json::Value::String(key);
+            assert!(serde_json::from_value::<ContactProducerSigner>(bad).is_err());
+        }
+        let mut unknown = valid.clone();
+        unknown["key_kind"] = serde_json::json!("ed25519");
+        assert!(serde_json::from_value::<ContactProducerSigner>(unknown).is_err());
+        let mut noncanonical = valid;
+        let key = noncanonical["public_key_b64u"].as_str().unwrap();
+        let mut bytes = key.as_bytes().to_vec();
+        // A raw 32-byte key has two unused low bits in the final base64 symbol.
+        *bytes.last_mut().unwrap() = b'F';
+        noncanonical["public_key_b64u"] = serde_json::json!(String::from_utf8(bytes).unwrap());
+        assert!(serde_json::from_value::<ContactProducerSigner>(noncanonical).is_err());
+    }
+
+    fn contact_kat() -> serde_json::Value {
+        let artifacts = arkret_schema_conformance::default_spec_artifacts_dir()
+            .expect("Contact vectors require the spec artifacts");
+        serde_json::from_str(
+            &std::fs::read_to_string(artifacts.join("fixtures/contact-round-kat.json")).unwrap(),
+        )
+        .unwrap()
+    }
     fn request_receipt() -> RequestAcceptanceReceipt {
         RequestAcceptanceReceipt {
             core: RequestAcceptanceReceiptCore {
@@ -1557,6 +1648,7 @@ mod event_digest_derivation_tests {
                 slot_predecessor: None,
                 previous_terminal_contact_round_id: None,
                 request_event_ref: EventId::new(EVENT_REF).unwrap(),
+                producer_signer: producer_signer(),
                 source_checkpoint: hash('a'),
                 accepted_at: timestamp(),
                 issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
@@ -1675,6 +1767,7 @@ mod event_digest_derivation_tests {
             contact_round_id: hash('d'),
             request_receipt: request.clone(),
             response_event_ref: EventId::new(EVENT_REF).unwrap(),
+            producer_signer: producer_signer(),
             outgoing_slot_absence_digest: hash('e'),
             accepted_at: timestamp(),
             issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
@@ -1685,6 +1778,7 @@ mod event_digest_derivation_tests {
         let reject = RejectAcceptanceReceipt {
             request_receipt: request,
             reject_event_ref: EventId::new(EVENT_REF).unwrap(),
+            producer_signer: producer_signer(),
             accepted_at: timestamp(),
             issuer_id: DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
             signature: signature(),
@@ -1706,35 +1800,13 @@ mod event_digest_derivation_tests {
 
     #[test]
     fn outgoing_slot_absence_transcript_matches_normative_kat() {
-        let alice = ActorId::account(AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationa").unwrap(),
-        ));
-        let bob = ActorId::account(AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationb").unwrap(),
-        ));
-        let transcript = OutgoingSlotAbsenceTranscript {
-            sorted_pair_member_ids: [alice, bob.clone()],
-            request_slot_owner: bob,
-            contact_round_id: Hash::new(
-                "sha256:0ceca65487c2143ddb4e4c4e7831fcd6e1e8e049bff470a30aa8c033b4c913ec",
-            )
-            .unwrap(),
-            slot_predecessor: None,
-            cas_sequence: 7,
-            cas_frontier: vec![
-                EventId::new("ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD").unwrap(),
-                EventId::new("ak:event:AWi7O9JH8Ib3wHJrt01Tl7Gf67pixYPhAmufRLOXFoBA").unwrap(),
-            ],
-            observed_at: DateTime::parse_from_rfc3339("2026-08-31T03:59:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            outgoing_request_state: OutgoingRequestState::Absent,
-        };
+        let fixture = contact_kat();
+        let case = &fixture["outgoing_slot_absence"]["case"];
+        let transcript: OutgoingSlotAbsenceTranscript =
+            serde_json::from_value(case["transcript"].clone()).unwrap();
         assert_eq!(
             transcript.digest().unwrap().as_str(),
-            "sha256:07bf0692dbec6a4cef398e0f7de448dd2f970edf47fe10d48921bc67a57ecabe"
+            case["expected_digest"].as_str().unwrap()
         );
 
         let mut swapped = transcript.clone();
