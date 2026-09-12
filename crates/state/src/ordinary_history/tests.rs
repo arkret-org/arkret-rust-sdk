@@ -1,4 +1,4 @@
-use arkret_wire::{DidCoreId, Hlc};
+use arkret_wire::{AuthorizationDependencyKind, CapabilityActionId, DidCoreId, Hlc};
 use serde_json::json;
 
 use super::*;
@@ -17,10 +17,11 @@ fn id(label: &str) -> EventId {
 fn usage(generation: &str) -> AuthorizationUse {
     AuthorizationUse {
         authority_realm_id: realm(),
+        dependency_kind: AuthorizationDependencyKind::MemberJoin,
         authorization_event_id: id("member-authorization"),
         generation_event_id: id(generation),
         scope_ref: ScopeRef::Realm { realm_id: realm() },
-        actions: BTreeSet::from(["ak.message.create".into()]),
+        actions: BTreeSet::from([CapabilityActionId::MessageCreate]),
     }
 }
 
@@ -83,6 +84,7 @@ fn cut(command: &str, generation: &str, frontier: Vec<EventId>) -> Authorization
     frontier.sort();
     AuthorizationClosure {
         command_event_id: id(command),
+        dependency_kind: usage.dependency_kind,
         authorization_event_id: usage.authorization_event_id,
         generation_event_id: usage.generation_event_id,
         scope_ref: usage.scope_ref,
@@ -255,7 +257,7 @@ fn unrelated_actions_do_not_close_a_verified_use() {
     let mut source = Source::default();
     let target = source.insert(event("target", "generation", &[], &[]));
     let mut unrelated = cut("cut", "generation", vec![]);
-    unrelated.actions = vec!["ak.message.edit".into()];
+    unrelated.actions = vec![CapabilityActionId::MessageRevise];
     assert_eq!(
         classify_ordinary_history(&target, &inventory(vec![unrelated]), &source).unwrap(),
         OrdinaryHistoryEligibility::Eligible
@@ -512,4 +514,122 @@ fn proven_invalid_evidence_is_not_hidden_by_exclusion_or_missing_evidence() {
         classify_ordinary_history(&target, &inventory, &source),
         Err(HistoryEvidenceError::Invalid(_))
     ));
+}
+
+#[test]
+fn genesis_controller_transfer_does_not_close_root_grants_or_member_baseline() {
+    let mut source = Source::default();
+    let mut direct = event("direct-controller", "generation", &[], &[]);
+    let mut granted = event("granted", "generation", &[], &[]);
+    let mut baseline = event("baseline", "generation", &[], &[]);
+    let mut same_genesis = usage("member-authorization");
+    same_genesis.dependency_kind = AuthorizationDependencyKind::RealmControllerAssignment;
+    let HistoricalAuthorization::Ordinary { uses, .. } = &mut direct.authorization else {
+        unreachable!()
+    };
+    *uses = vec![same_genesis.clone()];
+    same_genesis.dependency_kind = AuthorizationDependencyKind::RealmAuthorityGeneration;
+    let HistoricalAuthorization::Ordinary { uses, .. } = &mut granted.authorization else {
+        unreachable!()
+    };
+    let mut grant = usage("parent-grant");
+    grant.authorization_event_id = id("parent-grant");
+    grant.dependency_kind = AuthorizationDependencyKind::CapabilityGrant;
+    *uses = vec![same_genesis.clone(), grant];
+    let HistoricalAuthorization::Ordinary { uses, .. } = &mut baseline.authorization else {
+        unreachable!()
+    };
+    same_genesis.dependency_kind = AuthorizationDependencyKind::MemberJoin;
+    *uses = vec![same_genesis];
+    let direct = source.insert(direct);
+    let granted = source.insert(granted);
+    let baseline = source.insert(baseline);
+    let mut transfer = cut("transfer", "member-authorization", vec![]);
+    transfer.dependency_kind = AuthorizationDependencyKind::RealmControllerAssignment;
+    let transfer_inventory = inventory(vec![transfer.clone()]);
+    assert!(matches!(
+        classify_ordinary_history(&direct, &transfer_inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Quarantined { .. }
+    ));
+    assert_eq!(
+        classify_ordinary_history(&granted, &transfer_inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Eligible
+    );
+    assert_eq!(
+        classify_ordinary_history(&baseline, &transfer_inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Eligible
+    );
+    let mut reset = transfer;
+    reset.command_event_id = id("reset");
+    reset.dependency_kind = AuthorizationDependencyKind::RealmAuthorityGeneration;
+    let reset_inventory = inventory(vec![reset]);
+    assert!(matches!(
+        classify_ordinary_history(&granted, &reset_inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Quarantined { .. }
+    ));
+    assert_eq!(
+        classify_ordinary_history(&baseline, &reset_inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Eligible
+    );
+}
+
+#[test]
+fn reopened_lifecycle_gate_keeps_the_other_gate_identity_without_false_revocation() {
+    let mut source = Source::default();
+    let mut restored = event("restored-unfrozen", "new-generation", &[], &[]);
+    let HistoricalAuthorization::Ordinary { uses, .. } = &mut restored.authorization else {
+        unreachable!()
+    };
+    uses[0].dependency_kind = AuthorizationDependencyKind::RealmUnarchived;
+    let mut never_frozen = usage("old-generation");
+    never_frozen.dependency_kind = AuthorizationDependencyKind::RealmUnfrozen;
+    uses.push(never_frozen);
+    let restored = source.insert(restored);
+    let mut archive = cut("archive", "old-generation", vec![]);
+    archive.dependency_kind = AuthorizationDependencyKind::RealmUnarchived;
+    let archive_inventory = inventory(vec![archive.clone()]);
+    assert_eq!(
+        classify_ordinary_history(&restored, &archive_inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Eligible
+    );
+    let mut freeze = archive;
+    freeze.command_event_id = id("freeze");
+    freeze.dependency_kind = AuthorizationDependencyKind::RealmUnfrozen;
+    assert!(matches!(
+        classify_ordinary_history(&restored, &inventory(vec![freeze]), &source).unwrap(),
+        OrdinaryHistoryEligibility::Quarantined { .. }
+    ));
+}
+
+#[test]
+fn coordinate_validation_rejects_unknown_kinds_and_incompatible_action_or_scope() {
+    let member = cut("cut", "generation", vec![]);
+    member.validate_structural().unwrap();
+    let mut value = serde_json::to_value(&member).unwrap();
+    value["dependency_kind"] = json!("lifecycle");
+    assert!(serde_json::from_value::<AuthorizationClosure>(value).is_err());
+    let mut value = serde_json::to_value(&member).unwrap();
+    value["actions"] = json!(["ak.message.edit"]);
+    assert!(serde_json::from_value::<AuthorizationClosure>(value).is_err());
+    let mut invalid = member.clone();
+    invalid.dependency_kind = AuthorizationDependencyKind::ConsentGrant;
+    assert!(invalid.validate_structural().is_err());
+    invalid.dependency_kind = AuthorizationDependencyKind::CircleActive;
+    assert!(invalid.validate_structural().is_err());
+    invalid.dependency_kind = AuthorizationDependencyKind::DeviceAuthorization;
+    invalid.scope_ref = ScopeRef::RealmGenesis;
+    assert!(invalid.validate_structural().is_err());
+    let mut invalid_use = usage("generation");
+    invalid_use.dependency_kind = AuthorizationDependencyKind::CircleActive;
+    assert!(
+        VerifiedHistoryEvent::verify(
+            event("target", "generation", &[], &[]).event,
+            DigestSuite::Sha256,
+            |_| Ok(HistoricalAuthorization::Ordinary {
+                uses: vec![invalid_use],
+                execution_dependencies: BTreeSet::new()
+            })
+        )
+        .is_err()
+    );
 }

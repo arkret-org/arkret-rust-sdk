@@ -25,7 +25,7 @@ pub enum HistoryEvidenceError {
 /// One actual historical authorization dependency, after verification.
 ///
 /// These are runtime coordinates, not a wire claim. The verifier must include
-/// every applicable member, device, installation, scope and delegated-parent
+/// every actual registered member, device, registration, scope and delegated-parent
 /// authorization, including all actions actually used. It must derive exact
 /// instance/generation identities from authenticated historical state. Scope
 /// coordinates must be normalized by those rules; this reducer does not guess
@@ -33,10 +33,11 @@ pub enum HistoryEvidenceError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AuthorizationUse {
     pub authority_realm_id: RealmId,
+    pub dependency_kind: arkret_wire::AuthorizationDependencyKind,
     pub authorization_event_id: EventId,
     pub generation_event_id: EventId,
     pub scope_ref: ScopeRef,
-    pub actions: BTreeSet<String>,
+    pub actions: BTreeSet<arkret_wire::CapabilityActionId>,
 }
 
 /// The successful output of the caller's historical authorization verifier.
@@ -95,9 +96,19 @@ impl VerifiedHistoryEvent {
         }
         let authorization = verify(&event)?;
         if let HistoricalAuthorization::Ordinary { uses, .. } = &authorization {
-            if uses.is_empty() || uses.iter().any(|usage| usage.actions.is_empty()) {
+            if uses.is_empty()
+                || uses.iter().any(|usage| {
+                    usage.actions.is_empty()
+                        || usage.scope_ref.realm_id_opt() != Some(&usage.authority_realm_id)
+                        || !usage.dependency_kind.permits_scope(&usage.scope_ref)
+                        || usage
+                            .actions
+                            .iter()
+                            .any(|action| !usage.dependency_kind.permits_action(*action))
+                })
+            {
                 return Err(HistoryEvidenceError::Invalid(
-                    "ordinary history requires nonempty verified authorization uses and actions"
+                    "ordinary history requires valid nonempty registered authorization coordinates"
                         .into(),
                 ));
             }
@@ -415,7 +426,8 @@ pub enum OrdinaryHistoryEligibility {
 }
 
 fn matching_cut(usage: &AuthorizationUse, closure: &AuthorizationClosure) -> bool {
-    usage.authorization_event_id == closure.authorization_event_id
+    usage.dependency_kind == closure.dependency_kind
+        && usage.authorization_event_id == closure.authorization_event_id
         && usage.generation_event_id == closure.generation_event_id
         && usage.scope_ref == closure.scope_ref
         && closure

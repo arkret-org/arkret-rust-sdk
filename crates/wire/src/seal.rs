@@ -10,8 +10,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::{
-    CanonicalCellState, CellRef, DidUrl, EventId, Hash, Hlc, NotarySignerDescriptor, RealmId,
-    ReasonCode, Result, ScopeRef, SealId, WireError, canonical,
+    AuthorizationDependencyKind, CanonicalCellState, CapabilityActionId, CellRef, DidUrl, EventId,
+    Hash, Hlc, NotarySignerDescriptor, RealmId, ReasonCode, Result, ScopeRef, SealId, WireError,
+    canonical,
 };
 
 pub const MAX_SEAL_DELTA: usize = 4_096;
@@ -277,10 +278,12 @@ impl SealCommandOutcome {
 #[serde(deny_unknown_fields)]
 pub struct AuthorizationClosure {
     pub command_event_id: EventId,
+    pub dependency_kind: AuthorizationDependencyKind,
     pub authorization_event_id: EventId,
     pub generation_event_id: EventId,
     pub scope_ref: ScopeRef,
-    pub actions: Vec<String>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<String>)))]
+    pub actions: Vec<CapabilityActionId>,
     pub frontier: Vec<EventId>,
 }
 
@@ -288,13 +291,24 @@ impl AuthorizationClosure {
     pub fn validate_structural(&self) -> Result<()> {
         if self.actions.is_empty()
             || self.frontier.len() > 4096
-            || !self.actions.iter().all(|action| valid_action(action))
+            || !self.dependency_kind.permits_scope(&self.scope_ref)
+            || !self
+                .actions
+                .iter()
+                .all(|action| self.dependency_kind.permits_action(*action))
         {
             return Err(WireError::Protocol(
                 "authorization closure is outside protocol bounds".to_owned(),
             ));
         }
-        validate_sorted_unique("authorization closure actions", &self.actions)?;
+        validate_sorted_unique(
+            "authorization closure actions",
+            &self
+                .actions
+                .iter()
+                .map(CapabilityActionId::as_str)
+                .collect::<Vec<_>>(),
+        )?;
         validate_sorted_unique("authorization closure frontier", &self.frontier)
     }
 }
@@ -583,6 +597,11 @@ impl Seal {
         }
         for closure in &self.authorization_closures {
             closure.validate_structural()?;
+            if closure.scope_ref.realm_id_opt() != Some(&self.realm_id) {
+                return Err(WireError::Protocol(
+                    "authorization closure scope must belong to its Seal Realm".into(),
+                ));
+            }
         }
         for anchor in &self.existence_anchors {
             anchor.validate_structural()?;
@@ -667,18 +686,6 @@ where
 
 fn slice_is_empty<T>(values: &&[T]) -> bool {
     values.is_empty()
-}
-
-fn valid_action(action: &str) -> bool {
-    let mut segments = action.split('.');
-    segments.next() == Some("ak")
-        && segments.clone().count() >= 2
-        && segments.all(|segment| {
-            !segment.is_empty()
-                && segment
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        })
 }
 
 fn deserialize_required_option<'de, D, T>(

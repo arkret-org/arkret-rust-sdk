@@ -1557,6 +1557,100 @@ fn generate_capability_actions(artifacts_dir: &Path) -> Result<GeneratedOutput> 
     let marker = "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]";
     output = output.replacen(marker, "use serde::{Deserialize, Serialize};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", 1);
     output.push_str("\nimpl std::fmt::Display for CapabilityActionId {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n        f.write_str(self.as_str())\n    }\n}\n\nimpl Serialize for CapabilityActionId {\n    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n        serializer.serialize_str(self.as_str())\n    }\n}\n\nimpl<'de> Deserialize<'de> for CapabilityActionId {\n    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        let raw = String::deserialize(deserializer)?;\n        Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown capability action id: {raw}\")))\n    }\n}\n");
+    let contract = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let registry = contract
+        .value
+        .get("authorization_dependency_registry")
+        .and_then(Value::as_object)
+        .context("missing authorization dependency registry")?;
+    let entries = field(registry, "entries")?
+        .as_array()
+        .context("dependency entries must be an array")?;
+    let action_sets = field(registry, "action_sets")?
+        .as_object()
+        .context("dependency action sets must be an object")?;
+    let mut entries = entries
+        .iter()
+        .map(|entry| {
+            entry
+                .as_object()
+                .context("dependency entry must be an object")
+        })
+        .collect::<Result<Vec<_>>>()?;
+    entries.sort_by_key(|entry| {
+        entry
+            .get("dependency_kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+    });
+    validate_unique(&entries, "dependency_kind", &[])?;
+    let kinds = entries
+        .iter()
+        .map(|entry| string(entry, "dependency_kind").map(str::to_owned))
+        .collect::<Result<Vec<_>>>()?;
+    output.push_str(
+        "\n// Authorization coordinates and combination bounds come from contract-registry.json.\n",
+    );
+    emit_closed_enum(&mut output, "AuthorizationDependencyKind", &kinds)?;
+    output.push_str("\nimpl AuthorizationDependencyKind {\n    pub fn permits_scope(self, scope: &crate::ScopeRef) -> bool {\n        match self {\n");
+    for entry in &entries {
+        let patterns = strings(entry, "scope_kinds")?
+            .iter()
+            .map(|scope| match scope.as_str() {
+                "realm" => Ok("crate::ScopeRef::Realm { .. }"),
+                "circle" => Ok("crate::ScopeRef::Circle { .. }"),
+                "sidecar" => Ok("crate::ScopeRef::Sidecar { .. }"),
+                _ => bail!("unknown authorization dependency scope: {scope}"),
+            })
+            .collect::<Result<Vec<_>>>()?
+            .join(" | ");
+        if patterns.is_empty() {
+            bail!("authorization dependency has no permitted scopes");
+        }
+        writeln!(
+            output,
+            "            Self::{} => matches!(scope, {}),",
+            variant(string(entry, "dependency_kind")?, &[]),
+            patterns
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn permits_action(self, action: CapabilityActionId) -> bool {\n        match self {\n");
+    for entry in &entries {
+        let mut allowed = BTreeSet::new();
+        for set in strings(entry, "action_sets")? {
+            let values = action_sets
+                .get(&set)
+                .and_then(Value::as_array)
+                .with_context(|| format!("unknown dependency action set: {set}"))?;
+            for action in values {
+                let action = action
+                    .as_str()
+                    .context("dependency action must be a string")?;
+                if !rows
+                    .iter()
+                    .any(|row| row.get("action").and_then(Value::as_str) == Some(action))
+                {
+                    bail!("unregistered authorization dependency action: {action}");
+                }
+                allowed.insert(action.to_owned());
+            }
+        }
+        if allowed.is_empty() {
+            bail!("authorization dependency has no permitted actions");
+        }
+        let patterns = allowed
+            .iter()
+            .map(|action| format!("CapabilityActionId::{}", variant(action, &["ak."])))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        writeln!(
+            output,
+            "            Self::{} => matches!(action, {}),",
+            variant(string(entry, "dependency_kind")?, &[]),
+            patterns
+        )?;
+    }
+    output.push_str("        }\n    }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/capability_actions.rs".into(),
         contents: output,
