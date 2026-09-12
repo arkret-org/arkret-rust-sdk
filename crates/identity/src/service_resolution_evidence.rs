@@ -208,9 +208,14 @@ pub fn verify_public_principal_resolution_history(
         &resolution.account_id.station_id,
         now,
     )?;
+    let station_document = authenticated_service_document_at(
+        station_resolution,
+        &resolution.account_id.station_id,
+        resolution.projection_attestation.attestation.issued_at,
+    )?;
     arkret_signatures::service_resolution::verify_public_principal_resolution(
         resolution,
-        &station_resolution.normalized_did_document,
+        &station_document,
         now,
     )
     .map_err(wire)?;

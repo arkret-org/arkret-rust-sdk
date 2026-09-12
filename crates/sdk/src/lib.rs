@@ -54,6 +54,7 @@
 pub mod contact_authorization;
 mod control_projection;
 pub mod device_authorization_history;
+pub mod historical_producer;
 mod history_response;
 mod keypackage_claim_receipt;
 mod managed_actor_authoring;
