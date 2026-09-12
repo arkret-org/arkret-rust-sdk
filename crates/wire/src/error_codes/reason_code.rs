@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.11;
-//! sha256=810f75931e1a0e111c984186f51055f30f868df5f43eb7026aa29a7760b37426
-//! Entries: reason_codes=423
+//! Input: registry/error-code-registry.json; version=2026-09-12.12;
+//! sha256=d389a78f4571712dc0d41aea84511be8c31b548c61e7e51f42ac330fd4330af6
+//! Entries: reason_codes=422
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -110,7 +110,7 @@ pub enum ReasonCode {
     DecryptionPending,
     DelegationRevoked,
     DeliveryTargetUnreachable,
-    DeltaContainsDataEvent,
+    DeltaContainsOrdinaryEvent,
     DependencyMissing,
     DeviceAuthorizedPrincipalControlRealmMismatch,
     DeviceDirectoryUnavailable,
@@ -154,7 +154,6 @@ pub enum ReasonCode {
     FederationTrustDomainMismatch,
     FocusMismatch,
     FocusUnavailableForClient,
-    ForensicAttributionMismatch,
     FoundingDeviceCommitmentMismatch,
     GateCheckFailed,
     GenesisSealInvalid,
@@ -566,7 +565,7 @@ impl ReasonCode {
     pub const DECRYPTION_PENDING: &'static str = "decryption_pending";
     pub const DELEGATION_REVOKED: &'static str = "delegation_revoked";
     pub const DELIVERY_TARGET_UNREACHABLE: &'static str = "delivery_target_unreachable";
-    pub const DELTA_CONTAINS_DATA_EVENT: &'static str = "delta_contains_data_event";
+    pub const DELTA_CONTAINS_ORDINARY_EVENT: &'static str = "delta_contains_ordinary_event";
     pub const DEPENDENCY_MISSING: &'static str = "dependency_missing";
     pub const DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH: &'static str =
         "device_authorized_principal_control_realm_mismatch";
@@ -629,7 +628,6 @@ impl ReasonCode {
     pub const FEDERATION_TRUST_DOMAIN_MISMATCH: &'static str = "federation_trust_domain_mismatch";
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
-    pub const FORENSIC_ATTRIBUTION_MISMATCH: &'static str = "forensic_attribution_mismatch";
     pub const FOUNDING_DEVICE_COMMITMENT_MISMATCH: &'static str =
         "founding_device_commitment_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
@@ -1069,7 +1067,7 @@ impl ReasonCode {
             Self::DecryptionPending => Self::DECRYPTION_PENDING,
             Self::DelegationRevoked => Self::DELEGATION_REVOKED,
             Self::DeliveryTargetUnreachable => Self::DELIVERY_TARGET_UNREACHABLE,
-            Self::DeltaContainsDataEvent => Self::DELTA_CONTAINS_DATA_EVENT,
+            Self::DeltaContainsOrdinaryEvent => Self::DELTA_CONTAINS_ORDINARY_EVENT,
             Self::DependencyMissing => Self::DEPENDENCY_MISSING,
             Self::DeviceAuthorizedPrincipalControlRealmMismatch => {
                 Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH
@@ -1137,7 +1135,6 @@ impl ReasonCode {
             Self::FederationTrustDomainMismatch => Self::FEDERATION_TRUST_DOMAIN_MISMATCH,
             Self::FocusMismatch => Self::FOCUS_MISMATCH,
             Self::FocusUnavailableForClient => Self::FOCUS_UNAVAILABLE_FOR_CLIENT,
-            Self::ForensicAttributionMismatch => Self::FORENSIC_ATTRIBUTION_MISMATCH,
             Self::FoundingDeviceCommitmentMismatch => Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
             Self::GateCheckFailed => Self::GATE_CHECK_FAILED,
             Self::GenesisSealInvalid => Self::GENESIS_SEAL_INVALID,
@@ -1570,7 +1567,7 @@ impl ReasonCode {
             Self::DECRYPTION_PENDING => Self::DecryptionPending,
             Self::DELEGATION_REVOKED => Self::DelegationRevoked,
             Self::DELIVERY_TARGET_UNREACHABLE => Self::DeliveryTargetUnreachable,
-            Self::DELTA_CONTAINS_DATA_EVENT => Self::DeltaContainsDataEvent,
+            Self::DELTA_CONTAINS_ORDINARY_EVENT => Self::DeltaContainsOrdinaryEvent,
             Self::DEPENDENCY_MISSING => Self::DependencyMissing,
             Self::DEVICE_AUTHORIZED_PRINCIPAL_CONTROL_REALM_MISMATCH => {
                 Self::DeviceAuthorizedPrincipalControlRealmMismatch
@@ -1638,7 +1635,6 @@ impl ReasonCode {
             Self::FEDERATION_TRUST_DOMAIN_MISMATCH => Self::FederationTrustDomainMismatch,
             Self::FOCUS_MISMATCH => Self::FocusMismatch,
             Self::FOCUS_UNAVAILABLE_FOR_CLIENT => Self::FocusUnavailableForClient,
-            Self::FORENSIC_ATTRIBUTION_MISMATCH => Self::ForensicAttributionMismatch,
             Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH => Self::FoundingDeviceCommitmentMismatch,
             Self::GATE_CHECK_FAILED => Self::GateCheckFailed,
             Self::GENESIS_SEAL_INVALID => Self::GenesisSealInvalid,
@@ -2533,9 +2529,9 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason carried by the ak.invite.revoke that moves a pending Invite to target_state=send_failed: the delivery service could not reach the private invite delivery target after its retry budget. It is a delivery diagnostic only and MUST NOT leak the 3PID plaintext, the invite token or a verification code. See zh/models/governance-objects.md section 5 and zh/sync/third-party-invites.md section 6.1.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DELTA_CONTAINS_DATA_EVENT,
+        code: ReasonCode::DELTA_CONTAINS_ORDINARY_EVENT,
         applies_to: &["event_auth_state", "state_resolution"],
-        description: "A Seal delta contained a data-plane (DataEvent) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a DataEvent digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cbs-lattice-fixture.json.",
+        description: "A Seal delta contained a data-plane (ordinary Event) digest. A Seal delta MUST carry newly sealed control-plane event digests only; including a ordinary Event digest is a Seal validation failure and receivers MUST reject the Seal (rejected_seal). See models/event-and-patch.md and fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEPENDENCY_MISSING,
@@ -2751,11 +2747,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::FOCUS_UNAVAILABLE_FOR_CLIENT,
         applies_to: &["service_call"],
         description: "Client cannot use the committed `session_focus` (e.g. focus not in local `foci_preferred[]`, region restricted, capability mismatch). Client MAY fail closed without joining the call rather than silently degrading; clients MUST NOT pick a different focus to bypass `session_focus_no_split_brain`. See zh/crypto-media/media-service-binding.md §5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::FORENSIC_ATTRIBUTION_MISMATCH,
-        applies_to: &["event_auth_state", "state_resolution"],
-        description: "A threshold-notary Seal's declared forensic_attribution mode (e.g. waived or quorum_intersection) does not satisfy the Realm's forensic-attribution obligation for the signer set. The Seal MUST reject. See fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
@@ -3309,7 +3300,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::PLANE_CROSS_WRITE,
         applies_to: &["event_envelope", "schema_validation"],
-        description: "Sub-reason for schema_violation when a DataEvent's registered reducer projection targets a control-plane cell. Data-plane events MUST only project writes to data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
+        description: "Sub-reason for schema_violation when a ordinary Event's registered reducer projection targets a control-plane cell. Data-plane events MUST only project writes to data-plane cell families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_DENIED,

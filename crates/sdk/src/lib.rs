@@ -322,8 +322,8 @@ pub use arkret_push_policy::{blind_payload_sanitizer, push_rule_core};
 pub use arkret_schema as schema;
 pub use arkret_schema::protocol::*;
 pub use arkret_schema::{
-    EventSchemaExt, InviteLiveTargetSlot, PreparedControlMove, PreparedDataEvent,
-    PreparedEventPlane, PreparedNonReducerEvent, PreparedStandardEvent, invite_live_target_cell,
+    EventSchemaExt, InviteLiveTargetSlot, PreparedControlMove, PreparedEventPlane,
+    PreparedNonReducerEvent, PreparedOrdinaryEvent, PreparedStandardEvent, invite_live_target_cell,
     invite_live_target_free_value,
 };
 #[cfg(feature = "server")]
@@ -392,7 +392,7 @@ pub use arkret_wire::seal::{
     seal_canonical_bytes,
 };
 pub use arkret_wire::self_contact_paths::*;
-pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
+pub use arkret_wire::signer::PayloadSigner;
 pub use arkret_wire::string_profiles::*;
 pub use arkret_wire::tsp_vid::*;
 pub use arkret_wire::wire_strings::*;

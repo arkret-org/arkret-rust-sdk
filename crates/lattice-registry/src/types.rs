@@ -1,6 +1,6 @@
 pub use arkret_schema::Criticality;
 use arkret_state::state_model::StateModelKind;
-pub use arkret_wire::{EventCellBottom, EventCellExecution, EventCellValueShape};
+pub use arkret_wire::{CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};
 use serde_json::Value;
 
 /// Stable identification of the logical cell this [`CellFamilyAdapter`] drives.
@@ -39,7 +39,7 @@ pub(crate) fn generated_value_shape(cell_family: &str) -> EventCellValueShape {
         .unwrap_or_else(|| panic!("typed cell adapter {cell_family} has no generated binding"))
 }
 
-pub(crate) fn generated_bottom_policy(cell_family: &str) -> Option<EventCellBottom> {
+pub(crate) fn generated_bottom_policy(cell_family: &str) -> Option<CausalRegisterBottomPolicy> {
     crate::generated::SPEC_STATE_MODEL_BINDINGS
         .iter()
         .find_map(|(family, _, _, _, bottom)| (*family == cell_family).then_some(*bottom))
@@ -126,9 +126,9 @@ pub trait CellFamilyAdapter: Send + Sync {
     /// The resolved value shape required by the registry contract.
     fn value_shape(&self) -> EventCellValueShape;
 
-    /// `reject` → quarantine on Bottom (default, safety-critical cells);
-    /// `expose` → render multi-value directly (advisory cells).
-    fn bottom_policy(&self) -> Option<EventCellBottom> {
+    /// Conflict exposure policy for an ordinary causal register. Every other
+    /// state model returns `None` because it cannot produce Bottom.
+    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
         None
     }
 

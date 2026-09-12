@@ -1,6 +1,6 @@
 use arkret_state::state::MemoryCellStateRegistry;
 use arkret_state::state_model::StateModelKind;
-use arkret_wire::{EventCellBottom, EventCellExecution, EventCellValueShape};
+use arkret_wire::{CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};
 
 use super::contract_registry::{ContractRegistryError, canonical_transition_contracts};
 use super::generated::SPEC_STATE_MODEL_BINDINGS;
@@ -94,14 +94,14 @@ pub fn default_cell_family_registry() -> CellFamilyRegistry {
     registry
 }
 
-/// One-shot list of `(cell_family, sdk_lattice_kind, sdk_bottom_mode)`
-/// generated from every active cell contract in `event-kind-registry.json`.
+/// One-shot list of `(cell_family, execution, state_model, value_shape,
+/// causal_register_bottom_policy)` generated from every active cell contract.
 pub fn state_model_bindings_for_sdk_registry() -> Vec<(
     &'static str,
     EventCellExecution,
     StateModelKind,
     EventCellValueShape,
-    Option<EventCellBottom>,
+    Option<CausalRegisterBottomPolicy>,
 )> {
     SPEC_STATE_MODEL_BINDINGS.to_vec()
 }
@@ -117,7 +117,7 @@ pub fn build_sdk_state_registry() -> MemoryCellStateRegistry {
 
 pub fn try_build_sdk_state_registry() -> Result<MemoryCellStateRegistry, ContractRegistryError> {
     let mut sdk_registry = MemoryCellStateRegistry::empty();
-    for (family, execution, state_model, value_shape, bottom_mode) in
+    for (family, execution, state_model, value_shape, bottom_policy) in
         state_model_bindings_for_sdk_registry()
     {
         if family.starts_with("ak.private.") {
@@ -125,7 +125,12 @@ pub fn try_build_sdk_state_registry() -> Result<MemoryCellStateRegistry, Contrac
                 "actor-private family {family} leaked into the shared registry"
             )));
         }
-        sdk_registry.register(family, execution, state_model, value_shape, bottom_mode);
+        if bottom_policy.is_some() != (state_model == StateModelKind::CausalRegister) {
+            return Err(ContractRegistryError::Invalid(format!(
+                "{family} has a Bottom policy inconsistent with {state_model:?}"
+            )));
+        }
+        sdk_registry.register(family, execution, state_model, value_shape, bottom_policy);
     }
     for contract in canonical_transition_contracts()? {
         sdk_registry

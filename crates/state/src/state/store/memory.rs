@@ -18,11 +18,12 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use super::{
-    CellStateModelBinding, CellStateRegistry, CellStore, ControlEventStore, ControlProposalIngress,
-    ControlProposalIngressClass, ControlProposalSnapshot, ControlSealAttemptCompletion,
-    ControlSealAttemptOutcome, ControlSealScheduleClaim, ControlSealScheduleRepairStats,
-    ControlSealScheduleStats, EventCellBottom, PendingControlEventRecord, SealStore,
-    SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
+    CausalRegisterBottomPolicy, CellStateModelBinding, CellStateRegistry, CellStore,
+    ControlEventStore, ControlProposalIngress, ControlProposalIngressClass,
+    ControlProposalSnapshot, ControlSealAttemptCompletion, ControlSealAttemptOutcome,
+    ControlSealScheduleClaim, ControlSealScheduleRepairStats, ControlSealScheduleStats,
+    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
+    control_event_digest,
 };
 use crate::state_model::ordered_log::IssuedOp;
 use crate::state_model::{
@@ -869,8 +870,8 @@ pub struct MemorySealStore {
 struct MemorySealStoreInner {
     seals: BTreeMap<String, Seal>,
     digest_suites: BTreeMap<String, arkret_canonical::DigestSuite>,
-    /// realm_id → leaves (seals with no successor)
-    leaves: BTreeMap<String, Vec<SealId>>,
+    /// realm_id → unique confirmed head
+    heads: BTreeMap<String, SealId>,
     /// realm_id → genesis seal (first put with empty predecessors)
     genesis: BTreeMap<String, SealId>,
     signing_leases: BTreeMap<(String, String), (String, i64, u64)>,
@@ -900,24 +901,12 @@ impl MemorySealStoreInner {
                 .or_insert_with(|| seal.id.clone());
         }
 
-        let leaves = self.leaves.entry(realm).or_default();
-        leaves.retain(|leaf| !seal.predecessor_ref.iter().any(|p| p == leaf));
-        if !leaves.iter().any(|leaf| leaf == &seal.id) {
-            leaves.push(seal.id.clone());
-        }
+        self.heads.insert(realm, seal.id.clone());
         Ok(())
     }
 
-    fn frontier_matches(&self, realm_id: &RealmId, expected_leaves: &[SealId]) -> bool {
-        let current: BTreeSet<&str> = self
-            .leaves
-            .get(realm_id.as_str())
-            .into_iter()
-            .flatten()
-            .map(SealId::as_str)
-            .collect();
-        let expected: BTreeSet<&str> = expected_leaves.iter().map(SealId::as_str).collect();
-        current == expected
+    fn head_matches(&self, realm_id: &RealmId, expected_head: Option<&SealId>) -> bool {
+        self.heads.get(realm_id.as_str()) == expected_head
     }
 }
 
@@ -982,29 +971,21 @@ impl SealStore for MemorySealStore {
         Ok(matches)
     }
 
-    async fn put(
+    async fn put_if_head(
         &self,
         seal: &Seal,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> StoreResult<()> {
-        let mut inner = self
-            .inner
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        inner.put(seal, digest_suite)
-    }
-
-    async fn put_if_frontier(
-        &self,
-        seal: &Seal,
-        expected_leaves: &[SealId],
+        expected_head: Option<&SealId>,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> StoreResult<bool> {
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if !inner.frontier_matches(&seal.realm_id, expected_leaves) {
+        if let Some(existing) = inner.seals.get(seal.id.as_str()) {
+            return Ok(existing == seal
+                && inner.digest_suites.get(seal.id.as_str()) == Some(&digest_suite));
+        }
+        if !inner.head_matches(&seal.realm_id, expected_head) {
             return Ok(false);
         }
         inner.put(seal, digest_suite)?;
@@ -1034,23 +1015,22 @@ impl SealStore for MemorySealStore {
             .copied())
     }
 
-    async fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>> {
+    async fn confirmed_head(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>> {
         Ok(self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .leaves
+            .heads
             .get(realm_id.as_str())
-            .cloned()
-            .unwrap_or_default())
+            .cloned())
     }
 
-    async fn predecessors_known(&self, refs: &[SealId]) -> StoreResult<bool> {
+    async fn predecessor_known(&self, predecessor_ref: Option<&SealId>) -> StoreResult<bool> {
         let inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        Ok(refs.iter().all(|r| inner.seals.contains_key(r.as_str())))
+        Ok(predecessor_ref.is_none_or(|id| inner.seals.contains_key(id.as_str())))
     }
 
     async fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>> {
@@ -1269,7 +1249,7 @@ struct BindingDescriptor {
     execution: arkret_wire::EventCellExecution,
     state_model: StateModelKind,
     value_shape: arkret_wire::EventCellValueShape,
-    bottom_mode: Option<EventCellBottom>,
+    bottom_policy: Option<CausalRegisterBottomPolicy>,
     domain_transition: Option<DomainTransitionRule>,
 }
 
@@ -1301,11 +1281,16 @@ impl MemoryCellStateRegistry {
         execution: arkret_wire::EventCellExecution,
         state_model: StateModelKind,
         value_shape: arkret_wire::EventCellValueShape,
-        bottom_mode: Option<EventCellBottom>,
+        bottom_policy: Option<CausalRegisterBottomPolicy>,
     ) {
         debug_assert_eq!(
             execution == arkret_wire::EventCellExecution::Security,
             state_model == StateModelKind::SequencedState,
+        );
+        assert_eq!(
+            bottom_policy.is_some(),
+            state_model == StateModelKind::CausalRegister,
+            "only causal_register may declare a Bottom policy",
         );
         self.bindings.insert(
             cell_family.into(),
@@ -1313,7 +1298,7 @@ impl MemoryCellStateRegistry {
                 execution,
                 state_model,
                 value_shape,
-                bottom_mode,
+                bottom_policy,
                 domain_transition: None,
             },
         );
@@ -1379,7 +1364,7 @@ impl CellStateRegistry for MemoryCellStateRegistry {
                         "execution": descriptor.execution,
                         "state_model": descriptor.state_model.as_wire_str(),
                         "value_shape": descriptor.value_shape,
-                        "bottom_mode": descriptor.bottom_mode,
+                        "bottom_policy": descriptor.bottom_policy,
                         "domain_transition": descriptor.domain_transition.is_some(),
                     }),
                 )
@@ -1417,7 +1402,7 @@ impl CellStateRegistry for MemoryCellStateRegistry {
             state_model: descriptor.state_model,
             execution: descriptor.execution,
             value_shape: descriptor.value_shape,
-            bottom_mode: descriptor.bottom_mode,
+            bottom_policy: descriptor.bottom_policy,
             domain_transition: descriptor.domain_transition.clone(),
         })
     }

@@ -72,6 +72,10 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/media.rs"),
     ),
     (
+        "endpoints/message_authoring.rs",
+        include_str!("../src/endpoints/message_authoring.rs"),
+    ),
+    (
         "endpoints/mimi.rs",
         include_str!("../src/endpoints/mimi.rs"),
     ),

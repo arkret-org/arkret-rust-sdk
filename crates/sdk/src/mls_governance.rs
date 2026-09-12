@@ -477,7 +477,7 @@ pub fn build_agent_signer_evidence(
     )?;
     if gate.authority_id != snapshot.state.authority_id
         || authority_evidence.signer_id() != &snapshot.state.authority_id
-        || authority_evidence.verification_method() != &snapshot.lease.verification_method
+        || authority_evidence.verification_method() != &snapshot.attestation.verification_method
         || account_authority_evidence.signer_id() != &gate.authority_id
         || account_authority_evidence.verification_method() != &gate.verification_method
         || !matches!(
@@ -518,7 +518,7 @@ pub fn signer_evidence_ref(
 ///
 /// A successful component result does not authorize the Agent. Delegated
 /// notary descriptors acquire provenance only when the main current or
-/// historical verifier also authenticates the state-covering authority lease.
+/// historical verifier also authenticates the state-covering authority attestation.
 /// Use this function as that verifier's trust callback; never treat its result
 /// alone as an authenticated admission or a reusable verified context.
 pub fn verify_agent_portable_trust(
@@ -715,7 +715,7 @@ where
         dependencies,
         attester_signer_evidence_ref,
         &core.authority_id,
-        &authority_evidence_state.lease.verification_method,
+        &authority_evidence_state.attestation.verification_method,
     )?;
     validate_agent_control_accounts(core, event.executed_by.as_ref().unwrap_or(&event.actor_id))?;
     let controller_public_key =
@@ -723,7 +723,7 @@ where
     let authority_public_key = authenticated_document_key(
         authority_evidence,
         dependencies,
-        authority_evidence_state.lease.issued_at,
+        authority_evidence_state.attestation.issued_at,
     )?;
     let account_authority_evidence = bound_evidence_by_ref(
         dependencies,
@@ -796,7 +796,7 @@ where
                 authorize_public_key_digest: &public_key_digest,
                 expected_authority_id: &core.authority_id,
                 expected_authority_verification_method: &authority_evidence_state
-                    .lease
+                    .attestation
                     .verification_method,
                 expected_account_authority_id: &gate.authority_id,
                 expected_account_authority_verification_method: &gate.verification_method,
@@ -1016,7 +1016,7 @@ where
         dependencies,
         attester_signer_evidence_ref,
         &core.authority_id,
-        &authority_evidence_state.lease.verification_method,
+        &authority_evidence_state.attestation.verification_method,
     )?;
     let account_authority_evidence = bound_evidence_by_ref(
         dependencies,
@@ -1040,7 +1040,7 @@ where
     let authority_public_key = agent_document_key(
         authority_evidence,
         dependencies,
-        authority_evidence_state.lease.issued_at,
+        authority_evidence_state.attestation.issued_at,
         &mut document_keys,
     )?;
     let account_authority_public_key = agent_document_key(
@@ -1114,7 +1114,7 @@ where
 
                 expected_authority_id: &core.authority_id,
                 expected_authority_verification_method: &authority_evidence_state
-                    .lease
+                    .attestation
                     .verification_method,
                 expected_account_authority_id: &gate.authority_id,
                 expected_account_authority_verification_method: &gate.verification_method,

@@ -1005,7 +1005,7 @@ impl EventsSubmitFederationBatchRequestBody {
             }
         }
         let seals = self.transported_seals()?;
-        let mut saw_data_event = false;
+        let mut saw_ordinary_event = false;
         for event in self.transported_events() {
             if event.realm_id != self.service_binding_ref.realm_id {
                 return Err(WireError::Protocol(
@@ -1014,13 +1014,13 @@ impl EventsSubmitFederationBatchRequestBody {
             }
             match event.kind.cbs_plane() {
                 Some(CbsEffectPlane::Control) => {
-                    if saw_data_event {
+                    if saw_ordinary_event {
                         return Err(WireError::Protocol(
-                            "federation Control Events must precede DataEvents".to_owned(),
+                            "federation Control Events must precede ordinary Events".to_owned(),
                         ));
                     }
                 }
-                Some(CbsEffectPlane::Data) => saw_data_event = true,
+                Some(CbsEffectPlane::Data) => saw_ordinary_event = true,
                 _ => {
                     return Err(WireError::Protocol(
                         "federation Event kind has no registered CBS plane".to_owned(),
@@ -1045,7 +1045,7 @@ impl EventsSubmitFederationBatchRequestBody {
         }
 
         // Reject disclosure that is not reachable from a transported
-        // DataEvent authority ref or Control Event seal_basis leaf. Receiver-local
+        // ordinary Event authority ref or Control Event seal_basis leaf. Receiver-local
         // predecessors may be omitted.
         let transported_by_id = seals
             .iter()

@@ -15,8 +15,8 @@
 pub mod memory;
 
 use arkret_wire::event_envelope::Event;
+pub use arkret_wire::{CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};
 use arkret_wire::{ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy};
-pub use arkret_wire::{EventCellBottom, EventCellExecution, EventCellValueShape};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -438,10 +438,7 @@ pub trait ControlEventStore: Send + Sync {
 pub trait SealStore: Send + Sync {
     /// Acquire a bounded, fenced signing lease for one `(Realm, signer slot)`.
     ///
-    /// Single-signer, threshold, and mixed-primary coordinators use one
-    /// Realm-wide slot. `open_set` uses the signer DID as the slot so distinct
-    /// authorized signers can create concurrent leaves without racing
-    /// themselves across replicas.
+    /// The confirmed sequenced-state coordinator uses one Realm-wide slot.
     async fn try_claim_signing_lease(
         &self,
         realm_id: &RealmId,
@@ -459,28 +456,16 @@ pub trait SealStore: Send + Sync {
         fence: u64,
     ) -> StoreResult<bool>;
 
-    async fn put(
-        &self,
-        seal: &Seal,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> StoreResult<()>;
-
-    /// Atomically insert `seal` only when the Realm's current leaf set is
-    /// exactly `expected_leaves`.
-    ///
-    /// Equality is set equality: ordering and duplicate entries do not affect
-    /// the comparison. The frontier read, comparison, and insert MUST execute
-    /// in one transaction or lock domain. Implementations MUST NOT compose
-    /// this operation from [`SealStore::list_leaves`] followed by
-    /// [`SealStore::put`], because that admits two writers from the same stale
-    /// frontier.
+    /// Atomically insert `seal` only when the Realm's confirmed head equals
+    /// `expected_head`. Genesis uses `None`; every successor uses its signed
+    /// `predecessor_ref`.
     ///
     /// Returns `true` when the Seal was inserted and `false` when the expected
-    /// frontier was stale. A `false` result MUST leave the store unchanged.
-    async fn put_if_frontier(
+    /// head was stale. A `false` result MUST leave the store unchanged.
+    async fn put_if_head(
         &self,
         seal: &Seal,
-        expected_leaves: &[SealId],
+        expected_head: Option<&SealId>,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> StoreResult<bool>;
 
@@ -490,11 +475,12 @@ pub trait SealStore: Send + Sync {
     async fn digest_suite(&self, id: &SealId)
     -> StoreResult<Option<arkret_canonical::DigestSuite>>;
 
-    /// Current leaf set for a Realm (Seals with no successor).
-    async fn list_leaves(&self, realm_id: &RealmId) -> StoreResult<Vec<SealId>>;
+    /// Current confirmed head for a Realm.
+    async fn confirmed_head(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
 
-    /// Whether all `refs` have been seen by this store.
-    async fn predecessors_known(&self, refs: &[SealId]) -> StoreResult<bool>;
+    /// Whether the signed predecessor has been seen by this store. Genesis has
+    /// no predecessor and is therefore known structurally.
+    async fn predecessor_known(&self, predecessor_ref: Option<&SealId>) -> StoreResult<bool>;
 
     /// The Realm's genesis Seal, if any. Each Realm has at most one.
     async fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
@@ -534,11 +520,10 @@ pub trait CellStore: Send + Sync {
     /// Sealed operations grouped by the Seal batch that accepted them, in
     /// Seal acceptance order.
     ///
-    /// The batch boundary is consensus-significant for registers: writes in
-    /// one Seal share the frozen predecessor view and are concurrent siblings,
-    /// while ordinary MV properties use a successor batch to replace prior heads.
-    /// Selector MV writes instead retain the supersession derived from their own
-    /// signed basis; their current heads do not depend on batch arrival order.
+    /// The batch boundary is significant for causal registers: writes in one
+    /// Seal share the frozen predecessor view and are concurrent siblings,
+    /// while a successor batch can supersede prior heads. Selector writes
+    /// retain supersession derived from their own signed basis.
     async fn confirmed_write_batches_for_cell(
         &self,
         realm_id: &RealmId,
@@ -581,7 +566,7 @@ pub struct CellStateModelBinding {
     pub state_model: StateModelKind,
     pub execution: EventCellExecution,
     pub value_shape: EventCellValueShape,
-    pub bottom_mode: Option<EventCellBottom>,
+    pub bottom_policy: Option<CausalRegisterBottomPolicy>,
     pub domain_transition: Option<DomainTransitionRule>,
 }
 
@@ -591,7 +576,7 @@ impl std::fmt::Debug for CellStateModelBinding {
             .field("state_model", &self.state_model)
             .field("execution", &self.execution)
             .field("value_shape", &self.value_shape)
-            .field("bottom_mode", &self.bottom_mode)
+            .field("bottom_policy", &self.bottom_policy)
             .field("has_domain_transition", &self.domain_transition.is_some())
             .finish()
     }

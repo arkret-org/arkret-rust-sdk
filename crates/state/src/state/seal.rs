@@ -13,7 +13,7 @@ use super::state_root::{
 };
 use super::store::{CellStateRegistry, CellStore, ControlEventStore, SealStore};
 use super::verify::{
-    ControlMoveReject, ControlMoveVerificationContext, verify_accepted_control_move_in_context,
+    ControlMoveVerificationContext, verify_accepted_control_move_in_context,
     verify_control_move_in_context, verify_replayed_control_move_in_context,
 };
 use crate::state_model::ordered_log::IssuedOp;
@@ -122,6 +122,9 @@ pub enum SealReject {
 
     #[error("Seal predecessor_ref is unknown")]
     UnknownPredecessor,
+
+    #[error("Realm confirmed head changed before the Seal commit")]
+    ConfirmedHeadChanged,
 
     #[error("Seal.delta contains an event already covered by a predecessor")]
     DeltaAlreadyCovered,
@@ -350,7 +353,7 @@ where
     seal.validate_structural()
         .map_err(|e| SealReject::Structural(e.to_string()))?;
     if !seals
-        .predecessors_known(seal_predecessor_slice(seal))
+        .predecessor_known(seal.predecessor_ref.as_ref())
         .await?
     {
         return Err(SealReject::UnknownPredecessor);
@@ -361,8 +364,7 @@ where
         ));
     }
 
-    let pred_covered =
-        union_predecessor_covered_events(seal_predecessor_slice(seal), seals).await?;
+    let pred_covered = covered_events_for_seal_basis(seal_predecessor_basis(seal), seals).await?;
     if seal.delta.iter().any(|m| pred_covered.contains(m)) {
         return Err(SealReject::DeltaAlreadyCovered);
     }
@@ -396,7 +398,7 @@ where
     let pre_state =
         effective_joined_view_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)
             .await?;
-    let pred_closure = predecessor_seal_closure(seal_predecessor_slice(seal), seals).await?;
+    let pred_closure = predecessor_seal_closure(seal.predecessor_ref.as_ref(), seals).await?;
 
     let mut new_events: Vec<(Hash, Event)> = Vec::with_capacity(seal.delta.len());
     for digest in &seal.delta {
@@ -509,8 +511,7 @@ where
                     .seal_basis
                     .as_ref()
                     .ok_or_else(|| SealReject::Structural("selector basis missing".into()))?;
-                let source_coverage =
-                    union_predecessor_covered_events(&basis.leaves, seals).await?;
+                let source_coverage = covered_events_for_seal_basis(&basis.leaves, seals).await?;
                 for source in sources {
                     let (source_event, suite) = covered_events
                         .iter()
@@ -695,7 +696,7 @@ where
     })
 }
 
-fn seal_predecessor_slice(seal: &Seal) -> &[SealId] {
+fn seal_predecessor_basis(seal: &Seal) -> &[SealId] {
     seal.predecessor_ref
         .as_ref()
         .map(std::slice::from_ref)
@@ -713,9 +714,20 @@ async fn commit_prepared_seal(
     cells
         .append_confirmed_effects(&seal.realm_id, &seal.id, &prepared.new_ops)
         .await?;
-    if let Err(error) = seals.put(seal, digest_suites.seal_digest_suite).await {
+    let inserted = seals
+        .put_if_head(
+            seal,
+            seal.predecessor_ref.as_ref(),
+            digest_suites.seal_digest_suite,
+        )
+        .await;
+    if !matches!(inserted, Ok(true)) {
         let _ = cells.rollback_seal(&seal.realm_id, &seal.id).await;
-        return Err(error.into());
+        return match inserted {
+            Ok(false) => Err(SealReject::ConfirmedHeadChanged),
+            Err(error) => Err(error.into()),
+            Ok(true) => unreachable!(),
+        };
     }
     for digest in &prepared.effect.accepted_event_digests {
         events.mark_sealed(digest, seal).await?;
@@ -979,18 +991,18 @@ pub async fn verify_seal_basis(
     Ok(())
 }
 
-/// Every Seal reachable from the supplied basis leaves, including the leaves.
+/// Every Seal reachable from the supplied predecessor, including that
+/// predecessor.
 ///
 /// §6.3 step 5 scopes "already sealed" and §5.1 step 2 scopes an admissible
 /// `seal_basis` leaf to exactly this set — never to the receiver's own global
-/// accepted-Seal set, which would make acceptance depend on leaf arrival
-/// order.
+/// accepted-Seal set, which would make acceptance depend on arrival order.
 pub async fn predecessor_seal_closure(
-    predecessor_refs: &[SealId],
+    predecessor_ref: Option<&SealId>,
     seals: &dyn SealStore,
 ) -> Result<BTreeSet<SealId>, SealReject> {
     let mut out = BTreeSet::new();
-    let mut queue: Vec<SealId> = predecessor_refs.to_vec();
+    let mut queue: Vec<SealId> = predecessor_ref.into_iter().cloned().collect();
     while let Some(id) = queue.pop() {
         if !out.insert(id.clone()) {
             continue;
@@ -1030,7 +1042,7 @@ pub async fn effective_seal_view(
     )?;
 
     Ok(EffectiveSealView {
-        predecessor_refs: sorted,
+        basis_leaves: sorted,
         covered_event_digests,
         control_event_set_root,
         state_root,
@@ -1041,7 +1053,7 @@ pub async fn effective_seal_view(
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EffectiveSealView {
-    pub predecessor_refs: Vec<SealId>,
+    pub basis_leaves: Vec<SealId>,
     pub covered_event_digests: Vec<Hash>,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
@@ -1056,12 +1068,12 @@ pub struct SealLeafUnionProof {
     pub control_event_set_root: Hash,
 }
 
-pub async fn union_predecessor_covered_events(
-    predecessor_refs: &[SealId],
+pub async fn covered_events_for_seal_basis(
+    basis_leaves: &[SealId],
     seals: &dyn SealStore,
 ) -> Result<BTreeSet<Hash>, SealReject> {
     let mut out = BTreeSet::new();
-    for predecessor in predecessor_refs {
+    for predecessor in basis_leaves {
         collect_covered_events(predecessor, seals, &mut out).await?;
     }
     Ok(out)
@@ -1253,7 +1265,7 @@ pub async fn effective_state_at(
     cells: &dyn CellStore,
     registry: &dyn CellStateRegistry,
 ) -> Result<BTreeMap<CellRef, ResolvedCellState>, SealReject> {
-    let covered = union_predecessor_covered_events(leaves, seals).await?;
+    let covered = covered_events_for_seal_basis(leaves, seals).await?;
     effective_state_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
@@ -1285,7 +1297,7 @@ pub async fn effective_joined_view_at(
     cells: &dyn CellStore,
     registry: &dyn CellStateRegistry,
 ) -> Result<JoinedView, SealReject> {
-    let covered = union_predecessor_covered_events(leaves, seals).await?;
+    let covered = covered_events_for_seal_basis(leaves, seals).await?;
     effective_joined_view_for_covered_events(&covered, realm_id, cells, registry).await
 }
 

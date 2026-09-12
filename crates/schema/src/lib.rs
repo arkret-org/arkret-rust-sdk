@@ -33,7 +33,7 @@ pub use event_cell_contract::{
 pub use event_validation::{EventSchemaExt, validate_event_for_submit, validate_event_wire_schema};
 pub use generated::*;
 pub use prepared_event::{
-    PreparedControlMove, PreparedDataEvent, PreparedEventPlane, PreparedNonReducerEvent,
+    PreparedControlMove, PreparedEventPlane, PreparedNonReducerEvent, PreparedOrdinaryEvent,
     PreparedStandardEvent,
 };
 pub use protocol::{

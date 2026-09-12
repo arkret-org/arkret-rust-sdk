@@ -255,7 +255,21 @@ $categories = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $
 $stateModels = @("causal_register", "counter", "or_set", "ordered_log", "sequenced_state")
 $executions = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Execution) { $_.Execution } } })
 $valueShapes = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.ValueShape) { $_.ValueShape } } })
-$bottomModes = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Bottom) { $_.Bottom } } })
+$bottomModes = @(Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Bottom) { $_.Bottom } } }))
+foreach ($entry in $entries) {
+    foreach ($write in $entry.CellWrites) {
+        if ($write.StateModel -eq 'causal_register') {
+            if ($write.Execution -ne 'data' -or $write.Bottom -ne 'expose') {
+                throw "$($entry.Kind) causal_register write must be ordinary data with bottom=expose"
+            }
+        } elseif ($null -ne $write.Bottom) {
+            throw "$($entry.Kind) $($write.StateModel) write must not declare bottom"
+        }
+    }
+}
+if ($bottomModes.Count -ne 1 -or $bottomModes[0] -ne 'expose') {
+    throw "causal-register bottom policy vocabulary must be exactly ['expose']"
+}
 
 $lines = New-Object System.Collections.Generic.List[string]
 $add = { param($s) $lines.Add($s) | Out-Null }
@@ -404,13 +418,13 @@ foreach ($valueShape in $valueShapes) { & $add "    $(ConvertTo-SimpleVariant -V
 & $add "/// Closed bottom-state behavior used by registry-declared event cell writes."
 & $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]"
 & $add "#[serde(rename_all = `"snake_case`")]"
-& $add "pub enum EventCellBottom {"
+& $add "pub enum CausalRegisterBottomPolicy {"
 foreach ($bottom in $bottomModes) {
     & $add "    $(ConvertTo-SimpleVariant -Value $bottom),"
 }
 & $add "}"
 & $add ""
-& $add "impl EventCellBottom {"
+& $add "impl CausalRegisterBottomPolicy {"
 & $add "    pub const fn as_str(self) -> &'static str {"
 & $add "        match self {"
 foreach ($bottom in $bottomModes) {
@@ -555,7 +569,7 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub execution: Option<EventCellExecution>,"
 & $add "    pub state_model: Option<EventCellStateModel>,"
 & $add "    pub value_shape: Option<EventCellValueShape>,"
-& $add "    pub bottom: Option<EventCellBottom>,"
+& $add "    pub bottom: Option<CausalRegisterBottomPolicy>,"
 & $add "    pub value_projection_rule: Option<EventCellRule>,"
 & $add "    pub for_each_rule: Option<EventCellRule>,"
 & $add "    pub effect_projection_rule: Option<EventCellRule>,"
@@ -895,7 +909,7 @@ foreach ($e in $entries) {
             $cellWriteExecution = if ($null -eq $write.Execution) { "None" } else { "Some(EventCellExecution::$(ConvertTo-SimpleVariant -Value $write.Execution))" }
             $cellWriteStateModel = if ($null -eq $write.StateModel) { "None" } else { "Some(EventCellStateModel::$(ConvertTo-SimpleVariant -Value $write.StateModel))" }
             $cellWriteValueShape = if ($null -eq $write.ValueShape) { "None" } else { "Some(EventCellValueShape::$(ConvertTo-SimpleVariant -Value $write.ValueShape))" }
-            $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(EventCellBottom::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
+            $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(CausalRegisterBottomPolicy::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
             $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellRefRule))" }
             $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellSubjectRule))" }
             $valueProjection = if ($null -eq $write.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.ValueProjectionRule))" }

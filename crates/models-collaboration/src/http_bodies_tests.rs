@@ -536,7 +536,13 @@ mod device_pairing_tests {
                     ))
                     .unwrap(),
                     event_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
-                    signer_resolution_evidence_ref: None,
+                    signer_resolution_evidence_ref: Some(
+                        arkret_wire::SignerEvidenceRef::new(format!(
+                            "ak:signer_evidence:sha256:{}",
+                            "d".repeat(64)
+                        ))
+                        .unwrap(),
+                    ),
                     created_at,
                     domain: None,
                     audience: None,

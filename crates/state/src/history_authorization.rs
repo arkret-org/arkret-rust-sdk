@@ -128,7 +128,7 @@ pub async fn membership_at_verified_basis(
         let activation_basis = activation.seal_basis.as_ref().ok_or_else(|| {
             WireError::Protocol("Circle membership activation has no signed basis".to_owned())
         })?;
-        let covered = crate::union_predecessor_covered_events(&activation_basis.leaves, seals)
+        let covered = crate::covered_events_for_seal_basis(&activation_basis.leaves, seals)
             .await
             .map_err(|error| WireError::Protocol(error.to_string()))?;
         if !covered.contains(&realm_join.event_digest()) {

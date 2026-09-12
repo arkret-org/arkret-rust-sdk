@@ -226,7 +226,7 @@ pub struct AgentDetachedJws {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentAuthorityStateLease {
+pub struct AgentAuthorityStateAttestation {
     pub authority_kind: NonEmptyString,
     pub authority_id: DidCoreId,
     pub verification_method: DidUrl,
@@ -271,7 +271,7 @@ impl AgentAuthorityState {
 pub struct AgentAuthorityStateEvidence {
     pub state: AgentAuthorityState,
     pub state_digest: Hash,
-    pub lease: AgentAuthorityStateLease,
+    pub attestation: AgentAuthorityStateAttestation,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -362,27 +362,28 @@ impl AgentAdmissionEvidence {
     pub fn valid_from(&self) -> DateTime<Utc> {
         let state = &self.agent_authority_state_evidence;
         [
-            state.lease.issued_at,
+            state.attestation.issued_at,
             self.controller_account_gate_attestation.issued_at,
             state.state.authorization.accepted_at,
             state.state.authorization.not_before,
         ]
         .into_iter()
         .max()
-        .expect("authority lease has an observation time")
+        .expect("authority attestation has an observation time")
     }
-    /// A new wrapper, connection, or gate cannot extend a source's lifetime.
+    /// End of the initial current-query consumption window. Persisted
+    /// publication evidence retains the original observation after this time.
     pub fn expires_at(&self) -> DateTime<Utc> {
         let state = &self.agent_authority_state_evidence;
         [
-            Some(state.lease.expires_at),
+            Some(state.attestation.expires_at),
             Some(self.controller_account_gate_attestation.expires_at),
             state.state.authorization.expires_at,
         ]
         .into_iter()
         .flatten()
         .min()
-        .expect("authority lease has an expiry")
+        .expect("authority attestation has an expiry")
     }
 }
 

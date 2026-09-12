@@ -1143,7 +1143,7 @@ impl Client {
 /// Classify the publication unit before making any network request and run
 /// the wire-level submit gate in the matching CBS context.
 ///
-/// A missing DataEvent basis must never be inferred to mean "anchor unit".
+/// A missing ordinary Event basis must never be inferred to mean "anchor unit".
 /// The latter is a closed protocol exception and is recognizable by its first
 /// Event kind; treating every all-empty CBS tuple as an anchor lets malformed
 /// ordinary Events reach the authorization issuer.

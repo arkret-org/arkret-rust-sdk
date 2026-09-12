@@ -794,9 +794,11 @@ where
         ));
     }
     let leaves = seal_store
-        .list_leaves(&request.realm_id)
+        .confirmed_head(&request.realm_id)
         .await
-        .map_err(|error| WireError::Protocol(error.to_string()))?;
+        .map_err(|error| WireError::Protocol(error.to_string()))?
+        .into_iter()
+        .collect::<Vec<_>>();
     if leaves.iter().cloned().collect::<BTreeSet<_>>()
         != request
             .target_basis

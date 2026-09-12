@@ -558,10 +558,10 @@ fn validate_control_proposal_ack(
         // Those Moves still participate in the bounded proposal protocol and
         // therefore may (and at durable ingress must) carry their receipts.
         // Outside that explicit context, absence of `seal_basis` continues to
-        // identify a DataEvent and must fail closed.
+        // identify an ordinary Event and must fail closed.
         if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
             return Err(WireError::Protocol(
-                "DataEvent submissions forbid a Control Proposal Ack".to_owned(),
+                "ordinary Event submissions forbid a Control Proposal Ack".to_owned(),
             ));
         }
         let event_digest = Hash::new(event.event_digest_with_digest_suite(digest_suite)?)?;
@@ -1212,7 +1212,7 @@ mod tests {
                 arkret_canonical::DigestSuite::Sha256,
             )
             .is_err(),
-            "basis-free standard Events remain DataEvents"
+            "basis-free standard Events remain ordinary Events"
         );
         validate_control_proposal_ack(
             &event,

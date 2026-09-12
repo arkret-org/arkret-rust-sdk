@@ -1142,7 +1142,7 @@ mod scope_mls_group_id_tests {
 /// CBS context a structural submit check runs under.
 ///
 /// `Standard` is the fail-closed default: every reducer-input Event must be a
-/// DataEvent or a Control Move. `AnchorUnit` additionally admits the two closed
+/// ordinary Event or a Control Move. `AnchorUnit` additionally admits the two closed
 /// `seal_basis`-exempt units of `event-auth-state-resolution.md` §5 and MUST NOT
 /// be used for anything else.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -1423,7 +1423,7 @@ impl Event {
             basis.validate_protocol_bounds()?;
         }
         if self.kind.is_reducer_input() {
-            let is_data_event = self.auth_context.is_some()
+            let is_ordinary_event = self.auth_context.is_some()
                 && self.seal_basis.is_none()
                 && self.preconditions.is_empty();
             let is_control_move = self.auth_context.is_none() && self.seal_basis.is_some();
@@ -1437,7 +1437,7 @@ impl Event {
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
             match self.kind.cbs_plane() {
-                Some(CbsEffectPlane::Data) if is_data_event || is_anchor_unit => {}
+                Some(CbsEffectPlane::Data) if is_ordinary_event || is_anchor_unit => {}
                 Some(CbsEffectPlane::Control) if is_control_move || is_anchor_unit => {}
                 Some(CbsEffectPlane::Data) => {
                     return Err(WireError::Protocol(format!(

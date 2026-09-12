@@ -37,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use crate::governance::membership_invite::{
     InviteAcceptPayload, JoinGateProof, MembershipPayload, MembershipPayloadState,
 };
+use crate::seal_conclusion::{SealConclusionResult, SealConclusionSet};
 
 /// Domain-separation label of `peer_bootstrap_outcome.request_digest`.
 pub const REALM_JOIN_BOOTSTRAP_REQUEST_DIGEST_LABEL: &str = "ak.realm-join-bootstrap-request-v1";
@@ -778,11 +779,16 @@ pub struct RealmJoinPeerApplicationStatusOutcome {
     pub decision: Option<ControlProposalDecisionReadOutcome>,
     #[serde(with = "canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
+    /// Quorum-authenticated results for the exact application command and its
+    /// necessary membership effects. Present exactly when `realm_state` is
+    /// `sealed`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conclusion_set: Option<SealConclusionSet>,
 }
 
 impl RealmJoinPeerApplicationStatusOutcome {
     pub const SCHEMA: &'static str = SchemaId::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1;
-    pub const MAX_CANONICAL_BYTES: usize = 262_144;
+    pub const MAX_CANONICAL_BYTES: usize = 8 * 1024 * 1024;
 
     pub fn validate_structural(&self) -> Result<()> {
         self.applicant_account_id.validate()?;
@@ -812,6 +818,40 @@ impl RealmJoinPeerApplicationStatusOutcome {
                 }
                 Ok(())
             }
+        }?;
+        match (&self.realm_state, &self.conclusion_set) {
+            (RealmJoinRealmState::Sealed, Some(set)) => {
+                set.validate_structural()?;
+                let application_digest = self.event_id.event_digest();
+                if set
+                    .conclusions
+                    .iter()
+                    .any(|certificate| certificate.statement.realm_id != self.realm_id)
+                    || !set.conclusions.iter().any(|certificate| {
+                        certificate.statement.results.iter().any(|result| {
+                            matches!(
+                                result,
+                                SealConclusionResult::Command(command)
+                                    if command.selector.event_digest == application_digest
+                                        && command.result.is_some()
+                            )
+                        })
+                    })
+                {
+                    return Err(WireError::Protocol(
+                        "sealed Realm join conclusion must authenticate the exact application command"
+                            .to_owned(),
+                    ));
+                }
+                Ok(())
+            }
+            (RealmJoinRealmState::Sealed, None) => Err(WireError::Protocol(
+                "sealed Realm join application requires its conclusion set".to_owned(),
+            )),
+            (_, Some(_)) => Err(WireError::Protocol(
+                "unsealed Realm join application must not carry a conclusion set".to_owned(),
+            )),
+            (_, None) => Ok(()),
         }
     }
 
@@ -1019,6 +1059,49 @@ mod tests {
             .derive_id(DigestSuite::Sha256)
             .expect("derived seal id");
         seal
+    }
+
+    fn sealed_application_conclusion_set() -> SealConclusionSet {
+        use crate::seal_conclusion::{
+            SealConclusionCertificate, SealConclusionCommandResult, SealConclusionCommandSelector,
+            SealConclusionCommandSelectorKind, SealConclusionStatement,
+        };
+
+        let event_digest = event_id().event_digest();
+        let statement = SealConclusionStatement {
+            realm_id: realm_id(),
+            configuration_ref: event_id(),
+            authority_seal_ref: seal().id,
+            target_seal_ref: seal().id,
+            results: vec![SealConclusionResult::Command(SealConclusionCommandResult {
+                selector: SealConclusionCommandSelector {
+                    kind: SealConclusionCommandSelectorKind::Command,
+                    event_digest: event_digest.clone(),
+                },
+                result: Some(CommandResult {
+                    event_digest: event_digest.clone(),
+                    outcome: CommandOutcome::Committed,
+                    result_digest: hash('9'),
+                    reason_code: None,
+                    unit_event_digests: vec![event_digest],
+                }),
+            })],
+        };
+        let payload_digest = statement
+            .signing_payload_digest()
+            .expect("conclusion digest");
+        SealConclusionSet {
+            configuration_handoffs: Vec::new(),
+            conclusions: vec![SealConclusionCertificate {
+                statement,
+                signatures: vec![SealSignature {
+                    verification_method: DidUrl::new("did:web:notary.example#key-1")
+                        .expect("method"),
+                    payload_digest,
+                    jws: "AAAA..CCCC".to_owned(),
+                }],
+            }],
+        }
     }
 
     fn governance_facts(basis: SealBasis) -> RealmJoinGovernanceFacts {
@@ -1561,6 +1644,8 @@ mod tests {
             realm_state,
             decision,
             observed_at: observed_at(),
+            conclusion_set: (realm_state == RealmJoinRealmState::Sealed)
+                .then(sealed_application_conclusion_set),
         }
     }
 

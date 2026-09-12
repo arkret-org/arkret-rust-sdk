@@ -1,11 +1,11 @@
 ---
-title: Move / Seal / Lattice Runtime — arkret-rust-sdk 实现设计
+title: Move / Seal / State Model Runtime — arkret-rust-sdk 实现设计
 ---
 
 > 本文是 **arkret-rust-sdk 内部实现设计**，不是 normative 协议。
 > 协议层规则参见 arkret-spec：
 >
-> - Move/Seal/Lattice 语义：[`authz/event-auth-state-resolution.md`](../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §3-§5
+> - Move/Seal/state-model 语义：[`authz/event-auth-state-resolution.md`](../../arkret-spec/spec/v1/zh/authz/event-auth-state-resolution.md) §3-§5
 > - `state_root` canonical Merkle 编码（normative）：同上 §4.2
 > - Seal batch 语义（`apply_seal` pseudocode）：同上 §4.3
 > - Bottom diagnostics typed wire：[`bottom.schema.json`](../../arkret-spec/spec/v1/artifacts/schemas/bottom.schema.json)
@@ -68,7 +68,7 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
                                 │
                        ┌────────▼─────────┐
                        │  CellRegistry    │  cell_family →
-                       │  (Lattice +      │  Lattice 实例 + 参数
+                       │  (State model +      │  state model 实例 + 参数
                        │   bottom + 参数) │
                        └──────────────────┘
 ```
@@ -76,7 +76,7 @@ backend 的开发者、需要理解 SDK 内部边界的 third-party 用户。
 依赖方向：上层只依赖下层抽象；下层不引用上层具体类型。
 
 - `arkret-wire`：typed model（`Move`、`Seal`、`Bottom`、`CellId`、`NotaryValue`）。
-- `arkret_state::lattice`：纯 Lattice trait + 6 实现，不依赖 store。
+- `arkret_state::state_model`：五种正式 state model 实现，不依赖 store。
 - `arkret_state::state`：托管 verifier 流水线、`apply_seal`、
   `effective_seal_view`、`state_root` 编码。**store traits 也住在这里**，
   让 SDK 用户 / soland / 第三方 server 三方都能依赖一份。
@@ -132,13 +132,11 @@ trait SealStore: Send + Sync {
     fn put(&self, a: &Seal) -> Result<()>;
     fn get(&self, id: &SealId) -> Result<Option<Seal>>;
 
-    /// Space 当前的 Seal leaf 集合（无 successor 的 Seal）。
-    /// 多 leaf 时调用方自己跑 effective_seal_view 收敛，
-    /// 或显式签发 compaction Seal。
-    fn list_leaves(&self, space_id: &SpaceId) -> Result<Vec<SealId>>;
+    /// Space 当前唯一已确认 Seal head。
+    fn confirmed_head(&self, space_id: &SpaceId) -> Result<Option<SealId>>;
 
-    /// 用于 apply_seal pre-check：Seal.predecessor_refs[] 中每一个都已知。
-    fn predecessors_known(&self, refs: &[SealId]) -> Result<bool>;
+    /// 用于 apply_seal pre-check：非 genesis Seal 的 predecessor_ref 已知。
+    fn predecessor_known(&self, predecessor_ref: Option<&SealId>) -> Result<bool>;
 
     /// genesis Seal。每个 Space 最多一个。
     fn genesis(&self, space_id: &SpaceId) -> Result<Option<SealId>>;
@@ -156,7 +154,7 @@ trait CellStore: Send + Sync {
     /// 该 cell 全部 sealed Move 的 effect ops，按 deterministic 顺序。
     ///
     /// 顺序 = 各 Seal 内 Move 的 deterministic_order，按
-    /// (Seal 拓扑序, Move.id) 串接（同 Seal 内 Move 间无序，由 Lattice
+    /// (Seal 拓扑序, Move.id) 串接（同 Seal 内 Move 间无序，由 state model
     /// commutativity 保证收敛）。
     fn sealed_ops_for_cell(
         &self,
@@ -196,8 +194,8 @@ trait CellStore: Send + Sync {
 
 ```rust
 trait CellRegistry: Send + Sync {
-    /// 给定 cell, 返回该 cell 的 Lattice 实例（含 fsm 的 allowed_transitions
-    /// 等参数）以及 bottom mode（reject / expose）。
+    /// 给定 cell，返回该 cell 的五种正式 state model 之一；只有普通
+    /// causal_register 可以携带冲突 Bottom policy。
     ///
     /// 实现典型从 spec event-kind-registry 的 cell_family / lattice / bottom
     /// 字段加载。内建 family 不允许由 Space 或 Realm 覆盖；
@@ -206,18 +204,18 @@ trait CellRegistry: Send + Sync {
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
-    ) -> StoreResult<CellLatticeBinding>;
+    ) -> StoreResult<CellStateModelBinding>;
 }
 
-struct CellLatticeBinding {
-    pub lattice: Box<dyn Lattice>,
-    pub bottom_mode: arkret_wire::EventCellBottom, // Reject | Expose | Inert
+struct CellStateModelBinding {
+    pub model: Box<dyn StateModel>,
+    pub bottom_policy: Option<arkret_wire::CausalRegisterBottomPolicy>,
 }
 
 ```
 
 实现注意：`CellRegistry::resolve` 调用频次很高（每条 Move precondition 都会
-打），实现可缓存 `(realm_id, cell_family) → CellLatticeBinding`；内建 family 的 lattice/bottom 来自规范生成表，
+打），实现可缓存 `(realm_id, cell_family) → CellStateModelBinding`；内建 family 的 lattice/bottom 来自规范生成表，
 Realm extension 的缓存须绑定其实际登记状态，不能用 Space schema 覆盖内建规则。
 
 ## 4. Move Verifier 流水线
@@ -250,14 +248,14 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
     for (cell, predicate) in M.preconditions:
       binding = registry.resolve(M.space_id, cell)
       cell_state = pre_state[cell]   // CellState::Value or Bottom
-      if cell_state.is_bottom() and binding.bottom_mode == Reject:
+      if cell_state.is_bottom() and binding.bottom_policy.is_none():
         return Err(failed_bottom { cell, move_id: M.id })
       evaluate_predicate(predicate, cell_state)?
 
   step 5: effects shape
     for (cell, op) in M.effects:
       binding = registry.resolve(M.space_id, cell)
-      binding.lattice.validate_op(op)?
+      binding.model.validate_op(op)?
       // Note: 不在这里执行 op；apply_all_effects_atomically 才执行。
 ```
 
@@ -289,26 +287,26 @@ fn apply_seal(
     // Step 1: structural + signature
     a.validate_id()?;
     a.validate_structural()?;
-    verify_anchorer_sig(a, anchorer_value_at(&a.predecessor_refs, cells, registry)?)?;
+    verify_anchorer_sig(a, anchorer_value_at(a.predecessor_ref.as_ref(), cells, registry)?)?;
 
     // Step 2: predecessor 已知
-    if !seals.predecessors_known(&a.predecessor_refs)? {
+    if !seals.predecessor_known(a.predecessor_ref.as_ref())? {
         return Err(SealReject::UnknownPredecessor);
     }
 
     // Step 3: frontier 单调
-    let pred_frontier_union: HashSet<MoveId> =
-        union_of_predecessor_frontiers(&a.predecessor_refs, seals, moves)?;
-    if !is_superset(&a.frontier, &pred_frontier_union) {
+    let predecessor_frontier: HashSet<MoveId> =
+        predecessor_frontier(a.predecessor_ref.as_ref(), seals, moves)?;
+    if !is_superset(&a.frontier, &predecessor_frontier) {
         return Err(SealReject::FrontierNotMonotonic);
     }
 
-    // Step 4: pre_state = joined_state(predecessor_refs)
-    let pre_state = effective_state_at(&a.predecessor_refs, cells, registry)?;
+    // Step 4: pre_state = state at the single confirmed predecessor
+    let pre_state = effective_state_at(a.predecessor_ref.as_ref(), cells, registry)?;
 
     // Step 5: deterministic_order 走 new_moves，逐条 verify
     let new_move_ids: Vec<MoveId> =
-        a.frontier.iter().filter(|m| !pred_frontier_union.contains(m)).cloned().collect();
+        a.frontier.iter().filter(|m| !predecessor_frontier.contains(m)).cloned().collect();
     let new_moves: Vec<Move> = load_moves(&new_move_ids, moves)?;
 
     let ordered = deterministic_order(&new_moves);
@@ -360,7 +358,7 @@ fn apply_seal(
   实现 SHOULD 记审计但仍接受 Seal。
 
 - **state_root 不匹配 → 整个 Seal reject + 回滚**：这是硬错误，意味着
-  notary 与本节点的 Lattice 实现 / cell registry / canonical encoding 不一致。
+  notary 与本节点的 state model 实现 / cell registry / canonical encoding 不一致。
   没有"部分接受"的语义可言。
 
 - **回滚原子性**：`cells.append_sealed_effects` 与 `cells.rollback_seal`
@@ -396,7 +394,7 @@ Move 写入的 cell 集合（典型至少含 `ak:cell:ak.component.space.lifecyc
 
 ## 7. 缓存策略
 
-`Lattice::join` 是 stateless：每次取全量 sealed ops。这对小 cell 没问题，
+`StateModel::resolve` 是 stateless：每次取全量 sealed ops。这对小 cell 没问题，
 对大 cell（消息 ordered-log、长生命周期 or-set）必须分层缓存，否则一次读
 退化到 O(n)。
 
@@ -426,7 +424,7 @@ view_hash = sha256(canonical_json(sorted([leaf.id for leaf in leaves])))
 ### 7.3 增量重 join
 
 `apply_seal` 提交时已经知道哪些 cell 被新 Move 触及（`new_ops` 的 cell 集
-合）。增量重 join 只对这些 cell 重跑 `Lattice::join`，其他 cell 的 L1 cache
+合）。增量重 join 只对这些 cell 重跑 `StateModel::resolve`，其他 cell 的 L1 cache
 直接 promote 到新 view_hash 下复用。
 
 ## 8. 用户面 Projection
@@ -438,7 +436,7 @@ cell effective state 是协议授权与 Seal finality 的源。用户面 project
 - `messages` projection 维护 `(realm_id, strand_id, track_name) → ordered list of MessageState`，从
   消息 cell（ordered-log）派生 + 解密 + 应用本地隐私规则。
 - `members` projection 维护 `(realm_id, member_did) → MembershipState`，从
-  member.state cell（fsm）派生 + 跨 cell 聚合（presence、device、profile）。
+  member.state sequenced_state cell派生 + 跨 cell 聚合（presence、device、profile）。
 - `kanban` projection 维护看板布局，从 Space cell（`kind=board`）+ Strand cell
   派生。
 
@@ -453,7 +451,7 @@ cell effective state 是协议授权与 Seal finality 的源。用户面 project
 
 ## 9. CellRegistry 加载
 
-cell_family → Lattice 的映射来自 spec event-kind-registry。每个 active
+cell_family → state model 的映射来自 spec event-kind-registry。每个 active
 state-bearing kind 在
 [`event-kind-registry.json`](../../arkret-spec/spec/v1/artifacts/registry/event-kind-registry.json)
 中声明：
@@ -464,7 +462,7 @@ state-bearing kind 在
   "cell_family": "ak.component.member.state.v1",
   "cell_subject": { "form": "did", "field": "actor_id" },
   "lattice": {
-    "type": "fsm",
+    "state_model": "sequenced_state",
     "bottom": "reject",
     "allowed_transitions": [
       ["invited", "join"],
@@ -480,7 +478,7 @@ state-bearing kind 在
 `CellRegistry::resolve` 默认实现：
 
 ```rust
-fn resolve(&self, space_id, cell) -> Result<CellLatticeBinding> {
+fn resolve(&self, space_id, cell) -> Result<CellStateModelBinding> {
     let cell_id = CellId::from_ref(cell)?;
     let family = cell_id.component();
 

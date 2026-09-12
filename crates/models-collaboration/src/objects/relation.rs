@@ -432,7 +432,7 @@ fn validate_relation_conflict_members(
 /// against.
 ///
 /// `seal_basis` freezes governance state only, so it never proves that every
-/// Relation DataEvent in the group was observed. This is the separate
+/// Relation ordinary Event in the group was observed. This is the separate
 /// data-plane commitment, and its `member_count` carries no 16-head bound: the
 /// ordinary diagnostic limit governs one projection output, never repair.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

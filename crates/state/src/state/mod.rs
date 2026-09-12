@@ -24,12 +24,11 @@ pub use seal::{
     EffectiveSealView, EventDigestSetInclusionProof, JoinedView, PreparedSealEffect,
     SealBasisVerificationContext, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,
     apply_accepted_seal_in_context, apply_replayed_seal_in_context, apply_seal_in_context,
-    causal_heads_for_batches, control_event_set_root, deterministic_order,
-    effective_joined_view_at, effective_seal_view, effective_state_at,
+    causal_heads_for_batches, control_event_set_root, covered_events_for_seal_basis,
+    deterministic_order, effective_joined_view_at, effective_seal_view, effective_state_at,
     event_digest_set_inclusion_proof, event_digest_set_root, join_cell, join_cell_seal_batches,
     leaf_union_proof, live_digest_suite_from_state, predecessor_seal_closure,
-    prepare_seal_in_context, union_predecessor_covered_events,
-    verify_event_digest_set_inclusion_proof, verify_seal_basis, view_hash,
+    prepare_seal_in_context, verify_event_digest_set_inclusion_proof, verify_seal_basis, view_hash,
 };
 pub use state_root::{
     CausalHeadsByCell, EMPTY_STATE_ROOT, GovernanceView, StateInclusionProof, compute_state_root,
@@ -40,12 +39,12 @@ pub use store::memory::{
     MemoryCellStateRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
 };
 pub use store::{
-    AcklessSelfPrincipalIngress, CellStateModelBinding, CellStateRegistry, CellStore,
-    ControlEventStore, ControlProposalIngress, ControlProposalIngressClass,
-    ControlProposalSnapshot, ControlSealAttemptCompletion, ControlSealAttemptOutcome,
-    ControlSealScheduleClaim, ControlSealScheduleRepairStats, ControlSealScheduleStats,
-    EventCellBottom, PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError,
-    StoreResult, control_event_digest,
+    AcklessSelfPrincipalIngress, CausalRegisterBottomPolicy, CellStateModelBinding,
+    CellStateRegistry, CellStore, ControlEventStore, ControlProposalIngress,
+    ControlProposalIngressClass, ControlProposalSnapshot, ControlSealAttemptCompletion,
+    ControlSealAttemptOutcome, ControlSealScheduleClaim, ControlSealScheduleRepairStats,
+    ControlSealScheduleStats, PendingControlEventRecord, SealStore, SealedControlEventRecord,
+    StoreError, StoreResult, control_event_digest,
 };
 pub use verify::{
     ControlMoveReject, ControlMoveVerificationContext, reject_to_error_code,

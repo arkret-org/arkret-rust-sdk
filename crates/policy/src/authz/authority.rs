@@ -197,7 +197,7 @@ pub enum GrantConstraint {
     /// by the service-side evaluator for the relevant action.
     RateLimiting { max_operations: u64, period: String },
     /// Field-scoped access retained in the runtime projection.  These fields
-    /// must not be collapsed away: DataEvent admission needs the exact dotted
+    /// must not be collapsed away: ordinary Event admission needs the exact dotted
     /// patch paths in order to distinguish, for example, Strand Description
     /// (`content`) from Synthesis (`tracks.synthesis.content`).
     FieldAccess {
