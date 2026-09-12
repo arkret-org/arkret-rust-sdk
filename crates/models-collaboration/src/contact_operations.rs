@@ -441,6 +441,12 @@ pub struct ContactLineage {
     pub signature: ProtocolSignature,
 }
 
+impl ContactLineage {
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

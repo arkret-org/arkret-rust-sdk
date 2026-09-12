@@ -51,6 +51,7 @@
 //! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
+pub mod contact_authorization;
 mod control_projection;
 mod history_response;
 mod keypackage_claim_receipt;
