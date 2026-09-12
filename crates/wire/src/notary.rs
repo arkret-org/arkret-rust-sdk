@@ -1,7 +1,5 @@
 //! Closed Realm notary configuration and frozen signer descriptors.
 
-use std::collections::BTreeSet;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{ActorId, Did, DidUrl, Hash, Result, WireError};
@@ -116,32 +114,17 @@ impl NotarySignerDescriptor {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum NotaryKind {
-    Quorum,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct NotaryValue {
-    pub kind: NotaryKind,
-    pub signers: Vec<NotarySignerDescriptor>,
-    pub fault_tolerance: u32,
+    pub signer: NotarySignerDescriptor,
     pub max_clock_error_ms: u32,
 }
 
 impl NotaryValue {
-    pub fn new(
-        signers: Vec<NotarySignerDescriptor>,
-        fault_tolerance: u32,
-        max_clock_error_ms: u32,
-    ) -> Result<Self> {
+    pub fn new(signer: NotarySignerDescriptor, max_clock_error_ms: u32) -> Result<Self> {
         let value = Self {
-            kind: NotaryKind::Quorum,
-            signers,
-            fault_tolerance,
+            signer,
             max_clock_error_ms,
         };
         value.validate()?;
@@ -149,83 +132,18 @@ impl NotaryValue {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.signers.is_empty() || self.signers.len() > 256 {
-            return Err(WireError::Protocol(
-                "quorum notary requires 1..=256 signers".to_owned(),
-            ));
-        }
-        if self.fault_tolerance > 85 || self.signers.len() != 3 * self.fault_tolerance as usize + 1
-        {
-            return Err(WireError::Protocol(
-                "quorum notary requires n = 3 * fault_tolerance + 1".to_owned(),
-            ));
-        }
         if self.max_clock_error_ms > 60_000 {
             return Err(WireError::Protocol(
-                "quorum notary max_clock_error_ms exceeds 60000".to_owned(),
+                "notary max_clock_error_ms exceeds 60000".to_owned(),
             ));
         }
-        validate_descriptor_set(&self.signers)
-    }
-
-    #[must_use]
-    pub const fn quorum_size(&self) -> usize {
-        2 * self.fault_tolerance as usize + 1
-    }
-
-    #[must_use]
-    pub fn authorizes_seal_delta(
-        &self,
-        _present_signers: &BTreeSet<DidUrl>,
-        _delta_kinds: &[crate::EventKind],
-    ) -> bool {
-        true
-    }
-
-    pub fn proposal_quorum_met(&self, present_signers: &BTreeSet<DidUrl>) -> bool {
-        present_signers.len() >= self.quorum_size()
-            && present_signers.iter().all(|method| {
-                self.signers
-                    .iter()
-                    .any(|member| &member.verification_method == method)
-            })
-    }
-
-    /// Every registered descriptor, primary slots first then recovery slots.
-    ///
-    /// The two sets are never interchangeable at authorization time, but a
-    /// caller that must check a property of the complete configuration - such as
-    /// the founding-notary rule that every slot is a `service` actor - has to
-    /// see their union.
-    pub fn descriptors(&self) -> Vec<&NotarySignerDescriptor> {
-        self.signers.iter().collect()
+        self.signer.validate()
     }
 
     pub fn signer_descriptor(
         &self,
         verification_method: &DidUrl,
     ) -> Option<&NotarySignerDescriptor> {
-        self.signers
-            .iter()
-            .find(|member| &member.verification_method == verification_method)
+        (&self.signer.verification_method == verification_method).then_some(&self.signer)
     }
-}
-
-fn validate_descriptor_set(primary: &[NotarySignerDescriptor]) -> Result<()> {
-    let mut actors = BTreeSet::new();
-    let mut methods = BTreeSet::new();
-    let mut digests = BTreeSet::new();
-    for descriptor in primary {
-        descriptor.validate()?;
-        if !actors.insert(descriptor.actor_id.clone())
-            || !methods.insert(descriptor.verification_method.clone())
-            || !digests.insert(descriptor.frozen_public_key_digest.clone())
-        {
-            return Err(WireError::Protocol(
-                "notary signer descriptors must be unique by actor_id, verification_method, and frozen_public_key_digest"
-                    .to_owned(),
-            ));
-        }
-    }
-    Ok(())
 }

@@ -4,8 +4,6 @@
 //! absolute deadline. Signed defer extends a pending proposal's deadline;
 //! only an accepted Seal command result provides committed/rejected finality.
 
-use std::collections::BTreeSet;
-
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -20,8 +18,6 @@ pub const MAX_PROPOSAL_DECISION_WINDOW: Duration = Duration::hours(24);
 pub const MAX_PROPOSAL_ABSOLUTE_HORIZON: Duration = Duration::hours(72);
 pub const MAX_PROPOSAL_INTAKE_SLA: Duration = Duration::hours(24);
 pub const MAX_PROPOSAL_DEFERS: u8 = 2;
-pub const MAX_PROPOSAL_AUTHORITY_PROOFS: usize = 32;
-pub const MAX_PROPOSAL_AUTHORITY_ACKS: usize = MAX_PROPOSAL_AUTHORITY_PROOFS;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -43,24 +39,7 @@ pub enum ControlProposalPublicationMode {
 #[serde(rename_all = "snake_case")]
 pub enum ControlProposalDeferReason {
     DependencyMissing,
-    QuorumUnreachable,
     TemporarilyUnavailable,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ControlProposalAuthorityAck {
-    pub realm_id: RealmId,
-    pub proposal_digest: Hash,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub received_at: DateTime<Utc>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub decision_due_at: DateTime<Utc>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub absolute_due_at: DateTime<Utc>,
-    pub authority_set_ref: Hash,
-    pub signature: PayloadSignature,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -78,7 +57,7 @@ pub struct ControlProposalAck {
     pub absolute_due_at: DateTime<Utc>,
     pub defer_count: u8,
     pub authority_set_ref: Hash,
-    pub authority_acks: Vec<ControlProposalAuthorityAck>,
+    pub signature: PayloadSignature,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -98,7 +77,7 @@ pub enum ControlProposalDecision {
         defer_count: u8,
         reason_code: ControlProposalDeferReason,
         authority_set_ref: Hash,
-        proofs: Vec<PayloadSignature>,
+        proof: PayloadSignature,
     },
 }
 
@@ -119,7 +98,7 @@ pub struct ControlProposalAckIssueRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ControlProposalAckIssueOutcome {
-    pub authority_ack: ControlProposalAuthorityAck,
+    pub authority_ack: ControlProposalAck,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -448,36 +427,6 @@ fn signer_controller(signature: &PayloadSignature) -> Result<&str> {
     Ok(controller)
 }
 
-fn validate_proofs(
-    proofs: &[PayloadSignature],
-    expected_digest: &Hash,
-    expected_created_at: DateTime<Utc>,
-) -> Result<()> {
-    if proofs.is_empty() || proofs.len() > MAX_PROPOSAL_AUTHORITY_PROOFS {
-        return Err(WireError::Protocol(format!(
-            "control proposal proof set requires 1..={MAX_PROPOSAL_AUTHORITY_PROOFS} members"
-        )));
-    }
-    let mut previous_method: Option<&str> = None;
-    let mut controllers = BTreeSet::new();
-    for proof in proofs {
-        if previous_method.is_some_and(|previous| previous >= proof.verification_method.as_str()) {
-            return Err(WireError::Protocol(
-                "control proposal proofs must use distinct verification methods in canonical ascending order"
-                    .to_owned(),
-            ));
-        }
-        validate_signature(proof, expected_digest, expected_created_at)?;
-        if !controllers.insert(signer_controller(proof)?) {
-            return Err(WireError::Protocol(
-                "control proposal proofs contain a duplicate authority member".to_owned(),
-            ));
-        }
-        previous_method = Some(proof.verification_method.as_str());
-    }
-    Ok(())
-}
-
 impl ControlProposalDecisionPolicy {
     pub fn protocol_maximum() -> Self {
         Self {
@@ -532,8 +481,8 @@ impl ControlProposalDecisionPolicy {
     }
 }
 
-impl ControlProposalAuthorityAck {
-    /// Issue one immutable authority-authority Ack with a local Agent,
+impl ControlProposalAck {
+    /// Issue one immutable authority Ack with a local Agent,
     /// device, HSM, or service signer.
     ///
     /// The signer signs the same canonical transcript as the HTTP authority
@@ -562,6 +511,8 @@ impl ControlProposalAuthorityAck {
             ));
         }
         let mut member = Self {
+            kind: ControlProposalAckKind::SignedAck,
+            defer_count: 0,
             realm_id,
             proposal_digest,
             received_at,
@@ -575,7 +526,7 @@ impl ControlProposalAuthorityAck {
                 jws: String::new(),
             },
         };
-        member.signature.payload_digest = member.authority_ack_digest()?;
+        member.signature.payload_digest = member.ack_body_digest()?;
         let signed = signer.sign_payload(&member.canonical_bytes_for_signature()?)?;
         if signed.verification_method != member.signature.verification_method {
             return Err(WireError::Protocol(
@@ -590,13 +541,13 @@ impl ControlProposalAuthorityAck {
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
         proof_transcript(
             crate::ProofContextId::CONTROL_PROPOSAL_AUTHORITY_ACK_PROOF_V1,
-            &self.authority_ack_digest()?,
+            &self.ack_body_digest()?,
             &self.signature.verification_method,
             self.signature.created_at,
         )
     }
 
-    pub fn authority_ack_digest(&self) -> Result<Hash> {
+    pub fn ack_body_digest(&self) -> Result<Hash> {
         digest_without_field(self, "signature")
     }
 
@@ -622,6 +573,11 @@ impl ControlProposalAuthorityAck {
     }
 
     pub fn validate_protocol_bounds(&self) -> Result<()> {
+        if self.defer_count != 0 {
+            return Err(WireError::Protocol(
+                "Control Proposal Ack defer_count must be zero".to_owned(),
+            ));
+        }
         let decision_window = self.decision_due_at - self.received_at;
         let absolute_horizon = self.absolute_due_at - self.received_at;
         if decision_window <= Duration::zero()
@@ -633,217 +589,28 @@ impl ControlProposalAuthorityAck {
                 "proposal authority Ack deadlines exceed protocol bounds".to_owned(),
             ));
         }
-        validate_signature(
-            &self.signature,
-            &self.authority_ack_digest()?,
-            self.received_at,
-        )
+        validate_signature(&self.signature, &self.ack_body_digest()?, self.received_at)
     }
 }
 
 impl ControlProposalAck {
-    pub fn from_authority_acks(
-        authority_acks: Vec<ControlProposalAuthorityAck>,
-        policy: ControlProposalDecisionPolicy,
-    ) -> Result<Self> {
-        Self::from_authority_acks_inner(authority_acks, Some(policy))
-    }
-
-    /// Assemble a canonical set when the caller has not yet resolved the
-    /// Realm's tighter decision policy. Protocol ceilings and all aggregate
-    /// bindings are still enforced; authoritative admission must subsequently
-    /// validate the exact Realm policy.
-    pub fn from_authority_acks_protocol_bounds(
-        authority_acks: Vec<ControlProposalAuthorityAck>,
-    ) -> Result<Self> {
-        Self::from_authority_acks_inner(authority_acks, None)
-    }
-
-    fn from_authority_acks_inner(
-        mut authority_acks: Vec<ControlProposalAuthorityAck>,
-        policy: Option<ControlProposalDecisionPolicy>,
-    ) -> Result<Self> {
-        if authority_acks.is_empty() {
-            return Err(WireError::Protocol(
-                "Control Proposal Ack requires at least one authority Ack".to_owned(),
-            ));
-        }
-        authority_acks.sort_by(|left, right| {
-            left.signature
-                .verification_method
-                .cmp(&right.signature.verification_method)
-        });
-        let first = &authority_acks[0];
-        let realm_id = first.realm_id.clone();
-        let proposal_digest = first.proposal_digest.clone();
-        let authority_set_ref = first.authority_set_ref.clone();
-        let received_at = authority_acks
-            .iter()
-            .map(|member| member.received_at)
-            .max()
-            .expect("non-empty authority Acks");
-        let decision_due_at = authority_acks
-            .iter()
-            .map(|member| member.decision_due_at)
-            .min()
-            .expect("non-empty authority Acks");
-        let absolute_due_at = authority_acks
-            .iter()
-            .map(|member| member.absolute_due_at)
-            .min()
-            .expect("non-empty authority Acks");
-        let ack = Self {
-            kind: ControlProposalAckKind::SignedAck,
-            realm_id,
-            proposal_digest,
-            received_at,
-            decision_due_at,
-            absolute_due_at,
-            defer_count: 0,
-            authority_set_ref,
-            authority_acks,
-        };
-        if let Some(policy) = policy {
-            ack.validate_structural(policy)?;
-        } else {
-            ack.validate_protocol_bounds()?;
-        }
-        Ok(ack)
-    }
-
-    /// Assemble the unique canonical member set and require that it satisfies
-    /// the caller-resolved current notary profile.
-    pub fn from_authority_acks_for_notary(
-        authority_acks: Vec<ControlProposalAuthorityAck>,
-        policy: ControlProposalDecisionPolicy,
-        notary: &NotaryValue,
-    ) -> Result<Self> {
-        notary.validate()?;
-        let ack = Self::from_authority_acks(authority_acks, policy)?;
-        let mut signers = BTreeSet::new();
-        for member in &ack.authority_acks {
-            let (_, fragment) = member
-                .signature
-                .verification_method
-                .rsplit_once('#')
-                .ok_or_else(|| {
-                    WireError::Protocol(
-                        "proposal member verification_method must be a DID URL".to_owned(),
-                    )
-                })?;
-            if fragment.is_empty() {
-                return Err(WireError::Protocol(
-                    "proposal member verification_method fragment is empty".to_owned(),
-                ));
-            }
-            if !signers.insert(member.signature.verification_method.clone()) {
-                return Err(WireError::Protocol(
-                    "Control Proposal Ack repeats an authority verification method".to_owned(),
-                ));
-            }
-        }
-        if !notary.proposal_quorum_met(&signers) {
-            return Err(WireError::Protocol(
-                "Control Proposal Ack authority quorum is unreachable".to_owned(),
-            ));
-        }
-        Ok(ack)
-    }
-
     pub fn proposal_ack_digest(&self) -> Result<Hash> {
         Ok(Hash::new(canonical::sha256_digest(
             &canonical::canonical_json_bytes(self)?,
         ))?)
     }
 
-    pub fn validate_structural(&self, policy: ControlProposalDecisionPolicy) -> Result<()> {
-        policy.validate()?;
-        self.validate_common(policy.proposal_intake_sla, Some(policy))
-    }
-
-    pub fn validate_protocol_bounds(&self) -> Result<()> {
-        self.validate_common(MAX_PROPOSAL_INTAKE_SLA, None)
-    }
-
-    fn validate_common(
-        &self,
-        proposal_intake_sla: Duration,
-        policy: Option<ControlProposalDecisionPolicy>,
-    ) -> Result<()> {
-        if self.defer_count != 0 {
-            return Err(WireError::Protocol(
-                "Control Proposal Ack defer_count must be zero".to_owned(),
-            ));
-        }
-        if self.authority_acks.is_empty()
-            || self.authority_acks.len() > MAX_PROPOSAL_AUTHORITY_PROOFS
-        {
-            return Err(WireError::Protocol(format!(
-                "Control Proposal Ack requires 1..={MAX_PROPOSAL_AUTHORITY_PROOFS} authority Acks"
-            )));
-        }
-        let expected_received_at = self
-            .authority_acks
-            .iter()
-            .map(|member| member.received_at)
-            .max()
-            .expect("authority Ack set is non-empty");
-        let earliest_received_at = self
-            .authority_acks
-            .iter()
-            .map(|member| member.received_at)
-            .min()
-            .expect("authority Ack set is non-empty");
-        let expected_decision_due_at = self
-            .authority_acks
-            .iter()
-            .map(|member| member.decision_due_at)
-            .min()
-            .expect("authority Ack set is non-empty");
-        let expected_absolute_due_at = self
-            .authority_acks
-            .iter()
-            .map(|member| member.absolute_due_at)
-            .min()
-            .expect("authority Ack set is non-empty");
-        if expected_received_at - earliest_received_at > proposal_intake_sla
-            || self.received_at != expected_received_at
-            || self.decision_due_at != expected_decision_due_at
-            || self.absolute_due_at != expected_absolute_due_at
-            || self.received_at > self.decision_due_at
-            || self.decision_due_at > self.absolute_due_at
+    /// Validate the unique frozen authority binding; cryptographic verification is separate.
+    pub fn validate_notary_authority(&self, notary: &NotaryValue) -> Result<()> {
+        notary.validate()?;
+        self.validate_protocol_bounds()?;
+        if notary
+            .signer_descriptor(&self.signature.verification_method)
+            .is_none()
         {
             return Err(WireError::Protocol(
-                "Control Proposal Ack aggregate timestamps do not match the canonical member window"
-                    .to_owned(),
+                "Control Proposal Ack is not signed by the frozen authority".to_owned(),
             ));
-        }
-        let mut previous_method: Option<&str> = None;
-        for member in &self.authority_acks {
-            if member.realm_id != self.realm_id
-                || member.proposal_digest != self.proposal_digest
-                || member.authority_set_ref != self.authority_set_ref
-            {
-                return Err(WireError::Protocol(
-                    "proposal authority Ack does not preserve the aggregate Control Proposal Ack \
-                     binding"
-                        .to_owned(),
-                ));
-            }
-            if previous_method
-                .is_some_and(|previous| previous >= member.signature.verification_method.as_str())
-            {
-                return Err(WireError::Protocol(
-                    "proposal authority Acks must use distinct verification methods in canonical ascending order"
-                        .to_owned(),
-                ));
-            }
-            if let Some(policy) = policy {
-                member.validate_structural(policy)?;
-            } else {
-                member.validate_protocol_bounds()?;
-            }
-            previous_method = Some(member.signature.verification_method.as_str());
         }
         Ok(())
     }
@@ -868,12 +635,12 @@ impl ControlProposalDecision {
     /// canonical proof bindings without claiming that its durable Ack or
     /// preceding defer chain has already been resolved.
     pub fn validate_standalone_protocol_bounds(&self) -> Result<()> {
-        let (decision_due_at, absolute_due_at, proofs) = match self {
+        let (decision_due_at, absolute_due_at, proof) = match self {
             Self::SignedDefer {
                 decision_due_at,
                 absolute_due_at,
                 defer_count,
-                proofs,
+                proof,
                 ..
             } => {
                 if *defer_count == 0 || *defer_count > MAX_PROPOSAL_DEFERS {
@@ -881,7 +648,7 @@ impl ControlProposalDecision {
                         "signed_defer defer_count must be within 1..=2".to_owned(),
                     ));
                 }
-                (decision_due_at, absolute_due_at, proofs)
+                (decision_due_at, absolute_due_at, proof)
             }
         };
         if self.decided_at() > *decision_due_at || *decision_due_at > *absolute_due_at {
@@ -889,31 +656,28 @@ impl ControlProposalDecision {
                 "control proposal decision timestamps are out of order".to_owned(),
             ));
         }
-        validate_proofs(proofs, &self.decision_digest()?, self.decided_at())
+        validate_signature(proof, &self.decision_digest()?, self.decided_at())
+    }
+
+    pub fn proof(&self) -> &PayloadSignature {
+        match self {
+            Self::SignedDefer { proof, .. } => proof,
+        }
     }
 
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
-        let proof = match self {
-            Self::SignedDefer { proofs, .. } => proofs.first().ok_or_else(|| {
-                WireError::Protocol("control proposal decision has no proof".to_owned())
-            })?,
-        };
-        self.proof_binding_bytes(proof)
+        self.proof_binding_bytes(self.proof())
     }
 
-    /// Return the family-specific canonical transcript for one exact member
-    /// of this decision's canonical proof set.
+    /// Return the transcript for this decision's exact signature.
     pub fn proof_binding_bytes(&self, proof: &PayloadSignature) -> Result<Vec<u8>> {
-        let proofs = match self {
-            Self::SignedDefer { proofs, .. } => proofs,
-        };
-        let digest = self.decision_digest()?;
-        validate_proofs(proofs, &digest, self.decided_at())?;
-        if !proofs.iter().any(|candidate| candidate == proof) {
+        if proof != self.proof() {
             return Err(WireError::Protocol(
-                "control proposal proof is not a member of this decision".to_owned(),
+                "control proposal proof does not belong to this decision".to_owned(),
             ));
         }
+        let digest = self.decision_digest()?;
+        validate_signature(proof, &digest, self.decided_at())?;
         proof_transcript(
             crate::ProofContextId::CONTROL_PROPOSAL_DECISION_PROOF_V1,
             &digest,
@@ -923,7 +687,7 @@ impl ControlProposalDecision {
     }
 
     pub fn decision_digest(&self) -> Result<Hash> {
-        digest_without_field(self, "proofs")
+        digest_without_field(self, "proof")
     }
 
     pub fn defer_count(&self) -> u8 {
@@ -946,28 +710,23 @@ impl ControlProposalDecision {
         }
     }
 
-    /// Require the canonical proof set to satisfy the exact notary profile
-    /// that governed the bound Control Proposal Ack.
-    pub fn validate_notary_quorum(&self, notary: &NotaryValue) -> Result<()> {
+    /// Require the unique frozen authority that governed the bound Ack.
+    pub fn validate_notary_authority(&self, notary: &NotaryValue) -> Result<()> {
         notary.validate()?;
-        let proofs = match self {
-            Self::SignedDefer { proofs, .. } => proofs,
-        };
-        let signers = proofs
-            .iter()
-            .map(|proof| proof.verification_method.clone())
-            .collect::<BTreeSet<_>>();
-        if !notary.proposal_quorum_met(&signers) {
+        self.validate_standalone_protocol_bounds()?;
+        if notary
+            .signer_descriptor(&self.proof().verification_method)
+            .is_none()
+        {
             return Err(WireError::Protocol(
-                "control proposal decision proof set does not satisfy the current notary quorum"
-                    .to_owned(),
+                "control proposal decision is not signed by the frozen authority".to_owned(),
             ));
         }
         Ok(())
     }
 
-    /// Validate the full defer chain and every canonical decision proof
-    /// set against the same Control Proposal Ack authority profile.
+    /// Validate the full defer chain and each decision signature against the same Control Proposal
+    /// Ack authority profile.
     pub fn validate_chain_for_notary(
         &self,
         ack: &ControlProposalAck,
@@ -976,10 +735,11 @@ impl ControlProposalDecision {
         notary: &NotaryValue,
     ) -> Result<()> {
         self.validate_chain(ack, previous_defers, policy)?;
+        ack.validate_notary_authority(notary)?;
         for decision in previous_defers {
-            decision.validate_notary_quorum(notary)?;
+            decision.validate_notary_authority(notary)?;
         }
-        self.validate_notary_quorum(notary)
+        self.validate_notary_authority(notary)
     }
 
     pub fn validate_chain(
@@ -1039,7 +799,7 @@ impl ControlProposalDecision {
             bound_proposal_ack_digest,
             absolute_due_at,
             authority_set_ref,
-            proofs,
+            proof,
         ) = match self {
             Self::SignedDefer {
                 realm_id,
@@ -1047,7 +807,7 @@ impl ControlProposalDecision {
                 proposal_ack_digest,
                 absolute_due_at,
                 authority_set_ref,
-                proofs,
+                proof,
                 ..
             } => (
                 realm_id,
@@ -1055,7 +815,7 @@ impl ControlProposalDecision {
                 proposal_ack_digest,
                 absolute_due_at,
                 authority_set_ref,
-                proofs,
+                proof,
             ),
         };
         if realm_id != &ack.realm_id
@@ -1087,7 +847,7 @@ impl ControlProposalDecision {
                 }
             }
         }
-        validate_proofs(proofs, &self.decision_digest()?, self.decided_at())
+        validate_signature(proof, &self.decision_digest()?, self.decided_at())
     }
 
     pub fn satisfied_current_deadline(&self, previous_due_at: DateTime<Utc>) -> bool {
@@ -1155,7 +915,9 @@ mod tests {
     }
 
     fn ack() -> ControlProposalAck {
-        let mut member = ControlProposalAuthorityAck {
+        let mut member = ControlProposalAck {
+            kind: ControlProposalAckKind::SignedAck,
+            defer_count: 0,
             realm_id: RealmId::new("ak:realm:AeDdsjEvUHSY0isE04bQVgIHbwILn5uepI2iuvvak-25")
                 .unwrap(),
             proposal_digest: hash('a'),
@@ -1165,18 +927,8 @@ mod tests {
             authority_set_ref: hash('b'),
             signature: signature(hash('0'), at(0)),
         };
-        member.signature.payload_digest = member.authority_ack_digest().unwrap();
-        ControlProposalAck {
-            kind: ControlProposalAckKind::SignedAck,
-            realm_id: member.realm_id.clone(),
-            proposal_digest: member.proposal_digest.clone(),
-            received_at: at(0),
-            decision_due_at: at(30),
-            absolute_due_at: at(90),
-            defer_count: 0,
-            authority_set_ref: hash('b'),
-            authority_acks: vec![member],
-        }
+        member.signature.payload_digest = member.ack_body_digest().unwrap();
+        member
     }
 
     #[test]
@@ -1186,7 +938,7 @@ mod tests {
             verification_method: DidUrl::new("did:webvh:z6mkfixture:authority.example#device-1")
                 .unwrap(),
         };
-        let member = ControlProposalAuthorityAck::issue_with_signer(
+        let member = ControlProposalAck::issue_with_signer(
             RealmId::new("ak:realm:AeDdsjEvUHSY0isE04bQVgIHbwILn5uepI2iuvvak-25").unwrap(),
             hash('a'),
             hash('b'),
@@ -1201,7 +953,7 @@ mod tests {
         assert_eq!(member.signature.created_at, member.received_at);
         assert_eq!(
             member.signature.payload_digest,
-            member.authority_ack_digest().unwrap()
+            member.ack_body_digest().unwrap()
         );
         member
             .validate_structural(ControlProposalDecisionPolicy::default())
@@ -1222,13 +974,13 @@ mod tests {
             decision_due_at: due_at,
             absolute_due_at: ack.absolute_due_at,
             defer_count: count,
-            reason_code: ControlProposalDeferReason::QuorumUnreachable,
+            reason_code: ControlProposalDeferReason::TemporarilyUnavailable,
             authority_set_ref: ack.authority_set_ref.clone(),
-            proofs: vec![signature(hash('0'), decided_at)],
+            proof: signature(hash('0'), decided_at),
         };
         let digest = decision.decision_digest().unwrap();
-        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision;
-        proofs[0].payload_digest = digest;
+        let ControlProposalDecision::SignedDefer { proof, .. } = &mut decision;
+        proof.payload_digest = digest;
         decision
     }
 
@@ -1239,9 +991,7 @@ mod tests {
             .unwrap();
         let mut invalid = ack();
         invalid.absolute_due_at = at(91);
-        invalid.authority_acks[0].absolute_due_at = at(91);
-        invalid.authority_acks[0].signature.payload_digest =
-            invalid.authority_acks[0].authority_ack_digest().unwrap();
+        invalid.signature.payload_digest = invalid.ack_body_digest().unwrap();
         assert!(
             invalid
                 .validate_structural(ControlProposalDecisionPolicy::default())
@@ -1291,7 +1041,7 @@ mod tests {
     }
 
     #[test]
-    fn canonical_ack_assembly_requires_current_threshold_quorum() {
+    fn ack_requires_the_unique_frozen_authority() {
         fn descriptor(actor_suffix: &str, domain: &str) -> NotarySignerDescriptor {
             let public_key = [*actor_suffix.as_bytes().last().unwrap(); 32];
             NotarySignerDescriptor {
@@ -1309,60 +1059,13 @@ mod tests {
             }
         }
 
-        let first = ack().authority_acks.remove(0);
-        let mut second = first.clone();
-        second.signature.verification_method =
+        let profile =
+            NotaryValue::new(descriptor("z6mkfixture", "authority.example"), 1_000).unwrap();
+        let mut ack = ack();
+        ack.validate_notary_authority(&profile).unwrap();
+        ack.signature.verification_method =
             DidUrl::new("did:webvh:z6mkfixtureb:authority-b.example#notary-1").unwrap();
-        second.signature.payload_digest = second.authority_ack_digest().unwrap();
-        let mut third = first.clone();
-        third.signature.verification_method =
-            DidUrl::new("did:webvh:z6mkfixturec:authority-c.example#notary-1").unwrap();
-        third.signature.payload_digest = third.authority_ack_digest().unwrap();
-        let profile = NotaryValue {
-            kind: crate::NotaryKind::Quorum,
-            fault_tolerance: 1,
-            max_clock_error_ms: 1_000,
-            signers: vec![
-                descriptor("z6mkfixture", "authority.example"),
-                descriptor("z6mkfixtureb", "authority-b.example"),
-                descriptor("z6mkfixturec", "authority-c.example"),
-                descriptor("z6mkfixtured", "authority-d.example"),
-            ],
-        };
-        assert!(
-            ControlProposalAck::from_authority_acks_for_notary(
-                vec![first.clone()],
-                ControlProposalDecisionPolicy::default(),
-                &profile,
-            )
-            .is_err()
-        );
-        assert!(
-            ControlProposalAck::from_authority_acks_for_notary(
-                vec![first.clone(), second.clone()],
-                ControlProposalDecisionPolicy::default(),
-                &profile
-            )
-            .is_err()
-        );
-        let assembled = ControlProposalAck::from_authority_acks_for_notary(
-            vec![third, second, first],
-            ControlProposalDecisionPolicy::default(),
-            &profile,
-        )
-        .unwrap();
-        assert_eq!(
-            assembled
-                .authority_acks
-                .iter()
-                .map(|member| member.signature.verification_method.as_str())
-                .collect::<Vec<_>>(),
-            [
-                "did:webvh:z6mkfixture:authority.example#notary-1",
-                "did:webvh:z6mkfixtureb:authority-b.example#notary-1",
-                "did:webvh:z6mkfixturec:authority-c.example#notary-1",
-            ]
-        );
+        assert!(ack.validate_notary_authority(&profile).is_err());
     }
 
     #[test]
@@ -1423,8 +1126,8 @@ mod tests {
         let ack = ack();
         let mut first = defer(&ack, 1, at(20), at(60));
         let second = defer(&ack, 2, at(50), at(90));
-        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut first;
-        proofs[0].payload_digest = hash('f');
+        let ControlProposalDecision::SignedDefer { proof, .. } = &mut first;
+        proof.payload_digest = hash('f');
         assert!(
             second
                 .validate_chain(
@@ -1462,13 +1165,7 @@ mod tests {
     #[test]
     fn decision_submit_and_read_dtos_bind_the_closed_state() {
         let ack = ack();
-        let mut decision = defer(&ack, 1, at(20), at(60));
-        let digest = decision.decision_digest().unwrap();
-        let mut second = signature(digest, at(20));
-        second.verification_method =
-            DidUrl::new("did:webvh:z7mkfixture:authority-2.example#notary-2").unwrap();
-        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision;
-        proofs.push(second);
+        let decision = defer(&ack, 1, at(20), at(60));
         let request = ControlProposalDecisionSubmitRequestBody {
             decision: decision.clone(),
         };

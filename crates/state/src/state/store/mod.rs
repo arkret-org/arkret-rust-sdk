@@ -215,9 +215,7 @@ pub struct ControlSealScheduleClaim {
 pub enum ControlSealAttemptOutcome {
     ProgressPublished,
     NoAcceptedMoves,
-    LocalSignerNotMember,
-    ThresholdRequiresExternalCoordinator,
-    MixedRecoveryRequiresExternalCoordinator,
+    LocalSignerNotAuthority,
     NotaryValueUnavailable,
     SignerSlotUnavailable,
     ProposalPolicyUnavailable,
@@ -233,11 +231,7 @@ impl ControlSealAttemptOutcome {
         match self {
             Self::ProgressPublished => "progress_published",
             Self::NoAcceptedMoves => "no_accepted_moves",
-            Self::LocalSignerNotMember => "local_signer_not_member",
-            Self::ThresholdRequiresExternalCoordinator => "threshold_requires_external_coordinator",
-            Self::MixedRecoveryRequiresExternalCoordinator => {
-                "mixed_recovery_requires_external_coordinator"
-            }
+            Self::LocalSignerNotAuthority => "local_signer_not_authority",
             Self::NotaryValueUnavailable => "notary_value_unavailable",
             Self::SignerSlotUnavailable => "signer_slot_unavailable",
             Self::ProposalPolicyUnavailable => "proposal_policy_unavailable",
@@ -269,9 +263,7 @@ impl ControlSealAttemptOutcome {
             Self::ProgressPublished => 0,
             Self::SigningLeaseBusy => 1_000,
             Self::NoAcceptedMoves | Self::NotaryValueUnavailable => 5_000,
-            Self::LocalSignerNotMember
-            | Self::ThresholdRequiresExternalCoordinator
-            | Self::MixedRecoveryRequiresExternalCoordinator => 60_000,
+            Self::LocalSignerNotAuthority => 60_000,
             Self::SignerSlotUnavailable
             | Self::ProposalPolicyUnavailable
             | Self::TransientStoreFailure
@@ -465,6 +457,24 @@ pub trait ControlEventStore: Send + Sync {
 /// Confirmed per-Realm Seal chain.
 #[async_trait]
 pub trait SealStore: Send + Sync {
+    /// Durably reserve the first complete signing body at `(realm_id, notary_seq)`.
+    /// Before first insertion, require the current confirmed predecessor and next sequence.
+    /// Once reserved, return the original body on every retry; never replace it on lease
+    /// expiry, failover, configuration change, or a competing candidate. A digest-suite
+    /// mismatch is a conflict. The caller must sign only the returned body.
+    async fn reserve_signing_body(
+        &self,
+        body: &arkret_wire::UnsignedSeal,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<arkret_wire::UnsignedSeal>;
+
+    /// Recover immutable signing material before rebuilding or executing a candidate.
+    async fn signing_body(
+        &self,
+        realm_id: &RealmId,
+        notary_seq: u64,
+    ) -> StoreResult<Option<arkret_wire::UnsignedSeal>>;
+
     /// Acquire a bounded, fenced signing lease for one `(Realm, signer slot)`.
     ///
     /// The confirmed sequenced-state coordinator uses one Realm-wide slot.

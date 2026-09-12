@@ -1,4 +1,4 @@
-//! Quorum-certified historical conclusions over one Realm Seal lineage.
+//! Authority-certified historical conclusions over one Realm Seal lineage.
 
 use arkret_canonical::canonical_json_bytes;
 use serde::{Deserialize, Serialize};
@@ -6,14 +6,13 @@ use serde_json::Value;
 
 use crate::{
     CellRef, EventId, Hash, NotarySignerDescriptor, NotaryValue, RealmId, Result,
-    SealCommandOutcome, SealId, SealSignature, TransactionRecord, WireError,
+    SealCommandOutcome, SealId, SealSignature, WireError,
 };
 
 pub const MAX_SEAL_CONCLUSION_SELECTORS: usize = 64;
 pub const MAX_SEAL_CONCLUSION_QUERIES: usize = 128;
 pub const MAX_SEAL_CONCLUSION_RANGE_CELLS: usize = 512;
 pub const MAX_SEAL_CONCLUSION_HANDOFFS: usize = 256;
-pub const MAX_SEAL_CONCLUSION_SIGNATURES: usize = 171;
 pub const MAX_SEAL_CONCLUSION_CERTIFICATE_BYTES: usize = 8 * 1024 * 1024;
 pub const SEAL_CONCLUSION_CONTEXT: &str = "ak.seal.conclusion.v1";
 pub const SEAL_CONFIGURATION_HANDOFF_CONTEXT: &str = "ak.seal.configuration_handoff.v1";
@@ -49,9 +48,6 @@ pub enum SealConclusionSelector {
         event_digest: Hash,
         cell_id: CellRef,
     },
-    Transaction {
-        record_index: u16,
-    },
     Ancestry {
         ancestor_seal_ref: SealId,
     },
@@ -67,11 +63,6 @@ impl SealConclusionSelector {
         {
             return Err(WireError::Protocol(
                 "Seal conclusion Cell range must be a non-empty half-open interval".to_owned(),
-            ));
-        }
-        if matches!(self, Self::Transaction { record_index } if *record_index > 4095) {
-            return Err(WireError::Protocol(
-                "Seal conclusion transaction index must be 0..=4095".to_owned(),
             ));
         }
         Ok(())
@@ -186,30 +177,6 @@ pub struct SealConclusionCommandEffectOutcome {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionTransactionSelector {
-    pub kind: SealConclusionTransactionSelectorKind,
-    pub record_index: u16,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SealConclusionTransactionSelectorKind {
-    Transaction,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SealConclusionTransactionOutcome {
-    pub selector: SealConclusionTransactionSelector,
-    #[serde(deserialize_with = "required_nullable")]
-    pub record: Option<TransactionRecord>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct SealConclusionAncestrySelector {
     pub kind: SealConclusionAncestrySelectorKind,
     pub ancestor_seal_ref: SealId,
@@ -238,7 +205,6 @@ pub enum SealConclusionOutcome {
     CellRange(SealConclusionCellRangeOutcome),
     Command(SealConclusionCommandOutcome),
     CommandEffect(SealConclusionCommandEffectOutcome),
-    Transaction(SealConclusionTransactionOutcome),
     Ancestry(SealConclusionAncestryOutcome),
 }
 
@@ -258,9 +224,6 @@ impl SealConclusionOutcome {
             Self::CommandEffect(result) => SealConclusionSelector::CommandEffect {
                 event_digest: result.selector.event_digest.clone(),
                 cell_id: result.selector.cell_id.clone(),
-            },
-            Self::Transaction(result) => SealConclusionSelector::Transaction {
-                record_index: result.selector.record_index,
             },
             Self::Ancestry(result) => SealConclusionSelector::Ancestry {
                 ancestor_seal_ref: result.selector.ancestor_seal_ref.clone(),
@@ -300,11 +263,6 @@ impl SealConclusionOutcome {
                             "Seal conclusion command result does not match its selector".to_owned(),
                         ));
                     }
-                }
-            }
-            Self::Transaction(result) => {
-                if let Some(record) = &result.record {
-                    record.validate_structural()?;
                 }
             }
             _ => {}
@@ -402,16 +360,13 @@ struct ConclusionSigningPayload<'a> {
 #[serde(deny_unknown_fields)]
 pub struct SealConclusionCertificate {
     pub statement: SealConclusionStatement,
-    pub signatures: Vec<SealSignature>,
+    pub signature: SealSignature,
 }
 
 impl SealConclusionCertificate {
     pub fn validate_structural(&self) -> Result<()> {
         self.statement.validate_structural()?;
-        validate_certificate_signatures(
-            &self.signatures,
-            self.statement.signing_payload_digest()?,
-        )?;
+        validate_certificate_signature(&self.signature, self.statement.signing_payload_digest()?)?;
         if canonical_json_bytes(self)?.len() > MAX_SEAL_CONCLUSION_CERTIFICATE_BYTES {
             return Err(WireError::Protocol(
                 "Seal conclusion certificate exceeds 8388608 canonical bytes".to_owned(),
@@ -420,28 +375,26 @@ impl SealConclusionCertificate {
         Ok(())
     }
 
-    pub fn validate_quorum_with<F>(&self, configuration: &NotaryValue, mut verify: F) -> Result<()>
+    pub fn validate_authority_with<F>(
+        &self,
+        configuration: &NotaryValue,
+        mut verify: F,
+    ) -> Result<()>
     where
         F: FnMut(&SealSignature, &NotarySignerDescriptor, &[u8]) -> Result<()>,
     {
         self.validate_structural()?;
         configuration.validate()?;
-        if self.signatures.len() != configuration.quorum_size() {
-            return Err(WireError::Protocol(
-                "Seal conclusion certificate must contain exactly 2f+1 signatures".to_owned(),
-            ));
-        }
         let payload = self.statement.signing_payload_bytes()?;
-        for signature in &self.signatures {
-            let descriptor = configuration
-                .signer_descriptor(&signature.verification_method)
-                .ok_or_else(|| {
-                    WireError::Protocol(
-                        "Seal conclusion signature is outside the exact configuration".to_owned(),
-                    )
-                })?;
-            verify(signature, descriptor, &payload)?;
-        }
+        let signature = &self.signature;
+        let descriptor = configuration
+            .signer_descriptor(&signature.verification_method)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "Seal conclusion signature is outside the exact configuration".to_owned(),
+                )
+            })?;
+        verify(signature, descriptor, &payload)?;
         Ok(())
     }
 }
@@ -494,38 +447,36 @@ struct HandoffSigningPayload<'a> {
 #[serde(deny_unknown_fields)]
 pub struct SealConfigurationHandoffCertificate {
     pub statement: SealConfigurationHandoffStatement,
-    pub signatures: Vec<SealSignature>,
+    pub signature: SealSignature,
 }
 
 impl SealConfigurationHandoffCertificate {
     pub fn validate_structural(&self) -> Result<()> {
         self.statement.validate_structural()?;
-        validate_certificate_signatures(&self.signatures, self.statement.signing_payload_digest()?)
+        validate_certificate_signature(&self.signature, self.statement.signing_payload_digest()?)
     }
 
-    pub fn validate_quorum_with<F>(&self, configuration: &NotaryValue, mut verify: F) -> Result<()>
+    pub fn validate_authority_with<F>(
+        &self,
+        configuration: &NotaryValue,
+        mut verify: F,
+    ) -> Result<()>
     where
         F: FnMut(&SealSignature, &NotarySignerDescriptor, &[u8]) -> Result<()>,
     {
         self.validate_structural()?;
         configuration.validate()?;
-        if self.signatures.len() != configuration.quorum_size() {
-            return Err(WireError::Protocol(
-                "Seal configuration handoff must contain exactly 2f+1 signatures".to_owned(),
-            ));
-        }
         let payload = self.statement.signing_payload_bytes()?;
-        for signature in &self.signatures {
-            let descriptor = configuration
-                .signer_descriptor(&signature.verification_method)
-                .ok_or_else(|| {
-                    WireError::Protocol(
-                        "Seal configuration handoff signature is outside the old configuration"
-                            .to_owned(),
-                    )
-                })?;
-            verify(signature, descriptor, &payload)?;
-        }
+        let signature = &self.signature;
+        let descriptor = configuration
+            .signer_descriptor(&signature.verification_method)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "Seal configuration handoff signature is outside the old configuration"
+                        .to_owned(),
+                )
+            })?;
+        verify(signature, descriptor, &payload)?;
         Ok(())
     }
 }
@@ -598,27 +549,11 @@ impl SealConclusionSet {
     }
 }
 
-fn validate_certificate_signatures(signatures: &[SealSignature], digest: Hash) -> Result<()> {
-    if !(1..=MAX_SEAL_CONCLUSION_SIGNATURES).contains(&signatures.len()) {
+fn validate_certificate_signature(signature: &SealSignature, digest: Hash) -> Result<()> {
+    signature.validate_structural()?;
+    if signature.payload_digest != digest {
         return Err(WireError::Protocol(
-            "Seal conclusion certificate requires 1..=171 signatures".to_owned(),
-        ));
-    }
-    for signature in signatures {
-        signature.validate_structural()?;
-        if signature.payload_digest != digest {
-            return Err(WireError::Protocol(
-                "Seal conclusion signature payload_digest mismatch".to_owned(),
-            ));
-        }
-    }
-    if signatures
-        .windows(2)
-        .any(|pair| pair[0].verification_method >= pair[1].verification_method)
-    {
-        return Err(WireError::Protocol(
-            "Seal conclusion signatures must be sorted and unique by verification_method"
-                .to_owned(),
+            "Seal conclusion signature payload_digest mismatch".to_owned(),
         ));
     }
     Ok(())

@@ -322,149 +322,6 @@ impl ExistenceAnchor {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct TransactionParticipant {
-    pub realm_id: RealmId,
-    pub basis_ref: SealId,
-    pub read_cell_refs: Vec<CellRef>,
-    pub write_cell_refs: Vec<CellRef>,
-}
-
-impl TransactionParticipant {
-    pub fn validate_structural(&self) -> Result<()> {
-        if self.read_cell_refs.len() > 4096 || self.write_cell_refs.len() > 4096 {
-            return Err(WireError::Protocol(
-                "transaction participant cell selector limit exceeded".to_owned(),
-            ));
-        }
-        if self.read_cell_refs.is_empty() && self.write_cell_refs.is_empty() {
-            return Err(WireError::Protocol(
-                "transaction participant requires a read or write Cell".to_owned(),
-            ));
-        }
-        validate_sorted_unique(
-            "transaction participant read_cell_refs",
-            &self.read_cell_refs,
-        )?;
-        validate_sorted_unique(
-            "transaction participant write_cell_refs",
-            &self.write_cell_refs,
-        )
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TransactionManifest {
-    pub command_event_id: EventId,
-    pub participants: Vec<TransactionParticipant>,
-    pub decision_realm_id: RealmId,
-}
-
-impl TransactionManifest {
-    pub fn validate_structural(&self) -> Result<()> {
-        if !(2..=64).contains(&self.participants.len()) {
-            return Err(WireError::Protocol(
-                "transaction manifest requires 2..=64 participants".to_owned(),
-            ));
-        }
-        for participant in &self.participants {
-            participant.validate_structural()?;
-        }
-        if self
-            .participants
-            .windows(2)
-            .any(|pair| pair[0].realm_id >= pair[1].realm_id)
-        {
-            return Err(WireError::Protocol(
-                "transaction participants must be sorted and unique by realm_id".to_owned(),
-            ));
-        }
-        if self.participants[0].realm_id != self.decision_realm_id {
-            return Err(WireError::Protocol(
-                "transaction decision_realm_id must be the first participant".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum TransactionRecord {
-    Prepare {
-        manifest: TransactionManifest,
-    },
-    Commit {
-        manifest: TransactionManifest,
-        prepare_seal_refs: Vec<SealId>,
-    },
-    Abort {
-        manifest: TransactionManifest,
-    },
-    Apply {
-        manifest: TransactionManifest,
-        decision_seal_ref: SealId,
-    },
-}
-
-impl TransactionRecord {
-    pub fn manifest(&self) -> &TransactionManifest {
-        match self {
-            Self::Prepare { manifest }
-            | Self::Commit { manifest, .. }
-            | Self::Abort { manifest }
-            | Self::Apply { manifest, .. } => manifest,
-        }
-    }
-
-    pub fn validate_structural(&self) -> Result<()> {
-        self.manifest().validate_structural()?;
-        if let Self::Commit {
-            manifest,
-            prepare_seal_refs,
-        } = self
-        {
-            if prepare_seal_refs.len() != manifest.participants.len()
-                || !(2..=64).contains(&prepare_seal_refs.len())
-            {
-                return Err(WireError::Protocol(
-                    "commit prepare_seal_refs must match participant order".to_owned(),
-                ));
-            }
-            let mut unique = std::collections::BTreeSet::new();
-            if !prepare_seal_refs.iter().all(|seal| unique.insert(seal)) {
-                return Err(WireError::Protocol(
-                    "commit prepare_seal_refs must be duplicate-free".to_owned(),
-                ));
-            }
-        }
-        Ok(())
-    }
-}
-
-/// `seal.schema.json#/$defs/multi_signature` is a closed object; `kind` is the
-/// discriminator that keeps this branch disjoint from the other two.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MultiSignature {
-    pub kind: MultiSigKind,
-    pub signatures: Vec<SealSignature>,
-    pub view: u64,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MultiSigKind {
-    MultiSig,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Seal {
     pub id: SealId,
     pub realm_id: RealmId,
@@ -482,7 +339,7 @@ pub struct Seal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub previous_digest_algorithm: Option<arkret_canonical::DigestSuite>,
-    pub notary_signature: MultiSignature,
+    pub notary_signature: SealSignature,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
@@ -492,8 +349,6 @@ pub struct Seal {
     pub authorization_closures: Vec<AuthorizationClosure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub existence_anchors: Vec<ExistenceAnchor>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub transaction_records: Vec<TransactionRecord>,
 }
 
 #[derive(Serialize)]
@@ -520,8 +375,6 @@ struct SealBody<'a> {
     authorization_closures: &'a [AuthorizationClosure],
     #[serde(skip_serializing_if = "slice_is_empty")]
     existence_anchors: &'a [ExistenceAnchor],
-    #[serde(skip_serializing_if = "slice_is_empty")]
-    transaction_records: &'a [TransactionRecord],
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -555,16 +408,14 @@ pub struct UnsignedSeal {
     pub authorization_closures: Vec<AuthorizationClosure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub existence_anchors: Vec<ExistenceAnchor>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub transaction_records: Vec<TransactionRecord>,
 }
 
 impl Seal {
     /// Reconstruct a complete signed Seal from the exact canonical unsigned
-    /// body retained by a multi-signature aggregator.
+    /// body retained by the durable single-writer executor.
     pub fn from_canonical_body_and_signature(
         canonical_body: &[u8],
-        notary_signature: MultiSignature,
+        notary_signature: SealSignature,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<Self> {
         let body: UnsignedSeal = serde_json::from_slice(canonical_body)?;
@@ -593,7 +444,6 @@ impl Seal {
             command_results: body.command_results,
             authorization_closures: body.authorization_closures,
             existence_anchors: body.existence_anchors,
-            transaction_records: body.transaction_records,
         };
         seal.validate_structural()?;
         seal.validate_signature_payload_digests(|bytes| {
@@ -632,7 +482,6 @@ impl Seal {
             command_results: &self.command_results,
             authorization_closures: &self.authorization_closures,
             existence_anchors: &self.existence_anchors,
-            transaction_records: &self.transaction_records,
         };
         Ok(canonical::canonical_json_bytes(&body)?)
     }
@@ -698,17 +547,14 @@ impl Seal {
                 "Seal predecessor_ref is null exactly at genesis".to_owned(),
             ));
         }
-        if self.notary_seq > 9_007_199_254_740_991
-            || self.notary_signature.view > 9_007_199_254_740_991
-        {
+        if self.notary_seq > 9_007_199_254_740_991 {
             return Err(WireError::Protocol(
-                "Seal sequence and view must be JSON-safe integers".to_owned(),
+                "Seal sequence must be a JSON-safe integer".to_owned(),
             ));
         }
         if self.command_results.len() > MAX_SEAL_DELTA
             || self.authorization_closures.len() > MAX_SEAL_DELTA
             || self.existence_anchors.len() > MAX_SEAL_DELTA
-            || self.transaction_records.len() > MAX_SEAL_DELTA
         {
             return Err(WireError::Protocol(
                 "Seal command or evidence collection exceeds 4096 entries".to_owned(),
@@ -741,33 +587,7 @@ impl Seal {
         for anchor in &self.existence_anchors {
             anchor.validate_structural()?;
         }
-        for record in &self.transaction_records {
-            record.validate_structural()?;
-        }
-        let mut transaction_records = std::collections::BTreeSet::new();
-        for record in &self.transaction_records {
-            if !transaction_records.insert(canonical::canonical_json_bytes(record)?) {
-                return Err(WireError::Protocol(
-                    "Seal transaction_records must be duplicate-free".to_owned(),
-                ));
-            }
-        }
-        if self.notary_signature.signatures.is_empty() {
-            return Err(WireError::Protocol(
-                "Seal multi_sig must have at least one signature".to_owned(),
-            ));
-        }
-        for signature in &self.notary_signature.signatures {
-            validate_seal_signature(signature)?;
-        }
-        for pair in self.notary_signature.signatures.windows(2) {
-            if pair[0].verification_method >= pair[1].verification_method {
-                return Err(WireError::Protocol(
-                    "Seal multi_sig signatures must be sorted and unique by verification_method"
-                        .to_owned(),
-                ));
-            }
-        }
+        validate_seal_signature(&self.notary_signature)?;
         Ok(())
     }
 
@@ -776,19 +596,12 @@ impl Seal {
         F: Fn(&[u8]) -> Result<Hash>,
     {
         let seal_digest = digest(&self.canonical_bytes_for_id()?)?;
-        let transcript = canonical::canonical_json_bytes(&SealVoteTranscript {
+        let transcript = canonical::canonical_json_bytes(&SealCommitTranscript {
             context: "ak.seal.commit.v1",
             seal_digest: &seal_digest,
-            configuration_ref: &self.configuration_ref,
-            notary_seq: self.notary_seq,
-            view: self.notary_signature.view,
         })?;
         let expected = digest(&transcript)?;
-        let matches = self
-            .notary_signature
-            .signatures
-            .iter()
-            .all(|signature| signature.payload_digest == expected);
+        let matches = self.notary_signature.payload_digest == expected;
         if !matches {
             return Err(WireError::Protocol(
                 "Seal signature payload_digest does not match canonical Seal bytes".to_owned(),
@@ -805,24 +618,18 @@ impl Seal {
             digest_suite,
             &self.canonical_bytes_for_id()?,
         ))?;
-        canonical::canonical_json_bytes(&SealVoteTranscript {
+        canonical::canonical_json_bytes(&SealCommitTranscript {
             context: "ak.seal.commit.v1",
             seal_digest: &seal_digest,
-            configuration_ref: &self.configuration_ref,
-            notary_seq: self.notary_seq,
-            view: self.notary_signature.view,
         })
         .map_err(Into::into)
     }
 }
 
 #[derive(Serialize)]
-struct SealVoteTranscript<'a> {
+struct SealCommitTranscript<'a> {
     context: &'static str,
     seal_digest: &'a Hash,
-    configuration_ref: &'a EventId,
-    notary_seq: u64,
-    view: u64,
 }
 
 fn validate_seal_signature(signature: &SealSignature) -> Result<()> {

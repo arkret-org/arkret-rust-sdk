@@ -367,7 +367,7 @@ mod tests {
             TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
             NotaryValue::new(
-                vec![NotarySignerDescriptor {
+                NotarySignerDescriptor {
                     actor_id: ActorId::service(notary_actor),
                     verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
                     key_kind: NotaryKeyKind::Ed25519Raw32,
@@ -378,8 +378,7 @@ mod tests {
                         "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
                     )
                     .unwrap(),
-                }],
-                0,
+                },
                 0,
             )
             .unwrap(),

@@ -514,7 +514,7 @@ pub struct RealmSealFrontierObservationCoordinate {
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/RealmSealFrontierView`.
 ///
 /// `seal_basis.leaves[]` is the complete canonical non-quarantined accepted
-/// Seal leaf frontier: exactly one confirmed leaf under quorum notary
+/// Seal leaf frontier: exactly one confirmed leaf under single-authority notary
 /// authority. Self clients consume
 /// their authenticated Account Station result without replaying history; peer
 /// servers independently verify foreign governance. The live digest suite is
@@ -556,7 +556,7 @@ impl RealmSealFrontierView {
         self.seal_basis.clone()
     }
 
-    /// The unique accepted leaf of the quorum-confirmed Realm history.
+    /// The unique accepted leaf of the authority-confirmed Realm history.
     pub fn sole_leaf(&self) -> Result<&SealId> {
         match self.seal_basis.leaves.as_slice() {
             [leaf] => Ok(leaf),

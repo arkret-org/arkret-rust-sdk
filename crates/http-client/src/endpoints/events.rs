@@ -35,13 +35,12 @@ use arkret_state::{
     RealmStateSnapshotManifest, RealmStateSnapshotRestore, RealmStateSnapshotVerifyOptions,
     realm_state_snapshot_bootstrap_binds_manifest, restore_realm_state_snapshot,
 };
-use arkret_wire::notary::NotaryValue;
 use arkret_wire::{
-    AccountId, ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAck,
-    ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest, ControlProposalDecisionPolicy,
-    ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
-    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody, Cursor, Event,
-    EventInitialSubmission, EventSubmitContext, EventsSubmitBatchRequestBody, Hash, RealmId, Seal,
+    AccountId, ActorId, AuthorizationLeaseIssueRequestBody, ControlProposalAckIssueOutcome,
+    ControlProposalAckIssueRequest, ControlProposalDecisionReadOutcome,
+    ControlProposalDecisionReadRequestBody, ControlProposalDecisionSubmitOutcome,
+    ControlProposalDecisionSubmitRequestBody, Cursor, Event, EventInitialSubmission,
+    EventSubmitContext, EventsSubmitBatchRequestBody, Hash, RealmId, Seal,
 };
 use reqwest::{Method, RequestBuilder, Response};
 use serde::Serialize;
@@ -285,12 +284,7 @@ impl Client {
                 }),
             )?;
             return self
-                .prepare_initial_submissions_with_collector(
-                    events,
-                    digest_suites,
-                    None,
-                    collect_anchor_receipts,
-                )
+                .prepare_anchor_submissions(events, digest_suites, collect_anchor_receipts)
                 .await;
         }
         events
@@ -305,11 +299,10 @@ impl Client {
             .collect()
     }
 
-    async fn prepare_initial_submissions_with_collector(
+    async fn prepare_anchor_submissions(
         &self,
         events: &[Event],
         digest_suites: &[arkret_canonical::DigestSuite],
-        collector: Option<(&[Client], &NotaryValue, ControlProposalDecisionPolicy)>,
         collect_anchor_receipts: bool,
     ) -> Result<Vec<EventInitialSubmission>> {
         let submit_context = initial_submission_context(events)?;
@@ -359,58 +352,15 @@ impl Client {
                     cbs_proof_bundles: Vec::new(),
                 };
                 submission.control_proposal_ack = Some(
-                    if let Some((authority_clients, notary, policy)) = collector {
-                        self.collect_control_proposal_ack(
-                            &request,
-                            digest_suite,
-                            authority_clients,
-                            notary,
-                            policy,
-                        )
+                    self.issue_control_proposal_ack(&request, digest_suite)
                         .await?
-                    } else {
-                        let outcome = self
-                            .issue_control_proposal_ack(&request, digest_suite)
-                            .await?;
-                        ControlProposalAck::from_authority_acks_protocol_bounds(vec![
-                            outcome.authority_ack,
-                        ])?
-                    },
+                        .authority_ack,
                 );
             }
             submission.validate_structural_in_context(submit_context, digest_suite)?;
             submissions.push(submission);
         }
         Ok(submissions)
-    }
-
-    /// Collect and assemble one canonical Control Proposal Ack set from independent
-    /// current authority transports.
-    pub async fn collect_control_proposal_ack(
-        &self,
-        request: &ControlProposalAckIssueRequest,
-        digest_suite: arkret_canonical::DigestSuite,
-        authority_clients: &[Client],
-        notary: &NotaryValue,
-        policy: ControlProposalDecisionPolicy,
-    ) -> Result<ControlProposalAck> {
-        request.validate_structural()?;
-        if authority_clients.is_empty() {
-            return Err(Error::Protocol(
-                "proposal authority client set must not be empty".to_owned(),
-            ));
-        }
-        let mut members = Vec::with_capacity(authority_clients.len());
-        for authority in authority_clients {
-            members.push(
-                authority
-                    .issue_control_proposal_ack(request, digest_suite)
-                    .await?
-                    .authority_ack,
-            );
-        }
-        ControlProposalAck::from_authority_acks_for_notary(members, policy, notary)
-            .map_err(Into::into)
     }
 
     /// Single-Event convenience wrapper around

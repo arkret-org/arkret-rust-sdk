@@ -1092,8 +1092,7 @@ mod realm_control_payload_tests {
         let value = json!({
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "notary": {
-                "kind": "quorum",
-                "signers": [{
+                "signer": {
                     "actor_id": {
                         "kind": "service",
                         "service_id": "ak:did_core:web:notary.example"
@@ -1103,8 +1102,7 @@ mod realm_control_payload_tests {
                     "jose_algorithm": "Ed25519",
                     "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                     "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
-                }],
-                "fault_tolerance": 0,
+                },
                 "max_clock_error_ms": 0
             }
         });

@@ -984,6 +984,8 @@ struct MemorySealStoreInner {
     /// realm_id → genesis seal (first put without a predecessor)
     genesis: BTreeMap<String, SealId>,
     signing_leases: BTreeMap<(String, String), (String, i64, u64)>,
+    signing_bodies:
+        BTreeMap<(String, u64), (arkret_wire::UnsignedSeal, arkret_canonical::DigestSuite)>,
 }
 
 impl MemorySealStoreInner {
@@ -1021,6 +1023,67 @@ impl MemorySealStoreInner {
 
 #[async_trait]
 impl SealStore for MemorySealStore {
+    async fn reserve_signing_body(
+        &self,
+        body: &arkret_wire::UnsignedSeal,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<arkret_wire::UnsignedSeal> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let key = (body.realm_id.as_str().to_owned(), body.notary_seq);
+        if let Some((reserved, suite)) = inner.signing_bodies.get(&key) {
+            if *suite != digest_suite {
+                return Err(StoreError::Conflict(
+                    "reserved signing digest suite differs".to_owned(),
+                ));
+            }
+            return Ok(reserved.clone());
+        }
+        if !inner.head_matches(&body.realm_id, body.predecessor_ref.as_ref()) {
+            return Err(StoreError::Conflict(
+                "signing body predecessor is not the confirmed head".to_owned(),
+            ));
+        }
+        let expected_seq = match &body.predecessor_ref {
+            Some(id) => inner
+                .seals
+                .get(id.as_str())
+                .and_then(|seal| seal.notary_seq.checked_add(1))
+                .ok_or_else(|| {
+                    StoreError::Conflict(
+                        "signing predecessor or successor sequence is unavailable".to_owned(),
+                    )
+                })?,
+            None => 0,
+        };
+        if body.notary_seq != expected_seq {
+            return Err(StoreError::Conflict(
+                "signing body skips its lineage sequence".to_owned(),
+            ));
+        }
+        inner
+            .signing_bodies
+            .insert(key, (body.clone(), digest_suite));
+        Ok(body.clone())
+    }
+
+    async fn signing_body(
+        &self,
+        realm_id: &RealmId,
+        notary_seq: u64,
+    ) -> StoreResult<Option<arkret_wire::UnsignedSeal>> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        Ok(inner
+            .signing_bodies
+            .get(&(realm_id.as_str().to_owned(), notary_seq))
+            .map(|(body, _)| body.clone()))
+    }
+
     async fn try_claim_signing_lease(
         &self,
         realm_id: &RealmId,
@@ -1720,5 +1783,119 @@ impl SealCommitStore for MemorySealCommitStore<'_> {
         *seals = next_seals;
         *cells = next_cells;
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod signing_reservation_tests {
+    use arkret_canonical::DigestSuite;
+    use arkret_wire::{EventId, Hlc, UnsignedSeal};
+
+    use super::*;
+
+    fn body() -> UnsignedSeal {
+        let digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
+        UnsignedSeal {
+            realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
+                .unwrap(),
+            predecessor_ref: None,
+            delta: Vec::new(),
+            control_event_set_root: digest.clone(),
+            state_root: digest.clone(),
+            notary_seq: 0,
+            availability_receipt_digests: Vec::new(),
+            covered_event_digests: Vec::new(),
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            sealed_at: chrono::DateTime::parse_from_rfc3339("2026-09-12T00:00:00Z")
+                .unwrap()
+                .to_utc(),
+            hlc: Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+            configuration_ref: EventId::from_event_digest(&digest).unwrap(),
+            command_results: Vec::new(),
+            authorization_closures: Vec::new(),
+            existence_anchors: Vec::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn first_signing_body_survives_lease_expiry_and_competing_candidates() {
+        let store = MemorySealStore::default();
+        let first = body();
+        assert_eq!(
+            store
+                .try_claim_signing_lease(&first.realm_id, "authority", "worker-a", 0, 10)
+                .await
+                .unwrap(),
+            Some(1)
+        );
+        assert_eq!(
+            store
+                .reserve_signing_body(&first, DigestSuite::Sha256)
+                .await
+                .unwrap(),
+            first
+        );
+        assert_eq!(
+            store
+                .try_claim_signing_lease(&first.realm_id, "authority", "worker-b", 11, 20)
+                .await
+                .unwrap(),
+            Some(2)
+        );
+        let mut competing = first.clone();
+        competing.sealed_at += chrono::Duration::seconds(1);
+        competing.configuration_ref = EventId::from_digest(DigestSuite::Sha256, [2; 32]);
+        assert_eq!(
+            store
+                .reserve_signing_body(&competing, DigestSuite::Sha256)
+                .await
+                .unwrap(),
+            first
+        );
+        assert_eq!(
+            store.signing_body(&first.realm_id, 0).await.unwrap(),
+            Some(first.clone())
+        );
+        assert!(
+            store
+                .reserve_signing_body(&first, DigestSuite::Blake3)
+                .await
+                .is_err()
+        );
+        assert!(
+            !store
+                .release_signing_lease(&first.realm_id, "authority", "worker-a", 1)
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn first_reservation_requires_current_predecessor_and_exact_next_sequence() {
+        let store = MemorySealStore::default();
+        let mut candidate = body();
+        candidate.notary_seq = 1;
+        assert!(
+            store
+                .reserve_signing_body(&candidate, DigestSuite::Sha256)
+                .await
+                .is_err()
+        );
+        candidate.predecessor_ref =
+            Some(SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap());
+        assert!(
+            store
+                .reserve_signing_body(&candidate, DigestSuite::Sha256)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .signing_body(&candidate.realm_id, 1)
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 }

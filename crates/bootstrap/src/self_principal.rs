@@ -174,11 +174,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
         DeviceOrPrincipalRef::DeviceId(_) => false,
     };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
-    let [signer] = create_payload.object.notary.signers.as_slice() else {
-        return Err(WireError::Protocol(
-            "PCR genesis notary must contain exactly one principal signer".to_owned(),
-        ));
-    };
+    let signer = &create_payload.object.notary.signer;
     let descriptor = create_payload
         .object
         .founding_device_descriptor
@@ -293,8 +289,8 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .iter()
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
-    let notary_matches = matches!(genesis.notary.signers.as_slice(), [signer]
-        if signer.actor_id.signing_principal_id() == event.actor_id.signing_principal_id());
+    let notary_matches = genesis.notary.signer.actor_id.signing_principal_id()
+        == event.actor_id.signing_principal_id();
     let resolution_matches = genesis
         .initial_resolution
         .as_ref()

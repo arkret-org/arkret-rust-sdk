@@ -50,9 +50,8 @@ fn signature(index: u8, bytes: &[u8]) -> SealSignature {
     }
 }
 
-fn fixture(f: u32) -> (NotaryValue, SealConclusionSet, SealConclusionQuery) {
-    let configuration =
-        NotaryValue::new((1..=(3 * f + 1) as u8).map(descriptor).collect(), f, 1000).unwrap();
+fn fixture() -> (NotaryValue, SealConclusionSet, SealConclusionQuery) {
+    let configuration = NotaryValue::new(descriptor(1), 1000).unwrap();
     let statement = SealConclusionStatement {
         realm_id: realm(),
         configuration_ref: event(),
@@ -80,18 +79,16 @@ fn fixture(f: u32) -> (NotaryValue, SealConclusionSet, SealConclusionQuery) {
         configuration_handoffs: vec![],
         conclusions: vec![SealConclusionCertificate {
             statement,
-            signatures: (1..=(2 * f + 1) as u8)
-                .map(|index| signature(index, &bytes))
-                .collect(),
+            signature: signature(1, &bytes),
         }],
     };
     (configuration, set, query)
 }
 
 #[test]
-fn exact_quorum_consumes_partial_facts_without_seal_history() {
-    for f in [0, 1] {
-        let (configuration, set, query) = fixture(f);
+fn authority_consumes_partial_facts_without_seal_history() {
+    {
+        let (configuration, set, query) = fixture();
         let facts = verify_seal_conclusion_facts(
             &set,
             &realm(),
@@ -121,54 +118,52 @@ fn exact_quorum_consumes_partial_facts_without_seal_history() {
 }
 
 #[test]
-fn configured_signer_alone_cannot_replace_three_votes() {
-    let (configuration, mut set, _) = fixture(1);
-    set.conclusions[0].signatures.truncate(1);
-    assert!(
-        verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &configuration).is_err()
-    );
-}
-
-#[test]
-fn extra_or_duplicate_votes_are_not_a_quorum() {
-    let (configuration, mut set, _) = fixture(1);
+fn foreign_signature_cannot_replace_frozen_authority() {
+    let (configuration, mut set, _) = fixture();
     let bytes = set.conclusions[0]
         .statement
         .signing_payload_bytes()
         .unwrap();
-    set.conclusions[0].signatures.push(signature(4, &bytes));
+    set.conclusions[0].signature = signature(2, &bytes);
     assert!(
-        verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &configuration).is_err()
-    );
-    set.conclusions[0].signatures.pop();
-    set.conclusions[0].signatures[1] = set.conclusions[0].signatures[0].clone();
-    assert!(
-        verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &configuration).is_err()
+        verify_seal_conclusion_set_authority_chain(&set, &realm(), &event(), &configuration)
+            .is_err()
     );
 }
 
 #[test]
+fn removed_signature_arrays_are_rejected() {
+    let (_, set, _) = fixture();
+    let mut value = serde_json::to_value(&set.conclusions[0]).unwrap();
+    let signature = value.as_object_mut().unwrap().remove("signature").unwrap();
+    value["signatures"] = json!([signature]);
+    assert!(serde_json::from_value::<SealConclusionCertificate>(value).is_err());
+}
+
+#[test]
 fn wrong_result_and_cross_domain_signatures_fail() {
-    let (configuration, mut set, _) = fixture(0);
+    let (configuration, mut set, _) = fixture();
     set.conclusions[0].statement.authority_seal_ref =
         SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap();
     assert!(
-        verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &configuration).is_err()
+        verify_seal_conclusion_set_authority_chain(&set, &realm(), &event(), &configuration)
+            .is_err()
     );
-    let (_, mut set, _) = fixture(0);
+    let (_, mut set, _) = fixture();
     let wrong = canonical_json_bytes(
         &json!({"context":"ak.seal.commit.v1","statement":set.conclusions[0].statement}),
     )
     .unwrap();
-    set.conclusions[0].signatures = vec![signature(1, &wrong)];
+    set.conclusions[0].signature = signature(1, &wrong);
     assert!(
-        verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &configuration).is_err()
+        verify_seal_conclusion_set_authority_chain(&set, &realm(), &event(), &configuration)
+            .is_err()
     );
 }
 
 #[test]
 fn missing_fact_or_local_conflict_cannot_be_accepted() {
-    let (configuration, set, mut query) = fixture(0);
+    let (configuration, set, mut query) = fixture();
     assert!(
         verify_seal_conclusion_facts(
             &set,
@@ -198,7 +193,7 @@ fn missing_fact_or_local_conflict_cannot_be_accepted() {
 
 #[test]
 fn absent_cell_written_null_and_missing_field_are_distinct() {
-    let (_, set, _) = fixture(0);
+    let (_, set, _) = fixture();
     let absent = &set.conclusions[0].statement.results[0];
     let mut value = serde_json::to_value(absent).unwrap();
     value.as_object_mut().unwrap().remove("state");
@@ -215,7 +210,7 @@ fn absent_cell_written_null_and_missing_field_are_distinct() {
 
 #[test]
 fn known_configuration_hint_neither_creates_trust_nor_changes_signed_facts() {
-    let (configuration, set, mut query) = fixture(0);
+    let (configuration, set, mut query) = fixture();
     query.known_configuration_ref = Some(event());
     verify_seal_conclusion_facts(
         &set,
@@ -226,13 +221,15 @@ fn known_configuration_hint_neither_creates_trust_nor_changes_signed_facts() {
         |_, _| Ok(()),
     )
     .unwrap();
-    let foreign = NotaryValue::new(vec![descriptor(9)], 0, 1000).unwrap();
-    assert!(verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &foreign).is_err());
+    let foreign = NotaryValue::new(descriptor(9), 1000).unwrap();
+    assert!(
+        verify_seal_conclusion_set_authority_chain(&set, &realm(), &event(), &foreign).is_err()
+    );
 }
 
 #[test]
 fn bundle_requires_exact_certified_target() {
-    let (_, set, _) = fixture(0);
+    let (_, set, _) = fixture();
     let mut bundle = CbsProofBundle {
         target_seal_ref: target(),
         seals: vec![],
@@ -248,36 +245,12 @@ fn bundle_requires_exact_certified_target() {
 }
 
 #[test]
-fn collector_requires_distinct_valid_votes_and_emits_exact_threshold() {
-    let (configuration, set, _) = fixture(1);
-    let statement = set.conclusions[0].statement.clone();
-    let bytes = statement.signing_payload_bytes().unwrap();
-    let mut collector = SealConclusionCollector::new(statement, configuration.clone()).unwrap();
-    collector.add_signature(signature(1, &bytes)).unwrap();
-    collector.add_signature(signature(1, &bytes)).unwrap();
-    assert!(collector.certificate().unwrap().is_none());
-    assert!(
-        collector
-            .add_signature(signature(2, b"another statement"))
-            .is_err()
-    );
-    assert!(collector.add_signature(signature(9, &bytes)).is_err());
-    collector.add_signature(signature(2, &bytes)).unwrap();
-    assert!(collector.certificate().unwrap().is_none());
-    collector.add_signature(signature(3, &bytes)).unwrap();
-    collector.add_signature(signature(4, &bytes)).unwrap();
-    let certificate = collector.certificate().unwrap().unwrap();
-    assert_eq!(certificate.signatures.len(), 3);
-    verify_seal_conclusion_quorum_signatures(&certificate, &configuration).unwrap();
-}
-
-#[test]
-fn old_quorum_authenticates_successor_then_successor_authenticates_history() {
-    let (old, mut set, query) = fixture(0);
+fn old_authority_authenticates_successor_then_successor_authenticates_history() {
+    let (old, mut set, query) = fixture();
     let next_ref =
         EventId::from_event_digest(&Hash::new(format!("sha256:{}", "9".repeat(64))).unwrap())
             .unwrap();
-    let next = NotaryValue::new(vec![descriptor(2)], 0, 1000).unwrap();
+    let next = NotaryValue::new(descriptor(2), 1000).unwrap();
     let statement = SealConfigurationHandoffStatement {
         realm_id: realm(),
         configuration_ref: event(),
@@ -289,17 +262,17 @@ fn old_quorum_authenticates_successor_then_successor_authenticates_history() {
     set.configuration_handoffs
         .push(SealConfigurationHandoffCertificate {
             statement,
-            signatures: vec![signature(1, &payload)],
+            signature: signature(1, &payload),
         });
     set.conclusions[0].statement.configuration_ref = next_ref;
-    set.conclusions[0].signatures = vec![signature(
+    set.conclusions[0].signature = signature(
         2,
         &set.conclusions[0]
             .statement
             .signing_payload_bytes()
             .unwrap(),
-    )];
+    );
     verify_seal_conclusion_facts(&set, &realm(), &event(), &old, &[query], |_, _| Ok(())).unwrap();
-    set.configuration_handoffs[0].signatures = vec![signature(2, &payload)];
-    assert!(verify_seal_conclusion_set_quorum_chain(&set, &realm(), &event(), &old).is_err());
+    set.configuration_handoffs[0].signature = signature(2, &payload);
+    assert!(verify_seal_conclusion_set_authority_chain(&set, &realm(), &event(), &old).is_err());
 }

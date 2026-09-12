@@ -32,7 +32,7 @@ struct SimulatedRequest {
     targets: Vec<String>,
     basis_kind: String,
     basis_current: bool,
-    authority_quorum_satisfied: bool,
+    frozen_authority_verified: bool,
 }
 
 #[derive(Serialize)]
@@ -57,7 +57,7 @@ impl Issuer {
             }
             return Err(WireError::Protocol("duplicate_conflict".to_owned()));
         }
-        if !request.basis_current || !request.authority_quorum_satisfied {
+        if !request.basis_current || !request.frozen_authority_verified {
             return Err(WireError::Protocol("failed_precondition".to_owned()));
         }
         if request.targets.is_empty() || request.targets.len() > 500 {
@@ -129,7 +129,7 @@ fn issue_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProjection
         targets: (0..count).map(|index| format!("event-{index}")).collect(),
         basis_kind: "seal".to_owned(),
         basis_current: true,
-        authority_quorum_satisfied: true,
+        frozen_authority_verified: true,
     };
     let mut issuer = Issuer::default();
     let first = issuer.issue("idem-accepted", &request)?;
@@ -165,7 +165,7 @@ fn conflict_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProject
         targets: vec!["event-a".to_owned()],
         basis_kind: "seal".to_owned(),
         basis_current: true,
-        authority_quorum_satisfied: true,
+        frozen_authority_verified: true,
     };
     issuer.issue("idem-conflict", &first)?;
     let mut changed = first;
@@ -203,7 +203,7 @@ fn anchor_projection(
         targets: targets.clone(),
         basis_kind: "anchor_unit".to_owned(),
         basis_current: true,
-        authority_quorum_satisfied: true,
+        frozen_authority_verified: true,
     };
     let mut issuer = Issuer::default();
     let outcome = issuer.issue("idem-anchor", &request);
@@ -243,9 +243,9 @@ fn anchor_projection(
 
 fn stale_projection(case: &Value) -> Result<AuthorizationLeaseIssuanceProjection> {
     let basis_current = required_bool(case, "/basis_current")?;
-    let quorum = required_bool(case, "/authority_quorum_satisfied")?;
+    let authority_verified = required_bool(case, "/frozen_authority_verified")?;
     let mut network_submit_attempted = false;
-    let decision = if basis_current && quorum {
+    let decision = if basis_current && authority_verified {
         network_submit_attempted = true;
         "issue"
     } else {
@@ -361,7 +361,7 @@ pub fn run_authorization_lease_issuance_fixture(
             "idempotency_key_with_different_event_rejected" => conflict_projection(case)?,
             "genesis_anchor_unit_is_closed_and_ordered" => anchor_projection(case, true)?,
             "partial_or_reordered_genesis_anchor_rejected" => anchor_projection(case, false)?,
-            "stale_basis_and_quorum_failure_fail_closed" => stale_projection(case)?,
+            "stale_basis_and_authority_failure_fail_closed" => stale_projection(case)?,
             "account_switch_and_authority_rotation_clear_cache" => cache_projection(case)?,
             _ => {
                 return Err(WireError::Protocol(format!(

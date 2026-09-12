@@ -547,43 +547,26 @@ pub fn verify_agent_portable_trust(
             let digest_suite = seal.state_root.digest_suite()?;
             seal.validate_id(digest_suite)?;
             let canonical = seal.commit_transcript_bytes(digest_suite)?;
-            let signatures = seal.notary_signature.signatures.iter().collect::<Vec<_>>();
-            let methods = signatures
-                .iter()
-                .map(|signature| signature.verification_method.clone())
-                .collect::<BTreeSet<_>>();
-            if signatures.is_empty() || methods.len() != signatures.len() {
-                return Err(WireError::Protocol(
-                    "Agent PCR Seal signatures must be unique and nonempty".to_owned(),
-                ));
-            }
-            let is_delegated =
-                signatures.len() == 1 && delegated.contains_key(&signatures[0].verification_method);
-            if !is_delegated && !authority.notary().proposal_quorum_met(&methods) {
-                return Err(WireError::Protocol(
-                    "Agent PCR Seal does not meet its frozen notary quorum".to_owned(),
-                ));
-            }
-            for signature in signatures {
-                let descriptor = if is_delegated {
-                    delegated.get(&signature.verification_method).copied()
-                } else {
+            let signature = &seal.notary_signature;
+            let descriptor = delegated
+                .get(&signature.verification_method)
+                .copied()
+                .or_else(|| {
                     authority
                         .notary()
                         .signer_descriptor(&signature.verification_method)
-                }
+                })
                 .ok_or_else(|| {
                     WireError::Protocol(
                         "Agent PCR Seal signer has no accepted key source".to_owned(),
                     )
                 })?;
-                arkret_signatures::verify_frozen_notary_signature(
-                    signature,
-                    descriptor,
-                    &canonical,
-                    digest_suite,
-                )?;
-            }
+            arkret_signatures::verify_frozen_notary_signature(
+                signature,
+                descriptor,
+                &canonical,
+                digest_suite,
+            )?;
             Ok(())
         }
         AgentHistoricalTrustRequest::LifecycleWitness(_) => {
@@ -612,7 +595,7 @@ fn validated_delegated_notary_signers<'a>(
     let used = state
         .seal_lineages
         .iter()
-        .flat_map(|seal| seal.notary_signature.signatures.iter())
+        .map(|seal| &seal.notary_signature)
         .filter(|signature| {
             authority
                 .notary()

@@ -90,10 +90,7 @@ fn notary_primary_projects_to_principal(
     notary: &NotaryValue,
     signing_principal_id: &DidCoreId,
 ) -> Result<bool> {
-    Ok(notary
-        .signers
-        .iter()
-        .any(|member| member.actor_id.signing_principal_id() == signing_principal_id))
+    Ok(notary.signer.actor_id.signing_principal_id() == signing_principal_id)
 }
 
 fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &ActorId) -> Result<bool> {
@@ -503,7 +500,7 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
         .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
     let availability_receipt_digests = Vec::new();
     let command_results = material.command_results;
-    Seal::sign_with_signers(
+    Seal::sign_with_signer(
         UnsignedSeal {
             realm_id: material.realm_id,
             predecessor_ref: None,
@@ -521,10 +518,8 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
             command_results,
             authorization_closures: Vec::new(),
             existence_anchors: Vec::new(),
-            transaction_records: Vec::new(),
         },
-        0,
         digest_suite,
-        &[signer],
+        signer,
     )
 }

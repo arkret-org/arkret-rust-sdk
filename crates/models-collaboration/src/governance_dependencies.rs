@@ -1331,7 +1331,6 @@ impl SealPrepareRequestBody {
 pub struct SealPrepareOutcome {
     #[serde(deserialize_with = "deserialize_successor_pcr_body")]
     pub seal_body: arkret_wire::UnsignedSeal,
-    pub view: u64,
 }
 
 fn deserialize_successor_pcr_body<'de, D: serde::Deserializer<'de>>(
@@ -1360,7 +1359,6 @@ impl SealPrepareOutcome {
         if body.realm_id != request.realm_id
             || body.predecessor_ref.as_ref() != Some(&request.predecessor_ref)
             || body.hlc != request.hlc
-            || self.view != 0
         {
             return Err(WireError::Protocol(
                 "prepared Seal does not match the frozen signing intent".to_owned(),
@@ -1423,7 +1421,7 @@ impl SealPrepareOutcome {
     ) -> Result<Seal> {
         self.validate_for_request(request)?;
         let digest_suite = request.digest_suite()?;
-        Seal::sign_with_signers(self.seal_body.clone(), self.view, digest_suite, &[signer])
+        Seal::sign_with_signer(self.seal_body.clone(), digest_suite, signer)
     }
 }
 

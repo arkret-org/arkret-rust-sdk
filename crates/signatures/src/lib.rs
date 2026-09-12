@@ -27,14 +27,12 @@ pub use eddsa_jcs_2022::{
     eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
 pub use frozen_notary::{
-    verify_frozen_notary_detached_jws, verify_frozen_notary_signature,
-    verify_seal_quorum_signatures,
+    verify_frozen_notary_detached_jws, verify_frozen_notary_signature, verify_seal_signature,
 };
 pub use seal_conclusion::{
-    SealConclusionCollector, VerifiedSealConclusionFacts, sign_seal_conclusion,
-    sign_seal_configuration_handoff, verify_seal_conclusion_facts,
-    verify_seal_conclusion_quorum_signatures, verify_seal_conclusion_set_quorum_chain,
-    verify_seal_configuration_handoff_quorum_signatures,
+    VerifiedSealConclusionFacts, sign_seal_conclusion, sign_seal_configuration_handoff,
+    verify_seal_conclusion_facts, verify_seal_conclusion_set_authority_chain,
+    verify_seal_conclusion_signature, verify_seal_configuration_handoff_signature,
 };
 
 // Agent key-pairing canonical binding digests. Gated by `collaboration` because

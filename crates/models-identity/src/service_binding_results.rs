@@ -102,16 +102,8 @@ impl GenesisNotaryOutcome {
     pub fn validate(&self) -> Result<()> {
         binding_bytes(self, false)?;
         self.account_id.validate()?;
-        // `NotaryValue::validate` already proves every descriptor is
-        // self-consistent and that the union is unique by actor, verification
-        // method and frozen key digest.
         self.notary.validate()?;
-        if self
-            .notary
-            .descriptors()
-            .iter()
-            .any(|descriptor| !matches!(descriptor.actor_id, ActorId::Service { .. }))
-        {
+        if !matches!(self.notary.signer.actor_id, ActorId::Service { .. }) {
             return Err(binding_error(
                 ErrorCode::SchemaViolation,
                 "a founding notary descriptor for this purpose must be a service actor",
@@ -356,7 +348,7 @@ mod tests {
             request_id: request_id(),
             account_id: account(),
             intended_purpose: GenesisNotaryPurpose::Collaboration,
-            notary: NotaryValue::new(vec![service_signer()], 0, 0).unwrap(),
+            notary: NotaryValue::new(service_signer(), 0).unwrap(),
         }
     }
 
@@ -383,7 +375,7 @@ mod tests {
         let mut signer = service_signer();
         signer.actor_id = ActorId::account(account());
         signer.verification_method = DidUrl::new("did:web:alice.example#notary-key-1").unwrap();
-        outcome.notary = NotaryValue::new(vec![signer], 0, 0).unwrap();
+        outcome.notary = NotaryValue::new(signer, 0).unwrap();
         assert!(outcome.validate().is_err());
     }
 

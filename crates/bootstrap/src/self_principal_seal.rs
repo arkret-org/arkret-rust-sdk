@@ -60,7 +60,7 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
         effects,
         SELF_PRINCIPAL_PCR_DIGEST_SUITE,
     )?];
-    Seal::sign_with_signers(
+    Seal::sign_with_signer(
         UnsignedSeal {
             realm_id: create.realm_id.clone(),
             predecessor_ref: None,
@@ -78,11 +78,9 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
             command_results,
             authorization_closures: Vec::new(),
             existence_anchors: Vec::new(),
-            transaction_records: Vec::new(),
         },
-        0,
         SELF_PRINCIPAL_PCR_DIGEST_SUITE,
-        &[signer],
+        signer,
     )
 }
 

@@ -23,9 +23,9 @@ use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
     CanonicalCellState, CanonicalSequencedState, CellFamilyId, CellRef, CommandResultEffect,
     DidCoreId, EncryptionProfile, Event, EventCellExecution, EventCellValueShape, EventKind,
-    GenesisSalt, Hash, Hlc, LatticeOp, LatticeOpType, MultiSigKind, MultiSignature,
-    NotarySignerDescriptor, NotaryValue, ProducerEventProof, ProjectedCellWrite, ProjectedOp,
-    ScopeRef, Seal, SealBasis, SealCommandOutcome, SealId, SealSignature, SecurityClass,
+    GenesisSalt, Hash, Hlc, LatticeOp, LatticeOpType, NotarySignerDescriptor, NotaryValue,
+    ProducerEventProof, ProjectedCellWrite, ProjectedOp, ScopeRef, Seal, SealBasis,
+    SealCommandOutcome, SealId, SealSignature, SecurityClass,
 };
 use serde_json::json;
 
@@ -179,14 +179,10 @@ fn seal(
         covered_event_digests: covered.into_iter().collect(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: MultiSignature {
-            kind: MultiSigKind::MultiSig,
-            signatures: vec![SealSignature {
-                verification_method: descriptor.verification_method.clone(),
-                payload_digest: Hash::new(arkret_canonical::sha256_digest(b"placeholder")).unwrap(),
-                jws: format!("e30..{}", base64url_encode([0; 64])),
-            }],
-            view: 0,
+        notary_signature: SealSignature {
+            verification_method: descriptor.verification_method.clone(),
+            payload_digest: Hash::new(arkret_canonical::sha256_digest(b"placeholder")).unwrap(),
+            jws: format!("e30..{}", base64url_encode([0; 64])),
         },
         sealed_at: event.created_at,
         hlc: event.hlc.clone().unwrap(),
@@ -197,7 +193,6 @@ fn seal(
         ],
         authorization_closures: Vec::new(),
         existence_anchors: Vec::new(),
-        transaction_records: Vec::new(),
     };
     let body = seal.canonical_bytes_for_id().unwrap();
     seal.id = Seal::id_from_canonical_bytes(&body, SUITE).unwrap();
@@ -208,14 +203,10 @@ fn seal(
         .unwrap(),
     );
     let transcript = seal.commit_transcript_bytes(SUITE).unwrap();
-    seal.notary_signature = MultiSignature {
-        kind: MultiSigKind::MultiSig,
-        signatures: vec![SealSignature {
-            verification_method: descriptor.verification_method.clone(),
-            payload_digest: Hash::new(arkret_canonical::digest(SUITE, transcript)).unwrap(),
-            jws: format!("{protected}..{}", base64url_encode([0; 64])),
-        }],
-        view: 0,
+    seal.notary_signature = SealSignature {
+        verification_method: descriptor.verification_method.clone(),
+        payload_digest: Hash::new(arkret_canonical::digest(SUITE, transcript)).unwrap(),
+        jws: format!("{protected}..{}", base64url_encode([0; 64])),
     };
     seal
 }
@@ -229,7 +220,7 @@ fn checkpoint() -> (MlsGovernanceVerificationCheckpoint, SealBasis, CellRef) {
     )
     .unwrap();
     descriptor.validate().unwrap();
-    let notary = NotaryValue::new(vec![descriptor.clone()], 0, 0).unwrap();
+    let notary = NotaryValue::new(descriptor.clone(), 0).unwrap();
     let genesis = RealmGenesis::event_derived(
         RealmPurpose::Collaboration,
         GenesisSalt::new("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap(),

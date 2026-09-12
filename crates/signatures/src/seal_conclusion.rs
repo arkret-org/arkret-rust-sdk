@@ -10,13 +10,13 @@ use crate::verify_frozen_notary_detached_jws;
 
 pub fn sign_seal_conclusion<S: PayloadSigner + ?Sized>(
     statement: SealConclusionStatement,
-    signers: &[&S],
+    signer: &S,
 ) -> Result<SealConclusionCertificate> {
     let payload = statement.signing_payload_bytes()?;
-    let signatures = sign_fixed_sha256_payload(&payload, signers)?;
+    let signature = sign_fixed_sha256_payload(&payload, signer)?;
     let certificate = SealConclusionCertificate {
         statement,
-        signatures,
+        signature,
     };
     certificate.validate_structural()?;
     Ok(certificate)
@@ -24,13 +24,13 @@ pub fn sign_seal_conclusion<S: PayloadSigner + ?Sized>(
 
 pub fn sign_seal_configuration_handoff<S: PayloadSigner + ?Sized>(
     statement: SealConfigurationHandoffStatement,
-    signers: &[&S],
+    signer: &S,
 ) -> Result<SealConfigurationHandoffCertificate> {
     let payload = statement.signing_payload_bytes()?;
-    let signatures = sign_fixed_sha256_payload(&payload, signers)?;
+    let signature = sign_fixed_sha256_payload(&payload, signer)?;
     let certificate = SealConfigurationHandoffCertificate {
         statement,
-        signatures,
+        signature,
     };
     certificate.validate_structural()?;
     Ok(certificate)
@@ -38,123 +38,38 @@ pub fn sign_seal_configuration_handoff<S: PayloadSigner + ?Sized>(
 
 fn sign_fixed_sha256_payload<S: PayloadSigner + ?Sized>(
     payload: &[u8],
-    signers: &[&S],
-) -> Result<Vec<SealSignature>> {
-    if signers.is_empty() {
-        return Err(WireError::Protocol(
-            "Seal conclusion certificate requires at least one signer".to_owned(),
-        ));
-    }
-    let mut signatures = signers
-        .iter()
-        .map(|signer| {
-            signer
-                .sign_notary_payload_with_digest_suite(
-                    payload,
-                    arkret_canonical::DigestSuite::Sha256,
-                )
-                .map(SealSignature::from)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    signatures.sort_by(|left, right| left.verification_method.cmp(&right.verification_method));
-    Ok(signatures)
+    signer: &S,
+) -> Result<SealSignature> {
+    signer
+        .sign_notary_payload_with_digest_suite(payload, arkret_canonical::DigestSuite::Sha256)
+        .map(SealSignature::from)
 }
 
-pub fn verify_seal_conclusion_quorum_signatures(
+pub fn verify_seal_conclusion_signature(
     certificate: &SealConclusionCertificate,
     configuration: &NotaryValue,
 ) -> Result<()> {
-    certificate.validate_quorum_with(configuration, |signature, descriptor, payload| {
+    certificate.validate_authority_with(configuration, |signature, descriptor, payload| {
         verify_frozen_notary_detached_jws(signature, descriptor, payload)
     })
 }
 
-pub fn verify_seal_configuration_handoff_quorum_signatures(
+pub fn verify_seal_configuration_handoff_signature(
     certificate: &SealConfigurationHandoffCertificate,
     old_configuration: &NotaryValue,
 ) -> Result<()> {
-    certificate.validate_quorum_with(old_configuration, |signature, descriptor, payload| {
+    certificate.validate_authority_with(old_configuration, |signature, descriptor, payload| {
         verify_frozen_notary_detached_jws(signature, descriptor, payload)
     })
-}
-
-/// Collect independently verified votes for one immutable read statement.
-/// Partial votes remain local coordinator state; only a complete certificate
-/// is an admissible public conclusion. This does not execute or order commands.
-pub struct SealConclusionCollector {
-    statement: SealConclusionStatement,
-    configuration: NotaryValue,
-    signatures: std::collections::BTreeMap<arkret_wire::DidUrl, SealSignature>,
-}
-
-impl SealConclusionCollector {
-    pub fn new(statement: SealConclusionStatement, configuration: NotaryValue) -> Result<Self> {
-        statement.validate_structural()?;
-        configuration.validate()?;
-        Ok(Self {
-            statement,
-            configuration,
-            signatures: std::collections::BTreeMap::new(),
-        })
-    }
-
-    pub fn add_signature(&mut self, signature: SealSignature) -> Result<()> {
-        let partial = SealConclusionCertificate {
-            statement: self.statement.clone(),
-            signatures: vec![signature.clone()],
-        };
-        partial.validate_structural()?;
-        let descriptor = self
-            .configuration
-            .signer_descriptor(&signature.verification_method)
-            .ok_or_else(|| {
-                WireError::Protocol(
-                    "conclusion vote is outside the frozen configuration".to_owned(),
-                )
-            })?;
-        verify_frozen_notary_detached_jws(
-            &signature,
-            descriptor,
-            &self.statement.signing_payload_bytes()?,
-        )?;
-        if let Some(previous) = self.signatures.get(&signature.verification_method) {
-            if previous != &signature {
-                return Err(WireError::Protocol(
-                    "conclusion voter supplied conflicting signature bytes".to_owned(),
-                ));
-            }
-            return Ok(());
-        }
-        self.signatures
-            .insert(signature.verification_method.clone(), signature);
-        Ok(())
-    }
-
-    pub fn certificate(&self) -> Result<Option<SealConclusionCertificate>> {
-        if self.signatures.len() < self.configuration.quorum_size() {
-            return Ok(None);
-        }
-        let certificate = SealConclusionCertificate {
-            statement: self.statement.clone(),
-            signatures: self
-                .signatures
-                .values()
-                .take(self.configuration.quorum_size())
-                .cloned()
-                .collect(),
-        };
-        verify_seal_conclusion_quorum_signatures(&certificate, &self.configuration)?;
-        Ok(Some(certificate))
-    }
 }
 
 /// Verifies the certificate chain from an independently trusted configuration.
 ///
 /// Callers still bind the exact queries, validate registered Cell semantics,
 /// enforce current disclosure/action authorization, and reject conflicts with
-/// durable trusted state. The quorum attests the target's confirmed ancestry;
-/// a non-voting consumer does not replay the historical state machine.
-pub fn verify_seal_conclusion_set_quorum_chain(
+/// durable trusted state. The authority attests the target's confirmed ancestry;
+/// a consumer does not replay the historical state machine.
+pub fn verify_seal_conclusion_set_authority_chain(
     set: &SealConclusionSet,
     realm_id: &RealmId,
     trusted_configuration_ref: &EventId,
@@ -172,7 +87,7 @@ pub fn verify_seal_conclusion_set_quorum_chain(
                 "Seal configuration handoff is not the next trusted Realm configuration".to_owned(),
             ));
         }
-        verify_seal_configuration_handoff_quorum_signatures(handoff, &current)?;
+        verify_seal_configuration_handoff_signature(handoff, &current)?;
         current_ref = handoff.statement.next_configuration_ref.clone();
         current = handoff.statement.next_configuration.clone();
     }
@@ -184,7 +99,7 @@ pub fn verify_seal_conclusion_set_quorum_chain(
                 "Seal conclusion is not signed by the terminal trusted configuration".to_owned(),
             ));
         }
-        verify_seal_conclusion_quorum_signatures(conclusion, &current)?;
+        verify_seal_conclusion_signature(conclusion, &current)?;
     }
     Ok(current)
 }
@@ -244,7 +159,7 @@ where
             "fact consumption requires 1..=128 exact queries".to_owned(),
         ));
     }
-    verify_seal_conclusion_set_quorum_chain(
+    verify_seal_conclusion_set_authority_chain(
         set,
         realm_id,
         trusted_configuration_ref,
@@ -282,7 +197,7 @@ where
                 .is_some_and(|previous| previous != value)
             {
                 return Err(WireError::Protocol(
-                    "quorum conclusions contradict at the same target and selector".to_owned(),
+                    "authority conclusions contradict at the same target and selector".to_owned(),
                 ));
             }
             validate_fact(&query.target_seal_ref, result)?;

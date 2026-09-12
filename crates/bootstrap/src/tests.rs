@@ -226,7 +226,7 @@ fn fixture_notary(actor_id: &DidCoreId, actor_did: &Did, fragment: &str) -> Nota
     )
     .expect("fixture public key is valid");
     NotaryValue::new(
-        vec![NotarySignerDescriptor {
+        NotarySignerDescriptor {
             actor_id: ActorId::service(actor_id.clone()),
             verification_method: DidUrl::new(format!("{actor_did}#{fragment}")).unwrap(),
             key_kind: NotaryKeyKind::Ed25519Raw32,
@@ -234,8 +234,7 @@ fn fixture_notary(actor_id: &DidCoreId, actor_did: &Did, fragment: &str) -> Nota
             frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
             frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
                 .unwrap(),
-        }],
-        0,
+        },
         0,
     )
     .unwrap()
@@ -481,7 +480,7 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
             .unwrap(),
         seal.id
     );
-    let signature = &seal.notary_signature.signatures[0];
+    let signature = &seal.notary_signature;
     assert_eq!(signature.verification_method, signer.verification_method);
 }
 
@@ -888,7 +887,7 @@ fn agent_pcr_bootstrap_seal_follows_the_genesis_declared_digest_suite() {
             seal.control_event_set_root.digest_suite().unwrap(),
             digest_suite
         );
-        let signature = &seal.notary_signature.signatures[0];
+        let signature = &seal.notary_signature;
         assert_eq!(
             signature.payload_digest.digest_suite().unwrap(),
             digest_suite
@@ -1063,14 +1062,13 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 command_results: vec![material.command_results[1].clone()],
                 authorization_closures: Vec::new(),
                 existence_anchors: Vec::new(),
-                transaction_records: Vec::new(),
             },
             view: 0,
         };
         let seal = prepared.sign(&request, &signer).unwrap();
         seal.validate_id(digest_suite).unwrap();
         assert_eq!(seal.state_root.digest_suite().unwrap(), digest_suite);
-        let signature = &seal.notary_signature.signatures[0];
+        let signature = &seal.notary_signature;
         assert_eq!(
             signature.payload_digest.digest_suite().unwrap(),
             digest_suite

@@ -2,9 +2,8 @@ use arkret_wire::{
     AccountId, ActorId, AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
     AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
     AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, CommandOutcome,
-    ControlProposalAckKind, DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef, MultiSigKind,
-    MultiSignature, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef,
-    SealCommandOutcome, SealSignature,
+    ControlProposalAckKind, DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef, PayloadProof,
+    PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealCommandOutcome, SealSignature,
 };
 use serde_json::json;
 
@@ -369,7 +368,9 @@ fn control_proposal_ack_for(
     )
     .unwrap();
     let authority_set_digest = authority_set_ref.authority_set_digest.clone();
-    let mut authority_ack = arkret_wire::ControlProposalAuthorityAck {
+    let mut authority_ack = ControlProposalAck {
+        kind: ControlProposalAckKind::SignedAck,
+        defer_count: 0,
         realm_id: event.realm_id.clone(),
         proposal_digest: proposal_digest.clone(),
         received_at,
@@ -383,18 +384,8 @@ fn control_proposal_ack_for(
             jws: "a..b".to_owned(),
         },
     };
-    authority_ack.signature.payload_digest = authority_ack.authority_ack_digest().unwrap();
-    ControlProposalAck {
-        kind: ControlProposalAckKind::SignedAck,
-        realm_id: event.realm_id.clone(),
-        proposal_digest,
-        received_at,
-        decision_due_at: received_at + chrono::Duration::seconds(30),
-        absolute_due_at: received_at + chrono::Duration::seconds(90),
-        defer_count: 0,
-        authority_set_ref: authority_set_digest,
-        authority_acks: vec![authority_ack],
-    }
+    authority_ack.signature.payload_digest = authority_ack.ack_body_digest().unwrap();
+    authority_ack
 }
 
 #[test]
@@ -529,14 +520,10 @@ fn federation_prerequisite_seal() -> Seal {
         covered_event_digests: Vec::new(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: MultiSignature {
-            kind: MultiSigKind::MultiSig,
-            signatures: vec![SealSignature {
-                verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
-                payload_digest: hash('5'),
-                jws: "AAAA.BBBB.CCCC".to_owned(),
-            }],
-            view: 0,
+        notary_signature: SealSignature {
+            verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
+            payload_digest: hash('5'),
+            jws: "AAAA.BBBB.CCCC".to_owned(),
         },
         sealed_at: "2026-07-21T08:00:00Z".parse().unwrap(),
         hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
@@ -551,7 +538,6 @@ fn federation_prerequisite_seal() -> Seal {
         }],
         authorization_closures: Vec::new(),
         existence_anchors: Vec::new(),
-        transaction_records: Vec::new(),
     };
     seal.id = seal.derive_id(DigestSuite::Sha256).unwrap();
     seal

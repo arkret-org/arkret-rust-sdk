@@ -124,13 +124,12 @@ pub use consent_scope::*;
 pub use constants::*;
 pub use control_proposal::{
     ControlProposalAck, ControlProposalAckIssueOutcome, ControlProposalAckIssueRequest,
-    ControlProposalAckKind, ControlProposalAuthorityAck, ControlProposalAuthorityKind,
-    ControlProposalDecision, ControlProposalDecisionFaultReason, ControlProposalDecisionKind,
-    ControlProposalDecisionPolicy, ControlProposalDecisionReadOutcome,
-    ControlProposalDecisionReadRequestBody, ControlProposalDecisionSubmitOutcome,
-    ControlProposalDecisionSubmitRequestBody, ControlProposalDecisionSubmitStatus,
-    ControlProposalDeferReason, ControlProposalPublicationMode, ControlProposalState,
-    MAX_PROPOSAL_ABSOLUTE_HORIZON, MAX_PROPOSAL_AUTHORITY_ACKS, MAX_PROPOSAL_AUTHORITY_PROOFS,
+    ControlProposalAckKind, ControlProposalAuthorityKind, ControlProposalDecision,
+    ControlProposalDecisionFaultReason, ControlProposalDecisionKind, ControlProposalDecisionPolicy,
+    ControlProposalDecisionReadOutcome, ControlProposalDecisionReadRequestBody,
+    ControlProposalDecisionSubmitOutcome, ControlProposalDecisionSubmitRequestBody,
+    ControlProposalDecisionSubmitStatus, ControlProposalDeferReason,
+    ControlProposalPublicationMode, ControlProposalState, MAX_PROPOSAL_ABSOLUTE_HORIZON,
     MAX_PROPOSAL_DECISION_WINDOW, MAX_PROPOSAL_DEFERS, MAX_PROPOSAL_INTAKE_SLA,
 };
 pub use device_revocation::*;
@@ -184,9 +183,7 @@ pub use history_store::{
 pub use ingress_budget::WireBodyClass;
 pub use invite_token::{INVITE_TOKEN_MAX_CHARS, validate_invite_token};
 pub use mls_transition::mls_genesis_transition_digest;
-pub use notary::{
-    NotaryJoseAlgorithm, NotaryKeyKind, NotaryKind, NotarySignerDescriptor, NotaryValue,
-};
+pub use notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue};
 pub use object_address::*;
 pub use object_ref::is_object_ref;
 pub use offline_publication::{
@@ -223,9 +220,8 @@ pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
 pub use seal::{
-    AuthorizationClosure, CommandOutcome, CommandResultEffect, ExistenceAnchor, MultiSigKind,
-    MultiSignature, PayloadSignature, Seal, SealCommandOutcome, SealSignature, TransactionManifest,
-    TransactionParticipant, TransactionRecord, UnsignedSeal, compute_seal_id, seal_canonical_bytes,
+    AuthorizationClosure, CommandOutcome, CommandResultEffect, ExistenceAnchor, PayloadSignature,
+    Seal, SealCommandOutcome, SealSignature, UnsignedSeal, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,

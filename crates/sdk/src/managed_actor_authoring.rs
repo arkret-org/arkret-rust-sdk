@@ -130,7 +130,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         input.digest_suite,
         input.security_class,
         EncryptionProfile::MlsRfc9420,
-        NotaryValue::new(vec![request.hosting_notary.clone()], 0, 0)?,
+        NotaryValue::new(request.hosting_notary.clone(), 0)?,
     )?;
     let pcr_intent = TypedEventDraft::<event_spec::RealmCreate>::new(
         ScopeRef::RealmGenesis,

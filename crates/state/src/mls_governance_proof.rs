@@ -1027,7 +1027,7 @@ where
         MlsGovernanceFrontierProjection::Conclusions { .. }
     ) {
         return frontier_rejected(
-            "quorum conclusions require the non-voting fact verifier, not a replay checkpoint",
+            "authority conclusions require the consumer fact verifier, not a replay checkpoint",
         );
     }
     if request.local_mls_leaves != local_mls_leaves {
@@ -2691,24 +2691,15 @@ where
     seal.validate_signature_payload_digests(|bytes| {
         Hash::new(arkret_canonical::digest(digest_suite, bytes)).map_err(Into::into)
     })?;
-    let signatures = seal.notary_signature.signatures.as_slice();
-    let methods = signatures
-        .iter()
-        .map(|signature| signature.verification_method.clone())
-        .collect::<BTreeSet<_>>();
-    if methods.len() != signatures.len() || !notary.proposal_quorum_met(&methods) {
-        return frontier_rejected("Seal signature set does not satisfy predecessor notary quorum");
-    }
+    let signature = &seal.notary_signature;
+    let descriptor = notary
+        .signer_descriptor(&signature.verification_method)
+        .ok_or_else(|| {
+            WireError::Protocol("Seal signer is absent from predecessor authority".to_owned())
+        })?;
     let transcript = seal.commit_transcript_bytes(digest_suite)?;
-    for signature in signatures {
-        let descriptor = notary
-            .signer_descriptor(&signature.verification_method)
-            .ok_or_else(|| {
-                WireError::Protocol("Seal signer is absent from predecessor notary".to_owned())
-            })?;
-        signature.validate_descriptor_binding(descriptor)?;
-        verify_signature(signature, descriptor, &transcript, digest_suite)?;
-    }
+    signature.validate_descriptor_binding(descriptor)?;
+    verify_signature(signature, descriptor, &transcript, digest_suite)?;
     Ok(())
 }
 

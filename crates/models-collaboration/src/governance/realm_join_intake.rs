@@ -180,7 +180,7 @@ pub struct RealmJoinGovernanceFacts {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub join_rule: JoinRule,
     /// Complete current accepted Seal frontier of the holder service: the
-    /// unique quorum-confirmed head. A compressed head is never a substitute.
+    /// unique authority-confirmed head. A compressed head is never a substitute.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub seal_basis: SealBasis,
     /// Live Realm digest suite from the verified joined projection of the
@@ -974,9 +974,7 @@ impl RealmJoinSelfApplicationStatusOutcome {
 #[cfg(test)]
 mod tests {
     use arkret_canonical::DigestSuite;
-    use arkret_wire::seal::{
-        CommandOutcome, MultiSigKind, MultiSignature, Seal, SealCommandOutcome, SealSignature,
-    };
+    use arkret_wire::seal::{CommandOutcome, Seal, SealCommandOutcome, SealSignature};
     use arkret_wire::{
         ActorId, CellRef, ControlProposalAuthorityKind, DidCoreId, DidUrl, Predicate, PredicateOp,
     };
@@ -1029,15 +1027,10 @@ mod tests {
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
-            notary_signature: MultiSignature {
-                kind: MultiSigKind::MultiSig,
-                signatures: vec![SealSignature {
-                    verification_method: DidUrl::new("did:web:notary.example#key-1")
-                        .expect("method"),
-                    payload_digest: hash('5'),
-                    jws: "AAAA.BBBB.CCCC".to_owned(),
-                }],
-                view: 0,
+            notary_signature: SealSignature {
+                verification_method: DidUrl::new("did:web:notary.example#key-1").expect("method"),
+                payload_digest: hash('5'),
+                jws: "AAAA.BBBB.CCCC".to_owned(),
             },
             sealed_at: "2026-09-10T08:00:00Z".parse().expect("timestamp"),
             hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").expect("hlc"),
@@ -1051,7 +1044,6 @@ mod tests {
             }],
             authorization_closures: Vec::new(),
             existence_anchors: Vec::new(),
-            transaction_records: Vec::new(),
         };
         seal.id = seal
             .derive_id(DigestSuite::Sha256)

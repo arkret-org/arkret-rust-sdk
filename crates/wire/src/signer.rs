@@ -14,15 +14,13 @@
 //! feature, and HSM-backed implementations can use the same trait.
 
 use crate::{
-    Did, DidUrl, Hash, MultiSigKind, MultiSignature, PayloadSignature, Result, Seal, SealSignature,
-    UnsignedSeal, WireError, canonical,
+    Did, DidUrl, Hash, PayloadSignature, Result, Seal, SealSignature, UnsignedSeal, canonical,
 };
 
 /// Trait implemented by Seal / notary signers (Ed25519 keypair, HSM,
-/// threshold scheme, etc.).
+/// hardware-backed key, etc.).
 pub trait PayloadSigner {
-    /// DID of the signing identity. For Seals this is one of the notary-set
-    /// members.
+    /// DID of the signing identity. For Seals this is the frozen authority.
     fn signer_did(&self) -> &Did;
 
     /// The verification method id (e.g. `did:webvh:z6mkfixture:alice.example#key-1`)
@@ -31,7 +29,7 @@ pub trait PayloadSigner {
 
     /// Sign arbitrary canonical bytes with the signer's key, producing a
     /// detached JWS plus the matching `payload_digest`. Helpers such as
-    /// [`Seal::sign_with_signers`] builds the canonical body bytes and
+    /// [`Seal::sign_with_signer`] builds the canonical body bytes and
     /// delegate here.
     fn sign_payload(&self, canonical_bytes: &[u8]) -> Result<PayloadSignature>;
 
@@ -48,44 +46,24 @@ pub trait PayloadSigner {
 }
 
 impl Seal {
-    /// Build a quorum Seal and sign its commit transcript.
-    pub fn sign_with_signers<S>(
+    /// Sign an authority Seal's canonical commit transcript.
+    /// The caller must durably reserve this exact body at its lineage position before signing.
+    pub fn sign_with_signer<S: PayloadSigner + ?Sized>(
         body: UnsignedSeal,
-        view: u64,
         digest_suite: arkret_canonical::DigestSuite,
-        signers: &[&S],
-    ) -> Result<Seal>
-    where
-        S: PayloadSigner + ?Sized,
-    {
-        if signers.is_empty() {
-            return Err(WireError::Protocol(
-                "Seal::sign_with_signers requires at least one signer".to_owned(),
-            ));
-        }
+        signer: &S,
+    ) -> Result<Seal> {
         let body_bytes = canonical::canonical_json_bytes(&body)?;
         let seal_digest = Hash::new(canonical::digest(digest_suite, &body_bytes))?;
         let transcript = canonical::canonical_json_bytes(&SealCommitTranscript {
             context: "ak.seal.commit.v1",
             seal_digest: &seal_digest,
-            configuration_ref: &body.configuration_ref,
-            notary_seq: body.notary_seq,
-            view,
         })?;
-        let mut signatures = Vec::with_capacity(signers.len());
-        for signer in signers {
-            signatures.push(seal_signature(
-                signer.sign_notary_payload_with_digest_suite(&transcript, digest_suite)?,
-            ));
-        }
-        signatures.sort_by(|left, right| left.verification_method.cmp(&right.verification_method));
         Seal::from_canonical_body_and_signature(
             &body_bytes,
-            MultiSignature {
-                kind: MultiSigKind::MultiSig,
-                signatures,
-                view,
-            },
+            SealSignature::from(
+                signer.sign_notary_payload_with_digest_suite(&transcript, digest_suite)?,
+            ),
             digest_suite,
         )
     }
@@ -95,11 +73,4 @@ impl Seal {
 struct SealCommitTranscript<'a> {
     context: &'static str,
     seal_digest: &'a Hash,
-    configuration_ref: &'a crate::EventId,
-    notary_seq: u64,
-    view: u64,
-}
-
-fn seal_signature(signature: PayloadSignature) -> SealSignature {
-    signature.into()
 }

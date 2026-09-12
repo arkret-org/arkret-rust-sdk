@@ -1201,7 +1201,12 @@ mod tests {
             absolute_due_at: now + chrono::Duration::hours(2),
             defer_count: 0,
             authority_set_ref: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            authority_acks: Vec::new(),
+            signature: crate::PayloadSignature {
+                verification_method: crate::DidUrl::new("did:web:authority.example#key-1").unwrap(),
+                payload_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
+                created_at: now,
+                jws: "e30..c2ln".to_owned(),
+            },
         };
 
         assert!(

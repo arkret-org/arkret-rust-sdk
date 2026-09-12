@@ -73,7 +73,7 @@ pub struct RealmStateSnapshotChunkRef {
 /// model** half lives in `arkret_state::realm_state_snapshot`, where
 /// `RealmStateSnapshotWitnessAttestation` hangs off
 /// `RealmStateSnapshotManifest` / `AuthorityBinding` and owns the canonical projection
-/// builder and the quorum verifier. The two halves are named apart on purpose — same as
+/// builder and the authority verifier. The two halves are named apart on purpose — same as
 /// [`RealmStateSnapshotChunkRef`] vs
 /// `RealmStateSnapshotChunkDescriptor` — so neither shadows the other in the
 /// `arkret_sdk` prelude.
