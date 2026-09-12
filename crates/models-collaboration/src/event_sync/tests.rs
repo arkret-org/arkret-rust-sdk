@@ -2,9 +2,9 @@ use arkret_wire::{
     AccountId, ActorId, AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
     AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
     AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, CommandOutcome,
-    CommandResult, ControlProposalAckKind, DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef,
-    MultiSigKind, MultiSignature, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef,
-    SealSignature,
+    ControlProposalAckKind, DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef, MultiSigKind,
+    MultiSignature, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef,
+    SealCommandOutcome, SealSignature,
 };
 use serde_json::json;
 
@@ -542,7 +542,7 @@ fn federation_prerequisite_seal() -> Seal {
         hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
         configuration_ref: EventId::new("ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2")
             .unwrap(),
-        command_results: vec![CommandResult {
+        command_results: vec![SealCommandOutcome {
             event_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
             outcome: CommandOutcome::Committed,
             result_digest: hash('4'),
@@ -619,6 +619,7 @@ fn federation_transport_seal_closure_is_rooted_at_control_basis_leaves() {
 
     let mut request = federation_request(vec![control]);
     request.cbs_proof_bundles = vec![CbsProofBundle {
+        conclusion_set: None,
         target_seal_ref: seal.id.clone(),
         seals: vec![seal],
         control_moves: Vec::new(),
@@ -637,6 +638,7 @@ fn federation_transport_rejects_a_seal_no_transported_event_roots() {
     let seal = federation_prerequisite_seal();
     let mut request = federation_request(vec![event_with_device_proof()]);
     request.cbs_proof_bundles = vec![CbsProofBundle {
+        conclusion_set: None,
         target_seal_ref: seal.id.clone(),
         seals: vec![seal],
         control_moves: Vec::new(),

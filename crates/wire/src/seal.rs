@@ -134,7 +134,7 @@ impl SealSignature {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CommandResult {
+pub struct SealCommandOutcome {
     pub event_digest: Hash,
     pub outcome: CommandOutcome,
     pub result_digest: Hash,
@@ -174,7 +174,7 @@ struct CommandResultDigestInput<'a> {
     reason_code: &'a Option<ReasonCode>,
 }
 
-impl CommandResult {
+impl SealCommandOutcome {
     pub fn committed(
         event_digest: Hash,
         unit_event_digests: Vec<Hash>,
@@ -487,7 +487,7 @@ pub struct Seal {
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub configuration_ref: EventId,
-    pub command_results: Vec<CommandResult>,
+    pub command_results: Vec<SealCommandOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authorization_closures: Vec<AuthorizationClosure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -515,7 +515,7 @@ struct SealBody<'a> {
     sealed_at: DateTime<Utc>,
     hlc: &'a Hlc,
     configuration_ref: &'a EventId,
-    command_results: &'a [CommandResult],
+    command_results: &'a [SealCommandOutcome],
     #[serde(skip_serializing_if = "slice_is_empty")]
     authorization_closures: &'a [AuthorizationClosure],
     #[serde(skip_serializing_if = "slice_is_empty")]
@@ -550,7 +550,7 @@ pub struct UnsignedSeal {
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
     pub configuration_ref: EventId,
-    pub command_results: Vec<CommandResult>,
+    pub command_results: Vec<SealCommandOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authorization_closures: Vec<AuthorizationClosure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

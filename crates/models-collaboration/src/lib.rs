@@ -33,7 +33,6 @@ pub mod poll;
 pub mod prepared_event_draft;
 pub mod principal_operations;
 pub mod resolved_state;
-pub mod seal_conclusion;
 pub mod seal_transparency;
 mod serde_absence;
 pub mod session_grant_bodies;
@@ -51,7 +50,6 @@ pub use events_payloads::{
 pub use governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use prepared_event_draft::PreparedEventDraft;
 pub use resolved_state::ResolvedStateEvent;
-pub use seal_conclusion::*;
 
 macro_rules! string_marker {
     ($name:ident, $variant:ident, $wire:literal) => {

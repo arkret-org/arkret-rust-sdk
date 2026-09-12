@@ -2772,6 +2772,19 @@
       "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request/properties/terminal_receipt"
     },
     {
+      "finding": "crates/wire/src/seal_conclusion.rs::SealConclusionCellState.value",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "seal-conclusion.schema.json#/$defs/cell_state/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Verify the quorum and exact Cell selector, then validate the complete value under the registered Cell contract before business use. A null business value retains its revision wrapper.",
+      "test": "cargo test -p arkret-signatures --lib seal_conclusion",
+      "reason": "The shared certificate carries different registered sequenced-state Cell families; this field does not grant arbitrary JSON semantics.",
+      "adjudication": "manual",
+      "spec_pointer": "seal-conclusion.schema.json#/$defs/cell_state/properties/value"
+    },
+    {
       "finding": "floria/src/config/mod.rs::AppConfig.extra",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",

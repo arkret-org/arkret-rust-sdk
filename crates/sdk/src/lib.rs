@@ -195,7 +195,6 @@ pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
 pub use arkret_models_collaboration::prepared_event_draft::PreparedEventDraft;
-pub use arkret_models_collaboration::seal_conclusion::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::signal_message_stream::*;
@@ -349,10 +348,11 @@ pub use arkret_signatures::keypackages::{
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{
-    realm_organization, realm_organization_statement_sign, service_identity, sign_seal_conclusion,
-    sign_seal_configuration_handoff, verify_seal_conclusion_quorum_signatures,
-    verify_seal_conclusion_set_quorum_chain, verify_seal_configuration_handoff_quorum_signatures,
-    verify_seal_quorum_signatures, webvh,
+    SealConclusionCollector, VerifiedSealConclusionFacts, realm_organization,
+    realm_organization_statement_sign, service_identity, sign_seal_conclusion,
+    sign_seal_configuration_handoff, verify_seal_conclusion_facts,
+    verify_seal_conclusion_quorum_signatures, verify_seal_conclusion_set_quorum_chain,
+    verify_seal_configuration_handoff_quorum_signatures, verify_seal_quorum_signatures, webvh,
 };
 pub use arkret_state::mls_governance_proof::*;
 pub use arkret_state::{realm_state_snapshot, state, state_model, *};
@@ -386,11 +386,12 @@ pub use arkret_wire::receive_policy::{
     NewSourceQuotaOverride, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use arkret_wire::seal::{
-    AuthorizationClosure, CommandOutcome, CommandResult, CommandResultCellState,
-    CommandResultEffect, ExistenceAnchor, MultiSigKind, MultiSignature, Seal, SealSignature,
+    AuthorizationClosure, CommandOutcome, CommandResultCellState, CommandResultEffect,
+    ExistenceAnchor, MultiSigKind, MultiSignature, Seal, SealCommandOutcome, SealSignature,
     TransactionManifest, TransactionParticipant, TransactionRecord, compute_seal_id,
     seal_canonical_bytes,
 };
+pub use arkret_wire::seal_conclusion::*;
 pub use arkret_wire::self_contact_paths::*;
 pub use arkret_wire::signer::{PartialSignature, PayloadSigner, ThresholdAggregator};
 pub use arkret_wire::string_profiles::*;

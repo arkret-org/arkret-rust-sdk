@@ -218,8 +218,8 @@ pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
 pub use seal::{
-    AuthorizationClosure, CommandOutcome, CommandResult, CommandResultCellState,
-    CommandResultEffect, ExistenceAnchor, MultiSigKind, MultiSignature, PayloadSignature, Seal,
+    AuthorizationClosure, CommandOutcome, CommandResultCellState, CommandResultEffect,
+    ExistenceAnchor, MultiSigKind, MultiSignature, PayloadSignature, Seal, SealCommandOutcome,
     SealSignature, TransactionManifest, TransactionParticipant, TransactionRecord, UnsignedSeal,
     compute_seal_id, seal_canonical_bytes,
 };
@@ -261,3 +261,6 @@ pub use webvh_parameters::{
 };
 pub use wire_presence::WirePresence;
 pub use wire_strings::*;
+
+pub mod seal_conclusion;
+pub use seal_conclusion::*;

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.11;
-//! sha256=810f75931e1a0e111c984186f51055f30f868df5f43eb7026aa29a7760b37426
-//! Entries: reason_codes=423
+//! Input: registry/error-code-registry.json; version=2026-09-12.12;
+//! sha256=e9d68bcc1620261366eabd671995cd9c5a250cf89a20510c70118ad176c6722d
+//! Entries: reason_codes=422
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -154,7 +154,6 @@ pub enum ReasonCode {
     FederationTrustDomainMismatch,
     FocusMismatch,
     FocusUnavailableForClient,
-    ForensicAttributionMismatch,
     FoundingDeviceCommitmentMismatch,
     GateCheckFailed,
     GenesisSealInvalid,
@@ -629,7 +628,6 @@ impl ReasonCode {
     pub const FEDERATION_TRUST_DOMAIN_MISMATCH: &'static str = "federation_trust_domain_mismatch";
     pub const FOCUS_MISMATCH: &'static str = "focus_mismatch";
     pub const FOCUS_UNAVAILABLE_FOR_CLIENT: &'static str = "focus_unavailable_for_client";
-    pub const FORENSIC_ATTRIBUTION_MISMATCH: &'static str = "forensic_attribution_mismatch";
     pub const FOUNDING_DEVICE_COMMITMENT_MISMATCH: &'static str =
         "founding_device_commitment_mismatch";
     pub const GATE_CHECK_FAILED: &'static str = "gate_check_failed";
@@ -1137,7 +1135,6 @@ impl ReasonCode {
             Self::FederationTrustDomainMismatch => Self::FEDERATION_TRUST_DOMAIN_MISMATCH,
             Self::FocusMismatch => Self::FOCUS_MISMATCH,
             Self::FocusUnavailableForClient => Self::FOCUS_UNAVAILABLE_FOR_CLIENT,
-            Self::ForensicAttributionMismatch => Self::FORENSIC_ATTRIBUTION_MISMATCH,
             Self::FoundingDeviceCommitmentMismatch => Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH,
             Self::GateCheckFailed => Self::GATE_CHECK_FAILED,
             Self::GenesisSealInvalid => Self::GENESIS_SEAL_INVALID,
@@ -1638,7 +1635,6 @@ impl ReasonCode {
             Self::FEDERATION_TRUST_DOMAIN_MISMATCH => Self::FederationTrustDomainMismatch,
             Self::FOCUS_MISMATCH => Self::FocusMismatch,
             Self::FOCUS_UNAVAILABLE_FOR_CLIENT => Self::FocusUnavailableForClient,
-            Self::FORENSIC_ATTRIBUTION_MISMATCH => Self::ForensicAttributionMismatch,
             Self::FOUNDING_DEVICE_COMMITMENT_MISMATCH => Self::FoundingDeviceCommitmentMismatch,
             Self::GATE_CHECK_FAILED => Self::GateCheckFailed,
             Self::GENESIS_SEAL_INVALID => Self::GenesisSealInvalid,
@@ -2751,11 +2747,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::FOCUS_UNAVAILABLE_FOR_CLIENT,
         applies_to: &["service_call"],
         description: "Client cannot use the committed `session_focus` (e.g. focus not in local `foci_preferred[]`, region restricted, capability mismatch). Client MAY fail closed without joining the call rather than silently degrading; clients MUST NOT pick a different focus to bypass `session_focus_no_split_brain`. See zh/crypto-media/media-service-binding.md §5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::FORENSIC_ATTRIBUTION_MISMATCH,
-        applies_to: &["event_auth_state", "state_resolution"],
-        description: "A threshold-notary Seal's declared forensic_attribution mode (e.g. waived or quorum_intersection) does not satisfy the Realm's forensic-attribution obligation for the signer set. The Seal MUST reject. See fixtures/cbs-lattice-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::FOUNDING_DEVICE_COMMITMENT_MISMATCH,

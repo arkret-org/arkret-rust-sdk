@@ -15,9 +15,9 @@ use arkret_state::{
     resolve_projected_write,
 };
 use arkret_wire::{
-    ActorId, AuthorizationRef, CellRef, CommandResult, CommandResultCellState, CommandResultEffect,
-    DidCoreId, EncryptionProfile, Event, EventCellExecution, EventKind, GenesisSalt, Hash, Hlc,
-    NotaryValue, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SecurityClass,
+    ActorId, AuthorizationRef, CellRef, CommandResultCellState, CommandResultEffect, DidCoreId,
+    EncryptionProfile, Event, EventCellExecution, EventKind, GenesisSalt, Hash, Hlc, NotaryValue,
+    PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SealCommandOutcome, SecurityClass,
     TrustDomainId, UnsignedSeal, WireError, event_spec, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -605,7 +605,7 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
     let control_root = control_event_set_root(&target, digest_suite)
         .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
     let availability_receipt_digests = Vec::new();
-    let command_result = CommandResult::committed(
+    let command_result = SealCommandOutcome::committed(
         delta[0].clone(),
         delta.clone(),
         material.command_effects,

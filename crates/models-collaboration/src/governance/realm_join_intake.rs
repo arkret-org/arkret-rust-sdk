@@ -776,13 +776,15 @@ pub struct RealmJoinPeerApplicationStatusOutcome {
     /// every `realm_state` other than `received`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decision: Option<ControlProposalDecisionReadOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conclusion_set: Option<arkret_wire::SealConclusionSet>,
     #[serde(with = "canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
 }
 
 impl RealmJoinPeerApplicationStatusOutcome {
     pub const SCHEMA: &'static str = SchemaId::REALM_JOIN_PEER_APPLICATION_STATUS_OUTCOME_V1;
-    pub const MAX_CANONICAL_BYTES: usize = 262_144;
+    pub const MAX_CANONICAL_BYTES: usize = 8 * 1024 * 1024;
 
     pub fn validate_structural(&self) -> Result<()> {
         self.applicant_account_id.validate()?;
@@ -791,6 +793,24 @@ impl RealmJoinPeerApplicationStatusOutcome {
             Self::MAX_CANONICAL_BYTES,
             "Realm join application status",
         )?;
+        if (self.realm_state == RealmJoinRealmState::Sealed) != self.conclusion_set.is_some() {
+            return Err(WireError::Protocol(
+                "sealed application status requires conclusions; other states forbid them"
+                    .to_owned(),
+            ));
+        }
+        if let Some(set) = &self.conclusion_set {
+            set.validate_structural()?;
+            if set
+                .conclusions
+                .iter()
+                .any(|certificate| certificate.statement.realm_id != self.realm_id)
+            {
+                return Err(WireError::Protocol(
+                    "application conclusion crosses Realm".to_owned(),
+                ));
+            }
+        }
         match (self.realm_state.proposal_state(), &self.decision) {
             (None, None) => Ok(()),
             (None, Some(_)) => Err(WireError::Protocol(
@@ -937,7 +957,7 @@ impl RealmJoinSelfApplicationStatusOutcome {
 mod tests {
     use arkret_canonical::DigestSuite;
     use arkret_wire::seal::{
-        CommandOutcome, CommandResult, MultiSigKind, MultiSignature, Seal, SealSignature,
+        CommandOutcome, MultiSigKind, MultiSignature, Seal, SealCommandOutcome, SealSignature,
     };
     use arkret_wire::{
         ActorId, CellRef, ControlProposalAuthorityKind, DidCoreId, DidUrl, Predicate, PredicateOp,
@@ -1004,7 +1024,7 @@ mod tests {
             sealed_at: "2026-09-10T08:00:00Z".parse().expect("timestamp"),
             hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").expect("hlc"),
             configuration_ref: event_id(),
-            command_results: vec![CommandResult {
+            command_results: vec![SealCommandOutcome {
                 event_digest: hash(delta_byte),
                 outcome: CommandOutcome::Committed,
                 result_digest: hash('4'),
@@ -1560,6 +1580,39 @@ mod tests {
             event_id: event_id(),
             realm_state,
             decision,
+            conclusion_set: (realm_state == RealmJoinRealmState::Sealed).then(|| {
+                use arkret_wire::seal_conclusion::*;
+                let statement = SealConclusionStatement {
+                    realm_id: realm_id(),
+                    configuration_ref: event_id(),
+                    authority_seal_ref: seal().id.clone(),
+                    target_seal_ref: seal().id,
+                    results: vec![SealConclusionOutcome::Command(
+                        SealConclusionCommandOutcome {
+                            selector: SealConclusionCommandSelector {
+                                kind: SealConclusionCommandSelectorKind::Command,
+                                event_digest: event_id().event_digest(),
+                            },
+                            result: Some(SealCommandOutcome {
+                                event_digest: event_id().event_digest(),
+                                outcome: CommandOutcome::Committed,
+                                result_digest: hash('4'),
+                                reason_code: None,
+                                unit_event_digests: vec![event_id().event_digest()],
+                            }),
+                        },
+                    )],
+                };
+                let mut signature = seal().notary_signature.signatures[0].clone();
+                signature.payload_digest = statement.signing_payload_digest().unwrap();
+                SealConclusionSet {
+                    configuration_handoffs: vec![],
+                    conclusions: vec![SealConclusionCertificate {
+                        statement,
+                        signatures: vec![signature],
+                    }],
+                }
+            }),
             observed_at: observed_at(),
         }
     }

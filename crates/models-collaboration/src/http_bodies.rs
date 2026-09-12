@@ -12,8 +12,8 @@ use arkret_wire::{
     ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, DomainSeparationId, Event,
     EventFederationSubmission, EventId, EventInitialSubmission, Hash, IngressReceipt, MlsGroupId,
     MorphId, NonEmptyString, ObjectStage, PayloadProof, ProofContextId, RealmId, ReasonCode,
-    RelationId, ReportId, Result, Seal, SealId, ServiceOperationId, SignalEnvelope, SpaceId,
-    StrandId, WireError, canonical,
+    RelationId, ReportId, Result, Seal, SealConclusionQuery, SealConclusionSet, SealId,
+    ServiceOperationId, SignalEnvelope, SpaceId, StrandId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,6 @@ use crate::objects::mimi::{
     MimiIdentifierMatch, MimiKeyPackage, MimiNotification, MimiNotificationRouting,
     MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
-use crate::seal_conclusion::{SealConclusionQuery, SealConclusionSet};
 use crate::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
 
@@ -528,6 +527,46 @@ pub enum SealResolveSelection {
     },
 }
 
+// Deserialization uses a closed field carrier because serde flatten combined
+// with an untagged enum and outer deny_unknown_fields rejects valid variants.
+// The public enum still makes the two selection modes mutually exclusive.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, bound(deserialize = "A: Deserialize<'de>"))]
+struct SealResolveFields<A> {
+    realm_id: RealmId,
+    #[serde(default, deserialize_with = "deserialize_present_seal_field")]
+    seal_refs: Option<Vec<SealId>>,
+    #[serde(default, deserialize_with = "deserialize_present_seal_field")]
+    conclusion_queries: Option<Vec<SealConclusionQuery>>,
+    #[serde(default, deserialize_with = "deserialize_present_seal_field")]
+    history_traversal_access: Option<A>,
+}
+
+fn deserialize_present_seal_field<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
+}
+
+fn seal_resolve_selection(
+    seal_refs: Option<Vec<SealId>>,
+    conclusion_queries: Option<Vec<SealConclusionQuery>>,
+) -> Result<SealResolveSelection> {
+    match (seal_refs, conclusion_queries) {
+        (Some(seal_refs), None) => Ok(SealResolveSelection::SealRefs { seal_refs }),
+        (None, Some(conclusion_queries)) => {
+            Ok(SealResolveSelection::ConclusionQueries { conclusion_queries })
+        }
+        _ => Err(WireError::Protocol(
+            "Seal resolve requires exactly one selection mode".to_owned(),
+        )),
+    }
+}
+
 impl SealResolveSelection {
     pub fn validate(&self) -> Result<()> {
         match self {
@@ -541,22 +580,38 @@ impl SealResolveSelection {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "SealResolveFields<serde::de::IgnoredAny>")]
 pub struct SealResolveRequestCore {
     pub realm_id: RealmId,
     #[serde(flatten)]
     pub selection: SealResolveSelection,
 }
 
+impl TryFrom<SealResolveFields<serde::de::IgnoredAny>> for SealResolveRequestCore {
+    type Error = WireError;
+    fn try_from(fields: SealResolveFields<serde::de::IgnoredAny>) -> Result<Self> {
+        if fields.history_traversal_access.is_some() {
+            return Err(WireError::Protocol(
+                "Seal resolve core does not accept history traversal access".to_owned(),
+            ));
+        }
+        Ok(Self {
+            realm_id: fields.realm_id,
+            selection: seal_resolve_selection(fields.seal_refs, fields.conclusion_queries)?,
+        })
+    }
+}
+
 impl SealResolveRequestCore {
     pub fn validate(&self) -> Result<()> {
-        self.selection.validate()
+        self.selection.validate()?;
+        validate_seal_resolve_request_bytes(self)
     }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "SealResolveFields<SelfHistoryTraversalAccess>")]
 pub struct SelfSealResolveRequestBody {
     pub realm_id: RealmId,
     #[serde(flatten)]
@@ -565,15 +620,27 @@ pub struct SelfSealResolveRequestBody {
     pub history_traversal_access: Option<SelfHistoryTraversalAccess>,
 }
 
+impl TryFrom<SealResolveFields<SelfHistoryTraversalAccess>> for SelfSealResolveRequestBody {
+    type Error = WireError;
+    fn try_from(fields: SealResolveFields<SelfHistoryTraversalAccess>) -> Result<Self> {
+        Ok(Self {
+            realm_id: fields.realm_id,
+            selection: seal_resolve_selection(fields.seal_refs, fields.conclusion_queries)?,
+            history_traversal_access: fields.history_traversal_access,
+        })
+    }
+}
+
 impl SelfSealResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.selection.validate()
+        self.selection.validate()?;
+        validate_seal_resolve_request_bytes(self)
     }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "SealResolveFields<PeerHistoryTraversalAccess>")]
 pub struct PeerSealResolveRequestBody {
     pub realm_id: RealmId,
     #[serde(flatten)]
@@ -582,9 +649,21 @@ pub struct PeerSealResolveRequestBody {
     pub history_traversal_access: Option<PeerHistoryTraversalAccess>,
 }
 
+impl TryFrom<SealResolveFields<PeerHistoryTraversalAccess>> for PeerSealResolveRequestBody {
+    type Error = WireError;
+    fn try_from(fields: SealResolveFields<PeerHistoryTraversalAccess>) -> Result<Self> {
+        Ok(Self {
+            realm_id: fields.realm_id,
+            selection: seal_resolve_selection(fields.seal_refs, fields.conclusion_queries)?,
+            history_traversal_access: fields.history_traversal_access,
+        })
+    }
+}
+
 impl PeerSealResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        self.selection.validate()
+        self.selection.validate()?;
+        validate_seal_resolve_request_bytes(self)
     }
 }
 
@@ -604,7 +683,23 @@ pub enum SealResolveOutcome {
 }
 
 impl SealResolveOutcome {
+    /// Extract raw Seals after request validation. Missing references remain
+    /// unavailable; this does not assert that the requested closure is complete.
+    pub fn into_seals(self) -> Result<Vec<Seal>> {
+        match self {
+            Self::Seals { seals, .. } => Ok(seals),
+            Self::Conclusions { .. } => Err(WireError::Protocol(
+                "expected raw Seal resolution, received conclusions".to_owned(),
+            )),
+        }
+    }
+
     pub fn validate_structural(&self) -> Result<()> {
+        if canonical::canonical_json_bytes(self)?.len() > 8 * 1024 * 1024 {
+            return Err(WireError::Protocol(
+                "limit_exceeded: Seal resolve response exceeds 8 MiB".to_owned(),
+            ));
+        }
         match self {
             Self::Seals {
                 seals,
@@ -645,7 +740,31 @@ impl SealResolveOutcome {
     pub fn validate_for_peer_request(&self, request: &PeerSealResolveRequestBody) -> Result<()> {
         request.validate()?;
         self.validate_structural()?;
+        self.validate_for_realm(&request.realm_id)?;
         self.validate_for_selection(&request.selection)
+    }
+
+    pub fn validate_for_realm(&self, realm_id: &RealmId) -> Result<()> {
+        let crosses_realm = match self {
+            Self::Seals { seals, .. } => seals.iter().any(|seal| &seal.realm_id != realm_id),
+            Self::Conclusions { conclusion_set, .. } => {
+                conclusion_set.as_ref().is_some_and(|set| {
+                    set.conclusions
+                        .iter()
+                        .any(|certificate| &certificate.statement.realm_id != realm_id)
+                        || set
+                            .configuration_handoffs
+                            .iter()
+                            .any(|handoff| &handoff.statement.realm_id != realm_id)
+                })
+            }
+        };
+        if crosses_realm {
+            return Err(WireError::Protocol(
+                "Seal resolve outcome crosses the requested Realm".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn validate_for_selection(&self, selection: &SealResolveSelection) -> Result<()> {
@@ -728,6 +847,15 @@ fn validate_seal_resolve_selectors(seal_refs: &[SealId]) -> Result<()> {
     {
         return Err(WireError::Protocol(
             "Seal resolve requires 1..=256 duplicate-free seal_refs".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_seal_resolve_request_bytes(request: &impl Serialize) -> Result<()> {
+    if canonical::canonical_json_bytes(request)?.len() > 64 * 1024 {
+        return Err(WireError::Protocol(
+            "limit_exceeded: Seal resolve request exceeds 64 KiB".to_owned(),
         ));
     }
     Ok(())
