@@ -311,10 +311,13 @@ where
                     }
                     arkret_wire::EventCellExecution::Data => {
                         if !allow_ordinary_anchor_writes {
-                            return Err(OrderedControlBatchAbort::Structural(format!(
-                                "ordinary cell {} reached standard Seal execution",
-                                effect.cell_id.as_str()
-                            )));
+                            return Err(OrderedControlBatchAbort::Pending {
+                                reason_code: crate::ReasonCode::DependencyMissing,
+                                detail: format!(
+                                    "verified signed causal data context unavailable for cell {}",
+                                    effect.cell_id.as_str()
+                                ),
+                            });
                         }
                         if initial_state.contains_key(&effect.cell_id) {
                             return Err(OrderedControlBatchAbort::Structural(format!(
@@ -2065,6 +2068,66 @@ mod ordered_command_tests {
                 value: json!(0),
             }),
         )])
+    }
+
+    #[test]
+    fn mixed_command_without_verified_data_context_is_pending_with_no_effects() {
+        let mut registry = fixture_registry();
+        registry.register(
+            "ak.component.test.data.v1",
+            EventCellExecution::Data,
+            StateModelKind::CausalRegister,
+            EventCellValueShape::Register,
+            None,
+        );
+        let data_cell = CellRef::new("ak:cell:ak.component.test.data.v1:slot").unwrap();
+        let initial = initial_state();
+        let unit = OrderedControlUnit {
+            events: vec![member(1), member(2)],
+        };
+        let outcome = execute_ordered_control_units(
+            &realm(),
+            &initial,
+            &registry,
+            &[unit],
+            arkret_canonical::DigestSuite::Sha256,
+            false,
+            |member, _, _| {
+                let effect = if member.event.actor_seq == 1 {
+                    set(1)
+                } else {
+                    ProjectionEffect::new(
+                        data_cell.clone(),
+                        LatticeOp {
+                            op_type: LatticeOpType::Set,
+                            value: Some(json!("metadata")),
+                            ..LatticeOp::empty()
+                        },
+                    )
+                };
+                Ok(CommandEventResult::Applied(vec![effect]))
+            },
+        );
+        assert!(matches!(
+            outcome,
+            Err(OrderedControlBatchAbort::Pending {
+                reason_code: ReasonCode::DependencyMissing,
+                ..
+            })
+        ));
+        assert_eq!(initial[&cell()].settled_value(), Some(&json!(0)));
+        assert!(!initial.contains_key(&data_cell));
+        assert!(matches!(
+            command_verification_failure(
+                super::super::verify::ControlMoveReject::MissingDataContext {
+                    cell: data_cell.to_string(),
+                }
+            ),
+            Err(OrderedControlBatchAbort::Pending {
+                reason_code: ReasonCode::DependencyMissing,
+                ..
+            })
+        ));
     }
 
     #[test]

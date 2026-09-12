@@ -70,6 +70,9 @@ pub enum ControlMoveReject {
     #[error("reducer projection failed: {0}")]
     ProjectionFailed(String),
 
+    #[error("verified signed causal data context unavailable for cell {cell}")]
+    MissingDataContext { cell: String },
+
     #[error("registry error: {0}")]
     Registry(String),
 }
@@ -109,6 +112,9 @@ pub fn classify_control_move_reject(reject: &ControlMoveReject) -> ControlMoveFa
         }
         ControlMoveReject::ProjectionFailed(reason) => {
             classify_registered_failure_reason(reason, crate::ReasonCode::ReducerProjectionFailed)
+        }
+        ControlMoveReject::MissingDataContext { .. } => {
+            ControlMoveFailureDisposition::Pending(crate::ReasonCode::DependencyMissing)
         }
         ControlMoveReject::Registry(_) => ControlMoveFailureDisposition::Infrastructure,
     }
@@ -180,6 +186,7 @@ pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
         // the Event's declared writes could not be derived, which is the same
         // family of failure as a malformed envelope.
         ControlMoveReject::ProjectionFailed(_) => crate::ErrorCode::SCHEMA_VIOLATION,
+        ControlMoveReject::MissingDataContext { .. } => crate::ErrorCode::DEPENDENCY_MISSING,
         ControlMoveReject::Registry(_) => crate::ErrorCode::INTERNAL_ERROR,
     }
 }
@@ -397,6 +404,27 @@ where
         &dependencies,
     )?;
 
+    // Data predicates and patches cannot be evaluated against the Seal's
+    // security-only state. Until a verified signed causal data context is
+    // available, keep the complete command pending instead of manufacturing
+    // a deterministic rejection from an absent or unrelated data value.
+    if context != EventSubmitContext::AnchorUnit {
+        for cell in projected
+            .iter()
+            .map(|write| &write.cell_id)
+            .chain(event.preconditions.iter().map(|pre| &pre.cell_id))
+        {
+            let binding = registry
+                .resolve(realm_id, cell)
+                .map_err(|error| ControlMoveReject::Registry(error.to_string()))?;
+            if binding.execution == arkret_wire::EventCellExecution::Data {
+                return Err(ControlMoveReject::MissingDataContext {
+                    cell: cell.as_str().to_owned(),
+                });
+            }
+        }
+    }
+
     // Step 4: preconditions
     for pre in &event.preconditions {
         // An unwritten cell reads `null` protocol-wide
@@ -432,15 +460,20 @@ where
             let binding = registry
                 .resolve(realm_id, &effect.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if (binding.execution == arkret_wire::EventCellExecution::Security
-                && binding.state_model != crate::state_model::StateModelKind::SequencedState)
-                || (binding.execution == arkret_wire::EventCellExecution::Data
-                    && context != EventSubmitContext::AnchorUnit)
+            if binding.execution == arkret_wire::EventCellExecution::Security
+                && binding.state_model != crate::state_model::StateModelKind::SequencedState
             {
                 return Err(ControlMoveReject::SchemaViolation(format!(
-                    "control Event projected ordinary data cell {}",
+                    "security cell {} must use sequenced_state",
                     effect.cell_id
                 )));
+            }
+            if binding.execution == arkret_wire::EventCellExecution::Data
+                && context != EventSubmitContext::AnchorUnit
+            {
+                return Err(ControlMoveReject::MissingDataContext {
+                    cell: effect.cell_id.as_str().to_owned(),
+                });
             }
             if let Some(ResolvedCellState::Bottom(bottom)) = pre_state.get(&effect.cell_id) {
                 return Err(ControlMoveReject::FailedBottom {
