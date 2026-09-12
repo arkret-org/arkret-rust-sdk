@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.12;
-//! sha256=d389a78f4571712dc0d41aea84511be8c31b548c61e7e51f42ac330fd4330af6
+//! Input: registry/error-code-registry.json; version=2026-09-12.13;
+//! sha256=802864bbebd29109fbe1e2cdfe4ebd13bc3619ff3b4a09d6b0782d9b9d2f06df
 //! Entries: reason_codes=422
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2452,7 +2452,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CONTROL_PROPOSAL_DECISION_OVERDUE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "A receipted Control Move proposal reached its signed decision_due_at without include, signed-reject, or a valid bounded signed-defer, or exhausted its immutable absolute_due_at / maximum defer count without include or signed-reject. This is a governance health and censorship-evidence fault, not an acceptance or Seal-finality result: a later cryptographically valid Seal remains acceptable and the fault stays auditable. See zh/authz/event-auth-state-resolution.md section 7.2.",
+        description: "A receipted Control Move proposal reached its signed decision_due_at without include, confirmed rejected command result, or a valid bounded signed-defer, or exhausted its immutable absolute_due_at / maximum defer count without include or confirmed rejected command result. This is a governance health and censorship-evidence fault, not an acceptance or Seal-finality result: a later cryptographically valid Seal remains acceptable and the fault stays auditable. See zh/authz/event-auth-state-resolution.md section 7.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::COVERED_SET_MISMATCH,
@@ -2885,7 +2885,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::INCLUSION_LIST_VIOLATION,
         applies_to: &["event_auth_state", "state_resolution"],
-        description: "A Seal failed to discharge a FOCIL-style inclusion-list obligation: a listed, receipt-backed Control Move digest was neither included nor signed-rejected nor proven to fail batch pre-state verification within expiry_seal_count. Receivers MUST reject the entire Seal (rejected_seal). See authz/event-auth-state-resolution.md section 7.3 and schemas/inclusion-list.schema.json.",
+        description: "The obliged Seal has no explicit committed or rejected command result for a listed proposal. A deferral or standalone verification-failure claim does not discharge inclusion. Reject the entire Seal with inclusion_list_violation.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INCLUSION_PROOF_FAILED,

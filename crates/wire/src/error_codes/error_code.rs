@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.12;
-//! sha256=d389a78f4571712dc0d41aea84511be8c31b548c61e7e51f42ac330fd4330af6 Entries: error_codes=280
+//! Input: registry/error-code-registry.json; version=2026-09-12.13;
+//! sha256=802864bbebd29109fbe1e2cdfe4ebd13bc3619ff3b4a09d6b0782d9b9d2f06df Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -2357,7 +2357,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The exact device generation is blocked by one or more durable accepted ak.device.revoke proposals that have not been terminally signed-rejected or covered by an accepted Seal. Timeout and cache eviction do not clear this state.",
+        description: "The exact device generation is blocked by one or more durable accepted ak.device.revoke proposals that have not been terminally rejected by a confirmed Seal command result or covered by an accepted Seal. Timeout and cache eviction do not clear this state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevoked,

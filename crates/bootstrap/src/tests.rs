@@ -21,9 +21,9 @@ use arkret_wire::{
     DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, LatticeOp,
     LatticeOpType, NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor,
     NotaryValue, PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite,
-    ProjectedOp, RealmId, ScopeRef, SealBasis, SealCommandOutcome, SealId, SemanticRefProof,
-    SemanticRefProofKind, SemanticRefProofRootField, TrustDomainId, UnsignedSeal, WireError,
-    composite_subject, project_did_to_core_id, proof_kind,
+    ProjectedOp, RealmId, ScopeRef, SealBasis, SealId, SemanticRefProof, SemanticRefProofKind,
+    SemanticRefProofRootField, TrustDomainId, UnsignedSeal, WireError, composite_subject,
+    project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;

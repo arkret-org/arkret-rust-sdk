@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-12.13;
-//! sha256=38a55b45329b01fc4959e22f2705f8a5ee1900455468615b93e1d554c4a83f88 Entries: schema_ids=228,
+//! Input: registry/schema-registry.json; version=2026-09-12.14;
+//! sha256=d1a973ff6d95af905279bf76ef0e2b1c2f9bf267f13ad5492401268db089eeb5 Entries: schema_ids=228,
 //! active=228
 
 use serde::{Deserialize, Serialize};
@@ -900,8 +900,8 @@ impl SchemaId {
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
     /// Closed request/response DTO bundle for quorum-capable Control Proposal Acks and signed
-    /// reject/defer decisions (ak.self.control_proposal_decision.* operations). Deadlines provide
-    /// bounded authority decisions, never acceptance or Seal finality.
+    /// deferrals (ak.self.control_proposal_decision.* operations). Deadlines provide bounded
+    /// authority decisions, never acceptance or Seal finality.
     pub const CONTROL_PROPOSAL_DECISION_V1: &'static str = "ak.schema.control_proposal_decision.v1";
     /// Privacy-minimal Account Authority attestation of the controller principal lifecycle gate;
     /// never carries service-local account identity or a raw account cell.
@@ -936,7 +936,8 @@ impl SchemaId {
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
     /// Reducer-owned durable state machine for accepted ak.device.revoke proposals: mandatory Ack,
     /// exact authority/device/generation binding, universal revocation_pending gates, exact
-    /// signed-reject release, overdue fault retention and covering-Seal finality.
+    /// confirmed rejected command result release, overdue fault retention and covering-Seal
+    /// finality.
     pub const DEVICE_REVOCATION_STATE_V1: &'static str = "ak.schema.device_revocation_state.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),
@@ -1016,8 +1017,9 @@ impl SchemaId {
     /// Principal resolution projection/update/evidence and signed service resolution record
     /// contracts for the did_core_id/did model.
     pub const IDENTITY_RESOLUTION_V1: &'static str = "ak.schema.identity_resolution.v1";
-    /// FOCIL-style control-plane inclusion list signed by a non-proposer notary signer; the next
-    /// Seal MUST include, signed-reject, or prove verification failure for every listed digest
+    /// Inclusion-list accountability for a configuration with a distinct non-proposer signer. Each
+    /// obliged proposal requires its explicit committed or rejected result in the unique confirmed
+    /// Seal; a standalone verification-failure claim is insufficient.
     pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
     pub const INVITE_V1: &'static str = "ak.schema.invite.v1";
     /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the

@@ -1361,10 +1361,6 @@ mod agent_selector_outcome_tests {
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
 
-    fn actor(_value: &str) -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
-    }
-
     fn service(_value: &str) -> DidCoreId {
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
     }
