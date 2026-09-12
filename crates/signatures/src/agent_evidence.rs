@@ -1435,6 +1435,10 @@ mod reusable_authority_tests {
             not_before: expires_at - chrono::Duration::seconds(300),
             signer_actor_id: actor.clone(),
             verification_method: method.clone(),
+            controller_account_id: arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:controller.example").unwrap(),
+                actor.route_service_id().clone(),
+            ),
         };
         for seconds in [1, 30, 299] {
             assert!(key.permits(
