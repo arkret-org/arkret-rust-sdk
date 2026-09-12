@@ -1680,17 +1680,6 @@
       "reason": "ResolvedStateEvent is projection storage rather than a wire authoring DTO. The resolver constructs it from validated projected writes, keeps kind as EventKind, and its capability and membership reads are guarded by the exact resolved family; resolver tests cover the projected shapes."
     },
     {
-      "finding": "crates/models-collaboration/src/seal_conclusion.rs::SealConclusionCellState.value",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
       "finding": "crates/models-collaboration/src/sync_frames/account_sync.rs::ActorPrivateAccountDataUpdate.content",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -2731,6 +2720,19 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "spec_pointer": "recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request/properties/terminal_receipt"
+    },
+    {
+      "finding": "crates/wire/src/seal_conclusion.rs::SealConclusionCellState.value",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "seal-conclusion.schema.json#/$defs/cell_state/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Verify the quorum and exact Cell selector, then validate the complete value under the registered Cell contract before business use. A null business value retains its revision wrapper.",
+      "test": "cargo test -p arkret-signatures --lib seal_conclusion",
+      "reason": "The shared certificate carries different registered sequenced-state Cell families; this field does not grant arbitrary JSON semantics.",
+      "adjudication": "manual",
+      "spec_pointer": "seal-conclusion.schema.json#/$defs/cell_state/properties/value"
     },
     {
       "finding": "crates/wire/src/seal.rs::CommandResultCellState.value",

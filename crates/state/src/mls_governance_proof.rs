@@ -962,6 +962,14 @@ where
     ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
     bundle.validate_for_request(request)?;
+    if matches!(
+        &bundle.frontier_projection,
+        MlsGovernanceFrontierProjection::Conclusions { .. }
+    ) {
+        return frontier_rejected(
+            "quorum conclusions require the non-voting fact verifier, not a replay checkpoint",
+        );
+    }
     if request.local_mls_leaves != local_mls_leaves {
         return frontier_rejected(
             "query local_mls_leaves differ from the verifier's RFC 9420 group state",
@@ -969,7 +977,7 @@ where
     }
     group_genesis_binding.validate()?;
     validate_proposal_binding(request, group_genesis_binding)?;
-    if bundle.frontier_projection.frontier_registry_digest
+    if *bundle.frontier_projection.frontier_registry_digest()
         != mls_security_frontier_registry_digest()
     {
         return frontier_rejected(
@@ -1018,7 +1026,7 @@ where
         )
         .await?;
     let (_, leaf_actors, leaf_credentials) = canonical_leaf_set(local_mls_leaves)?;
-    for branch in &bundle.frontier_projection.branches {
+    for branch in bundle.frontier_projection.branches() {
         let seal = seals.get(&branch.target_seal_ref).ok_or_else(|| {
             WireError::Protocol("frontier branch target Seal is unresolved".to_owned())
         })?;
@@ -1447,7 +1455,7 @@ where
         Hash::new("sha256:0000000000000000000000000000000000000000000000000000000000000000")?;
     let mut bundle = MlsGovernanceProofBundle {
         query_digest: request.query_digest()?,
-        frontier_projection: MlsGovernanceFrontierProjection {
+        frontier_projection: MlsGovernanceFrontierProjection::Merkle {
             frontier_registry_digest: mls_security_frontier_registry_digest(),
             branches,
         },

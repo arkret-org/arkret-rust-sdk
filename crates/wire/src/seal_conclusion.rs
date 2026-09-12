@@ -1,12 +1,13 @@
 //! Quorum-certified historical conclusions over one Realm Seal lineage.
 
 use arkret_canonical::canonical_json_bytes;
-use arkret_wire::{
-    CellRef, CommandResult, EventId, Hash, NotarySignerDescriptor, NotaryValue, RealmId, Result,
-    SealId, SealSignature, TransactionRecord, WireError,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::{
+    CellRef, EventId, Hash, NotarySignerDescriptor, NotaryValue, RealmId, Result,
+    SealCommandOutcome, SealId, SealSignature, TransactionRecord, WireError,
+};
 
 pub const MAX_SEAL_CONCLUSION_SELECTORS: usize = 64;
 pub const MAX_SEAL_CONCLUSION_QUERIES: usize = 128;
@@ -17,11 +18,15 @@ pub const MAX_SEAL_CONCLUSION_CERTIFICATE_BYTES: usize = 8 * 1024 * 1024;
 pub const SEAL_CONCLUSION_CONTEXT: &str = "ak.seal.conclusion.v1";
 pub const SEAL_CONFIGURATION_HANDOFF_CONTEXT: &str = "ak.seal.configuration_handoff.v1";
 
+/// `seal-conclusion.schema.json#/$defs/cell_state`: the wrapper is closed;
+/// its value is interpreted only under the exact registered Cell contract.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealConclusionCellState {
     pub revision_event_id: EventId,
+    /// `seal-conclusion.schema.json#/$defs/cell_state/properties/value`.
+    /// Consumers must validate the complete registered business value.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub value: Value,
 }
@@ -74,10 +79,11 @@ impl SealConclusionSelector {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionCellResult {
+pub struct SealConclusionCellOutcome {
     pub selector: SealConclusionCellSelector,
+    #[serde(deserialize_with = "required_nullable")]
     pub state: Option<SealConclusionCellState>,
 }
 
@@ -97,7 +103,7 @@ pub enum SealConclusionCellSelectorKind {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealConclusionRangeCell {
     pub cell_id: CellRef,
@@ -105,9 +111,9 @@ pub struct SealConclusionRangeCell {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionCellRangeResult {
+pub struct SealConclusionCellRangeOutcome {
     pub selector: SealConclusionCellRangeSelector,
     pub cells: Vec<SealConclusionRangeCell>,
 }
@@ -146,9 +152,10 @@ pub enum SealConclusionCommandSelectorKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionCommandResult {
+pub struct SealConclusionCommandOutcome {
     pub selector: SealConclusionCommandSelector,
-    pub result: Option<CommandResult>,
+    #[serde(deserialize_with = "required_nullable")]
+    pub result: Option<SealCommandOutcome>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -168,10 +175,11 @@ pub enum SealConclusionCommandEffectSelectorKind {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionCommandEffectResult {
+pub struct SealConclusionCommandEffectOutcome {
     pub selector: SealConclusionCommandEffectSelector,
+    #[serde(deserialize_with = "required_nullable")]
     pub state: Option<SealConclusionCellState>,
 }
 
@@ -193,8 +201,9 @@ pub enum SealConclusionTransactionSelectorKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionTransactionResult {
+pub struct SealConclusionTransactionOutcome {
     pub selector: SealConclusionTransactionSelector,
+    #[serde(deserialize_with = "required_nullable")]
     pub record: Option<TransactionRecord>,
 }
 
@@ -216,24 +225,24 @@ pub enum SealConclusionAncestrySelectorKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SealConclusionAncestryResult {
+pub struct SealConclusionAncestryOutcome {
     pub selector: SealConclusionAncestrySelector,
     pub is_ancestor: bool,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum SealConclusionResult {
-    Cell(SealConclusionCellResult),
-    CellRange(SealConclusionCellRangeResult),
-    Command(SealConclusionCommandResult),
-    CommandEffect(SealConclusionCommandEffectResult),
-    Transaction(SealConclusionTransactionResult),
-    Ancestry(SealConclusionAncestryResult),
+pub enum SealConclusionOutcome {
+    Cell(SealConclusionCellOutcome),
+    CellRange(SealConclusionCellRangeOutcome),
+    Command(SealConclusionCommandOutcome),
+    CommandEffect(SealConclusionCommandEffectOutcome),
+    Transaction(SealConclusionTransactionOutcome),
+    Ancestry(SealConclusionAncestryOutcome),
 }
 
-impl SealConclusionResult {
+impl SealConclusionOutcome {
     pub fn selector(&self) -> SealConclusionSelector {
         match self {
             Self::Cell(result) => SealConclusionSelector::Cell {
@@ -282,7 +291,11 @@ impl SealConclusionResult {
             Self::Command(result) => {
                 if let Some(command) = &result.result {
                     command.validate_structural()?;
-                    if command.event_digest != result.selector.event_digest {
+                    if command.event_digest != result.selector.event_digest
+                        && !command
+                            .unit_event_digests
+                            .contains(&result.selector.event_digest)
+                    {
                         return Err(WireError::Protocol(
                             "Seal conclusion command result does not match its selector".to_owned(),
                         ));
@@ -325,14 +338,14 @@ impl SealConclusionQuery {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealConclusionStatement {
     pub realm_id: RealmId,
     pub configuration_ref: EventId,
     pub authority_seal_ref: SealId,
     pub target_seal_ref: SealId,
-    pub results: Vec<SealConclusionResult>,
+    pub results: Vec<SealConclusionOutcome>,
 }
 
 impl SealConclusionStatement {
@@ -348,7 +361,7 @@ impl SealConclusionStatement {
         let selectors = self
             .results
             .iter()
-            .map(SealConclusionResult::selector)
+            .map(SealConclusionOutcome::selector)
             .collect::<Vec<_>>();
         validate_canonical_order("Seal conclusion result selectors", &selectors)
     }
@@ -373,7 +386,7 @@ impl SealConclusionStatement {
             && self
                 .results
                 .iter()
-                .map(SealConclusionResult::selector)
+                .map(SealConclusionOutcome::selector)
                 .eq(query.selectors.iter().cloned())
     }
 }
@@ -385,7 +398,7 @@ struct ConclusionSigningPayload<'a> {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealConclusionCertificate {
     pub statement: SealConclusionStatement,
@@ -446,6 +459,11 @@ pub struct SealConfigurationHandoffStatement {
 
 impl SealConfigurationHandoffStatement {
     pub fn validate_structural(&self) -> Result<()> {
+        if self.configuration_ref == self.next_configuration_ref {
+            return Err(WireError::Protocol(
+                "configuration handoff cannot self-loop".to_owned(),
+            ));
+        }
         self.next_configuration.validate()
     }
 
@@ -513,7 +531,7 @@ impl SealConfigurationHandoffCertificate {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealConclusionSet {
     pub configuration_handoffs: Vec<SealConfigurationHandoffCertificate>,
@@ -529,8 +547,17 @@ impl SealConclusionSet {
                 "Seal conclusion set size is outside protocol bounds".to_owned(),
             ));
         }
+        let mut configurations = std::collections::BTreeSet::new();
+        if let Some(first) = self.configuration_handoffs.first() {
+            configurations.insert(first.statement.configuration_ref.clone());
+        }
         for handoff in &self.configuration_handoffs {
             handoff.validate_structural()?;
+            if !configurations.insert(handoff.statement.next_configuration_ref.clone()) {
+                return Err(WireError::Protocol(
+                    "configuration handoff repeats a trusted configuration".to_owned(),
+                ));
+            }
         }
         for conclusion in &self.conclusions {
             conclusion.validate_structural()?;
@@ -608,4 +635,12 @@ fn validate_canonical_order<T: Serialize>(field: &str, values: &[T]) -> Result<(
         )));
     }
     Ok(())
+}
+
+fn required_nullable<'de, D, T>(deserializer: D) -> std::result::Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
 }

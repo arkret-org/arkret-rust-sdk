@@ -1,4 +1,4 @@
-//! Paged transport of the authorized governance replay closure.
+//! Paged transport of authorized governance facts and their dependencies.
 use std::collections::BTreeSet;
 
 use arkret_wire::{AccountId, ActorId, Event, Hash, RealmId, RequestId, Result, Seal, WireError};
@@ -51,6 +51,9 @@ impl RealmJoinBootstrapReadRequest {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RealmJoinBootstrapRecord {
+    SealConclusion {
+        conclusion_set: arkret_wire::SealConclusionSet,
+    },
     Seal {
         seal: Seal,
     },
@@ -70,6 +73,10 @@ pub enum RealmJoinBootstrapRecord {
 impl RealmJoinBootstrapRecord {
     pub fn key(&self) -> Result<String> {
         Ok(match self {
+            Self::SealConclusion { conclusion_set } => format!(
+                "conclusion:{}",
+                arkret_canonical::canonical_sha256(conclusion_set)?
+            ),
             Self::Seal { seal } => format!("seal:{}", seal.id),
             Self::ControlMove { event } => format!("control:{}", event.event_id),
             Self::ApplicantPredecessor { event } => format!("applicant:{}", event.event_id),
@@ -81,6 +88,17 @@ impl RealmJoinBootstrapRecord {
     }
     pub fn validate_scope(&self, realm: &RealmId, account: &AccountId) -> Result<()> {
         match self {
+            Self::SealConclusion { conclusion_set } => {
+                conclusion_set.validate_structural()?;
+                if conclusion_set
+                    .conclusions
+                    .iter()
+                    .any(|certificate| &certificate.statement.realm_id != realm)
+                {
+                    return Err(invalid("bootstrap conclusion crosses the authorized Realm"));
+                }
+                Ok(())
+            }
             Self::Seal { seal } if &seal.realm_id == realm => seal.validate_structural(),
             Self::ControlMove { event }
                 if &event.realm_id == realm && event.kind.is_control_plane() =>
@@ -174,7 +192,7 @@ impl RealmJoinBootstrapOutcome {
 }
 
 /// Transport assembly only. `finish` does not authenticate governance; its
-/// output must still pass the ordinary complete governance replay verifier.
+/// output must still pass the role-appropriate fact or full replay verifier.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RealmJoinBootstrapAssembly {
     pub first: RealmJoinBootstrapOutcome,
@@ -198,6 +216,11 @@ impl RealmJoinBootstrapAssembly {
         let mut predecessors = Vec::new();
         for record in &self.records {
             match record {
+                RealmJoinBootstrapRecord::SealConclusion { .. } => {
+                    return Err(invalid(
+                        "conclusions require fact verification, not replay closure validation",
+                    ));
+                }
                 RealmJoinBootstrapRecord::Seal { seal } => {
                     seals.insert(seal.id.clone(), seal);
                 }

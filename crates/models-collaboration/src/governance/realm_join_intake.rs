@@ -24,6 +24,7 @@ use std::collections::BTreeSet;
 use std::fmt;
 
 use arkret_canonical::DigestSuite;
+use arkret_wire::seal_conclusion::{SealConclusionOutcome, SealConclusionSet};
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, ActorId, CellRef, ControlProposalDecisionReadOutcome, ControlProposalState,
@@ -37,7 +38,6 @@ use serde::{Deserialize, Serialize};
 use crate::governance::membership_invite::{
     InviteAcceptPayload, JoinGateProof, MembershipPayload, MembershipPayloadState,
 };
-use crate::seal_conclusion::{SealConclusionResult, SealConclusionSet};
 
 /// Domain-separation label of `peer_bootstrap_outcome.request_digest`.
 pub const REALM_JOIN_BOOTSTRAP_REQUEST_DIGEST_LABEL: &str = "ak.realm-join-bootstrap-request-v1";
@@ -831,7 +831,7 @@ impl RealmJoinPeerApplicationStatusOutcome {
                         certificate.statement.results.iter().any(|result| {
                             matches!(
                                 result,
-                                SealConclusionResult::Command(command)
+                                SealConclusionOutcome::Command(command)
                                     if command.selector.event_digest == application_digest
                                         && command.result.is_some()
                             )
@@ -977,7 +977,7 @@ impl RealmJoinSelfApplicationStatusOutcome {
 mod tests {
     use arkret_canonical::DigestSuite;
     use arkret_wire::seal::{
-        CommandOutcome, CommandResult, MultiSigKind, MultiSignature, Seal, SealSignature,
+        CommandOutcome, MultiSigKind, MultiSignature, Seal, SealCommandOutcome, SealSignature,
     };
     use arkret_wire::{
         ActorId, CellRef, ControlProposalAuthorityKind, DidCoreId, DidUrl, Predicate, PredicateOp,
@@ -1044,7 +1044,7 @@ mod tests {
             sealed_at: "2026-09-10T08:00:00Z".parse().expect("timestamp"),
             hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").expect("hlc"),
             configuration_ref: event_id(),
-            command_results: vec![CommandResult {
+            command_results: vec![SealCommandOutcome {
                 event_digest: hash(delta_byte),
                 outcome: CommandOutcome::Committed,
                 result_digest: hash('4'),
@@ -1062,8 +1062,8 @@ mod tests {
     }
 
     fn sealed_application_conclusion_set() -> SealConclusionSet {
-        use crate::seal_conclusion::{
-            SealConclusionCertificate, SealConclusionCommandResult, SealConclusionCommandSelector,
+        use arkret_wire::seal_conclusion::{
+            SealConclusionCertificate, SealConclusionCommandOutcome, SealConclusionCommandSelector,
             SealConclusionCommandSelectorKind, SealConclusionStatement,
         };
 
@@ -1073,19 +1073,21 @@ mod tests {
             configuration_ref: event_id(),
             authority_seal_ref: seal().id,
             target_seal_ref: seal().id,
-            results: vec![SealConclusionResult::Command(SealConclusionCommandResult {
-                selector: SealConclusionCommandSelector {
-                    kind: SealConclusionCommandSelectorKind::Command,
-                    event_digest: event_digest.clone(),
+            results: vec![SealConclusionOutcome::Command(
+                SealConclusionCommandOutcome {
+                    selector: SealConclusionCommandSelector {
+                        kind: SealConclusionCommandSelectorKind::Command,
+                        event_digest: event_digest.clone(),
+                    },
+                    result: Some(SealCommandOutcome {
+                        event_digest: event_digest.clone(),
+                        outcome: CommandOutcome::Committed,
+                        result_digest: hash('9'),
+                        reason_code: None,
+                        unit_event_digests: vec![event_digest],
+                    }),
                 },
-                result: Some(CommandResult {
-                    event_digest: event_digest.clone(),
-                    outcome: CommandOutcome::Committed,
-                    result_digest: hash('9'),
-                    reason_code: None,
-                    unit_event_digests: vec![event_digest],
-                }),
-            })],
+            )],
         };
         let payload_digest = statement
             .signing_payload_digest()

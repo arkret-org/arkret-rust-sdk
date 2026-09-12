@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=f4566a7a13e6b08c38ab88157779c0fac8812b8d93d0e9e192bead983e590382
-//! Entries: forbidden_wire_fields=258
+//! sha256=8b65716780c1cb09622371887eaf17ea283269764042bf5f3795d539cdfca060
+//! Entries: forbidden_wire_fields=263
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -129,6 +129,20 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         selectors: &[],
         match_kind: "field",
         match_values: &["actor"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "agent_authority_state_evidence.lease",
+        context: "agent_authority_state_evidence",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "agent-signer-evidence.schema.json#/$defs/agent_authority_state_evidence",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["lease"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -2506,6 +2520,20 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
+        id: "error.delta_contains_data_event",
+        context: "error_code",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "error_code_value",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "descendants",
+        }],
+        match_kind: "value",
+        match_values: &["delta_contains_data_event"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
         id: "frank_unavailable",
         context: "error_code",
         rejection_level: "hard_reject",
@@ -3297,6 +3325,20 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
+        id: "notary_configuration.recovery_members",
+        context: "notary_configuration",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "realm.schema.json#/$defs/notary_configuration",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["recovery_members"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
         id: "notification.space_name",
         context: "notification_payload",
         rejection_level: "hard_reject",
@@ -3785,6 +3827,34 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["notary_sig"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "seal.forensic_attribution",
+        context: "seal",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "seal.schema.json",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["forensic_attribution"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "seal.predecessor_refs",
+        context: "seal",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "schema_instance",
+            schema_ref: "seal.schema.json",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["predecessor_refs"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

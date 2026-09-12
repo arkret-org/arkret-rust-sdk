@@ -17,12 +17,13 @@ use arkret_models_collaboration::governance_dependencies::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    ActorId, AuthorizationRef, Base64UrlString, CellRef, CommandResult, DeviceId, Did, DidCoreId,
-    DidUrl, DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc,
+    ActorId, AuthorizationRef, Base64UrlString, CellRef, DeviceId, Did, DidCoreId, DidUrl,
+    DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc,
     NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
     PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
-    SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, SemanticRefProofRootField,
-    TrustDomainId, UnsignedSeal, WireError, composite_subject, project_did_to_core_id, proof_kind,
+    SealBasis, SealCommandOutcome, SealId, SemanticRefProof, SemanticRefProofKind,
+    SemanticRefProofRootField, TrustDomainId, UnsignedSeal, WireError, composite_subject,
+    project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -1033,7 +1034,7 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 hlc: request.hlc.clone(),
                 configuration_ref: create.event_id.clone(),
                 command_results: vec![
-                    CommandResult::committed(
+                    SealCommandOutcome::committed(
                         authorize_digest.clone(),
                         vec![authorize_digest],
                         material.command_effects,

@@ -482,10 +482,16 @@ impl MlsGovernanceFrontierRangeWitness {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MlsGovernanceFrontierProjection {
-    pub frontier_registry_digest: Hash,
-    pub branches: Vec<MlsGovernanceFrontierBranchProjection>,
+#[serde(untagged, deny_unknown_fields)]
+pub enum MlsGovernanceFrontierProjection {
+    Merkle {
+        frontier_registry_digest: Hash,
+        branches: Vec<MlsGovernanceFrontierBranchProjection>,
+    },
+    Conclusions {
+        frontier_registry_digest: Hash,
+        conclusion_set: arkret_wire::SealConclusionSet,
+    },
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -499,16 +505,39 @@ pub struct MlsGovernanceFrontierBranchProjection {
 }
 
 impl MlsGovernanceFrontierProjection {
+    pub fn frontier_registry_digest(&self) -> &Hash {
+        match self {
+            Self::Merkle {
+                frontier_registry_digest,
+                ..
+            }
+            | Self::Conclusions {
+                frontier_registry_digest,
+                ..
+            } => frontier_registry_digest,
+        }
+    }
+
+    pub fn branches(&self) -> &[MlsGovernanceFrontierBranchProjection] {
+        match self {
+            Self::Merkle { branches, .. } => branches,
+            Self::Conclusions { .. } => &[],
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
-        if self.branches.is_empty()
+        if let Self::Conclusions { conclusion_set, .. } = self {
+            return conclusion_set.validate_structural();
+        }
+        if self.branches().is_empty()
             || self
-                .branches
+                .branches()
                 .windows(2)
                 .any(|pair| pair[0].target_seal_ref >= pair[1].target_seal_ref)
         {
             return schema("MLS governance frontier branches are not canonical");
         }
-        for branch in &self.branches {
+        for branch in self.branches() {
             branch.validate()?;
         }
         Ok(())
@@ -574,20 +603,23 @@ impl MlsGovernanceProofBundle {
         }
         self.frontier_projection.validate()?;
         self.proof_material.validate()?;
-        let branch_seals = self
-            .frontier_projection
-            .branches
-            .iter()
-            .map(|branch| &branch.target_seal_ref)
-            .collect::<BTreeSet<_>>();
+        let branch_seals = match &self.frontier_projection {
+            MlsGovernanceFrontierProjection::Merkle { branches, .. } => branches
+                .iter()
+                .map(|branch| &branch.target_seal_ref)
+                .collect::<BTreeSet<_>>(),
+            MlsGovernanceFrontierProjection::Conclusions { conclusion_set, .. } => conclusion_set
+                .conclusions
+                .iter()
+                .map(|certificate| &certificate.statement.target_seal_ref)
+                .collect::<BTreeSet<_>>(),
+        };
         let target_seals = request
             .proof_target_basis
             .leaves
             .iter()
             .collect::<BTreeSet<_>>();
-        if branch_seals != target_seals
-            || self.frontier_projection.branches.len() != request.proof_target_basis.leaves.len()
-        {
+        if branch_seals != target_seals {
             return state(
                 "MLS governance frontier branches are not every-and-only the target basis",
             );
@@ -659,18 +691,21 @@ impl MlsGovernanceProofBundle {
     }
 
     pub fn all_entries(&self) -> impl Iterator<Item = &MlsGovernanceFrontierCellEntry> {
-        self.frontier_projection.branches.iter().flat_map(|branch| {
-            branch
-                .cells
-                .iter()
-                .chain(branch.range_witnesses.iter().flat_map(|witness| {
-                    witness
-                        .left_boundary
-                        .entry
-                        .iter()
-                        .chain(witness.right_boundary.entry.iter())
-                }))
-        })
+        self.frontier_projection
+            .branches()
+            .iter()
+            .flat_map(|branch| {
+                branch
+                    .cells
+                    .iter()
+                    .chain(branch.range_witnesses.iter().flat_map(|witness| {
+                        witness
+                            .left_boundary
+                            .entry
+                            .iter()
+                            .chain(witness.right_boundary.entry.iter())
+                    }))
+            })
     }
 }
 

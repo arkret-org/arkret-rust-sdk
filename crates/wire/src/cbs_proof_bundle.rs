@@ -158,6 +158,8 @@ pub struct CbsProofBundle {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub inclusion_proofs: Vec<SemanticRefProof>,
     pub availability_proofs: Vec<AvailabilityReceipt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conclusion_set: Option<crate::SealConclusionSet>,
 }
 
 impl CbsProofBundle {
@@ -174,9 +176,11 @@ impl CbsProofBundle {
                 "CBS proof bundle exceeds {MAX_BUNDLE_CANONICAL_BYTES} canonical bytes"
             )));
         }
-        if self.seals.is_empty() || self.seals.len() > MAX_BUNDLE_SEALS {
+        if (self.seals.is_empty() && self.conclusion_set.is_none())
+            || self.seals.len() > MAX_BUNDLE_SEALS
+        {
             return Err(WireError::Protocol(format!(
-                "CBS proof bundle requires 1..={MAX_BUNDLE_SEALS} seals"
+                "CBS proof bundle requires Seal evidence or conclusions, with at most {MAX_BUNDLE_SEALS} seals"
             )));
         }
         if self.control_moves.len() > MAX_BUNDLE_CONTROL_MOVES {
@@ -229,12 +233,39 @@ impl CbsProofBundle {
             .iter()
             .map(|seal| (seal.id.clone(), seal))
             .collect::<BTreeMap<_, _>>();
-        let Some(target) = seals_by_id.get(&self.target_seal_ref) else {
-            return Err(WireError::Protocol(
-                "CBS proof bundle must contain its target_seal_ref".to_owned(),
-            ));
+        let certified_target = if let Some(set) = &self.conclusion_set {
+            set.validate_structural()?;
+            Some(
+                set.conclusions
+                    .iter()
+                    .find(|certificate| {
+                        certificate.statement.target_seal_ref == self.target_seal_ref
+                    })
+                    .ok_or_else(|| {
+                        WireError::Protocol(
+                            "CBS conclusions must cover the exact target Seal".to_owned(),
+                        )
+                    })?,
+            )
+        } else {
+            None
         };
-        let target_realm = &target.realm_id;
+        let target_realm = seals_by_id
+            .get(&self.target_seal_ref)
+            .map(|seal| &seal.realm_id)
+            .or_else(|| certified_target.map(|certificate| &certificate.statement.realm_id))
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "CBS proof bundle must contain or certify its target_seal_ref".to_owned(),
+                )
+            })?;
+        if certified_target
+            .is_some_and(|certificate| &certificate.statement.realm_id != target_realm)
+        {
+            return Err(WireError::Protocol(
+                "CBS conclusions cross the target Realm".to_owned(),
+            ));
+        }
         for seal in &self.seals {
             seal.validate_structural()?;
             if &seal.realm_id != target_realm {
@@ -269,6 +300,14 @@ impl CbsProofBundle {
 
         let mut reachable = BTreeSet::new();
         let mut pending = vec![(self.target_seal_ref.clone(), 1usize)];
+        if let Some(set) = &self.conclusion_set {
+            pending.extend(set.conclusions.iter().flat_map(|certificate| {
+                [
+                    (certificate.statement.target_seal_ref.clone(), 1),
+                    (certificate.statement.authority_seal_ref.clone(), 1),
+                ]
+            }));
+        }
         while let Some((seal_id, depth)) = pending.pop() {
             if depth > MAX_BUNDLE_DEPENDENCY_DEPTH {
                 return Err(WireError::Protocol(format!(
@@ -288,16 +327,27 @@ impl CbsProofBundle {
                 );
             }
         }
-        if reachable.len() != self.seals.len() {
+        if self.seals.iter().any(|seal| !reachable.contains(&seal.id)) {
             return Err(WireError::Protocol(
                 "CBS proof bundle contains a Seal unreachable from target_seal_ref".to_owned(),
             ));
         }
-        let covered_control_digests = self
+        let mut covered_control_digests = self
             .seals
             .iter()
             .flat_map(|seal| seal.delta.iter().chain(&seal.covered_event_digests))
             .collect::<BTreeSet<_>>();
+        if let Some(set) = &self.conclusion_set {
+            for certificate in &set.conclusions {
+                for outcome in &certificate.statement.results {
+                    if let crate::SealConclusionOutcome::Command(command) = outcome
+                        && let Some(command) = &command.result
+                    {
+                        covered_control_digests.extend(command.unit_event_digests.iter());
+                    }
+                }
+            }
+        }
         for control_move in &self.control_moves {
             let reachable = covered_control_digests.iter().any(|expected| {
                 let suite = if expected.as_str().starts_with("sha256:") {

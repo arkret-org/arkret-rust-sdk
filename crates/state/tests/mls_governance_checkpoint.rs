@@ -21,11 +21,11 @@ use arkret_state::{
 };
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    CellFamilyId, CellRef, CommandResult, CommandResultCellState, CommandResultEffect, DidCoreId,
+    CellFamilyId, CellRef, CommandResultCellState, CommandResultEffect, DidCoreId,
     EncryptionProfile, Event, EventCellExecution, EventCellValueShape, EventKind, GenesisSalt,
     Hash, Hlc, LatticeOp, LatticeOpType, MultiSigKind, MultiSignature, NotarySignerDescriptor,
     NotaryValue, ProducerEventProof, ProjectedCellWrite, ProjectedOp, ScopeRef, Seal, SealBasis,
-    SealId, SealSignature, SecurityClass,
+    SealCommandOutcome, SealId, SealSignature, SecurityClass,
 };
 use serde_json::json;
 
@@ -173,7 +173,7 @@ fn seal(
         hlc: event.hlc.clone().unwrap(),
         configuration_ref: event.event_id.clone(),
         command_results: vec![
-            CommandResult::committed(event_digest.clone(), vec![event_digest], effects, SUITE)
+            SealCommandOutcome::committed(event_digest.clone(), vec![event_digest], effects, SUITE)
                 .unwrap(),
         ],
         authorization_closures: Vec::new(),

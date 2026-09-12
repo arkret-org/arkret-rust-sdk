@@ -613,27 +613,7 @@ impl Client {
             .await?;
         outcome.validate_structural()?;
         outcome.validate_for_selection(&request.selection)?;
-        let cross_realm = match &outcome {
-            SealResolveOutcome::Seals { seals, .. } => {
-                seals.iter().any(|seal| seal.realm_id != request.realm_id)
-            }
-            SealResolveOutcome::Conclusions { conclusion_set, .. } => {
-                conclusion_set.as_ref().is_some_and(|set| {
-                    set.conclusions
-                        .iter()
-                        .any(|certificate| certificate.statement.realm_id != request.realm_id)
-                        || set
-                            .configuration_handoffs
-                            .iter()
-                            .any(|certificate| certificate.statement.realm_id != request.realm_id)
-                })
-            }
-        };
-        if cross_realm {
-            return Err(Error::Protocol(
-                "Seal resolve outcome is cross-Realm or not every-and-only the request".to_owned(),
-            ));
-        }
+        outcome.validate_for_realm(&request.realm_id)?;
         Ok(outcome)
     }
 

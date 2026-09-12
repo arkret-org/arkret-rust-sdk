@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 
 use arkret_state::control_event_set_root;
 use arkret_wire::{
-    ActorId, CommandResult, Did, Event, Hash, Hlc, PayloadSigner, Result, Seal, UnsignedSeal,
+    ActorId, Did, Event, Hash, Hlc, PayloadSigner, Result, Seal, SealCommandOutcome, UnsignedSeal,
     WireError, project_did_to_core_id,
 };
 use serde_json::Value;
@@ -54,7 +54,7 @@ pub fn build_self_principal_bootstrap_seal<S: PayloadSigner + ?Sized>(
     let (state_root, effects) = self_principal_bootstrap_state_root(create, authorize, project)?;
     let control_root = control_event_set_root(&covered, SELF_PRINCIPAL_PCR_DIGEST_SUITE)
         .map_err(|error| WireError::Protocol(format!("bootstrap Seal coverage root: {error}")))?;
-    let command_results = vec![CommandResult::committed(
+    let command_results = vec![SealCommandOutcome::committed(
         create_digest.clone(),
         vec![create_digest, authorize_digest],
         effects,
