@@ -26,8 +26,10 @@ pub enum EventCellContractContext {
     #[default]
     Standard,
     /// A follow-up in the closed ordinary Realm genesis transaction. There is
-    /// no accepted Seal yet, so the control write MUST use the spec's
-    /// bootstrap exception and carry no CBS basis fields.
+    /// no accepted Seal yet, so both data and control initialization writes
+    /// carry no CBS basis fields and share the unit's outcome. The caller MUST
+    /// validate the complete closed unit's kinds, members and order; this
+    /// context alone does not admit an individual basis-free Event.
     OrdinaryRealmBootstrap,
     /// The exact four-Event Direct Conversation founding unit. Its two joins
     /// is a basis-free control write and its initial Strand is the one
@@ -1942,12 +1944,10 @@ fn validate_plane(
         (Some(CbsEffectPlane::Data), EventCellContractContext::Standard) => {
             event.seal_basis.is_none() && event.auth_context.is_some()
         }
-        (Some(CbsEffectPlane::Control), EventCellContractContext::OrdinaryRealmBootstrap) => {
-            event.seal_basis.is_none() && event.auth_context.is_none()
-        }
         (
             Some(CbsEffectPlane::Control | CbsEffectPlane::Data),
-            EventCellContractContext::DirectConversationFounding,
+            EventCellContractContext::OrdinaryRealmBootstrap
+            | EventCellContractContext::DirectConversationFounding,
         ) => event.seal_basis.is_none() && event.auth_context.is_none(),
         _ => false,
     };
@@ -4484,7 +4484,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_only_basis_free_control_facets_in_realm_bootstrap_context() {
+    fn realm_bootstrap_control_facets_require_basis_free_envelopes() {
         let mut event = realm_facet(EventKind::RealmJoinRule, json!({"value": "invite"}));
         event.seal_basis = None;
         validate_registered_cell_writes_in_context(
@@ -4515,7 +4515,7 @@ mod tests {
     }
 
     #[test]
-    fn direct_conversation_founding_is_the_only_basis_free_data_context() {
+    fn closed_bootstrap_contexts_allow_basis_free_data_initialization() {
         let mut event = realm_facet(EventKind::StrandCreate, json!({}));
         event.seal_basis = None;
 
@@ -4525,11 +4525,17 @@ mod tests {
             EventCellContractContext::DirectConversationFounding,
         )
         .unwrap();
+        validate_plane(
+            &event,
+            Some(CbsEffectPlane::Data),
+            EventCellContractContext::OrdinaryRealmBootstrap,
+        )
+        .unwrap();
         assert_eq!(
             validate_plane(
                 &event,
                 Some(CbsEffectPlane::Data),
-                EventCellContractContext::OrdinaryRealmBootstrap,
+                EventCellContractContext::Standard,
             )
             .unwrap_err()
             .reason_code(),

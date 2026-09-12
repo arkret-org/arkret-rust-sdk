@@ -655,11 +655,33 @@ mod tests {
     }
 
     #[test]
-    fn accepts_create_with_registered_authority_root_and_followup() {
+    fn accepts_closed_bootstrap_with_data_and_control_initialization() {
         let events = complete_unit();
+        let profile = &events[1];
+        assert_eq!(
+            arkret_schema::classify_event_execution(profile).unwrap(),
+            Some(arkret_wire::CbsEffectPlane::Data)
+        );
+        assert!(profile.auth_context.is_none() && profile.seal_basis.is_none());
         let result = validate_realm_bootstrap_unit(&events);
         let bootstrap = result.expect("bootstrap accepted");
         assert!(bootstrap.authority_root.is_genesis_for(&actor()));
+    }
+
+    #[test]
+    fn rejects_standalone_or_unregistered_data_as_a_bootstrap_unit() {
+        let mut events = complete_unit();
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events[1..2]),
+            Err(RealmBootstrapValidationError::NotOrdinaryRealmBootstrap)
+        );
+        let data = event(EventKind::MessageCreate, json!({}));
+        assert!(data.auth_context.is_none() && data.seal_basis.is_none());
+        events.push(data);
+        assert_eq!(
+            validate_realm_bootstrap_unit(&events),
+            Err(RealmBootstrapValidationError::OutOfOrderBootstrap)
+        );
     }
 
     #[test]
