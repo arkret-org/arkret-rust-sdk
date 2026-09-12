@@ -3870,9 +3870,10 @@ mod history_authority_tests {
     }
 
     #[test]
-    fn history_authority_preserves_real_epoch_zero_and_full_u64_range() {
+    fn history_authority_preserves_real_epoch_zero_and_canonical_integer_boundary() {
         let query = query();
-        for (join, floor) in [(0, 0), (7, 0), (u64::MAX, u64::MAX)] {
+        let max_safe_integer = 9_007_199_254_740_991;
+        for (join, floor) in [(0, 0), (7, 0), (max_safe_integer, max_safe_integer)] {
             let mut result = result(&query);
             result.join_epoch = Some(join);
             result.history_floor_epoch = Some(floor);
@@ -3885,6 +3886,10 @@ mod history_authority_tests {
                 result
             );
         }
+        let mut result = result(&query);
+        result.join_epoch = Some(max_safe_integer + 1);
+        result.history_floor_epoch = Some(max_safe_integer + 1);
+        assert!(result.validate_for_request(&query).is_err());
     }
 
     #[test]
