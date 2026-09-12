@@ -25,8 +25,7 @@ fn configured_device_revocation_fixture_keeps_the_named_contract() {
             "session_grant_issue_or_refresh",
             "keypackage_claim",
             "to_device_write",
-            "event_write",
-            "station_admission_proof_issue"
+            "event_write"
         ])
     );
 }

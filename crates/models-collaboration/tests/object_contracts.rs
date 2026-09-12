@@ -15,16 +15,17 @@ use chrono::Utc;
 use serde_json::json;
 
 fn signer(did: &str) -> NotarySignerDescriptor {
+    let key_byte = did
+        .bytes()
+        .fold(0_u8, |accumulator, byte| accumulator.wrapping_add(byte));
+    let key_bytes = [key_byte; 32];
     NotarySignerDescriptor {
         actor_id: actor(did),
         verification_method: DidUrl::new(format!("{did}#key-1")).unwrap(),
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-        frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
-        frozen_public_key_digest: Hash::new(
-            "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
-        )
-        .unwrap(),
+        frozen_public_key_b64u: canonical::base64url_encode(&key_bytes),
+        frozen_public_key_digest: Hash::new(canonical::sha256_digest(&key_bytes)).unwrap(),
     }
 }
 
