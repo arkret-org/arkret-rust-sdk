@@ -732,7 +732,7 @@ mod device_generation_tests {
                     "hpke_key": "hpke-1",
                     "device_authorize_event_id": DEVICE_AUTHORIZE_EVENT,
                     "authorized_generation_ref": generation,
-                    "authorization_window": {"not_before": "2026-08-01T00:00:00.000Z"},
+                    "authorization_window": {"not_before": "2026-08-01T00:00:00.000Z", "expires_at": null},
                     "device_status": "active",
                     "attested_at": "2026-08-15T00:00:00.000Z",
                     "expires_at": "2026-08-15T00:10:00.000Z"
