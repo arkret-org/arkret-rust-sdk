@@ -133,7 +133,8 @@ mod tests {
                 let mut signature = signature_metadata;
                 signature.jws = Base64UrlString::new(arkret_canonical::base64url_encode(
                     key.sign(bytes).to_bytes(),
-                ))?;
+                ))
+                .unwrap();
                 Ok(signature)
             },
         )
