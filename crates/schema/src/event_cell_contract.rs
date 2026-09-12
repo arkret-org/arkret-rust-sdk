@@ -445,8 +445,7 @@ fn project_registered_operation_writes_with_pre_state(
     }
 
     let mut projected = Vec::new();
-    let mut seen =
-        BTreeMap::<String, (String, EventCellValueShape, EventCellRuleOperator)>::new();
+    let mut seen = BTreeMap::<String, (String, EventCellValueShape, EventCellRuleOperator)>::new();
     for (write_index, write) in writes.iter().enumerate() {
         // `write_index` is the registry index, so a write skipped by its
         // `condition` still consumes one. The dot must be reproducible from the
@@ -463,7 +462,11 @@ fn project_registered_operation_writes_with_pre_state(
             for removal in removals {
                 seen.insert(
                     removal.cell_id.as_str().to_owned(),
-                    ("or_set".to_owned(), EventCellRuleOperator::OrSetRemoveDots),
+                    (
+                        "sequenced_state".to_owned(),
+                        EventCellValueShape::Set,
+                        EventCellRuleOperator::OrSetRemoveDots,
+                    ),
                 );
                 projected.push(removal);
             }
