@@ -35,6 +35,7 @@ mod client_internals;
 mod endpoints;
 mod error;
 mod request;
+pub mod station_connection;
 mod subscribe_body;
 // Production reqwest + Tokio DID resolver. Leans on a live Tokio runtime,
 // blocking off-thread scheduling, and reqwest's native transport, none of

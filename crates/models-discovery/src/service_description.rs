@@ -1487,7 +1487,7 @@ mod tests {
 /// only what the schema declares still deserializes; the `extra` flatten
 /// round-trips only the closed `x_*` extension namespace.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthMetadata {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_authority: Option<AccountAuthority>,
@@ -1518,7 +1518,7 @@ impl AuthMetadata {
 /// the client-visible Account Authority origin and the gate/account base URL
 /// from which all `/_arkret/gate/account/*` endpoints are derived.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AccountAuthority {
     pub origin: WebOrigin,
     pub gate_account_base_url: String,
@@ -1532,7 +1532,7 @@ pub struct AccountAuthority {
 /// single proof provider, its discovery metadata and the proof kind accepted
 /// by the Account Authority.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthMethod {
     pub method: AuthMethodKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1569,7 +1569,7 @@ pub enum AuthMethodKind {
 /// OIDC discovery describes the only authorization-code consumer: account
 /// handoff. SessionGrant issue is a later, separately authenticated operation.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuthGrantExchange {
     pub kind: AuthGrantExchangeKind,
     /// Closed `x_*` metadata extensions. These values are protocol-inert.

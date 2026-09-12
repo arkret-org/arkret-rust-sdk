@@ -268,6 +268,7 @@ pub use arkret_models_discovery::service_requirements::{
     QuotaMetadata, RateLimitMetadata, RateLimitScopeKind, ServiceEndpointBinding,
     ServiceRequirements,
 };
+pub use arkret_models_discovery::station_connection::*;
 pub use arkret_models_identity::account::*;
 pub use arkret_models_identity::actor_profile::*;
 pub use arkret_models_identity::admin_grant::{
