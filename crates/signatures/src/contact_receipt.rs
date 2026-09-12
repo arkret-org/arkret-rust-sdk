@@ -187,8 +187,12 @@ mod tests {
             DidUrl::new("did:web:attacker.example#key-1").unwrap();
         assert!(tampered.validate_shape().is_err());
         let mut tampered = receipt.clone();
-        tampered.core.producer_signer.public_key_b64u =
-            Base64UrlString::new(arkret_canonical::base64url_encode([21; 32])).unwrap();
+        tampered.core.producer_signer =
+            arkret_models_collaboration::contact_operations::ContactProducerSigner::direct(
+                tampered.core.producer_signer.verification_method().clone(),
+                Base64UrlString::new(arkret_canonical::base64url_encode([21; 32])).unwrap(),
+            )
+            .unwrap();
         tampered.receipt_digest = tampered.computed_core_digest().unwrap();
         assert!(
             verify_contact_request_acceptance_receipt(
@@ -200,8 +204,12 @@ mod tests {
             "recomputing the core digest cannot replace source-bound producer material"
         );
         let mut tampered = receipt;
-        tampered.core.producer_signer.verification_method =
-            DidUrl::new("did:web:attacker.example#device").unwrap();
+        tampered.core.producer_signer =
+            arkret_models_collaboration::contact_operations::ContactProducerSigner::direct(
+                DidUrl::new("did:web:attacker.example#device").unwrap(),
+                tampered.core.producer_signer.public_key_b64u().clone(),
+            )
+            .unwrap();
         tampered.receipt_digest = tampered.computed_core_digest().unwrap();
         assert!(
             verify_contact_request_acceptance_receipt(

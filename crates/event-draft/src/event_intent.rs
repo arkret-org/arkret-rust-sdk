@@ -414,8 +414,9 @@ impl EventIntent {
     /// record, or handed over fully signed — where the caller needs the intent
     /// but never held one. The authoring position (`actor_seq`, `hlc`,
     /// `prev_refs`), the derived identity, proofs and `unsigned` are not part of
-    /// an intent, and the CBS members come back unpinned so a later attempt may
-    /// resolve them against a fresher Seal view.
+    /// an intent. Authorization fields are returned unpinned for intent-level
+    /// comparison. This conversion does not authorize rebuilding a signed
+    /// Event: an exact transport retry retains its original bytes and context.
     ///
     /// Prefer keeping the intent you authored from: this direction cannot know
     /// whether the producer *chose* a CBS basis or merely stamped one.
@@ -442,18 +443,18 @@ impl EventIntent {
 
     /// Prove that an authored envelope still expresses this exact intent.
     ///
-    /// The durable queue runs this so a retry cannot quietly change what the
-    /// user asked for. The split is by *ownership*, not by kind:
+    /// This checks semantic authoring intent, not byte identity or permission
+    /// to replace a submitted Event. The durable queue must separately retain
+    /// an already-signed attempt for exact transport retry:
     ///
     /// - members the intent owns must be reproduced verbatim;
-    /// - `actor_seq`, `hlc` and `prev_refs` are the authoring position and are re-read on every
-    ///   attempt;
+    /// - `actor_seq`, `hlc` and `prev_refs` belong to a newly authored attempt;
     /// - `event_id`, `proofs` and `unsigned` are derived or transport-only;
-    /// - a CBS member is per-attempt state *unless this intent pinned it*. A pre-join
-    ///   `ak.invite.accept` pins the `seal_basis` its own Station froze in
-    ///   `ak.self.realm_join.command.prepare.v1`, because the invitee cannot re-resolve the
-    ///   membership-gated Seal view; an ordinary member-authored Event leaves it open and
-    ///   re-resolves it each attempt.
+    /// - rebuilding a security Command may resolve a new `seal_basis` unless the intent pins it, as
+    ///   `ak.invite.accept` does for its prepared basis;
+    /// - an ordinary Event does not acquire a fresh Seal for each send. Once signed, its exact
+    ///   retry must preserve `auth_context`, any actual Seal references and all signed bytes. This
+    ///   matcher alone does not enforce that stronger transport invariant.
     pub fn authored_envelope_matches(&self, event: &arkret_wire::Event) -> bool {
         fn pinned_matches<T: PartialEq>(pinned: Option<&T>, authored: Option<&T>) -> bool {
             pinned.is_none_or(|pinned| authored == Some(pinned))

@@ -50,8 +50,12 @@
       "schema": "contact-operations.schema.json#/$defs/contact_lineage"
     },
     {
-      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactProducerSigner",
-      "schema": "contact-operations.schema.json#/$defs/contact_producer_signer"
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactDirectProducerSigner",
+      "schema": "contact-operations.schema.json#/$defs/contact_direct_producer_signer"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactDelegatedProducerSigner",
+      "schema": "contact-operations.schema.json#/$defs/contact_delegated_producer_signer"
     },
     {
       "rust_type": "crates/models-collaboration/src/contact_operations.rs::NormalResponseAcceptanceReceipt",

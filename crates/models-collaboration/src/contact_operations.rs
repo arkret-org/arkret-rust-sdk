@@ -61,12 +61,30 @@ pub enum ContactScope {
 ///
 /// `schemas/contact-operations.schema.json#/$defs/contact_producer_signer`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactProducerSigner {
+    Direct(ContactDirectProducerSigner),
+    Delegated(ContactDelegatedProducerSigner),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct ContactProducerSigner {
+pub struct ContactDirectProducerSigner {
     pub verification_method: arkret_wire::DidUrl,
     #[serde(deserialize_with = "deserialize_contact_producer_key")]
     pub public_key_b64u: arkret_wire::Base64UrlString,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactDelegatedProducerSigner {
+    pub verification_method: arkret_wire::DidUrl,
+    #[serde(deserialize_with = "deserialize_contact_producer_key")]
+    pub public_key_b64u: arkret_wire::Base64UrlString,
+    pub delegated_actor_did: Did,
 }
 fn deserialize_contact_producer_key<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
@@ -82,10 +100,108 @@ fn deserialize_contact_producer_key<'de, D: serde::Deserializer<'de>>(
     Ok(value)
 }
 impl ContactProducerSigner {
+    pub fn direct(
+        verification_method: arkret_wire::DidUrl,
+        public_key_b64u: arkret_wire::Base64UrlString,
+    ) -> arkret_wire::Result<Self> {
+        let value = Self::Direct(ContactDirectProducerSigner {
+            verification_method,
+            public_key_b64u,
+        });
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn delegated(
+        verification_method: arkret_wire::DidUrl,
+        public_key_b64u: arkret_wire::Base64UrlString,
+        delegated_actor_did: Did,
+    ) -> arkret_wire::Result<Self> {
+        let value = Self::Delegated(ContactDelegatedProducerSigner {
+            verification_method,
+            public_key_b64u,
+            delegated_actor_did,
+        });
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn verification_method(&self) -> &arkret_wire::DidUrl {
+        match self {
+            Self::Direct(value) => &value.verification_method,
+            Self::Delegated(value) => &value.verification_method,
+        }
+    }
+
+    pub fn public_key_b64u(&self) -> &arkret_wire::Base64UrlString {
+        match self {
+            Self::Direct(value) => &value.public_key_b64u,
+            Self::Delegated(value) => &value.public_key_b64u,
+        }
+    }
+
+    pub fn delegated_actor_did(&self) -> Option<&Did> {
+        match self {
+            Self::Direct(_) => None,
+            Self::Delegated(value) => Some(&value.delegated_actor_did),
+        }
+    }
+
+    /// Check the standalone source object's holder constraint. The enclosing
+    /// carrier must also check the original Event's executor and exact actor.
+    pub fn validate_for_holder(&self, holder: &ContactPeer) -> arkret_wire::Result<()> {
+        self.validate()?;
+        if let Some(did) = self.delegated_actor_did() {
+            if !matches!(holder, ContactPeer::Agent { .. })
+                || arkret_wire::project_did_to_core_id(did)?
+                    != *holder.contact_actor_id().signing_principal_id()
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "delegated Contact producer does not bind the Agent holder".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Structural binding only: source signatures and the independently
+    /// authenticated Agent native identity are verified by the receiving gate.
+    pub fn validate_for_event(
+        &self,
+        event: &Event,
+        holder: &ContactPeer,
+    ) -> arkret_wire::Result<()> {
+        self.validate_for_holder(holder)?;
+        if event.actor_id != holder.contact_actor_id()
+            || event.actor_id.as_account_id().is_none()
+            || event.executed_by.is_some() != self.delegated_actor_did().is_some()
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "Contact producer branch differs from the exact Event actor/executor".into(),
+            ));
+        }
+        if let ContactPeer::Agent {
+            controller_account_id,
+            ..
+        } = holder
+        {
+            if event.actor_id.route_service_id() != &controller_account_id.station_id
+                || event.executed_by.as_ref().is_some_and(|executor| {
+                    executor != &ActorId::account(controller_account_id.clone())
+                })
+            {
+                return Err(arkret_wire::WireError::Protocol(
+                    "Contact executor differs from the complete Agent controller account".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn public_key_bytes(&self) -> arkret_wire::Result<[u8; 32]> {
-        let bytes = arkret_canonical::base64url_decode(self.public_key_b64u.as_str())
+        let bytes = arkret_canonical::base64url_decode(self.public_key_b64u().as_str())
             .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
-        if arkret_canonical::base64url_encode(&bytes) != self.public_key_b64u.as_str() {
+        if arkret_canonical::base64url_encode(&bytes) != self.public_key_b64u().as_str() {
             return Err(arkret_wire::WireError::Protocol(
                 "Contact producer key is not canonical unpadded base64url".into(),
             ));
@@ -124,7 +240,7 @@ impl RequestAcceptanceReceiptCore {
     }
 
     pub fn validate(&self) -> arkret_wire::Result<()> {
-        self.producer_signer.validate()?;
+        self.producer_signer.validate_for_holder(&self.holder)?;
         if self.slot_version == 0
             || (self.slot_version == 1) == self.slot_predecessor.is_some()
             || self.holder.contact_actor_id() == self.peer.contact_actor_id()
@@ -498,7 +614,7 @@ impl NormalResponseAcceptanceReceipt {
         issuer_id: DidCoreId,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
-        producer_signer.validate()?;
+        producer_signer.validate_for_holder(&request_receipt.core.peer)?;
         let unsigned = UnsignedNormalResponseAcceptanceReceipt {
             contact_round_id,
             request_receipt,
@@ -642,7 +758,7 @@ impl RejectAcceptanceReceipt {
         issuer_id: DidCoreId,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
-        producer_signer.validate()?;
+        producer_signer.validate_for_holder(&request_receipt.core.peer)?;
         let unsigned = UnsignedRejectAcceptanceReceipt {
             request_receipt,
             reject_event_ref,
@@ -726,7 +842,7 @@ impl ContactLineage {
         terminal: Option<bool>,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
     ) -> arkret_wire::Result<Self> {
-        producer_signer.validate()?;
+        producer_signer.validate_for_holder(&issuer)?;
         let unsigned = UnsignedContactLineage {
             contact_round_id,
             issuer,
@@ -1861,13 +1977,13 @@ mod event_digest_derivation_tests {
     }
 
     fn producer_signer() -> ContactProducerSigner {
-        ContactProducerSigner {
+        ContactProducerSigner::Direct(ContactDirectProducerSigner {
             verification_method: DidUrl::new("did:web:holder.example#device").unwrap(),
             public_key_b64u: arkret_wire::Base64UrlString::new(arkret_canonical::base64url_encode(
                 [17; 32],
             ))
             .unwrap(),
-        }
+        })
     }
     #[test]
     fn contact_producer_signer_rejects_noncanonical_or_non_ed25519_keys() {
@@ -1893,6 +2009,51 @@ mod event_digest_derivation_tests {
         *bytes.last_mut().unwrap() = b'F';
         noncanonical["public_key_b64u"] = serde_json::json!(String::from_utf8(bytes).unwrap());
         assert!(serde_json::from_value::<ContactProducerSigner>(noncanonical).is_err());
+    }
+
+    #[test]
+    fn contact_producer_branches_preserve_signed_locator_and_reject_open_shapes() {
+        let kat = contact_kat();
+        for case in kat["delegated_actor_locator_kat"]["cases"]
+            .as_array()
+            .unwrap()
+        {
+            let receipt: RequestAcceptanceReceipt =
+                serde_json::from_value(case["signed_request_receipt"].clone()).unwrap();
+            receipt.validate_shape().unwrap();
+            assert_eq!(
+                String::from_utf8(receipt.canonical_signing_bytes().unwrap()).unwrap(),
+                case["canonical_unsigned"].as_str().unwrap()
+            );
+            let producer = &receipt.core.producer_signer;
+            let delegated = case["event_identity"].get("executed_by").is_some();
+            assert_eq!(producer.delegated_actor_did().is_some(), delegated);
+            assert_eq!(
+                serde_json::to_value(&receipt).unwrap(),
+                case["signed_request_receipt"]
+            );
+            if delegated {
+                assert!(
+                    producer
+                        .validate_for_holder(&ContactPeer::Human {
+                            account_id: receipt
+                                .core
+                                .holder
+                                .contact_actor_id()
+                                .as_account_id()
+                                .unwrap()
+                                .clone(),
+                        })
+                        .is_err()
+                );
+                let mut null_locator = serde_json::to_value(producer).unwrap();
+                null_locator["delegated_actor_did"] = serde_json::Value::Null;
+                assert!(serde_json::from_value::<ContactProducerSigner>(null_locator).is_err());
+                let mut unknown = serde_json::to_value(producer).unwrap();
+                unknown["actor_did"] = unknown["delegated_actor_did"].clone();
+                assert!(serde_json::from_value::<ContactProducerSigner>(unknown).is_err());
+            }
+        }
     }
 
     fn contact_kat() -> serde_json::Value {

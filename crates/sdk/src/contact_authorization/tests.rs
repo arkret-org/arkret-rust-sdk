@@ -88,13 +88,15 @@ impl Fixture {
             version: u64::from(version),
             predecessor_event_ref: (version > 1).then(|| event_id(version - 1)),
             event_ref: event_id(version),
-            producer_signer: ContactProducerSigner {
-                verification_method: self.signature.verification_method.clone(),
-                public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
-                    self.key.verifying_key().to_bytes(),
-                ))
-                .unwrap(),
-            },
+            producer_signer: ContactProducerSigner::Direct(
+                arkret_models_collaboration::contact_operations::ContactDirectProducerSigner {
+                    verification_method: self.signature.verification_method.clone(),
+                    public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                        self.key.verifying_key().to_bytes(),
+                    ))
+                    .unwrap(),
+                },
+            ),
             granted_to_peer_scopes: scopes.to_vec(),
             terminal: terminal.then_some(true),
             signature: self.signature.clone(),
@@ -362,13 +364,15 @@ impl CarrierFixture {
         }
     }
     fn producer_signer(&self) -> ContactProducerSigner {
-        ContactProducerSigner {
-            verification_method: self.method.clone(),
-            public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
-                self.device_key.verifying_key().to_bytes(),
-            ))
-            .unwrap(),
-        }
+        ContactProducerSigner::Direct(
+            arkret_models_collaboration::contact_operations::ContactDirectProducerSigner {
+                verification_method: self.method.clone(),
+                public_key_b64u: Base64UrlString::new(arkret_canonical::base64url_encode(
+                    self.device_key.verifying_key().to_bytes(),
+                ))
+                .unwrap(),
+            },
+        )
     }
     fn event(&self, kind: EventKind, value: serde_json::Value) -> Event {
         let realm =
@@ -482,7 +486,6 @@ impl CarrierFixture {
         authenticate_contact_event_carrier(
             carrier,
             &self.source.issuer,
-            None,
             DigestSuite::Sha256,
             self.source.signature.created_at,
             &self.source,
@@ -584,7 +587,6 @@ fn carrier_requires_independent_source_and_exact_device_producer() {
         authenticate_contact_event_carrier(
             &carrier,
             &wrong_account,
-            None,
             DigestSuite::Sha256,
             fixture.source.signature.created_at,
             &fixture.source
@@ -639,15 +641,23 @@ fn carrier_projection_binds_exact_method_and_key_without_changing_original_event
         else {
             unreachable!()
         };
-        if change_method {
-            request_receipt.core.producer_signer.verification_method =
-                DidUrl::new("did:webvh:zfixturealice:alice.example#another-device").unwrap();
-        } else {
-            request_receipt.core.producer_signer.public_key_b64u = Base64UrlString::new(
-                arkret_canonical::base64url_encode(fixture.source.key.verifying_key().to_bytes()),
-            )
-            .unwrap();
-        }
+        let original = &request_receipt.core.producer_signer;
+        request_receipt.core.producer_signer = ContactProducerSigner::direct(
+            if change_method {
+                DidUrl::new("did:webvh:zfixturealice:alice.example#another-device").unwrap()
+            } else {
+                original.verification_method().clone()
+            },
+            if change_method {
+                original.public_key_b64u().clone()
+            } else {
+                Base64UrlString::new(arkret_canonical::base64url_encode(
+                    fixture.source.key.verifying_key().to_bytes(),
+                ))
+                .unwrap()
+            },
+        )
+        .unwrap();
         request_receipt.receipt_digest = request_receipt.computed_core_digest().unwrap();
         assert!(
             fixture.authenticate(&tampered).is_err(),
@@ -1154,7 +1164,82 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         has_more: false,
     };
     verify_agent_holder_binding(&event, &holder, None, &history).unwrap();
-    verify_holder(&event, &holder, &f.producer_signer(), DigestSuite::Sha256).unwrap();
+    let producer = ContactProducerSigner::delegated(
+        f.method.clone(),
+        f.producer_signer().public_key_b64u().clone(),
+        history.history.did.clone(),
+    )
+    .unwrap();
+    verify_holder(&event, &holder, &producer, DigestSuite::Sha256).unwrap();
+    assert!(
+        verify_holder(&event, &holder, &f.producer_signer(), DigestSuite::Sha256).is_err(),
+        "a delegated Event cannot consume a direct producer projection"
+    );
+    let identity =
+        verify_contact_agent_identity(&event, &holder, &history.history.did, &history).unwrap();
+    assert_eq!(identity.event_id(), &event.event_id);
+    assert_eq!(identity.did(), &history.history.did);
+
+    struct CombinedHistory<'a> {
+        source: &'a Fixture,
+        agent: &'a Fixture,
+    }
+    impl AuthorityDidHistoryResolver for CombinedHistory<'_> {
+        fn resolve_complete_history(
+            &self,
+            did: &Did,
+        ) -> std::result::Result<IdentityLogListOutcome, AuthorityHistoryUnavailable> {
+            if did == &self.source.history.did {
+                Ok(self.source.history.clone())
+            } else if did == &self.agent.history.did {
+                Ok(self.agent.history.clone())
+            } else {
+                Err(AuthorityHistoryUnavailable {
+                    message: "unavailable fixture DID".into(),
+                })
+            }
+        }
+    }
+    let make_carrier = |event: Event, producer: ContactProducerSigner| {
+        let mut lineage = f.source.lineage(2, &[], true);
+        lineage.issuer = holder.clone();
+        lineage.event_ref = event.event_id.clone();
+        lineage.producer_signer = producer;
+        f.source.resign(&mut lineage);
+        let current_proof = f.source.checkpoint(&lineage);
+        PeerContactSubmitRequestBody::Tombstone {
+            idempotency_key: arkret_wire::IdempotencyKey::new("controller-contact").unwrap(),
+            signed_event: event,
+            lineage,
+            current_proof,
+            contact_address: f.address(),
+        }
+    };
+    // The grant reference has no public Agent DID. Only the source-signed
+    // delegated locator permits the first receiving Station to resolve it.
+    let mut grant_event = event.clone();
+    grant_event.authorization_ref = Some(event_id(91).into());
+    grant_event = f.sign_event(grant_event);
+    let carrier = make_carrier(grant_event.clone(), producer.clone());
+    let histories = CombinedHistory {
+        source: &f.source,
+        agent: &history,
+    };
+    let verified =
+        authenticate_contact_event_carrier(&carrier, &holder, DigestSuite::Sha256, at, &histories)
+            .unwrap();
+    assert_eq!(verified.event_id(), &grant_event.event_id);
+    assert!(
+        authenticate_contact_event_carrier(&carrier, &holder, DigestSuite::Sha256, at, &f.source)
+            .is_err(),
+        "the signed locator does not replace independent native history"
+    );
+    let missing = make_carrier(grant_event, f.producer_signer());
+    assert!(
+        authenticate_contact_event_carrier(&missing, &holder, DigestSuite::Sha256, at, &histories)
+            .is_err(),
+        "a newly signed source receipt cannot authorize an omitted mandatory locator"
+    );
     let mut removed_binding = history.history.entries[1]["state"].clone();
     removed_binding["service"]
         .as_array_mut()

@@ -202,6 +202,39 @@ fn payload<T: serde::de::DeserializeOwned>(event: &Event) -> Result<T> {
     serde_json::from_value(serde_json::to_value(&event.payload).map_err(invalid)?).map_err(invalid)
 }
 
+/// Public Agent identity authenticated from its complete native DID history.
+/// This proves the exact Contact actor/controller/PCR binding at the Event's
+/// historical identity point; command authorization still belongs to admission.
+#[derive(Clone, Debug)]
+pub struct VerifiedContactAgentIdentity {
+    did: arkret_wire::Did,
+    event_id: EventId,
+}
+impl VerifiedContactAgentIdentity {
+    pub fn did(&self) -> &arkret_wire::Did {
+        &self.did
+    }
+    pub fn event_id(&self) -> &EventId {
+        &self.event_id
+    }
+}
+
+pub fn verify_contact_agent_identity(
+    event: &Event,
+    holder: &ContactPeer,
+    did: &arkret_wire::Did,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<VerifiedContactAgentIdentity> {
+    if !matches!(holder, ContactPeer::Agent { .. }) {
+        return Err(invalid("Contact Agent identity requires an Agent holder"));
+    }
+    verify_agent_holder_binding(event, holder, Some(did), resolver)?;
+    Ok(VerifiedContactAgentIdentity {
+        did: did.clone(),
+        event_id: event.event_id.clone(),
+    })
+}
+
 fn verify_agent_holder_binding(
     event: &Event,
     holder: &ContactPeer,
@@ -241,8 +274,11 @@ fn verify_agent_holder_binding(
                     == Some(actor.signing_principal_id())
             })
     });
-    let did = candidate.ok_or_else(|| ContactAuthorizationError::MissingMaterial(
-        "public Agent DID locator is absent; resolve the exact Agent account through public identity resolution".into()))?;
+    let did = candidate.ok_or_else(|| {
+        ContactAuthorizationError::MissingMaterial(
+            "source-authenticated public Agent DID locator is absent".into(),
+        )
+    })?;
     if arkret_wire::project_did_to_core_id(&did).map_err(invalid)? != *actor.signing_principal_id()
     {
         return Err(invalid(
@@ -371,6 +407,7 @@ fn verify_holder(
     signer: &ContactProducerSigner,
     suite: DigestSuite,
 ) -> Result<()> {
+    signer.validate_for_event(event, holder).map_err(invalid)?;
     if event.actor_id != holder.contact_actor_id() || event.actor_id.as_account_id().is_none() {
         return Err(invalid(
             "Event actor differs from the expected complete Contact holder account",
@@ -388,7 +425,7 @@ fn verify_holder(
     };
     proof.validate_production().map_err(invalid)?;
     if proof.created_at != event.created_at
-        || proof.verification_method != signer.verification_method
+        || &proof.verification_method != signer.verification_method()
     {
         return Err(invalid(
             "producer method or time differs from the source-authenticated exact Event",
@@ -413,7 +450,7 @@ fn verify_holder(
         }
         _ => {}
     }
-    let did = arkret_identity::verification_method_did(signer.verification_method.as_str())
+    let did = arkret_identity::verification_method_did(signer.verification_method().as_str())
         .map_err(invalid)?;
     if arkret_wire::project_did_to_core_id(&did).map_err(invalid)?
         != *producer.signing_principal_id()
@@ -496,17 +533,15 @@ fn verify_checkpoint_identity(
 }
 
 /// Authenticate all five original signed-Event carriers using the producer key
-/// covered by their source receipt/lineage. `agent_did` is only a public lookup
-/// locator: its complete native history and exact principal/controller/Station
-/// binding are independently verified. It is required when a controller-signed
-/// Agent Event has no full Agent DID locator in its original envelope.
+/// covered by their source receipt/lineage. A delegated Agent locator is taken
+/// only from that authenticated source projection. Its complete native history
+/// and exact principal/controller/Station binding are independently verified.
 /// An optional or expired
 /// current proof never becomes current authority here. A later head requires
 /// its complete exact predecessor chain in verify_contact_direction_history.
 pub fn authenticate_contact_event_carrier(
     carrier: &PeerContactSubmitRequestBody,
     expected_holder: &ContactPeer,
-    agent_did: Option<&arkret_wire::Did>,
     suite: DigestSuite,
     observed_at: DateTime<Utc>,
     resolver: &dyn AuthorityDidHistoryResolver,
@@ -534,7 +569,6 @@ pub fn authenticate_contact_event_carrier(
             "carrier kind or observation conflicts with its Event",
         ));
     }
-    verify_agent_holder_binding(event, expected_holder, agent_did, resolver)?;
     let (peer, transition) = match carrier {
         PeerContactSubmitRequestBody::Request {
             request_receipt,
@@ -766,6 +800,12 @@ pub fn authenticate_contact_event_carrier(
         _ => unreachable!(),
     };
     verify_holder(event, expected_holder, producer_signer, suite)?;
+    verify_agent_holder_binding(
+        event,
+        expected_holder,
+        producer_signer.delegated_actor_did(),
+        resolver,
+    )?;
     let address = match carrier {
         PeerContactSubmitRequestBody::Request {
             contact_address, ..
