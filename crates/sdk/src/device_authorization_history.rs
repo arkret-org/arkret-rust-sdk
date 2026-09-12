@@ -619,8 +619,11 @@ fn verify_device_producer(
         let payload: DeviceAuthorizePayload = event
             .typed_payload::<arkret_wire::event_spec::DeviceAuthorize>()
             .map_err(invalid)?;
-        if payload.authorized_by != arkret_models_collaboration::events_payloads::device_identity::DeviceOrPrincipalRef::DeviceId(device_id) {
-            return Err(invalid("accepted-device authorizer differs from its actual producer"));
+        if !matches!(&payload.authorized_by, arkret_models_collaboration::events_payloads::device_identity::DeviceOrPrincipalRef::DeviceId(authorizer) if authorizer == &device_id)
+        {
+            return Err(invalid(
+                "accepted-device authorizer differs from its actual producer",
+            ));
         }
     }
     verify_event_producer(event, &proof.verification_method, &source.public_key, suite)

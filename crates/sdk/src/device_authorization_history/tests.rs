@@ -348,7 +348,7 @@ impl Fixture {
         self.seals.push(seal);
         self.events.extend(events);
     }
-    fn verify(&self) -> Result<DeviceAuthorizationHistory> {
+    fn verify(&self) -> super::Result<DeviceAuthorizationHistory> {
         DeviceAuthorizationHistory::verify(
             &self.account,
             &self.events[0].event_id,
