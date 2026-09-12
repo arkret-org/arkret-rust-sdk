@@ -135,7 +135,7 @@ pub struct AgentActionApprovePayload {
     pub agent_id: DidCoreId,
     pub proposed_action: String,
     pub target: AgentActionTarget,
-    pub approved_payload_digest: Hash,
+    pub approved_event_id: EventId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub draft_content_digest: Option<Hash>,
     pub approval_nonce: String,

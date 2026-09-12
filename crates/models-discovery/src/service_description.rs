@@ -524,13 +524,6 @@ pub struct ServiceDescribe {
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
     pub receive_policy_constraints: Option<ReceivePolicyConstraints>,
-    /// Profiles the service claims (self-declared). Wire
-    /// shape per
-    /// `service-describe.schema.json#/properties/claimed_profiles`:
-    /// every entry MUST be an object with `profile_id` +
-    /// `claim_kind = "self_claimed"`; verified-only assertions live in
-    /// [`Self::verified_profiles`].
-    pub claimed_profiles: Vec<ClaimedProfileEntry>,
     /// Profiles a third party has verified the service
     /// against. MUST be empty when `development_mode == true`. Wire
     /// shape per
@@ -578,9 +571,6 @@ pub struct ServiceDescribe {
     /// queries require holder-approved proof.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub restricted_query_proof: Option<bool>,
-    /// Directory-service overlay: supported ingest modes.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub ingest_modes: Vec<DirectoryIngestMode>,
     /// Directory-service overlay: resource acceptance policy kind.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accept_policy_kind: Option<DirectoryAcceptPolicyKind>,
@@ -689,7 +679,6 @@ impl ServiceDescribe {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            claimed_profiles: Vec::new(),
             verified_profiles: Vec::new(),
             interop_surfaces: Vec::new(),
             invite_addressing: None,
@@ -700,7 +689,6 @@ impl ServiceDescribe {
             resource_kinds: Vec::new(),
             private_contact_discovery: None,
             restricted_query_proof: None,
-            ingest_modes: Vec::new(),
             accept_policy_kind: None,
             accept_policy_ref: None,
             default_ttl_seconds: None,
@@ -927,11 +915,6 @@ impl ServiceDescribe {
                 profile.as_str(),
                 ProfileId::CALENDAR_EVENT_V1 | ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
             )
-        }) || self.claimed_profiles.iter().any(|claim| {
-            matches!(
-                claim.profile_id.as_str(),
-                ProfileId::CALENDAR_EVENT_V1 | ProfileId::CALENDAR_NOTIFICATION_DISPATCH_V1
-            )
         });
         let valid_tzdb_version = |version: &str| {
             let bytes = version.as_bytes();
@@ -991,7 +974,6 @@ impl ServiceDescribe {
         }
         if self.service_kind == ServiceKind::DirectoryService {
             if self.resource_kinds.is_empty()
-                || self.ingest_modes.is_empty()
                 || self.accept_policy_kind.is_none()
                 || self.default_ttl_seconds.is_none()
                 || self.max_ttl_seconds.is_none()
@@ -1333,7 +1315,6 @@ mod tests {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            claimed_profiles: vec![],
             verified_profiles: vec![],
             interop_surfaces: vec![],
             invite_addressing: None,
@@ -1350,7 +1331,6 @@ mod tests {
             ],
             private_contact_discovery: None,
             restricted_query_proof: Some(true),
-            ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
             accept_policy_ref: None,
             default_ttl_seconds: Some(86_400),
@@ -1375,16 +1355,23 @@ mod tests {
     }
 
     #[test]
+    fn removed_describe_mirrors_are_not_extensions() {
+        for field in ["claimed_profiles", "ingest_modes"] {
+            let mut wire = serde_json::to_value(station_description()).unwrap();
+            wire[field] = json!([]);
+            match serde_json::from_value::<ServiceDescribe>(wire) {
+                Ok(description) => assert!(description.validate().is_err()),
+                Err(_) => {}
+            }
+        }
+    }
+
+    #[test]
     fn calendar_profile_claim_requires_an_executable_tzdb_release() {
         let mut description = station_description();
         description
             .supported_profiles
             .push("ak.profile.calendar_notification_dispatch.v1".to_owned());
-        description
-            .claimed_profiles
-            .push(ClaimedProfileEntry::self_claimed(
-                "ak.profile.calendar_notification_dispatch.v1",
-            ));
         assert!(description.validate().is_err());
 
         description.calendar_tzdb_versions = vec!["2025b".to_owned()];
@@ -1673,15 +1660,6 @@ pub struct EgressPrivateException {
     pub expires_at: DateTime<Utc>,
 }
 
-/// Ingest mode vocabulary for the directory-service describe overlay.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryIngestMode {
-    Push,
-    Pull,
-}
-
 /// Acceptance policy vocabulary for the directory-service describe overlay.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1691,50 +1669,6 @@ pub enum DirectoryAcceptPolicyKind {
     Allowlist,
     TrustRootSigned,
     OperatorReview,
-}
-
-/// Wire-level entry in
-/// [`ServiceDescribe::claimed_profiles`]. Mirrors
-/// `service-describe.schema.json#/properties/claimed_profiles/items`:
-/// `profile_id` + `claim_kind = "self_claimed"` are required, the rest
-/// is optional + open (`additionalProperties: true`) so receivers can
-/// round-trip future fields without losing them.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ClaimedProfileEntry {
-    pub profile_id: String,
-    pub claim_kind: SelfClaimedKind,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub claimed_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub notes: Option<String>,
-    #[serde(default, flatten)]
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub extra: BTreeMap<String, Value>,
-}
-
-impl ClaimedProfileEntry {
-    pub fn self_claimed(profile_id: impl Into<String>) -> Self {
-        Self {
-            profile_id: profile_id.into(),
-            claim_kind: SelfClaimedKind::SelfClaimed,
-            claimed_at: None,
-            notes: None,
-            extra: BTreeMap::new(),
-        }
-    }
-}
-
-/// `claim_kind` discriminant for
-/// [`ClaimedProfileEntry`]. The spec restricts this slot to
-/// `self_claimed`; verified-by-cotest claims belong in
-/// [`VerifiedProfileEntry`].
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SelfClaimedKind {
-    SelfClaimed,
 }
 
 /// Wire-level entry in

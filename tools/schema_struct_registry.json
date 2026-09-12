@@ -190,10 +190,6 @@
       "schema": "event-payload.schema.json#/$defs/circle_patch_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/circle.rs::CircleSealCommitPayload",
-      "schema": "event-payload.schema.json#/$defs/circle_seal_commit_payload"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/consent.rs::ConsentGrantPayload",
       "schema": "event-payload.schema.json#/$defs/consent_grant_payload"
     },
@@ -408,10 +404,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/state.rs::RealmUpgradeStatePayload",
       "schema": "event-payload.schema.json#/$defs/realm_upgrade_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/state.rs::StateConflictRecoveryPayload",
-      "schema": "event-payload.schema.json#/$defs/state_conflict_recovery_payload"
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/strand.rs::StrandCreatePayload",
@@ -692,10 +684,6 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/seal_transparency.rs::InclusionList",
-      "schema": "inclusion-list.schema.json"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/seal_transparency.rs::SealTransparency",
       "schema": "seal-transparency.schema.json"
     },
@@ -856,6 +844,10 @@
       "schema": "recovery-policy.schema.json#/$defs/recovery_method/oneOf/3/properties/services/items"
     },
     {
+      "rust_type": "crates/models-crypto/src/keys.rs::DeviceAuthorizationWindow",
+      "schema": "keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/authorization_window"
+    },
+    {
       "rust_type": "crates/models-crypto/src/keys.rs::DeviceProjectionAttestationCore",
       "schema": "keys-operations.schema.json#/$defs/device_projection_attestation_core"
     },
@@ -908,12 +900,6 @@
     {
       "rust_type": "crates/models-discovery/src/service_description.rs::AuthMethod",
       "schema": "service-describe.schema.json#/$defs/auth_method",
-      "comparison": "rust_fields_subset",
-      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
-    },
-    {
-      "rust_type": "crates/models-discovery/src/service_description.rs::ClaimedProfileEntry",
-      "schema": "service-describe.schema.json#/properties/claimed_profiles/items",
       "comparison": "rust_fields_subset",
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
@@ -1114,8 +1100,8 @@
       "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof"
     },
     {
-      "rust_type": "crates/wire/src/seal.rs::MultiSignature",
-      "schema": "seal.schema.json#/$defs/multi_signature"
+      "rust_type": "crates/wire/src/seal_conclusion.rs::SealConclusionCellState",
+      "schema": "seal-conclusion.schema.json#/$defs/cell_state"
     }
   ],
   "exemptions": [

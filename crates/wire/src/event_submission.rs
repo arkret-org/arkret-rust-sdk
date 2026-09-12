@@ -380,6 +380,14 @@ pub fn validate_anchor_unit_lease_bindings(
 pub struct EventInitialSubmission {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
+    /// Complete pre-authored ordinary Event, present exactly for Agent approval.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_publication_event"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<serde_json::Value>)))]
+    pub publication_event: Option<Event>,
     /// Exact final leaf intent for MLS Genesis/Commit; retained with admission.
     #[serde(
         default,
@@ -421,6 +429,7 @@ impl ProofAuthenticatedPublication {
             || submission.control_proposal_ack.is_some()
             || submission.membership_compensation_evidence.is_some()
             || submission.mls_frontier_leaves.is_some()
+            || submission.publication_event.is_some()
         {
             return Err(WireError::Protocol(
                 "proof-authenticated publication must contain one ordinary Event only".to_owned(),
@@ -459,6 +468,14 @@ pub struct AcklessSelfPrincipalAdmissionEvidence {
 pub struct EventFederationSubmission {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub event: Event,
+    /// Complete pre-authored ordinary Event, present exactly for Agent approval.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_publication_event"
+    )]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Option<serde_json::Value>)))]
+    pub publication_event: Option<Event>,
     /// Exact final leaf intent for MLS Genesis/Commit; retained with admission.
     #[serde(
         default,
@@ -480,6 +497,54 @@ pub struct EventFederationSubmission {
     /// Byte-identical transport-only evidence forwarded from self admission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
+}
+
+fn deserialize_publication_event<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<Event>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Event::deserialize(deserializer).map(Some)
+}
+
+/// Check attachment identity and ordinary envelope shape only. The receiver must
+/// additionally verify its producer proof, actual data execution and ordinary
+/// authorization, except the exact approval obligation being decided.
+pub fn validate_approval_publication_event(
+    approval: &Event,
+    publication: Option<&Event>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> Result<()> {
+    if (approval.kind == crate::EventKind::AgentActionApprove) != publication.is_some() {
+        return Err(WireError::Protocol(
+            "publication_event is required exactly for Agent action approval".to_owned(),
+        ));
+    }
+    let Some(publication) = publication else {
+        return Ok(());
+    };
+    publication.validate_for_federation_structural_in_context(
+        EventSubmitContext::Standard,
+        digest_suite,
+    )?;
+    publication.verify_event_id_matches_content_with_digest_suite(digest_suite)?;
+    if publication.auth_context.is_none()
+        || publication.seal_basis.is_some()
+        || publication.kind == crate::EventKind::AgentActionApprove
+        || publication.realm_id != approval.realm_id
+        || approval
+            .payload
+            .get("approved_event_id")
+            .and_then(serde_json::Value::as_str)
+            != Some(publication.event_id.as_str())
+    {
+        return Err(WireError::Protocol(
+            "approval must bind the exact ordinary publication Event in its target Realm"
+                .to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn deserialize_optional_authorization_lease<'de, D>(
@@ -614,6 +679,7 @@ impl EventInitialSubmission {
     pub fn online(event: Event) -> Self {
         Self {
             event,
+            publication_event: None,
             mls_frontier_leaves: None,
             authorization_lease: None,
             cbs_proof_bundles: Vec::new(),
@@ -627,6 +693,7 @@ impl EventInitialSubmission {
     pub fn delayed(event: Event, authorization_lease: AuthorizationLease) -> Self {
         Self {
             event,
+            publication_event: None,
             mls_frontier_leaves: None,
             authorization_lease: Some(authorization_lease),
             cbs_proof_bundles: Vec::new(),
@@ -656,6 +723,11 @@ impl EventInitialSubmission {
         self.event
             .validate_for_submit_structural_in_context(context)?;
         validate_mls_submission_leaves(&self.event, self.mls_frontier_leaves.as_deref())?;
+        validate_approval_publication_event(
+            &self.event,
+            self.publication_event.as_ref(),
+            digest_suite,
+        )?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
@@ -708,6 +780,11 @@ impl EventFederationSubmission {
         self.event
             .validate_for_federation_structural_in_context(context, digest_suite)?;
         validate_mls_submission_leaves(&self.event, self.mls_frontier_leaves.as_deref())?;
+        validate_approval_publication_event(
+            &self.event,
+            self.publication_event.as_ref(),
+            digest_suite,
+        )?;
         if let Some(lease) = &self.authorization_lease {
             lease.validate_structural()?;
             validate_lease_binds_event(&self.event, lease)?;
@@ -941,6 +1018,64 @@ mod tests {
 
     fn federated_event() -> Event {
         online_event()
+    }
+
+    #[test]
+    fn approval_attachment_binds_exact_complete_event_and_survives_local_storage() {
+        let publication = online_event();
+        let mut approval = publication.clone();
+        approval.kind = crate::EventKind::AgentActionApprove;
+        approval.payload = serde_json::json!({"approved_event_id": publication.event_id});
+        validate_approval_publication_event(
+            &approval,
+            Some(&publication),
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        assert!(
+            validate_approval_publication_event(
+                &approval,
+                None,
+                arkret_canonical::DigestSuite::Sha256
+            )
+            .is_err()
+        );
+        assert!(
+            validate_approval_publication_event(
+                &publication,
+                Some(&publication),
+                arkret_canonical::DigestSuite::Sha256
+            )
+            .is_err()
+        );
+        let mut changed = publication.clone();
+        changed.payload["body"] = serde_json::json!("different content");
+        assert!(
+            validate_approval_publication_event(
+                &approval,
+                Some(&changed),
+                arkret_canonical::DigestSuite::Sha256
+            )
+            .is_err()
+        );
+        approval.proofs.clear();
+        let mut authored = crate::AuthoredEvent::finalize_with_digest_suite(
+            approval,
+            arkret_canonical::DigestSuite::Sha256,
+        )
+        .unwrap();
+        authored
+            .bind_publication_event(publication.clone())
+            .unwrap();
+        let restored: crate::AuthoredEvent =
+            serde_json::from_slice(&crate::canonical::canonical_json_bytes(&authored).unwrap())
+                .unwrap();
+        assert_eq!(restored.publication_event(), Some(&publication));
+        assert!(authored.bind_publication_event(changed).is_err());
+        let mut wrapper =
+            serde_json::to_value(EventInitialSubmission::online(publication)).unwrap();
+        wrapper["publication_event"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<EventInitialSubmission>(wrapper).is_err());
     }
 
     fn membership_compensation_submission()
@@ -1247,6 +1382,7 @@ mod tests {
     #[test]
     fn online_federation_uses_no_offline_publication_evidence() {
         let submission = EventFederationSubmission {
+            publication_event: None,
             mls_frontier_leaves: None,
             event: federated_event(),
             authorization_lease: None,
@@ -1267,6 +1403,7 @@ mod tests {
     #[test]
     fn delayed_federation_requires_a_lease_bound_receipt() {
         let submission = EventFederationSubmission {
+            publication_event: None,
             mls_frontier_leaves: None,
             event: federated_event(),
             authorization_lease: Some(lease_for(&intent())),

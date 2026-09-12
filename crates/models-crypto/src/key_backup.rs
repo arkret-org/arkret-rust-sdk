@@ -2459,6 +2459,7 @@ impl From<RecoveryPolicyPublishRequest> for EventInitialSubmission {
     fn from(value: RecoveryPolicyPublishRequest) -> Self {
         Self {
             event: value.event,
+            publication_event: None,
             mls_frontier_leaves: None,
             authorization_lease: Some(value.authorization_lease),
             cbs_proof_bundles: value.cbs_proof_bundles,

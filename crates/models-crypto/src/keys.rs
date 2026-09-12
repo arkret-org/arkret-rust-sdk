@@ -172,6 +172,19 @@ pub struct DeviceGenerationState {
     pub device_generation_status: DeviceGenerationStatus,
 }
 
+/// Exact original device grant window, independent of current-query cache TTL.
+/// `keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/
+/// authorization_window`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceAuthorizationWindow {
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub not_before: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
 /// Origin Station assertion that one exact device projection is the
 /// account's current accepted one.
 ///
@@ -196,6 +209,7 @@ pub struct DeviceProjectionAttestationCore {
     pub authorized_generation_ref: u64,
     /// Constant `active`: this surface attests usable devices only.
     pub device_status: DeviceStatus,
+    pub authorization_window: DeviceAuthorizationWindow,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub attested_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

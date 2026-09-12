@@ -59,6 +59,7 @@ pub struct AuthoredEvent {
     event: Event,
     digest_suite: DigestSuite,
     mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
+    publication_event: Option<Event>,
 }
 
 impl AuthoredEvent {
@@ -82,6 +83,7 @@ impl AuthoredEvent {
             event,
             digest_suite,
             mls_frontier_leaves: None,
+            publication_event: None,
         })
     }
 
@@ -102,6 +104,7 @@ impl AuthoredEvent {
             event,
             digest_suite,
             mls_frontier_leaves: None,
+            publication_event: None,
         })
     }
 
@@ -127,6 +130,30 @@ impl AuthoredEvent {
 
     pub fn mls_frontier_leaves(&self) -> Option<&[crate::mls_transition::MlsSecurityFrontierLeaf]> {
         self.mls_frontier_leaves.as_deref()
+    }
+
+    /// Freeze an immutable approval dependency outside the Event envelope.
+    pub fn bind_publication_event(&mut self, publication: Event) -> Result<()> {
+        crate::event_submission::validate_approval_publication_event(
+            &self.event,
+            Some(&publication),
+            self.digest_suite,
+        )?;
+        if self
+            .publication_event
+            .as_ref()
+            .is_some_and(|existing| existing != &publication)
+        {
+            return Err(WireError::Protocol(
+                "authored approval publication dependency is immutable".to_owned(),
+            ));
+        }
+        self.publication_event = Some(publication);
+        Ok(())
+    }
+
+    pub fn publication_event(&self) -> Option<&Event> {
+        self.publication_event.as_ref()
     }
 
     /// The digest suite this Event's identity and proofs are bound to.
@@ -218,6 +245,7 @@ impl Serialize for AuthoredEvent {
             mls_frontier_leaves: self.mls_frontier_leaves(),
             digest_suite: self.digest_suite,
             event: &self.event,
+            publication_event: self.publication_event(),
         }
         .serialize(serializer)
     }
@@ -229,6 +257,8 @@ struct AuthoredEventRecordRef<'a> {
     digest_suite: DigestSuite,
     event: &'a Event,
     #[serde(skip_serializing_if = "Option::is_none")]
+    publication_event: Option<&'a Event>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     mls_frontier_leaves: Option<&'a [crate::mls_transition::MlsSecurityFrontierLeaf]>,
 }
 
@@ -239,6 +269,8 @@ struct AuthoredEventRecord {
     event: Event,
     #[serde(default)]
     mls_frontier_leaves: Option<Vec<crate::mls_transition::MlsSecurityFrontierLeaf>>,
+    #[serde(default)]
+    publication_event: Option<Event>,
 }
 
 impl<'de> Deserialize<'de> for AuthoredEvent {
@@ -252,6 +284,11 @@ impl<'de> Deserialize<'de> for AuthoredEvent {
         let mut authored = Self::from_verified_with_digest_suite(record.event, record.digest_suite)
             .map_err(serde::de::Error::custom)?;
         authored.mls_frontier_leaves = record.mls_frontier_leaves;
+        if let Some(publication) = record.publication_event {
+            authored
+                .bind_publication_event(publication)
+                .map_err(serde::de::Error::custom)?;
+        }
         Ok(authored)
     }
 }

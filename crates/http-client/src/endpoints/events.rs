@@ -329,6 +329,7 @@ impl Client {
             .zip(outcome.authorization_leases)
         {
             let mut submission = EventInitialSubmission {
+                publication_event: None,
                 mls_frontier_leaves: None,
                 event: event.clone(),
                 authorization_lease: Some(lease),

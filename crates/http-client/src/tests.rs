@@ -524,6 +524,7 @@ mod events_submit_tests {
         }];
 
         EventInitialSubmission {
+            publication_event: None,
             mls_frontier_leaves: None,
             event,
             authorization_lease: Some(authorization_lease),
@@ -988,7 +989,6 @@ mod events_submit_tests {
                 "auth_metadata":{"methods":[]},
                 "limits":{},
                 "plaintext_visibility":{"data_classes":[],"max_visibility":"none"},
-                "claimed_profiles":[],
                 "verified_profiles":[],
                 "interop_surfaces":[],
                 "development_mode":false,
@@ -1037,7 +1037,6 @@ mod events_submit_tests {
                 "auth_metadata":{"methods":[]},
                 "limits":{},
                 "plaintext_visibility":{"data_classes":[],"max_visibility":"none"},
-                "claimed_profiles":[],
                 "verified_profiles":[],
                 "interop_surfaces":[],
                 "development_mode":false,

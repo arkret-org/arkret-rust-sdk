@@ -346,6 +346,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
     )];
 
     EventFederationSubmission {
+        publication_event: None,
         mls_frontier_leaves: None,
         event,
         authorization_lease: Some(authorization_lease),

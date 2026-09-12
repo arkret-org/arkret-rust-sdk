@@ -721,7 +721,6 @@ mod tests {
             "auth_metadata": {"methods": []},
             "limits": {},
             "plaintext_visibility": {"data_classes": [], "max_visibility": "none"},
-            "claimed_profiles": [],
             "verified_profiles": [],
             "interop_surfaces": [],
             "development_mode": false,

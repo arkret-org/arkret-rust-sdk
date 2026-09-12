@@ -235,8 +235,8 @@ mod tests {
 
     use super::*;
     use crate::service_description::{
-        AuthMetadata, DirectoryAcceptPolicyKind, DirectoryIngestMode, DirectoryResourceKind,
-        EgressNetworkPolicy, PlaintextVisibility, RateLimitPolicy, ServerLimits, TransportBinding,
+        AuthMetadata, DirectoryAcceptPolicyKind, DirectoryResourceKind, EgressNetworkPolicy,
+        PlaintextVisibility, RateLimitPolicy, ServerLimits, TransportBinding,
     };
 
     #[test]
@@ -268,7 +268,6 @@ mod tests {
             plaintext_visibility: PlaintextVisibility::none(),
             privacy_derivation: None,
             receive_policy_constraints: None,
-            claimed_profiles: vec![],
             verified_profiles: vec![],
             interop_surfaces: vec![],
             invite_addressing: None,
@@ -285,7 +284,6 @@ mod tests {
             ],
             private_contact_discovery: None,
             restricted_query_proof: Some(true),
-            ingest_modes: vec![DirectoryIngestMode::Push],
             accept_policy_kind: Some(DirectoryAcceptPolicyKind::Open),
             accept_policy_ref: None,
             default_ttl_seconds: Some(86_400),
