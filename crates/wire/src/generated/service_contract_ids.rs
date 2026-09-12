@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-13.1;
-//! sha256=037a827a7bdfa0706da75bcc521ffbc7e148652e4d3a9e58123d2b9b4fefce31
+//! Input: registry/contract-registry.json; version=2026-09-13.2;
+//! sha256=15da88f059b5b3ecccfef43168be7cff75c945e764430624a9c227134a2fda52
 //! Entries: service_contracts=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
