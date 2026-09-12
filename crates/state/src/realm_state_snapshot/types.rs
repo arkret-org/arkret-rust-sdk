@@ -18,29 +18,69 @@ use crate::{
 pub const REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_CONTEXT: &str =
     ProofContextId::REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1;
 
+/// Exact authorization context bound by every snapshot chunk.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SnapshotEligibilityContext {
+    pub authority_refs: Vec<crate::SealId>,
+    pub closure_command_refs: Vec<EventId>,
+    pub reducer_contract_digest: Hash,
+}
+
+impl SnapshotEligibilityContext {
+    pub fn digest(&self) -> Result<Hash> {
+        if self.authority_refs.iter().collect::<BTreeSet<_>>().len() != self.authority_refs.len()
+            || self
+                .closure_command_refs
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+                != self.closure_command_refs.len()
+            || !self.reducer_contract_digest.as_str().starts_with("sha256:")
+        {
+            return Err(WireError::Protocol(
+                "snapshot eligibility context requires unique references and a SHA-256 contract digest"
+                    .to_owned(),
+            ));
+        }
+        Ok(sha256_digest(&crate::canonical::canonical_json_bytes(
+            self,
+        )?))
+    }
+}
+
+/// Original signed evidence retained for reclassification after later closures.
+#[derive(Clone, Debug)]
+pub struct SnapshotReplayEvidence {
+    pub eligibility_context: SnapshotEligibilityContext,
+    pub replay_events: Vec<arkret_wire::Event>,
+    pub replay_authority_refs: Vec<crate::SealId>,
+}
+
 /// Full `ak.schema.realm_state_snapshot.v1` manifest returned by
 /// `ak.self.realm_state_snapshot.read.manifest_head.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmStateSnapshotManifest {
     pub id: RealmStateSnapshotId,
     pub realm_id: RealmId,
     pub reducer_profile: String,
     pub security_class: RealmStateSnapshotSecurityClass,
-    #[serde(default)]
     pub schema_profile_refs: Vec<String>,
     pub state_digest: Hash,
     pub frontier: RealmStateSnapshotFrontier,
     pub event_set_commitment: EventSetCommitment,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verification_hints: Option<RealmStateSnapshotVerificationHints>,
-    #[serde(default)]
     pub chunks: Vec<RealmStateSnapshotChunkDescriptor>,
     pub created_by: ActorId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: AuthorityBinding,
     pub signature: DetachedJwsProof,
+    pub eligibility_context: SnapshotEligibilityContext,
 }
 
 /// Snapshot manifest view used for canonical signing bytes.
@@ -61,6 +101,7 @@ pub struct UnsignedRealmStateSnapshotManifest<'a> {
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     pub authority_binding: &'a AuthorityBinding,
+    pub eligibility_context: &'a SnapshotEligibilityContext,
 }
 
 impl RealmStateSnapshotManifest {
@@ -79,6 +120,7 @@ impl RealmStateSnapshotManifest {
             created_by: &self.created_by,
             created_at: self.created_at,
             authority_binding: &self.authority_binding,
+            eligibility_context: &self.eligibility_context,
         }
     }
 
@@ -130,6 +172,7 @@ impl RealmStateSnapshotManifest {
             "realm_state_snapshot_created_at": arkret_canonical::canonical::format_timestamp_canonical(
                 self.created_at,
             ),
+            "eligibility_context": self.eligibility_context,
         }))
     }
 
@@ -281,7 +324,6 @@ fn project_witness_controller(controller: &str) -> Option<DidCoreId> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RealmStateSnapshotFrontier {
-    #[serde(default)]
     pub event_ids: Vec<EventId>,
     pub timeline_hlc: Hlc,
 }
@@ -296,6 +338,7 @@ pub enum RealmStateSnapshotSecurityClass {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RealmStateSnapshotChunkDescriptor {
     pub chunk_ref: BlobRef,
     pub size_bytes: u64,
@@ -303,6 +346,7 @@ pub struct RealmStateSnapshotChunkDescriptor {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventSetCommitment {
     pub algorithm: EventSetCommitmentAlgorithm,
     pub root: Hash,
@@ -321,6 +365,7 @@ pub enum EventSetCommitmentAlgorithm {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ActorSeqRangeCommitment {
     pub actor_id: ActorId,
     pub from_seq: u64,
@@ -330,12 +375,24 @@ pub struct ActorSeqRangeCommitment {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EventSetLeaf {
     pub event_id: EventId,
     pub event_digest: Hash,
     pub actor_id: ActorId,
     pub actor_seq: u64,
-    pub hlc: Hlc,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present_event_hlc"
+    )]
+    pub hlc: Option<Hlc>,
+}
+
+fn present_event_hlc<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Hlc>, D::Error> {
+    Hlc::deserialize(deserializer).map(Some)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -343,7 +400,6 @@ pub struct EventSetLeaf {
 pub struct AuthorityBinding {
     pub authority_kind: RealmStateSnapshotAuthorityKind,
     pub auth_state_digest: Hash,
-    #[serde(default)]
     pub auth_frontier: Vec<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub checked_at: DateTime<Utc>,
@@ -455,233 +511,57 @@ pub struct RealmStateSnapshotVerificationHints {
     pub erasure_stubs_digest: Option<Hash>,
 }
 
-/// One still-active `causal_register` write inside a snapshot chunk.
-///
-/// The wire form of `event-auth-state-resolution.md` §6.2.1's head entry. The
-/// identity is the `ak:event:` spelling here rather than the `event_digest` the
-/// op log stores, because this is the byte-exact preimage every implementation
-/// has to reproduce.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmStateSnapshotCausalHead {
-    pub event_id: EventId,
-    pub value: Value,
-}
-
-/// The `state` of one snapshot cell item: exactly the `state_object` that
-/// `event-auth-state-resolution.md` §6.2.1 gives that cell's registered
-/// lattice.
-///
-/// `{"heads":[…]}` for a `causal_register` cell, `{"value":…}` for every other
-/// lattice. The two shapes are mutually exclusive and carry no other member, so
-/// a cell's snapshot state and its `state_root` leaf preimage
-/// `{"cell","state"}` are one definition, not two that can drift
-/// (`realm-state-snapshot-schema.md` §3 / §4).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SnapshotCellState {
-    /// Joined lattice value of a materialized non-`causal_register` cell, verbatim.
-    /// An encrypted envelope projected from an Event payload stays an
-    /// envelope: the issuer never decrypts, re-encrypts or substitutes.
-    Value(Value),
-    /// Complete active head set of a written `causal_register` cell, ordered by the
-    /// decoded 33-octet `event_id` token with identities unique. Never empty:
-    /// an unwritten cell is not a member.
-    Heads(Vec<RealmStateSnapshotCausalHead>),
-}
-
-impl SnapshotCellState {
-    /// The §6.2.1 `state_object` this state serializes to.
-    pub fn to_state_object(&self) -> Value {
-        match self {
-            Self::Value(value) => serde_json::json!({ "value": value }),
-            Self::Heads(heads) => serde_json::json!({ "heads": heads }),
-        }
-    }
-}
-
-impl Serialize for SnapshotCellState {
-    fn serialize<S: serde::Serializer>(
-        &self,
-        serializer: S,
-    ) -> std::result::Result<S::Ok, S::Error> {
-        self.to_state_object().serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for SnapshotCellState {
-    fn deserialize<D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> std::result::Result<Self, D::Error> {
-        use serde::de::Error as _;
-        let mut object = serde_json::Map::<String, Value>::deserialize(deserializer)?;
-        let keys = object.keys().cloned().collect::<Vec<_>>();
-        match keys.as_slice() {
-            [key] if key == "value" => {
-                Ok(Self::Value(object.remove("value").unwrap_or(Value::Null)))
-            }
-            [key] if key == "heads" => {
-                let heads = serde_json::from_value::<Vec<RealmStateSnapshotCausalHead>>(
-                    object.remove("heads").unwrap_or(Value::Null),
-                )
-                .map_err(D::Error::custom)?;
-                causal_heads_are_canonical(&heads).map_err(D::Error::custom)?;
-                Ok(Self::Heads(heads))
-            }
-            _ => Err(D::Error::custom(
-                "a snapshot cell state is exactly one of {\"value\":…} or {\"heads\":[…]}",
-            )),
-        }
-    }
-}
-
-/// The decoded 33-octet token of an `ak:event:` identity — the §6.2.1 sort key
-/// of a head set. Wire strings are never compared directly.
-fn event_token_bytes(event_id: &EventId) -> std::result::Result<Vec<u8>, String> {
-    let token = event_id
-        .as_str()
-        .strip_prefix("ak:event:")
-        .ok_or_else(|| format!("{event_id} is not an ak:event: identity"))?;
-    let bytes = crate::base64url::base64url_decode(token)
-        .map_err(|error| format!("{event_id} has an undecodable token: {error}"))?;
-    if bytes.len() != 33 {
-        return Err(format!("{event_id} does not decode to 33 octets"));
-    }
-    Ok(bytes)
-}
-
-/// §6.2.1: a head set is non-empty, sorted by decoded token in unsigned
-/// lexicographic ascending order, and carries each identity once.
-fn causal_heads_are_canonical(
-    heads: &[RealmStateSnapshotCausalHead],
-) -> std::result::Result<(), String> {
-    if heads.is_empty() {
-        return Err(
-            "a causal_register snapshot item carries at least one head; an unwritten cell \
-                    is not a member"
-                .to_owned(),
-        );
-    }
-    let mut previous: Option<Vec<u8>> = None;
-    for head in heads {
-        let token = event_token_bytes(&head.event_id)?;
-        if let Some(previous) = &previous
-            && token <= *previous
-        {
-            return Err(
-                "causal_register heads must be sorted by decoded event_id token in ascending order \
-                 with unique identities"
-                    .to_owned(),
-            );
-        }
-        previous = Some(token);
-    }
-    Ok(())
-}
-
-/// The literal `kind` of every snapshot item (`realm-state-snapshot-schema.md` §3).
+/// The literal kind of every registered snapshot Cell item.
 pub const SNAPSHOT_CELL_KIND: &str = "cell";
 
-/// One written Realm-scope reducer cell inside a snapshot chunk.
-///
-/// `realm-state-snapshot-schema.md` §3 makes `items[]` a closed single-branch union:
-/// `{"kind":"cell","id":<cell wire id>,"state":<state_object>}`. There is no
-/// materialized-object branch — a snapshot ships the reducer's own state and a
-/// consumer derives display objects locally, exactly as it does from replay —
-/// and no `source_event_id`: write identities live inside the lattice state
-/// (causal-register heads, or_set dots, ordered_log entries), and one identity could not
-/// name several live writes anyway.
-///
-/// Construction and deserialization both enforce the registry: the family must
-/// be one a registered `cell_writes[]` row writes, and the state shape must be
-/// the one its lattice gets — `heads` for `causal_register`, `value` otherwise.
+/// Complete registered model state at one authenticated eligibility context.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RealmStateSnapshotMaterializedItem {
     cell: CellRef,
-    state: SnapshotCellState,
+    state: arkret_wire::CanonicalCellState,
 }
 
 impl RealmStateSnapshotMaterializedItem {
-    /// Build an item for one written cell, validating it against the registry.
-    pub fn new(cell: CellRef, state: SnapshotCellState) -> Result<Self> {
-        validate_snapshot_cell(&cell, &state)?;
+    pub fn new(cell: CellRef, state: arkret_wire::CanonicalCellState) -> Result<Self> {
+        state.validate_for_cell(&cell)?;
         Ok(Self { cell, state })
     }
 
-    /// An item for a materialized non-`causal_register` cell.
-    pub fn value(cell: CellRef, value: Value) -> Result<Self> {
-        Self::new(cell, SnapshotCellState::Value(value))
-    }
+    pub fn from_resolved(
+        cell: CellRef,
+        state: &crate::state_model::ResolvedCellState,
+    ) -> Result<Self> {
+        use arkret_wire::EventCellStateModel as Wire;
 
-    /// An item for one written `causal_register` cell.
-    ///
-    /// `heads` comes from [`crate::state_model::causal_register::causal_heads`], already
-    /// ordered by the decoded `event_id` token. Each head's identity is
-    /// recovered losslessly from its `event_digest`, so the chunk never depends
-    /// on a second stored spelling of the same identity.
-    ///
-    /// An empty head set is rejected rather than emitted: §6.2.1 makes an
-    /// unwritten cell a non-member, so an empty entry would put a leaf in the
-    /// tree for a cell that must not have one.
-    pub fn causal_cell(cell: CellRef, heads: &[crate::CausalHead]) -> Result<Self> {
-        let heads = heads
-            .iter()
-            .map(|head| {
-                Ok(RealmStateSnapshotCausalHead {
-                    event_id: head.event_id.clone(),
-                    value: head.value.clone(),
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-        Self::new(cell, SnapshotCellState::Heads(heads))
+        use crate::state_model::StateModelKind as Model;
+        let model = match arkret_wire::registered_cell_state_model(&cell)? {
+            Wire::CausalRegister => Model::CausalRegister,
+            Wire::SequencedState => Model::SequencedState,
+            Wire::OrSet => Model::OrSet,
+            Wire::OrderedLog => Model::OrderedLog,
+            Wire::Counter => Model::Counter,
+        };
+        Self::new(
+            cell,
+            crate::state_model::canonical_cell_state(model, state)?,
+        )
     }
 
     pub fn cell(&self) -> &CellRef {
         &self.cell
     }
-
-    pub fn state(&self) -> &SnapshotCellState {
+    pub fn state(&self) -> &arkret_wire::CanonicalCellState {
         &self.state
     }
-
-    /// The `kind` this item sorts and deduplicates under.
     pub fn kind(&self) -> &'static str {
         SNAPSHOT_CELL_KIND
     }
-
-    /// The `id` this item sorts and deduplicates under.
     pub fn id(&self) -> &str {
         self.cell.as_str()
     }
 
-    /// The snapshot-state leaf preimage `{"cell": id, "state": state_object}`.
     pub fn leaf_preimage(&self) -> Value {
-        serde_json::json!({
-            "cell": self.cell.as_str(),
-            "state": self.state.to_state_object(),
-        })
-    }
-}
-
-fn validate_snapshot_cell(cell: &CellRef, state: &SnapshotCellState) -> Result<()> {
-    if !arkret_wire::is_registered_cell(cell.as_str()) {
-        return Err(WireError::Protocol(format!(
-            "{cell} is not a cell any registered reducer contract writes; it cannot be a \
-             snapshot item"
-        )));
-    }
-    let causal = arkret_wire::is_registered_causal_register_cell(cell.as_str());
-    match (causal, state) {
-        (true, SnapshotCellState::Heads(heads)) => {
-            causal_heads_are_canonical(heads).map_err(WireError::Protocol)
-        }
-        (false, SnapshotCellState::Value(_)) => Ok(()),
-        (true, SnapshotCellState::Value(_)) => Err(WireError::Protocol(format!(
-            "{cell} is a causal_register cell; its snapshot state is {{\"heads\":[…]}}, not a value"
-        ))),
-        (false, SnapshotCellState::Heads(_)) => Err(WireError::Protocol(format!(
-            "{cell} is not a causal_register cell; its snapshot state is {{\"value\":…}}, not heads"
-        ))),
+        serde_json::json!({"cell": self.cell, "state_model": self.state.state_model(), "state": self.state})
     }
 }
 
@@ -697,9 +577,10 @@ struct RawSnapshotItem {
     kind: String,
     id: String,
     state: Value,
+    state_model: arkret_wire::EventCellStateModel,
 }
 
-/// The OpenAPI shape is the flat wire object: `{kind, id, state}` with `state`
+/// The OpenAPI shape is the flat wire object: `{kind, id, state, state_model}` with `state`
 /// being the §6.2.1 state_object. Delegating to [`RawSnapshotItem`] keeps the
 /// document describing what is actually serialized.
 #[cfg(feature = "openapi")]
@@ -720,6 +601,7 @@ impl Serialize for RealmStateSnapshotMaterializedItem {
             kind: SNAPSHOT_CELL_KIND.to_owned(),
             id: self.cell.as_str().to_owned(),
             state: self.state.to_state_object(),
+            state_model: self.state.state_model(),
         }
         .serialize(serializer)
     }
@@ -738,8 +620,8 @@ impl<'de> Deserialize<'de> for RealmStateSnapshotMaterializedItem {
             )));
         }
         let cell = CellRef::new(raw.id).map_err(D::Error::custom)?;
-        let state =
-            serde_json::from_value::<SnapshotCellState>(raw.state).map_err(D::Error::custom)?;
+        let state = arkret_wire::CanonicalCellState::from_state_object(raw.state_model, raw.state)
+            .map_err(D::Error::custom)?;
         Self::new(cell, state).map_err(D::Error::custom)
     }
 }
@@ -785,8 +667,7 @@ pub struct SnapshotErasureStub {
     pub stub: arkret_models_collaboration::events_payloads::event_wire::VerificationStub,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 /// One `ak.schema.realm_state_snapshot_chunk.v1` payload — the canonical JSON behind a
 /// manifest `chunks[].chunk_ref` (`realm-state-snapshot-schema.md` §3). Closed on the way
 /// in: an unknown member or an item outside the single `cell` branch fails to
@@ -797,19 +678,25 @@ pub struct RealmStateSnapshotChunkPayload {
     pub realm_state_snapshot_ref: RealmStateSnapshotId,
     pub index: u32,
     pub reducer_profile: String,
-    #[serde(default)]
     pub items: Vec<RealmStateSnapshotMaterializedItem>,
-    #[serde(default)]
     pub conflict_records: Vec<RealmStateSnapshotConflictRecord>,
-    #[serde(default)]
     pub soft_failed: Vec<SnapshotNonAcceptedInput>,
-    #[serde(default)]
     pub quarantined: Vec<SnapshotNonAcceptedInput>,
-    #[serde(default)]
     pub erasure_stubs: Vec<SnapshotErasureStub>,
+    pub eligibility_context_digest: Hash,
+    pub replay_events: Vec<arkret_wire::Event>,
+    pub replay_authority_refs: Vec<crate::SealId>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg(feature = "openapi")]
+impl salvo_oapi::ToSchema for RealmStateSnapshotChunkPayload {
+    fn to_schema(_: &mut salvo_oapi::Components) -> salvo_oapi::RefOr<salvo_oapi::schema::Schema> {
+        salvo_oapi::Ref::new("https://arkret.org/v1/schemas/realm-state-snapshot-chunk.schema.json")
+            .into()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct BuiltRealmStateSnapshotChunk {
     pub payload: RealmStateSnapshotChunkPayload,
     pub canonical_bytes: Vec<u8>,

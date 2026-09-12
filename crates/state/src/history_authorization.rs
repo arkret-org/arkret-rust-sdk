@@ -311,6 +311,13 @@ mod tests {
         .unwrap();
         let write = writes.iter().find(|write| write.cell_id == cell).unwrap();
         let mut registry = crate::MemoryCellStateRegistry::default();
+        registry.register(
+            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+            arkret_wire::EventCellExecution::Security,
+            crate::StateModelKind::SequencedState,
+            arkret_wire::EventCellValueShape::Register,
+            None,
+        );
         registry
             .register_domain_transition(
                 arkret_wire::CellFamilyId::MEMBER_STATE_V1,

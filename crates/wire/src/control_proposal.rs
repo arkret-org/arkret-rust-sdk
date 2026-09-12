@@ -1427,6 +1427,10 @@ mod tests {
         second.signature.verification_method =
             DidUrl::new("did:webvh:z6mkfixtureb:authority-b.example#notary-1").unwrap();
         second.signature.payload_digest = second.authority_ack_digest().unwrap();
+        let mut third = first.clone();
+        third.signature.verification_method =
+            DidUrl::new("did:webvh:z6mkfixturec:authority-c.example#notary-1").unwrap();
+        third.signature.payload_digest = third.authority_ack_digest().unwrap();
         let profile = NotaryValue {
             kind: crate::NotaryKind::Quorum,
             fault_tolerance: 1,
@@ -1446,8 +1450,16 @@ mod tests {
             )
             .is_err()
         );
+        assert!(
+            ControlProposalAck::from_authority_acks_for_notary(
+                vec![first.clone(), second.clone()],
+                ControlProposalDecisionPolicy::default(),
+                &profile
+            )
+            .is_err()
+        );
         let assembled = ControlProposalAck::from_authority_acks_for_notary(
-            vec![second, first],
+            vec![third, second, first],
             ControlProposalDecisionPolicy::default(),
             &profile,
         )
@@ -1461,6 +1473,7 @@ mod tests {
             [
                 "did:webvh:z6mkfixture:authority.example#notary-1",
                 "did:webvh:z6mkfixtureb:authority-b.example#notary-1",
+                "did:webvh:z6mkfixturec:authority-c.example#notary-1",
             ]
         );
     }

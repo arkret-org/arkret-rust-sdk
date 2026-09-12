@@ -8,7 +8,7 @@ use super::types::{
     RealmStateSnapshotChunkDescriptor, RealmStateSnapshotChunkPayload,
     RealmStateSnapshotConflictRecord, RealmStateSnapshotMaterializedItem,
     RealmStateSnapshotValidationCode, RealmStateSnapshotValidationError, SnapshotErasureStub,
-    SnapshotNonAcceptedInput,
+    SnapshotNonAcceptedInput, SnapshotReplayEvidence,
 };
 use crate::{BlobRef, Hash, RealmStateSnapshotId, Result, WireError};
 
@@ -34,12 +34,14 @@ pub fn build_realm_state_snapshot_chunks(
     reducer_profile: &str,
     items: Vec<RealmStateSnapshotMaterializedItem>,
     target_chunk_bytes: usize,
+    evidence: SnapshotReplayEvidence,
 ) -> Result<Vec<BuiltRealmStateSnapshotChunk>> {
     build_realm_state_snapshot_chunks_with_auxiliary_lists(
         realm_state_snapshot_ref,
         reducer_profile,
         items,
         target_chunk_bytes,
+        evidence,
         SnapshotAuxiliaryLists::default(),
     )
 }
@@ -55,6 +57,7 @@ pub fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
     reducer_profile: &str,
     mut items: Vec<RealmStateSnapshotMaterializedItem>,
     target_chunk_bytes: usize,
+    evidence: SnapshotReplayEvidence,
     auxiliary: SnapshotAuxiliaryLists,
 ) -> Result<Vec<BuiltRealmStateSnapshotChunk>> {
     if target_chunk_bytes == 0 {
@@ -65,6 +68,7 @@ pub fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
     sort_realm_state_snapshot_items(&mut items);
     ensure_unique_realm_state_snapshot_items(&items)?;
 
+    let context_digest = evidence.eligibility_context.digest()?;
     let payload = |index: usize,
                    items: Vec<RealmStateSnapshotMaterializedItem>,
                    auxiliary: Option<SnapshotAuxiliaryLists>| {
@@ -79,6 +83,17 @@ pub fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
             soft_failed: auxiliary.soft_failed,
             quarantined: auxiliary.quarantined,
             erasure_stubs: auxiliary.erasure_stubs,
+            eligibility_context_digest: context_digest.clone(),
+            replay_events: if index == 0 {
+                evidence.replay_events.clone()
+            } else {
+                Vec::new()
+            },
+            replay_authority_refs: if index == 0 {
+                evidence.replay_authority_refs.clone()
+            } else {
+                Vec::new()
+            },
         }
     };
 
@@ -219,19 +234,13 @@ pub fn realm_state_snapshot_state_leaf_hash(
     realm_state_snapshot_state_leaf_hash_with_digest_suite(item, DigestSuite::Sha256)
 }
 
-/// The `state_digest` leaf of one snapshot item: byte-identical to the
-/// governance `state_root` leaf `H(0x00 || canonical_json({"cell","state"}))`
-/// of `event-auth-state-resolution.md` §6.2.1, so a control cell has one
-/// canonical leaf whether it is proven through a Seal or shipped in a snapshot.
+/// RFC6962 leaf over the complete snapshot model state and model identifier.
 pub fn realm_state_snapshot_state_leaf_hash_with_digest_suite(
     item: &RealmStateSnapshotMaterializedItem,
     digest_suite: DigestSuite,
 ) -> Result<Hash> {
-    crate::state::state_root::state_leaf_hash_from_state_object(
-        item.cell(),
-        item.state().to_state_object(),
-        digest_suite,
-    )
+    let bytes = crate::canonical::canonical_json_bytes(&item.leaf_preimage())?;
+    crate::state::state_root::seal_merkle_root_from_leaf_data(&[bytes], digest_suite)
 }
 
 /// Digest of one auxiliary list concatenated across chunks in ascending index

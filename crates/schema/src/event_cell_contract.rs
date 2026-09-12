@@ -284,29 +284,53 @@ impl CapabilityAuthorityAuditIndex {
 /// Frozen cell values used while evaluating registry-declared pre-state
 /// requirements. A missing entry is a failed requirement, never an implicit
 /// bottom value.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct FrozenPreState(BTreeMap<CellRef, Value>);
+#[derive(Clone, Debug, Default)]
+pub struct FrozenPreState {
+    values: BTreeMap<CellRef, Value>,
+    reads: std::sync::Arc<std::sync::Mutex<BTreeSet<CellRef>>>,
+}
+
+impl PartialEq for FrozenPreState {
+    fn eq(&self, other: &Self) -> bool {
+        self.values == other.values
+    }
+}
 
 impl FrozenPreState {
     /// Create an empty pre-state snapshot.
-    pub const fn new() -> Self {
-        Self(BTreeMap::new())
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Add one frozen cell value while assembling the snapshot.
     pub fn insert(&mut self, cell: CellRef, value: Value) -> Option<Value> {
-        self.0.insert(cell, value)
+        self.values.insert(cell, value)
     }
 
-    /// Read one value from the frozen snapshot.
+    /// Read one value and retain the dependency, including an absent Cell.
     pub fn get(&self, cell: &CellRef) -> Option<&Value> {
-        self.0.get(cell)
+        self.reads
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(cell.clone());
+        self.values.get(cell)
+    }
+
+    /// Cells actually consulted by registry pre-state requirements.
+    pub fn read_cells(&self) -> BTreeSet<CellRef> {
+        self.reads
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
     }
 }
 
 impl<const N: usize> From<[(CellRef, Value); N]> for FrozenPreState {
     fn from(entries: [(CellRef, Value); N]) -> Self {
-        Self(BTreeMap::from(entries))
+        Self {
+            values: BTreeMap::from(entries),
+            ..Self::default()
+        }
     }
 }
 
@@ -3838,7 +3862,7 @@ mod tests {
     }
 
     fn realm_create_event(refs: Value) -> Event {
-        serde_json::from_value(json!({
+        let mut wire = json!({
             "event_id": "ak:event:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G",
             "kind": EventKind::RealmCreate,
             "scope_ref": {"kind": "realm_genesis"},
@@ -3878,8 +3902,11 @@ mod tests {
                 }
             },
             "proofs": []
-        }))
-        .unwrap()
+        });
+        if refs.as_array().is_some_and(Vec::is_empty) {
+            wire.as_object_mut().unwrap().remove("refs");
+        }
+        serde_json::from_value(wire).unwrap()
     }
 
     #[test]
@@ -4072,7 +4099,7 @@ mod tests {
                 ),
                 write(
                     &format!("ak:cell:ak.component.call.recording_result.v1:{subject}"),
-                    set_op(recording_result),
+                    set_op(json!({"status": "pending", "details": recording_result})),
                 ),
             ]
         );
@@ -4101,7 +4128,7 @@ mod tests {
                 ),
                 write(
                     &format!("ak:cell:ak.component.call.transcript_result.v1:{subject}"),
-                    set_op(transcript_result),
+                    set_op(json!({"status": "pending", "details": transcript_result})),
                 ),
             ]
         );
@@ -4149,7 +4176,7 @@ mod tests {
         }))
         .unwrap();
 
-        // The cell subject retypes the accepted Event ID. The or_set tag is
+        // The cell subject retypes the accepted Event ID. The security set tag is
         // `<event_id>:<write_index>`, and the element is the ID-free signed
         // genesis payload. The materialized Grant gains its issuer Station coordinate from the
         // accepted envelope, never from producer payload input.

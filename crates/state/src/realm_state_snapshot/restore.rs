@@ -4,17 +4,14 @@
 //! and content-addressed chunks. This half is the inverse a receiver runs: it
 //! verifies the delivered manifest and chunks against §5's checklist, then
 //! materializes `items[]` back into the lattice states the reducer keeps —
-//! `causal_register` head sets and joined values for every other lattice.
+//! complete causal coverage, safety revisions, dots, entries and counter components.
 //!
-//! The part that is easy to skip and MUST NOT be is [`CoveredEventSet`]. §3
-//! requires a receiver restored from a snapshot to still answer «is this old
-//! Event in the covered set `C`» exactly, because §9.3.1.4 evaluates a late
-//! branch against `C`; a receiver that answers `false` because it merely
-//! forgot resurrects writes that were already superseded. A snapshot manifest
-//! commits `C` as a root, not as a list, so the honest answer for most Event
-//! ids is [`CoveredEventMembership::Unknown`] — hold, never `false` — until the
-//! receiver either retains the committed index or obtains a proof under the
-//! manifest's own root.
+//! [`CoveredEventSet`] verifies membership in the manifest's global original
+//! Event set. This is separate from each causal Cell's `covered_event_ids`:
+//! global membership does not grant eligibility or prove coverage by any Cell.
+//! Causal merge requires the exact Cell and eligibility context, using retained
+//! complete state and replay evidence. Missing membership evidence remains
+//! [`CoveredEventMembership::Unknown`], never a fabricated negative answer.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -31,12 +28,10 @@ use super::types::{
     DetachedJwsProof, EventSetCommitmentAlgorithm, EventSetLeaf, RealmStateSnapshotChunkPayload,
     RealmStateSnapshotManifest, RealmStateSnapshotSecurityClass, RealmStateSnapshotValidationCode,
     RealmStateSnapshotValidationError, RealmStateSnapshotVerifyOptions,
-    RealmStateSnapshotVerifyReport, SnapshotCellState, SnapshotErasureStub,
-    SnapshotNonAcceptedInput,
+    RealmStateSnapshotVerifyReport, SnapshotErasureStub, SnapshotNonAcceptedInput,
 };
 use super::verify_realm_state_snapshot_chunk_bytes;
-use crate::state::CausalHeadsByCell;
-use crate::{CausalHead, CellRef, DidUrl, EventId, Hash, RealmStateSnapshotId};
+use crate::{CellRef, DidUrl, EventId, Hash, RealmStateSnapshotId};
 
 type ValidationResult<T> = Result<T, RealmStateSnapshotValidationError>;
 
@@ -91,40 +86,36 @@ pub fn realm_state_snapshot_max_acceptance_age_ms(
     }
 }
 
-/// Whether one Event belongs to a restored snapshot's covered set `C`.
-///
-/// Three-valued on purpose. `realm-state-snapshot-schema.md` §3 forbids
-/// collapsing the third case into `NotCovered`: a receiver that cannot produce
-/// evidence MUST hold, because reading «no evidence» as «the peer never saw it»
-/// is exactly what revives a superseded write when §9.3.1.4 merges a late
-/// branch.
+/// Whether one Event belongs to the manifest's committed original Event set.
+/// This does not determine its authorization, eligibility, or per-Cell coverage.
+/// Unavailable evidence must remain unknown rather than a negative answer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CoveredEventMembership {
-    /// The Event is in `C`, on evidence bound to the manifest's own
-    /// `event_set_commitment.root` (or it is a frontier head, which is in `C`
+    /// The Event is in the global set, on evidence bound to the manifest's own
+    /// `event_set_commitment.root` (or it is a verified frontier head, in that set
     /// by construction).
     Covered,
-    /// The Event is provably not in `C`: the receiver holds the complete
+    /// The Event is provably absent from the global set: the receiver holds the complete
     /// committed index and the Event is absent from it.
     NotCovered,
     /// No evidence either way. The caller MUST hold or fail closed.
     Unknown,
 }
 
-/// The covered set `C` of a restored snapshot, as much of it as the receiver
-/// can actually prove.
+/// Proven membership in the snapshot's original Event set, independent of
+/// per-Cell coverage and the classification assigned by replay verification.
 ///
-/// A manifest commits `C` as `event_set_commitment.root` plus a count; it does
+/// A manifest commits this set as `event_set_commitment.root` plus a count; it does
 /// not ship the members. So a freshly restored set answers [`CoveredEventMembership::Covered`]
 /// only for the frontier heads and [`CoveredEventMembership::Unknown`] for
 /// everything else, which is the §3 «hold» outcome rather than a wrong `false`.
 /// The two ways §3 allows to do better are both here:
 ///
-/// - [`CoveredEventSet::admit_committed_index`] — «保留共享 membership 索引»: hand back the whole
-///   committed entry list, checked by recomputing the root. Only then does an absent id become
-///   [`CoveredEventMembership::NotCovered`].
-/// - [`CoveredEventSet::admit_inclusion_proof`] — «按现有 root 取得有效证明»: one entry plus its
-///   `merkle_event_set_v1` audit path against that same root.
+/// - [`CoveredEventSet::admit_committed_index`] — a complete retained membership index: hand back
+///   the whole committed entry list, checked by recomputing the root. Only then does an absent id
+///   become [`CoveredEventMembership::NotCovered`].
+/// - [`CoveredEventSet::admit_inclusion_proof`] — an inclusion proof against the committed root:
+///   one entry plus its `merkle_event_set_v1` audit path against that same root.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoveredEventSet {
     algorithm: EventSetCommitmentAlgorithm,
@@ -139,8 +130,8 @@ impl CoveredEventSet {
     /// The set a commitment and a frontier alone support.
     ///
     /// Separate from [`Self::from_manifest`] so a receiver that persisted only
-    /// the commitment and frontier — which is all §3 obliges it to keep — can
-    /// rebuild the oracle across a restart without holding the whole manifest.
+    /// the verified commitment and frontier can rebuild this global membership
+    /// oracle. Complete Cell state and replay evidence must be retained separately.
     pub fn new(
         algorithm: EventSetCommitmentAlgorithm,
         root: Hash,
@@ -282,15 +273,6 @@ impl CoveredEventSet {
     }
 }
 
-/// One cell as a restored snapshot carries it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum RestoredCell {
-    /// Joined value of a non-`causal_register` lattice, verbatim from the leaf.
-    Value(serde_json::Value),
-    /// The complete active head set of a `causal_register` cell.
-    CausalHeads(Vec<CausalHead>),
-}
-
 /// A verified snapshot, materialized.
 ///
 /// `bottom_cells` and `erasure_stubs` are carried beside the cells rather than
@@ -300,10 +282,8 @@ pub enum RestoredCell {
 pub struct RealmStateSnapshotRestore {
     pub realm_state_snapshot_ref: RealmStateSnapshotId,
     pub report: RealmStateSnapshotVerifyReport,
-    /// Non-`causal_register` cells, by cell ref.
-    pub values: BTreeMap<CellRef, serde_json::Value>,
-    /// `causal_register` cells, in the shape the joined view uses.
-    pub causal_heads: CausalHeadsByCell,
+    pub cells: BTreeMap<CellRef, arkret_wire::CanonicalCellState>,
+    pub replay_evidence: super::types::SnapshotReplayEvidence,
     /// Cells §3 reported in `⊥`. They have no leaf; the receiver MUST fail
     /// closed on them rather than treat them as unwritten.
     pub bottom_cells: BTreeSet<CellRef>,
@@ -326,11 +306,8 @@ impl RealmStateSnapshotRestore {
     /// `None` is not «never written»: check [`Self::bottom_cells`] and
     /// [`Self::erasure_stubs`] first — both are cells the snapshot deliberately
     /// gave no leaf.
-    pub fn cell(&self, cell: &CellRef) -> Option<RestoredCell> {
-        if let Some(heads) = self.causal_heads.get(cell) {
-            return Some(RestoredCell::CausalHeads(heads.clone()));
-        }
-        self.values.get(cell).cloned().map(RestoredCell::Value)
+    pub fn cell(&self, cell: &CellRef) -> Option<&arkret_wire::CanonicalCellState> {
+        self.cells.get(cell)
     }
 }
 
@@ -343,16 +320,24 @@ impl RealmStateSnapshotRestore {
 /// `verify_issuer_jws` resolves `signature.verification_method` and checks the
 /// detached JWS over the transcript bytes this function recomputes. It is a
 /// parameter rather than a documented caller obligation because a snapshot
-/// whose signature nobody checked is an unauthenticated state dump: making the
-/// resolver mandatory is what keeps «I forgot» from being reachable.
-pub fn restore_realm_state_snapshot<F>(
+/// whose signature nobody checked is an unauthenticated state dump.
+/// `verify_replay` must resolve the retained producer and authority evidence,
+/// recompute eligibility at the exact manifest context, and compare all complete
+/// Cell states. Both checks are mandatory before returning usable state.
+pub fn restore_realm_state_snapshot<F, R>(
     manifest: &RealmStateSnapshotManifest,
     chunk_bytes: &[Vec<u8>],
     options: &RealmStateSnapshotVerifyOptions,
     verify_issuer_jws: F,
+    verify_replay: R,
 ) -> ValidationResult<RealmStateSnapshotRestore>
 where
     F: FnOnce(&DidUrl, &[u8], &str) -> Result<(), String>,
+    R: FnOnce(
+        &RealmStateSnapshotManifest,
+        &super::types::SnapshotReplayEvidence,
+        &BTreeMap<CellRef, arkret_wire::CanonicalCellState>,
+    ) -> Result<(), String>,
 {
     let chunks = verify_manifest_and_chunks(manifest, chunk_bytes, options, verify_issuer_jws)?;
     let state_digest = state_digest_from_chunk_payloads(
@@ -369,8 +354,13 @@ where
     }
     verify_auxiliary_list_digests(manifest, &chunks)?;
 
-    let mut values: BTreeMap<CellRef, serde_json::Value> = BTreeMap::new();
-    let mut causal_heads: CausalHeadsByCell = BTreeMap::new();
+    let mut cells = BTreeMap::new();
+    let mut replay_events = Vec::new();
+    let mut replay_authority_refs = Vec::new();
+    let context_digest = manifest
+        .eligibility_context
+        .digest()
+        .map_err(|error| schema_violation(error.to_string()))?;
     let mut bottom_cells = BTreeSet::new();
     let mut erasure_stubs = BTreeMap::new();
     let mut soft_failed = Vec::new();
@@ -380,27 +370,26 @@ where
     for chunk in &chunks {
         for item in &chunk.items {
             item_count += 1;
-            match item.state() {
-                SnapshotCellState::Value(value) => {
-                    values.insert(item.cell().clone(), value.clone());
-                }
-                SnapshotCellState::Heads(heads) => {
-                    causal_heads.insert(
-                        item.cell().clone(),
-                        heads
-                            .iter()
-                            .map(|head| CausalHead {
-                                event_id: head.event_id.clone(),
-                                value: head.value.clone(),
-                            })
-                            .collect(),
-                    );
-                }
-            }
+            cells.insert(item.cell().clone(), item.state().clone());
         }
+        if chunk.eligibility_context_digest != context_digest {
+            return Err(digest_mismatch(
+                "chunk eligibility context does not match its manifest",
+            ));
+        }
+        replay_events.extend(chunk.replay_events.iter().cloned());
+        replay_authority_refs.extend(chunk.replay_authority_refs.iter().cloned());
         for record in &chunk.conflict_records {
             if let super::types::RealmStateSnapshotConflictRecord::BottomCell { cell_ref } = record
             {
+                if arkret_wire::registered_cell_state_model(cell_ref)
+                    .map_err(|error| schema_violation(error.to_string()))?
+                    != arkret_wire::EventCellStateModel::CausalRegister
+                {
+                    return Err(schema_violation(
+                        "Bottom diagnostics are restricted to ordinary causal registers",
+                    ));
+                }
                 bottom_cells.insert(cell_ref.clone());
             }
         }
@@ -413,14 +402,38 @@ where
 
     // §3: an erased cell has no leaf, so a leaf and a stub for the same cell is
     // a producer contradiction, not a precedence question.
-    if let Some(cell) = erasure_stubs
-        .keys()
-        .find(|cell| values.contains_key(*cell) || causal_heads.contains_key(*cell))
-    {
+    if let Some(cell) = erasure_stubs.keys().find(|cell| cells.contains_key(*cell)) {
         return Err(schema_violation(format!(
             "{cell} carries both a state leaf and an erasure stub"
         )));
     }
+
+    let replay_evidence = super::types::SnapshotReplayEvidence {
+        eligibility_context: manifest.eligibility_context.clone(),
+        replay_events,
+        replay_authority_refs,
+    };
+    if !replay_evidence
+        .replay_events
+        .windows(2)
+        .all(|pair| pair[0].event_id.token_bytes() < pair[1].event_id.token_bytes())
+        || !replay_evidence
+            .replay_authority_refs
+            .windows(2)
+            .all(|pair| pair[0] < pair[1])
+        || replay_evidence
+            .replay_events
+            .iter()
+            .any(|event| event.realm_id != manifest.realm_id)
+    {
+        return Err(schema_violation(
+            "snapshot replay evidence is not canonical for its Realm",
+        ));
+    }
+    // The receiver resolves signatures and exact authority dependencies, reruns
+    // eligibility and projection, and compares complete Cell states. An issuer
+    // signature alone never certifies the reducer's claimed output.
+    verify_replay(manifest, &replay_evidence, &cells).map_err(authority_unverified)?;
 
     Ok(RealmStateSnapshotRestore {
         realm_state_snapshot_ref: manifest.id.clone(),
@@ -429,8 +442,8 @@ where
             chunk_count: chunks.len(),
             state_digest,
         },
-        values,
-        causal_heads,
+        cells,
+        replay_evidence,
         bottom_cells,
         erasure_stubs,
         soft_failed,

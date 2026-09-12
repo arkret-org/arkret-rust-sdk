@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-12.12;
-//! sha256=59cdd1ff7620d3d800f9052caa1c18728d160be728607f716ac1433944f9d994 Entries: schema_ids=228,
+//! Input: registry/schema-registry.json; version=2026-09-12.13;
+//! sha256=38a55b45329b01fc4959e22f2705f8a5ee1900455468615b93e1d554c4a83f88 Entries: schema_ids=228,
 //! active=228
 
 use serde::{Deserialize, Serialize};
@@ -1220,8 +1220,9 @@ impl SchemaId {
     /// zh/governance/content-moderation.md.
     pub const REALM_READ_OPERATIONS_V1: &'static str = "ak.schema.realm_read_operations.v1";
     pub const REALM_STATE_SNAPSHOT_V1: &'static str = "ak.schema.realm_state_snapshot.v1";
-    /// Snapshot chunk payload: the Realm reducer cells behind one manifest chunks[].chunk_ref,
-    /// whose leaves are the state_root leaves of event-auth-state-resolution.md section 6.2.1
+    /// Complete registered Realm-scope Cell states and original replay evidence behind manifest
+    /// chunks[].chunk_ref. Snapshot leaves use JCS({cell,state_model,state}) and are distinct from
+    /// Seal security-only state_root leaves.
     pub const REALM_STATE_SNAPSHOT_CHUNK_V1: &'static str =
         "ak.schema.realm_state_snapshot_chunk.v1";
     /// Coordinator-signed proof of a durably completed RecoveryTransaction for recovery grant

@@ -77,12 +77,22 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
     // members, `effective_scope` / `effects` / `conflict_keys_digest` left the wire, and
     // `event_id` left the digest preimage because section 4.0 derives it from
     // this very digest (`conformance/encoding.md` sections 2, 4.0 and 6). Every
-    // v1 Event digest changed; this value must only move again with the spec.
+    // Absent seal_basis and empty ordinary preconditions are omitted in the current
+    // closed envelope; neither null nor an empty compatibility carrier is hashed.
+    assert_eq!(
+        event.digest_payload().unwrap(),
+        json!({
+            "kind": "ak.message.create", "realm_id": realm_id(),
+            "scope_ref": {"kind": "realm", "realm_id": realm_id()},
+            "actor_id": actor(), "actor_seq": 1, "created_at": "2026-04-26T00:00:00.000Z",
+            "hlc": "01970e589d21-0004-a13f9c2e", "prev_refs": [], "payload": {"body": "hello"}
+        })
+    );
     assert_eq!(
         event
             .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap(),
-        "sha256:c7f5a132533ef5cb62c1f03c47ac69aac22e4f97aab34e5b92711d96d0b68d8c"
+        "sha256:c7b761c0dfcf626f2ded40ae2251f970d06c78e8b9382b7ab14ef6c73828d1d2"
     );
     let value = serde_json::to_value(&event).unwrap();
     assert_eq!(value["payload"]["body"], "hello");
@@ -132,7 +142,7 @@ fn event_scalability_helpers_reject_over_limits() {
 /// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`
 /// alongside `effects` as a field a v1 receiver MUST reject with
 /// `schema_violation`, and the envelope schema closes `auth_context` over
-/// `{key_id, key_epoch, credential_epoch}`. The Event envelope is the sole
+/// `{key_id, key_epoch, credential_epoch, authority_refs}`. The Event envelope is the sole
 /// carrier of `actor_id`.
 ///
 /// Rejecting is the point: effective capabilities are derived from the accepted
@@ -143,7 +153,8 @@ fn event_scalability_helpers_reject_over_limits() {
 fn auth_context_rejects_a_producer_selected_capability_list() {
     let base = json!({
         "key_id": "device:01904100-0000-7000-8000-65c7feb295d8",
-        "key_epoch": 1
+        "key_epoch": 1,
+        "authority_refs": []
     });
     serde_json::from_value::<arkret_wire::AuthContext>(base.clone())
         .expect("the closed member set must still parse");

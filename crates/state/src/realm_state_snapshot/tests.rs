@@ -56,6 +56,7 @@ fn manifest_for_items(
         .collect::<Vec<_>>();
     let created_at = "2026-06-01T00:00:00.000Z".parse::<DateTime<Utc>>().unwrap();
     let mut manifest = RealmStateSnapshotManifest {
+        eligibility_context: replay_evidence().eligibility_context,
         id: snapshot_v1_id(),
         realm_id: realm(),
         reducer_profile: CORE_REDUCER_PROFILE.to_owned(),
@@ -224,11 +225,95 @@ fn realm_state_snapshot_id() -> RealmStateSnapshotId {
 
 /// A materialized non-`causal_register` cell item (`realm-state-snapshot-schema.md` §3).
 fn cell_item(cell: &str, value: Value) -> RealmStateSnapshotMaterializedItem {
-    RealmStateSnapshotMaterializedItem::value(CellRef::new(cell.to_owned()).unwrap(), value)
-        .unwrap()
+    let cell = CellRef::new(cell.to_owned()).unwrap();
+    let model = arkret_wire::registered_cell_state_model(&cell).unwrap();
+    let state = match model {
+        arkret_wire::EventCellStateModel::SequencedState => {
+            serde_json::json!({"revision_event_id": event_id("written"), "value": value})
+        }
+        arkret_wire::EventCellStateModel::OrSet => {
+            assert_eq!(value, serde_json::json!([]));
+            serde_json::json!({"value": {"adds": [], "removed_tag_ids": []}})
+        }
+        _ => serde_json::json!({"value": value}),
+    };
+    RealmStateSnapshotMaterializedItem::new(
+        cell,
+        arkret_wire::CanonicalCellState::from_state_object(model, state).unwrap(),
+    )
+    .unwrap()
 }
 
-const STRAND_LIFECYCLE_CELL: &str = "ak:cell:ak.component.strand.lifecycle.v1:ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
+fn causal_cell_item(
+    cell: CellRef,
+    heads: &[CausalHead],
+) -> crate::Result<RealmStateSnapshotMaterializedItem> {
+    RealmStateSnapshotMaterializedItem::from_resolved(
+        cell,
+        &crate::state_model::ResolvedCellState::Causal(crate::state_model::CausalRegisterState {
+            covered_event_ids: heads.iter().map(|head| head.event_id.clone()).collect(),
+            heads: heads.to_vec(),
+        }),
+    )
+}
+
+fn restore_realm_state_snapshot<F>(
+    manifest: &RealmStateSnapshotManifest,
+    chunks: &[Vec<u8>],
+    options: &RealmStateSnapshotVerifyOptions,
+    verify: F,
+) -> std::result::Result<RealmStateSnapshotRestore, RealmStateSnapshotValidationError>
+where
+    F: FnOnce(&DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+{
+    super::restore::restore_realm_state_snapshot(
+        manifest,
+        chunks,
+        options,
+        verify,
+        |_, _, _| Ok(()),
+    )
+}
+
+fn replay_evidence() -> SnapshotReplayEvidence {
+    SnapshotReplayEvidence {
+        eligibility_context: SnapshotEligibilityContext {
+            authority_refs: Vec::new(),
+            closure_command_refs: Vec::new(),
+            reducer_contract_digest: hash(7),
+        },
+        replay_events: Vec::new(),
+        replay_authority_refs: Vec::new(),
+    }
+}
+
+fn build_realm_state_snapshot_chunks(
+    id: &RealmStateSnapshotId,
+    profile: &str,
+    items: Vec<RealmStateSnapshotMaterializedItem>,
+    size: usize,
+) -> crate::Result<Vec<BuiltRealmStateSnapshotChunk>> {
+    super::chunking::build_realm_state_snapshot_chunks(id, profile, items, size, replay_evidence())
+}
+
+fn build_realm_state_snapshot_chunks_with_auxiliary_lists(
+    id: &RealmStateSnapshotId,
+    profile: &str,
+    items: Vec<RealmStateSnapshotMaterializedItem>,
+    size: usize,
+    lists: SnapshotAuxiliaryLists,
+) -> crate::Result<Vec<BuiltRealmStateSnapshotChunk>> {
+    super::chunking::build_realm_state_snapshot_chunks_with_auxiliary_lists(
+        id,
+        profile,
+        items,
+        size,
+        replay_evidence(),
+        lists,
+    )
+}
+
+const REALM_REDUCER_PROFILE_CELL: &str = "ak:cell:ak.component.realm.reducer_profile.v1:null";
 const MESSAGE_REACTIONS_CELL: &str = "ak:cell:ak.component.message.reactions.v1:ak:message:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1";
 
 #[test]
@@ -289,7 +374,7 @@ fn event_set_commitment_sorts_entries_before_hashing() {
             DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         ),
         actor_seq: 1,
-        hlc: Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+        hlc: Some(Hlc::new("01970e589d21-0001-a13f9c2e").unwrap()),
     };
     let b = EventSetLeaf {
         event_id: event_id("000000000002"),
@@ -298,7 +383,7 @@ fn event_set_commitment_sorts_entries_before_hashing() {
             DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         ),
         actor_seq: 1,
-        hlc: Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
+        hlc: Some(Hlc::new("01970e589d21-0002-a13f9c2e").unwrap()),
     };
 
     let forward = event_set_root(
@@ -314,7 +399,7 @@ fn event_set_commitment_sorts_entries_before_hashing() {
 #[test]
 fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
     let items = vec![
-        cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived")),
+        cell_item(REALM_REDUCER_PROFILE_CELL, serde_json::json!("archived")),
         cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
     ];
 
@@ -344,13 +429,13 @@ fn spec_chunk_builder_uses_item_boundaries_and_digest_refs() {
 
 #[test]
 fn state_digest_rejects_duplicate_cell() {
-    let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"));
+    let item = cell_item(REALM_REDUCER_PROFILE_CELL, serde_json::json!("active"));
     let err = state_digest_from_items(&[item.clone(), item]).unwrap_err();
     assert!(format!("{err}").contains("duplicate snapshot item cell"));
 }
 
 fn witness_quorum_manifest(witnesses: &[(&str, &str)]) -> RealmStateSnapshotManifest {
-    let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active"));
+    let item = cell_item(REALM_REDUCER_PROFILE_CELL, serde_json::json!("active"));
     let (mut manifest, ..) = manifest_for_items(vec![item]);
     manifest.authority_binding.authority_kind = RealmStateSnapshotAuthorityKind::WitnessQuorum;
     manifest.verification_hints = Some(RealmStateSnapshotVerificationHints {
@@ -447,6 +532,22 @@ fn witness_quorum_accepts_sorted_authorized_quorum() {
 }
 
 #[test]
+fn witness_quorum_rejects_reuse_after_eligibility_context_changes() {
+    let mut manifest = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO]);
+    manifest
+        .eligibility_context
+        .closure_command_refs
+        .push(event_id("new-closure"));
+    let error = manifest
+        .verify_witness_attestations(&witness_policy(&[WITNESS_ONE.0, WITNESS_TWO.0], 2))
+        .unwrap_err();
+    assert_eq!(
+        error.code,
+        RealmStateSnapshotValidationCode::SignatureInvalid
+    );
+}
+
+#[test]
 fn witness_quorum_rejects_unsorted_or_duplicate_rows() {
     let mut manifest = witness_quorum_manifest(&[WITNESS_ONE, WITNESS_TWO]);
     manifest.authority_binding.witness_attestations.reverse();
@@ -539,12 +640,8 @@ fn causal_head(byte: u8, value: Value) -> CausalHead {
     }
 }
 
-fn slot_cell() -> CellRef {
-    CellRef::new(
-        "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc"
-            .to_owned(),
-    )
-    .unwrap()
+fn profile_cell() -> CellRef {
+    CellRef::new("ak:cell:ak.component.realm.profile.v1:null".to_owned()).unwrap()
 }
 
 /// `realm-state-snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`,
@@ -552,15 +649,11 @@ fn slot_cell() -> CellRef {
 /// spelling recovered from the op log's `event_digest`.
 #[test]
 fn a_causal_cell_item_serializes_to_the_closed_branch() {
-    let item = RealmStateSnapshotMaterializedItem::causal_cell(
-        slot_cell(),
-        &[causal_head(0x11, Value::Null)],
-    )
-    .unwrap();
+    let item = causal_cell_item(profile_cell(), &[causal_head(0x11, Value::Null)]).unwrap();
     let wire = serde_json::to_value(&item).unwrap();
 
     assert_eq!(wire["kind"], "cell");
-    assert_eq!(wire["id"], slot_cell().as_str());
+    assert_eq!(wire["id"], profile_cell().as_str());
     assert!(wire.get("object").is_none());
     assert!(wire.get("source_event_id").is_none());
     assert!(wire["state"].get("value").is_none());
@@ -580,11 +673,14 @@ fn a_causal_cell_item_serializes_to_the_closed_branch() {
 /// state, and the two state shapes never mix.
 #[test]
 fn a_value_cell_item_serializes_to_the_closed_branch() {
-    let item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived"));
+    let item = cell_item(REALM_REDUCER_PROFILE_CELL, serde_json::json!("archived"));
     let wire = serde_json::to_value(&item).unwrap();
     assert_eq!(wire["kind"], "cell");
-    assert_eq!(wire["id"], STRAND_LIFECYCLE_CELL);
-    assert_eq!(wire["state"], serde_json::json!({"value": "archived"}));
+    assert_eq!(wire["id"], REALM_REDUCER_PROFILE_CELL);
+    assert_eq!(
+        wire["state"],
+        serde_json::json!({"revision_event_id": event_id("written"), "value": "archived"})
+    );
     assert_eq!(
         serde_json::from_value::<RealmStateSnapshotMaterializedItem>(wire).unwrap(),
         item
@@ -595,13 +691,9 @@ fn a_value_cell_item_serializes_to_the_closed_branch() {
 /// keep the release write's identity or the two become the same snapshot.
 #[test]
 fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
-    let released = RealmStateSnapshotMaterializedItem::causal_cell(
-        slot_cell(),
-        &[causal_head(0x22, Value::Null)],
-    )
-    .unwrap();
-    let claimed = RealmStateSnapshotMaterializedItem::causal_cell(
-        slot_cell(),
+    let released = causal_cell_item(profile_cell(), &[causal_head(0x22, Value::Null)]).unwrap();
+    let claimed = causal_cell_item(
+        profile_cell(),
         &[causal_head(0x22, serde_json::json!("ak:event:AUC6Bg"))],
     )
     .unwrap();
@@ -611,7 +703,7 @@ fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
     );
 
     // An unwritten cell is not a member at all (§6.2.1), so it cannot be built.
-    assert!(RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &[]).is_err());
+    assert!(causal_cell_item(profile_cell(), &[]).is_err());
 }
 
 /// Two heads that agree on a value still have two identities, and the leaf must
@@ -619,13 +711,10 @@ fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
 /// branch it never observed.
 #[test]
 fn same_value_heads_keep_both_identities_in_the_leaf() {
-    let one = RealmStateSnapshotMaterializedItem::causal_cell(
-        slot_cell(),
-        &[causal_head(0x33, serde_json::json!("A"))],
-    )
-    .unwrap();
-    let two = RealmStateSnapshotMaterializedItem::causal_cell(
-        slot_cell(),
+    let one =
+        causal_cell_item(profile_cell(), &[causal_head(0x33, serde_json::json!("A"))]).unwrap();
+    let two = causal_cell_item(
+        profile_cell(),
         &[
             causal_head(0x33, serde_json::json!("A")),
             causal_head(0x44, serde_json::json!("A")),
@@ -642,7 +731,7 @@ fn same_value_heads_keep_both_identities_in_the_leaf() {
 #[test]
 fn the_snapshot_leaf_uses_the_realm_digest_suite() {
     let heads = [causal_head(0x55, serde_json::json!("v"))];
-    let item = RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &heads).unwrap();
+    let item = causal_cell_item(profile_cell(), &heads).unwrap();
     assert!(
         realm_state_snapshot_state_leaf_hash(&item)
             .unwrap()
@@ -672,7 +761,7 @@ fn items_outside_the_cell_branch_are_rejected() {
 
     let causal_cell_literal = serde_json::json!({
         "kind": "causal_cell",
-        "id": slot_cell().as_str(),
+        "id": profile_cell().as_str(),
         "state": {"heads": [{"event_id": event_id("a").as_str(), "value": null}]},
     });
     assert!(
@@ -681,17 +770,17 @@ fn items_outside_the_cell_branch_are_rejected() {
 
     let mixed_state = serde_json::json!({
         "kind": "cell",
-        "id": STRAND_LIFECYCLE_CELL,
+        "id": REALM_REDUCER_PROFILE_CELL,
         "state": {"value": "archived", "heads": []},
     });
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(mixed_state).is_err());
 
-    let no_state = serde_json::json!({"kind": "cell", "id": STRAND_LIFECYCLE_CELL});
+    let no_state = serde_json::json!({"kind": "cell", "id": REALM_REDUCER_PROFILE_CELL});
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(no_state).is_err());
 
     let value_on_causal_family = serde_json::json!({
         "kind": "cell",
-        "id": slot_cell().as_str(),
+        "id": profile_cell().as_str(),
         "state": {"value": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-"},
     });
     assert!(
@@ -701,7 +790,7 @@ fn items_outside_the_cell_branch_are_rejected() {
 
     let heads_on_value_family = serde_json::json!({
         "kind": "cell",
-        "id": STRAND_LIFECYCLE_CELL,
+        "id": REALM_REDUCER_PROFILE_CELL,
         "state": {"heads": [{"event_id": event_id("a").as_str(), "value": "archived"}]},
     });
     assert!(
@@ -711,7 +800,7 @@ fn items_outside_the_cell_branch_are_rejected() {
 
     let empty_heads = serde_json::json!({
         "kind": "cell",
-        "id": slot_cell().as_str(),
+        "id": profile_cell().as_str(),
         "state": {"heads": []},
     });
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(empty_heads).is_err());
@@ -734,27 +823,27 @@ fn unsorted_heads_are_rejected() {
         causal_head(0x66, Value::Null),
         causal_head(0x77, Value::Null),
     ];
-    let item = RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &ordered).unwrap();
+    let item = causal_cell_item(profile_cell(), &ordered).unwrap();
     let mut wire = serde_json::to_value(&item).unwrap();
     wire["state"]["heads"].as_array_mut().unwrap().reverse();
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(wire).is_err());
 
     ordered.reverse();
-    assert!(RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &ordered).is_err());
+    assert!(causal_cell_item(profile_cell(), &ordered).is_err());
 }
 
 /// The auxiliary rows are closed objects too: an unknown member on a
 /// `conflict_records[]` row or a chunk payload fails to parse.
 #[test]
 fn auxiliary_rows_and_chunk_payloads_are_closed() {
-    let bottom = serde_json::json!({"kind": "bottom_cell", "cell_ref": STRAND_LIFECYCLE_CELL});
+    let bottom = serde_json::json!({"kind": "bottom_cell", "cell_ref": REALM_PROFILE_CELL});
     assert!(serde_json::from_value::<RealmStateSnapshotConflictRecord>(bottom.clone()).is_ok());
     let mut extra = bottom;
     extra["note"] = serde_json::json!("x");
     assert!(serde_json::from_value::<RealmStateSnapshotConflictRecord>(extra).is_err());
 
     let (_, payloads, _) = manifest_for_items(vec![cell_item(
-        STRAND_LIFECYCLE_CELL,
+        REALM_REDUCER_PROFILE_CELL,
         serde_json::json!("active"),
     )]);
     let mut wire = serde_json::to_value(&payloads[0]).unwrap();
@@ -771,7 +860,7 @@ fn auxiliary_rows_and_chunk_payloads_are_closed() {
 fn chunk_payload_verification_is_strict() {
     let items = vec![
         cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
-        cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("active")),
+        cell_item(REALM_REDUCER_PROFILE_CELL, serde_json::json!("active")),
     ];
     let expected = state_digest_from_items(&items).unwrap();
     let (_, payloads, _) = manifest_for_items(items);
@@ -811,7 +900,7 @@ fn spec_sync_fixture() -> Value {
 
 /// Replays `ak.vector.realm_state_snapshot.state_digest_recompute.v1`: every accept case
 /// recomputes the fixture's `state_digest` (and auxiliary digests) from the
-/// chunk bytes alone, every reject case is refused, and every published leaf
+/// chunk bytes alone. Restore-only mutations are tested separately. Every leaf
 /// preimage / leaf pair is reproduced from the item.
 #[test]
 fn spec_snapshot_state_digest_fixture_replays() {
@@ -856,7 +945,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
     );
 
     let mut seen = 0usize;
-    for case in cases {
+    for case in cases.iter().filter(|case| case.get("chunks").is_some()) {
         let name = case["name"].as_str().unwrap();
         let suite =
             arkret_canonical::digest_suite(case["digest_algorithm"].as_str().unwrap()).unwrap();
@@ -874,7 +963,7 @@ fn spec_snapshot_state_digest_fixture_replays() {
                 _ => None,
             },
         };
-        let expected_accept = case["expected"] == "accept";
+        let expected_accept = case["expected"] == "accept_digest_only";
         assert_eq!(observed.is_some(), expected_accept, "case {name}");
         if let Some(chunks) = observed {
             if let Some(digest) = case["expected_conflict_records_digest"].as_str() {
@@ -898,13 +987,12 @@ fn spec_snapshot_state_digest_fixture_replays() {
         }
         seen += 1;
     }
-    assert!(seen >= 17, "the fixture publishes {seen} cases");
+    assert_eq!(seen, 3, "digest cases do not certify restore eligibility");
 }
 
 // ── Restore (consumer side) ────────────────────────────────────────
 
-const INVITE_LIVE_TARGET_CELL: &str =
-    "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc";
+const REALM_PROFILE_CELL: &str = "ak:cell:ak.component.realm.profile.v1:null";
 
 fn causal_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMaterializedItem {
     let heads = heads
@@ -918,9 +1006,8 @@ fn causal_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMateria
     // that is the digest hex, so the fixture sorts on it rather than on the
     // base64url spelling, whose alphabet is not byte-ordered.
     let mut heads = heads;
-    heads.sort_by(|a, b| a.event_id.as_str().cmp(b.event_id.as_str()));
-    RealmStateSnapshotMaterializedItem::causal_cell(CellRef::new(cell.to_owned()).unwrap(), &heads)
-        .unwrap()
+    heads.sort_by_key(|head| head.event_id.token_bytes());
+    causal_cell_item(CellRef::new(cell.to_owned()).unwrap(), &heads).unwrap()
 }
 
 fn restore_options() -> RealmStateSnapshotVerifyOptions {
@@ -950,14 +1037,14 @@ fn restore_fixture() -> (
 ) {
     let items = vec![
         causal_item(
-            INVITE_LIVE_TARGET_CELL,
+            REALM_PROFILE_CELL,
             &[
                 ("000000000011", Value::Null),
                 ("000000000012", serde_json::json!("ak:account:slot-b")),
             ],
         ),
         cell_item(MESSAGE_REACTIONS_CELL, serde_json::json!([])),
-        cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived")),
+        cell_item(REALM_REDUCER_PROFILE_CELL, serde_json::json!("archived")),
     ];
     let (manifest, _, chunk_bytes) = manifest_for_items(items.clone());
     (manifest, chunk_bytes, items)
@@ -979,19 +1066,26 @@ fn restore_materializes_values_and_causal_heads() {
     assert_eq!(restored.report.state_digest, manifest.state_digest);
     assert_eq!(restored.realm_state_snapshot_ref, manifest.id);
 
-    let lifecycle = CellRef::new(STRAND_LIFECYCLE_CELL.to_owned()).unwrap();
+    let lifecycle = CellRef::new(REALM_REDUCER_PROFILE_CELL.to_owned()).unwrap();
     assert_eq!(
         restored.cell(&lifecycle),
-        Some(RestoredCell::Value(serde_json::json!("archived")))
+        Some(&arkret_wire::CanonicalCellState::SequencedState(
+            arkret_wire::CanonicalSequencedState {
+                revision_event_id: event_id("written"),
+                value: serde_json::json!("archived")
+            }
+        ))
     );
 
     // A causal-register cell comes back as its complete head set, `null` head included:
     // §6.2.1 makes the head set the state, so dropping the released slot would
     // silently turn two active writes into one.
-    let invite = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
-    let Some(RestoredCell::CausalHeads(heads)) = restored.cell(&invite) else {
+    let invite = CellRef::new(REALM_PROFILE_CELL.to_owned()).unwrap();
+    let Some(arkret_wire::CanonicalCellState::CausalRegister(causal)) = restored.cell(&invite)
+    else {
         panic!("invite cell restored as a value");
     };
+    let heads = &causal.heads;
     assert_eq!(heads.len(), 2);
     assert!(heads.iter().any(|head| head.value.is_null()));
     assert!(
@@ -1000,7 +1094,7 @@ fn restore_materializes_values_and_causal_heads() {
             .any(|head| head.value == serde_json::json!("ak:account:slot-b"))
     );
     assert_eq!(
-        restored.causal_heads.get(&invite).map(Vec::len),
+        Some(causal.covered_event_ids.len()),
         Some(2),
         "the restored head set is the joined-view shape, not a settled value"
     );
@@ -1201,7 +1295,7 @@ fn event_set_entry(suffix: &str, actor_seq: u64) -> EventSetLeaf {
         event_digest: snapshot_v1_event_id(suffix).event_digest(),
         actor_id: arkret_wire::ActorId::service(actor()),
         actor_seq,
-        hlc: Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
+        hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
     }
 }
 
@@ -1213,7 +1307,7 @@ fn manifest_committing(entries: &[EventSetLeaf]) -> (RealmStateSnapshotManifest,
     (manifest, chunk_bytes)
 }
 
-/// «保留共享 membership 索引»: with the committed index in hand, and only then,
+/// With the verified complete membership index in hand, and only then,
 /// an absent id is provably `NotCovered`.
 #[test]
 fn covered_set_admits_the_committed_index_and_can_then_say_not_covered() {
@@ -1297,7 +1391,7 @@ fn covered_set_rejects_a_partial_or_altered_index() {
     );
 }
 
-/// «按现有 root 取得有效证明»: one entry plus its audit path against the
+/// One entry plus its audit path against the
 /// manifest's own root turns `Unknown` into `Covered` without the whole index.
 #[test]
 fn covered_set_admits_one_entry_against_the_manifest_root() {
@@ -1393,11 +1487,11 @@ fn covered_set_refuses_per_entry_proofs_under_the_ordered_algorithm() {
 #[test]
 fn restore_carries_bottom_cells_and_erasure_stubs() {
     let items = vec![cell_item(
-        STRAND_LIFECYCLE_CELL,
+        REALM_REDUCER_PROFILE_CELL,
         serde_json::json!("active"),
     )];
-    let bottom = CellRef::new(MESSAGE_REACTIONS_CELL.to_owned()).unwrap();
-    let erased = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
+    let bottom = CellRef::new("ak:cell:ak.component.strand.lifecycle.v1:ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned()).unwrap();
+    let erased = CellRef::new(REALM_PROFILE_CELL.to_owned()).unwrap();
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
         &snapshot_v1_id(),
         CORE_REDUCER_PROFILE,
@@ -1484,10 +1578,10 @@ fn restore_carries_bottom_cells_and_erasure_stubs() {
 #[test]
 fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
     let items = vec![cell_item(
-        STRAND_LIFECYCLE_CELL,
+        REALM_REDUCER_PROFILE_CELL,
         serde_json::json!("active"),
     )];
-    let cell = CellRef::new(STRAND_LIFECYCLE_CELL.to_owned()).unwrap();
+    let cell = CellRef::new(REALM_REDUCER_PROFILE_CELL.to_owned()).unwrap();
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
         &snapshot_v1_id(),
         CORE_REDUCER_PROFILE,
@@ -1544,7 +1638,7 @@ fn restore_rejects_a_cell_with_both_a_leaf_and_an_erasure_stub() {
 #[test]
 fn restore_rejects_erasure_stubs_with_no_commitment() {
     let items = vec![cell_item(
-        STRAND_LIFECYCLE_CELL,
+        REALM_REDUCER_PROFILE_CELL,
         serde_json::json!("active"),
     )];
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
@@ -1554,7 +1648,7 @@ fn restore_rejects_erasure_stubs_with_no_commitment() {
         4096,
         SnapshotAuxiliaryLists {
             erasure_stubs: vec![SnapshotErasureStub {
-                cell_ref: CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap(),
+                cell_ref: CellRef::new(REALM_PROFILE_CELL.to_owned()).unwrap(),
                 stub: verification_stub(),
             }],
             ..Default::default()
@@ -1669,7 +1763,7 @@ fn verification_stub() -> arkret_models_collaboration::events_payloads::event_wi
 
 #[test]
 fn snapshot_erasure_stub_requires_the_typed_receipt_bound_shape() {
-    let cell = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
+    let cell = CellRef::new(REALM_PROFILE_CELL.to_owned()).unwrap();
     let valid = SnapshotErasureStub {
         cell_ref: cell.clone(),
         stub: verification_stub(),
@@ -1682,4 +1776,86 @@ fn snapshot_erasure_stub_requires_the_typed_receipt_bound_shape() {
     let mut invalid = wire;
     invalid["stub"] = serde_json::json!({"schema": "ak.schema.erasure_verification_stub.v1"});
     assert!(serde_json::from_value::<SnapshotErasureStub>(invalid).is_err());
+}
+
+#[test]
+fn changed_coverage_changes_the_snapshot_commitment() {
+    let original = causal_cell_item(profile_cell(), &[causal_head(0x22, Value::Null)]).unwrap();
+    let mut wire = serde_json::to_value(&original).unwrap();
+    wire["state"]["covered_event_ids"] = serde_json::json!([
+        causal_head(0x11, Value::Null).event_id,
+        causal_head(0x22, Value::Null).event_id
+    ]);
+    let changed: RealmStateSnapshotMaterializedItem = serde_json::from_value(wire.clone()).unwrap();
+    assert_ne!(
+        state_digest_from_items(&[original]).unwrap(),
+        state_digest_from_items(&[changed]).unwrap()
+    );
+    wire["state"]
+        .as_object_mut()
+        .unwrap()
+        .remove("covered_event_ids");
+    assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(wire).is_err());
+}
+
+#[test]
+fn restore_rejects_an_unverified_replay_even_with_a_valid_snapshot_signature() {
+    let (manifest, chunk_bytes, _) = restore_fixture();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let result = super::restore::restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+        |_, _, _| Err("missing original signer dependency".to_owned()),
+    );
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("missing original signer dependency")
+    );
+}
+
+#[test]
+fn snapshot_context_mismatch_cannot_be_restored() {
+    let (mut manifest, chunk_bytes, _) = restore_fixture();
+    manifest.eligibility_context.reducer_contract_digest = hash(91);
+    manifest.signature.payload_digest = manifest.expected_signature_digest().unwrap();
+    let transcript = manifest.unsigned_canonical_bytes().unwrap();
+    let error = restore_realm_state_snapshot(
+        &manifest,
+        &chunk_bytes,
+        &restore_options(),
+        accepting_issuer_verifier(transcript),
+    )
+    .unwrap_err();
+    assert!(error.to_string().contains("eligibility context"));
+}
+
+#[test]
+fn snapshot_context_rejects_duplicate_closure_references() {
+    let (manifest, ..) = restore_fixture();
+    let mut context = manifest.eligibility_context;
+    let event_id = causal_head(0x22, Value::Null).event_id;
+    context.closure_command_refs = vec![event_id.clone(), event_id];
+    assert!(context.digest().is_err());
+}
+
+#[test]
+fn event_set_leaf_omits_an_absent_original_hlc() {
+    let mut entry = event_set_entry("without-hlc", 1);
+    entry.hlc = None;
+    let bytes = crate::canonical::canonical_json_bytes(&entry).unwrap();
+    let encoded: Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(encoded.get("hlc").is_none());
+    let mut null_hlc = encoded;
+    null_hlc["hlc"] = Value::Null;
+    assert!(serde_json::from_value::<EventSetLeaf>(null_hlc).is_err());
+    let decoded: EventSetLeaf = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(decoded.hlc, None);
+    assert_eq!(
+        event_set_root(&EventSetCommitmentAlgorithm::MerkleEventSetV1, &[entry]).unwrap(),
+        event_set_root(&EventSetCommitmentAlgorithm::MerkleEventSetV1, &[decoded]).unwrap()
+    );
 }

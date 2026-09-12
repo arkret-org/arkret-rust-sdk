@@ -3,18 +3,19 @@
 //!
 //! Producer side: [`build_realm_state_snapshot_chunks_with_auxiliary_lists`]
 //! partitions the reducer's materialized cells on whole-item boundaries and
-//! [`state_digest_from_items`] commits them, with each leaf byte-identical to
-//! that cell's `event-auth-state-resolution.md` §6.2.1 `state_root` leaf.
+//! [`state_digest_from_items`] commits the complete Cell state and its fixed
+//! model. This snapshot root is distinct from the Seal security state root.
 //! [`event_set_commitment`] commits the covered Event set, and
 //! [`event_set_merkle_tree`] is the prover side of the §6.2 inclusion
 //! challenge over that same commitment.
 //!
 //! Consumer side: [`restore_realm_state_snapshot`] runs §5's checklist —
 //! signature transcript, reducer profile, acceptance window, per-chunk content
-//! address, `state_digest` recomputation, auxiliary-list digests — and hands
-//! back materialized cells plus a [`CoveredEventSet`], which is what keeps a
-//! restored receiver able to answer §3's covered-set question instead of
-//! guessing `false`.
+//! address, `state_digest` recomputation, auxiliary-list digests and mandatory
+//! replay verification — before returning complete cells and replay evidence.
+//! Per-cell causal coverage travels in each causal state; [`CoveredEventSet`]
+//! separately answers membership in the manifest's committed Event set without
+//! treating unavailable membership evidence as a negative answer.
 
 mod chunking;
 mod constants;

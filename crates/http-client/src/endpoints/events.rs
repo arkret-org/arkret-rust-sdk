@@ -903,9 +903,9 @@ impl Client {
     /// Event Envelope is no longer a valid body.
     ///
     /// Callers that do not already hold a wrapper should use
-    /// [`prepare_initial_submission`](Self::prepare_initial_submission) so the
-    /// authenticated Station performs read-only admission and signs
-    /// the lease. The SDK never fabricates a lease locally.
+    /// [`prepare_initial_submission`](Self::prepare_initial_submission), which
+    /// wraps ordinary publication locally using its retained signed evidence.
+    /// Only explicitly delayed publication uses its registered lease workflow.
     pub async fn events_submit(
         &self,
         submission: &EventInitialSubmission,
@@ -918,7 +918,7 @@ impl Client {
     /// Submit a batch of initial Event publications via
     /// `ak.self.events.command.submit.v1` (`POST /_arkret/self/events`) using the
     /// `EventsSubmitBatchRequestBody` body shape. Each element carries its own
-    /// authority-issued lease; see [`events_submit`](Self::events_submit).
+    /// registered publication evidence; see [`events_submit`](Self::events_submit).
     pub async fn events_submit_batch(
         &self,
         submissions: &[EventInitialSubmission],
@@ -928,8 +928,7 @@ impl Client {
     }
 
     /// [`events_submit_batch`](Self::events_submit_batch) with per-request
-    /// options; see [`events_submit_with_options`](Self::events_submit_with_options)
-    /// for the retry semantics of an attached `Idempotency-Key`.
+    /// options, including an optional `Idempotency-Key` for exact request retries.
     pub async fn events_submit_batch_with_options(
         &self,
         submissions: &[EventInitialSubmission],
@@ -991,22 +990,27 @@ impl Client {
     /// `verify_issuer_jws`, and the `state_digest` recomputed from the
     /// delivered chunks rather than believed.
     ///
-    /// The result carries a [`CoveredEventSet`] that answers §3's covered-set
-    /// question with `Unknown` until the caller feeds it the committed index or
-    /// an inclusion proof. That is deliberate: a restored client that answered
-    /// «not covered» from ignorance would revive superseded writes on the next
-    /// late-branch merge.
-    pub async fn restore_realm_state_snapshot_head<F>(
+    /// `verify_replay` must verify original evidence and reproduce complete Cell
+    /// states at the manifest's eligibility context. The returned
+    /// [`arkret_state::CoveredEventSet`] proves global input membership only;
+    /// per-Cell causal coverage comes from the verified Cell state.
+    pub async fn restore_realm_state_snapshot_head<F, R>(
         &self,
         realm_id: &str,
         options: &RealmStateSnapshotVerifyOptions,
         verify_issuer_jws: F,
+        verify_replay: R,
     ) -> Result<RealmStateSnapshotRestore>
     where
         F: FnOnce(&arkret_wire::DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+        R: FnOnce(
+            &RealmStateSnapshotManifest,
+            &arkret_state::SnapshotReplayEvidence,
+            &std::collections::BTreeMap<arkret_wire::CellRef, arkret_wire::CanonicalCellState>,
+        ) -> std::result::Result<(), String>,
     {
         let manifest = self.realm_state_snapshot_head(realm_id).await?;
-        self.restore_realm_state_snapshot(&manifest, options, verify_issuer_jws)
+        self.restore_realm_state_snapshot(&manifest, options, verify_issuer_jws, verify_replay)
             .await
     }
 
@@ -1016,20 +1020,26 @@ impl Client {
     /// manifest is bound to the hint before any chunk is fetched: a server that
     /// advertised one snapshot on the events query and served another on the
     /// head route is rejected rather than silently accelerated on.
-    pub async fn restore_realm_state_snapshot_for_bootstrap<F>(
+    pub async fn restore_realm_state_snapshot_for_bootstrap<F, R>(
         &self,
         realm_id: &str,
         bootstrap: &RealmStateSnapshotBootstrap,
         options: &RealmStateSnapshotVerifyOptions,
         verify_issuer_jws: F,
+        verify_replay: R,
     ) -> Result<RealmStateSnapshotRestore>
     where
         F: FnOnce(&arkret_wire::DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+        R: FnOnce(
+            &RealmStateSnapshotManifest,
+            &arkret_state::SnapshotReplayEvidence,
+            &std::collections::BTreeMap<arkret_wire::CellRef, arkret_wire::CanonicalCellState>,
+        ) -> std::result::Result<(), String>,
     {
         let manifest = self.realm_state_snapshot_head(realm_id).await?;
         realm_state_snapshot_bootstrap_binds_manifest(bootstrap, &manifest)
             .map_err(|error| Error::Protocol(error.to_string()))?;
-        self.restore_realm_state_snapshot(&manifest, options, verify_issuer_jws)
+        self.restore_realm_state_snapshot(&manifest, options, verify_issuer_jws, verify_replay)
             .await
     }
 
@@ -1038,21 +1048,33 @@ impl Client {
     /// Split from [`Self::restore_realm_state_snapshot_head`] so a client that
     /// received a `realm_state_snapshot_bootstrap` hint can bind the manifest to
     /// that hint before spending the chunk downloads.
-    pub async fn restore_realm_state_snapshot<F>(
+    pub async fn restore_realm_state_snapshot<F, R>(
         &self,
         manifest: &RealmStateSnapshotManifest,
         options: &RealmStateSnapshotVerifyOptions,
         verify_issuer_jws: F,
+        verify_replay: R,
     ) -> Result<RealmStateSnapshotRestore>
     where
         F: FnOnce(&arkret_wire::DidUrl, &[u8], &str) -> std::result::Result<(), String>,
+        R: FnOnce(
+            &RealmStateSnapshotManifest,
+            &arkret_state::SnapshotReplayEvidence,
+            &std::collections::BTreeMap<arkret_wire::CellRef, arkret_wire::CanonicalCellState>,
+        ) -> std::result::Result<(), String>,
     {
         let mut chunk_bytes = Vec::with_capacity(manifest.chunks.len());
         for descriptor in &manifest.chunks {
             chunk_bytes.push(self.blob_download(&descriptor.chunk_ref, None).await?);
         }
-        restore_realm_state_snapshot(manifest, &chunk_bytes, options, verify_issuer_jws)
-            .map_err(|error| Error::Protocol(error.to_string()))
+        restore_realm_state_snapshot(
+            manifest,
+            &chunk_bytes,
+            options,
+            verify_issuer_jws,
+            verify_replay,
+        )
+        .map_err(|error| Error::Protocol(error.to_string()))
     }
 
     pub async fn authz_check(&self, request: &AuthzCheckRequestBody) -> Result<AuthzCheckOutcome> {
