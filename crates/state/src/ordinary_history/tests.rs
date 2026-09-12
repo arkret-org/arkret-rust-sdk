@@ -442,3 +442,72 @@ fn unresolved_ancestor_authorization_does_not_block_a_separately_authorized_repl
         OrdinaryHistoryEligibility::Pending { .. }
     ));
 }
+
+#[test]
+fn one_complete_excluding_cut_outweighs_another_incomplete_cut() {
+    let mut source = Source::default();
+    let target = source.insert(event("target", "generation", &[], &[]));
+    for cuts in [
+        vec![
+            cut("missing", "generation", vec![id("unavailable")]),
+            cut("exclude", "generation", vec![]),
+        ],
+        vec![
+            cut("exclude", "generation", vec![]),
+            cut("missing", "generation", vec![id("unavailable")]),
+        ],
+    ] {
+        assert!(
+            matches!(classify_ordinary_history(&target, &inventory(cuts), &source).unwrap(), OrdinaryHistoryEligibility::Quarantined { closing_commands, .. } if closing_commands == BTreeSet::from([id("exclude")]))
+        );
+    }
+}
+
+#[test]
+fn a_complete_exclusion_outweighs_missing_execution_dependencies() {
+    let mut source = Source::default();
+    let mut target = event("target", "generation", &[], &[]);
+    let HistoricalAuthorization::Ordinary {
+        execution_dependencies,
+        ..
+    } = &mut target.authorization
+    else {
+        unreachable!()
+    };
+    execution_dependencies.insert(id("missing-execution-dependency"));
+    let target = source.insert(target);
+    assert!(matches!(
+        classify_ordinary_history(&target, &inventory(vec![]), &source).unwrap(),
+        OrdinaryHistoryEligibility::Pending { .. }
+    ));
+    assert!(matches!(
+        classify_ordinary_history(
+            &target,
+            &inventory(vec![cut("exclude", "generation", vec![])]),
+            &source
+        )
+        .unwrap(),
+        OrdinaryHistoryEligibility::Quarantined { .. }
+    ));
+}
+
+#[test]
+fn proven_invalid_evidence_is_not_hidden_by_exclusion_or_missing_evidence() {
+    let mut source = Source::default();
+    let target = source.insert(event("target", "generation", &[], &[]));
+    let wrong_key = id("wrong-key");
+    source.0.insert(
+        wrong_key.clone(),
+        event("another-event", "generation", &[], &[]),
+    );
+    let mut incomplete_and_invalid = vec![id("unavailable"), wrong_key];
+    incomplete_and_invalid.sort();
+    let inventory = inventory(vec![
+        cut("exclude", "generation", vec![]),
+        cut("invalid", "generation", incomplete_and_invalid),
+    ]);
+    assert!(matches!(
+        classify_ordinary_history(&target, &inventory, &source),
+        Err(HistoryEvidenceError::Invalid(_))
+    ));
+}

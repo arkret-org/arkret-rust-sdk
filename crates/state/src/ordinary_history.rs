@@ -247,6 +247,8 @@ impl VerifiedClosureInventory {
 
 /// Supply only content-bound, historically authenticated Events. Missing
 /// records must return `None` or `Unavailable`, never a fabricated leaf.
+/// One classification observes a fixed evidence snapshot: repeated lookups
+/// must not change bytes or authorization state during that evaluation.
 pub trait HistoryEvidenceSource {
     fn event(
         &self,
@@ -286,6 +288,20 @@ fn required_event<'a>(
     Ok(event)
 }
 
+fn available_or_pending<T>(
+    result: Result<T, HistoryEvidenceError>,
+    pending: &mut Option<String>,
+) -> Result<Option<T>, HistoryEvidenceError> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(HistoryEvidenceError::Unavailable(reason)) => {
+            pending.get_or_insert(reason);
+            Ok(None)
+        }
+        Err(invalid) => Err(invalid),
+    }
+}
+
 /// Resolve and verify every signed predecessor and causal reference. Missing
 /// any ancestor prevents a nonmembership conclusion for the entire frontier.
 pub fn verify_complete_history_frontier(
@@ -298,6 +314,7 @@ pub fn verify_complete_history_frontier(
         ));
     }
     let mut complete = BTreeSet::new();
+    let mut pending = None;
     let mut active = BTreeSet::new();
     let mut stack: Vec<_> = frontier
         .iter()
@@ -319,7 +336,10 @@ pub fn verify_complete_history_frontier(
                 "authenticated Event ancestry contains a cycle".into(),
             ));
         }
-        let event = required_event(source, &id)?;
+        let Some(event) = available_or_pending(required_event(source, &id), &mut pending)? else {
+            active.remove(&id);
+            continue;
+        };
         stack.push((id, true));
         stack.extend(
             event
@@ -328,6 +348,9 @@ pub fn verify_complete_history_frontier(
                 .rev()
                 .map(|parent| (parent, false)),
         );
+    }
+    if let Some(reason) = pending {
+        return Err(HistoryEvidenceError::Unavailable(reason));
     }
     Ok(CompleteHistoryClosure {
         frontier: frontier.to_vec(),
@@ -404,8 +427,9 @@ fn matching_cut(usage: &AuthorizationUse, closure: &AuthorizationClosure) -> boo
 /// Classify an ordinary Event and its actual execution dependencies. Every
 /// matching cut is evaluated; a later wider cut cannot revive an earlier
 /// excluded Event. Causal-only ancestors are authenticated but their business
-/// eligibility is not inherited. All needed evidence must be complete before
-/// returning a terminal classification.
+/// eligibility is not inherited. Invalid evidence is rejected. A complete
+/// applicable cut's definite exclusion takes priority over other missing
+/// dependencies; missing evidence alone remains pending.
 pub fn classify_ordinary_history(
     event_id: &EventId,
     inventory: &VerifiedClosureInventory,
@@ -430,6 +454,7 @@ fn classify_complete(
     let mut excluded = BTreeSet::new();
     let mut unauthorized = BTreeSet::new();
     let mut rejected_commands = BTreeSet::new();
+    let mut pending = None;
     while let Some((id, exiting)) = stack.pop() {
         if exiting {
             active.remove(&id);
@@ -445,15 +470,20 @@ fn classify_complete(
             ));
         }
         stack.push((id.clone(), true));
-        let event = required_event(source, &id)?;
-        verify_complete_history_frontier(std::slice::from_ref(&id), source)?;
+        let Some(event) = available_or_pending(required_event(source, &id), &mut pending)? else {
+            continue;
+        };
+        available_or_pending(
+            verify_complete_history_frontier(std::slice::from_ref(&id), source),
+            &mut pending,
+        )?;
         if matches!(
             event.authorization,
             HistoricalAuthorization::AuthorizationPending
         ) {
-            return Err(HistoryEvidenceError::Unavailable(format!(
-                "ordinary Event {id} authorization is unresolved"
-            )));
+            pending
+                .get_or_insert_with(|| format!("ordinary Event {id} authorization is unresolved"));
+            continue;
         }
         if matches!(event.authorization, HistoricalAuthorization::Unauthorized) {
             unauthorized.insert(id);
@@ -471,9 +501,9 @@ fn classify_complete(
                     rejected_commands.insert(id);
                 }
                 None => {
-                    return Err(HistoryEvidenceError::Unavailable(format!(
-                        "execution dependency command {id} has no terminal decision"
-                    )));
+                    pending.get_or_insert_with(|| {
+                        format!("execution dependency command {id} has no terminal decision")
+                    });
                 }
             }
             continue;
@@ -487,28 +517,41 @@ fn classify_complete(
         };
         stack.extend(execution_dependencies.iter().cloned().map(|id| (id, false)));
         for usage in uses {
-            let prefix = inventory
-                .prefixes
-                .get(&usage.authority_realm_id)
-                .ok_or_else(|| {
-                    HistoryEvidenceError::Unavailable(format!(
-                        "missing security prefix for {}",
-                        usage.authority_realm_id
-                    ))
-                })?;
+            let Some(prefix) = available_or_pending(
+                inventory
+                    .prefixes
+                    .get(&usage.authority_realm_id)
+                    .ok_or_else(|| {
+                        HistoryEvidenceError::Unavailable(format!(
+                            "missing security prefix for {}",
+                            usage.authority_realm_id
+                        ))
+                    }),
+                &mut pending,
+            )?
+            else {
+                continue;
+            };
             if !prefix
                 .committed_events
                 .contains(&usage.authorization_event_id)
                 || !prefix.committed_events.contains(&usage.generation_event_id)
             {
-                return Err(HistoryEvidenceError::Unavailable("security prefix does not confirm the exact authorization instance and generation".into()));
+                pending.get_or_insert_with(|| "security prefix does not confirm the exact authorization instance and generation".into());
+                continue;
             }
             for cut in prefix
                 .closures
                 .iter()
                 .filter(|cut| matching_cut(usage, cut))
             {
-                let closure = verify_complete_history_frontier(&cut.frontier, source)?;
+                let Some(closure) = available_or_pending(
+                    verify_complete_history_frontier(&cut.frontier, source),
+                    &mut pending,
+                )?
+                else {
+                    continue;
+                };
                 if !closure.event_ids.contains(&id) {
                     excluded.insert(cut.command_event_id.clone());
                 }
@@ -516,7 +559,10 @@ fn classify_complete(
         }
     }
     if excluded.is_empty() && unauthorized.is_empty() && rejected_commands.is_empty() {
-        Ok(OrdinaryHistoryEligibility::Eligible)
+        Ok(match pending {
+            Some(reason) => OrdinaryHistoryEligibility::Pending { reason },
+            None => OrdinaryHistoryEligibility::Eligible,
+        })
     } else {
         Ok(OrdinaryHistoryEligibility::Quarantined {
             closing_commands: excluded,
