@@ -44,8 +44,7 @@ use crate::primitives::{
     SignatureBindingPayload,
 };
 use crate::{
-    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, OpaqueLocalId, ProfileRef, SchemaId,
-    canonical,
+    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, ProfileRef, SchemaId, canonical,
 };
 
 /// Full canonical Event Envelope bound, measured over the accepted envelope including every
@@ -248,19 +247,16 @@ pub struct EventRequirements {
     pub critical_extensions: Vec<CriticalExtension>,
 }
 
-/// Signed portable authorization coordinates for an ordinary Event.
+/// Signed immutable authority references for an ordinary Event.
 ///
 /// `authority_refs` names already accepted safety decisions. It is immutable,
 /// sorted, and has no freshness lease. A receiver resolves and verifies those
 /// decisions independently; no origin callback or newly advanced Seal is part
-/// of ordinary admission.
+/// of ordinary admission. The unique producer proof separately binds the exact
+/// historical signer evidence; this object does not identify a signing key.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
-    pub key_id: OpaqueLocalId,
-    pub key_epoch: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub credential_epoch: Option<u64>,
     pub authority_refs: Vec<SealId>,
 }
 
@@ -2159,9 +2155,6 @@ mod event_wire_surface_tests {
     fn ordinary_event_allows_signed_domain_preconditions() {
         let mut event = base_event();
         event.auth_context = Some(AuthContext {
-            key_id: OpaqueLocalId::new("device-1").unwrap(),
-            key_epoch: 0,
-            credential_epoch: None,
             authority_refs: vec![
                 SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
             ],

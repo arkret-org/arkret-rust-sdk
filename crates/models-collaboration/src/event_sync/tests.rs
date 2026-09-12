@@ -275,8 +275,6 @@ fn event_with_device_proof() -> Event {
         "hlc": "01970e589d21-0001-a13f9c2e",
         "prev_refs": [],
         "auth_context": {
-            "key_id": "device:01904100-0000-7000-8000-000000000002",
-            "key_epoch": 1,
             "authority_refs": [format!("ak:seal:sha256:{}", "e".repeat(64))]
         },
         "payload": {},
@@ -309,9 +307,8 @@ fn publication_proof(
     }
 }
 
-/// Wrap a transported Event in the publication evidence the federation rail
-/// now requires: the basis-bound lease that authorized it and the ingress
-/// receipt that recorded its first publication inside the lease window.
+/// Exercise the optional lease and ingress-receipt carrier fields. Ordinary
+/// publication does not require these fixtures or an online admission issuer.
 fn federation_submission(mut event: Event) -> EventFederationSubmission {
     let issued_at: DateTime<Utc> = "2026-07-21T08:00:00.000Z".parse().unwrap();
     let event_digest = Hash::new(

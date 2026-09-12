@@ -323,7 +323,7 @@ impl MessagePrepareOutcome {
         &self,
         request: &MessagePrepareRequestBody,
         scope: &ScopeRef,
-        signer: &AuthContext,
+        authorization_context: &AuthContext,
         direct_binding: Option<&EventId>,
         known: Option<&RealmActorFrontierView>,
         now: DateTime<Utc>,
@@ -331,12 +331,12 @@ impl MessagePrepareOutcome {
         request.validate_time(now)?;
         let event = self.validate_for_request(request)?;
         if &event.event().scope_ref != scope
-            || event.event().auth_context.as_ref() != Some(signer)
+            || event.event().auth_context.as_ref() != Some(authorization_context)
             || event.event().refs.first().map(|r| r.id.as_str())
                 != direct_binding.map(EventId::as_str)
         {
             return Err(invalid(
-                "prepared message target or signer context differs from local intent",
+                "prepared message target or authorization context differs from local intent",
             ));
         }
         if let Some(known) = known {
@@ -401,10 +401,6 @@ mod tests {
     }
     fn auth() -> AuthContext {
         AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new("device:01970000-0000-7000-8000-000000000031")
-                .unwrap(),
-            key_epoch: 0,
-            credential_epoch: None,
             authority_refs: vec![
                 arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ],
@@ -522,11 +518,19 @@ mod tests {
         changed = request.clone();
         changed.created_at += chrono::Duration::milliseconds(1);
         assert!(outcome.validate_for_request(&changed).is_err());
-        let mut wrong_key = auth();
-        wrong_key.key_epoch += 1;
+        let mut wrong_authority = auth();
+        wrong_authority.authority_refs =
+            vec![arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()];
         assert!(
             outcome
-                .verify_for_signing(&request, &scope, &wrong_key, None, None, request.created_at)
+                .verify_for_signing(
+                    &request,
+                    &scope,
+                    &wrong_authority,
+                    None,
+                    None,
+                    request.created_at
+                )
                 .is_err()
         );
     }

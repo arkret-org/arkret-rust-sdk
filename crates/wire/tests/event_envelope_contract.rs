@@ -142,7 +142,7 @@ fn event_scalability_helpers_reject_over_limits() {
 /// `event-and-patch.md` §75 names producer-selected `auth_context.capability_refs`
 /// alongside `effects` as a field a v1 receiver MUST reject with
 /// `schema_violation`, and the envelope schema closes `auth_context` over
-/// `{key_id, key_epoch, credential_epoch, authority_refs}`. The Event envelope is the sole
+/// `{authority_refs}`. The Event envelope is the sole
 /// carrier of `actor_id`.
 ///
 /// Rejecting is the point: effective capabilities are derived from the accepted
@@ -152,12 +152,23 @@ fn event_scalability_helpers_reject_over_limits() {
 #[test]
 fn auth_context_rejects_a_producer_selected_capability_list() {
     let base = json!({
-        "key_id": "device:01904100-0000-7000-8000-65c7feb295d8",
-        "key_epoch": 1,
-        "authority_refs": []
+        "authority_refs": [format!("ak:seal:sha256:{}", "1".repeat(64))]
     });
     serde_json::from_value::<arkret_wire::AuthContext>(base.clone())
-        .expect("the closed member set must still parse");
+        .expect("the closed member set must still parse")
+        .validate()
+        .unwrap();
+    for (field, value) in [
+        ("key_id", json!("device-1")),
+        ("key_epoch", json!(1)),
+        ("credential_epoch", json!(1)),
+    ] {
+        let mut removed = base.clone();
+        removed[field] = value;
+        let error = serde_json::from_value::<arkret_wire::AuthContext>(removed)
+            .expect_err("removed key coordinates must not deserialize");
+        assert!(error.to_string().contains(field), "{error}");
+    }
 
     let mut smuggled = base;
     smuggled["capability_refs"] = json!(["ak:grant:AexFmdraZt6B8bFfhx2bo_5tSexCveR9J0cIyonQUfe_"]);

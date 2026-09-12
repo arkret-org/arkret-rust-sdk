@@ -204,9 +204,6 @@ mod tests {
         )
         .unwrap();
         event.auth_context = Some(AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new("agent-device").unwrap(),
-            key_epoch: 0,
-            credential_epoch: None,
             authority_refs: vec![
                 arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
             ],

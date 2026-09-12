@@ -1575,9 +1575,6 @@ mod account_update_profile_request_tests {
         )
         .unwrap();
         event.auth_context = Some(arkret_wire::AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
-            key_epoch: 7,
-            credential_epoch: None,
             authority_refs: vec![
                 SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ],

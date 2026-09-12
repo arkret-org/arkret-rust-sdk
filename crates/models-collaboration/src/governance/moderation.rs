@@ -129,21 +129,16 @@ impl ModerationReportRequestBody {
                 "moderation report ordinary Event requires auth_context".to_owned(),
             )
         })?;
-        if auth_context.key_id.is_empty()
-            || auth_context.key_id.len() > 128
-            || !auth_context.key_id.chars().all(|character| {
-                character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-')
-            })
-            || !event.proofs.iter().any(|proof| {
-                proof_controller_matches_actor(
-                    proof.verification_method.as_str(),
-                    event.actor_id.signing_principal_id(),
-                )
-                .unwrap_or(false)
-            })
-        {
+        auth_context.validate()?;
+        if !event.proofs.iter().any(|proof| {
+            proof_controller_matches_actor(
+                proof.verification_method.as_str(),
+                event.actor_id.signing_principal_id(),
+            )
+            .unwrap_or(false)
+        }) {
             return Err(arkret_wire::WireError::Protocol(
-                "moderation report proof and auth_context must bind the holder actor".to_owned(),
+                "moderation report proof must bind the holder actor".to_owned(),
             ));
         }
         Ok(())
@@ -302,9 +297,6 @@ mod signed_request_tests {
         )
         .unwrap();
         event.auth_context = Some(AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
-            key_epoch: 1,
-            credential_epoch: None,
             authority_refs: vec![
                 SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ],

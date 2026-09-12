@@ -984,9 +984,6 @@ mod tests {
             _ => unreachable!(),
         };
         event.auth_context = Some(AuthContext {
-            key_id: crate::OpaqueLocalId::new("device-1").unwrap(),
-            key_epoch: 1,
-            credential_epoch: None,
             authority_refs: vec![authority_ref],
         });
         let event_digest = Hash::new(
@@ -1483,9 +1480,6 @@ mod tests {
         )
         .unwrap();
         event.auth_context = Some(AuthContext {
-            key_id: crate::OpaqueLocalId::new("device-1").unwrap(),
-            key_epoch: 1,
-            credential_epoch: None,
             authority_refs: vec![match &target.basis_ref {
                 LeaseBasisRef::Seal(value) => value.clone(),
                 _ => unreachable!(),

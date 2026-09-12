@@ -2633,8 +2633,6 @@ mod tests {
             "hlc": "019f9e500000-0000-aabbccdd",
             "prev_refs": [],
             "auth_context": {
-                "key_id": "device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
-                "key_epoch": 1,
                 "authority_refs": ["ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
             },
             "payload": {
@@ -4494,8 +4492,6 @@ mod tests {
 
         event.auth_context = Some(
             serde_json::from_value(serde_json::json!({
-                "key_id": "device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
-                "key_epoch": 1,
                 "authority_refs": ["ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
             }))
             .unwrap(),

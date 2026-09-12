@@ -687,9 +687,6 @@ mod tests {
         let mut events = complete_unit();
         let followup = events.get_mut(1).unwrap();
         followup.auth_context = Some(arkret_wire::AuthContext {
-            key_id: arkret_wire::OpaqueLocalId::new("device:fixture").unwrap(),
-            key_epoch: 1,
-            credential_epoch: None,
             authority_refs: vec![
                 arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
             ],
