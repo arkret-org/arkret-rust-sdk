@@ -96,7 +96,7 @@ impl AuthenticatedHistoricalProducerSource {
         }
         let mut refs = std::collections::BTreeSet::new();
         for item in dependencies {
-            if !refs.insert(item.evidence_ref()?.to_string()) {
+            if !refs.insert(item.evidence_ref()?) {
                 return invalid("duplicate historical source dependency");
             }
         }
