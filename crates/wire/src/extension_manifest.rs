@@ -51,15 +51,6 @@ pub enum ConfidentialityClass {
     E2eeRequired,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ConcurrencyClass {
-    MergeSafe,
-    Exclusive,
-    SecurityBarrier,
-}
-
 /// Digest-pinned reference to registry content.
 ///
 /// `registry_id` plus `digest` identify the content; `retrieval_url` is a hint
@@ -74,16 +65,17 @@ pub struct RegistryContentRef {
     pub retrieval_url: Option<String>,
 }
 
-/// Digest-pinned reducer contract plus its declared lattice and concurrency
-/// semantics. Implementations MUST NOT guess the class from the kind name.
+/// Digest-pinned reducer contract.
+///
+/// Execution, state model, value shape and conditional-write semantics come
+/// exclusively from the referenced contract. A manifest cannot restate or
+/// override them.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReducerContractRef {
     pub reducer_contract_id: String,
     pub digest: Hash,
-    pub lattice_profile_ref: String,
-    pub concurrency_class: ConcurrencyClass,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -155,10 +147,7 @@ impl From<ProtocolLayerKind> for ManifestDependencyLayer {
 pub enum ManifestRegistryContentKind {
     Dependency(ManifestDependencyLayer),
     PayloadSchema,
-    ReducerContract {
-        lattice_profile_ref: String,
-        concurrency_class: ConcurrencyClass,
-    },
+    ReducerContract,
     ConformanceVector,
 }
 
@@ -173,7 +162,6 @@ pub struct ExtensionManifestCatalog {
     pub content: BTreeMap<String, ManifestRegistryContent>,
     pub action_ids: BTreeSet<String>,
     pub transport_rail_ids: BTreeSet<String>,
-    pub lattice_profile_ids: BTreeSet<String>,
     pub recovery_profile_ids: BTreeSet<String>,
     pub federation_profile_ids: BTreeSet<String>,
     pub passing_vector_ids: BTreeSet<String>,
@@ -468,11 +456,6 @@ impl ExtensionManifest {
                 "reducer_contract_refs[].reducer_contract_id",
                 &reference.reducer_contract_id,
             )?;
-            validate_versioned_symbol(
-                "reducer_contract_refs[].lattice_profile_ref",
-                &reference.lattice_profile_ref,
-                "ak.profile.",
-            )?;
         }
         for action in &self.required_actions {
             validate_ak_symbol("required_actions[]", action)?;
@@ -722,20 +705,8 @@ pub fn load_extension_manifests(
             require_content(
                 catalog,
                 &content_reference,
-                ManifestRegistryContentKind::ReducerContract {
-                    lattice_profile_ref: reference.lattice_profile_ref.clone(),
-                    concurrency_class: reference.concurrency_class,
-                },
+                ManifestRegistryContentKind::ReducerContract,
             )?;
-            if !catalog
-                .lattice_profile_ids
-                .contains(&reference.lattice_profile_ref)
-            {
-                return Err(WireError::Protocol(format!(
-                    "extension reducer {} references an unavailable lattice profile",
-                    reference.reducer_contract_id
-                )));
-            }
         }
         for action in &manifest.required_actions {
             if !catalog.action_ids.contains(action) {
@@ -902,6 +873,30 @@ mod tests {
         }
     }
 
+    #[test]
+    fn reducer_contract_reference_is_only_digest_bound_identity() {
+        let reference = ReducerContractRef {
+            reducer_contract_id: "ak.reducer.calendar.v1".to_owned(),
+            digest: hash(2),
+        };
+        assert_eq!(
+            serde_json::to_value(&reference).expect("serialize reducer contract reference"),
+            serde_json::json!({
+                "reducer_contract_id": "ak.reducer.calendar.v1",
+                "digest": hash(2),
+            })
+        );
+        assert!(
+            serde_json::from_value::<ReducerContractRef>(serde_json::json!({
+                "reducer_contract_id": "ak.reducer.calendar.v1",
+                "digest": hash(2),
+                "execution": "security",
+            }))
+            .is_err(),
+            "removed manifest-selected execution metadata must fail closed",
+        );
+    }
+
     fn manifest(
         name: &str,
         layer: ProtocolLayerKind,
@@ -923,8 +918,6 @@ mod tests {
             reducer_contract_refs: vec![ReducerContractRef {
                 reducer_contract_id: format!("ak.reducer.{name}.v1"),
                 digest: hash(seed + 2),
-                lattice_profile_ref: "ak.profile.lattice.orset.v1".to_owned(),
-                concurrency_class: ConcurrencyClass::MergeSafe,
             }],
             required_actions: vec![format!("ak.{name}.read")],
             confidentiality_class: ConfidentialityClass::E2eeRequired,
@@ -992,10 +985,7 @@ mod tests {
                 reference.reducer_contract_id.clone(),
                 ManifestRegistryContent {
                     digest: reference.digest.clone(),
-                    kind: ManifestRegistryContentKind::ReducerContract {
-                        lattice_profile_ref: reference.lattice_profile_ref.clone(),
-                        concurrency_class: reference.concurrency_class,
-                    },
+                    kind: ManifestRegistryContentKind::ReducerContract,
                 },
             );
         }
@@ -1017,12 +1007,6 @@ mod tests {
         catalog
             .transport_rail_ids
             .extend(manifest.transport_rail_ids.iter().cloned());
-        catalog.lattice_profile_ids.extend(
-            manifest
-                .reducer_contract_refs
-                .iter()
-                .map(|reference| reference.lattice_profile_ref.clone()),
-        );
         if let Some(profile) = &manifest.recovery_profile_ref {
             catalog.recovery_profile_ids.insert(profile.clone());
         }
@@ -1209,10 +1193,7 @@ mod tests {
             .content
             .get_mut("ak.schema.calendar.v1")
             .expect("calendar schema")
-            .kind = ManifestRegistryContentKind::ReducerContract {
-            lattice_profile_ref: "ak.profile.lattice.orset.v1".to_owned(),
-            concurrency_class: ConcurrencyClass::MergeSafe,
-        };
+            .kind = ManifestRegistryContentKind::ReducerContract;
         let kind = load_extension_manifests(
             &manifests,
             &catalog,
