@@ -1022,10 +1022,15 @@ mod tests {
 
     #[test]
     fn approval_attachment_binds_exact_complete_event_and_survives_local_storage() {
-        let publication = online_event();
+        let mut publication = online_event();
+        publication.event_id = publication
+            .derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
         let mut approval = publication.clone();
         approval.kind = crate::EventKind::AgentActionApprove;
-        approval.payload = serde_json::json!({"approved_event_id": publication.event_id});
+        approval.payload =
+            serde_json::from_value(serde_json::json!({"approved_event_id": publication.event_id}))
+                .unwrap();
         validate_approval_publication_event(
             &approval,
             Some(&publication),
@@ -1049,7 +1054,9 @@ mod tests {
             .is_err()
         );
         let mut changed = publication.clone();
-        changed.payload["body"] = serde_json::json!("different content");
+        changed
+            .payload
+            .insert("body".to_owned(), serde_json::json!("different content"));
         assert!(
             validate_approval_publication_event(
                 &approval,
