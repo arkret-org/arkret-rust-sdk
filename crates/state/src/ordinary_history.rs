@@ -48,12 +48,18 @@ pub enum HistoricalAuthorization {
         /// do not automatically propagate a parent's quarantine status.
         execution_dependencies: BTreeSet<EventId>,
     },
-    /// A verified command Event may be a causal ancestor of ordinary history.
-    ConfirmedControl,
+    /// Authenticated command bytes may be causal evidence before or after a
+    /// terminal decision. Only committed commands provide execution effects.
+    ControlEvidence {
+        command_outcome: Option<CommandOutcome>,
+    },
     /// The signature and content binding verified, but the complete historical
     /// authorization evidence denies this ordinary Event. Keep the evidence;
     /// do not confuse an authorization denial with a malformed signature.
     Unauthorized,
+    /// Content and producer authentication verified, but business authorization
+    /// still needs evidence. Pure causal observation does not execute it.
+    AuthorizationPending,
 }
 
 /// Authenticated Event bytes plus verified authorization-use coordinates.
@@ -67,8 +73,9 @@ pub struct VerifiedHistoryEvent {
 impl VerifiedHistoryEvent {
     /// `verify` must authenticate the producer proof, its key/generation,
     /// authority references, historical authorization and registered payload.
-    /// For control ancestors it must prove the command was committed. Returning
-    /// `Unavailable` preserves pending; an empty ordinary-use set is invalid.
+    /// For control evidence it authenticates any claimed terminal outcome;
+    /// an absent outcome confers no execution effect. Returning `Unavailable`
+    /// preserves pending; an empty ordinary-use set is invalid.
     pub fn verify(
         event: Event,
         digest_suite: DigestSuite,
@@ -339,7 +346,15 @@ pub fn frontier_for_complete_history(
     let mut closure =
         verify_complete_history_frontier(&selected.iter().cloned().collect::<Vec<_>>(), source)?;
     let mut maximal = closure.event_ids.clone();
-    for id in &closure.event_ids {
+    for id in selected {
+        if matches!(
+            required_event(source, id)?.authorization,
+            HistoricalAuthorization::AuthorizationPending
+        ) {
+            return Err(HistoryEvidenceError::Unavailable(
+                "selected Event authorization is unresolved".into(),
+            ));
+        }
         if matches!(
             required_event(source, id)?.authorization,
             HistoricalAuthorization::Unauthorized
@@ -348,6 +363,8 @@ pub fn frontier_for_complete_history(
                 "selected frontier includes historically unauthorized evidence".into(),
             ));
         }
+    }
+    for id in &closure.event_ids {
         for parent in required_event(source, id)?.parents()? {
             maximal.remove(&parent);
         }
@@ -370,6 +387,7 @@ pub enum OrdinaryHistoryEligibility {
     Quarantined {
         closing_commands: BTreeSet<EventId>,
         unauthorized_events: BTreeSet<EventId>,
+        rejected_commands: BTreeSet<EventId>,
     },
 }
 
@@ -411,6 +429,7 @@ fn classify_complete(
     let mut stack = vec![(event_id.clone(), false)];
     let mut excluded = BTreeSet::new();
     let mut unauthorized = BTreeSet::new();
+    let mut rejected_commands = BTreeSet::new();
     while let Some((id, exiting)) = stack.pop() {
         if exiting {
             active.remove(&id);
@@ -428,8 +447,35 @@ fn classify_complete(
         stack.push((id.clone(), true));
         let event = required_event(source, &id)?;
         verify_complete_history_frontier(std::slice::from_ref(&id), source)?;
+        if matches!(
+            event.authorization,
+            HistoricalAuthorization::AuthorizationPending
+        ) {
+            return Err(HistoryEvidenceError::Unavailable(format!(
+                "ordinary Event {id} authorization is unresolved"
+            )));
+        }
         if matches!(event.authorization, HistoricalAuthorization::Unauthorized) {
             unauthorized.insert(id);
+            continue;
+        }
+        if let HistoricalAuthorization::ControlEvidence { command_outcome } = &event.authorization {
+            if &id == event_id {
+                return Err(HistoryEvidenceError::Invalid(
+                    "ordinary eligibility requested for a control Event".into(),
+                ));
+            }
+            match command_outcome {
+                Some(CommandOutcome::Committed) => {}
+                Some(CommandOutcome::Rejected) => {
+                    rejected_commands.insert(id);
+                }
+                None => {
+                    return Err(HistoryEvidenceError::Unavailable(format!(
+                        "execution dependency command {id} has no terminal decision"
+                    )));
+                }
+            }
             continue;
         }
         let HistoricalAuthorization::Ordinary {
@@ -437,12 +483,7 @@ fn classify_complete(
             execution_dependencies,
         } = &event.authorization
         else {
-            if &id == event_id {
-                return Err(HistoryEvidenceError::Invalid(
-                    "ordinary eligibility requested for a control Event".into(),
-                ));
-            }
-            continue;
+            unreachable!("other evidence classes were handled above")
         };
         stack.extend(execution_dependencies.iter().cloned().map(|id| (id, false)));
         for usage in uses {
@@ -474,12 +515,13 @@ fn classify_complete(
             }
         }
     }
-    if excluded.is_empty() && unauthorized.is_empty() {
+    if excluded.is_empty() && unauthorized.is_empty() && rejected_commands.is_empty() {
         Ok(OrdinaryHistoryEligibility::Eligible)
     } else {
         Ok(OrdinaryHistoryEligibility::Quarantined {
             closing_commands: excluded,
             unauthorized_events: unauthorized,
+            rejected_commands,
         })
     }
 }

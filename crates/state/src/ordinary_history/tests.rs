@@ -353,3 +353,92 @@ fn an_older_security_prefix_cannot_confirm_a_new_authorization_generation() {
         OrdinaryHistoryEligibility::Pending { .. }
     ));
 }
+
+#[test]
+fn selected_reply_retains_unauthorized_ancestor_bytes_without_inheriting_ineligibility() {
+    let mut source = Source::default();
+    let mut ancestor = event("ancestor", "generation", &[], &[]);
+    ancestor.authorization = HistoricalAuthorization::Unauthorized;
+    let ancestor = source.insert(ancestor);
+    let reply = source.insert(event(
+        "reply",
+        "generation",
+        &[],
+        std::slice::from_ref(&ancestor),
+    ));
+    let closure = frontier_for_complete_history(&BTreeSet::from([reply.clone()]), &source).unwrap();
+    assert_eq!(closure.frontier(), std::slice::from_ref(&reply));
+    assert!(closure.event_ids().contains(&ancestor));
+    assert_eq!(
+        classify_ordinary_history(&reply, &inventory(vec![]), &source).unwrap(),
+        OrdinaryHistoryEligibility::Eligible
+    );
+}
+
+#[test]
+fn pending_or_rejected_control_causal_evidence_does_not_create_execution_effects() {
+    for outcome in [
+        None,
+        Some(CommandOutcome::Rejected),
+        Some(CommandOutcome::Committed),
+    ] {
+        let mut source = Source::default();
+        let mut command = event("command", "generation", &[], &[]);
+        command.authorization = HistoricalAuthorization::ControlEvidence {
+            command_outcome: outcome,
+        };
+        let command = source.insert(command);
+        let reply = source.insert(event(
+            "reply",
+            "generation",
+            &[],
+            std::slice::from_ref(&command),
+        ));
+        assert!(frontier_for_complete_history(&BTreeSet::from([reply.clone()]), &source).is_ok());
+        assert_eq!(
+            classify_ordinary_history(&reply, &inventory(vec![]), &source).unwrap(),
+            OrdinaryHistoryEligibility::Eligible
+        );
+        let HistoricalAuthorization::Ordinary {
+            execution_dependencies,
+            ..
+        } = &mut source.0.get_mut(&reply).unwrap().authorization
+        else {
+            unreachable!()
+        };
+        execution_dependencies.insert(command.clone());
+        let result = classify_ordinary_history(&reply, &inventory(vec![]), &source).unwrap();
+        match outcome {
+            None => assert!(matches!(result, OrdinaryHistoryEligibility::Pending { .. })),
+            Some(CommandOutcome::Rejected) => assert!(
+                matches!(result, OrdinaryHistoryEligibility::Quarantined { rejected_commands, .. } if rejected_commands == BTreeSet::from([command]))
+            ),
+            Some(CommandOutcome::Committed) => {
+                assert_eq!(result, OrdinaryHistoryEligibility::Eligible)
+            }
+        }
+    }
+}
+
+#[test]
+fn unresolved_ancestor_authorization_does_not_block_a_separately_authorized_reply() {
+    let mut source = Source::default();
+    let mut ancestor = event("ancestor", "generation", &[], &[]);
+    ancestor.authorization = HistoricalAuthorization::AuthorizationPending;
+    let ancestor = source.insert(ancestor);
+    let reply = source.insert(event(
+        "reply",
+        "generation",
+        &[],
+        std::slice::from_ref(&ancestor),
+    ));
+    assert!(frontier_for_complete_history(&BTreeSet::from([reply.clone()]), &source).is_ok());
+    assert_eq!(
+        classify_ordinary_history(&reply, &inventory(vec![]), &source).unwrap(),
+        OrdinaryHistoryEligibility::Eligible
+    );
+    assert!(matches!(
+        classify_ordinary_history(&ancestor, &inventory(vec![]), &source).unwrap(),
+        OrdinaryHistoryEligibility::Pending { .. }
+    ));
+}
