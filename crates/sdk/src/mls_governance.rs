@@ -643,6 +643,28 @@ where
     VerifyExternalTrust:
         for<'a> Fn(AgentHistoricalTrustRequest<'a>) -> AgentHistoricalTrustFuture<'a> + Clone,
 {
+    let signer =
+        verify_agent_historical_event_signer(event, evidence, dependencies, verify_external_trust)
+            .await?;
+    Ok(PublicKeyMaterial::Ed25519Raw {
+        bytes: signer.key().to_vec(),
+    })
+}
+
+/// Preserve the exact authenticated Agent, controller Account, authorization
+/// and publication window after verifying the same complete historical evidence
+/// closure used by the Event-key API. No caller can construct this identity from
+/// a bare key or a controller relationship alone.
+pub async fn verify_agent_historical_event_signer<VerifyExternalTrust>(
+    event: &Event,
+    evidence: &AuthenticatedSignerResolutionEvidence,
+    dependencies: &[GovernanceDependency],
+    verify_external_trust: VerifyExternalTrust,
+) -> Result<arkret_signatures::agent_evidence::VerifiedAgentSigningKey, WireError>
+where
+    VerifyExternalTrust:
+        for<'a> Fn(AgentHistoricalTrustRequest<'a>) -> AgentHistoricalTrustFuture<'a> + Clone,
+{
     event.validate_for_direct_history_structural()?;
     evidence.validate_attester_binding()?;
     let AuthenticatedSignerResolutionEvidence::Agent {
@@ -774,11 +796,7 @@ where
         },
     );
     match verdict {
-        arkret_signatures::agent_evidence::AgentSignerEvidenceVerdict::Verified(key) => {
-            Ok(PublicKeyMaterial::Ed25519Raw {
-                bytes: key.key().to_vec(),
-            })
-        }
+        arkret_signatures::agent_evidence::AgentSignerEvidenceVerdict::Verified(key) => Ok(key),
         arkret_signatures::agent_evidence::AgentSignerEvidenceVerdict::Unresolved(reason) => {
             Err(WireError::Protocol(reason.as_str().to_owned()))
         }

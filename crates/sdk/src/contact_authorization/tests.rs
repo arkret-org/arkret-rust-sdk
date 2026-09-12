@@ -1119,3 +1119,71 @@ fn carrier_controller_device_requires_accepted_immutable_agent_pcr_delegation() 
         .is_err()
     );
 }
+
+#[test]
+fn carrier_current_proof_cannot_precede_its_command_or_skip_remote_terminal_local_history() {
+    let f = CarrierFixture::new();
+    let initial = ContactTransition {
+        contact_round_id: f.source.round.clone(),
+        issuer: f.source.issuer.clone(),
+        peer: f.source.peer.clone(),
+        version: 1,
+        predecessor_event_ref: None,
+        event_ref: event_id(1),
+        granted_to_peer_scopes: vec![ContactScope::DirectMessage],
+        terminal: None,
+    };
+    let mut other = initial.clone();
+    other.issuer = f.source.peer.clone();
+    other.peer = f.source.issuer.clone();
+    other.event_ref = event_id(7);
+    let mut round = VerifiedContactRound {
+        round: f.source.round.clone(),
+        origins: [initial, other],
+        origin_checkpoints: Vec::new(),
+    };
+    let mut carrier = f.successor(&event_id(1), 2, false);
+    let current = match &carrier {
+        PeerContactSubmitRequestBody::ScopeUpdate { current_proof, .. } => current_proof.clone(),
+        _ => unreachable!(),
+    };
+    if let PeerContactSubmitRequestBody::ScopeUpdate { current_proof, .. } = &mut carrier {
+        *current_proof = f.initial_proof(&f.source.round, &event_id(1));
+    }
+    let event = f.authenticate(&carrier).unwrap();
+    assert!(matches!(
+        verify_contact_direction_history(
+            &round,
+            &f.source.issuer,
+            &[event],
+            &current,
+            f.source.signature.created_at,
+            &f.source,
+            None
+        ),
+        Err(ContactAuthorizationError::InvalidEvidence(_))
+    ));
+    let terminal = f.successor(&event_id(1), 2, true);
+    let terminal = f.authenticate(&terminal).unwrap();
+    let fence = terminal.terminal_fence().unwrap();
+    let mut proof = f.initial_proof(&f.source.round, terminal.event_id());
+    proof.peer = f.source.issuer.clone();
+    proof.terminal = true;
+    proof.signature.jws = f.source.sign(&proof.canonical_signing_bytes().unwrap());
+    let mut higher = proof.clone();
+    higher.complete_through = 9;
+    higher.signature.jws = f.source.sign(&higher.canonical_signing_bytes().unwrap());
+    round.origin_checkpoints.push(higher);
+    assert!(matches!(
+        verify_contact_direction_history(
+            &round,
+            &f.source.peer,
+            &[],
+            &proof,
+            f.source.signature.created_at,
+            &f.source,
+            Some(&fence)
+        ),
+        Err(ContactAuthorizationError::MissingMaterial(_))
+    ));
+}

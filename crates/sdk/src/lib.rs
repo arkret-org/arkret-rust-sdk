@@ -52,12 +52,12 @@
 //! ```
 
 pub mod contact_authorization;
-pub mod ordinary_history;
 mod control_projection;
 mod history_response;
 mod keypackage_claim_receipt;
 mod managed_actor_authoring;
 mod mls_governance;
+pub mod ordinary_history;
 mod sdk_error;
 mod sidecar_recovery;
 
@@ -441,10 +441,11 @@ pub use mls_governance::{
     signed_event_digest_claim, signer_evidence_ref, verified_member_history_from_checkpoint,
     verified_membership_from_checkpoint, verify_agent_current_context,
     verify_agent_current_signer_key, verify_agent_historical_event_key,
-    verify_agent_history_source_key, verify_agent_portable_trust,
-    verify_event_derived_genesis_checkpoint, verify_mls_governance_checkpoint,
-    verify_mls_governance_closure, verify_mls_governance_cut, verify_mls_governance_frontier,
-    verify_retained_governance_event_proofs, verify_seal_availability_dependencies_default,
+    verify_agent_historical_event_signer, verify_agent_history_source_key,
+    verify_agent_portable_trust, verify_event_derived_genesis_checkpoint,
+    verify_mls_governance_checkpoint, verify_mls_governance_closure, verify_mls_governance_cut,
+    verify_mls_governance_frontier, verify_retained_governance_event_proofs,
+    verify_seal_availability_dependencies_default,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};

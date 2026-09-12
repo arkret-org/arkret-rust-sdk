@@ -1102,11 +1102,23 @@ pub fn verify_contact_direction_history(
     if successors.iter().any(|e| e.observed_at > observed_at) {
         return Err(invalid("history predates its producer observation"));
     }
-    for proof in round
+    for (proof, covered_version) in round
         .origin_checkpoints
         .iter()
         .filter(|p| p.peer == origin.peer)
-        .chain(successors.iter().filter_map(carrier_checkpoint))
+        .map(|proof| (proof, 1))
+        .chain(successors.iter().filter_map(|event| {
+            carrier_checkpoint(event).map(|proof| {
+                (
+                    proof,
+                    event
+                        .transition
+                        .as_ref()
+                        .expect("successor transition checked above")
+                        .version,
+                )
+            })
+        }))
     {
         if proof.contact_round_id != round.round
             || proof.peer != origin.peer
@@ -1122,6 +1134,25 @@ pub fn verify_contact_direction_history(
         if local.is_none() && !remote_terminal {
             return Err(ContactAuthorizationError::MissingMaterial(
                 "carrier certifies a later head whose exact predecessor chain is absent".into(),
+            ));
+        }
+        if remote_terminal && local.is_none() {
+            let local_version = transitions.last().expect("origin is present").version;
+            if proof.complete_through > local_version {
+                return Err(ContactAuthorizationError::MissingMaterial(
+                    "terminal carrier certifies local versions whose predecessor chain is absent"
+                        .into(),
+                ));
+            }
+            if proof.complete_through != local_version {
+                return Err(invalid(
+                    "terminal carrier conflicts with the last complete local version",
+                ));
+            }
+        }
+        if proof.complete_through < covered_version {
+            return Err(invalid(
+                "carrier current proof precedes its own exact command",
             ));
         }
         if let Some(head) = local {
