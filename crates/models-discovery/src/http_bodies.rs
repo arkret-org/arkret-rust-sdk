@@ -947,7 +947,7 @@ impl PrivateContactDiscovery {
                 );
             let maximal_stub = serde_json::json!({
                 "kind": "consent",
-                "consent_scope": "direct_message",
+                "consent_scope": "voice_call",
                 "state": "grant_active",
                 "state_digest": format!("sha256:{}", "f".repeat(64)),
                 "next_step": "open_invite_strand",

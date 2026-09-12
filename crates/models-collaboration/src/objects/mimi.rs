@@ -110,7 +110,6 @@ pub struct MimiDelivery {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum MimiConsentPurpose {
     Invite,
-    DirectMessage,
     VoiceCall,
     VideoCall,
     Presence,

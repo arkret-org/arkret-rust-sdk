@@ -281,9 +281,8 @@ pub struct ConsentRequestRequestBody {
     /// invite-scope request has no carrier: it would have to become a
     /// `holder_quarantine` entry whose `surface_kind` is `consent_request`, and
     /// that branch pins the scope away from `invite` because an invite belongs
-    /// to invite delivery. Absent means [`ConsentRequestScope::DEFAULT`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub consent_scope: Option<ConsentRequestScope>,
+    /// to invite delivery. The caller must choose an explicit scope.
+    pub consent_scope: ConsentRequestScope,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,6 +295,27 @@ pub struct ConsentRequestOutcome {
 #[cfg(test)]
 mod consent_request_tests {
     use super::{ConsentRequestOutcome, ConsentState};
+
+    #[test]
+    fn consent_request_requires_an_explicit_registered_scope() {
+        let holder = serde_json::json!({"principal_id":"ak:did_core:web:holder.example","station_id":"ak:did_core:web:station.example"});
+        for scope in [
+            None,
+            Some(serde_json::Value::Null),
+            Some(serde_json::json!("direct_message")),
+            Some(serde_json::json!("invite")),
+        ] {
+            let mut body = serde_json::json!({"holder_account_id":holder});
+            if let Some(scope) = scope {
+                body["consent_scope"] = scope;
+            }
+            assert!(serde_json::from_value::<super::ConsentRequestRequestBody>(body).is_err());
+        }
+        let body = serde_json::json!({"holder_account_id":holder,"consent_scope":"voice_call"});
+        let parsed: super::ConsentRequestRequestBody =
+            serde_json::from_value(body.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), body);
+    }
 
     #[test]
     fn opaque_request_outcome_is_closed_and_minimal() {

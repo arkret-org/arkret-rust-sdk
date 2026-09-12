@@ -87,7 +87,7 @@ mod mimi_consent_tests {
                             "peer".to_owned(),
                             json!("did:webvh:z6mkfixture:example.com:users:bob"),
                         ),
-                        ("consent_scope".to_owned(), json!("direct_message")),
+                        ("consent_scope".to_owned(), json!("voice_call")),
                     ]
                     .into_iter()
                     .collect(),

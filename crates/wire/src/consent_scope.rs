@@ -18,7 +18,6 @@ use crate::WireError;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentScope {
     Invite,
-    DirectMessage,
     VoiceCall,
     VideoCall,
     Presence,
@@ -28,7 +27,6 @@ pub enum ConsentScope {
 impl ConsentScope {
     pub const ALL: &'static [Self] = &[
         Self::Invite,
-        Self::DirectMessage,
         Self::VoiceCall,
         Self::VideoCall,
         Self::Presence,
@@ -39,7 +37,6 @@ impl ConsentScope {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Invite => "invite",
-            Self::DirectMessage => "direct_message",
             Self::VoiceCall => "voice_call",
             Self::VideoCall => "video_call",
             Self::Presence => "presence",
@@ -66,7 +63,6 @@ impl fmt::Display for ConsentScope {
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum ConsentRequestScope {
-    DirectMessage,
     VoiceCall,
     VideoCall,
     Presence,
@@ -74,21 +70,11 @@ pub enum ConsentRequestScope {
 }
 
 impl ConsentRequestScope {
-    pub const ALL: &'static [Self] = &[
-        Self::DirectMessage,
-        Self::VoiceCall,
-        Self::VideoCall,
-        Self::Presence,
-        Self::Any,
-    ];
-
-    /// Registered default of `consent_request_request_body.consent_scope`.
-    pub const DEFAULT: Self = Self::DirectMessage;
+    pub const ALL: &'static [Self] = &[Self::VoiceCall, Self::VideoCall, Self::Presence, Self::Any];
 
     #[must_use]
     pub const fn as_consent_scope(self) -> ConsentScope {
         match self {
-            Self::DirectMessage => ConsentScope::DirectMessage,
             Self::VoiceCall => ConsentScope::VoiceCall,
             Self::VideoCall => ConsentScope::VideoCall,
             Self::Presence => ConsentScope::Presence,
@@ -102,7 +88,6 @@ impl ConsentRequestScope {
     pub const fn from_consent_scope(scope: ConsentScope) -> Option<Self> {
         match scope {
             ConsentScope::Invite => None,
-            ConsentScope::DirectMessage => Some(Self::DirectMessage),
             ConsentScope::VoiceCall => Some(Self::VoiceCall),
             ConsentScope::VideoCall => Some(Self::VideoCall),
             ConsentScope::Presence => Some(Self::Presence),
@@ -141,7 +126,6 @@ impl FromStr for ConsentScope {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "invite" => Ok(Self::Invite),
-            "direct_message" => Ok(Self::DirectMessage),
             "voice_call" => Ok(Self::VoiceCall),
             "video_call" => Ok(Self::VideoCall),
             "presence" => Ok(Self::Presence),
@@ -165,6 +149,8 @@ mod tests {
             assert_eq!(serde_json::to_value(scope).unwrap(), wire);
         }
         assert!("messaging".parse::<ConsentScope>().is_err());
+        assert!("direct_message".parse::<ConsentScope>().is_err());
+        assert!(serde_json::from_str::<ConsentRequestScope>(r#""direct_message""#).is_err());
         assert!(serde_json::from_str::<ConsentScope>(r#""dm""#).is_err());
     }
 
@@ -186,9 +172,5 @@ mod tests {
         );
         assert!("invite".parse::<ConsentRequestScope>().is_err());
         assert!(serde_json::from_str::<ConsentRequestScope>(r#""invite""#).is_err());
-        assert_eq!(
-            ConsentRequestScope::DEFAULT.as_consent_scope(),
-            ConsentScope::DirectMessage
-        );
     }
 }

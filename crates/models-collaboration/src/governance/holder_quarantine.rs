@@ -418,7 +418,7 @@ mod tests {
             "source_peer_principal_id": "ak:did_core:key:z6MkfPeerCoreTwo",
             "source_id": "ak:did_core:web:peer.example",
             "surface_kind": "consent_request",
-            "consent_scope": "direct_message",
+            "consent_scope": "voice_call",
             "received_at": "2026-09-05T00:00:00.000Z",
             "expires_at": "2026-10-05T00:00:00.000Z"
         })
@@ -441,7 +441,7 @@ mod tests {
             request.surface_kind(),
             HolderQuarantineSurfaceKind::ConsentRequest
         );
-        assert_eq!(request.consent_scope(), ConsentScope::DirectMessage);
+        assert_eq!(request.consent_scope(), ConsentScope::VoiceCall);
         assert!(request.consent_request_live_key().is_some());
         let encoded = serde_json::to_value(&request).unwrap();
         for absent in [
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn invite_delivery_rejects_a_non_invite_scope_and_missing_evidence() {
         let mut scope = invite_entry_json();
-        scope["consent_scope"] = json!("direct_message");
+        scope["consent_scope"] = json!("voice_call");
         assert!(serde_json::from_value::<HolderQuarantineEntry>(scope).is_err());
 
         for member in [
