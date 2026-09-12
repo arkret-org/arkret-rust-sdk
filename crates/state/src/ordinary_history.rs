@@ -1,9 +1,11 @@
-//! Persistent ordinary-history eligibility over authenticated evidence.
+//! Low-level ordinary-history classification over explicit algorithm inputs.
 //!
 //! This module does not infer authorization instances from unverified payloads,
-//! nor does it decide live admission after a known revocation. An evidence
-//! adapter must verify historical authorization and the complete relevant
-//! security prefixes before these reducers can classify ordinary history.
+//! nor does it decide live admission after a known revocation. Input constructors
+//! check content binding and coordinate structure, not signatures or permission.
+//! Consequently a classifier result is conditional on its supplied inputs and
+//! is not an authorization token. Production admission requires an authenticated
+//! source adapter, complete business validation and authenticated closure coverage.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -22,7 +24,7 @@ pub enum HistoryEvidenceError {
     Invalid(String),
 }
 
-/// One actual historical authorization dependency, after verification.
+/// An explicit historical authorization dependency input to the algorithm.
 ///
 /// These are runtime coordinates, not a wire claim. The verifier must include
 /// every actual registered member, device, registration, scope and delegated-parent
@@ -40,47 +42,45 @@ pub struct AuthorizationUse {
     pub actions: BTreeSet<arkret_wire::CapabilityActionId>,
 }
 
-/// The successful output of the caller's historical authorization verifier.
+/// Caller-supplied algorithm input; this enum does not certify authorization.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum HistoricalAuthorization {
+pub enum HistoryAuthorizationInput {
     Ordinary {
         uses: Vec<AuthorizationUse>,
         /// Registered execution dependencies only. Ordinary causal references
         /// do not automatically propagate a parent's quarantine status.
         execution_dependencies: BTreeSet<EventId>,
     },
-    /// Authenticated command bytes may be causal evidence before or after a
+    /// Input asserting authenticated command bytes, before or after a
     /// terminal decision. Only committed commands provide execution effects.
     ControlEvidence {
         command_outcome: Option<CommandOutcome>,
     },
-    /// The signature and content binding verified, but the complete historical
+    /// Input asserting that signature and content binding verified, but historical
     /// authorization evidence denies this ordinary Event. Keep the evidence;
     /// do not confuse an authorization denial with a malformed signature.
     Unauthorized,
-    /// Content and producer authentication verified, but business authorization
+    /// Input asserting content and producer authentication, but business authorization
     /// still needs evidence. Pure causal observation does not execute it.
     AuthorizationPending,
 }
 
-/// Authenticated Event bytes plus verified authorization-use coordinates.
-/// There is deliberately no deserializer or unchecked public constructor.
+/// Event bytes plus structurally checked classification inputs.
+/// This is deliberately not named or usable as an authenticated Event token.
 #[derive(Clone, Debug)]
-pub struct VerifiedHistoryEvent {
+pub struct HistoryEventInput {
     event: Event,
-    authorization: HistoricalAuthorization,
+    authorization: HistoryAuthorizationInput,
 }
 
-impl VerifiedHistoryEvent {
-    /// `verify` must authenticate the producer proof, its key/generation,
-    /// authority references, historical authorization and registered payload.
-    /// For control evidence it authenticates any claimed terminal outcome;
-    /// an absent outcome confers no execution effect. Returning `Unavailable`
-    /// preserves pending; an empty ordinary-use set is invalid.
-    pub fn verify(
+impl HistoryEventInput {
+    /// Check the Event digest and closed coordinate vocabulary only.
+    /// No callback can turn this constructor into a cryptographic verification
+    /// boundary. An empty ordinary-use set is structurally invalid.
+    pub fn from_inputs(
         event: Event,
         digest_suite: DigestSuite,
-        verify: impl FnOnce(&Event) -> Result<HistoricalAuthorization, HistoryEvidenceError>,
+        authorization: HistoryAuthorizationInput,
     ) -> Result<Self, HistoryEvidenceError> {
         let digest = event
             .event_digest_with_digest_suite(digest_suite)
@@ -94,8 +94,7 @@ impl VerifiedHistoryEvent {
                 "EventId does not bind Event bytes".into(),
             ));
         }
-        let authorization = verify(&event)?;
-        if let HistoricalAuthorization::Ordinary { uses, .. } = &authorization {
+        if let HistoryAuthorizationInput::Ordinary { uses, .. } = &authorization {
             if uses.is_empty()
                 || uses.iter().any(|usage| {
                     usage.actions.is_empty()
@@ -122,7 +121,7 @@ impl VerifiedHistoryEvent {
     pub fn event(&self) -> &Event {
         &self.event
     }
-    pub fn authorization(&self) -> &HistoricalAuthorization {
+    pub fn authorization(&self) -> &HistoryAuthorizationInput {
         &self.authorization
     }
 
@@ -138,26 +137,24 @@ impl VerifiedHistoryEvent {
     }
 }
 
-/// A complete, authenticated security prefix through an exact known head.
+/// A structurally complete security prefix input through an exact known head.
 /// Completeness is relative to this head, never a claim to know remote future
 /// revocations. A receiver that has learned a newer head must rebuild it.
 #[derive(Clone, Debug)]
-pub struct VerifiedClosurePrefix {
+pub struct HistoryClosurePrefixInput {
     realm_id: RealmId,
     head: SealId,
     closures: Vec<AuthorizationClosure>,
     committed_events: BTreeSet<EventId>,
 }
 
-impl VerifiedClosurePrefix {
-    /// Validate a full genesis-to-head prefix. The callback must verify Seal
-    /// signatures/authority, command results, and the exact closure coordinates
-    /// derived from every successful closing command, including omission checks.
-    /// Structural validation alone is not a valid callback implementation.
-    pub fn verify_complete_prefix(
+impl HistoryClosurePrefixInput {
+    /// Check full genesis-to-head structure and closure-to-command membership.
+    /// This does not verify authority signatures, command execution or omitted
+    /// closure entries and cannot certify a production security inventory.
+    pub fn from_complete_prefix_inputs(
         seals: &[Seal],
         expected_head: &SealId,
-        mut verify_seal_and_closure_semantics: impl FnMut(&Seal) -> Result<(), HistoryEvidenceError>,
     ) -> Result<Self, HistoryEvidenceError> {
         let Some(first) = seals.first() else {
             return Err(HistoryEvidenceError::Unavailable(
@@ -186,7 +183,6 @@ impl VerifiedClosurePrefix {
             }
             seal.validate_structural()
                 .map_err(|error| HistoryEvidenceError::Invalid(error.to_string()))?;
-            verify_seal_and_closure_semantics(seal)?;
             for result in seal
                 .command_results
                 .iter()
@@ -227,17 +223,17 @@ impl VerifiedClosurePrefix {
     }
 }
 
-/// Complete known cut inventories, indexed by their authoritative Realm.
+/// Structurally complete cut inputs, indexed by their claimed authority Realm.
 /// A missing Realm is pending, not an empty set of cuts. In particular a
 /// collaboration Realm prefix cannot replace a required device PCR prefix.
 #[derive(Clone, Debug)]
-pub struct VerifiedClosureInventory {
-    prefixes: BTreeMap<RealmId, VerifiedClosurePrefix>,
+pub struct HistoryClosureInventoryInput {
+    prefixes: BTreeMap<RealmId, HistoryClosurePrefixInput>,
 }
 
-impl VerifiedClosureInventory {
-    pub fn from_verified_prefixes(
-        prefixes: impl IntoIterator<Item = VerifiedClosurePrefix>,
+impl HistoryClosureInventoryInput {
+    pub fn from_prefix_inputs(
+        prefixes: impl IntoIterator<Item = HistoryClosurePrefixInput>,
     ) -> Result<Self, HistoryEvidenceError> {
         let mut result = BTreeMap::new();
         for prefix in prefixes {
@@ -249,25 +245,23 @@ impl VerifiedClosureInventory {
         }
         if result.is_empty() {
             return Err(HistoryEvidenceError::Unavailable(
-                "no authenticated security prefix".into(),
+                "no security prefix input".into(),
             ));
         }
         Ok(Self { prefixes: result })
     }
 }
 
-/// Supply only content-bound, historically authenticated Events. Missing
+/// Supply content-bound algorithm inputs. Missing
 /// records must return `None` or `Unavailable`, never a fabricated leaf.
 /// One classification observes a fixed evidence snapshot: repeated lookups
 /// must not change bytes or authorization state during that evaluation.
-pub trait HistoryEvidenceSource {
-    fn event(
-        &self,
-        event_id: &EventId,
-    ) -> Result<Option<&VerifiedHistoryEvent>, HistoryEvidenceError>;
+pub trait HistoryInputSource {
+    fn event(&self, event_id: &EventId)
+    -> Result<Option<&HistoryEventInput>, HistoryEvidenceError>;
 }
 
-/// Complete authenticated ancestry of a finite frontier. Empty is a valid
+/// Complete ancestry of the supplied finite frontier inputs. Empty is a valid
 /// finite selection. There is no sequence-number or timestamp approximation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompleteHistoryClosure {
@@ -285,9 +279,9 @@ impl CompleteHistoryClosure {
 }
 
 fn required_event<'a>(
-    source: &'a impl HistoryEvidenceSource,
+    source: &'a impl HistoryInputSource,
     id: &EventId,
-) -> Result<&'a VerifiedHistoryEvent, HistoryEvidenceError> {
+) -> Result<&'a HistoryEventInput, HistoryEvidenceError> {
     let event = source
         .event(id)?
         .ok_or_else(|| HistoryEvidenceError::Unavailable(format!("missing Event {id}")))?;
@@ -313,11 +307,11 @@ fn available_or_pending<T>(
     }
 }
 
-/// Resolve and verify every signed predecessor and causal reference. Missing
+/// Resolve every predecessor and causal reference in the input graph. Missing
 /// any ancestor prevents a nonmembership conclusion for the entire frontier.
-pub fn verify_complete_history_frontier(
+pub fn resolve_complete_history_frontier(
     frontier: &[EventId],
-    source: &impl HistoryEvidenceSource,
+    source: &impl HistoryInputSource,
 ) -> Result<CompleteHistoryClosure, HistoryEvidenceError> {
     if frontier.windows(2).any(|pair| pair[0] >= pair[1]) {
         return Err(HistoryEvidenceError::Invalid(
@@ -344,7 +338,7 @@ pub fn verify_complete_history_frontier(
         }
         if !active.insert(id.clone()) {
             return Err(HistoryEvidenceError::Invalid(
-                "authenticated Event ancestry contains a cycle".into(),
+                "Event input ancestry contains a cycle".into(),
             ));
         }
         let Some(event) = available_or_pending(required_event(source, &id), &mut pending)? else {
@@ -369,21 +363,21 @@ pub fn verify_complete_history_frontier(
     })
 }
 
-/// Build the exact maximal frontier of a verified selected history set plus
+/// Build the exact maximal frontier of a selected history input set plus
 /// all of its ancestors. Callers choose Events using authenticated historical
 /// authorization; this function neither enumerates a store nor invents cuts.
 /// Oversized frontiers must be rejected, never truncated or split into cuts.
 pub fn frontier_for_complete_history(
     selected: &BTreeSet<EventId>,
-    source: &impl HistoryEvidenceSource,
+    source: &impl HistoryInputSource,
 ) -> Result<CompleteHistoryClosure, HistoryEvidenceError> {
     let mut closure =
-        verify_complete_history_frontier(&selected.iter().cloned().collect::<Vec<_>>(), source)?;
+        resolve_complete_history_frontier(&selected.iter().cloned().collect::<Vec<_>>(), source)?;
     let mut maximal = closure.event_ids.clone();
     for id in selected {
         if matches!(
             required_event(source, id)?.authorization,
-            HistoricalAuthorization::AuthorizationPending
+            HistoryAuthorizationInput::AuthorizationPending
         ) {
             return Err(HistoryEvidenceError::Unavailable(
                 "selected Event authorization is unresolved".into(),
@@ -391,7 +385,7 @@ pub fn frontier_for_complete_history(
         }
         if matches!(
             required_event(source, id)?.authorization,
-            HistoricalAuthorization::Unauthorized
+            HistoryAuthorizationInput::Unauthorized
         ) {
             return Err(HistoryEvidenceError::Invalid(
                 "selected frontier includes historically unauthorized evidence".into(),
@@ -444,8 +438,8 @@ fn matching_cut(usage: &AuthorizationUse, closure: &AuthorizationClosure) -> boo
 /// dependencies; missing evidence alone remains pending.
 pub fn classify_ordinary_history(
     event_id: &EventId,
-    inventory: &VerifiedClosureInventory,
-    source: &impl HistoryEvidenceSource,
+    inventory: &HistoryClosureInventoryInput,
+    source: &impl HistoryInputSource,
 ) -> Result<OrdinaryHistoryEligibility, HistoryEvidenceError> {
     match classify_complete(event_id, inventory, source) {
         Err(HistoryEvidenceError::Unavailable(reason)) => {
@@ -457,8 +451,8 @@ pub fn classify_ordinary_history(
 
 fn classify_complete(
     event_id: &EventId,
-    inventory: &VerifiedClosureInventory,
-    source: &impl HistoryEvidenceSource,
+    inventory: &HistoryClosureInventoryInput,
+    source: &impl HistoryInputSource,
 ) -> Result<OrdinaryHistoryEligibility, HistoryEvidenceError> {
     let mut visited = BTreeSet::new();
     let mut active = BTreeSet::new();
@@ -486,22 +480,23 @@ fn classify_complete(
             continue;
         };
         available_or_pending(
-            verify_complete_history_frontier(std::slice::from_ref(&id), source),
+            resolve_complete_history_frontier(std::slice::from_ref(&id), source),
             &mut pending,
         )?;
         if matches!(
             event.authorization,
-            HistoricalAuthorization::AuthorizationPending
+            HistoryAuthorizationInput::AuthorizationPending
         ) {
             pending
                 .get_or_insert_with(|| format!("ordinary Event {id} authorization is unresolved"));
             continue;
         }
-        if matches!(event.authorization, HistoricalAuthorization::Unauthorized) {
+        if matches!(event.authorization, HistoryAuthorizationInput::Unauthorized) {
             unauthorized.insert(id);
             continue;
         }
-        if let HistoricalAuthorization::ControlEvidence { command_outcome } = &event.authorization {
+        if let HistoryAuthorizationInput::ControlEvidence { command_outcome } = &event.authorization
+        {
             if &id == event_id {
                 return Err(HistoryEvidenceError::Invalid(
                     "ordinary eligibility requested for a control Event".into(),
@@ -520,7 +515,7 @@ fn classify_complete(
             }
             continue;
         }
-        let HistoricalAuthorization::Ordinary {
+        let HistoryAuthorizationInput::Ordinary {
             uses,
             execution_dependencies,
         } = &event.authorization
@@ -558,7 +553,7 @@ fn classify_complete(
                 .filter(|cut| matching_cut(usage, cut))
             {
                 let Some(closure) = available_or_pending(
-                    verify_complete_history_frontier(&cut.frontier, source),
+                    resolve_complete_history_frontier(&cut.frontier, source),
                     &mut pending,
                 )?
                 else {

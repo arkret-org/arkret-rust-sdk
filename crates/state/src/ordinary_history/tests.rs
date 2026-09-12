@@ -30,7 +30,7 @@ fn event(
     generation: &str,
     previous: &[EventId],
     causal: &[EventId],
-) -> VerifiedHistoryEvent {
+) -> HistoryEventInput {
     let mut event = arkret_wire::test_support::raw_event_at(
         "ak.message.create",
         ScopeRef::Realm { realm_id: realm() },
@@ -53,10 +53,10 @@ fn event(
         .unwrap(),
     )
     .unwrap();
-    // These tests exercise the reducer after the production verification boundary.
-    VerifiedHistoryEvent {
+    // These tests supply algorithm inputs; they do not exercise authentication.
+    HistoryEventInput {
         event,
-        authorization: HistoricalAuthorization::Ordinary {
+        authorization: HistoryAuthorizationInput::Ordinary {
             uses: vec![usage(generation)],
             execution_dependencies: BTreeSet::new(),
         },
@@ -64,16 +64,16 @@ fn event(
 }
 
 #[derive(Default)]
-struct Source(BTreeMap<EventId, VerifiedHistoryEvent>);
+struct Source(BTreeMap<EventId, HistoryEventInput>);
 impl Source {
-    fn insert(&mut self, event: VerifiedHistoryEvent) -> EventId {
+    fn insert(&mut self, event: HistoryEventInput) -> EventId {
         let id = event.event.event_id.clone();
         self.0.insert(id.clone(), event);
         id
     }
 }
-impl HistoryEvidenceSource for Source {
-    fn event(&self, id: &EventId) -> Result<Option<&VerifiedHistoryEvent>, HistoryEvidenceError> {
+impl HistoryInputSource for Source {
+    fn event(&self, id: &EventId) -> Result<Option<&HistoryEventInput>, HistoryEvidenceError> {
         Ok(self.0.get(id))
     }
 }
@@ -93,9 +93,9 @@ fn cut(command: &str, generation: &str, frontier: Vec<EventId>) -> Authorization
     }
 }
 
-fn inventory(closures: Vec<AuthorizationClosure>) -> VerifiedClosureInventory {
-    // Authentication of the complete prefix is tested at its own boundary.
-    VerifiedClosureInventory::from_verified_prefixes([VerifiedClosurePrefix {
+fn inventory(closures: Vec<AuthorizationClosure>) -> HistoryClosureInventoryInput {
+    // This fixture supplies a closure inventory input without an authentication claim.
+    HistoryClosureInventoryInput::from_prefix_inputs([HistoryClosurePrefixInput {
         realm_id: realm(),
         head: SealId::new(format!(
             "ak:seal:{}",
@@ -220,7 +220,7 @@ fn authenticated_empty_cut_excludes_but_missing_prefix_is_pending() {
         classify_ordinary_history(&target, &inventory, &source).unwrap(),
         OrdinaryHistoryEligibility::Pending { .. }
     ));
-    assert!(VerifiedClosureInventory::from_verified_prefixes([]).is_err());
+    assert!(HistoryClosureInventoryInput::from_prefix_inputs([]).is_err());
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn causal_replies_do_not_inherit_quarantine_but_execution_dependencies_do() {
         classify_ordinary_history(&reply, &inventory, &source).unwrap(),
         OrdinaryHistoryEligibility::Eligible
     );
-    let HistoricalAuthorization::Ordinary {
+    let HistoryAuthorizationInput::Ordinary {
         execution_dependencies,
         ..
     } = &mut source.0.get_mut(&reply).unwrap().authorization
@@ -265,15 +265,17 @@ fn unrelated_actions_do_not_close_a_verified_use() {
 }
 
 #[test]
-fn public_verification_boundary_rejects_empty_authorization_uses() {
+fn input_structure_rejects_empty_authorization_uses() {
     let event = event("target", "generation", &[], &[]).event;
     assert!(matches!(
-        VerifiedHistoryEvent::verify(event, DigestSuite::Sha256, |_| Ok(
-            HistoricalAuthorization::Ordinary {
+        HistoryEventInput::from_inputs(
+            event,
+            DigestSuite::Sha256,
+            HistoryAuthorizationInput::Ordinary {
                 uses: vec![],
                 execution_dependencies: BTreeSet::new()
             }
-        )),
+        ),
         Err(HistoryEvidenceError::Invalid(_))
     ));
 }
@@ -296,7 +298,7 @@ fn full_prefix_cannot_be_replaced_by_an_empty_closure_list() {
     ))
     .unwrap();
     assert!(matches!(
-        VerifiedClosurePrefix::verify_complete_prefix(&[], &head, |_| Ok(())),
+        HistoryClosurePrefixInput::from_complete_prefix_inputs(&[], &head),
         Err(HistoryEvidenceError::Unavailable(_))
     ));
 }
@@ -305,7 +307,7 @@ fn full_prefix_cannot_be_replaced_by_an_empty_closure_list() {
 fn historical_authorization_denial_is_quarantine_not_invalid_evidence() {
     let mut source = Source::default();
     let mut denied = event("denied", "generation", &[], &[]);
-    denied.authorization = HistoricalAuthorization::Unauthorized;
+    denied.authorization = HistoryAuthorizationInput::Unauthorized;
     let target = source.insert(denied);
     assert_eq!(
         classify_ordinary_history(&target, &inventory(vec![]), &source).unwrap(),
@@ -322,7 +324,7 @@ fn historical_authorization_denial_is_quarantine_not_invalid_evidence() {
 fn all_delegation_parent_uses_must_satisfy_their_own_cuts() {
     let mut source = Source::default();
     let mut target = event("target", "generation", &[], &[]);
-    let HistoricalAuthorization::Ordinary { uses, .. } = &mut target.authorization else {
+    let HistoryAuthorizationInput::Ordinary { uses, .. } = &mut target.authorization else {
         unreachable!()
     };
     let mut parent = usage("parent-generation");
@@ -362,7 +364,7 @@ fn an_older_security_prefix_cannot_confirm_a_new_authorization_generation() {
 fn selected_reply_retains_unauthorized_ancestor_bytes_without_inheriting_ineligibility() {
     let mut source = Source::default();
     let mut ancestor = event("ancestor", "generation", &[], &[]);
-    ancestor.authorization = HistoricalAuthorization::Unauthorized;
+    ancestor.authorization = HistoryAuthorizationInput::Unauthorized;
     let ancestor = source.insert(ancestor);
     let reply = source.insert(event(
         "reply",
@@ -388,7 +390,7 @@ fn pending_or_rejected_control_causal_evidence_does_not_create_execution_effects
     ] {
         let mut source = Source::default();
         let mut command = event("command", "generation", &[], &[]);
-        command.authorization = HistoricalAuthorization::ControlEvidence {
+        command.authorization = HistoryAuthorizationInput::ControlEvidence {
             command_outcome: outcome,
         };
         let command = source.insert(command);
@@ -403,7 +405,7 @@ fn pending_or_rejected_control_causal_evidence_does_not_create_execution_effects
             classify_ordinary_history(&reply, &inventory(vec![]), &source).unwrap(),
             OrdinaryHistoryEligibility::Eligible
         );
-        let HistoricalAuthorization::Ordinary {
+        let HistoryAuthorizationInput::Ordinary {
             execution_dependencies,
             ..
         } = &mut source.0.get_mut(&reply).unwrap().authorization
@@ -428,7 +430,7 @@ fn pending_or_rejected_control_causal_evidence_does_not_create_execution_effects
 fn unresolved_ancestor_authorization_does_not_block_a_separately_authorized_reply() {
     let mut source = Source::default();
     let mut ancestor = event("ancestor", "generation", &[], &[]);
-    ancestor.authorization = HistoricalAuthorization::AuthorizationPending;
+    ancestor.authorization = HistoryAuthorizationInput::AuthorizationPending;
     let ancestor = source.insert(ancestor);
     let reply = source.insert(event(
         "reply",
@@ -471,7 +473,7 @@ fn one_complete_excluding_cut_outweighs_another_incomplete_cut() {
 fn a_complete_exclusion_outweighs_missing_execution_dependencies() {
     let mut source = Source::default();
     let mut target = event("target", "generation", &[], &[]);
-    let HistoricalAuthorization::Ordinary {
+    let HistoryAuthorizationInput::Ordinary {
         execution_dependencies,
         ..
     } = &mut target.authorization
@@ -524,19 +526,19 @@ fn genesis_controller_transfer_does_not_close_root_grants_or_member_baseline() {
     let mut baseline = event("baseline", "generation", &[], &[]);
     let mut same_genesis = usage("member-authorization");
     same_genesis.dependency_kind = AuthorizationDependencyKind::RealmControllerAssignment;
-    let HistoricalAuthorization::Ordinary { uses, .. } = &mut direct.authorization else {
+    let HistoryAuthorizationInput::Ordinary { uses, .. } = &mut direct.authorization else {
         unreachable!()
     };
     *uses = vec![same_genesis.clone()];
     same_genesis.dependency_kind = AuthorizationDependencyKind::RealmAuthorityGeneration;
-    let HistoricalAuthorization::Ordinary { uses, .. } = &mut granted.authorization else {
+    let HistoryAuthorizationInput::Ordinary { uses, .. } = &mut granted.authorization else {
         unreachable!()
     };
     let mut grant = usage("parent-grant");
     grant.authorization_event_id = id("parent-grant");
     grant.dependency_kind = AuthorizationDependencyKind::CapabilityGrant;
     *uses = vec![same_genesis.clone(), grant];
-    let HistoricalAuthorization::Ordinary { uses, .. } = &mut baseline.authorization else {
+    let HistoryAuthorizationInput::Ordinary { uses, .. } = &mut baseline.authorization else {
         unreachable!()
     };
     same_genesis.dependency_kind = AuthorizationDependencyKind::MemberJoin;
@@ -577,7 +579,7 @@ fn genesis_controller_transfer_does_not_close_root_grants_or_member_baseline() {
 fn reopened_lifecycle_gate_keeps_the_other_gate_identity_without_false_revocation() {
     let mut source = Source::default();
     let mut restored = event("restored-unfrozen", "new-generation", &[], &[]);
-    let HistoricalAuthorization::Ordinary { uses, .. } = &mut restored.authorization else {
+    let HistoryAuthorizationInput::Ordinary { uses, .. } = &mut restored.authorization else {
         unreachable!()
     };
     uses[0].dependency_kind = AuthorizationDependencyKind::RealmUnarchived;
@@ -622,13 +624,13 @@ fn coordinate_validation_rejects_unknown_kinds_and_incompatible_action_or_scope(
     let mut invalid_use = usage("generation");
     invalid_use.dependency_kind = AuthorizationDependencyKind::CircleActive;
     assert!(
-        VerifiedHistoryEvent::verify(
+        HistoryEventInput::from_inputs(
             event("target", "generation", &[], &[]).event,
             DigestSuite::Sha256,
-            |_| Ok(HistoricalAuthorization::Ordinary {
+            HistoryAuthorizationInput::Ordinary {
                 uses: vec![invalid_use],
                 execution_dependencies: BTreeSet::new()
-            })
+            }
         )
         .is_err()
     );

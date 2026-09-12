@@ -52,6 +52,7 @@
 //! ```
 
 pub mod contact_authorization;
+pub mod ordinary_history;
 mod control_projection;
 mod history_response;
 mod keypackage_claim_receipt;
