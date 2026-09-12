@@ -489,16 +489,13 @@ pub enum AccountHandoffAllowedOperation {
     IssueSessionGrant,
     #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant.v1")]
     IssueRecoveryCompletionGrant,
-    #[serde(rename = "ak.gate.account.command.issue_identity_abandonment_challenge.v1")]
-    IssueIdentityAbandonmentChallenge,
     #[serde(rename = "ak.gate.account.command.abandon_identity_creation.v1")]
     AbandonIdentityCreation,
 }
 
-pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7] = [
+pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 6] = [
     AccountHandoffAllowedOperation::IssueIdentityBindingChallenge,
     AccountHandoffAllowedOperation::IssueDidBindingChallenge,
-    AccountHandoffAllowedOperation::IssueIdentityAbandonmentChallenge,
     AccountHandoffAllowedOperation::AbandonIdentityCreation,
     AccountHandoffAllowedOperation::Register,
     AccountHandoffAllowedOperation::IssueSessionGrant,
@@ -596,30 +593,16 @@ pub enum IdentityCreationGoal {
 }
 
 /// Server-authored goal for the currently authenticated onboarding flow.
-///
-/// The abandonment variant is deliberately a closed product: a client cannot
-/// observe an abandonment goal without the exact durable challenge needed to
-/// continue it, nor can it infer authentication freshness from local grants.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "goal", rename_all = "snake_case", deny_unknown_fields)]
-#[allow(clippy::large_enum_variant)]
 pub enum AccountOnboardingGoal {
     CompleteIdentity,
-    AbandonProvisionalIdentity {
-        challenge: IdentityAbandonmentChallengeOutcome,
-        fresh_authentication_required: bool,
-    },
 }
 
 impl AccountOnboardingGoal {
     pub const fn kind(&self) -> IdentityCreationGoal {
-        match self {
-            Self::CompleteIdentity => IdentityCreationGoal::CompleteIdentity,
-            Self::AbandonProvisionalIdentity { .. } => {
-                IdentityCreationGoal::AbandonProvisionalIdentity
-            }
-        }
+        IdentityCreationGoal::CompleteIdentity
     }
 }
 
@@ -629,7 +612,6 @@ impl AccountOnboardingGoal {
 pub enum IdentityCreationCommandKind {
     IssueIdentityBindingChallenge,
     SubmitRegistration,
-    IssueAbandonmentChallenge,
     ConfirmAbandonment,
 }
 
@@ -639,7 +621,6 @@ pub enum IdentityCreationCommandKind {
 pub enum IdentityCreationLocalArtifactKind {
     RegistrationCheckpoint,
     PreparedRegistrationRequest,
-    AbandonmentChallenge,
     FreshAccountHandoff,
 }
 
@@ -735,8 +716,7 @@ impl IdentityCreationLease {
             AccountBound, Active, Completed, DidPublished, PcrAccepted, Reserved,
         };
         use IdentityCreationLocalArtifactKind::{
-            AbandonmentChallenge, FreshAccountHandoff, PreparedRegistrationRequest,
-            RegistrationCheckpoint,
+            FreshAccountHandoff, PreparedRegistrationRequest, RegistrationCheckpoint,
         };
         if !self.allowed_goals().contains(&goal) {
             return Err(WireError::Protocol(
@@ -750,9 +730,7 @@ impl IdentityCreationLease {
                 &[RegistrationCheckpoint, PreparedRegistrationRequest]
             }
             (Completed, CompleteIdentity) => &[],
-            (Reserved | DidPublished, AbandonProvisionalIdentity) => {
-                &[AbandonmentChallenge, FreshAccountHandoff]
-            }
+            (Reserved | DidPublished, AbandonProvisionalIdentity) => &[FreshAccountHandoff],
             _ => unreachable!("goal membership was checked above"),
         })
     }
@@ -800,7 +778,7 @@ pub struct AccountHandoffOutcome {
     pub account_handoff_grant: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub allowed_operations: [AccountHandoffAllowedOperation; 7],
+    pub allowed_operations: [AccountHandoffAllowedOperation; 6],
     pub binding: AccountHandoffBinding,
 }
 
@@ -853,37 +831,6 @@ impl AccountOnboardingState {
                             .to_owned(),
                     ));
                 }
-                if let AccountOnboardingGoal::AbandonProvisionalIdentity { challenge, .. } =
-                    &self.goal
-                {
-                    let reserved = identity_creation_lease
-                        .reserved_identity
-                        .as_ref()
-                        .ok_or_else(|| {
-                            WireError::Protocol(
-                                "account onboarding abandonment goal has no reserved identity"
-                                    .to_owned(),
-                            )
-                        })?;
-                    if challenge.identity_creation_lease_id
-                        != identity_creation_lease.identity_creation_lease_id
-                        || challenge.lease_fence != identity_creation_lease.fence
-                        || challenge.principal_id != reserved.principal_id
-                    {
-                        return Err(WireError::Protocol(
-                            "account onboarding abandonment challenge does not match the lease"
-                                .to_owned(),
-                        ));
-                    }
-                    if challenge.account_subject != self.account_subject
-                        || challenge.expires_at <= self.observed_at
-                    {
-                        return Err(WireError::Protocol(
-                            "account onboarding abandonment challenge is stale or belongs to another account"
-                                .to_owned(),
-                        ));
-                    }
-                }
             }
             AccountHandoffBinding::Bound { principal_id, did } => {
                 if project_did_to_core_id(did)?.as_str() != principal_id.as_str() {
@@ -891,119 +838,8 @@ impl AccountOnboardingState {
                         "bound account onboarding did does not project to principal_id".to_owned(),
                     ));
                 }
-                if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
-                    return Err(WireError::Protocol(
-                        "a bound account cannot have a provisional abandonment goal".to_owned(),
-                    ));
-                }
             }
-            AccountHandoffBinding::IdentityCreationBusy { .. } => {
-                if !matches!(self.goal, AccountOnboardingGoal::CompleteIdentity) {
-                    return Err(WireError::Protocol(
-                        "a busy identity-creation lease cannot expose another holder's goal"
-                            .to_owned(),
-                    ));
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdentityAbandonmentConsequence {
-    OrphanAnchorPermanentlyUnusable,
-    OrphanAnchorCannotBeDeactivated,
-    NoContinuableStateOnTheOrphanAnchor,
-    #[serde(rename = "a_new_identity_root_did_and_pcr_must_be_created")]
-    ANewIdentityRootDidAndPcrMustBeCreated,
-}
-
-pub const IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE: [IdentityAbandonmentConsequence; 4] = [
-    IdentityAbandonmentConsequence::OrphanAnchorPermanentlyUnusable,
-    IdentityAbandonmentConsequence::OrphanAnchorCannotBeDeactivated,
-    IdentityAbandonmentConsequence::NoContinuableStateOnTheOrphanAnchor,
-    IdentityAbandonmentConsequence::ANewIdentityRootDidAndPcrMustBeCreated,
-];
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityAbandonmentChallengeRequestBody {
-    pub request_id: RequestId,
-    pub identity_creation_lease_id: String,
-    pub lease_fence: u64,
-    pub principal_id: DidCoreId,
-    pub did_version_id: String,
-}
-
-impl IdentityAbandonmentChallengeRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        if self.identity_creation_lease_id.is_empty()
-            || self.lease_fence == 0
-            || self.did_version_id.is_empty()
-        {
-            return Err(WireError::Protocol(
-                "identity abandonment challenge request is incomplete".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_request_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum IdentityAbandonmentPurpose {
-    #[serde(rename = "provisional_identity_abandonment")]
-    ProvisionalIdentityAbandonment,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityAbandonmentChallengeOutcome {
-    pub request_id: RequestId,
-    pub challenge_id: String,
-    pub challenge: String,
-    pub purpose: IdentityAbandonmentPurpose,
-    pub account_subject: Hash,
-    pub principal_id: DidCoreId,
-    pub did_version_id: String,
-    pub identity_creation_lease_id: String,
-    pub lease_fence: u64,
-    pub consequence_disclosure: [IdentityAbandonmentConsequence; 4],
-    pub dpop_jkt: String,
-    pub audience_id: DidCoreId,
-    pub origin: WebOrigin,
-    pub trust_domain: TrustDomainId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-}
-
-impl IdentityAbandonmentChallengeOutcome {
-    pub fn validate(&self) -> Result<()> {
-        if self.challenge_id.is_empty()
-            || self.challenge.len() < 22
-            || self.did_version_id.is_empty()
-            || self.identity_creation_lease_id.is_empty()
-            || self.lease_fence == 0
-            || self.consequence_disclosure != IDENTITY_ABANDONMENT_CONSEQUENCE_DISCLOSURE
-            || self.dpop_jkt.is_empty()
-            || self.expires_at <= self.issued_at
-            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
-        {
-            return Err(WireError::Protocol(
-                "identity abandonment challenge violates the closed transcript".to_owned(),
-            ));
+            AccountHandoffBinding::IdentityCreationBusy { .. } => {}
         }
         Ok(())
     }
@@ -1014,8 +850,6 @@ impl IdentityAbandonmentChallengeOutcome {
 #[serde(deny_unknown_fields)]
 pub struct IdentityAbandonmentRequestBody {
     pub request_id: RequestId,
-    pub challenge_id: String,
-    pub challenge: String,
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub principal_id: DidCoreId,
@@ -1024,9 +858,7 @@ pub struct IdentityAbandonmentRequestBody {
 
 impl IdentityAbandonmentRequestBody {
     pub fn validate(&self) -> Result<()> {
-        if self.challenge_id.is_empty()
-            || self.challenge.len() < 22
-            || self.identity_creation_lease_id.is_empty()
+        if self.identity_creation_lease_id.is_empty()
             || self.lease_fence == 0
             || self.did_version_id.is_empty()
         {
@@ -1044,18 +876,10 @@ impl IdentityAbandonmentRequestBody {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdentityAbandonmentStatus {
-    Abandoned,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IdentityAbandonmentOutcome {
     pub request_id: RequestId,
-    pub status: IdentityAbandonmentStatus,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did_version_id: String,
