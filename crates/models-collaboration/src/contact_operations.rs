@@ -146,17 +146,53 @@ pub struct RequestAcceptanceReceipt {
     pub signature: ProtocolSignature,
 }
 
+fn request_acceptance_core_digest(
+    core: &RequestAcceptanceReceiptCore,
+) -> arkret_wire::Result<Hash> {
+    let mut bytes = b"ak.contact.request_acceptance_core.v1\n".to_vec();
+    bytes.extend(arkret_canonical::canonical_json_bytes(core)?);
+    Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+}
+
+#[derive(Serialize)]
+struct UnsignedRequestAcceptanceReceipt {
+    core: RequestAcceptanceReceiptCore,
+    receipt_digest: Hash,
+}
+
 impl RequestAcceptanceReceipt {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    pub fn sign_with(
+        core: RequestAcceptanceReceiptCore,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        core.validate()?;
+        let receipt_digest = request_acceptance_core_digest(&core)?;
+        let unsigned = UnsignedRequestAcceptanceReceipt {
+            core,
+            receipt_digest,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            core: unsigned.core,
+            receipt_digest: unsigned.receipt_digest,
+            signature,
+        })
+    }
+
     /// Exact non-recursive transcript signed by the accepting source Station.
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedRequestAcceptanceReceipt {
+            core: self.core.clone(),
+            receipt_digest: self.receipt_digest.clone(),
+        })
     }
 
     /// Digest of the closed receipt core covered by `signature`.
     pub fn computed_core_digest(&self) -> arkret_wire::Result<Hash> {
-        let mut bytes = b"ak.contact.request_acceptance_core.v1\n".to_vec();
-        bytes.extend(arkret_canonical::canonical_json_bytes(&self.core)?);
-        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+        request_acceptance_core_digest(&self.core)
     }
 
     /// RFC 8785/JCS digest of the complete signed receipt used by Contact round
@@ -236,13 +272,74 @@ pub struct ContactCurrentProof {
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedContactCurrentProof {
+    contact_round_id: Hash,
+    issuer_id: DidCoreId,
+    peer: ContactPeer,
+    terminal: bool,
+    head_event_ref: EventId,
+    accepted_frontier: Vec<EventId>,
+    complete_through: u64,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    fresh_until: DateTime<Utc>,
+}
+
 impl ContactCurrentProof {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_with(
+        contact_round_id: Hash,
+        issuer_id: DidCoreId,
+        peer: ContactPeer,
+        terminal: bool,
+        head_event_ref: EventId,
+        accepted_frontier: Vec<EventId>,
+        complete_through: u64,
+        fresh_until: DateTime<Utc>,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        let unsigned = UnsignedContactCurrentProof {
+            contact_round_id,
+            issuer_id,
+            peer,
+            terminal,
+            head_event_ref,
+            accepted_frontier,
+            complete_through,
+            fresh_until,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            contact_round_id: unsigned.contact_round_id,
+            issuer_id: unsigned.issuer_id,
+            peer: unsigned.peer,
+            terminal: unsigned.terminal,
+            head_event_ref: unsigned.head_event_ref,
+            accepted_frontier: unsigned.accepted_frontier,
+            complete_through: unsigned.complete_through,
+            fresh_until: unsigned.fresh_until,
+            signature,
+        })
+    }
+
     pub fn head_digest(&self) -> Hash {
         self.head_event_ref.event_digest()
     }
 
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedContactCurrentProof {
+            contact_round_id: self.contact_round_id.clone(),
+            issuer_id: self.issuer_id.clone(),
+            peer: self.peer.clone(),
+            terminal: self.terminal,
+            head_event_ref: self.head_event_ref.clone(),
+            accepted_frontier: self.accepted_frontier.clone(),
+            complete_through: self.complete_through,
+            fresh_until: self.fresh_until,
+        })
     }
 }
 
@@ -374,13 +471,70 @@ pub struct NormalResponseAcceptanceReceipt {
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedNormalResponseAcceptanceReceipt {
+    contact_round_id: Hash,
+    request_receipt: RequestAcceptanceReceipt,
+    response_event_ref: EventId,
+    producer_signer: ContactProducerSigner,
+    outgoing_slot_absence_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    accepted_at: DateTime<Utc>,
+    issuer_id: DidCoreId,
+}
+
 impl NormalResponseAcceptanceReceipt {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_with(
+        contact_round_id: Hash,
+        request_receipt: RequestAcceptanceReceipt,
+        response_event_ref: EventId,
+        producer_signer: ContactProducerSigner,
+        outgoing_slot_absence_digest: Hash,
+        accepted_at: DateTime<Utc>,
+        issuer_id: DidCoreId,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        producer_signer.validate()?;
+        let unsigned = UnsignedNormalResponseAcceptanceReceipt {
+            contact_round_id,
+            request_receipt,
+            response_event_ref,
+            producer_signer,
+            outgoing_slot_absence_digest,
+            accepted_at,
+            issuer_id,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            contact_round_id: unsigned.contact_round_id,
+            request_receipt: unsigned.request_receipt,
+            response_event_ref: unsigned.response_event_ref,
+            producer_signer: unsigned.producer_signer,
+            outgoing_slot_absence_digest: unsigned.outgoing_slot_absence_digest,
+            accepted_at: unsigned.accepted_at,
+            issuer_id: unsigned.issuer_id,
+            signature,
+        })
+    }
+
     pub fn response_digest(&self) -> Hash {
         self.response_event_ref.event_digest()
     }
 
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedNormalResponseAcceptanceReceipt {
+            contact_round_id: self.contact_round_id.clone(),
+            request_receipt: self.request_receipt.clone(),
+            response_event_ref: self.response_event_ref.clone(),
+            producer_signer: self.producer_signer.clone(),
+            outgoing_slot_absence_digest: self.outgoing_slot_absence_digest.clone(),
+            accepted_at: self.accepted_at,
+            issuer_id: self.issuer_id.clone(),
+        })
     }
 }
 
@@ -466,13 +620,59 @@ pub struct RejectAcceptanceReceipt {
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedRejectAcceptanceReceipt {
+    request_receipt: RequestAcceptanceReceipt,
+    reject_event_ref: EventId,
+    producer_signer: ContactProducerSigner,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    accepted_at: DateTime<Utc>,
+    issuer_id: DidCoreId,
+}
+
 impl RejectAcceptanceReceipt {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    pub fn sign_with(
+        request_receipt: RequestAcceptanceReceipt,
+        reject_event_ref: EventId,
+        producer_signer: ContactProducerSigner,
+        accepted_at: DateTime<Utc>,
+        issuer_id: DidCoreId,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        producer_signer.validate()?;
+        let unsigned = UnsignedRejectAcceptanceReceipt {
+            request_receipt,
+            reject_event_ref,
+            producer_signer,
+            accepted_at,
+            issuer_id,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            request_receipt: unsigned.request_receipt,
+            reject_event_ref: unsigned.reject_event_ref,
+            producer_signer: unsigned.producer_signer,
+            accepted_at: unsigned.accepted_at,
+            issuer_id: unsigned.issuer_id,
+            signature,
+        })
+    }
+
     pub fn reject_digest(&self) -> Hash {
         self.reject_event_ref.event_digest()
     }
 
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedRejectAcceptanceReceipt {
+            request_receipt: self.request_receipt.clone(),
+            reject_event_ref: self.reject_event_ref.clone(),
+            producer_signer: self.producer_signer.clone(),
+            accepted_at: self.accepted_at,
+            issuer_id: self.issuer_id.clone(),
+        })
     }
 }
 
@@ -494,9 +694,77 @@ pub struct ContactLineage {
     pub signature: ProtocolSignature,
 }
 
+#[derive(Serialize)]
+struct UnsignedContactLineage {
+    contact_round_id: Hash,
+    issuer: ContactPeer,
+    peer: ContactPeer,
+    version: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    predecessor_event_ref: Option<EventId>,
+    event_ref: EventId,
+    producer_signer: ContactProducerSigner,
+    granted_to_peer_scopes: Vec<ContactScope>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    terminal: Option<bool>,
+}
+
 impl ContactLineage {
+    /// Build the exact unsigned transcript and request its real historical source
+    /// signature once. The caller selects and authenticates that historical key;
+    /// no incomplete signed object or placeholder signature is constructed.
+    #[allow(clippy::too_many_arguments)]
+    pub fn sign_with(
+        contact_round_id: Hash,
+        issuer: ContactPeer,
+        peer: ContactPeer,
+        version: u64,
+        predecessor_event_ref: Option<EventId>,
+        event_ref: EventId,
+        producer_signer: ContactProducerSigner,
+        granted_to_peer_scopes: Vec<ContactScope>,
+        terminal: Option<bool>,
+        sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
+    ) -> arkret_wire::Result<Self> {
+        producer_signer.validate()?;
+        let unsigned = UnsignedContactLineage {
+            contact_round_id,
+            issuer,
+            peer,
+            version,
+            predecessor_event_ref,
+            event_ref,
+            producer_signer,
+            granted_to_peer_scopes,
+            terminal,
+        };
+        let signature = sign(&arkret_canonical::canonical_json_bytes(&unsigned)?)?;
+        Ok(Self {
+            contact_round_id: unsigned.contact_round_id,
+            issuer: unsigned.issuer,
+            peer: unsigned.peer,
+            version: unsigned.version,
+            predecessor_event_ref: unsigned.predecessor_event_ref,
+            event_ref: unsigned.event_ref,
+            producer_signer: unsigned.producer_signer,
+            granted_to_peer_scopes: unsigned.granted_to_peer_scopes,
+            terminal: unsigned.terminal,
+            signature,
+        })
+    }
+
     pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
-        canonical_signing_bytes_without_signature(self)
+        arkret_canonical::canonical_json_bytes(&UnsignedContactLineage {
+            contact_round_id: self.contact_round_id.clone(),
+            issuer: self.issuer.clone(),
+            peer: self.peer.clone(),
+            version: self.version,
+            predecessor_event_ref: self.predecessor_event_ref.clone(),
+            event_ref: self.event_ref.clone(),
+            producer_signer: self.producer_signer.clone(),
+            granted_to_peer_scopes: self.granted_to_peer_scopes.clone(),
+            terminal: self.terminal,
+        })
     }
 }
 
@@ -1796,6 +2064,114 @@ mod event_digest_derivation_tests {
             signature: signature(),
         };
         assert_eq!(mirror.signed_event_digest().as_str(), EVENT_DIGEST);
+    }
+
+    #[test]
+    fn contact_source_signing_builders_match_all_normative_unsigned_transcripts() {
+        let fixture = contact_kat();
+        for case in fixture["producer_signer_kat"]["cases"].as_array().unwrap() {
+            let source_signature: ProtocolSignature =
+                serde_json::from_value(case["signed_object"]["signature"].clone()).unwrap();
+            let expected = case["canonical_unsigned"].as_str().unwrap().as_bytes();
+            let sign = |bytes: &[u8]| {
+                assert_eq!(bytes, expected, "{}", case["name"]);
+                Ok(source_signature)
+            };
+            let actual = match case["schema_def"].as_str().unwrap() {
+                "request_acceptance_receipt" => {
+                    let value: RequestAcceptanceReceipt =
+                        serde_json::from_value(case["signed_object"].clone()).unwrap();
+                    let signed = RequestAcceptanceReceipt::sign_with(value.core, sign).unwrap();
+                    assert_eq!(signed.canonical_signing_bytes().unwrap(), expected);
+                    serde_json::to_value(signed).unwrap()
+                }
+                "normal_response_acceptance_receipt" => {
+                    let v: NormalResponseAcceptanceReceipt =
+                        serde_json::from_value(case["signed_object"].clone()).unwrap();
+                    let signed = NormalResponseAcceptanceReceipt::sign_with(
+                        v.contact_round_id,
+                        v.request_receipt,
+                        v.response_event_ref,
+                        v.producer_signer,
+                        v.outgoing_slot_absence_digest,
+                        v.accepted_at,
+                        v.issuer_id,
+                        sign,
+                    )
+                    .unwrap();
+                    assert_eq!(signed.canonical_signing_bytes().unwrap(), expected);
+                    serde_json::to_value(signed).unwrap()
+                }
+                "reject_acceptance_receipt" => {
+                    let v: RejectAcceptanceReceipt =
+                        serde_json::from_value(case["signed_object"].clone()).unwrap();
+                    let signed = RejectAcceptanceReceipt::sign_with(
+                        v.request_receipt,
+                        v.reject_event_ref,
+                        v.producer_signer,
+                        v.accepted_at,
+                        v.issuer_id,
+                        sign,
+                    )
+                    .unwrap();
+                    assert_eq!(signed.canonical_signing_bytes().unwrap(), expected);
+                    serde_json::to_value(signed).unwrap()
+                }
+                "contact_lineage" => {
+                    let v: ContactLineage =
+                        serde_json::from_value(case["signed_object"].clone()).unwrap();
+                    let signed = ContactLineage::sign_with(
+                        v.contact_round_id,
+                        v.issuer,
+                        v.peer,
+                        v.version,
+                        v.predecessor_event_ref,
+                        v.event_ref,
+                        v.producer_signer,
+                        v.granted_to_peer_scopes,
+                        v.terminal,
+                        sign,
+                    )
+                    .unwrap();
+                    assert_eq!(signed.canonical_signing_bytes().unwrap(), expected);
+                    serde_json::to_value(signed).unwrap()
+                }
+                kind => panic!("unhandled normative source signing case: {kind}"),
+            };
+            assert_eq!(actual, case["signed_object"]);
+        }
+    }
+
+    #[test]
+    fn contact_signing_failure_never_constructs_a_placeholder_signed_object() {
+        let error = RequestAcceptanceReceipt::sign_with(request_receipt().core, |_| {
+            Err(arkret_wire::WireError::Protocol(
+                "historical key unavailable".into(),
+            ))
+        })
+        .unwrap_err();
+        assert!(error.to_string().contains("historical key unavailable"));
+        let current = ContactCurrentProof::sign_with(
+            hash('c'),
+            DidCoreId::new("ak:did_core:web:ps.example").unwrap(),
+            request_receipt().core.peer,
+            false,
+            EventId::new(EVENT_REF).unwrap(),
+            vec![EventId::new(EVENT_REF).unwrap()],
+            4,
+            timestamp(),
+            |_| {
+                Err(arkret_wire::WireError::Protocol(
+                    "current source key unavailable".into(),
+                ))
+            },
+        );
+        assert!(
+            current
+                .unwrap_err()
+                .to_string()
+                .contains("current source key unavailable")
+        );
     }
 
     #[test]

@@ -105,6 +105,61 @@ mod tests {
             .unwrap();
     }
     #[test]
+    fn contact_current_proof_builder_returns_a_real_signature_over_its_exact_fields() {
+        use arkret_models_collaboration::contact_operations::ContactCurrentProof;
+        use ed25519_dalek::Signer;
+        let fixture = fixture();
+        let seed: [u8; 32] = arkret_canonical::base64url_decode(
+            fixture["producer_signer_kat"]["source_private_seed_b64u"]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap()
+        .try_into()
+        .unwrap();
+        let key = ed25519_dalek::SigningKey::from_bytes(&seed);
+        let (receipt, _) = material();
+        let signature_metadata = receipt.signature.clone();
+        let current = ContactCurrentProof::sign_with(
+            receipt.core.source_checkpoint.clone(),
+            receipt.core.issuer_id.clone(),
+            receipt.core.peer.clone(),
+            false,
+            receipt.core.request_event_ref.clone(),
+            vec![receipt.core.request_event_ref.clone()],
+            1,
+            receipt.core.accepted_at + chrono::Duration::minutes(1),
+            |bytes| {
+                let mut signature = signature_metadata;
+                signature.jws = Base64UrlString::new(arkret_canonical::base64url_encode(
+                    key.sign(bytes).to_bytes(),
+                ))?;
+                Ok(signature)
+            },
+        )
+        .unwrap();
+        let signature = Signature::from_slice(
+            &arkret_canonical::base64url_decode(current.signature.jws.as_str()).unwrap(),
+        )
+        .unwrap();
+        let mut fields = serde_json::to_value(&current).unwrap();
+        fields.as_object_mut().unwrap().remove("signature");
+        key.verifying_key()
+            .verify_strict(
+                &arkret_canonical::canonical_json_bytes(&fields).unwrap(),
+                &signature,
+            )
+            .unwrap();
+        let mut changed = current;
+        changed.complete_through += 1;
+        assert!(
+            key.verifying_key()
+                .verify_strict(&changed.canonical_signing_bytes().unwrap(), &signature)
+                .is_err()
+        );
+    }
+
+    #[test]
     fn contact_receipt_rejects_wrong_request_tampering_and_signer() {
         let (receipt, key) = material();
         let wrong_event = EventId::from_event_digest(
