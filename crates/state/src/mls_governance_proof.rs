@@ -24,8 +24,8 @@ use arkret_wire::cell::CellId;
 use arkret_wire::event_envelope::{Event, EventSubmitContext, ScopeRef};
 use arkret_wire::{
     ActorId, Base64UrlString, CellRef, ContentScheme, DidCoreId, DurabilityPolicy, EventId, Hash,
-    NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal, SealBasis, SealId,
-    SealSignature, WireError,
+    NotarySignerDescriptor, NotaryValue, RealmId, Seal, SealBasis, SealId, SealSignature,
+    WireError,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -253,7 +253,12 @@ pub async fn materialize_registered_cell_value_from_verified_checkpoint<ProjectW
     project_writes: ProjectWrites,
 ) -> arkret_wire::Result<Value>
 where
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     materialize_registered_cell_value_at_basis_from_verified_checkpoint(
         checkpoint,
@@ -276,7 +281,12 @@ pub async fn materialize_registered_cell_value_at_basis_from_verified_checkpoint
     project_writes: ProjectWrites,
 ) -> arkret_wire::Result<Value>
 where
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     let mut values = materialize_registered_cell_values_at_basis_from_verified_checkpoint(
         checkpoint,
@@ -306,7 +316,12 @@ pub async fn materialize_registered_cell_values_at_basis_from_verified_checkpoin
     project_writes: ProjectWrites,
 ) -> arkret_wire::Result<BTreeMap<CellRef, Value>>
 where
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     checkpoint.validate_checkpoint()?;
     basis.validate_protocol_bounds()?;
@@ -371,7 +386,12 @@ pub async fn membership_from_verified_checkpoint<ProjectWrites>(
     project_writes: ProjectWrites,
 ) -> arkret_wire::Result<crate::history_authorization::VerifiedMembership>
 where
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     checkpoint.validate_checkpoint()?;
     if scope.realm_id() != &checkpoint.realm_id {
@@ -419,7 +439,12 @@ pub async fn member_history_from_verified_checkpoint<ProjectWrites>(
     Option<u64>,
 )>
 where
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     checkpoint.validate_checkpoint()?;
     if scope.realm_id() != &checkpoint.realm_id {
@@ -496,7 +521,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     replay_and_verify_checkpoint_with_registry(
         candidate,
@@ -550,7 +580,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     let candidate = MlsGovernanceVerificationCheckpoint {
         realm_id: realm_id.clone(),
@@ -615,7 +650,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     requested_basis.validate_protocol_bounds()?;
     let (verified, live_suites) = replay_and_verify_checkpoint_with_registry(
@@ -700,7 +740,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     replay_and_verify_checkpoint_material_with_registry(
         candidate,
@@ -748,7 +793,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     candidate.validate_checkpoint()?;
     let event_store = MemoryControlEventStore::default();
@@ -841,7 +891,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     base_checkpoint.validate_checkpoint()?;
     target_basis.validate_protocol_bounds()?;
@@ -959,7 +1014,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     bundle.validate_for_request(request)?;
     if matches!(
@@ -1226,7 +1286,12 @@ pub async fn materialize_mls_governance_frontier_from_verified_checkpoint<Projec
     project_writes: ProjectWrites,
 ) -> arkret_wire::Result<MlsGovernanceProofBundle>
 where
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     request.validate()?;
     if request.local_mls_leaves != local_mls_leaves {
@@ -1796,7 +1861,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     let expected_realm = request
         .effective_scope
@@ -1855,7 +1925,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     checkpoint.validate_checkpoint()?;
     if &checkpoint.realm_id != expected_realm || &checkpoint.basis != expected_base_basis {
@@ -1993,7 +2068,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     let mut pending = seals
         .iter()
@@ -2084,12 +2164,21 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     let digest_suites = digest_suites_for_replay_seal(seal, all_events, live_suites).await?;
-    for digest in &seal.delta {
+    for digest in seal
+        .command_results
+        .iter()
+        .flat_map(|result| &result.unit_event_digests)
+    {
         let event = all_events.event(digest).await?.ok_or_else(|| {
-            WireError::Protocol("replay Seal delta Event is unresolved".to_owned())
+            WireError::Protocol("replay Seal command member is unresolved".to_owned())
         })?;
         let event_digest_suite = if seal.predecessor_ref.is_none()
             && event.kind == arkret_wire::EventKind::RealmCreate
@@ -2103,7 +2192,7 @@ where
             .map_err(replay_store_error)?;
         if &inserted != digest {
             return frontier_rejected(
-                "replay Seal delta does not match the Event's verified historical suite",
+                "replay Seal command member does not match its verified historical suite",
             );
         }
     }
@@ -2126,9 +2215,13 @@ where
     .await?;
     verify_seal_dependencies(seal, &notary, &dependency_context, dependencies)?;
 
-    for digest in &seal.delta {
+    for digest in seal
+        .command_results
+        .iter()
+        .flat_map(|result| &result.unit_event_digests)
+    {
         let event = all_events.event(digest).await?.ok_or_else(|| {
-            WireError::Protocol("replay Seal delta Event is unresolved".to_owned())
+            WireError::Protocol("replay Seal command member is unresolved".to_owned())
         })?;
         let event_digest_suite = if seal.predecessor_ref.is_none()
             && event.kind == arkret_wire::EventKind::RealmCreate
@@ -2140,11 +2233,13 @@ where
         verify_event_proofs(&event, event_digest_suite, dependencies).await?;
     }
 
+    event_store
+        .register_verified_replay_units(seal)
+        .map_err(replay_store_error)?;
+
     apply_replayed_seal_in_context(
         seal,
-        event_store,
-        seal_store,
-        cell_store,
+        &crate::MemorySealCommitStore::new(event_store, seal_store, cell_store),
         registry,
         digest_suites,
         |_, _| Ok(()),
@@ -2512,9 +2607,9 @@ async fn add_pcr_holder_from_verified_create_anchor(
         return Ok(false);
     }
     let submit_context = if payload.object.purpose == RealmPurpose::PrincipalControl {
-        arkret_wire::EventSubmitContext::AnchorUnit
+        EventSubmitContext::AnchorUnit
     } else {
-        arkret_wire::EventSubmitContext::Standard
+        EventSubmitContext::Standard
     };
     create
         .validate_for_federation_structural_in_context(submit_context, DigestSuite::Sha256)

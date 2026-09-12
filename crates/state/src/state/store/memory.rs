@@ -19,10 +19,11 @@ use serde_json::{Value, json};
 
 use super::{
     CausalRegisterBottomPolicy, CellStateModelBinding, CellStateRegistry, CellStore,
-    ControlEventStore, ControlProposalIngress, ControlProposalIngressClass,
-    ControlProposalSnapshot, ControlSealAttemptCompletion, ControlSealAttemptOutcome,
-    ControlSealScheduleClaim, ControlSealScheduleRepairStats, ControlSealScheduleStats,
-    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
+    ControlEventStore, ControlProposalIngressClass, ControlProposalSnapshot,
+    ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
+    ControlSealScheduleRepairStats, ControlSealScheduleStats, ControlUnitIngressMember,
+    DecidedControlEventRecord, PendingControlEventRecord, PendingControlUnitRecord,
+    SealCommandEventDecision, SealCommitStore, SealStore, StoreError, StoreResult,
     control_event_digest,
 };
 use crate::state_model::ordered_log::IssuedOp;
@@ -38,14 +39,20 @@ pub struct MemoryControlEventStore {
     inner: Mutex<MemoryControlEventStoreInner>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct MemoryControlEventStoreInner {
     /// All known control-plane Events keyed by their `event_digest`.
     events: BTreeMap<String, Event>,
     /// Trusted digest suite stored atomically with each exact Event digest.
     digest_suites: BTreeMap<String, arkret_canonical::DigestSuite>,
-    /// Seal membership: event_digest → direct covering Seal ids (absent means pending).
-    sealed: BTreeMap<String, BTreeSet<SealId>>,
+    /// Committed coverage: event_digest → direct covering Seal ids.
+    committed_coverage: BTreeMap<String, BTreeSet<SealId>>,
+    /// Every accepted Seal command decision, including rejected members.
+    command_decisions: BTreeMap<String, Vec<SealCommandEventDecision>>,
+    /// Exact registered unit members keyed by every member digest.
+    unit_members: BTreeMap<String, Vec<String>>,
+    /// Unit heads in durable intake order.
+    unit_order: Vec<String>,
     /// Insertion order so list_pending is deterministic.
     insertion_order: Vec<String>,
     control_proposal_acks: BTreeMap<String, ControlProposalAck>,
@@ -84,7 +91,7 @@ impl MemoryControlEventStore {
     fn pending_realm_counts(inner: &MemoryControlEventStoreInner) -> BTreeMap<RealmId, u64> {
         let mut counts = BTreeMap::new();
         for (digest, event) in &inner.events {
-            if inner.sealed.contains_key(digest)
+            if inner.command_decisions.contains_key(digest)
                 || inner
                     .proposal_decisions
                     .get(digest)
@@ -155,6 +162,58 @@ impl MemoryControlEventStore {
         self.insert_verified_replay_event_with_digest(event, digest, digest_suite)
     }
 
+    /// Register exact unit boundaries from a verified retained Seal.
+    /// Every member must already be resolved under its historical digest suite.
+    pub fn register_verified_replay_units(&self, seal: &Seal) -> StoreResult<()> {
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut seen = BTreeSet::new();
+        for result in &seal.command_results {
+            result
+                .validate_structural()
+                .map_err(|error| StoreError::Conflict(error.to_string()))?;
+            let keys = result
+                .unit_event_digests
+                .iter()
+                .map(|digest| digest.as_str().to_owned())
+                .collect::<Vec<_>>();
+            for digest in &result.unit_event_digests {
+                let event = inner.events.get(digest.as_str()).ok_or_else(|| {
+                    StoreError::NotFound(format!("replay command member {digest}"))
+                })?;
+                if event.realm_id != seal.realm_id || !seen.insert(digest.clone()) {
+                    return Err(StoreError::Conflict(
+                        "replay command units cross Realms or repeat an Event".to_owned(),
+                    ));
+                }
+                if inner
+                    .unit_members
+                    .get(digest.as_str())
+                    .is_some_and(|existing| existing != &keys)
+                {
+                    return Err(StoreError::Conflict(
+                        "replay command unit differs from registered membership".to_owned(),
+                    ));
+                }
+            }
+        }
+        for result in &seal.command_results {
+            let keys = result
+                .unit_event_digests
+                .iter()
+                .map(|digest| digest.as_str().to_owned())
+                .collect::<Vec<_>>();
+            for digest in &result.unit_event_digests {
+                inner
+                    .unit_members
+                    .insert(digest.as_str().to_owned(), keys.clone());
+            }
+        }
+        Ok(())
+    }
+
     fn insert_verified_replay_event_with_digest(
         &self,
         event: &Event,
@@ -187,131 +246,130 @@ impl MemoryControlEventStore {
 
 #[async_trait]
 impl ControlEventStore for MemoryControlEventStore {
-    async fn put_pending_with_ingress(
+    async fn put_pending_unit_with_ingress(
         &self,
-        event: &Event,
-        ingress: &ControlProposalIngress,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> StoreResult<()> {
-        let digest = control_event_digest(event, digest_suite)?;
-        let control_proposal_ack = ingress.ack();
-        if let Some(ack) = control_proposal_ack
-            && (ack.proposal_digest != digest || ack.realm_id != event.realm_id)
-        {
+        members: &[ControlUnitIngressMember],
+    ) -> StoreResult<Vec<Hash>> {
+        let Some(first) = members.first() else {
             return Err(StoreError::Conflict(
-                "Control Proposal Ack does not bind the pending Control Move".to_owned(),
+                "registered command unit must not be empty".to_owned(),
+            ));
+        };
+        if members.len() > arkret_wire::seal::MAX_SEAL_DELTA {
+            return Err(StoreError::Conflict(
+                "registered command unit exceeds the protocol member limit".to_owned(),
             ));
         }
-        if let Some(ack) = control_proposal_ack {
-            ack.validate_protocol_bounds()
-                .map_err(|error| StoreError::Conflict(error.to_string()))?;
+        let realm_id = first.event.realm_id.clone();
+        let mut digests = Vec::with_capacity(members.len());
+        let mut unique = BTreeSet::new();
+        for member in members {
+            if member.event.realm_id != realm_id {
+                return Err(StoreError::Conflict(
+                    "registered command unit crosses Realm boundaries".to_owned(),
+                ));
+            }
+            let digest = control_event_digest(&member.event, member.digest_suite)?;
+            if !unique.insert(digest.clone()) {
+                return Err(StoreError::Conflict(
+                    "registered command unit contains a duplicate Event".to_owned(),
+                ));
+            }
+            if let Some(ack) = member.ingress.ack() {
+                if ack.proposal_digest != digest || ack.realm_id != member.event.realm_id {
+                    return Err(StoreError::Conflict(
+                        "Control Proposal Ack does not bind its command unit member".to_owned(),
+                    ));
+                }
+                ack.validate_protocol_bounds()
+                    .map_err(|error| StoreError::Conflict(error.to_string()))?;
+            }
+            digests.push(digest);
         }
-        let ingress_class = ingress.class();
+        let unit_keys = digests
+            .iter()
+            .map(|digest| digest.as_str().to_owned())
+            .collect::<Vec<_>>();
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let (Some(ack), Some(stored)) = (
-            control_proposal_ack,
-            inner.control_proposal_acks.get(digest.as_str()),
-        ) && stored != ack
-        {
-            return Err(StoreError::Conflict(
-                "pending Control Move already has a different Control Proposal Ack".to_owned(),
-            ));
-        }
-        if let Some(stored) = inner.ingress_classes.get(digest.as_str())
-            && stored != &ingress_class
-        {
-            return Err(StoreError::Conflict(
-                "pending Control Move already has a different ingress class".to_owned(),
-            ));
-        }
-        let key = digest.as_str().to_owned();
-        if let Some(existing) = inner.events.get(&key)
-            && (existing != event || inner.digest_suites.get(&key) != Some(&digest_suite))
-        {
-            return Err(StoreError::Conflict(format!(
-                "control Event digest collision at {digest}"
-            )));
-        }
-        if !inner.events.contains_key(&key) {
-            inner.insertion_order.push(key.clone());
-        }
-        inner
-            .events
-            .entry(key.clone())
-            .or_insert_with(|| event.clone());
-        inner.digest_suites.entry(key).or_insert(digest_suite);
-        inner
-            .ingress_classes
-            .entry(digest.as_str().to_owned())
-            .or_insert(ingress_class);
-        if let Some(ack) = control_proposal_ack {
-            match inner.control_proposal_acks.get(digest.as_str()) {
-                Some(_) => {}
-                None => {
-                    inner
-                        .control_proposal_acks
-                        .insert(digest.as_str().to_owned(), ack.clone());
-                }
+        for (member, digest) in members.iter().zip(&digests) {
+            let key = digest.as_str();
+            if let Some(existing) = inner.events.get(key)
+                && (existing != &member.event
+                    || inner.digest_suites.get(key) != Some(&member.digest_suite))
+            {
+                return Err(StoreError::Conflict(format!(
+                    "control Event digest collision at {digest}"
+                )));
+            }
+            if let Some(existing) = inner.unit_members.get(key)
+                && existing != &unit_keys
+            {
+                return Err(StoreError::Conflict(
+                    "control Event already belongs to a different registered unit".to_owned(),
+                ));
+            }
+            let ingress_class = member.ingress.class();
+            if let Some(stored) = inner.ingress_classes.get(key)
+                && stored != &ingress_class
+            {
+                return Err(StoreError::Conflict(
+                    "control Event already has a different ingress class".to_owned(),
+                ));
+            }
+            if let (Some(ack), Some(stored)) =
+                (member.ingress.ack(), inner.control_proposal_acks.get(key))
+                && stored != ack
+            {
+                return Err(StoreError::Conflict(
+                    "control Event already has a different Control Proposal Ack".to_owned(),
+                ));
             }
         }
-        Self::ensure_realm_schedule(&mut inner, &event.realm_id);
-        Ok(())
+        let is_new_unit = !inner.unit_members.contains_key(unit_keys[0].as_str());
+        for (member, digest) in members.iter().zip(&digests) {
+            let key = digest.as_str().to_owned();
+            if !inner.events.contains_key(&key) {
+                inner.insertion_order.push(key.clone());
+            }
+            inner
+                .events
+                .entry(key.clone())
+                .or_insert_with(|| member.event.clone());
+            inner
+                .digest_suites
+                .entry(key.clone())
+                .or_insert(member.digest_suite);
+            inner
+                .unit_members
+                .entry(key.clone())
+                .or_insert_with(|| unit_keys.clone());
+            inner
+                .ingress_classes
+                .entry(key.clone())
+                .or_insert_with(|| member.ingress.class());
+            if let Some(ack) = member.ingress.ack() {
+                inner
+                    .control_proposal_acks
+                    .entry(key)
+                    .or_insert_with(|| ack.clone());
+            }
+        }
+        if is_new_unit {
+            inner.unit_order.push(unit_keys[0].clone());
+        }
+        Self::ensure_realm_schedule(&mut inner, &realm_id);
+        Ok(digests)
     }
 
-    async fn mark_sealed(&self, event_digest: &Hash, seal: &Seal) -> StoreResult<()> {
+    async fn record_seal_command_results(&self, seal: &Seal) -> StoreResult<()> {
         let mut inner = self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let Some(event) = inner.events.get(event_digest.as_str()) else {
-            return Err(StoreError::NotFound(format!(
-                "control Event {event_digest} not in store"
-            )));
-        };
-        if event.realm_id != seal.realm_id || !seal.delta.contains(event_digest) {
-            return Err(StoreError::Conflict(format!(
-                "Seal {} does not directly cover control Event {event_digest}",
-                seal.id
-            )));
-        }
-        let mut overdue = false;
-        if let Some(stored_seals) = inner.sealed.get(event_digest.as_str())
-            && stored_seals.contains(&seal.id)
-        {
-            return Ok(());
-        }
-        let decisions = inner
-            .proposal_decisions
-            .get(event_digest.as_str())
-            .cloned()
-            .unwrap_or_default();
-        if decisions.iter().any(ControlProposalDecision::is_reject) {
-            return Err(StoreError::Conflict(format!(
-                "signed-rejected control Event {event_digest} cannot be sealed"
-            )));
-        }
-        if let Some(ack) = inner.control_proposal_acks.get(event_digest.as_str()) {
-            let mut previous_due_at = ack.decision_due_at;
-            for decision in &decisions {
-                overdue |= !decision.satisfied_current_deadline(previous_due_at);
-                previous_due_at = decision.decision_due_at();
-            }
-            overdue |= seal.sealed_at > previous_due_at;
-        }
-        if overdue {
-            inner
-                .decision_overdue
-                .insert(event_digest.as_str().to_owned());
-        }
-        inner
-            .sealed
-            .entry(event_digest.as_str().to_owned())
-            .or_default()
-            .insert(seal.id.clone());
-        Ok(())
+        record_memory_seal_command_results(&mut inner, seal)
     }
 
     async fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>> {
@@ -337,12 +395,33 @@ impl ControlEventStore for MemoryControlEventStore {
             .copied())
     }
 
+    async fn registered_unit_members(&self, event_digest: &Hash) -> StoreResult<Option<Vec<Hash>>> {
+        self.inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .unit_members
+            .get(event_digest.as_str())
+            .map(|members| {
+                members
+                    .iter()
+                    .map(|member| {
+                        Hash::new(member.clone()).map_err(|error| {
+                            StoreError::Backend(format!(
+                                "stored registered unit digest is invalid: {error}"
+                            ))
+                        })
+                    })
+                    .collect()
+            })
+            .transpose()
+    }
+
     async fn covering_seals(&self, event_digest: &Hash) -> StoreResult<Vec<SealId>> {
         Ok(self
             .inner
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .sealed
+            .committed_coverage
             .get(event_digest.as_str())
             .map(|seals| seals.iter().cloned().collect())
             .unwrap_or_default())
@@ -397,9 +476,14 @@ impl ControlEventStore for MemoryControlEventStore {
                 .cloned()
                 .unwrap_or_default(),
             covering_seals: inner
-                .sealed
+                .committed_coverage
                 .get(event_digest.as_str())
                 .map(|seals| seals.iter().cloned().collect())
+                .unwrap_or_default(),
+            command_decisions: inner
+                .command_decisions
+                .get(event_digest.as_str())
+                .cloned()
                 .unwrap_or_default(),
             decision_overdue: inner.decision_overdue.contains(event_digest.as_str()),
         }))
@@ -420,9 +504,9 @@ impl ControlEventStore for MemoryControlEventStore {
                 "control Event {event_digest} not in store"
             )));
         }
-        if inner.sealed.contains_key(event_digest.as_str()) {
+        if inner.command_decisions.contains_key(event_digest.as_str()) {
             return Err(StoreError::Conflict(format!(
-                "sealed control Event {event_digest} cannot receive another proposal decision"
+                "Seal-decided control Event {event_digest} cannot receive another proposal decision"
             )));
         }
         let ack = inner
@@ -465,7 +549,7 @@ impl ControlEventStore for MemoryControlEventStore {
         let mut records = inner
             .insertion_order
             .iter()
-            .filter(|digest| !inner.sealed.contains_key(*digest))
+            .filter(|digest| !inner.command_decisions.contains_key(*digest))
             .filter(|digest| {
                 !inner
                     .proposal_decisions
@@ -477,7 +561,7 @@ impl ControlEventStore for MemoryControlEventStore {
             .filter_map(|digest| {
                 let event = inner.events.get(digest)?;
                 // Written atomically with the Event row in
-                // `put_pending_with_ingress`, under the same lock.
+                // `put_pending_unit_with_ingress`, under the same lock.
                 let ingress_class = inner.ingress_classes.get(digest)?.clone();
                 let digest_suite = *inner.digest_suites.get(digest)?;
                 (event.realm_id == *realm_id).then(|| PendingControlEventRecord {
@@ -769,12 +853,88 @@ impl ControlEventStore for MemoryControlEventStore {
         Ok(stats)
     }
 
-    async fn list_pending_for_notary(
+    async fn list_pending_units_for_notary(
         &self,
         realm_id: &RealmId,
         cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<Event>> {
+    ) -> StoreResult<Vec<PendingControlUnitRecord>> {
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let cursor_str = cursor.map(|c| c.as_str().to_owned());
+        let mut started = cursor_str.is_none();
+        let mut out = Vec::new();
+        for unit_head in &inner.unit_order {
+            if !started {
+                if Some(unit_head.as_str()) == cursor_str.as_deref() {
+                    started = true;
+                }
+                continue;
+            }
+            let Some(member_keys) = inner.unit_members.get(unit_head) else {
+                return Err(StoreError::Backend(
+                    "registered command unit boundary is missing".to_owned(),
+                ));
+            };
+            let is_pending = member_keys.iter().all(|digest| {
+                !inner.command_decisions.contains_key(digest)
+                    && !inner
+                        .proposal_decisions
+                        .get(digest)
+                        .is_some_and(|decisions| {
+                            decisions.iter().any(ControlProposalDecision::is_reject)
+                        })
+            });
+            if !is_pending {
+                continue;
+            }
+            let members = member_keys
+                .iter()
+                .map(|digest| {
+                    let event = inner.events.get(digest).ok_or_else(|| {
+                        StoreError::Backend("registered unit Event is missing".to_owned())
+                    })?;
+                    let digest_suite = *inner.digest_suites.get(digest).ok_or_else(|| {
+                        StoreError::Backend("control Event digest suite is missing".to_owned())
+                    })?;
+                    let ingress_class =
+                        inner.ingress_classes.get(digest).cloned().ok_or_else(|| {
+                            StoreError::Backend("control Event ingress class is missing".to_owned())
+                        })?;
+                    Ok(PendingControlEventRecord {
+                        event: event.clone(),
+                        digest_suite,
+                        control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
+                        decisions: inner
+                            .proposal_decisions
+                            .get(digest)
+                            .cloned()
+                            .unwrap_or_default(),
+                        ingress_class,
+                    })
+                })
+                .collect::<StoreResult<Vec<_>>>()?;
+            if members
+                .first()
+                .is_some_and(|member| member.event.realm_id == *realm_id)
+            {
+                out.push(PendingControlUnitRecord { members });
+            }
+            if out.len() >= limit {
+                break;
+            }
+        }
+        Ok(out)
+    }
+
+    async fn list_decided(
+        &self,
+        realm_id: &RealmId,
+        cursor: Option<&Hash>,
+        limit: usize,
+    ) -> StoreResult<Vec<DecidedControlEventRecord>> {
         let inner = self
             .inner
             .lock()
@@ -791,57 +951,28 @@ impl ControlEventStore for MemoryControlEventStore {
             }
             if let Some(event) = inner.events.get(digest)
                 && event.realm_id == *realm_id
-                && !inner.sealed.contains_key(digest)
-                && !inner
-                    .proposal_decisions
-                    .get(digest)
-                    .is_some_and(|decisions| {
-                        decisions.iter().any(ControlProposalDecision::is_reject)
-                    })
-            {
-                out.push(event.clone());
-                if out.len() >= limit {
-                    break;
-                }
-            }
-        }
-        Ok(out)
-    }
-
-    async fn list_sealed(
-        &self,
-        realm_id: &RealmId,
-        cursor: Option<&Hash>,
-        limit: usize,
-    ) -> StoreResult<Vec<SealedControlEventRecord>> {
-        let inner = self
-            .inner
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let cursor_str = cursor.map(|c| c.as_str().to_owned());
-        let mut started = cursor_str.is_none();
-        let mut out = Vec::new();
-        for digest in &inner.insertion_order {
-            if !started {
-                if Some(digest.as_str()) == cursor_str.as_deref() {
-                    started = true;
-                }
-                continue;
-            }
-            if let (Some(event), Some(seals)) = (inner.events.get(digest), inner.sealed.get(digest))
-                && event.realm_id == *realm_id
+                && inner.command_decisions.contains_key(digest)
             {
                 // Written atomically with the Event row in
-                // `put_pending_with_ingress`, under the same lock.
+                // `put_pending_unit_with_ingress`, under the same lock.
                 let Some(ingress_class) = inner.ingress_classes.get(digest).cloned() else {
                     continue;
                 };
-                out.push(SealedControlEventRecord {
+                out.push(DecidedControlEventRecord {
                     event: event.clone(),
                     digest_suite: *inner.digest_suites.get(digest).ok_or_else(|| {
                         StoreError::Backend("control Event digest suite is missing".to_owned())
                     })?,
-                    covering_seals: seals.iter().cloned().collect(),
+                    covering_seals: inner
+                        .committed_coverage
+                        .get(digest)
+                        .map(|seals| seals.iter().cloned().collect())
+                        .unwrap_or_default(),
+                    command_decisions: inner
+                        .command_decisions
+                        .get(digest)
+                        .cloned()
+                        .unwrap_or_default(),
                     control_proposal_ack: inner.control_proposal_acks.get(digest).cloned(),
                     decisions: inner
                         .proposal_decisions
@@ -866,13 +997,13 @@ pub struct MemorySealStore {
     inner: Mutex<MemorySealStoreInner>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct MemorySealStoreInner {
     seals: BTreeMap<String, Seal>,
     digest_suites: BTreeMap<String, arkret_canonical::DigestSuite>,
     /// realm_id → unique confirmed head
     heads: BTreeMap<String, SealId>,
-    /// realm_id → genesis seal (first put with empty predecessors)
+    /// realm_id → genesis seal (first put without a predecessor)
     genesis: BTreeMap<String, SealId>,
     signing_leases: BTreeMap<(String, String), (String, i64, u64)>,
 }
@@ -1068,7 +1199,7 @@ pub struct MemoryCellStore {
     inner: Mutex<MemoryCellStoreInner>,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct MemoryCellStoreInner {
     /// (realm, cell) -> ordered (accepting Seal, StateWrite) list
     cell_log: BTreeMap<(String, String), Vec<(SealId, IssuedOp)>>,
@@ -1405,5 +1536,220 @@ impl CellStateRegistry for MemoryCellStateRegistry {
             bottom_policy: descriptor.bottom_policy,
             domain_transition: descriptor.domain_transition.clone(),
         })
+    }
+}
+
+fn record_memory_seal_command_results(
+    inner: &mut MemoryControlEventStoreInner,
+    seal: &Seal,
+) -> StoreResult<()> {
+    let mut decisions = Vec::new();
+    for (command_index, result) in seal.command_results.iter().enumerate() {
+        let unit_keys = result
+            .unit_event_digests
+            .iter()
+            .map(|digest| digest.as_str().to_owned())
+            .collect::<Vec<_>>();
+        for (member_index, digest) in result.unit_event_digests.iter().enumerate() {
+            let event = inner.events.get(digest.as_str()).ok_or_else(|| {
+                StoreError::NotFound(format!("control Event {digest} not in store"))
+            })?;
+            if event.realm_id != seal.realm_id
+                || inner.unit_members.get(digest.as_str()) != Some(&unit_keys)
+            {
+                return Err(StoreError::Conflict(format!(
+                    "Seal {} command result does not match the registered unit for {digest}",
+                    seal.id
+                )));
+            }
+            let decision = SealCommandEventDecision {
+                seal_id: seal.id.clone(),
+                command_index: u32::try_from(command_index).expect("Seal command bound"),
+                member_index: u32::try_from(member_index).expect("Seal member bound"),
+                outcome: result.outcome,
+                reason_code: result.reason_code.clone(),
+            };
+            if let Some(existing) = inner.command_decisions.get(digest.as_str())
+                && !existing.contains(&decision)
+            {
+                return Err(StoreError::Conflict(format!(
+                    "control Event {digest} already has a different Seal command decision"
+                )));
+            }
+            if inner
+                .proposal_decisions
+                .get(digest.as_str())
+                .is_some_and(|existing| existing.iter().any(ControlProposalDecision::is_reject))
+            {
+                return Err(StoreError::Conflict(format!(
+                    "control Event {digest} already has a terminal signed proposal rejection"
+                )));
+            }
+            if result.outcome == arkret_wire::CommandOutcome::Rejected
+                && seal.delta.contains(digest)
+            {
+                return Err(StoreError::Conflict(format!(
+                    "rejected control Event {digest} cannot enter Seal.delta"
+                )));
+            }
+            decisions.push((digest.clone(), decision));
+        }
+    }
+    for (digest, decision) in decisions {
+        let prior_decisions = inner
+            .proposal_decisions
+            .get(digest.as_str())
+            .cloned()
+            .unwrap_or_default();
+        let mut overdue = false;
+        if let Some(ack) = inner.control_proposal_acks.get(digest.as_str()) {
+            let mut previous_due_at = ack.decision_due_at;
+            for prior in &prior_decisions {
+                overdue |= !prior.satisfied_current_deadline(previous_due_at);
+                previous_due_at = prior.decision_due_at();
+            }
+            overdue |= seal.sealed_at > previous_due_at;
+        }
+        if overdue {
+            inner.decision_overdue.insert(digest.as_str().to_owned());
+        }
+        let stored = inner
+            .command_decisions
+            .entry(digest.as_str().to_owned())
+            .or_default();
+        if !stored.contains(&decision) {
+            stored.push(decision);
+        }
+        if seal.delta.contains(&digest) {
+            inner
+                .committed_coverage
+                .entry(digest.as_str().to_owned())
+                .or_default()
+                .insert(seal.id.clone());
+        }
+    }
+    Ok(())
+}
+
+/// Atomic transaction view over the three in-memory stores.
+pub struct MemorySealCommitStore<'a> {
+    events: &'a MemoryControlEventStore,
+    seals: &'a MemorySealStore,
+    cells: &'a MemoryCellStore,
+}
+
+impl<'a> MemorySealCommitStore<'a> {
+    pub fn new(
+        events: &'a MemoryControlEventStore,
+        seals: &'a MemorySealStore,
+        cells: &'a MemoryCellStore,
+    ) -> Self {
+        Self {
+            events,
+            seals,
+            cells,
+        }
+    }
+}
+
+#[async_trait]
+impl SealCommitStore for MemorySealCommitStore<'_> {
+    fn control_events(&self) -> &dyn ControlEventStore {
+        self.events
+    }
+    fn seals(&self) -> &dyn SealStore {
+        self.seals
+    }
+    fn cells(&self) -> &dyn CellStore {
+        self.cells
+    }
+    async fn commit_seal(
+        &self,
+        seal: &Seal,
+        new_ops: &[(CellRef, IssuedOp)],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<bool> {
+        let mut events = self
+            .events
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut seals = self
+            .seals
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut cells = self
+            .cells
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(existing) = seals.seals.get(seal.id.as_str()) {
+            let expected_ops = new_ops
+                .iter()
+                .map(|(cell, op)| (cell.as_str().to_owned(), op.clone()))
+                .collect::<Vec<_>>();
+            let complete_decisions =
+                seal.command_results
+                    .iter()
+                    .enumerate()
+                    .all(|(command_index, result)| {
+                        result.unit_event_digests.iter().enumerate().all(
+                            |(member_index, digest)| {
+                                events.command_decisions.get(digest.as_str()).is_some_and(
+                                    |decisions| {
+                                        decisions.contains(&SealCommandEventDecision {
+                                            seal_id: seal.id.clone(),
+                                            command_index: command_index as u32,
+                                            member_index: member_index as u32,
+                                            outcome: result.outcome,
+                                            reason_code: result.reason_code.clone(),
+                                        })
+                                    },
+                                )
+                            },
+                        )
+                    });
+            if existing != seal
+                || seals.digest_suites.get(seal.id.as_str()) != Some(&digest_suite)
+                || cells.seal_ops.get(seal.id.as_str()) != Some(&expected_ops)
+                || !complete_decisions
+            {
+                return Err(StoreError::Conflict(
+                    "existing Seal does not have the complete identical atomic commit".to_owned(),
+                ));
+            }
+            return Ok(true);
+        }
+        if !seals.head_matches(&seal.realm_id, seal.predecessor_ref.as_ref()) {
+            return Ok(false);
+        }
+        let mut next_events = events.clone();
+        let mut next_seals = seals.clone();
+        let mut next_cells = cells.clone();
+        record_memory_seal_command_results(&mut next_events, seal)?;
+        next_seals.put(seal, digest_suite)?;
+        let mut applied = Vec::with_capacity(new_ops.len());
+        let mut touched = BTreeSet::new();
+        for (cell, op) in new_ops {
+            let key = (seal.realm_id.as_str().to_owned(), cell.as_str().to_owned());
+            next_cells
+                .cell_log
+                .entry(key.clone())
+                .or_default()
+                .push((seal.id.clone(), op.clone()));
+            touched.insert(key);
+            applied.push((cell.as_str().to_owned(), op.clone()));
+        }
+        next_cells
+            .seal_ops
+            .insert(seal.id.as_str().to_owned(), applied);
+        next_cells
+            .cache
+            .retain(|(realm, cell, _), _| !touched.contains(&(realm.clone(), cell.clone())));
+        *events = next_events;
+        *seals = next_seals;
+        *cells = next_cells;
+        Ok(true)
     }
 }

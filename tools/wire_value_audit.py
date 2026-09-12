@@ -570,6 +570,7 @@ def is_schema_or_conformance_fixture(symbol: str) -> bool:
     normalized = symbol.lower()
     return (
         normalized == "built_in_schema_vectors"
+        or normalized == "openapi_query_operations"
         or normalized.endswith(
             ("_openapi_document", "_schema_document", "_schema_vectors")
         )

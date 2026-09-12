@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
-//! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-12.18;
-//! sha256=f39f56e1e3f787ec5766a744ca745efa40bcb0c61c0329c09174c512de85feee Input: registry/
+//! sha256=82991c3998023999d1c55dfcc3ff42c1e30fffa5501fed4ce033d29dc49a4f62 Input: registry/
+//! contract-registry.json; version=2026-09-12.19;
+//! sha256=131727ab43644dbb7f73d7376cb247ccc580c2741875effcfe9a1feac18dd995 Input: registry/
 //! operation-registry.json; version=2026-09-12.16;
 //! sha256=ee5f17d876d77c0d4c6d5f5bf9489fc9d769e882216bdf5ef4ca524ec1904895 Input: registry/
 //! event-kind-registry.json; version=2026-09-12.13;

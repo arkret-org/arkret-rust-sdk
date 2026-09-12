@@ -1543,7 +1543,7 @@ mod account_update_profile_request_tests {
         RealmId::new(PCR).unwrap()
     }
 
-    fn signed_control_event(kind: &str, payload: serde_json::Value) -> arkret_wire::Event {
+    fn signed_profile_event(kind: &str, payload: serde_json::Value) -> arkret_wire::Event {
         let created_at: DateTime<Utc> = "2026-08-11T00:00:00.000Z".parse().unwrap();
         let mut event = arkret_wire::test_support::raw_event_at(
             kind,
@@ -1599,7 +1599,7 @@ mod account_update_profile_request_tests {
 
     fn create_request() -> AccountUpdateProfileRequestBody {
         AccountUpdateProfileRequestBody {
-            profile_event: EventInitialSubmission::online(signed_control_event(
+            profile_event: EventInitialSubmission::online(signed_profile_event(
                 "ak.profile.create",
                 json!({
                     "object": {
@@ -1621,7 +1621,7 @@ mod account_update_profile_request_tests {
         patch: serde_json::Value,
     ) -> AccountUpdateProfileRequestBody {
         AccountUpdateProfileRequestBody {
-            profile_event: EventInitialSubmission::online(signed_control_event(
+            profile_event: EventInitialSubmission::online(signed_profile_event(
                 "ak.profile.update",
                 json!({
                     "target_ref": profile_id,

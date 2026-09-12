@@ -21,11 +21,11 @@ use arkret_state::{
 };
 use arkret_wire::base64url::base64url_encode;
 use arkret_wire::{
-    CellFamilyId, CellRef, CommandResultCellState, CommandResultEffect, DidCoreId,
-    EncryptionProfile, Event, EventCellExecution, EventCellValueShape, EventKind, GenesisSalt,
-    Hash, Hlc, LatticeOp, LatticeOpType, MultiSigKind, MultiSignature, NotarySignerDescriptor,
-    NotaryValue, ProducerEventProof, ProjectedCellWrite, ProjectedOp, ScopeRef, Seal, SealBasis,
-    SealCommandOutcome, SealId, SealSignature, SecurityClass,
+    CanonicalCellState, CanonicalSequencedState, CellFamilyId, CellRef, CommandResultEffect,
+    DidCoreId, EncryptionProfile, Event, EventCellExecution, EventCellValueShape, EventKind,
+    GenesisSalt, Hash, Hlc, LatticeOp, LatticeOpType, MultiSigKind, MultiSignature,
+    NotarySignerDescriptor, NotaryValue, ProducerEventProof, ProjectedCellWrite, ProjectedOp,
+    ScopeRef, Seal, SealBasis, SealCommandOutcome, SealId, SealSignature, SecurityClass,
 };
 use serde_json::json;
 
@@ -49,7 +49,11 @@ fn digest(event: &Event) -> Hash {
     Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap()).unwrap()
 }
 
-fn projection(event: &Event, _: DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> {
+fn projection(
+    event: &Event,
+    _: DigestSuite,
+    _: &BTreeMap<CellRef, ResolvedCellState>,
+) -> Result<arkret_state::ControlProjection, String> {
     let mut membership = LatticeOp::empty();
     membership.op_type = LatticeOpType::Transition;
     let is_create = event.kind == EventKind::RealmCreate;
@@ -76,7 +80,10 @@ fn projection(event: &Event, _: DigestSuite) -> Result<Vec<ProjectedCellWrite>, 
             });
         }
     }
-    Ok(writes)
+    Ok(arkret_state::ControlProjection {
+        writes,
+        security_reads: Vec::new(),
+    })
 }
 
 fn registry() -> MemoryCellStateRegistry {
@@ -113,9 +120,14 @@ fn attach_proof(event: &mut Event, descriptor: &NotarySignerDescriptor) {
         kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
         verification_method: descriptor.verification_method.clone(),
         event_digest: digest(event),
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence}")).unwrap(),
-        ),
+        signer_resolution_evidence_ref: if event.kind == EventKind::RealmCreate {
+            None
+        } else {
+            Some(
+                arkret_wire::SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence}"))
+                    .unwrap(),
+            )
+        },
         created_at: event.created_at,
         domain: None,
         audience: None,
@@ -132,18 +144,25 @@ fn seal(
     descriptor: &NotarySignerDescriptor,
 ) -> Seal {
     let covered = covered_events.iter().map(digest).collect::<BTreeSet<_>>();
+    let touched = projection(event, SUITE, state)
+        .unwrap()
+        .writes
+        .into_iter()
+        .map(|write| write.cell_id)
+        .collect::<BTreeSet<_>>();
     let effects = state
         .iter()
+        .filter(|(cell, _)| touched.contains(*cell))
         .map(|(cell_id, state)| {
             let ResolvedCellState::Sequenced(state) = state else {
                 panic!("governance state must be sequenced")
             };
             CommandResultEffect {
                 cell_id: cell_id.clone(),
-                state: CommandResultCellState {
+                state: CanonicalCellState::SequencedState(CanonicalSequencedState {
                     revision_event_id: state.revision_event_id.clone(),
                     value: state.value.clone(),
-                },
+                }),
             }
         })
         .collect();
@@ -478,5 +497,84 @@ async fn registered_cell_does_not_substitute_another_accounts_membership() {
     assert!(
         error.to_string().contains("target cell is missing"),
         "{error}"
+    );
+}
+
+#[tokio::test]
+async fn seal_commit_keeps_all_views_unchanged_when_a_late_validation_fails() {
+    use arkret_state::state_model::ordered_log::IssuedOp;
+    use arkret_state::{
+        CellStore, ControlEventStore, MemoryCellStore, MemoryControlEventStore,
+        MemorySealCommitStore, MemorySealStore, SealCommitStore, SealStore, StateWrite,
+    };
+
+    let (checkpoint, _, membership) = checkpoint();
+    let genesis = checkpoint
+        .accepted_seals
+        .iter()
+        .find(|seal| seal.predecessor_ref.is_none())
+        .unwrap();
+    let event = checkpoint
+        .accepted_events
+        .iter()
+        .find(|event| event.kind == EventKind::RealmCreate)
+        .unwrap();
+    let events = MemoryControlEventStore::default();
+    let seals = MemorySealStore::default();
+    let cells = MemoryCellStore::default();
+    events
+        .insert_verified_replay_event_with_digest_suite(event, SUITE)
+        .unwrap();
+    events.register_verified_replay_units(genesis).unwrap();
+    let commit = MemorySealCommitStore::new(&events, &seals, &cells);
+    let mut op = LatticeOp::empty();
+    op.op_type = LatticeOpType::Transition;
+    op.from = Some(json!("leave"));
+    op.to = Some(json!("join"));
+    let writes = vec![(
+        membership,
+        IssuedOp {
+            issuer_id: event.actor_id.clone(),
+            op: StateWrite::new(event.event_id.clone(), op),
+        },
+    )];
+    let mut invalid = genesis.clone();
+    invalid.id = SealId::new(format!("ak:seal:sha256:{}", "ff".repeat(32))).unwrap();
+    assert!(commit.commit_seal(&invalid, &writes, SUITE).await.is_err());
+    assert_eq!(
+        seals.confirmed_head(&checkpoint.realm_id).await.unwrap(),
+        None
+    );
+    assert!(
+        cells
+            .list_cells(&checkpoint.realm_id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        events
+            .covering_seals(&digest(event))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(commit.commit_seal(genesis, &writes, SUITE).await.unwrap());
+    assert_eq!(
+        seals.confirmed_head(&checkpoint.realm_id).await.unwrap(),
+        Some(genesis.id.clone())
+    );
+    assert_eq!(
+        cells.list_cells(&checkpoint.realm_id).await.unwrap().len(),
+        1
+    );
+    assert_eq!(
+        events.covering_seals(&digest(event)).await.unwrap().len(),
+        1
+    );
+    assert!(commit.commit_seal(genesis, &writes, SUITE).await.unwrap());
+    assert_eq!(
+        events.covering_seals(&digest(event)).await.unwrap().len(),
+        1
     );
 }

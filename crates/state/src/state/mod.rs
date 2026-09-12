@@ -21,14 +21,18 @@ pub mod store;
 pub mod verify;
 
 pub use seal::{
-    EffectiveSealView, EventDigestSetInclusionProof, JoinedView, PreparedSealEffect,
-    SealBasisVerificationContext, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,
-    apply_accepted_seal_in_context, apply_replayed_seal_in_context, apply_seal_in_context,
-    causal_heads_for_batches, control_event_set_root, covered_events_for_seal_basis,
-    deterministic_order, effective_joined_view_at, effective_seal_view, effective_state_at,
-    event_digest_set_inclusion_proof, event_digest_set_root, join_cell, join_cell_seal_batches,
+    CommandEventResult, ControlProjection, EffectiveSealView, EventDigestSetInclusionProof,
+    JoinedView, OrderedControlBatchAbort, OrderedControlBatchEffect, OrderedControlUnit,
+    OrderedControlUnitEvent, PreparedSealEffect, SealBasisVerificationContext, SealDigestSuites,
+    SealEffect, SealLeafUnionProof, SealReject, apply_accepted_seal_in_context,
+    apply_replayed_seal_in_context, apply_seal_in_context, causal_heads_for_batches,
+    control_event_set_root, covered_events_for_seal_basis, effective_joined_view_at,
+    effective_seal_view, effective_state_at, event_digest_set_inclusion_proof,
+    event_digest_set_root, execute_ordered_control_units, join_cell, join_cell_seal_batches,
     leaf_union_proof, live_digest_suite_from_state, predecessor_seal_closure,
-    prepare_seal_in_context, verify_event_digest_set_inclusion_proof, verify_seal_basis, view_hash,
+    prepare_accepted_seal_in_context, prepare_seal_in_context,
+    project_control_writes_with_revision_guard, resolve_committed_ordered_control_units,
+    verify_event_digest_set_inclusion_proof, verify_seal_basis, view_hash,
 };
 pub use state_root::{
     CausalHeadsByCell, EMPTY_STATE_ROOT, GovernanceView, StateInclusionProof, compute_state_root,
@@ -36,18 +40,21 @@ pub use state_root::{
     state_leaf_hash_from_state_object, value_frontier_digest, verify_state_inclusion_proof,
 };
 pub use store::memory::{
-    MemoryCellStateRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
+    MemoryCellStateRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealCommitStore,
+    MemorySealStore,
 };
 pub use store::{
     AcklessSelfPrincipalIngress, CausalRegisterBottomPolicy, CellStateModelBinding,
     CellStateRegistry, CellStore, ControlEventStore, ControlProposalIngress,
     ControlProposalIngressClass, ControlProposalSnapshot, ControlSealAttemptCompletion,
     ControlSealAttemptOutcome, ControlSealScheduleClaim, ControlSealScheduleRepairStats,
-    ControlSealScheduleStats, PendingControlEventRecord, SealStore, SealedControlEventRecord,
-    StoreError, StoreResult, control_event_digest,
+    ControlSealScheduleStats, ControlUnitIngressMember, DecidedControlEventRecord,
+    PendingControlEventRecord, PendingControlUnitRecord, SealCommandEventDecision, SealCommitStore,
+    SealStore, StoreError, StoreResult, control_event_digest,
 };
 pub use verify::{
-    ControlMoveReject, ControlMoveVerificationContext, reject_to_error_code,
-    resolve_projected_write, verify_accepted_control_move_in_context, verify_control_move,
-    verify_control_move_in_context,
+    ControlMoveFailureDisposition, ControlMoveReject, ControlMoveVerificationContext,
+    classify_control_move_reject, reject_to_error_code, resolve_projected_write,
+    verify_accepted_control_move_in_context, verify_control_move, verify_control_move_in_context,
+    verify_security_revision_guards,
 };

@@ -7,6 +7,7 @@ use super::{ResolvedCellState, StateWrite};
 use crate::{CellRef, LatticeOp};
 
 /// Closed set of state models registered by the protocol.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StateModelKind {
@@ -18,6 +19,16 @@ pub enum StateModelKind {
 }
 
 impl StateModelKind {
+    pub const fn as_wire(self) -> arkret_wire::EventCellStateModel {
+        match self {
+            Self::CausalRegister => arkret_wire::EventCellStateModel::CausalRegister,
+            Self::SequencedState => arkret_wire::EventCellStateModel::SequencedState,
+            Self::OrSet => arkret_wire::EventCellStateModel::OrSet,
+            Self::Counter => arkret_wire::EventCellStateModel::Counter,
+            Self::OrderedLog => arkret_wire::EventCellStateModel::OrderedLog,
+        }
+    }
+
     pub const fn as_wire_str(self) -> &'static str {
         match self {
             Self::CausalRegister => "causal_register",
@@ -30,13 +41,7 @@ impl StateModelKind {
 
     /// Active Event kinds with at least one write using this state model.
     pub fn event_kinds(self) -> Vec<&'static str> {
-        let target = match self {
-            Self::CausalRegister => arkret_wire::EventCellStateModel::CausalRegister,
-            Self::SequencedState => arkret_wire::EventCellStateModel::SequencedState,
-            Self::OrSet => arkret_wire::EventCellStateModel::OrSet,
-            Self::Counter => arkret_wire::EventCellStateModel::Counter,
-            Self::OrderedLog => arkret_wire::EventCellStateModel::OrderedLog,
-        };
+        let target = self.as_wire();
         arkret_wire::EVENT_KIND_DESCRIPTORS
             .iter()
             .filter(|descriptor| {

@@ -5,8 +5,6 @@
 //! the unique confirmed Realm order. Domain transitions and CAS predicates are
 //! validators layered over those models; they are not state models.
 
-use std::collections::BTreeSet;
-
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -99,6 +97,7 @@ impl StateWrite {
 }
 
 /// Materialized safety state. A written `null` remains distinct from absence.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SequencedStateValue {
@@ -107,6 +106,7 @@ pub struct SequencedStateValue {
 }
 
 /// Result of resolving one registered cell.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ResolvedCellState {
@@ -159,6 +159,55 @@ impl ResolvedCellState {
     }
 }
 
-pub(crate) fn covered_event_ids(writes: &[StateWrite]) -> BTreeSet<EventId> {
-    writes.iter().map(|write| write.event_id.clone()).collect()
+/// Convert a materialized reducer state into the canonical protocol snapshot
+/// used by Seal command result digests and Realm snapshots.
+pub fn canonical_cell_state(
+    model: StateModelKind,
+    state: &ResolvedCellState,
+) -> Result<arkret_wire::CanonicalCellState, crate::WireError> {
+    use arkret_wire::{CanonicalCausalHead, CanonicalCausalState, CanonicalCellState};
+
+    let canonical = match (model, state) {
+        (StateModelKind::CausalRegister, ResolvedCellState::Causal(state)) => {
+            let mut covered_event_ids = state.covered_event_ids.iter().cloned().collect::<Vec<_>>();
+            covered_event_ids.sort_by(|left, right| left.token_bytes().cmp(&right.token_bytes()));
+            CanonicalCellState::CausalRegister(CanonicalCausalState {
+                covered_event_ids,
+                heads: state
+                    .heads
+                    .iter()
+                    .map(|head| CanonicalCausalHead {
+                        event_id: head.event_id.clone(),
+                        value: head.value.clone(),
+                    })
+                    .collect(),
+            })
+        }
+        (StateModelKind::SequencedState, ResolvedCellState::Sequenced(state)) => {
+            CanonicalCellState::SequencedState(arkret_wire::CanonicalSequencedState {
+                revision_event_id: state.revision_event_id.clone(),
+                value: state.value.clone(),
+            })
+        }
+        (
+            StateModelKind::OrSet | StateModelKind::OrderedLog | StateModelKind::Counter,
+            ResolvedCellState::Value(value),
+        ) => CanonicalCellState::from_state_object(
+            model.as_wire(),
+            serde_json::json!({ "value": value }),
+        )?,
+        (_, ResolvedCellState::Bottom(_)) => {
+            return Err(crate::WireError::Protocol(
+                "a Bottom state has no canonical committed Cell state".to_owned(),
+            ));
+        }
+        _ => {
+            return Err(crate::WireError::Protocol(format!(
+                "materialized state does not match registered model {}",
+                model.as_wire_str()
+            )));
+        }
+    };
+    canonical.validate()?;
+    Ok(canonical)
 }

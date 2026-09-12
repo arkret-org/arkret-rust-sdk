@@ -44,8 +44,8 @@ use arkret_models_crypto::mls_payloads::MlsCommitPayload;
 use arkret_wire::error_codes::{ErrorCode, ReasonCode};
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    CellRef, EventId, Hash, NotarySignerDescriptor, NotaryValue, ProjectedCellWrite, RealmId, Seal,
-    SealBasis, SealId, SealSignature, WireError, event_kind_str,
+    CellRef, EventId, Hash, NotarySignerDescriptor, NotaryValue, RealmId, Seal, SealBasis, SealId,
+    SealSignature, WireError, event_kind_str,
 };
 use async_trait::async_trait;
 use serde_json::Value;
@@ -706,7 +706,12 @@ where
             &[GovernanceDependency],
         ) -> arkret_wire::Result<()>
         + Copy,
-    ProjectWrites: Fn(&Event, DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
+    ProjectWrites: Fn(
+            &Event,
+            DigestSuite,
+            &BTreeMap<CellRef, ResolvedCellState>,
+        ) -> Result<crate::ControlProjection, String>
+        + Copy,
 {
     let discovery = discover_direct_cut(request, source, journal)?.into_result()?;
     if discovery.topological_len != discovery.visited_seal_count {

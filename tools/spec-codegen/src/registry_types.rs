@@ -785,6 +785,8 @@ fn generate_profile_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
 }
 
 fn generate_reducer_profiles(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let contracts = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
+    let contract_digest = arkret_canonical::canonical::canonical_sha256(&contracts.value)?;
     let artifact = Artifact::load(artifacts_dir, "registry/reducer-profile-registry.json")?;
     let rows = sorted_rows(
         artifact
@@ -830,6 +832,19 @@ fn generate_reducer_profiles(artifacts_dir: &Path) -> Result<GeneratedOutput> {
             edges.len()
         ),
         false,
+    )?;
+    output = output.replacen(
+        "//! Entries:",
+        &format!(
+            "//! Input: {}; version={}; sha256={}\n//! Entries:",
+            contracts.source.relative_path, contracts.source.version, contracts.source.digest
+        ),
+        1,
+    );
+    writeln!(
+        output,
+        "\n/// SHA-256 of the JCS encoding of the complete canonical contract registry.\npub const CANONICAL_REDUCER_CONTRACT_DIGEST: &str = {};",
+        rust_string(&contract_digest)
     )?;
     output = output.replacen("#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", "/// Active Realm reducer profiles. A Realm selects exactly one through\n/// its reducer-profile singleton control cell; ordinary Events and\n/// federation service bindings do not declare one.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", 1);
     let close = output

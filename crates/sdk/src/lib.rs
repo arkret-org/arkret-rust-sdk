@@ -51,6 +51,7 @@
 //! let did: arkret::Did = "did:webvh:z6mkfixture:alice.example";
 //! ```
 
+mod control_projection;
 mod history_response;
 mod keypackage_claim_receipt;
 mod managed_actor_authoring;
@@ -58,6 +59,7 @@ mod mls_governance;
 mod sdk_error;
 mod sidecar_recovery;
 
+pub use control_projection::{project_control_writes_at_state, project_control_writes_with_revision_guard};
 pub use arkret_auth as auth;
 pub use arkret_auth::session_grant;
 pub use arkret_bootstrap as bootstrap;
@@ -363,6 +365,7 @@ pub use arkret_wire::cbs::{
     ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
 };
 pub use arkret_wire::cell::{CellId, composite_subject, composite_subject_pipe};
+pub use arkret_wire::cell_state::*;
 pub use arkret_wire::constants::*;
 pub use arkret_wire::control_proposal::*;
 pub use arkret_wire::device_revocation::*;
@@ -386,10 +389,9 @@ pub use arkret_wire::receive_policy::{
     NewSourceQuotaOverride, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use arkret_wire::seal::{
-    AuthorizationClosure, CommandOutcome, CommandResultCellState, CommandResultEffect,
-    ExistenceAnchor, MultiSigKind, MultiSignature, Seal, SealCommandOutcome, SealSignature,
-    TransactionManifest, TransactionParticipant, TransactionRecord, compute_seal_id,
-    seal_canonical_bytes,
+    AuthorizationClosure, CommandOutcome, CommandResultEffect, ExistenceAnchor, MultiSigKind,
+    MultiSignature, Seal, SealCommandOutcome, SealSignature, TransactionManifest,
+    TransactionParticipant, TransactionRecord, compute_seal_id, seal_canonical_bytes,
 };
 pub use arkret_wire::seal_conclusion::*;
 pub use arkret_wire::self_contact_paths::*;

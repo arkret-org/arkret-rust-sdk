@@ -18,7 +18,8 @@ mod tests;
 
 pub use agent::{
     AgentPcrControlMaterial, AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority,
-    build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload, materialize_agent_pcr_control,
+    agent_pcr_genesis_control_unit, build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload,
+    materialize_agent_pcr_control,
 };
 pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
 pub use projection::{CellWriteProjector, expected_realm_create_cells};

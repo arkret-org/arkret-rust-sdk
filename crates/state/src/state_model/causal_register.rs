@@ -12,6 +12,7 @@ use crate::{Bottom, CausalHead, CellRef, EventId, LatticeOp, LatticeOpType};
 pub struct CausalRegister;
 
 /// Complete causal-register state for one eligibility context.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CausalRegisterState {

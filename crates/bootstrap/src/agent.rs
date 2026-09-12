@@ -6,19 +6,16 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
 use arkret_models_identity::ResolutionCommitment;
-use arkret_state::state_model::ordered_log::{
-    IssuedOp, OrderedLog, ensure_unique_ordered_log_slots,
-};
+use arkret_state::state_model::ordered_log::{IssuedOp, ensure_unique_ordered_log_slots};
 use arkret_state::{
-    CellStateRegistry, GovernanceView, ResolvedCellState, StateModelKind, StateWrite,
-    compute_state_root, control_event_set_root, join_cell, join_cell_seal_batches,
-    resolve_projected_write,
+    CellStateRegistry, GovernanceView, OrderedControlUnit, OrderedControlUnitEvent,
+    ResolvedCellState, compute_state_root, control_event_set_root, resolve_projected_write,
 };
 use arkret_wire::{
-    ActorId, AuthorizationRef, CellRef, CommandResultCellState, CommandResultEffect, DidCoreId,
-    EncryptionProfile, Event, EventCellExecution, EventKind, GenesisSalt, Hash, Hlc, NotaryValue,
-    PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SealCommandOutcome, SecurityClass,
-    TrustDomainId, UnsignedSeal, WireError, event_spec, project_did_to_core_id,
+    ActorId, AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Event, EventCellExecution,
+    EventKind, GenesisSalt, Hash, Hlc, NotaryValue, PayloadSigner, ProfileId, RealmId, Result,
+    SchemaId, Seal, SealCommandOutcome, SecurityClass, TrustDomainId, UnsignedSeal, WireError,
+    event_spec, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -119,61 +116,105 @@ pub struct AgentPcrControlMaterial {
     pub digest_suite: arkret_canonical::DigestSuite,
     pub covered_event_digests: Vec<Hash>,
     pub state_root: Hash,
-    pub command_effects: Vec<CommandResultEffect>,
+    pub command_results: Vec<SealCommandOutcome>,
     pub joined: BTreeMap<CellRef, ResolvedCellState>,
     /// Sealed effects with their issuer attached, ready for a store that
     /// must keep ordered-log slots keyed by the real actor.
     pub event_ops: Vec<(CellRef, IssuedOp)>,
 }
 
-/// Materialize the canonical control state of a Agent PCR.
+fn event_digest_suite(
+    event: &Event,
+    realm_digest_suite: arkret_canonical::DigestSuite,
+) -> arkret_canonical::DigestSuite {
+    if event.kind == EventKind::RealmCreate {
+        REALM_CREATE_EVENT_DIGEST_SUITE
+    } else {
+        realm_digest_suite
+    }
+}
+
+/// Build the sole registered Agent PCR genesis unit from its create Event.
 ///
-/// The delegated create Event derives the six common Realm genesis cells plus
-/// its conditional Agent-status genesis cell. Every later Agent PCR Event
-/// likewise contributes exactly what its registered contract projects. Keeping
-/// this materialization in the SDK gives the controller-side Seal builder and
-/// receiver admission one byte-identical state-root implementation.
-/// Successor Events must already have passed confirmed Seal-chain basis
-/// verification; this pure fold groups identical basis heads but does not
-/// resolve Seal objects.
-pub fn materialize_agent_pcr_control(
-    events: &[Event],
-    project: CellWriteProjector<'_>,
-) -> Result<AgentPcrControlMaterial> {
-    if events
-        .iter()
-        .any(|event| event.kind == EventKind::RealmDigestSuiteTransition)
-    {
+/// Accepted successor history must instead be expanded from signed Seal
+/// command results with [`arkret_state::resolve_committed_ordered_control_units`].
+pub fn agent_pcr_genesis_control_unit(create: &Event) -> Result<OrderedControlUnit> {
+    if create.kind != EventKind::RealmCreate || create.seal_basis.is_some() {
         return Err(WireError::Protocol(
-            "Agent PCR bootstrap materializer does not accept digest-suite transition Seals"
-                .to_owned(),
+            "Agent PCR genesis unit requires one basis-less ak.realm.create Event".to_owned(),
         ));
     }
+    let payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
+    let digest_suite = event_digest_suite(create, payload.object.digest_algorithm);
+    let digest = Hash::new(create.event_digest_with_digest_suite(digest_suite)?)?;
+    Ok(OrderedControlUnit {
+        events: vec![OrderedControlUnitEvent {
+            digest,
+            event: create.clone(),
+            digest_suite,
+        }],
+    })
+}
+
+/// Materialize the canonical control state of an Agent PCR from verified
+/// registered units in confirmed Seal command order.
+///
+/// The caller must obtain `units` by expanding the accepted Seal chain's
+/// signed `command_results[]`; Event actor sequence and `seal_basis` do not
+/// determine command order. The first unit is the single-Event Agent PCR
+/// genesis anchor. Every later unit is replayed against the state staged by all
+/// earlier committed units. This pure fold validates exact Event digests,
+/// registered projection shapes, unit atomicity, and canonical result digests;
+/// callers remain responsible for Seal signatures and basis verification.
+pub fn materialize_agent_pcr_control(
+    units: &[OrderedControlUnit],
+    project: CellWriteProjector<'_>,
+) -> Result<AgentPcrControlMaterial> {
+    let first_unit = units.first().ok_or_else(|| {
+        WireError::Protocol("Agent PCR material requires a genesis command unit".to_owned())
+    })?;
+    if first_unit.events.len() != 1
+        || first_unit.events[0].event.kind != EventKind::RealmCreate
+        || first_unit.events[0].event.seal_basis.is_some()
+    {
+        return Err(WireError::Protocol(
+            "Agent PCR genesis must be one registered basis-less ak.realm.create unit".to_owned(),
+        ));
+    }
+    if units.iter().skip(1).any(|unit| {
+        unit.events.is_empty()
+            || unit
+                .events
+                .iter()
+                .any(|member| member.event.seal_basis.is_none())
+    }) {
+        return Err(WireError::Protocol(
+            "Agent PCR successor command units require an explicit Seal basis".to_owned(),
+        ));
+    }
+
+    let create = &first_unit.events[0].event;
+    let create_effects = direct_projection(create, project)?;
     let managed_cell = CellRef::new(REALM_CREATE_CELL)?;
-    // The create-log cell is a derived target now, so "is this the canonical
-    // genesis Event" is a question only the reducer contract can answer.
-    let mut creates = Vec::new();
-    for event in events {
-        if event.kind != EventKind::RealmCreate {
-            continue;
-        }
-        let effects = direct_projection(event, project)?;
-        if effects.iter().any(|effect| effect.cell_id == managed_cell) {
-            creates.push((event, effects));
-        }
+    if !create_effects
+        .iter()
+        .any(|effect| effect.cell_id == managed_cell)
+    {
+        return Err(WireError::Protocol(
+            "Agent PCR genesis does not project its canonical create Cell".to_owned(),
+        ));
     }
-    if creates.len() != 1 {
-        return Err(WireError::Protocol(format!(
-            "Agent PCR material requires exactly one canonical create Event (found {})",
-            creates.len()
-        )));
+    validate_realm_create_projection(create, &create_effects)?;
+    if units
+        .iter()
+        .flat_map(|unit| &unit.events)
+        .skip(1)
+        .any(|member| member.event.kind == EventKind::RealmCreate)
+    {
+        return Err(WireError::Protocol(
+            "Agent PCR material contains more than one create Event".to_owned(),
+        ));
     }
-    let (create, create_effects) = &creates[0];
-    let create = *create;
-    // The provision Event forward-declares `retype(this event_id)` as the
-    // Agent PCR id.  Putting the provision id back into this envelope would
-    // create a content-hash fixed point, so admission resolves the accepted
-    // provision by that declared Realm id instead.
     if !create.refs.is_empty() {
         return Err(WireError::Protocol(
             "Agent PCR create must not carry semantic references".to_owned(),
@@ -200,119 +241,108 @@ pub fn materialize_agent_pcr_control(
             "Agent PCR notary must be the Agent DID".to_owned(),
         ));
     }
-    validate_realm_create_projection(create, create_effects)?;
 
-    // An Agent PCR is itself a control-only Realm. Effectless protocol
-    // anchors such as `ak.mls.genesis` still belong to the notarized history:
-    // they change the coverage root even though they do not change a lattice
-    // cell. Omitting them would leave the MLS genesis outside its own
-    // governance anchor.
-    let included = events.iter().collect::<Vec<_>>();
-    if included.iter().any(|event| {
-        event.realm_id != create.realm_id
+    let mut seen = BTreeSet::new();
+    for member in units.iter().flat_map(|unit| &unit.events) {
+        let event = &member.event;
+        if event.kind == EventKind::RealmDigestSuiteTransition {
+            return Err(WireError::Protocol(
+                "Agent PCR materializer does not accept digest-suite transition Seals".to_owned(),
+            ));
+        }
+        if event.realm_id != create.realm_id
             || event.actor_id != create.actor_id
             || event.executed_by.as_ref() != Some(&controller_actor_id)
             || event.authorization_ref.as_deref() != Some(authorization_ref.as_str())
-    }) {
-        return Err(WireError::Protocol(
-            "Agent PCR Event authority or Realm differs from its genesis".to_owned(),
-        ));
-    }
-
-    let mut ordered = included
-        .into_iter()
-        .map(|event| {
-            let event_suite = event_digest_suite(event, digest_suite);
-            // The carried id losslessly encodes the suite its digest was taken
-            // under. A history whose Events were digested under a different
-            // suite than the genesis locked is rejected here rather than
-            // silently re-digested into this Realm's contract.
-            if event.event_id.event_digest().digest_suite()? != event_suite {
-                return Err(WireError::Protocol(format!(
-                    "Agent PCR Event {} was digested under a suite the genesis did not declare",
-                    event.event_id.as_str()
-                )));
-            }
-            Ok((
-                event,
-                Hash::new(event.event_digest_with_digest_suite(event_suite)?)?,
-            ))
-        })
-        .collect::<Result<Vec<_>>>()?;
-    ordered.sort_by(|(left, left_digest), (right, right_digest)| {
-        left.actor_seq
-            .cmp(&right.actor_seq)
-            .then_with(|| left_digest.as_str().cmp(right_digest.as_str()))
-    });
-    if ordered
-        .windows(2)
-        .any(|pair| pair[0].0.actor_seq == pair[1].0.actor_seq)
-    {
-        return Err(WireError::Protocol(
-            "Agent PCR Event history contains duplicate actor_seq".to_owned(),
-        ));
-    }
-
-    // A first Agent PCR Seal is one closed anchor unit. Every later Event
-    // is a non-anchor Control Move and therefore carries the accepted Seal view
-    // it was authored against. Keeping the batches explicit is load-bearing:
-    // all Moves in one successor batch read the same frozen pre-state, while
-    // the next batch reads the joined result of the preceding Seal.
-    let anchor_len = ordered
-        .iter()
-        .take_while(|(event, _)| event.seal_basis.is_none())
-        .count();
-    if anchor_len == 0
-        || ordered[anchor_len..]
-            .iter()
-            .any(|(event, _)| event.seal_basis.is_none())
-    {
-        return Err(WireError::Protocol(
-            "Agent PCR basis-less Events must form one leading anchor unit".to_owned(),
-        ));
+        {
+            return Err(WireError::Protocol(
+                "Agent PCR Event authority or Realm differs from its genesis".to_owned(),
+            ));
+        }
+        let expected_suite = event_digest_suite(event, digest_suite);
+        if member.digest_suite != expected_suite
+            || event.event_id.event_digest().digest_suite()? != expected_suite
+        {
+            return Err(WireError::Protocol(format!(
+                "Agent PCR Event {} was digested under a suite the genesis did not declare",
+                event.event_id.as_str()
+            )));
+        }
+        let recomputed = Hash::new(event.event_digest_with_digest_suite(expected_suite)?)?;
+        if recomputed != member.digest || !seen.insert(member.digest.clone()) {
+            return Err(WireError::Protocol(format!(
+                "Agent PCR command member {} has a mismatched or duplicate digest",
+                event.event_id.as_str()
+            )));
+        }
     }
 
     let registry = arkret_lattice_registry::build_sdk_state_registry();
-    let mut covered = BTreeSet::new();
-    let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
-    let mut event_ops = Vec::new();
-    let mut joined = BTreeMap::new();
-
-    apply_agent_batch(
-        &ordered[..anchor_len],
-        true,
-        create,
-        project,
+    let anchor_digest = first_unit.events[0].digest.clone();
+    let executed = arkret_state::execute_ordered_control_units(
+        &create.realm_id,
+        &BTreeMap::new(),
         &registry,
-        &mut covered,
-        &mut batches_by_cell,
-        &mut event_ops,
-        &mut joined,
-    )?;
-    let mut cursor = anchor_len;
-    while cursor < ordered.len() {
-        let basis = ordered[cursor].0.seal_basis.as_ref().ok_or_else(|| {
-            WireError::Protocol("Agent PCR successor Event omits seal_basis".to_owned())
-        })?;
-        let mut end = cursor + 1;
-        while end < ordered.len() && ordered[end].0.seal_basis.as_ref() == Some(basis) {
-            end += 1;
-        }
-        apply_agent_batch(
-            &ordered[cursor..end],
-            false,
-            create,
-            project,
-            &registry,
-            &mut covered,
-            &mut batches_by_cell,
-            &mut event_ops,
-            &mut joined,
-        )?;
-        cursor = end;
-    }
+        units,
+        digest_suite,
+        true,
+        |member, staged_state, _unit_entry_state| {
+            let is_anchor = member.digest == anchor_digest;
+            let effects = if is_anchor {
+                direct_projection(&member.event, project).map_err(|error| {
+                    arkret_state::OrderedControlBatchAbort::Structural(error.to_string())
+                })?
+            } else {
+                let projected = project(&member.event).map_err(|error| {
+                    arkret_state::OrderedControlBatchAbort::Structural(format!(
+                        "Agent PCR cell write projection failed for {}: {error}",
+                        member.event.kind.as_str()
+                    ))
+                })?;
+                let mut effects = Vec::new();
+                for write in &projected {
+                    effects.extend(
+                        resolve_projected_write(write, &create.realm_id, staged_state, &registry)
+                            .map_err(|error| {
+                            arkret_state::OrderedControlBatchAbort::Structural(format!(
+                                "Agent PCR execution-position projection failed for {}: {error}",
+                                member.event.kind.as_str()
+                            ))
+                        })?,
+                    );
+                }
+                effects
+            };
+            if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
+                return Err(arkret_state::OrderedControlBatchAbort::Structural(format!(
+                    "Agent PCR Event claims ordered-log slot {}#{} twice",
+                    conflict.cell, conflict.issuer_seq
+                )));
+            }
+            if !is_anchor {
+                for effect in &effects {
+                    let binding = registry
+                        .resolve(&create.realm_id, &effect.cell_id)
+                        .map_err(|error| {
+                            arkret_state::OrderedControlBatchAbort::Infrastructure(
+                                error.to_string(),
+                            )
+                        })?;
+                    if binding.execution == EventCellExecution::Data {
+                        return Err(arkret_state::OrderedControlBatchAbort::Structural(format!(
+                            "Agent PCR successor command wrote ordinary Cell {}",
+                            effect.cell_id
+                        )));
+                    }
+                }
+            }
+            Ok(arkret_state::CommandEventResult::Applied(effects))
+        },
+    )
+    .map_err(|error| WireError::Protocol(error.to_string()))?;
 
-    let security_state = joined
+    let security_state = executed
+        .post_state
         .iter()
         .filter_map(|(cell, state)| {
             registry
@@ -324,21 +354,7 @@ pub fn materialize_agent_pcr_control(
         .collect();
     let state_root = compute_state_root(GovernanceView::new(&security_state), digest_suite)
         .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
-    let command_effects = security_state
-        .into_iter()
-        .map(|(cell_id, state)| match state {
-            ResolvedCellState::Sequenced(state) => Ok(CommandResultEffect {
-                cell_id,
-                state: CommandResultCellState {
-                    revision_event_id: state.revision_event_id,
-                    value: state.value,
-                },
-            }),
-            _ => Err(WireError::Protocol(
-                "Agent PCR Seal effects may contain only sequenced_state Cells".to_owned(),
-            )),
-        })
-        .collect::<Result<Vec<_>>>()?;
+
     Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
@@ -346,144 +362,20 @@ pub fn materialize_agent_pcr_control(
         authorization_ref,
         notary: notary_value,
         digest_suite,
-        covered_event_digests: covered.into_iter().collect(),
+        covered_event_digests: executed.committed_event_digests,
         state_root,
-        command_effects,
-        joined,
-        event_ops,
+        command_results: executed.command_results,
+        joined: executed.post_state,
+        event_ops: executed.committed_ops,
     })
-}
-
-/// The suite one Agent PCR Event's own digest is taken under.
-///
-/// Only `ak.realm.create` differs, and only because §2.5.0 makes the Realm
-/// token a retype of its own `event_id`.
-fn event_digest_suite(
-    event: &Event,
-    realm_digest_suite: arkret_canonical::DigestSuite,
-) -> arkret_canonical::DigestSuite {
-    if event.kind == EventKind::RealmCreate {
-        REALM_CREATE_EVENT_DIGEST_SUITE
-    } else {
-        realm_digest_suite
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn apply_agent_batch(
-    batch: &[(&Event, Hash)],
-    anchor: bool,
-    create: &Event,
-    project: CellWriteProjector<'_>,
-    registry: &dyn CellStateRegistry,
-    covered: &mut BTreeSet<Hash>,
-    batches_by_cell: &mut BTreeMap<CellRef, Vec<Vec<IssuedOp>>>,
-    event_ops: &mut Vec<(CellRef, IssuedOp)>,
-    joined: &mut BTreeMap<CellRef, ResolvedCellState>,
-) -> Result<()> {
-    let frozen_pre_state = joined.clone();
-    let mut batch_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
-    for (event, move_id) in batch {
-        if !covered.insert(move_id.clone()) {
-            return Err(WireError::Protocol(
-                "Agent PCR Event material contains duplicate digests".to_owned(),
-            ));
-        }
-        // Anchor-unit writes are staged by their closed bootstrap contract.
-        // Ordinary writes resolve transition/apply-patch/remove-observed
-        // operands from this batch's frozen predecessor state, exactly as
-        // receiver admission does.
-        let effects = if anchor {
-            direct_projection(event, project)?
-        } else {
-            let projected = project(event).map_err(|error| {
-                WireError::Protocol(format!(
-                    "Agent PCR cell write projection failed for {}: {error}",
-                    event.kind.as_str()
-                ))
-            })?;
-            let mut effects = Vec::new();
-            for write in &projected {
-                effects.extend(
-                    resolve_projected_write(write, &create.realm_id, &frozen_pre_state, registry)
-                        .map_err(|error| {
-                        WireError::Protocol(format!(
-                            "Agent PCR frozen-pre-state projection failed for {}: {error}",
-                            event.kind.as_str()
-                        ))
-                    })?,
-                );
-            }
-            effects
-        };
-        // One Event may project at most one ordered-log entry into one cell;
-        // Event identity is the grow-only set key.
-        if let Err(conflict) = ensure_unique_ordered_log_slots(&effects) {
-            return Err(WireError::Protocol(format!(
-                "Agent PCR Event claims ordered-log slot {}#{} twice",
-                conflict.cell, conflict.issuer_seq
-            )));
-        }
-        for effect in effects {
-            let issued = IssuedOp {
-                issuer_id: create.actor_id.clone(),
-                op: StateWrite::new(move_id.clone(), effect.op),
-            };
-            batch_ops
-                .entry(effect.cell_id.clone())
-                .or_default()
-                .push(issued.clone());
-            event_ops.push((effect.cell_id, issued));
-        }
-    }
-
-    for (cell, issued) in batch_ops {
-        if let Ok(binding) = registry.resolve(&create.realm_id, &cell)
-            && binding.state_model == StateModelKind::OrderedLog
-        {
-            let report = OrderedLog
-                .join_with_issuer_report(&issued)
-                .map_err(|error| WireError::Protocol(format!("Agent PCR cell {cell}: {error}")))?;
-            if !report.identity_collisions.is_empty() {
-                return Err(WireError::Protocol(format!(
-                    "Agent PCR cell {cell} contains an Event identity collision"
-                )));
-            }
-        }
-        batches_by_cell.entry(cell).or_default().push(issued);
-    }
-
-    joined.clear();
-    for (cell, batches) in batches_by_cell {
-        let binding = registry
-            .resolve(&create.realm_id, cell)
-            .map_err(|error| WireError::Protocol(format!("Agent PCR cell registry: {error}")))?;
-        let state = if binding.execution == EventCellExecution::Security {
-            join_cell_seal_batches(binding.model.as_ref(), cell, batches)
-        } else {
-            join_cell(
-                binding.model.as_ref(),
-                cell,
-                &batches.iter().flatten().cloned().collect::<Vec<_>>(),
-            )
-        }
-        .map_err(|error| WireError::Protocol(format!("Agent PCR cell {cell}: {error}")))?;
-        if let ResolvedCellState::Bottom(bottom) = &state {
-            return Err(WireError::Protocol(format!(
-                "Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
-            )));
-        }
-        joined.insert(cell.clone(), state);
-    }
-    Ok(())
 }
 
 /// The immutable proposal authority a Agent PCR was founded with.
 ///
 /// Genesis authority is fixed by the single accepted `ak.realm.create`, so this
 /// type is built from that Event alone. Later transitions belong to
-/// [`materialize_agent_pcr_control`], which folds the accepted history
-/// and therefore needs whatever frozen pre-state each transition requires.
+/// [`materialize_agent_pcr_control`], which folds confirmed command order and
+/// therefore supplies each transition its exact execution-position state.
 /// Keeping the two questions in separate types is what stops a caller that only
 /// wants genesis from handing over a full history and failing the moment a
 /// replacement adds an `ak.agent.key.revoke`.
@@ -511,7 +403,8 @@ impl AgentPcrGenesisAuthority {
                 "Agent PCR genesis authority requires ak.realm.create".to_owned(),
             ));
         }
-        let material = materialize_agent_pcr_control(std::slice::from_ref(create), project)?;
+        let unit = agent_pcr_genesis_control_unit(create)?;
+        let material = materialize_agent_pcr_control(std::slice::from_ref(&unit), project)?;
         let authority_set_ref = Hash::new(arkret_canonical::digest(
             material.digest_suite,
             arkret_canonical::canonical_json_bytes(&material.notary)?,
@@ -578,7 +471,13 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
     signer: &S,
     project: CellWriteProjector<'_>,
 ) -> Result<Seal> {
-    let material = materialize_agent_pcr_control(events, project)?;
+    if events.len() != 1 || events[0].kind != EventKind::RealmCreate {
+        return Err(WireError::Protocol(
+            "Agent PCR bootstrap Seal requires exactly its genesis create".to_owned(),
+        ));
+    }
+    let unit = agent_pcr_genesis_control_unit(&events[0])?;
+    let material = materialize_agent_pcr_control(std::slice::from_ref(&unit), project)?;
     if project_did_to_core_id(signer.signer_did())?
         != *material.controller_actor_id.signing_principal_id()
     {
@@ -593,11 +492,6 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
         .collect::<BTreeSet<_>>();
     let current = BTreeSet::new();
     let notary_seq = 0;
-    if events.len() != 1 || events[0].kind != EventKind::RealmCreate {
-        return Err(WireError::Protocol(
-            "Agent PCR bootstrap Seal requires exactly its genesis create".to_owned(),
-        ));
-    }
     let delta = target.difference(&current).cloned().collect::<Vec<_>>();
     if delta.is_empty() {
         return Err(WireError::Protocol(
@@ -608,12 +502,7 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
     let control_root = control_event_set_root(&target, digest_suite)
         .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
     let availability_receipt_digests = Vec::new();
-    let command_result = SealCommandOutcome::committed(
-        delta[0].clone(),
-        delta.clone(),
-        material.command_effects,
-        digest_suite,
-    )?;
+    let command_results = material.command_results;
     Seal::sign_with_signers(
         UnsignedSeal {
             realm_id: material.realm_id,
@@ -629,7 +518,7 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
             sealed_at: Utc::now(),
             hlc,
             configuration_ref: events[0].event_id.clone(),
-            command_results: vec![command_result],
+            command_results,
             authorization_closures: Vec::new(),
             existence_anchors: Vec::new(),
             transaction_records: Vec::new(),

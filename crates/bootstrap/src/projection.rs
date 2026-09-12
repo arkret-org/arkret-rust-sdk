@@ -11,8 +11,8 @@ use arkret_state::{
     compute_state_root, join_cell, join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    CellRef, CommandResultCellState, CommandResultEffect, Event, EventCellExecution, EventKind,
-    Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result, WireError,
+    CellRef, CommandResultEffect, Event, EventCellExecution, EventKind, Hash, ProjectedCellWrite,
+    ProjectionEffect, RealmId, Result, WireError,
 };
 
 use crate::{
@@ -154,24 +154,6 @@ pub(crate) fn validate_realm_create_projection(
     Ok(())
 }
 
-/// Join every covered Event's derived cell writes and compute the governance
-/// `state_root`.
-///
-/// Producer-side Seal building and receiver-side recomputation must agree, and
-/// under v1 the only statement of what an Event writes is the registered
-/// reducer contract evaluated over its signed `kind + payload`. So both sides
-/// run the same projection over the same signed bytes; nothing a producer could
-/// have written down participates.
-pub(crate) fn state_root_from_projection(
-    realm_id: &RealmId,
-    covered: &[(&Event, Hash)],
-    digest_suite: arkret_canonical::DigestSuite,
-    project: CellWriteProjector<'_>,
-) -> Result<Hash> {
-    state_root_and_effects_from_projection(realm_id, covered, digest_suite, project)
-        .map(|(root, _)| root)
-}
-
 pub(crate) fn state_root_and_effects_from_projection(
     realm_id: &RealmId,
     covered: &[(&Event, Hash)],
@@ -263,30 +245,27 @@ pub(crate) fn state_root_and_effects_from_projection(
         }
     }
     let security_state = joined
-        .into_iter()
+        .iter()
         .filter_map(|(cell, state)| {
             registry
                 .resolve(realm_id, &cell)
                 .ok()
                 .filter(|binding| binding.execution == EventCellExecution::Security)
-                .map(|_| (cell, state))
+                .map(|_| (cell.clone(), state.clone()))
         })
         .collect();
     let root = compute_state_root(GovernanceView::new(&security_state), digest_suite)
         .map_err(|error| WireError::Protocol(format!("bootstrap state root: {error}")))?;
-    let effects = security_state
+    let effects = joined
         .into_iter()
-        .map(|(cell_id, state)| match state {
-            ResolvedCellState::Sequenced(state) => Ok(CommandResultEffect {
+        .map(|(cell_id, state)| {
+            let binding = registry
+                .resolve(realm_id, &cell_id)
+                .map_err(|error| WireError::Protocol(error.to_string()))?;
+            Ok(CommandResultEffect {
                 cell_id,
-                state: CommandResultCellState {
-                    revision_event_id: state.revision_event_id,
-                    value: state.value,
-                },
-            }),
-            _ => Err(WireError::Protocol(
-                "Seal command effects may contain only sequenced_state Cells".to_owned(),
-            )),
+                state: arkret_state::canonical_cell_state(binding.state_model, &state)?,
+            })
         })
         .collect::<Result<Vec<_>>>()?;
     Ok((root, effects))

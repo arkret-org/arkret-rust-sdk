@@ -10,8 +10,8 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::{
-    CellRef, DidUrl, EventId, Hash, Hlc, NotarySignerDescriptor, RealmId, ReasonCode, Result,
-    ScopeRef, SealId, WireError, canonical,
+    CanonicalCellState, CellRef, DidUrl, EventId, Hash, Hlc, NotarySignerDescriptor, RealmId,
+    ReasonCode, Result, ScopeRef, SealId, WireError, canonical,
 };
 
 pub const MAX_SEAL_DELTA: usize = 4_096;
@@ -153,16 +153,9 @@ pub enum CommandOutcome {
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct CommandResultCellState {
-    pub revision_event_id: EventId,
-    pub value: Value,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(deny_unknown_fields)]
 pub struct CommandResultEffect {
     pub cell_id: CellRef,
-    pub state: CommandResultCellState,
+    pub state: CanonicalCellState,
 }
 
 #[derive(Serialize)]
@@ -261,7 +254,14 @@ impl SealCommandOutcome {
             ));
         }
         match (self.outcome, self.reason_code.as_ref()) {
-            (CommandOutcome::Committed, None) | (CommandOutcome::Rejected, Some(_)) => Ok(()),
+            (CommandOutcome::Committed, None) => Ok(()),
+            (CommandOutcome::Rejected, Some(reason_code)) if reason_code.descriptor().is_some() => {
+                Ok(())
+            }
+            (CommandOutcome::Rejected, Some(reason_code)) => Err(WireError::Protocol(format!(
+                "rejected command result reason_code {} is not registered",
+                reason_code.as_str()
+            ))),
             (CommandOutcome::Committed, Some(_)) => Err(WireError::Protocol(
                 "committed command result must omit reason_code".to_owned(),
             )),

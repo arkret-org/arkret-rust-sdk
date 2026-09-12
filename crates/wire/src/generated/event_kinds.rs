@@ -831,6 +831,7 @@ pub enum EventCellValueShape {
 }
 
 /// Closed bottom-state behavior used by registry-declared event cell writes.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CausalRegisterBottomPolicy {
@@ -17096,19 +17097,27 @@ mod tests {
     #[test]
     fn every_registered_cell_family_uses_its_generated_plane() {
         for descriptor in EVENT_KIND_DESCRIPTORS {
-            let mut families = descriptor
-                .cell_writes
-                .iter()
-                .filter_map(|write| write.cell_family.map(CellFamilyId::as_str))
-                .collect::<Vec<_>>();
-            if let Some(cell_family) = descriptor.cell_family {
-                families.push(cell_family);
+            for write in descriptor.cell_writes {
+                let Some(cell_family) = write.cell_family.map(CellFamilyId::as_str) else {
+                    continue;
+                };
+                let expected = match write.execution {
+                    Some(EventCellExecution::Data) => Some(CbsEffectPlane::Data),
+                    Some(EventCellExecution::Security) => Some(CbsEffectPlane::Control),
+                    None => None,
+                };
+                assert_eq!(
+                    cbs_cell_family_plane(cell_family),
+                    expected,
+                    "cell family {cell_family} drifted from its write execution",
+                );
             }
-            for cell_family in families {
+            if let Some(cell_family) = descriptor.cell_family {
                 assert_eq!(
                     cbs_cell_family_plane(cell_family),
                     descriptor.plane,
-                    "cell family {cell_family} drifted from its event descriptor",
+                    "cell family {} drifted from its event descriptor",
+                    cell_family,
                 );
             }
         }

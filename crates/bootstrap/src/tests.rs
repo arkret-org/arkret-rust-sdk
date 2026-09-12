@@ -18,12 +18,12 @@ use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
     ActorId, AuthorizationRef, Base64UrlString, CellRef, DeviceId, Did, DidCoreId, DidUrl,
-    DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc,
-    NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
-    PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
-    SealBasis, SealCommandOutcome, SealId, SemanticRefProof, SemanticRefProofKind,
-    SemanticRefProofRootField, TrustDomainId, UnsignedSeal, WireError, composite_subject,
-    project_did_to_core_id, proof_kind,
+    DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc, LatticeOp,
+    LatticeOpType, NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor,
+    NotaryValue, PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite,
+    ProjectedOp, RealmId, ScopeRef, SealBasis, SealCommandOutcome, SealId, SemanticRefProof,
+    SemanticRefProofKind, SemanticRefProofRootField, TrustDomainId, UnsignedSeal, WireError,
+    composite_subject, project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -34,10 +34,10 @@ use crate::{
     AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority, AgentProvisionIntentOptions,
     DID_INCEPTION_REF_ROLE, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL,
     REALM_NOTARY_CELL, REALM_REDUCER_PROFILE_CELL, SelfPrincipalPcrCreateInput,
-    build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload, build_agent_provision_intent,
-    build_self_principal_bootstrap_seal, build_self_principal_pcr_create,
-    build_self_principal_pcr_genesis_unit, materialize_agent_pcr_control,
-    validate_self_principal_pcr_genesis_unit,
+    agent_pcr_genesis_control_unit, build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload,
+    build_agent_provision_intent, build_self_principal_bootstrap_seal,
+    build_self_principal_pcr_create, build_self_principal_pcr_genesis_unit,
+    materialize_agent_pcr_control, validate_self_principal_pcr_genesis_unit,
 };
 
 struct FixtureSigner {
@@ -72,6 +72,23 @@ fn fixture_event_id(seed: u8) -> EventId {
 
 fn fixture_realm(seed: u8) -> RealmId {
     RealmId::from_event_id(&fixture_event_id(seed))
+}
+
+fn ordered_control_unit(
+    events: impl IntoIterator<Item = Event>,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> arkret_state::OrderedControlUnit {
+    arkret_state::OrderedControlUnit {
+        events: events
+            .into_iter()
+            .map(|event| arkret_state::OrderedControlUnitEvent {
+                digest: Hash::new(event.event_digest_with_digest_suite(digest_suite).unwrap())
+                    .unwrap(),
+                event,
+                digest_suite,
+            })
+            .collect(),
+    }
 }
 
 fn fixture_resolution(did: Did) -> ResolutionCommitment {
@@ -539,8 +556,9 @@ fn agent_material_derives_the_genesis_leaf_set_from_the_registry() {
     let create = agent_pcr_create();
     let canonical_actor = arkret_canonical::canonical_json_string(&create.actor_id).unwrap();
     let agent_status_subject = composite_subject(&[canonical_actor]).unwrap();
+    let unit = agent_pcr_genesis_control_unit(&create).unwrap();
     let material =
-        materialize_agent_pcr_control(std::slice::from_ref(&create), &registry_projection).unwrap();
+        materialize_agent_pcr_control(std::slice::from_ref(&unit), &registry_projection).unwrap();
 
     assert_eq!(material.agent_id, create.actor_id);
     assert_eq!(
@@ -583,7 +601,9 @@ fn agent_material_derives_the_genesis_leaf_set_from_the_registry() {
         .unwrap()
         .remove("notary");
     assert!(
-        materialize_agent_pcr_control(&[no_notary], &registry_projection).is_err(),
+        agent_pcr_genesis_control_unit(&no_notary)
+            .and_then(|unit| materialize_agent_pcr_control(&[unit], &registry_projection))
+            .is_err(),
         "a Realm create whose notary source is missing must fail closed"
     );
 }
@@ -749,7 +769,7 @@ fn agent_pcr_genesis_with_digest_suite(digest_suite: arkret_canonical::DigestSui
     create
 }
 
-/// An effect-free covered Control Move authored under `digest_suite`.
+/// A fixture Control Move authored under `digest_suite`.
 fn agent_pcr_follow_up_event(
     create: &Event,
     actor_seq: u64,
@@ -779,15 +799,21 @@ fn agent_pcr_follow_up_event(
     event
 }
 
-/// The registry contract for `ak.mls.genesis` registers three writes; these
-/// assertions are about this crate's suite arithmetic, not that leaf set, so
-/// the injected projector reports the named anchors as effect-free.
-fn effect_free_projection(
-    effect_free: &BTreeSet<EventId>,
+/// Keep this suite-arithmetic fixture independent of the large MLS payload by
+/// projecting its successor onto one registered security Cell.
+fn fixture_successor_projection(
+    successors: &BTreeSet<EventId>,
 ) -> impl Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> + '_ {
     move |event: &Event| {
-        if effect_free.contains(&event.event_id) {
-            return Ok(Vec::new());
+        if successors.contains(&event.event_id) {
+            return Ok(vec![ProjectedCellWrite {
+                cell_id: CellRef::new(REALM_NOTARY_CELL.to_owned()).unwrap(),
+                op: ProjectedOp::Direct(LatticeOp {
+                    op_type: LatticeOpType::Set,
+                    value: Some(serde_json::json!({"revision": event.actor_seq})),
+                    ..LatticeOp::empty()
+                }),
+            }]);
         }
         registry_projection(event)
     }
@@ -803,8 +829,9 @@ fn agent_pcr_material_uses_the_genesis_declared_digest_suite() {
         arkret_canonical::DigestSuite::Blake3,
     ] {
         let create = agent_pcr_genesis_with_digest_suite(digest_suite);
+        let unit = agent_pcr_genesis_control_unit(&create).unwrap();
         let material =
-            materialize_agent_pcr_control(std::slice::from_ref(&create), &registry_projection)
+            materialize_agent_pcr_control(std::slice::from_ref(&unit), &registry_projection)
                 .unwrap();
 
         assert_eq!(material.digest_suite, digest_suite);
@@ -981,11 +1008,11 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
         let authorize = authored.into_event();
         AgentKeyAuthorizePayload::try_from(&authorize).unwrap();
 
-        let material = materialize_agent_pcr_control(
-            &[create.clone(), authorize.clone()],
-            &registry_projection,
-        )
-        .unwrap();
+        let units = [
+            agent_pcr_genesis_control_unit(&create).unwrap(),
+            ordered_control_unit([authorize.clone()], digest_suite),
+        ];
+        let material = materialize_agent_pcr_control(&units, &registry_projection).unwrap();
         assert_eq!(material.digest_suite, digest_suite);
         assert_eq!(material.state_root.digest_suite().unwrap(), digest_suite);
         assert!(material.event_ops.iter().any(|(cell, _)| {
@@ -1033,15 +1060,7 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 sealed_at: "2026-07-15T00:02:00.000Z".parse().unwrap(),
                 hlc: request.hlc.clone(),
                 configuration_ref: create.event_id.clone(),
-                command_results: vec![
-                    SealCommandOutcome::committed(
-                        authorize_digest.clone(),
-                        vec![authorize_digest],
-                        material.command_effects,
-                        digest_suite,
-                    )
-                    .unwrap(),
-                ],
+                command_results: vec![material.command_results[1].clone()],
                 authorization_closures: Vec::new(),
                 existence_anchors: Vec::new(),
                 transaction_records: Vec::new(),
@@ -1102,28 +1121,25 @@ fn agent_pcr_rejects_events_digested_under_an_undeclared_suite() {
             leaves: vec![genesis_seal.id.clone()],
         };
 
-        let anchor =
-            agent_pcr_follow_up_event(&create, 1, "01970e589d21-0014-a13f9c2e", digest_suite, None);
         let successor = agent_pcr_follow_up_event(
             &create,
-            2,
+            1,
             "01970e589d21-0015-a13f9c2e",
             digest_suite,
-            Some(basis),
+            Some(basis.clone()),
         );
-        let effect_free = [anchor.event_id.clone(), successor.event_id.clone()]
+        let projected = [successor.event_id.clone()]
             .into_iter()
             .collect::<BTreeSet<_>>();
-        let material = materialize_agent_pcr_control(
-            &[create.clone(), anchor.clone(), successor.clone()],
-            &effect_free_projection(&effect_free),
-        )
-        .unwrap();
+        let units = [
+            agent_pcr_genesis_control_unit(&create).unwrap(),
+            ordered_control_unit([successor.clone()], digest_suite),
+        ];
+        let material =
+            materialize_agent_pcr_control(&units, &fixture_successor_projection(&projected))
+                .unwrap();
         assert_eq!(material.digest_suite, digest_suite);
-        assert_eq!(material.covered_event_digests.len(), 3);
-        assert!(material.covered_event_digests.contains(
-            &Hash::new(anchor.event_digest_with_digest_suite(digest_suite).unwrap()).unwrap()
-        ));
+        assert_eq!(material.covered_event_digests.len(), 2);
         assert!(
             material.covered_event_digests.contains(
                 &Hash::new(
@@ -1136,15 +1152,17 @@ fn agent_pcr_rejects_events_digested_under_an_undeclared_suite() {
         );
 
         let mismatched =
-            agent_pcr_follow_up_event(&create, 1, "01970e589d21-0014-a13f9c2e", other, None);
-        let effect_free = [mismatched.event_id.clone()]
+            agent_pcr_follow_up_event(&create, 1, "01970e589d21-0014-a13f9c2e", other, Some(basis));
+        let projected = [mismatched.event_id.clone()]
             .into_iter()
             .collect::<BTreeSet<_>>();
-        let error = materialize_agent_pcr_control(
-            &[create, mismatched],
-            &effect_free_projection(&effect_free),
-        )
-        .unwrap_err();
+        let units = [
+            agent_pcr_genesis_control_unit(&create).unwrap(),
+            ordered_control_unit([mismatched], other),
+        ];
+        let error =
+            materialize_agent_pcr_control(&units, &fixture_successor_projection(&projected))
+                .unwrap_err();
         assert!(
             error
                 .to_string()

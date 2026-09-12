@@ -54,11 +54,9 @@ impl TryFrom<Event> for PreparedOrdinaryEvent {
         if !event.kind.is_data_plane()
             || event.auth_context.is_none()
             || event.seal_basis.is_some()
-            || !event.preconditions.is_empty()
         {
             return Err(SchemaError::Protocol(
-                "prepared ordinary Event requires auth_context and forbids seal_basis + preconditions"
-                    .to_owned(),
+                "prepared ordinary Event requires auth_context and forbids seal_basis".to_owned(),
             ));
         }
         Ok(Self(event))
@@ -240,6 +238,27 @@ mod tests {
         let prepared =
             PreparedOrdinaryEvent::try_from(message_event()).expect("prepared ordinary Event");
         assert_eq!(prepared.event().kind.as_str(), "ak.message.create");
+    }
+
+    #[test]
+    fn prepared_ordinary_event_preserves_domain_preconditions() {
+        let mut event = message_event();
+        event.preconditions.push(arkret_wire::Precondition {
+            cell_id: arkret_wire::CellRef::new(
+                "ak:cell:ak.component.strand.object.v1:fixture".to_owned(),
+            )
+            .unwrap(),
+            predicate: arkret_wire::Predicate {
+                op: arkret_wire::PredicateOp::HeadEq,
+                value: Some(serde_json::Value::Null),
+                values: None,
+                predicate_id: None,
+            },
+        });
+
+        let prepared = PreparedOrdinaryEvent::try_from(event)
+            .expect("ordinary Event may carry signed reducer preconditions");
+        assert_eq!(prepared.event().preconditions.len(), 1);
     }
 
     #[test]

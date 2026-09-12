@@ -38,10 +38,10 @@ pub mod bottom;
 pub mod cbs;
 pub mod cbs_proof_bundle;
 pub mod cell;
+pub mod cell_state;
 pub mod consent_scope;
 pub mod constants;
 pub mod control_proposal;
-pub mod control_seal_batch;
 pub mod cursor;
 pub mod device_revocation;
 pub mod directory_source_ref_access;
@@ -114,6 +114,12 @@ pub use cell::{
     is_registered_causal_register_family, is_registered_cell, is_registered_cell_family,
     null_subject_cell, string_set_digest_component, subject_cell, uri_cell_subject,
 };
+pub use cell_state::{
+    CanonicalCausalHead, CanonicalCausalState, CanonicalCellState, CanonicalCounterEntry,
+    CanonicalCounterState, CanonicalLogEntry, CanonicalOrSetState, CanonicalOrSetValue,
+    CanonicalOrderedLogState, CanonicalSequencedState, CanonicalSetEntry,
+    registered_cell_state_model,
+};
 pub use consent_scope::*;
 pub use constants::*;
 pub use control_proposal::{
@@ -143,7 +149,7 @@ pub use event_submission::{
 };
 pub use events::*;
 pub use extension_manifest::{
-    ConcurrencyClass, ConfidentialityClass, ExtensionManifest, ExtensionManifestCatalog,
+    ConfidentialityClass, ExtensionManifest, ExtensionManifestCatalog,
     ExtensionManifestProofVerifier, LoadedExtensionManifests, ManifestDependencyLayer,
     ManifestKernelLimits, ManifestRegistryContent, ManifestRegistryContentKind,
     ManifestResourceLimits, ProtocolLayerKind, ReducerContractRef, RegistryContentRef,
@@ -153,7 +159,7 @@ pub use extension_map::XExtensionMap;
 pub use generated::{
     AccountDataKey, ActorPrivateUpdateKind, AeadProfileId, AlgorithmSuiteDescriptor,
     AuthoritySetId, AuthoritySetPolicyKind, AuthoritySetSourceKind, AuthoritySourceId, BindingKind,
-    CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileId, DidFreshnessRiskTier,
+    CANONICAL_REDUCER_CONTRACT_DIGEST, CapabilityActionId, CellFamilyId, DIGEST_SUITES, DidFreshnessProfileId, DidFreshnessRiskTier,
     DidMethodEvidenceKind, DomainSeparationId, EVENT_KIND_COUNT, EVENT_KIND_DESCRIPTORS,
     EVENT_KIND_REGISTRY_SHA256, EXPORTER_LABELS, EventCellRule, EventCellRuleField,
     EventCellRuleKey, EventCellRuleOperator, EventKind, ExporterLabelDescriptor, ExporterLabelId,
@@ -218,10 +224,9 @@ pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
 pub use seal::{
-    AuthorizationClosure, CommandOutcome, CommandResultCellState, CommandResultEffect,
-    ExistenceAnchor, MultiSigKind, MultiSignature, PayloadSignature, Seal, SealCommandOutcome,
-    SealSignature, TransactionManifest, TransactionParticipant, TransactionRecord, UnsignedSeal,
-    compute_seal_id, seal_canonical_bytes,
+    AuthorizationClosure, CommandOutcome, CommandResultEffect, ExistenceAnchor, MultiSigKind,
+    MultiSignature, PayloadSignature, Seal, SealCommandOutcome, SealSignature, TransactionManifest,
+    TransactionParticipant, TransactionRecord, UnsignedSeal, compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,

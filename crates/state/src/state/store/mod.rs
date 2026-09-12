@@ -4,7 +4,7 @@
 //!
 //! - [`ControlEventStore`] — pending + sealed control-plane Event log, addressed by `Hash` (the
 //!   canonical `event_digest`).
-//! - [`SealStore`] — Seal DAG, addressed by `SealId`, plus leaf-set queries.
+//! - [`SealStore`] — confirmed per-Realm Seal chain, addressed by `SealId`.
 //! - [`CellStore`] — per-cell sealed op log + per-view effective state cache.
 //! - [`CellStateRegistry`] — `cell_family` → `StateModel` instance + `bottom` mode mapping.
 //!
@@ -16,7 +16,10 @@ pub mod memory;
 
 use arkret_wire::event_envelope::Event;
 pub use arkret_wire::{CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};
-use arkret_wire::{ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy};
+use arkret_wire::{
+    CommandOutcome, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
+    ReasonCode,
+};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -55,15 +58,24 @@ pub fn control_event_digest(
     Hash::new(digest).map_err(|error| StoreError::Backend(format!("invalid event_digest: {error}")))
 }
 
-/// Sealed control-plane Event record: an Event that has been covered by
-/// one or more accepted Seals. Carries every direct Seal back-reference for audit and
-/// deterministic ordering.
+/// One Event occurrence in an accepted Seal command result.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SealCommandEventDecision {
+    pub seal_id: SealId,
+    pub command_index: u32,
+    pub member_index: u32,
+    pub outcome: CommandOutcome,
+    pub reason_code: Option<ReasonCode>,
+}
+
+/// A control Event with a durable committed or rejected Seal result.
 #[derive(Clone, Debug, PartialEq)]
-pub struct SealedControlEventRecord {
+pub struct DecidedControlEventRecord {
     pub event: Event,
     /// Trusted Realm digest suite used to key this exact accepted Event.
     pub digest_suite: arkret_canonical::DigestSuite,
     pub covering_seals: Vec<SealId>,
+    pub command_decisions: Vec<SealCommandEventDecision>,
     pub control_proposal_ack: Option<ControlProposalAck>,
     pub decisions: Vec<ControlProposalDecision>,
     pub decision_overdue: bool,
@@ -118,6 +130,14 @@ pub enum ControlProposalIngress {
     AcklessSelfPrincipal(AcklessSelfPrincipalIngress),
 }
 
+/// One member submitted as part of a registered atomic command unit.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ControlUnitIngressMember {
+    pub event: Event,
+    pub digest_suite: arkret_canonical::DigestSuite,
+    pub ingress: ControlProposalIngress,
+}
+
 impl ControlProposalIngress {
     #[must_use]
     pub fn class(&self) -> ControlProposalIngressClass {
@@ -150,6 +170,12 @@ pub struct PendingControlEventRecord {
     pub ingress_class: ControlProposalIngressClass,
 }
 
+/// A pending registered command unit in normative member order.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PendingControlUnitRecord {
+    pub members: Vec<PendingControlEventRecord>,
+}
+
 /// Exact durable state for one Control Proposal digest.
 ///
 /// Unlike pending/notary work queues, this point lookup preserves terminal
@@ -165,6 +191,7 @@ pub struct ControlProposalSnapshot {
     pub ingress_class: ControlProposalIngressClass,
     pub decisions: Vec<ControlProposalDecision>,
     pub covering_seals: Vec<SealId>,
+    pub command_decisions: Vec<SealCommandEventDecision>,
     pub decision_overdue: bool,
 }
 
@@ -304,24 +331,22 @@ pub struct ControlSealScheduleStats {
 pub trait ControlEventStore: Send + Sync {
     /// Stash a control-plane Event that passed local format / proof
     /// pre-check, together with its durable ingress classification.
-    /// Re-`put_pending_with_ingress` of the same digest with the
-    /// byte-identical ingress MUST be idempotent; a different class or Ack
-    /// for the same digest is a conflict because it would move the
-    /// already-committed admission basis or deadlines.
+    /// Re-submission of the same complete unit with byte-identical ingress is
+    /// idempotent. Any different member order, boundary, class, Ack, or digest
+    /// suite is a conflict.
     ///
     /// The class and its payload are inseparable: `AckRequired` carries the
     /// canonical Control Proposal Ack and `AcklessSelfPrincipal` carries no
     /// Ack, so an Ack-required Move without its Ack cannot be written.
-    async fn put_pending_with_ingress(
+    async fn put_pending_unit_with_ingress(
         &self,
-        event: &Event,
-        ingress: &ControlProposalIngress,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> StoreResult<()>;
+        members: &[ControlUnitIngressMember],
+    ) -> StoreResult<Vec<Hash>>;
 
-    /// Promote a previously-pending Event to sealed under `seal`.
-    /// Re-anchoring the same Event under the same Seal id is idempotent.
-    async fn mark_sealed(&self, event_digest: &Hash, seal: &Seal) -> StoreResult<()>;
+    /// Persist every member decision from an accepted Seal atomically.
+    /// Committed members in `Seal.delta` additionally become direct coverage;
+    /// rejected members become terminal without entering coverage.
+    async fn record_seal_command_results(&self, seal: &Seal) -> StoreResult<()>;
 
     async fn get(&self, event_digest: &Hash) -> StoreResult<Option<Event>>;
 
@@ -331,11 +356,14 @@ pub trait ControlEventStore: Send + Sync {
         event_digest: &Hash,
     ) -> StoreResult<Option<arkret_canonical::DigestSuite>>;
 
+    /// Exact registered unit boundary and normative member order for an Event.
+    async fn registered_unit_members(&self, event_digest: &Hash) -> StoreResult<Option<Vec<Hash>>>;
+
     /// Every accepted Seal whose `delta[]` directly covers `event_digest`.
     ///
     /// This is the bounded internal point lookup for decision state and for
     /// preparing explicit Seal-only resolve selectors. Event resolve never
-    /// attaches covering Seals. Scanning [`Self::list_sealed`] would answer
+    /// attaches covering Seals. Scanning [`Self::list_decided`] would answer
     /// the same question but is unbounded in the Realm's history.
     /// Default implementation reports the backend as unmigrated, matching
     /// [`SealStore::successors`].
@@ -416,24 +444,25 @@ pub trait ControlEventStore: Send + Sync {
         now_ms: i64,
     ) -> StoreResult<ControlSealScheduleStats>;
 
-    /// Pending control-plane Event list for the notary worker, oldest first.
-    async fn list_pending_for_notary(
+    /// Pending registered units for the notary worker, oldest unit first.
+    /// Pagination never splits one unit.
+    async fn list_pending_units_for_notary(
         &self,
         realm_id: &RealmId,
         cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<Event>>;
+    ) -> StoreResult<Vec<PendingControlUnitRecord>>;
 
-    /// Sealed control-plane Event list for federation backfill / audit replay.
-    async fn list_sealed(
+    /// Decided control Event list for federation backfill / audit replay.
+    async fn list_decided(
         &self,
         realm_id: &RealmId,
         cursor: Option<&Hash>,
         limit: usize,
-    ) -> StoreResult<Vec<SealedControlEventRecord>>;
+    ) -> StoreResult<Vec<DecidedControlEventRecord>>;
 }
 
-/// Seal DAG.
+/// Confirmed per-Realm Seal chain.
 #[async_trait]
 pub trait SealStore: Send + Sync {
     /// Acquire a bounded, fenced signing lease for one `(Realm, signer slot)`.
@@ -488,7 +517,7 @@ pub trait SealStore: Send + Sync {
     /// Direct successors of `seal_id` — every Seal `S` for which
     /// `S.predecessor_ref == Some(seal_id)`. This is a read-only chain query;
     /// callers MUST NOT rewrite signed predecessor references or delete an
-    /// object while any successor, frontier, or retention pin still names it.
+    /// object while any successor or retention pin still names it.
     /// Default implementation returns `StoreError::Backend("unsupported")`.
     async fn successors(&self, _realm_id: &RealmId, _seal_id: &SealId) -> StoreResult<Vec<SealId>> {
         Err(StoreError::Backend(
@@ -517,13 +546,12 @@ pub trait CellStore: Send + Sync {
         cell: &CellRef,
     ) -> StoreResult<Vec<IssuedOp>>;
 
-    /// Sealed operations grouped by the Seal batch that accepted them, in
-    /// Seal acceptance order.
+    /// Confirmed security operations grouped by the Seal that accepted them,
+    /// in Seal acceptance order.
     ///
-    /// The batch boundary is significant for causal registers: writes in one
-    /// Seal share the frozen predecessor view and are concurrent siblings,
-    /// while a successor batch can supersede prior heads. Selector writes
-    /// retain supersession derived from their own signed basis.
+    /// Ordered command replay and registered-unit atomicity are authenticated
+    /// by the Seal's `command_results`; this log contains only the committed
+    /// effects after that replay succeeds.
     async fn confirmed_write_batches_for_cell(
         &self,
         realm_id: &RealmId,
@@ -597,4 +625,23 @@ pub trait CellStateRegistry: Send + Sync {
     fn checkpoint_context(&self, _realm_id: &RealmId) -> StoreResult<Option<Hash>> {
         Ok(None)
     }
+}
+
+/// One transaction boundary for publishing an accepted Seal.
+///
+/// All read views must address the same backend. `commit_seal` compares the
+/// confirmed head with `seal.predecessor_ref` and publishes the complete Cell
+/// effects, new head, and every committed/rejected command member decision
+/// together. Failure or a stale head must leave all three views unchanged.
+#[async_trait]
+pub trait SealCommitStore: Send + Sync {
+    fn control_events(&self) -> &dyn ControlEventStore;
+    fn seals(&self) -> &dyn SealStore;
+    fn cells(&self) -> &dyn CellStore;
+    async fn commit_seal(
+        &self,
+        seal: &Seal,
+        new_ops: &[(CellRef, IssuedOp)],
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> StoreResult<bool>;
 }

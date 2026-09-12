@@ -21,18 +21,12 @@ use arkret_models_collaboration::objects::space::Space;
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::*;
 
-mod base64url {
-    pub use arkret_canonical::base64url::*;
-}
 mod canonical {
     pub use arkret_canonical::canonical::*;
 }
 mod generated;
 mod error {
     pub use arkret_wire::error_codes::*;
-}
-mod models {
-    pub use arkret_wire::primitives::*;
 }
 
 pub mod consent;

@@ -9,12 +9,12 @@
 //! | 1 structural | canonical bytes, envelope shape, `realm_id` | `schema_violation` |
 //! | 2 proofs | `proofs[].event_digest` binds the recomputed digest; signature verify | `signature_invalid` |
 //! | 3 critical refs | each `refs[role=authorized_by]` resolves to a covering grant | `capability_denied` |
-//! | 4 preconditions | every `(cell, predicate)` evaluates true on the frozen `pre_state` | `state_mismatch` |
+//! | 4 preconditions | every `(cell, predicate)` evaluates true at its command execution position | `state_mismatch` |
 //! | 5 derived writes | every projected write passes the cell's `validate_op` | `schema_violation` |
 //!
 //! §5.1 steps 2-4 (`seal_basis.leaves[]` inside the receiving Seal's
 //! predecessor closure, and the two declared roots against that leaf view)
-//! need the Seal DAG, so they live in [`crate::state::seal::verify_seal_basis`]
+//! need the confirmed Seal chain, so they live in [`crate::state::seal::verify_seal_basis`]
 //! and `apply_seal` runs them just before this function.
 //!
 //! Two dependencies are injected rather than imported. Signature verification
@@ -24,7 +24,7 @@
 //! (`tools/check-layering.py`). Both arrive as closures so the pipeline
 //! orchestration stays pure and this crate keeps no registry of its own.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::ActorId;
 use arkret_wire::event_envelope::{EVENT_REF_ROLE_AUTHORIZED_BY, Event, EventSubmitContext};
@@ -74,6 +74,65 @@ pub enum ControlMoveReject {
     Registry(String),
 }
 
+/// Whether a verification failure is a durable command result or prevents a
+/// decision at the current execution position.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ControlMoveFailureDisposition {
+    Rejected(crate::ReasonCode),
+    Pending(crate::ReasonCode),
+    Invalid,
+    Infrastructure,
+}
+
+/// Classify a verifier failure for ordered Seal command execution.
+///
+/// Invalid Event bytes and proofs invalidate the proposed Seal. Missing
+/// dependencies keep the command pending, and registry/backend failures abort
+/// execution. Only deterministic authorization, precondition, and registered
+/// reducer outcomes become durable `rejected` command results.
+pub fn classify_control_move_reject(reject: &ControlMoveReject) -> ControlMoveFailureDisposition {
+    match reject {
+        ControlMoveReject::SchemaViolation(_) | ControlMoveReject::SignatureInvalid(_) => {
+            ControlMoveFailureDisposition::Invalid
+        }
+        ControlMoveReject::CapabilityDenied(_) => {
+            ControlMoveFailureDisposition::Rejected(crate::ReasonCode::PolicyDenied)
+        }
+        ControlMoveReject::FailedPrecondition { reason, .. } => {
+            classify_registered_failure_reason(reason, crate::ReasonCode::StateMismatch)
+        }
+        ControlMoveReject::FailedBottom { .. } => {
+            ControlMoveFailureDisposition::Rejected(crate::ReasonCode::CellInBottomState)
+        }
+        ControlMoveReject::PrestateBindingMismatch { .. } => {
+            ControlMoveFailureDisposition::Rejected(crate::ReasonCode::StateMismatch)
+        }
+        ControlMoveReject::ProjectionFailed(reason) => {
+            classify_registered_failure_reason(reason, crate::ReasonCode::ReducerProjectionFailed)
+        }
+        ControlMoveReject::Registry(_) => ControlMoveFailureDisposition::Infrastructure,
+    }
+}
+
+fn classify_registered_failure_reason(
+    reason: &str,
+    fallback: crate::ReasonCode,
+) -> ControlMoveFailureDisposition {
+    let reason = crate::ReasonCode::from_wire(reason);
+    let reason = if reason.descriptor().is_some() {
+        reason
+    } else {
+        fallback
+    };
+    match reason {
+        crate::ReasonCode::DependencyMissing
+        | crate::ReasonCode::UnsupportedProfile
+        | crate::ReasonCode::QuorumUnreachable => ControlMoveFailureDisposition::Pending(reason),
+        crate::ReasonCode::BackendUnavailable => ControlMoveFailureDisposition::Infrastructure,
+        reason => ControlMoveFailureDisposition::Rejected(reason),
+    }
+}
+
 impl From<StoreError> for ControlMoveReject {
     fn from(e: StoreError) -> Self {
         ControlMoveReject::Registry(e.to_string())
@@ -86,6 +145,12 @@ impl From<StoreError> for ControlMoveReject {
 pub struct ControlMoveVerificationContext<'a> {
     pub realm_id: &'a RealmId,
     pub pre_state: &'a BTreeMap<CellRef, ResolvedCellState>,
+    /// Exact state reconstructed at the producer-signed Seal basis.
+    pub signed_basis_state: &'a BTreeMap<CellRef, ResolvedCellState>,
+    /// State before this registered atomic unit began execution.
+    pub revision_state: &'a BTreeMap<CellRef, ResolvedCellState>,
+    /// Additional actual security reads performed by the registered domain evaluator.
+    pub additional_security_reads: &'a [CellRef],
     pub registry: &'a dyn CellStateRegistry,
     pub digest_suite: arkret_canonical::DigestSuite,
     pub submit_context: EventSubmitContext,
@@ -119,13 +184,13 @@ pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
     }
 }
 
-/// Verify a Control Move against a frozen pre-state map and return the
+/// Verify a Control Move against its execution-position state and return the
 /// receiver-derived writes.
 ///
-/// `pre_state` MUST be the joined governance state of the receiving Seal's
-/// predecessor view — never a baseline advanced by same-batch writes
-/// (§6.3.1 frozen-predecessor rule). Cells absent from the map are treated
-/// as `ResolvedCellState::Value(Value::Null)`.
+/// The first command receives the confirmed predecessor state. Each later
+/// command receives the staged state after every earlier committed registered
+/// unit. Cells absent from the map are treated as
+/// `ResolvedCellState::Value(Value::Null)`.
 ///
 /// `verify_proofs` owns cryptographic signature verification; pass
 /// `|_| Ok(())` when signatures are checked elsewhere (e.g. fixture replay).
@@ -141,6 +206,7 @@ pub fn verify_control_move<VerifyProofs, ProjectWrites>(
     event: &Event,
     realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, ResolvedCellState>,
+    signed_basis_state: &BTreeMap<CellRef, ResolvedCellState>,
     registry: &dyn CellStateRegistry,
     digest_suite: arkret_canonical::DigestSuite,
     verify_proofs: VerifyProofs,
@@ -155,6 +221,9 @@ where
         ControlMoveVerificationContext {
             realm_id,
             pre_state,
+            signed_basis_state,
+            revision_state: pre_state,
+            additional_security_reads: &[],
             registry,
             digest_suite,
             submit_context: EventSubmitContext::Standard,
@@ -250,6 +319,9 @@ where
     let ControlMoveVerificationContext {
         realm_id,
         pre_state,
+        signed_basis_state,
+        revision_state,
+        additional_security_reads,
         registry,
         digest_suite,
         submit_context: context,
@@ -305,6 +377,26 @@ where
     }
     verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
 
+    let projected = project_writes(event).map_err(ControlMoveReject::ProjectionFailed)?;
+    let mut dependencies = additional_security_reads
+        .iter()
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    dependencies.extend(projected.iter().map(|write| write.cell_id.clone()));
+    dependencies.extend(event.preconditions.iter().map(|pre| pre.cell_id.clone()));
+    for reference in event.refs.iter().filter(|reference| {
+        reference.role == EVENT_REF_ROLE_AUTHORIZED_BY || reference.role == "recovery_capability"
+    }) {
+        dependencies.insert(capability_grant_cell(reference.id.as_str())?);
+    }
+    verify_security_revision_guards(
+        realm_id,
+        signed_basis_state,
+        revision_state,
+        registry,
+        &dependencies,
+    )?;
+
     // Step 4: preconditions
     for pre in &event.preconditions {
         // An unwritten cell reads `null` protocol-wide
@@ -334,15 +426,16 @@ where
 
     // Step 5: derive each security write and validate it against the frozen
     // predecessor state and the registered sequenced-state contract.
-    let projected = project_writes(event).map_err(ControlMoveReject::ProjectionFailed)?;
     let mut effects = Vec::with_capacity(projected.len());
     for write in &projected {
         for effect in resolve_projected_write(write, realm_id, pre_state, registry)? {
             let binding = registry
                 .resolve(realm_id, &effect.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.execution != arkret_wire::EventCellExecution::Security
-                || binding.state_model != crate::state_model::StateModelKind::SequencedState
+            if (binding.execution == arkret_wire::EventCellExecution::Security
+                && binding.state_model != crate::state_model::StateModelKind::SequencedState)
+                || (binding.execution == arkret_wire::EventCellExecution::Data
+                    && context != EventSubmitContext::AnchorUnit)
             {
                 return Err(ControlMoveReject::SchemaViolation(format!(
                     "control Event projected ordinary data cell {}",
@@ -376,6 +469,39 @@ where
         }
     }
     Ok(effects)
+}
+
+/// Check identity CAS for the exact security Cells actually read or written.
+/// An absent Cell and a written-null revision are distinct identities.
+pub fn verify_security_revision_guards(
+    realm_id: &RealmId,
+    signed_basis_state: &BTreeMap<CellRef, ResolvedCellState>,
+    revision_state: &BTreeMap<CellRef, ResolvedCellState>,
+    registry: &dyn CellStateRegistry,
+    dependencies: &BTreeSet<CellRef>,
+) -> Result<(), ControlMoveReject> {
+    for cell in dependencies {
+        let binding = registry
+            .resolve(realm_id, cell)
+            .map_err(|error| ControlMoveReject::Registry(error.to_string()))?;
+        if binding.execution != arkret_wire::EventCellExecution::Security {
+            continue;
+        }
+        let revision = |state: &BTreeMap<CellRef, ResolvedCellState>| -> Result<Option<crate::EventId>, ControlMoveReject> {
+            match state.get(cell) {
+                None => Ok(None),
+                Some(ResolvedCellState::Sequenced(state)) => Ok(Some(state.revision_event_id.clone())),
+                Some(_) => Err(ControlMoveReject::Registry(format!("security Cell {cell} does not have a confirmed revision"))),
+            }
+        };
+        if revision(signed_basis_state)? != revision(revision_state)? {
+            return Err(ControlMoveReject::FailedPrecondition {
+                cell: cell.as_str().to_owned(),
+                reason: crate::ReasonCode::StateMismatch.as_str().to_owned(),
+            });
+        }
+    }
+    Ok(())
 }
 
 fn verify_fork_resolution_refs(
@@ -417,8 +543,8 @@ fn verify_fork_resolution_refs(
     }
     // Section 6.3.2: an adjudication is final in one direction only. Without a
     // `head_eq: null` on the target cell, a causal successor whose basis already
-    // contains the settled verdict satisfies the automatic complete-heads guard
-    // -- `H_c(B) = H_c(P)` holds for exactly that writer -- and could swap the
+    // contains the settled verdict satisfies the automatic revision identity guard
+    // already agrees with the settled revision and could swap the
     // canonical winner or flip void_all, retroactively cutting an accepted actor
     // chain. The guard cannot catch it, so the assertion has to be carried.
     //
@@ -548,7 +674,7 @@ pub fn resolve_projected_write(
                 ))
             })?;
             // §4.3.1 step 3: `apply_patch` is only registered for
-            // `causal_register` / `causal_register`, and those produce a single `set`
+            // `causal_register`, and those produce a single `set`
             // whose value is the complete post-state — never the patch itself.
             let post_state = patch.apply(&observed).map_err(|err| {
                 ControlMoveReject::ProjectionFailed(format!(
@@ -665,15 +791,11 @@ const CAPABILITY_GRANT_CELL_FAMILY: &str = arkret_wire::CellFamilyId::CAPABILITY
 #[derive(Debug, Deserialize)]
 struct CapabilityGrantCellValue {
     #[serde(default)]
-    id: Option<String>,
-    #[serde(default)]
     subject: Option<ActorId>,
     #[serde(default)]
     actions: Vec<String>,
     #[serde(default)]
     resources: Vec<Value>,
-    #[serde(default)]
-    resource_selectors: Vec<Value>,
     #[serde(default)]
     revoked_at: Option<Value>,
     #[serde(default)]
@@ -681,16 +803,12 @@ struct CapabilityGrantCellValue {
 }
 
 impl CapabilityGrantCellValue {
-    fn grant_ids(&self) -> impl Iterator<Item = &str> {
-        self.id.iter().map(String::as_str)
-    }
-
     fn subject(&self) -> Option<&ActorId> {
         self.subject.as_ref()
     }
 
     fn has_resources(&self) -> bool {
-        !self.resources.is_empty() || !self.resource_selectors.is_empty()
+        !self.resources.is_empty()
     }
 
     fn is_revoked(&self) -> bool {
@@ -742,35 +860,42 @@ fn verify_capability_refs(
     Ok(())
 }
 
+fn capability_grant_cell(grant_id: &str) -> Result<CellRef, ControlMoveReject> {
+    let grant_id = arkret_wire::GrantId::new(grant_id.to_owned())
+        .map_err(|error| ControlMoveReject::CapabilityDenied(error.to_string()))?;
+    CellRef::new(arkret_wire::subject_cell(
+        CAPABILITY_GRANT_CELL_FAMILY,
+        grant_id.as_str(),
+    ))
+    .map_err(|error| ControlMoveReject::CapabilityDenied(error.to_string()))
+}
+
 fn find_capability_grant(
     grant_id: &str,
     pre_state: &BTreeMap<CellRef, ResolvedCellState>,
 ) -> Result<CapabilityGrantCellValue, ControlMoveReject> {
-    let mut saw_bottom = false;
-    for (cell, state) in pre_state {
-        if !is_capability_grant_cell(cell) {
-            continue;
-        }
-        match state.settled_value() {
-            None => {
-                saw_bottom = true;
-            }
-            Some(value) => {
-                if let Some(grant) = grant_from_cell_value(grant_id, value)? {
-                    return Ok(grant);
-                }
-            }
-        }
+    let cell = capability_grant_cell(grant_id)?;
+    let unavailable = || {
+        ControlMoveReject::CapabilityDenied(format!(
+            "authorized_by grant '{grant_id}' is not active in its exact security Cell"
+        ))
+    };
+    let Some(ResolvedCellState::Sequenced(state)) = pre_state.get(&cell) else {
+        return Err(unavailable());
+    };
+    let entries = state.value.as_array().ok_or_else(unavailable)?;
+    if entries.len() != 1 {
+        return Err(unavailable());
     }
-
-    if saw_bottom {
-        return Err(ControlMoveReject::CapabilityDenied(format!(
-            "authorized_by grant '{grant_id}' is unavailable because a capability grant cell is bottom"
-        )));
-    }
-    Err(ControlMoveReject::CapabilityDenied(format!(
-        "authorized_by grant '{grant_id}' not found in pre-state capability grant cells"
-    )))
+    let grant = entries[0]
+        .get("value")
+        .and_then(|body| body.get("grant"))
+        .ok_or_else(unavailable)?;
+    serde_json::from_value(grant.clone()).map_err(|error| {
+        ControlMoveReject::CapabilityDenied(format!(
+            "authorized_by grant '{grant_id}' has invalid typed value: {error}"
+        ))
+    })
 }
 
 fn recovery_capability_is_active_for(
@@ -785,40 +910,6 @@ fn recovery_capability_is_active_for(
             && grant.actions.iter().any(|candidate| candidate == action)
             && grant.has_resources()
     })
-}
-
-fn is_capability_grant_cell(cell: &CellRef) -> bool {
-    crate::CellId::parse(cell.as_str())
-        .map(|cell_id| cell_id.component() == CAPABILITY_GRANT_CELL_FAMILY)
-        .unwrap_or(false)
-}
-
-fn grant_from_cell_value(
-    grant_id: &str,
-    value: &Value,
-) -> Result<Option<CapabilityGrantCellValue>, ControlMoveReject> {
-    let Some(items) = value.as_array() else {
-        return Ok(None);
-    };
-    for item in items {
-        let tag_matches = item.get("tag").and_then(Value::as_str) == Some(grant_id);
-        let Some(raw_grant) = item
-            .get("value")
-            .or(if tag_matches { Some(item) } else { None })
-        else {
-            continue;
-        };
-        let grant: CapabilityGrantCellValue =
-            serde_json::from_value(raw_grant.clone()).map_err(|err| {
-                ControlMoveReject::CapabilityDenied(format!(
-                    "authorized_by grant '{grant_id}' has invalid typed value: {err}"
-                ))
-            })?;
-        if tag_matches || grant.grant_ids().any(|candidate| candidate == grant_id) {
-            return Ok(Some(grant));
-        }
-    }
-    Ok(None)
 }
 
 fn evaluate_predicate(
@@ -873,7 +964,7 @@ fn evaluate_predicate(
             for needle in needles {
                 if !observed_arr.iter().any(|item| {
                     item == needle
-                        || item.get("tag") == Some(needle)
+                        || item.get("tag_id") == Some(needle)
                         || item.get("value") == Some(needle)
                 }) {
                     return Err(ControlMoveReject::FailedPrecondition {

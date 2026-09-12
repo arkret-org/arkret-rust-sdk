@@ -336,9 +336,11 @@
       "owner": "arkret-wire",
       "mode": "enum+descriptor",
       "artifacts": [
-        "registry/reducer-profile-registry.json"
+        "registry/reducer-profile-registry.json",
+        "registry/contract-registry.json"
       ],
       "provides": [
+        "CANONICAL_REDUCER_CONTRACT_DIGEST",
         "ReducerProfileId"
       ]
     },

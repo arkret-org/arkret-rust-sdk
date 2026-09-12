@@ -1423,9 +1423,7 @@ impl Event {
             basis.validate_protocol_bounds()?;
         }
         if self.kind.is_reducer_input() {
-            let is_ordinary_event = self.auth_context.is_some()
-                && self.seal_basis.is_none()
-                && self.preconditions.is_empty();
+            let is_ordinary_event = self.auth_context.is_some() && self.seal_basis.is_none();
             let is_control_move = self.auth_context.is_none() && self.seal_basis.is_some();
             // The §5 anchor units carry no basis field at all: bootstrap has no
             // accepted Seal to point at, and the B-model re-anchor fixes its
@@ -2098,7 +2096,9 @@ mod event_wire_surface_tests {
                 predicate_id: None,
             },
         });
-        event.proofs.push(producer_proof());
+        let mut proof = producer_proof();
+        proof.signer_resolution_evidence_ref = None;
+        event.proofs.push(proof);
 
         event
             .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)
@@ -2109,5 +2109,35 @@ mod event_wire_surface_tests {
                 .is_err(),
             "the same basis-less Event is not a non-anchor Control Move"
         );
+    }
+
+    #[test]
+    fn ordinary_event_allows_signed_domain_preconditions() {
+        let mut event = base_event();
+        event.auth_context = Some(AuthContext {
+            key_id: OpaqueLocalId::new("device-1").unwrap(),
+            key_epoch: 0,
+            credential_epoch: None,
+            authority_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
+            ],
+        });
+        event.preconditions.push(Precondition {
+            cell_id: crate::CellRef::new(
+                "ak:cell:ak.component.strand.object.v1:fixture".to_owned(),
+            )
+            .unwrap(),
+            predicate: crate::cbs::Predicate {
+                op: crate::cbs::PredicateOp::HeadEq,
+                value: Some(Value::Null),
+                values: None,
+                predicate_id: None,
+            },
+        });
+        event.proofs.push(producer_proof());
+
+        event
+            .validate_for_submit_structural()
+            .expect("ordinary Event may carry signed reducer preconditions");
     }
 }
