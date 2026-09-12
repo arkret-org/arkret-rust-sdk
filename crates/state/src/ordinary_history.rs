@@ -128,6 +128,7 @@ pub struct VerifiedClosurePrefix {
     realm_id: RealmId,
     head: SealId,
     closures: Vec<AuthorizationClosure>,
+    committed_events: BTreeSet<EventId>,
 }
 
 impl VerifiedClosurePrefix {
@@ -153,6 +154,7 @@ impl VerifiedClosurePrefix {
         let mut previous = None;
         let mut seen = BTreeSet::new();
         let mut closures = Vec::new();
+        let mut committed_events = BTreeSet::new();
         for seal in seals {
             if seal.realm_id != first.realm_id || seal.predecessor_ref.as_ref() != previous {
                 return Err(HistoryEvidenceError::Unavailable(
@@ -167,6 +169,18 @@ impl VerifiedClosurePrefix {
             seal.validate_structural()
                 .map_err(|error| HistoryEvidenceError::Invalid(error.to_string()))?;
             verify_seal_and_closure_semantics(seal)?;
+            for result in seal
+                .command_results
+                .iter()
+                .filter(|result| result.outcome == CommandOutcome::Committed)
+            {
+                for digest in &result.unit_event_digests {
+                    committed_events.insert(
+                        EventId::from_event_digest(digest)
+                            .map_err(|error| HistoryEvidenceError::Invalid(error.to_string()))?,
+                    );
+                }
+            }
             for closure in &seal.authorization_closures {
                 let command_digest = closure.command_event_id.event_digest();
                 if !seal.command_results.iter().any(|result| {
@@ -186,6 +200,7 @@ impl VerifiedClosurePrefix {
             realm_id: first.realm_id.clone(),
             head: expected_head.clone(),
             closures,
+            committed_events,
         })
     }
 
@@ -440,6 +455,13 @@ fn classify_complete(
                         usage.authority_realm_id
                     ))
                 })?;
+            if !prefix
+                .committed_events
+                .contains(&usage.authorization_event_id)
+                || !prefix.committed_events.contains(&usage.generation_event_id)
+            {
+                return Err(HistoryEvidenceError::Unavailable("security prefix does not confirm the exact authorization instance and generation".into()));
+            }
             for cut in prefix
                 .closures
                 .iter()

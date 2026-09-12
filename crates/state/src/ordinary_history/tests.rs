@@ -101,6 +101,17 @@ fn inventory(closures: Vec<AuthorizationClosure>) -> VerifiedClosureInventory {
         ))
         .unwrap(),
         closures,
+        committed_events: [
+            "member-authorization",
+            "parent-grant",
+            "generation",
+            "old-generation",
+            "new-generation",
+            "parent-generation",
+        ]
+        .into_iter()
+        .map(id)
+        .collect(),
     }])
     .unwrap()
 }
@@ -323,5 +334,22 @@ fn all_delegation_parent_uses_must_satisfy_their_own_cuts() {
     assert!(matches!(
         classify_ordinary_history(&target, &inventory, &source).unwrap(),
         OrdinaryHistoryEligibility::Quarantined { .. }
+    ));
+}
+
+#[test]
+fn an_older_security_prefix_cannot_confirm_a_new_authorization_generation() {
+    let mut source = Source::default();
+    let target = source.insert(event("target", "generation", &[], &[]));
+    let mut inventory = inventory(vec![]);
+    inventory
+        .prefixes
+        .get_mut(&realm())
+        .unwrap()
+        .committed_events
+        .remove(&id("generation"));
+    assert!(matches!(
+        classify_ordinary_history(&target, &inventory, &source).unwrap(),
+        OrdinaryHistoryEligibility::Pending { .. }
     ));
 }
