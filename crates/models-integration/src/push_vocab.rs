@@ -27,17 +27,9 @@ pub const ALLOWED_WAKEUP_KINDS: &[&str] = &[
 /// The `l10n_key:<token>` form is accepted in addition to these literals.
 pub const ALLOWED_PUSH_HINTS: &[&str] = &["new_message", "incoming_call", "mention_self"];
 
-/// Closed enum of `timing_profile_hint` values accepted in blind wakeups.
-pub const ALLOWED_TIMING_PROFILE_HINTS: &[&str] = &["default", "traffic_metadata_hardened"];
-
 /// Return true if `value` is a valid `wakeup_kind` for blind wakeups.
 pub fn is_valid_wakeup_kind(value: &str) -> bool {
     ALLOWED_WAKEUP_KINDS.contains(&value)
-}
-
-/// Return true if `value` is a valid `timing_profile_hint` for blind wakeups.
-pub fn is_valid_timing_profile_hint(value: &str) -> bool {
-    ALLOWED_TIMING_PROFILE_HINTS.contains(&value)
 }
 
 /// Helper for callers that need to validate private extension tokens before

@@ -19,7 +19,6 @@
 //! - `push_target_id` — canonical typed pairwise pseudonym validated by [`PushTargetId`].
 //! - `wakeup_kind` — closed enum (`message`, `mention`, `assignment`, `schedule`, `reaction`,
 //!   `call_invite`, `reminder`, `scheduled_send`, `expiry_invalidation`).
-//! - `timing_profile_hint` — closed enum (`default`, `traffic_metadata_hardened`).
 //! - `badge`, `unread_count`, `count` — small non-negative integers (≤ `MAX_COUNT_VALUE`). May be
 //!   carried inside a `counts` object.
 //! - `push_hint` — closed enum (`new_message`, `incoming_call`, `mention_self`) **or** the form
@@ -59,8 +58,7 @@
 use arkret_models_integration::PushTargetId;
 pub use arkret_models_integration::push_vocab::{
     ALLOWED_PUSH_HINTS, ALLOWED_TIMING_PROFILE_HINTS, ALLOWED_WAKEUP_KINDS, MAX_COUNT_VALUE,
-    is_valid_custom_wakeup_kind, is_valid_push_hint, is_valid_timing_profile_hint,
-    is_valid_wakeup_kind,
+    is_valid_custom_wakeup_kind, is_valid_push_hint, is_valid_wakeup_kind,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -72,7 +70,6 @@ use thiserror::Error;
 pub const ALLOWED_BLIND_FIELDS: &[&str] = &[
     "push_target_id",
     "wakeup_kind",
-    "timing_profile_hint",
     "push_hint",
     "badge",
     "unread_count",
@@ -95,7 +92,7 @@ pub enum BlindPayloadReasonCode {
     /// `push_target_id` opaque-pseudonym slot.
     SensitiveLiteral,
     /// A required field (e.g. `push_target_id`, `wakeup_kind`, or
-    /// `timing_profile_hint` in strict mode) is missing.
+    /// in strict mode) is missing.
     MissingRequiredField,
 }
 
@@ -175,7 +172,7 @@ pub enum SanitizerMode {
     /// extensions.
     Default,
     /// Strict sanitizer — same checks as `Default` plus the requirement
-    /// that `push_target_id`, `wakeup_kind`, and `timing_profile_hint`
+    /// that `push_target_id` and `wakeup_kind`
     /// are present at the top level. Used by gateway entry points that
     /// have already extracted the wire-model `notification` object.
     Strict,
@@ -192,13 +189,13 @@ pub enum SanitizerMode {
 ///
 /// Use [`sanitize_blind_payload_strict`] for the gateway ingress / push
 /// provider variant that also requires `push_target_id` + `wakeup_kind` +
-/// `timing_profile_hint`.
+/// required by the wire contract.
 pub fn sanitize_blind_payload(payload: &Value) -> Result<(), BlindPayloadError> {
     sanitize_blind_payload_with(payload, SanitizerMode::Default)
 }
 
 /// Like [`sanitize_blind_payload`] but also requires `push_target_id` and
-/// `wakeup_kind` and `timing_profile_hint` to be present in the
+/// `wakeup_kind` to be present in the
 /// (extracted) notification object.
 pub fn sanitize_blind_payload_strict(payload: &Value) -> Result<(), BlindPayloadError> {
     sanitize_blind_payload_with(payload, SanitizerMode::Strict)
@@ -251,9 +248,6 @@ pub fn sanitize_blind_payload_with(
         if !notification.contains_key("wakeup_kind") {
             return Err(BlindPayloadError::missing("wakeup_kind"));
         }
-        if !notification.contains_key("timing_profile_hint") {
-            return Err(BlindPayloadError::missing("timing_profile_hint"));
-        }
     }
 
     for (key, value) in notification {
@@ -291,17 +285,6 @@ fn validate_allowed_field(key: &str, value: &Value) -> Result<(), BlindPayloadEr
             None => Err(BlindPayloadError::invalid(
                 key,
                 "wakeup_kind must be a string",
-            )),
-        },
-        "timing_profile_hint" => match value.as_str() {
-            Some(raw) if is_valid_timing_profile_hint(raw) => Ok(()),
-            Some(_) => Err(BlindPayloadError::invalid(
-                key,
-                "timing_profile_hint must be one of default/traffic_metadata_hardened",
-            )),
-            None => Err(BlindPayloadError::invalid(
-                key,
-                "timing_profile_hint must be a string",
             )),
         },
         "push_hint" => match value.as_str() {
@@ -521,10 +504,7 @@ pub const PROVIDER_EGRESS_STRIP_KEYS: &[&str] = &[
     "route_tokens",
     "realm_route_token",
     "scope_route_token",
-    "mention_redirect_target_route_tokens",
     "delivery_binding_frontier_token",
-    "target_route_token",
-    "timing_profile_hint",
     "attestation_evidence",
     "attestation_chain",
     "size",
@@ -575,7 +555,7 @@ mod tests {
             "notification": {
                 "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": "message",
-                "timing_profile_hint": "default",
+
                 "push_hint": "new_message",
                 "counts": { "unread_count": 1 },
             }
@@ -593,7 +573,7 @@ mod tests {
         sanitize_blind_payload(&json!({
             "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
             "wakeup_kind": "call_invite",
-            "timing_profile_hint": "traffic_metadata_hardened",
+
         }))
         .unwrap();
     }
@@ -610,7 +590,7 @@ mod tests {
             sanitize_blind_payload(&json!({
                 "push_target_id": "ak:pseudonym:push:kosc9iQ4gVct1OB-b6X364WIFIsJFVbVzn7BMBs1sm8",
                 "wakeup_kind": kind,
-                "timing_profile_hint": "default",
+
             }))
             .unwrap();
             assert!(
@@ -737,7 +717,7 @@ mod tests {
         let payload = json!({
             "notification": {
                 "wakeup_kind": "message",
-                "timing_profile_hint": "default"
+
             }
         });
         let err = sanitize_blind_payload_strict(&payload).unwrap_err();

@@ -10,10 +10,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-fn is_false(value: &bool) -> bool {
-    !*value
-}
-
 /// Opaque service-generated routing token.
 ///
 /// Counterpart for
@@ -164,8 +160,46 @@ pub struct PushRegisterDeviceRequestBody {
     pub app_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub recipient_id: Option<DidCoreId>,
+    #[serde(default)]
+    pub visible_notification_opt_in: bool,
+}
+
+/// Authenticated registration persisted by a Station and read within its trusted
+/// deployment boundary. This is storage state, never a notify wire envelope.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PushRegistrationRecord {
+    pub registration_id: OpaqueLocalId,
+    pub account_id: arkret_wire::AccountId,
+    pub device_id: DeviceId,
+    pub push_gateway: String,
+    pub push_key: PushKey,
+    pub platform: Option<String>,
+    pub app_id: Option<String>,
+    pub visible_notification_opt_in: bool,
+    pub push_route_id: String,
+    pub push_target_id: PushTargetId,
+    pub salt_epoch_id: String,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub retained_push_targets: Vec<RetainedPushTarget>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RetainedPushTarget {
+    pub push_target_id: PushTargetId,
+    pub retained_until: DateTime<Utc>,
+}
+
+impl PushRegistrationRecord {
+    pub fn accepts_target(&self, target: &PushTargetId, at: DateTime<Utc>) -> bool {
+        self.expires_at.is_none_or(|expires| at < expires)
+            && (&self.push_target_id == target
+                || self
+                    .retained_push_targets
+                    .iter()
+                    .any(|old| &old.push_target_id == target && at < old.retained_until))
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -299,16 +333,6 @@ fn is_valid_push_count_bucket(value: &str) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct PushDeviceRoute {
     pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub push_key: Option<PushKey>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub app_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub platform: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_route_token: Option<PushRouteToken>,
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub visible_notification_opt_in: bool,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -319,30 +343,6 @@ pub struct PushRouteTokens {
     pub realm_route_token: Option<PushRouteToken>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope_route_token: Option<PushRouteToken>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub mention_redirect_target_route_tokens: Vec<PushRouteToken>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PushTimingProfileHint {
-    #[default]
-    Default,
-    TrafficMetadataHardened,
-}
-
-impl PushTimingProfileHint {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Default => "default",
-            Self::TrafficMetadataHardened => "traffic_metadata_hardened",
-        }
-    }
-
-    pub fn is_traffic_metadata_hardened(self) -> bool {
-        matches!(self, Self::TrafficMetadataHardened)
-    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -353,8 +353,6 @@ pub struct PushNotificationEnvelope {
     pub push_target_id: Option<PushTargetId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wakeup_kind: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub timing_profile_hint: Option<PushTimingProfileHint>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub push_hint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -664,7 +662,6 @@ pub fn validate_push_notify_contract_shape(request: &PushNotifyRequestBody) -> R
         return Err("notification.push_target_id is required".to_owned());
     }
     validate_wakeup_kind(notification.wakeup_kind.as_deref())?;
-    validate_timing_profile_hint(notification.timing_profile_hint)?;
 
     if notification.devices.is_empty() {
         return Err("notification.devices must contain at least one device".to_owned());
@@ -737,13 +734,6 @@ fn validate_wakeup_kind(value: Option<&str>) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_timing_profile_hint(value: Option<PushTimingProfileHint>) -> Result<(), String> {
-    let Some(_) = value else {
-        return Err("notification.timing_profile_hint is required".to_owned());
-    };
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -760,25 +750,15 @@ mod tests {
                     .unwrap(),
                 ),
                 wakeup_kind: Some("message".to_owned()),
-                timing_profile_hint: Some(PushTimingProfileHint::Default),
+
                 devices: vec![
                     PushDeviceRoute {
                         device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001")
                             .unwrap(),
-                        push_key: Some(PushKey::new("token-1").unwrap()),
-                        app_id: Some("com.example.app".to_owned()),
-                        platform: None,
-                        target_route_token: None,
-                        visible_notification_opt_in: false,
                     },
                     PushDeviceRoute {
                         device_id: DeviceId::new("ak:device:01904100-0000-7000-8000-000000000002")
                             .unwrap(),
-                        push_key: Some(PushKey::new("token-2").unwrap()),
-                        app_id: Some("com.example.app".to_owned()),
-                        platform: None,
-                        target_route_token: None,
-                        visible_notification_opt_in: false,
                     },
                 ],
                 ..PushNotificationEnvelope::default()
@@ -787,6 +767,32 @@ mod tests {
             reason_code: None,
             audit_envelope: None,
         }
+    }
+
+    #[test]
+    fn notify_device_routes_cannot_override_registration() {
+        let valid = valid_request();
+        assert!(validate_push_notify_contract_shape(&valid).is_ok());
+        for (key, value) in [
+            ("push_key", json!("token")),
+            ("app_id", json!("app")),
+            ("platform", json!("ios")),
+            ("target_route_token", json!("opaque")),
+            ("visible_notification_opt_in", json!(true)),
+        ] {
+            let mut raw = serde_json::to_value(&valid).unwrap();
+            raw["notification"]["devices"][0][key] = value;
+            assert!(
+                serde_json::from_value::<PushNotifyRequestBody>(raw).is_err(),
+                "{key}"
+            );
+        }
+        let mut raw = serde_json::to_value(&valid).unwrap();
+        raw["notification"]["timing_profile_hint"] = json!("default");
+        assert!(serde_json::from_value::<PushNotifyRequestBody>(raw).is_err());
+        let mut raw = serde_json::to_value(&valid).unwrap();
+        raw["notification"]["route_tokens"] = json!({"mention_redirect_target_route_tokens": []});
+        assert!(serde_json::from_value::<PushNotifyRequestBody>(raw).is_err());
     }
 
     #[test]
