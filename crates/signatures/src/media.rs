@@ -7,15 +7,9 @@ use arkret_canonical::canonical::canonical_json_bytes;
 use arkret_models_collaboration::events_payloads::call::ParticipantBinding;
 pub use arkret_models_collaboration::objects::media::MediaBackendKind;
 use arkret_models_collaboration::objects::media::{
-    CallMediaParticipantBinding, CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody,
-    MediaBackendToken,
+    CallMediaTokenExchangeOutcome, CallMediaTokenExchangeRequestBody, MediaBackendToken,
 };
-use arkret_wire::{ActorId, DidCoreId};
-/// Fixed ASCII domain-separation label that prefixes the participant-binding
-/// signing input (`media-service-binding.md` §3). Equals the v1 binding
-/// protocol domain label; a single `0x00` separates it from the canonical
-/// JSON of the seven authoritative fields.
-use arkret_wire::{CallId, DeviceId, Did, RealmId};
+use arkret_wire::{ActorId, CallId, DeviceId, Did, DidCoreId, RealmId};
 use chrono::{DateTime, Utc};
 use ed25519_dalek::{Signature, VerifyingKey};
 use serde::Serialize;
@@ -364,6 +358,7 @@ pub fn verify_call_media_token_outcome(
 
 #[cfg(test)]
 mod tests {
+    use arkret_models_collaboration::objects::media::CallMediaParticipantBinding;
     use ed25519_dalek::{Signer, SigningKey};
 
     use super::*;
