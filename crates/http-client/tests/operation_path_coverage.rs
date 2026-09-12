@@ -22,6 +22,10 @@ use arkret_wire::SERVICE_OPERATION_DESCRIPTORS;
 /// without either appearing here or failing [`sources_cover_the_crate`].
 const SOURCES: &[(&str, &str)] = &[
     (
+        "station_connection.rs",
+        include_str!("../src/station_connection.rs"),
+    ),
+    (
         "account_subscribe.rs",
         include_str!("../src/account_subscribe.rs"),
     ),

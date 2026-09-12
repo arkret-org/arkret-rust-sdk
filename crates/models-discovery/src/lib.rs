@@ -13,6 +13,7 @@ pub mod presence;
 pub mod realm_join_preview;
 pub mod service_description;
 pub mod service_requirements;
+pub mod station_connection;
 pub mod verified_profiles;
 pub mod websocket_binding;
 
@@ -24,6 +25,7 @@ pub use presence::*;
 pub use realm_join_preview::*;
 pub use service_description::*;
 pub use service_requirements::*;
+pub use station_connection::*;
 pub use verified_profiles::*;
 pub use websocket_binding::{
     select_websocket_binding, validate_websocket_transport, websocket_operations_reachable,
