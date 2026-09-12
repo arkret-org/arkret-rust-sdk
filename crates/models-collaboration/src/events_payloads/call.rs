@@ -8,18 +8,10 @@ use crate::internal_prelude::*;
 use crate::serde_absence::deserialize_present_nullable;
 
 /// Counterpart for `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/call_participant`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ParticipantBinding {
-    pub scheme: String,
-    pub realm_id: RealmId,
-    pub call_id: String,
-    pub focus_id: String,
-    pub actor_id: ActorId,
-    pub device_id: String,
-    pub participant_id: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub issuer_kid: DidUrl,
@@ -43,7 +35,7 @@ pub struct CallParticipantMedia {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "CallParticipantWire")]
 pub struct CallParticipant {
     pub actor_id: ActorId,
     pub device_id: String,
@@ -52,10 +44,78 @@ pub struct CallParticipant {
     pub joined_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub foci_preferred: Option<Vec<String>>,
-    pub participant_id: String,
-    pub participant_binding: ParticipantBinding,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub participant_binding: Option<ParticipantBinding>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub media: Option<CallParticipantMedia>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub focus_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CallParticipantWire {
+    actor_id: ActorId,
+    device_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
+    joined_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    foci_preferred: Option<Vec<String>>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    participant_id: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    participant_binding: Option<ParticipantBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    media: Option<CallParticipantMedia>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    focus_id: Option<String>,
+}
+
+impl TryFrom<CallParticipantWire> for CallParticipant {
+    type Error = &'static str;
+
+    fn try_from(value: CallParticipantWire) -> std::result::Result<Self, Self::Error> {
+        let participant = Self {
+            actor_id: value.actor_id,
+            device_id: value.device_id,
+            joined_at: value.joined_at,
+            foci_preferred: value.foci_preferred,
+            participant_id: value.participant_id,
+            participant_binding: value.participant_binding,
+            media: value.media,
+            focus_id: value.focus_id,
+        };
+        participant.validate_binding_carrier()?;
+        Ok(participant)
+    }
+}
+
+impl CallParticipant {
+    pub fn validate_binding_carrier(&self) -> std::result::Result<(), &'static str> {
+        let present = [
+            self.participant_id.is_some(),
+            self.participant_binding.is_some(),
+            self.focus_id.is_some(),
+        ];
+        if present.iter().any(|present| *present) && !present.iter().all(|present| *present) {
+            return Err(
+                "SFU roster entry requires participant_id, participant_binding and focus_id together",
+            );
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -879,6 +939,9 @@ impl CallStatePayload {
             if !valid_subject {
                 return Err(ErrorCode::SCHEMA_VIOLATION);
             }
+        }
+        if let Some(CallRosterDelta::Join { participant }) = &self.roster_delta {
+            participant.validate_binding_carrier()?;
         }
         self.validate_recording_result_artifact()?;
         self.validate_transcript_result_storage()

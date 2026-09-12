@@ -213,23 +213,7 @@ pub struct CallMediaTokenExchangeRequestBody {
     pub desired_media: Option<CallMediaDesiredMedia>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct CallMediaParticipantBinding {
-    pub scheme: String,
-    pub realm_id: RealmId,
-    pub call_id: CallId,
-    pub focus_id: String,
-    pub actor_id: ActorId,
-    pub device_id: DeviceId,
-    pub participant_id: String,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub issued_at: DateTime<Utc>,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    pub issuer_kid: DidUrl,
-    pub sig: String,
-}
+pub use crate::events_payloads::call::ParticipantBinding as CallMediaParticipantBinding;
 
 /// Closed media backend registry used by both focus selection and token exchange.
 ///
@@ -315,6 +299,10 @@ struct CallMediaTokenExchangeOutcomeWire {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     expires_at: DateTime<Utc>,
     backend_kind: MediaBackendKind,
+    realm_id: RealmId,
+    call_id: CallId,
+    actor_id: ActorId,
+    device_id: DeviceId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -329,6 +317,10 @@ pub struct CallMediaTokenExchangeOutcome {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub backend_kind: MediaBackendKind,
+    pub realm_id: RealmId,
+    pub call_id: CallId,
+    pub actor_id: ActorId,
+    pub device_id: DeviceId,
 }
 
 impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcome {
@@ -356,6 +348,10 @@ impl TryFrom<CallMediaTokenExchangeOutcomeWire> for CallMediaTokenExchangeOutcom
             participant_binding: value.participant_binding,
             expires_at: value.expires_at,
             backend_kind: value.backend_kind,
+            realm_id: value.realm_id,
+            call_id: value.call_id,
+            actor_id: value.actor_id,
+            device_id: value.device_id,
         })
     }
 }

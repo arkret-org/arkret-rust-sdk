@@ -13,7 +13,7 @@ use arkret_models_collaboration::objects::media::{
 use arkret_wire::{ActorId, DidCoreId};
 /// Fixed ASCII domain-separation label that prefixes the participant-binding
 /// signing input (`media-service-binding.md` §3). Equals the v1 binding
-/// `scheme` byte-for-byte; a single `0x00` separates it from the canonical
+/// protocol domain label; a single `0x00` separates it from the canonical
 /// JSON of the seven authoritative fields.
 use arkret_wire::{CallId, DeviceId, Did, RealmId};
 use chrono::{DateTime, Utc};
@@ -33,13 +33,13 @@ pub use ice::{IceConfig, verify_ice_config_outcome};
 /// Returns `Ok(())` when the TTL is within bounds, otherwise a
 /// `participant_binding_invalid` protocol error.
 pub fn validate_token_ttl(now: DateTime<Utc>, expires_at: DateTime<Utc>) -> Result<()> {
-    let remaining = (expires_at - now).num_seconds();
-    if remaining <= 0 {
+    let remaining = expires_at - now;
+    if remaining <= chrono::Duration::zero() {
         return Err(Error::Protocol(
             "participant_binding_invalid: token already expired".to_owned(),
         ));
     }
-    if (remaining as u64) > arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS {
+    if remaining > chrono::Duration::seconds(arkret_wire::MEDIA_TOKEN_TTL_MAX_SECS as i64) {
         return Err(Error::Protocol(
             "participant_binding_invalid: token TTL exceeds 600s ceiling".to_owned(),
         ));
@@ -185,18 +185,18 @@ fn did_from_kid(kid: &str) -> &str {
 /// The seven authoritative fields the participant binding signature covers
 /// (`media-service-binding.md` §3). Serialized via canonical JSON, which sorts
 /// keys, so the on-wire signing bytes are stable regardless of declaration
-/// order. Unsigned metadata (`scheme` / `issuer_kid` / `issued_at`) MUST NOT
-/// appear here.
+/// order. Coordinates come from the exact enclosing carrier. Only the
+/// compact binding supplies expires_at; issuer_kid selects the verifying key.
 #[derive(Serialize)]
-struct ParticipantBindingSigningFields<'a> {
-    actor_id: &'a ActorId,
-    call_id: &'a CallId,
-    device_id: &'a DeviceId,
+pub struct ParticipantBindingContext<'a> {
+    pub actor_id: &'a ActorId,
+    pub call_id: &'a CallId,
+    pub device_id: &'a DeviceId,
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
-    expires_at: DateTime<Utc>,
-    focus_id: &'a str,
-    participant_id: &'a str,
-    realm_id: &'a RealmId,
+    pub expires_at: DateTime<Utc>,
+    pub focus_id: &'a str,
+    pub participant_id: &'a str,
+    pub realm_id: &'a RealmId,
 }
 
 /// Rebuild the normative `signing_input` for a participant binding:
@@ -215,20 +215,27 @@ struct ParticipantBindingSigningFields<'a> {
 /// the SDK verifier byte-for-byte: the bytes returned here are exactly what
 /// `participant_binding.sig` covers, so a
 /// cross-implementation test can assert the issuer's signing input equals this.
-pub fn participant_binding_signing_input(binding: &CallMediaParticipantBinding) -> Result<Vec<u8>> {
-    let fields = ParticipantBindingSigningFields {
-        actor_id: &binding.actor_id,
-        call_id: &binding.call_id,
-        device_id: &binding.device_id,
-        expires_at: binding.expires_at,
-        focus_id: &binding.focus_id,
-        participant_id: &binding.participant_id,
-        realm_id: &binding.realm_id,
-    };
+impl<'a> ParticipantBindingContext<'a> {
+    pub fn from_outcome(outcome: &'a CallMediaTokenExchangeOutcome) -> Self {
+        Self {
+            actor_id: &outcome.actor_id,
+            call_id: &outcome.call_id,
+            device_id: &outcome.device_id,
+            expires_at: outcome.participant_binding.expires_at,
+            focus_id: &outcome.focus_id,
+            participant_id: &outcome.participant_id,
+            realm_id: &outcome.realm_id,
+        }
+    }
+}
+
+pub fn participant_binding_signing_input(
+    fields: &ParticipantBindingContext<'_>,
+) -> Result<Vec<u8>> {
     let mut input = Vec::new();
     input.extend_from_slice(ParticipantBinding::SCHEMA.as_bytes());
     input.push(0x00);
-    input.extend_from_slice(&canonical_json_bytes(&fields)?);
+    input.extend_from_slice(&canonical_json_bytes(fields)?);
     Ok(input)
 }
 
@@ -281,13 +288,11 @@ fn verify_issuer_signature(
 ///   else `token_issuer_unauthorised`;
 /// - the binding's `(realm_id, call_id, focus_id, actor_id, device_id)` six-tuple matches the
 ///   request and `participant_id` matches the top-level one;
-/// - the binding's `expires_at` is after its `issued_at`;
 /// - TTL ≤ 600s and not already expired (via [`validate_token_ttl`]);
 /// - `participant_binding.sig` verifies as Ed25519(ed25519) signatures over the normative
 ///   `signing_input` ([`participant_binding_signing_input`]) under the issuer verifying keys in
-///   `anchors`. Per `media-service-binding.md` §3 the default verification path MUST verify both
-///   signatures; either failing — or a missing key — rejects with `token_issuer_unauthorised`.
-///   Because the signature covers the seven authoritative fields, tampering with any of them fails
+///   `anchors`. A failed signature or missing key rejects with `token_issuer_unauthorised`. Because
+///   the signature covers the seven authoritative fields, tampering with any of them fails
 ///   verification.
 ///
 /// The caller resolves the media-service service DID document and supplies the
@@ -312,13 +317,6 @@ pub fn verify_call_media_token_outcome(
         ));
     }
 
-    if binding.scheme != ParticipantBinding::SCHEMA {
-        return Err(Error::Protocol(format!(
-            "participant_binding_invalid: unexpected scheme {:?}",
-            binding.scheme
-        )));
-    }
-
     // Issuer DID anchoring — the binding issuer MUST resolve to an anchored
     // service_id.
     let issuer_did = did_from_kid(&binding.issuer_kid);
@@ -328,29 +326,15 @@ pub fn verify_call_media_token_outcome(
         )));
     }
 
-    // Six-tuple binding MUST match the request the client made.
-    if binding.realm_id != request.realm_id
-        || binding.call_id != request.call_id
-        || binding.focus_id != request.focus_id
-        || binding.actor_id != request.actor_id
-        || binding.device_id != request.device_id
+    if outcome.realm_id != request.realm_id
+        || outcome.call_id != request.call_id
+        || outcome.focus_id != request.focus_id
+        || outcome.actor_id != request.actor_id
+        || outcome.device_id != request.device_id
     {
         return Err(Error::Protocol(
-            "participant_binding_invalid: binding tuple does not match the request".to_owned(),
-        ));
-    }
-    if binding.participant_id != outcome.participant_id {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: participant_id mismatch between binding and outcome"
+            "participant_binding_invalid: outcome tuple does not match the exact request"
                 .to_owned(),
-        ));
-    }
-
-    // The binding's issued_at MUST precede its expiry (a non-positive TTL
-    // window is a malformed binding).
-    if binding.expires_at <= binding.issued_at {
-        return Err(Error::Protocol(
-            "participant_binding_invalid: binding expires_at not after issued_at".to_owned(),
         ));
     }
 
@@ -362,7 +346,8 @@ pub fn verify_call_media_token_outcome(
     // single issuer assertion over the seven-tuple signing_input. A failing
     // signature — or a key the anchors do not publish — is
     // `token_issuer_unauthorised`.
-    let signing_input = participant_binding_signing_input(binding)?;
+    let signing_input =
+        participant_binding_signing_input(&ParticipantBindingContext::from_outcome(&outcome))?;
     verify_issuer_signature(
         anchors,
         &binding.issuer_kid,
@@ -423,22 +408,18 @@ mod tests {
     ) -> CallMediaTokenExchangeOutcome {
         let identity = "ak:rtc_participant:0198c2f4-0000-7000-8000-000000000000".to_owned();
         CallMediaTokenExchangeOutcome {
+            realm_id: request.realm_id.clone(),
+            call_id: request.call_id.clone(),
+            actor_id: request.actor_id.clone(),
+            device_id: request.device_id.clone(),
             focus_id: request.focus_id.clone(),
             backend_kind: MediaBackendKind::Livekit,
             connect_url: "wss://livekit-fra.example.com".to_owned(),
             backend_token: MediaBackendToken::Opaque("opaque-backend-token".to_owned()),
             participant_id: identity.clone(),
             participant_binding: CallMediaParticipantBinding {
-                scheme: ParticipantBinding::SCHEMA.to_owned(),
                 sig: String::new(),
                 issuer_kid: arkret_wire::DidUrl::new(ISSUER_KID).unwrap(),
-                realm_id: request.realm_id.clone(),
-                call_id: request.call_id.clone(),
-                focus_id: request.focus_id.clone(),
-                actor_id: request.actor_id.clone(),
-                device_id: request.device_id.clone(),
-                participant_id: identity,
-                issued_at: expires_at - chrono::Duration::minutes(5),
                 expires_at,
             },
             expires_at,
@@ -449,7 +430,9 @@ mod tests {
     /// mutating `outcome` in place. Call this AFTER any tampering so the
     /// signature covers the (possibly tampered) authoritative fields.
     fn sign_outcome(outcome: &mut CallMediaTokenExchangeOutcome, key: &SigningKey) {
-        let input = participant_binding_signing_input(&outcome.participant_binding).unwrap();
+        let input =
+            participant_binding_signing_input(&ParticipantBindingContext::from_outcome(&outcome))
+                .unwrap();
         outcome.participant_binding.sig =
             arkret_canonical::base64url::base64url_encode(key.sign(&input).to_bytes());
     }
@@ -492,7 +475,8 @@ mod tests {
         // §3). soland's cross-implementation lock asserts byte equality against
         // this same function.
         let signing_input =
-            participant_binding_signing_input(&outcome.participant_binding).unwrap();
+            participant_binding_signing_input(&ParticipantBindingContext::from_outcome(&outcome))
+                .unwrap();
         assert!(signing_input.starts_with(b"ak.media.participant_binding.v1\x00"));
     }
 
@@ -571,10 +555,9 @@ mod tests {
 
         // Tamper each of the seven authoritative fields AFTER signing → the
         // recomputed signing_input no longer matches the signature.
-        // participant_id: also update the top-level field so the
-        // structural cross-check passes and the failure is signature-only.
+        // participant_id has one carrier; changing it invalidates the signature.
         let mut t_identity = signed_outcome(&request, &key, expires_at);
-        t_identity.participant_binding.participant_id = "ak:rtc_participant:tampered".to_owned();
+
         t_identity.participant_id = "ak:rtc_participant:tampered".to_owned();
         assert!(
             verify_call_media_token_outcome(&request, &t_identity, &anchors, now)
@@ -618,14 +601,55 @@ mod tests {
         // Focus mismatch in the binding tuple (re-signed so the failure is the
         // structural tuple check, not the signature).
         let mut tampered = token_outcome(&request, now + chrono::Duration::minutes(5));
-        tampered.participant_binding.focus_id = "fra-2".to_owned();
+        tampered.focus_id = "fra-2".to_owned();
         sign_outcome(&mut tampered, &key);
         let err = verify_call_media_token_outcome(&request, &tampered, &anchors, now).unwrap_err();
         assert!(err.to_string().contains("participant_binding_invalid"));
 
-        // participant_id mismatch between binding and outcome.
+        // Tampering the sole participant_id carrier invalidates the signature.
         let mut id_mismatch = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
         id_mismatch.participant_id = "ak:rtc_participant:elsewhere".to_owned();
         assert!(verify_call_media_token_outcome(&request, &id_mismatch, &anchors, now).is_err());
+    }
+    #[test]
+    fn compact_binding_rejects_retired_fields_and_preserves_exact_account() {
+        let mut request = token_request();
+        request.actor_id = ActorId::account(arkret_wire::AccountId::new(
+            actor("alice"),
+            actor("station_a"),
+        ));
+        let key = issuer_key();
+        let now = Utc::now();
+        let outcome = signed_outcome(&request, &key, now + chrono::Duration::minutes(5));
+        let anchors = anchors_with_issuer_key(&key);
+        verify_call_media_token_outcome(&request, &outcome, &anchors, now).unwrap();
+        let compact = serde_json::to_value(&outcome.participant_binding).unwrap();
+        assert_eq!(compact.as_object().unwrap().len(), 3);
+        for field in [
+            "scheme",
+            "issued_at",
+            "realm_id",
+            "call_id",
+            "focus_id",
+            "actor_id",
+            "device_id",
+            "participant_id",
+        ] {
+            let mut old = compact.clone();
+            old[field] = serde_json::json!("retired");
+            assert!(serde_json::from_value::<CallMediaParticipantBinding>(old).is_err());
+        }
+        request.actor_id = ActorId::account(arkret_wire::AccountId::new(
+            actor("alice"),
+            actor("station_b"),
+        ));
+        assert!(verify_call_media_token_outcome(&request, &outcome, &anchors, now).is_err());
+    }
+
+    #[test]
+    fn token_ttl_ceiling_does_not_round_down_fractional_seconds() {
+        let now = Utc::now();
+        assert!(validate_token_ttl(now, now + chrono::Duration::milliseconds(600001)).is_err());
+        assert!(validate_token_ttl(now, now + chrono::Duration::milliseconds(1)).is_ok());
     }
 }

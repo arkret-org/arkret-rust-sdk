@@ -518,8 +518,8 @@ pub use arkret_server::{
 };
 pub use arkret_signatures::media::{
     CallMediaTokenVerification, IceConfig, MediaBackendKind, MediaServiceAnchors,
-    call_media_token_exchange, participant_binding_signing_input, validate_token_ttl,
-    verify_call_media_token_outcome, verify_ice_config_outcome,
+    ParticipantBindingContext, call_media_token_exchange, participant_binding_signing_input,
+    validate_token_ttl, verify_call_media_token_outcome, verify_ice_config_outcome,
 };
 #[cfg(feature = "client")]
 pub use http_client::{
