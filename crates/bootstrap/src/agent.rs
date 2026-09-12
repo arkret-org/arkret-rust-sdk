@@ -441,7 +441,9 @@ fn apply_agent_batch(
         if let Ok(binding) = registry.resolve(&create.realm_id, &cell)
             && binding.state_model == StateModelKind::OrderedLog
         {
-            let report = OrderedLog.join_with_issuer_report(&issued);
+            let report = OrderedLog
+                .join_with_issuer_report(&issued)
+                .map_err(|error| WireError::Protocol(format!("Agent PCR cell {cell}: {error}")))?;
             if !report.identity_collisions.is_empty() {
                 return Err(WireError::Protocol(format!(
                     "Agent PCR cell {cell} contains an Event identity collision"

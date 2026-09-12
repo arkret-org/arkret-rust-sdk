@@ -225,7 +225,11 @@ pub(crate) fn state_root_and_effects_from_projection(
             if let Ok(binding) = registry.resolve(realm_id, &cell)
                 && binding.state_model == StateModelKind::OrderedLog
             {
-                let report = OrderedLog.join_with_issuer_report(&issued);
+                let report = OrderedLog
+                    .join_with_issuer_report(&issued)
+                    .map_err(|error| {
+                        WireError::Protocol(format!("bootstrap cell {cell}: {error}"))
+                    })?;
                 if !report.identity_collisions.is_empty() {
                     return Err(WireError::Protocol(format!(
                         "bootstrap cell {cell} contains an Event identity collision"

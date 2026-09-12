@@ -3,21 +3,22 @@
 //! Per spec §5.3:
 //! - `inc(value)` adds a non-negative integer increment.
 //! - `dec(value)` subtracts a non-negative integer.
-//! - Optional `tag` partitions the counter into named per-counter dimensions (returned as a JSON
-//!   object). Without tag, the cell is a single global counter and the return value is a JSON
-//!   integer.
+//! - State retains one monotone positive/negative component per issuer. The presented scalar is
+//!   derived by summing those components; it is not the canonical stored state.
 //!
-//! Negative increments / decrements are validation errors; the counter
-//! sum may go negative if dec exceeds inc on a tag, which the runtime
-//! rejects as a domain error when the cell schema declares a non-negative
-//! invariant. This StateModel itself is monotonic over Z.
+//! Negative increments / decrements are validation errors. The presented sum
+//! may be negative when the negative components exceed the positive ones; both
+//! component families remain monotone.
 
 use std::collections::BTreeMap;
 
-use serde_json::{Number, Value, json};
+use serde_json::Value;
 
+use super::ordered_log::IssuedOp;
 use super::{OpError, ResolvedCellState, StateModel, StateModelKind, StateWrite};
-use crate::{CellRef, LatticeOp, LatticeOpType};
+use crate::{ActorId, CanonicalCounterEntry, CellRef, LatticeOp, LatticeOpType};
+
+const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Counter;
@@ -30,20 +31,27 @@ impl StateModel for Counter {
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
         match op.op_type {
             LatticeOpType::Inc | LatticeOpType::Dec => {
+                if op.tag.is_some() {
+                    return Err(OpError::InvalidValue {
+                        kind: "counter",
+                        field: "tag",
+                        reason: "counter state has no custom tag dimensions".to_owned(),
+                    });
+                }
                 let value = op.value.as_ref().ok_or(OpError::MissingField {
                     kind: "counter",
                     field: "value",
                 })?;
-                let n = value.as_i64().ok_or(OpError::InvalidValue {
+                let n = value.as_u64().ok_or(OpError::InvalidValue {
                     kind: "counter",
                     field: "value",
-                    reason: "must be a JSON integer".to_owned(),
+                    reason: "must be a non-negative JSON integer".to_owned(),
                 })?;
-                if n < 0 {
+                if n > MAX_SAFE_INTEGER {
                     return Err(OpError::InvalidValue {
                         kind: "counter",
                         field: "value",
-                        reason: "increment / decrement value must be non-negative".to_owned(),
+                        reason: "exceeds the protocol safe-integer maximum".to_owned(),
                     });
                 }
                 Ok(())
@@ -60,65 +68,92 @@ impl StateModel for Counter {
         _cell: &CellRef,
         sealed_ops: &[StateWrite],
     ) -> Result<ResolvedCellState, OpError> {
-        // Tagged dimensions go into a sorted map; un-tagged go into the
-        // empty-string bucket. We return either an integer (single
-        // un-tagged dim) or an object (when any tagged dim exists).
-        let mut totals: BTreeMap<String, i64> = BTreeMap::new();
-        let mut any_tagged = false;
-        for entry in sealed_ops {
-            self.validate_op(&entry.op)?;
-            let Some(v) = entry.op.value.as_ref().and_then(|v| v.as_i64()) else {
-                continue;
-            };
-            let signed = match entry.op.op_type {
-                LatticeOpType::Inc => v,
-                LatticeOpType::Dec => -v,
-                _ => continue,
-            };
-            let tag = entry.op.tag.clone().unwrap_or_default();
-            if !tag.is_empty() {
-                any_tagged = true;
+        let _ = sealed_ops;
+        Err(OpError::InvalidValue {
+            kind: "counter",
+            field: "issuer_id",
+            reason: "issuer attribution is required; use join_with_issuers".to_owned(),
+        })
+    }
+}
+
+impl Counter {
+    pub fn join_with_issuers(
+        &self,
+        _cell: &CellRef,
+        ops: &[IssuedOp],
+    ) -> Result<ResolvedCellState, OpError> {
+        let mut unique = BTreeMap::<crate::EventId, (&ActorId, &LatticeOp)>::new();
+        for entry in ops {
+            self.validate_op(&entry.op.op)?;
+            if let Some((issuer, op)) = unique.get(&entry.op.event_id)
+                && (*issuer != &entry.issuer_id || *op != &entry.op.op)
+            {
+                return Err(OpError::InvalidValue {
+                    kind: "counter",
+                    field: "event_id",
+                    reason: "one Event identity maps to different counter writes".to_owned(),
+                });
             }
-            // SDK-COR-01: an arbitrary number of sealed ops can be accumulated
-            // here (the count is not bounded by this lattice), so a naive `+=`
-            // could panic in debug / silently wrap in release. Overflow is a
-            // domain violation -> resolve the cell to ⊥ rather than emit a
-            // corrupted count.
-            let slot = totals.entry(tag.clone()).or_insert(0);
-            match slot.checked_add(signed) {
-                Some(next) => *slot = next,
-                None => {
-                    return Err(OpError::Unrepresentable {
-                        kind: "counter",
-                        reason: format!("integer overflow for tag {tag:?}"),
-                    });
-                }
+            unique.insert(entry.op.event_id.clone(), (&entry.issuer_id, &entry.op.op));
+        }
+
+        let mut components = BTreeMap::<String, (ActorId, u64, u64)>::new();
+        for (issuer, op) in unique.into_values() {
+            let value = op
+                .value
+                .as_ref()
+                .and_then(Value::as_u64)
+                .expect("validated counter value");
+            let issuer_key = issuer
+                .canonical_key()
+                .map_err(|error| OpError::InvalidValue {
+                    kind: "counter",
+                    field: "issuer_id",
+                    reason: error.to_string(),
+                })?;
+            let component = components
+                .entry(issuer_key)
+                .or_insert_with(|| (issuer.clone(), 0, 0));
+            let target = match op.op_type {
+                LatticeOpType::Inc => &mut component.1,
+                LatticeOpType::Dec => &mut component.2,
+                _ => unreachable!("validated counter operation"),
+            };
+            *target = target
+                .checked_add(value)
+                .ok_or_else(|| OpError::Unrepresentable {
+                    kind: "counter",
+                    reason: "issuer component overflow".to_owned(),
+                })?;
+            if *target > MAX_SAFE_INTEGER {
+                return Err(OpError::Unrepresentable {
+                    kind: "counter",
+                    reason: "issuer component exceeds the protocol safe-integer maximum".to_owned(),
+                });
             }
         }
-        if any_tagged {
-            let mut obj = serde_json::Map::new();
-            for (tag, total) in totals {
-                let key = if tag.is_empty() {
-                    "_default".to_owned()
-                } else {
-                    tag
-                };
-                obj.insert(key, Value::Number(Number::from(total)));
-            }
-            Ok(ResolvedCellState::Value(Value::Object(obj)))
-        } else {
-            // Single un-tagged bucket; values already overflow-checked above,
-            // and there is at most one entry, so a plain read cannot overflow.
-            let total: i64 = totals.values().copied().next().unwrap_or(0);
-            Ok(ResolvedCellState::Value(json!(total)))
-        }
+
+        let value = components
+            .into_values()
+            .map(|(issuer_id, positive, negative)| CanonicalCounterEntry {
+                issuer_id,
+                positive,
+                negative,
+            })
+            .collect::<Vec<_>>();
+        Ok(ResolvedCellState::Value(
+            serde_json::to_value(value).expect("canonical counter state is JSON serializable"),
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
-    use crate::{Hash, LatticeOp};
+    use crate::{DidCoreId, Hash, LatticeOp};
 
     fn cell() -> CellRef {
         CellRef::new("ak:cell:ak.component.metric.counter.v1:ak.metric.signups".to_owned()).unwrap()
@@ -140,18 +175,6 @@ mod tests {
         }
     }
 
-    fn inc_tag(tag: &str, value: i64) -> LatticeOp {
-        LatticeOp {
-            op_type: LatticeOpType::Inc,
-            tag: Some(tag.to_owned()),
-            value: Some(json!(value)),
-            from: None,
-            to: None,
-            reason: None,
-            issuer_seq: None,
-        }
-    }
-
     fn dec(value: i64) -> LatticeOp {
         LatticeOp {
             op_type: LatticeOpType::Dec,
@@ -164,10 +187,21 @@ mod tests {
         }
     }
 
+    fn issuer(name: &str) -> ActorId {
+        ActorId::service(DidCoreId::new(format!("ak:did_core:webvh:{name}")).unwrap())
+    }
+
+    fn issued(issuer_id: ActorId, byte: u8, op: LatticeOp) -> IssuedOp {
+        IssuedOp {
+            issuer_id,
+            op: StateWrite::new(move_id(byte), op),
+        }
+    }
+
     #[test]
     fn validate_rejects_negative_value() {
         let err = Counter.validate_op(&inc(-1)).unwrap_err();
-        assert!(format!("{err}").contains("must be non-negative"));
+        assert!(format!("{err}").contains("non-negative JSON integer"));
     }
 
     #[test]
@@ -198,70 +232,95 @@ mod tests {
             issuer_seq: None,
         };
         let err = Counter.validate_op(&op).unwrap_err();
-        assert!(format!("{err}").contains("must be a JSON integer"));
+        assert!(format!("{err}").contains("must be a non-negative JSON integer"));
     }
 
     #[test]
-    fn untagged_inc_dec_sums_deterministically() {
+    fn issuer_components_preserve_positive_and_negative_totals() {
+        let alice = issuer("z6mkfixturealice");
         let ops = vec![
-            StateWrite::new(move_id(1), inc(5)),
-            StateWrite::new(move_id(2), inc(3)),
-            StateWrite::new(move_id(3), dec(2)),
+            issued(alice.clone(), 1, inc(5)),
+            issued(alice.clone(), 2, inc(3)),
+            issued(alice.clone(), 3, dec(2)),
         ];
+        let state = Counter.join_with_issuers(&cell(), &ops).unwrap();
         assert_eq!(
-            Counter.resolve(&cell(), &ops),
-            Ok(ResolvedCellState::Value(json!(6)))
+            state,
+            ResolvedCellState::Value(json!([{
+                "issuer_id": alice,
+                "positive": 8,
+                "negative": 2
+            }]))
         );
     }
 
     #[test]
-    fn empty_join_returns_zero() {
+    fn empty_join_returns_empty_component_array() {
         assert_eq!(
-            Counter.resolve(&cell(), &[]),
-            Ok(ResolvedCellState::Value(json!(0)))
+            Counter.join_with_issuers(&cell(), &[]).unwrap(),
+            ResolvedCellState::Value(json!([]))
         );
     }
 
     #[test]
-    fn tagged_dimensions_returns_object() {
+    fn components_are_sorted_by_canonical_issuer() {
+        let alice = issuer("z6mkfixturealice");
+        let bob = issuer("z6mkfixturebob");
         let ops = vec![
-            StateWrite::new(move_id(1), inc_tag("approve", 3)),
-            StateWrite::new(move_id(2), inc_tag("reject", 1)),
-            StateWrite::new(move_id(3), inc_tag("approve", 2)),
+            issued(bob.clone(), 1, inc(3)),
+            issued(alice.clone(), 2, dec(1)),
         ];
-        let state = Counter.resolve(&cell(), &ops).unwrap();
-        match state {
-            ResolvedCellState::Value(v) => {
-                assert_eq!(v.get("approve").unwrap().as_i64().unwrap(), 5);
-                assert_eq!(v.get("reject").unwrap().as_i64().unwrap(), 1);
-            }
-            _ => panic!("expected value"),
-        }
+        let ResolvedCellState::Value(value) = Counter.join_with_issuers(&cell(), &ops).unwrap()
+        else {
+            panic!("expected value")
+        };
+        assert_eq!(value[0]["issuer_id"], json!(alice));
+        assert_eq!(value[0]["positive"], 0);
+        assert_eq!(value[0]["negative"], 1);
+        assert_eq!(value[1]["issuer_id"], json!(bob));
+        assert_eq!(value[1]["positive"], 3);
+        assert_eq!(value[1]["negative"], 0);
     }
 
     #[test]
-    fn mixed_tagged_and_untagged_uses_object_with_default_bucket() {
-        let ops = vec![
-            StateWrite::new(move_id(1), inc(10)),
-            StateWrite::new(move_id(2), inc_tag("voted", 3)),
-        ];
-        let state = Counter.resolve(&cell(), &ops).unwrap();
-        match state {
-            ResolvedCellState::Value(v) => {
-                assert_eq!(v.get("_default").unwrap().as_i64().unwrap(), 10);
-                assert_eq!(v.get("voted").unwrap().as_i64().unwrap(), 3);
-            }
-            _ => panic!("expected object value"),
-        }
+    fn counter_rejects_custom_tag_dimensions() {
+        let mut op = inc(3);
+        op.tag = Some("approve".to_owned());
+        Counter
+            .validate_op(&op)
+            .expect_err("counter tags are not part of the canonical state");
     }
 
     #[test]
-    fn dec_can_drive_total_negative() {
+    fn issuer_free_join_fails_closed() {
         let ops = vec![StateWrite::new(move_id(1), dec(5))];
         assert_eq!(
-            Counter.resolve(&cell(), &ops),
-            Ok(ResolvedCellState::Value(json!(-5)))
+            Counter.resolve(&cell(), &ops).unwrap_err(),
+            OpError::InvalidValue {
+                kind: "counter",
+                field: "issuer_id",
+                reason: "issuer attribution is required; use join_with_issuers".to_owned(),
+            }
         );
+    }
+
+    #[test]
+    fn exact_event_replay_is_idempotent() {
+        let write = issued(issuer("z6mkfixturealice"), 1, inc(5));
+        let state = Counter
+            .join_with_issuers(&cell(), &[write.clone(), write])
+            .unwrap();
+        let ResolvedCellState::Value(value) = state else {
+            panic!("expected value")
+        };
+        assert_eq!(value[0]["positive"], 5);
+    }
+
+    #[test]
+    fn one_event_identity_cannot_name_different_writes() {
+        let alice = issuer("z6mkfixturealice");
+        let ops = vec![issued(alice.clone(), 1, inc(1)), issued(alice, 1, inc(2))];
+        assert!(Counter.join_with_issuers(&cell(), &ops).is_err());
     }
 
     #[test]
@@ -287,11 +346,15 @@ mod tests {
     }
 
     #[test]
-    fn invalid_ops_fail_resolution() {
+    fn issuer_component_must_remain_within_safe_integer_range() {
+        let alice = issuer("z6mkfixturealice");
         let ops = vec![
-            StateWrite::new(move_id(1), inc(-3)), // invalid
-            StateWrite::new(move_id(2), inc(7)),
+            issued(alice.clone(), 1, inc(MAX_SAFE_INTEGER as i64)),
+            issued(alice, 2, inc(1)),
         ];
-        assert!(Counter.resolve(&cell(), &ops).is_err());
+        assert!(matches!(
+            Counter.join_with_issuers(&cell(), &ops),
+            Err(OpError::Unrepresentable { .. })
+        ));
     }
 }
