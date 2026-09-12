@@ -102,6 +102,11 @@ pub struct RequestAcceptanceReceipt {
 }
 
 impl RequestAcceptanceReceipt {
+    /// Exact non-recursive transcript signed by the accepting source Station.
+    pub fn canonical_signing_bytes(&self) -> arkret_canonical::Result<Vec<u8>> {
+        canonical_signing_bytes_without_signature(self)
+    }
+
     /// Digest of the closed receipt core covered by `signature`.
     pub fn computed_core_digest(&self) -> arkret_wire::Result<Hash> {
         let mut bytes = b"ak.contact.request_acceptance_core.v1\n".to_vec();

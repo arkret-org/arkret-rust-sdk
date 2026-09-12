@@ -153,6 +153,7 @@ pub fn verify_controller_account_gate_attestation(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedAgentSigningKey {
     signer: DidCoreId,
+    controller_account_id: arkret_wire::AccountId,
     authority_id: DidCoreId,
     key: [u8; 32],
     authorization_ref: EventId,
@@ -171,6 +172,10 @@ pub struct VerifiedAgentSigningKey {
 }
 
 impl VerifiedAgentSigningKey {
+    pub fn controller_account_id(&self) -> &arkret_wire::AccountId {
+        &self.controller_account_id
+    }
+
     pub fn verified_state(&self) -> &VerifiedAgentEvidenceState {
         &self.verified_state
     }
@@ -727,6 +732,10 @@ fn validate_common_evidence(
         ));
     }
     Ok(VerifiedAgentSigningKey {
+        controller_account_id: arkret_wire::AccountId::new(
+            gate.principal_id.clone(),
+            gate.authority_id.clone(),
+        ),
         verified_state: context.verified_state.clone(),
         controller_public_key: context.controller_public_key.clone(),
         authority_public_key: context.authority_public_key.clone(),

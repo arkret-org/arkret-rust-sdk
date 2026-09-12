@@ -1,9 +1,8 @@
 //! Contact source-service receipt signing inputs and verification.
 
 use arkret_models_collaboration::contact_operations::RequestAcceptanceReceipt;
-use arkret_wire::{EventId, Hash, Result, WireError};
+use arkret_wire::{EventId, Result, WireError};
 use ed25519_dalek::Signature;
-use serde::Serialize;
 
 /// Canonical bytes signed by the source service for a Contact request
 /// acceptance receipt. The non-recursive `receipt_digest` covers `core`; the
@@ -11,16 +10,7 @@ use serde::Serialize;
 pub fn contact_request_acceptance_receipt_signing_bytes(
     receipt: &RequestAcceptanceReceipt,
 ) -> Result<Vec<u8>> {
-    #[derive(Serialize)]
-    struct SignedValue<'a> {
-        core: &'a arkret_models_collaboration::contact_operations::RequestAcceptanceReceiptCore,
-        receipt_digest: &'a Hash,
-    }
-    arkret_canonical::canonical_json_bytes(&SignedValue {
-        core: &receipt.core,
-        receipt_digest: &receipt.receipt_digest,
-    })
-    .map_err(Into::into)
+    receipt.canonical_signing_bytes().map_err(Into::into)
 }
 
 /// Verify a pending-incoming Contact receipt after the caller has resolved the
@@ -62,7 +52,7 @@ mod tests {
     use arkret_models_collaboration::contact_operations::{
         ContactPeer, RequestAcceptanceReceiptCore,
     };
-    use arkret_wire::{AccountId, Base64UrlString, DidCoreId, DidUrl, ProtocolSignature};
+    use arkret_wire::{AccountId, Base64UrlString, DidCoreId, DidUrl, Hash, ProtocolSignature};
     use base64::Engine as _;
     use base64::engine::general_purpose::URL_SAFE_NO_PAD;
     use chrono::{DateTime, Utc};

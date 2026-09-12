@@ -1,19 +1,25 @@
 //! Authenticated Contact directional history and continuous scope intervals.
 //!
-//! This module verifies one source's complete signed lineage at an actual
-//! observation. It does not infer a bilateral round from a resolver summary,
-//! locate the issuer's PCR, or decide an ordinary Event's full authorization.
-//! Consumers must bind both directions to an authenticated round and evaluate
-//! the applicable ordinary-history closures before publication.
+//! This module authenticates original Contact carriers, exact bilateral round
+//! origins and complete directional history at an actual observation. Source
+//! confirmation and holder signatures are separate evidence. Consumers still
+//! evaluate predecessor-round continuity and ordinary-history closures before
+//! publication; this adapter does not grant runtime or session capabilities.
 
 use std::collections::BTreeSet;
 
+use arkret_canonical::DigestSuite;
 use arkret_identity::{AuthorityDidHistoryResolver, DidVerificationRelationship};
 use arkret_models_collaboration::contact_operations::{
-    ContactCurrentProof, ContactLineage, ContactPeer, ContactScope,
+    ContactCurrentProof, ContactPeer, ContactRound, ContactRoundEvidenceBundle, ContactScope,
+    ContactScopeUpdatePayload, PeerContactSubmitRequestBody, RequestAcceptanceReceipt,
+};
+use arkret_models_collaboration::events_payloads::contact::{
+    ContactAcceptedPayload, ContactRejectedPayload, ContactRequestedPayload,
+    ContactTombstonedPayload,
 };
 use arkret_models_identity::{DidDocument, DidMethodUri};
-use arkret_wire::{DidCoreId, EventId, Hash, ProtocolSignature};
+use arkret_wire::{DidCoreId, Event, EventId, EventKind, Hash, ProtocolSignature};
 use chrono::{DateTime, Utc};
 
 #[derive(Debug, thiserror::Error)]
@@ -102,20 +108,1059 @@ impl VerifiedContactDirection {
     }
 }
 
+/// Independently authenticated holder material. A source Station signature is
+/// never a substitute for one of these producer identities.
+pub enum ContactHolderEvidence<'a> {
+    Device(&'a arkret_signatures::device_projection::VerifiedDeviceProjection),
+    Agent(&'a arkret_signatures::agent_evidence::VerifiedAgentSigningKey),
+    /// The complete Agent DID history is resolved independently. This permits
+    /// only controller-authored Contact management in the DID-bound Agent PCR.
+    ControllerDevice(&'a arkret_signatures::device_projection::VerifiedDeviceProjection),
+}
+
+#[derive(Clone, Debug)]
+struct ContactTransition {
+    contact_round_id: Hash,
+    issuer: ContactPeer,
+    peer: ContactPeer,
+    version: u64,
+    predecessor_event_ref: Option<EventId>,
+    event_ref: EventId,
+    granted_to_peer_scopes: Vec<ContactScope>,
+    terminal: Option<bool>,
+}
+
+/// Exact original carrier with independent producer and source authentication.
+/// This is evidence of a confirmed Contact command, not a current grant or a
+/// complete round. Only the complete-history verifier derives scope intervals.
+#[derive(Clone, Debug)]
+pub struct VerifiedContactEvent {
+    carrier: PeerContactSubmitRequestBody,
+    holder: ContactPeer,
+    peer: ContactPeer,
+    event_id: EventId,
+    kind: EventKind,
+    observed_at: DateTime<Utc>,
+    transition: Option<ContactTransition>,
+}
+impl VerifiedContactEvent {
+    pub fn carrier(&self) -> &PeerContactSubmitRequestBody {
+        &self.carrier
+    }
+    pub fn holder(&self) -> &ContactPeer {
+        &self.holder
+    }
+    pub fn peer(&self) -> &ContactPeer {
+        &self.peer
+    }
+    pub fn event_id(&self) -> &EventId {
+        &self.event_id
+    }
+    pub fn kind(&self) -> EventKind {
+        self.kind.clone()
+    }
+    pub fn observed_at(&self) -> DateTime<Utc> {
+        self.observed_at
+    }
+    pub fn terminal_fence(&self) -> Option<VerifiedContactTerminalFence> {
+        self.transition
+            .as_ref()
+            .filter(|t| t.terminal == Some(true))
+            .map(|t| VerifiedContactTerminalFence {
+                round: t.contact_round_id.clone(),
+                holder: self.holder.clone(),
+                peer: self.peer.clone(),
+                event_id: self.event_id.clone(),
+            })
+    }
+}
+
+/// A source-confirmed, holder-signed whole-round tombstone. It can fence an
+/// opposite direction without inventing a new local lineage version.
+#[derive(Clone, Debug)]
+pub struct VerifiedContactTerminalFence {
+    round: Hash,
+    holder: ContactPeer,
+    peer: ContactPeer,
+    event_id: EventId,
+}
+impl VerifiedContactTerminalFence {
+    pub fn event_id(&self) -> &EventId {
+        &self.event_id
+    }
+    pub fn contact_round_id(&self) -> &Hash {
+        &self.round
+    }
+}
+
+/// Authenticated initial transitions for both exact participants. It retains
+/// the real request/response origins; no synthetic signed lineage is created.
+#[derive(Clone, Debug)]
+pub struct VerifiedContactRound {
+    round: Hash,
+    origins: [ContactTransition; 2],
+    origin_checkpoints: Vec<ContactCurrentProof>,
+}
+impl VerifiedContactRound {
+    pub fn contact_round_id(&self) -> &Hash {
+        &self.round
+    }
+}
+
+fn payload<T: serde::de::DeserializeOwned>(event: &Event) -> Result<T> {
+    serde_json::from_value(serde_json::to_value(&event.payload).map_err(invalid)?).map_err(invalid)
+}
+
+fn verify_device_producer(
+    device: &arkret_signatures::device_projection::VerifiedDeviceProjection,
+    account: &arkret_wire::AccountId,
+    event: &Event,
+) -> Result<arkret_signatures::proof::PublicKeyMaterial> {
+    let [proof] = event.proofs.as_slice() else {
+        return Err(invalid("Contact requires one holder producer proof"));
+    };
+    let core = device.authorization();
+    if &core.account_id != account || proof.created_at != event.created_at {
+        return Err(invalid(
+            "device evidence does not bind the exact holder and publication",
+        ));
+    }
+    let (did, fragment) = proof
+        .verification_method
+        .as_str()
+        .split_once('#')
+        .ok_or_else(|| invalid("device method has no fragment"))?;
+    let did = arkret_wire::Did::new(did).map_err(invalid)?;
+    if arkret_wire::project_did_to_core_id(&did).map_err(invalid)? != account.principal_id
+        || fragment != core.device_id.as_str()
+    {
+        return Err(invalid(
+            "producer method differs from the authorized device",
+        ));
+    }
+    device
+        .validate_publication_time(event.created_at)
+        .map_err(invalid)?;
+    let multibase = core
+        .device_signing_key_did
+        .as_str()
+        .strip_prefix("did:key:")
+        .ok_or_else(|| invalid("device signing key is not did:key"))?;
+    Ok(arkret_signatures::proof::PublicKeyMaterial::Ed25519Raw {
+        bytes: arkret_canonical::decode_ed25519_multibase(multibase)
+            .map_err(invalid)?
+            .to_vec(),
+    })
+}
+
+fn verify_controller_delegation(
+    event: &Event,
+    actor: &arkret_wire::ActorId,
+    controller: &arkret_wire::AccountId,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<()> {
+    let reference = event
+        .authorization_ref
+        .as_ref()
+        .ok_or_else(|| invalid("controller Contact Event has no accepted delegation"))?;
+    let (did, fragment) = reference.as_str().split_once('#').ok_or_else(|| {
+        ContactAuthorizationError::MissingMaterial(
+            "materialized controller grant evidence is absent".into(),
+        )
+    })?;
+    let did = arkret_wire::Did::new(did).map_err(invalid)?;
+    if actor.route_service_id() != &controller.station_id
+        || fragment != "managed-controller"
+        || arkret_wire::project_did_to_core_id(&did).map_err(invalid)?
+            != *actor.signing_principal_id()
+        || event.executed_by.as_ref() != Some(&arkret_wire::ActorId::account(controller.clone()))
+    {
+        return Err(invalid(
+            "controller delegation does not bind the exact Agent and executor",
+        ));
+    }
+    let history = resolver
+        .resolve_complete_history(&did)
+        .map_err(|e| ContactAuthorizationError::MissingMaterial(e.to_string()))?;
+    if history.did != did
+        || history.method != DidMethodUri::Webvh
+        || history.native_history == Some(false)
+        || history.entries.is_empty()
+        || history.has_more
+        || history.next_cursor.is_some()
+    {
+        return Err(ContactAuthorizationError::MissingMaterial(
+            "complete Agent DID delegation history is absent".into(),
+        ));
+    }
+    let point = arkret_signatures::webvh::validate_webvh_history_at(
+        &did,
+        &history.entries,
+        event.created_at,
+    )
+    .map_err(invalid)?;
+    arkret_signatures::webvh::validate_agent_did_document_profile(
+        did.as_str(),
+        &point.document,
+        &[],
+    )
+    .map_err(invalid)?;
+    let inception_delegation = history.entries[0].pointer("/state/service/1");
+    let initial_binding = history
+        .entries
+        .get(1)
+        .and_then(|e| e.pointer("/state/service/2/serviceEndpoint"));
+    if history.entries[0].pointer("/state/service/2").is_some() || initial_binding.is_none() {
+        return Err(invalid("Agent binding must first appear in entry one"));
+    }
+    for (index, entry) in history.entries.iter().enumerate() {
+        let document = entry
+            .get("state")
+            .ok_or_else(|| invalid("Agent history entry has no document"))?;
+        arkret_signatures::webvh::validate_agent_did_document_profile(did.as_str(), document, &[])
+            .map_err(invalid)?;
+        if entry.pointer("/state/service/1") != inception_delegation
+            || (index > 0 && entry.pointer("/state/service/2/serviceEndpoint") != initial_binding)
+        {
+            return Err(invalid(
+                "Agent history rewrites its create-locked delegation or PCR tuple",
+            ));
+        }
+    }
+    let services = point
+        .document
+        .get("service")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| invalid("verified Agent document has no services"))?;
+    let binding = services
+        .get(2)
+        .and_then(|s| s.get("serviceEndpoint"))
+        .ok_or_else(|| {
+            ContactAuthorizationError::MissingMaterial(
+                "Agent PCR binding is absent at publication".into(),
+            )
+        })?;
+    if binding.get("realm_id").and_then(serde_json::Value::as_str) != Some(event.realm_id.as_str())
+        || binding
+            .get("controller_did")
+            .and_then(serde_json::Value::as_str)
+            != Some(controller.principal_id.as_str())
+        || binding
+            .get("authorization_ref")
+            .and_then(serde_json::Value::as_str)
+            != Some(reference.as_str())
+        || event.scope_ref
+            != (arkret_wire::ScopeRef::Realm {
+                realm_id: event.realm_id.clone(),
+            })
+    {
+        return Err(invalid(
+            "Contact management exceeds the accepted Agent PCR delegation",
+        ));
+    }
+    // The closed document validator authenticates the immutable requested-scope
+    // commitment and the exact agent_control_authoring purpose. This adapter
+    // does not grant runtime/session capabilities from the controller identity.
+    Ok(())
+}
+
+fn verify_holder(
+    event: &Event,
+    holder: &ContactPeer,
+    evidence: ContactHolderEvidence<'_>,
+    suite: DigestSuite,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<()> {
+    if event.actor_id != holder.contact_actor_id() {
+        return Err(invalid("Event actor differs from expected Contact holder"));
+    }
+    arkret_schema::validate_event_for_submit(event).map_err(invalid)?;
+    event
+        .verify_event_id_matches_content_with_digest_suite(suite)
+        .map_err(invalid)?;
+    let [proof] = event.proofs.as_slice() else {
+        return Err(invalid("Contact requires exactly one producer proof"));
+    };
+    if proof.created_at != event.created_at {
+        return Err(invalid("producer time differs from Event publication"));
+    }
+    let key = match (holder, evidence) {
+        (ContactPeer::Human { account_id }, ContactHolderEvidence::Device(device)) => {
+            if event.executed_by.is_some() {
+                return Err(invalid(
+                    "human device Contact Event must not name a delegated executor",
+                ));
+            }
+            verify_device_producer(device, account_id, event)?
+        }
+        (
+            ContactPeer::Agent {
+                actor_id,
+                controller_account_id,
+            },
+            ContactHolderEvidence::Agent(agent),
+        ) => {
+            if event.executed_by.is_some()
+                || agent.controller_account_id() != controller_account_id
+                || !agent.permits(actor_id, &proof.verification_method, event.created_at)
+            {
+                return Err(invalid(
+                    "runtime evidence does not bind the exact Agent/controller/publication",
+                ));
+            }
+            arkret_signatures::proof::PublicKeyMaterial::Ed25519Raw {
+                bytes: agent.key().to_vec(),
+            }
+        }
+        (
+            ContactPeer::Agent {
+                actor_id,
+                controller_account_id,
+            },
+            ContactHolderEvidence::ControllerDevice(device),
+        ) => {
+            verify_controller_delegation(event, actor_id, controller_account_id, resolver)?;
+            verify_device_producer(device, controller_account_id, event)?
+        }
+        _ => return Err(invalid("producer evidence has the wrong holder class")),
+    };
+    let bytes = arkret_canonical::canonical_json_bytes(&event.digest_payload().map_err(invalid)?)
+        .map_err(invalid)?;
+    arkret_signatures::proof::verify_ed25519_detached_jws_proof_with_digest_suite(
+        proof,
+        &bytes,
+        &event.actor_id,
+        &key,
+        suite,
+    )
+    .map_err(invalid)
+}
+
+fn verify_request_receipt(
+    receipt: &RequestAcceptanceReceipt,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<()> {
+    receipt.validate_shape().map_err(invalid)?;
+    if receipt.core.issuer_id != *receipt.core.holder.delivery_station_id() {
+        return Err(invalid(
+            "request receipt source differs from the holder authority",
+        ));
+    }
+    verify_source_signature_at(
+        receipt.core.holder.delivery_station_id(),
+        &receipt.signature,
+        &arkret_signatures::contact_receipt::contact_request_acceptance_receipt_signing_bytes(
+            receipt,
+        )
+        .map_err(invalid)?,
+        receipt.core.accepted_at,
+        resolver,
+    )
+}
+
+fn verify_checkpoint_identity(
+    checkpoint: &ContactCurrentProof,
+    holder: &ContactPeer,
+    peer: &ContactPeer,
+    round: &Hash,
+    observed_at: DateTime<Utc>,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<()> {
+    if checkpoint.issuer_id != *holder.delivery_station_id()
+        || checkpoint.peer != *peer
+        || checkpoint.contact_round_id != *round
+        || checkpoint.complete_through == 0
+        || !checkpoint
+            .accepted_frontier
+            .contains(&checkpoint.head_event_ref)
+        || checkpoint.signature.created_at > observed_at
+        || checkpoint.fresh_until <= checkpoint.signature.created_at
+        || checkpoint
+            .accepted_frontier
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len()
+            != checkpoint.accepted_frontier.len()
+    {
+        return Err(invalid(
+            "current proof does not bind the exact direction and certified frontier",
+        ));
+    }
+    verify_source_signature(
+        holder.delivery_station_id(),
+        &checkpoint.signature,
+        &checkpoint.canonical_signing_bytes().map_err(invalid)?,
+        resolver,
+    )
+}
+
+/// Authenticate all five actual signed-Event carriers. An optional or expired
+/// current proof never becomes current authority here. A later head requires
+/// its complete exact predecessor chain in verify_contact_direction_history.
+pub fn authenticate_contact_event_carrier(
+    carrier: &PeerContactSubmitRequestBody,
+    expected_holder: &ContactPeer,
+    evidence: ContactHolderEvidence<'_>,
+    suite: DigestSuite,
+    observed_at: DateTime<Utc>,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<VerifiedContactEvent> {
+    let (event, kind) = match carrier {
+        PeerContactSubmitRequestBody::Request { signed_event, .. } => {
+            (signed_event, EventKind::ContactRequested)
+        }
+        PeerContactSubmitRequestBody::Response { signed_event, .. } => {
+            (signed_event, EventKind::ContactAccepted)
+        }
+        PeerContactSubmitRequestBody::Reject { signed_event, .. } => {
+            (signed_event, EventKind::ContactRejected)
+        }
+        PeerContactSubmitRequestBody::ScopeUpdate { signed_event, .. } => {
+            (signed_event, EventKind::ContactScopeUpdate)
+        }
+        PeerContactSubmitRequestBody::Tombstone { signed_event, .. } => {
+            (signed_event, EventKind::ContactTombstone)
+        }
+        _ => return Err(invalid("this carrier contains no Contact command Event")),
+    };
+    if event.kind != kind || event.created_at > observed_at {
+        return Err(invalid(
+            "carrier kind or observation conflicts with its Event",
+        ));
+    }
+    verify_holder(event, expected_holder, evidence, suite, resolver)?;
+    let (peer, transition) = match carrier {
+        PeerContactSubmitRequestBody::Request {
+            request_receipt,
+            current_proof,
+            introduction_evidence,
+            ..
+        } => {
+            let p: ContactRequestedPayload = payload(event)?;
+            let mut introduction_bytes = b"ak.contact.introduction-evidence.v1\n".to_vec();
+            introduction_bytes.extend(
+                arkret_canonical::canonical_json_bytes(introduction_evidence).map_err(invalid)?,
+            );
+            if Hash::new(arkret_canonical::sha256_digest(introduction_bytes)).map_err(invalid)?
+                != p.introduction_evidence_digest
+            {
+                return Err(invalid(
+                    "request introduction evidence differs from the signed payload digest",
+                ));
+            }
+            verify_request_receipt(request_receipt, resolver)?;
+            if request_receipt.core.holder != *expected_holder
+                || request_receipt.core.peer != p.peer
+                || request_receipt.core.request_event_ref != event.event_id
+                || request_receipt.core.previous_terminal_contact_round_id
+                    != p.previous_terminal_contact_round_id
+                || request_receipt.core.accepted_at < event.created_at
+                || request_receipt.core.accepted_at > observed_at
+                || request_receipt.signature.created_at > observed_at
+            {
+                return Err(invalid(
+                    "request receipt does not bind the exact Event and participants",
+                ));
+            }
+            if let Some(proof) = current_proof {
+                verify_checkpoint_identity(
+                    proof,
+                    expected_holder,
+                    &p.peer,
+                    &proof.contact_round_id,
+                    observed_at,
+                    resolver,
+                )?;
+            }
+            (p.peer, None)
+        }
+        PeerContactSubmitRequestBody::Response {
+            response_receipt,
+            current_proof,
+            ..
+        } => {
+            let p: ContactAcceptedPayload = payload(event)?;
+            verify_request_receipt(&response_receipt.request_receipt, resolver)?;
+            if response_receipt.response_event_ref != event.event_id
+                || response_receipt.issuer_id != *expected_holder.delivery_station_id()
+                || response_receipt.contact_round_id != p.contact_round_id
+                || p.version != 1
+                || response_receipt.request_receipt.core.holder != p.peer
+                || response_receipt.request_receipt.core.peer != *expected_holder
+                || response_receipt.request_receipt.core.request_event_ref != p.request_event_ref
+                || response_receipt
+                    .request_receipt
+                    .computed_receipt_digest()
+                    .map_err(invalid)?
+                    != p.request_acceptance_receipt_digest
+                || response_receipt
+                    .request_receipt
+                    .core
+                    .previous_terminal_contact_round_id
+                    != p.previous_terminal_contact_round_id
+                || response_receipt.accepted_at < event.created_at
+                || response_receipt.accepted_at > observed_at
+                || response_receipt.signature.created_at > observed_at
+            {
+                return Err(invalid(
+                    "response receipt does not bind the exact acceptance and request",
+                ));
+            }
+            verify_source_signature_at(
+                expected_holder.delivery_station_id(),
+                &response_receipt.signature,
+                &response_receipt
+                    .canonical_signing_bytes()
+                    .map_err(invalid)?,
+                response_receipt.accepted_at,
+                resolver,
+            )?;
+            if let Some(proof) = current_proof {
+                verify_checkpoint_identity(
+                    proof,
+                    expected_holder,
+                    &p.peer,
+                    &p.contact_round_id,
+                    observed_at,
+                    resolver,
+                )?;
+            }
+            let transition = ContactTransition {
+                contact_round_id: p.contact_round_id,
+                issuer: expected_holder.clone(),
+                peer: p.peer.clone(),
+                version: 1,
+                predecessor_event_ref: None,
+                event_ref: event.event_id.clone(),
+                granted_to_peer_scopes: p.granted_to_peer_scopes,
+                terminal: None,
+            };
+            (p.peer, Some(transition))
+        }
+        PeerContactSubmitRequestBody::Reject { reject_receipt, .. } => {
+            let p: ContactRejectedPayload = payload(event)?;
+            verify_request_receipt(&reject_receipt.request_receipt, resolver)?;
+            if reject_receipt.reject_event_ref != event.event_id
+                || reject_receipt.issuer_id != *expected_holder.delivery_station_id()
+                || reject_receipt.request_receipt.core.holder != p.peer
+                || reject_receipt.request_receipt.core.peer != *expected_holder
+                || reject_receipt.request_receipt.core.request_event_ref != p.request_event_ref
+                || reject_receipt
+                    .request_receipt
+                    .computed_receipt_digest()
+                    .map_err(invalid)?
+                    != p.request_acceptance_receipt_digest
+                || reject_receipt.accepted_at < event.created_at
+                || reject_receipt.accepted_at > observed_at
+                || reject_receipt.signature.created_at > observed_at
+            {
+                return Err(invalid(
+                    "reject receipt does not bind the exact rejection and request",
+                ));
+            }
+            verify_source_signature_at(
+                expected_holder.delivery_station_id(),
+                &reject_receipt.signature,
+                &reject_receipt.canonical_signing_bytes().map_err(invalid)?,
+                reject_receipt.accepted_at,
+                resolver,
+            )?;
+            (p.peer, None)
+        }
+        PeerContactSubmitRequestBody::ScopeUpdate {
+            lineage,
+            current_proof,
+            ..
+        }
+        | PeerContactSubmitRequestBody::Tombstone {
+            lineage,
+            current_proof,
+            ..
+        } => {
+            let (peer, round, version, predecessor, scopes, terminal) =
+                if kind == EventKind::ContactScopeUpdate {
+                    let p: ContactScopeUpdatePayload = payload(event)?;
+                    (
+                        p.peer,
+                        p.contact_round_id,
+                        p.version,
+                        p.predecessor_event_ref,
+                        p.granted_to_peer_scopes,
+                        false,
+                    )
+                } else {
+                    let p: ContactTombstonedPayload = payload(event)?;
+                    (
+                        p.peer,
+                        p.contact_round_id,
+                        p.version,
+                        p.predecessor_event_ref,
+                        Vec::new(),
+                        true,
+                    )
+                };
+            if version < 2
+                || lineage.issuer != *expected_holder
+                || lineage.peer != peer
+                || lineage.contact_round_id != round
+                || lineage.version != version
+                || lineage.event_ref != event.event_id
+                || lineage.predecessor_event_ref.as_ref() != Some(&predecessor)
+                || lineage.granted_to_peer_scopes != scopes
+                || (lineage.terminal == Some(true)) != terminal
+                || lineage.signature.created_at < event.created_at
+                || lineage.signature.created_at > observed_at
+            {
+                return Err(invalid(
+                    "signed lineage differs from its exact producer Event",
+                ));
+            }
+            verify_source_signature(
+                expected_holder.delivery_station_id(),
+                &lineage.signature,
+                &lineage.canonical_signing_bytes().map_err(invalid)?,
+                resolver,
+            )?;
+            verify_checkpoint_identity(
+                current_proof,
+                expected_holder,
+                &peer,
+                &round,
+                observed_at,
+                resolver,
+            )?;
+            (
+                peer.clone(),
+                Some(ContactTransition {
+                    contact_round_id: round,
+                    issuer: expected_holder.clone(),
+                    peer,
+                    version,
+                    predecessor_event_ref: Some(predecessor),
+                    event_ref: event.event_id.clone(),
+                    granted_to_peer_scopes: scopes,
+                    terminal: terminal.then_some(true),
+                }),
+            )
+        }
+        _ => unreachable!(),
+    };
+    let address = match carrier {
+        PeerContactSubmitRequestBody::Request {
+            contact_address, ..
+        }
+        | PeerContactSubmitRequestBody::Response {
+            contact_address, ..
+        }
+        | PeerContactSubmitRequestBody::Reject {
+            contact_address, ..
+        }
+        | PeerContactSubmitRequestBody::ScopeUpdate {
+            contact_address, ..
+        }
+        | PeerContactSubmitRequestBody::Tombstone {
+            contact_address, ..
+        } => contact_address,
+        _ => unreachable!(),
+    };
+    if address.recipient != peer {
+        return Err(invalid("carrier address names a different Contact peer"));
+    }
+    address.validate_shape().map_err(invalid)?;
+    if expected_holder.contact_actor_id() == peer.contact_actor_id() {
+        return Err(invalid("Contact participants must be distinct"));
+    }
+    Ok(VerifiedContactEvent {
+        carrier: carrier.clone(),
+        holder: expected_holder.clone(),
+        peer,
+        event_id: event.event_id.clone(),
+        kind,
+        observed_at,
+        transition,
+    })
+}
+
+fn exact_request<'a>(
+    events: &'a [VerifiedContactEvent],
+    receipt: &RequestAcceptanceReceipt,
+) -> Result<&'a VerifiedContactEvent> {
+    let mut matches = events
+        .iter()
+        .filter(|e| e.event_id == receipt.core.request_event_ref);
+    let event = matches.next().ok_or_else(|| {
+        ContactAuthorizationError::MissingMaterial(
+            "round origin request producer evidence is absent".into(),
+        )
+    })?;
+    if matches.next().is_some() {
+        return Err(invalid("duplicate round origin Event"));
+    }
+    let PeerContactSubmitRequestBody::Request {
+        request_receipt, ..
+    } = &event.carrier
+    else {
+        return Err(invalid("round origin is not a request"));
+    };
+    if request_receipt != receipt {
+        return Err(invalid("round references different request receipt bytes"));
+    }
+    Ok(event)
+}
+fn request_transition(event: &VerifiedContactEvent, round: &Hash) -> Result<ContactTransition> {
+    let PeerContactSubmitRequestBody::Request { signed_event, .. } = &event.carrier else {
+        return Err(invalid("initial grant is not a request"));
+    };
+    let p: ContactRequestedPayload = payload(signed_event)?;
+    Ok(ContactTransition {
+        contact_round_id: round.clone(),
+        issuer: event.holder.clone(),
+        peer: event.peer.clone(),
+        version: 1,
+        predecessor_event_ref: None,
+        event_ref: event.event_id.clone(),
+        granted_to_peer_scopes: p.granted_to_peer_scopes,
+        terminal: None,
+    })
+}
+
+/// Establish both initial grant origins from exact authenticated Events and
+/// source receipts. Glare is a two-request round and never an invented accept.
+/// This validates round identity, not predecessor-round continuity or current
+/// ordinary publication eligibility.
+pub fn verify_contact_round_origins(
+    bundle: &ContactRoundEvidenceBundle,
+    events: &[VerifiedContactEvent],
+    observed_at: DateTime<Utc>,
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<VerifiedContactRound> {
+    if events.iter().any(|e| e.observed_at > observed_at) {
+        return Err(invalid("round evidence predates its producer observation"));
+    }
+    let round = arkret_models_collaboration::direct_conversation_ops::contact_round_id(
+        &bundle.contact_round,
+    )
+    .map_err(invalid)?;
+    if round != bundle.contact_round_id {
+        return Err(invalid("round id differs from its canonical core"));
+    }
+    let origins = match &bundle.contact_round {
+        ContactRound::Normal {
+            request_event_ref,
+            request_acceptance_receipt_digest,
+            ..
+        } => {
+            let [receipt] = bundle.request_receipts.as_slice() else {
+                return Err(invalid("normal round requires exactly one request"));
+            };
+            let response = bundle.normal_response_receipt.as_ref().ok_or_else(|| {
+                ContactAuthorizationError::MissingMaterial(
+                    "normal response receipt is absent".into(),
+                )
+            })?;
+            if bundle.glare_concurrency_attestations.is_some()
+                || receipt.core.request_event_ref != *request_event_ref
+                || receipt.computed_receipt_digest().map_err(invalid)?
+                    != *request_acceptance_receipt_digest
+                || response.request_receipt != *receipt
+                || response.contact_round_id != round
+            {
+                return Err(invalid("normal round receipt binding is inconsistent"));
+            }
+            let request = exact_request(events, receipt)?;
+            let mut matches = events
+                .iter()
+                .filter(|e| e.event_id == response.response_event_ref);
+            let accept = matches.next().ok_or_else(|| {
+                ContactAuthorizationError::MissingMaterial(
+                    "normal accept producer evidence is absent".into(),
+                )
+            })?;
+            if matches.next().is_some() {
+                return Err(invalid("duplicate normal accept evidence"));
+            }
+            let PeerContactSubmitRequestBody::Response {
+                response_receipt, ..
+            } = &accept.carrier
+            else {
+                return Err(invalid("normal response is not an accept"));
+            };
+            if response_receipt != response
+                || accept.holder != request.peer
+                || accept.peer != request.holder
+            {
+                return Err(invalid(
+                    "normal acceptance does not reverse the exact request direction",
+                ));
+            }
+            [
+                request_transition(request, &round)?,
+                accept
+                    .transition
+                    .clone()
+                    .ok_or_else(|| invalid("normal acceptance has no initial transition"))?,
+            ]
+        }
+        ContactRound::Glare { requests, .. } => {
+            let [first, second] = bundle.request_receipts.as_slice() else {
+                return Err(invalid("glare requires exactly two request receipts"));
+            };
+            let attestations = bundle
+                .glare_concurrency_attestations
+                .as_ref()
+                .ok_or_else(|| {
+                    ContactAuthorizationError::MissingMaterial(
+                        "glare concurrency attestations are absent".into(),
+                    )
+                })?;
+            if bundle.normal_response_receipt.is_some() {
+                return Err(invalid("glare cannot carry a normal response"));
+            }
+            let expected = requests
+                .iter()
+                .map(|r| {
+                    (
+                        r.request_event_ref.clone(),
+                        r.request_acceptance_receipt_digest.clone(),
+                    )
+                })
+                .collect::<BTreeSet<_>>();
+            let actual = [first, second]
+                .into_iter()
+                .map(|r| {
+                    Ok((
+                        r.core.request_event_ref.clone(),
+                        r.computed_receipt_digest().map_err(invalid)?,
+                    ))
+                })
+                .collect::<Result<BTreeSet<_>>>()?;
+            if expected != actual {
+                return Err(invalid(
+                    "glare core does not bind both exact signed receipts",
+                ));
+            }
+            let a = exact_request(events, first)?;
+            let b = exact_request(events, second)?;
+            if a.holder != b.peer || a.peer != b.holder {
+                return Err(invalid(
+                    "glare requests do not cover the reverse exact pair",
+                ));
+            }
+            let digests = actual
+                .iter()
+                .map(|(_, digest)| digest.clone())
+                .collect::<BTreeSet<_>>();
+            let mut subjects = BTreeSet::new();
+            for attestation in attestations {
+                let origin = [a, b]
+                    .into_iter()
+                    .find(|e| e.holder.contact_actor_id() == attestation.subject_id)
+                    .ok_or_else(|| invalid("glare attestation subject is outside the round"))?;
+                if attestation.peer_id != origin.peer.contact_actor_id()
+                    || attestation.issuer_id != *origin.holder.delivery_station_id()
+                    || !subjects.insert(attestation.subject_id.clone())
+                    || attestation.complete_through == 0
+                    || attestation
+                        .request_receipt_digests
+                        .iter()
+                        .cloned()
+                        .collect::<BTreeSet<_>>()
+                        != digests
+                    || ![a, b]
+                        .into_iter()
+                        .all(|e| attestation.observed_frontier.contains(&e.event_id))
+                    || attestation.observed_at > observed_at
+                    || attestation.signature.created_at > observed_at
+                {
+                    return Err(invalid(
+                        "glare attestation does not bind both concurrent request origins",
+                    ));
+                }
+                verify_source_signature_at(
+                    origin.holder.delivery_station_id(),
+                    &attestation.signature,
+                    &attestation.canonical_signing_bytes().map_err(invalid)?,
+                    attestation.observed_at,
+                    resolver,
+                )?;
+            }
+            [
+                request_transition(a, &round)?,
+                request_transition(b, &round)?,
+            ]
+        }
+    };
+    let pair = match &bundle.contact_round {
+        ContactRound::Normal {
+            sorted_pair_member_ids,
+            ..
+        }
+        | ContactRound::Glare {
+            sorted_pair_member_ids,
+            ..
+        } => sorted_pair_member_ids,
+    };
+    if origins
+        .iter()
+        .map(|t| t.issuer.contact_actor_id())
+        .collect::<BTreeSet<_>>()
+        != pair.iter().cloned().collect()
+        || origins.iter().any(|t| t.contact_round_id != round)
+        || bundle.request_receipts.iter().any(|r| {
+            r.core.previous_terminal_contact_round_id != bundle.previous_terminal_contact_round_id
+        })
+    {
+        return Err(invalid(
+            "round origins differ from the canonical pair or predecessor round",
+        ));
+    }
+    if bundle.current_proofs.len() != 2 {
+        return Err(ContactAuthorizationError::MissingMaterial(
+            "round requires both directional current proofs".into(),
+        ));
+    }
+    let mut directions = BTreeSet::new();
+    for proof in &bundle.current_proofs {
+        let origin = origins
+            .iter()
+            .find(|t| t.peer == proof.peer)
+            .ok_or_else(|| invalid("round current proof belongs to another pair"))?;
+        if !directions.insert(origin.issuer.contact_actor_id()) {
+            return Err(invalid("duplicate round current proof direction"));
+        }
+        verify_checkpoint_identity(
+            proof,
+            &origin.issuer,
+            &origin.peer,
+            &round,
+            observed_at,
+            resolver,
+        )?;
+    }
+    let origin_checkpoints = events
+        .iter()
+        .filter(|e| origins.iter().any(|o| o.event_ref == e.event_id))
+        .filter_map(carrier_checkpoint)
+        .cloned()
+        .chain(bundle.current_proofs.iter().cloned())
+        .collect();
+    Ok(VerifiedContactRound {
+        round,
+        origins,
+        origin_checkpoints,
+    })
+}
+
+fn carrier_checkpoint(event: &VerifiedContactEvent) -> Option<&ContactCurrentProof> {
+    match &event.carrier {
+        PeerContactSubmitRequestBody::Request { current_proof, .. }
+        | PeerContactSubmitRequestBody::Response { current_proof, .. } => current_proof.as_ref(),
+        PeerContactSubmitRequestBody::ScopeUpdate { current_proof, .. }
+        | PeerContactSubmitRequestBody::Tombstone { current_proof, .. } => Some(current_proof),
+        _ => None,
+    }
+}
+
+/// Derive one complete direction from authenticated round origins and ordered
+/// successor carriers. A carrier certified by a later head remains incomplete
+/// until that exact successor chain is present, irrespective of numeric versions.
+pub fn verify_contact_direction_history(
+    round: &VerifiedContactRound,
+    issuer: &ContactPeer,
+    successors: &[VerifiedContactEvent],
+    checkpoint: &ContactCurrentProof,
+    observed_at: DateTime<Utc>,
+    resolver: &dyn AuthorityDidHistoryResolver,
+    terminal: Option<&VerifiedContactTerminalFence>,
+) -> Result<VerifiedContactDirection> {
+    let origin = round
+        .origins
+        .iter()
+        .find(|t| &t.issuer == issuer)
+        .ok_or_else(|| invalid("direction holder is not an authenticated round participant"))?;
+    verify_checkpoint_identity(
+        checkpoint,
+        issuer,
+        &origin.peer,
+        &round.round,
+        observed_at,
+        resolver,
+    )?;
+    let mut transitions = vec![origin.clone()];
+    for event in successors {
+        let next = event
+            .transition
+            .as_ref()
+            .ok_or_else(|| invalid("successor carrier has no directional transition"))?;
+        if next.version < 2 {
+            return Err(invalid("initial grant cannot be repeated as a successor"));
+        }
+        transitions.push(next.clone());
+    }
+    // The chain verifier below checks every link. This check also fences any
+    // later checkpoint bundled with an earlier accepted carrier.
+    if successors.iter().any(|e| e.observed_at > observed_at) {
+        return Err(invalid("history predates its producer observation"));
+    }
+    for proof in round
+        .origin_checkpoints
+        .iter()
+        .filter(|p| p.peer == origin.peer)
+        .chain(successors.iter().filter_map(carrier_checkpoint))
+    {
+        if proof.contact_round_id != round.round
+            || proof.peer != origin.peer
+            || proof.issuer_id != *issuer.delivery_station_id()
+        {
+            return Err(invalid("carrier current proof changes direction or round"));
+        }
+        let local = transitions
+            .iter()
+            .find(|t| t.event_ref == proof.head_event_ref);
+        let remote_terminal =
+            terminal.is_some_and(|f| f.event_id == proof.head_event_ref && proof.terminal);
+        if local.is_none() && !remote_terminal {
+            return Err(ContactAuthorizationError::MissingMaterial(
+                "carrier certifies a later head whose exact predecessor chain is absent".into(),
+            ));
+        }
+        if let Some(head) = local {
+            if head.version != proof.complete_through
+                || (head.terminal == Some(true)) != proof.terminal
+            {
+                return Err(invalid(
+                    "carrier proof conflicts with its authenticated exact head",
+                ));
+            }
+        }
+    }
+    verify_transition_history(
+        issuer,
+        &origin.peer,
+        &round.round,
+        &transitions,
+        checkpoint,
+        observed_at,
+        resolver,
+        terminal,
+    )
+}
+
 /// Verify every source signature through complete authenticated method-native
 /// DID history, including historical assertionMethod membership. The resolver
 /// supplies raw history, never a caller-selected public key or allow result.
 /// `observed_at` is the actual first observation, not an invented old timestamp.
 /// A complete lineage starts at version one and ends at the signed checkpoint;
 /// a latest-head-only projection cannot construct this verified value.
-pub fn verify_contact_direction_history(
+fn verify_transition_history(
     issuer: &ContactPeer,
     peer: &ContactPeer,
     contact_round_id: &Hash,
-    lineages: &[ContactLineage],
+    lineages: &[ContactTransition],
     checkpoint: &ContactCurrentProof,
     observed_at: DateTime<Utc>,
     resolver: &dyn AuthorityDidHistoryResolver,
+    terminal: Option<&VerifiedContactTerminalFence>,
 ) -> Result<VerifiedContactDirection> {
     if issuer.contact_actor_id() == peer.contact_actor_id() {
         return Err(invalid(
@@ -162,8 +1207,10 @@ pub fn verify_contact_direction_history(
         ));
     }
     if last.version != checkpoint.complete_through
-        || last.event_ref != checkpoint.head_event_ref
-        || !checkpoint.accepted_frontier.contains(&last.event_ref)
+        || !checkpoint
+            .accepted_frontier
+            .contains(&checkpoint.head_event_ref)
+        || (last.event_ref != checkpoint.head_event_ref && terminal.is_none())
     {
         return Err(invalid(
             "directional history conflicts with its certified head",
@@ -178,12 +1225,6 @@ pub fn verify_contact_direction_history(
         {
             return Err(invalid("lineage changes issuer, peer or round"));
         }
-        verify_source_signature(
-            issuer.delivery_station_id(),
-            &lineage.signature,
-            &lineage.canonical_signing_bytes().map_err(invalid)?,
-            resolver,
-        )?;
         if !seen.insert(lineage.event_ref.clone()) {
             return Err(invalid("lineage repeats an Event identity"));
         }
@@ -239,7 +1280,24 @@ pub fn verify_contact_direction_history(
             }
         }
     }
-    if checkpoint.terminal != (last.terminal == Some(true)) {
+    if let Some(fence) = terminal {
+        if fence.round != *contact_round_id
+            || !((fence.holder == *issuer && fence.peer == *peer)
+                || (fence.holder == *peer && fence.peer == *issuer))
+            || !checkpoint.terminal
+            || checkpoint.head_event_ref != fence.event_id
+        {
+            return Err(invalid(
+                "terminal acknowledgement does not bind the verified round fence",
+            ));
+        }
+        for interval in &mut intervals {
+            if interval.closed_by.is_none() {
+                interval.closed_by = Some(fence.event_id.clone());
+            }
+        }
+    }
+    if terminal.is_none() && checkpoint.terminal != (last.terminal == Some(true)) {
         return Err(invalid(
             "checkpoint terminal state disagrees with its exact head",
         ));
@@ -248,7 +1306,7 @@ pub fn verify_contact_direction_history(
         issuer: issuer.clone(),
         peer: peer.clone(),
         round: contact_round_id.clone(),
-        head: last.event_ref.clone(),
+        head: checkpoint.head_event_ref.clone(),
         current_from: checkpoint.signature.created_at,
         fresh_until: checkpoint.fresh_until,
         intervals,
@@ -259,6 +1317,22 @@ fn verify_source_signature(
     expected_source: &DidCoreId,
     signature: &ProtocolSignature,
     bytes: &[u8],
+    resolver: &dyn AuthorityDidHistoryResolver,
+) -> Result<()> {
+    verify_source_signature_at(
+        expected_source,
+        signature,
+        bytes,
+        signature.created_at,
+        resolver,
+    )
+}
+
+fn verify_source_signature_at(
+    expected_source: &DidCoreId,
+    signature: &ProtocolSignature,
+    bytes: &[u8],
+    effective_at: DateTime<Utc>,
     resolver: &dyn AuthorityDidHistoryResolver,
 ) -> Result<()> {
     let did = arkret_identity::verification_method_did(signature.verification_method.as_str())
@@ -288,12 +1362,9 @@ fn verify_source_signature(
             "source method history is incomplete".to_owned(),
         ));
     }
-    let point = arkret_signatures::webvh::validate_webvh_history_at(
-        &did,
-        &history.entries,
-        signature.created_at,
-    )
-    .map_err(invalid)?;
+    let point =
+        arkret_signatures::webvh::validate_webvh_history_at(&did, &history.entries, effective_at)
+            .map_err(invalid)?;
     let document: DidDocument = serde_json::from_value(point.document).map_err(invalid)?;
     arkret_identity::validate_verification_method_relationship(
         &document,
