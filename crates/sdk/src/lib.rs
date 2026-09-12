@@ -352,7 +352,7 @@ pub use arkret_signatures::{
     realm_organization, realm_organization_statement_sign, service_identity, sign_seal_conclusion,
     sign_seal_configuration_handoff, verify_seal_conclusion_quorum_signatures,
     verify_seal_conclusion_set_quorum_chain, verify_seal_configuration_handoff_quorum_signatures,
-    webvh,
+    verify_seal_quorum_signatures, webvh,
 };
 pub use arkret_state::mls_governance_proof::*;
 pub use arkret_state::{realm_state_snapshot, state, state_model, *};

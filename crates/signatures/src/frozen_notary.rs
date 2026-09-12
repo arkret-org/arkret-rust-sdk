@@ -1,7 +1,8 @@
 //! Frozen Realm-notary signature verification.
 
 use arkret_wire::{
-    Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, SealSignature, WireError,
+    Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue, Seal,
+    SealSignature, WireError,
 };
 use p256::ecdsa::signature::Verifier;
 
@@ -23,6 +24,34 @@ pub fn verify_frozen_notary_signature(
         ));
     }
     verify_frozen_notary_detached_jws(signature, descriptor, canonical_body)
+}
+
+/// Verify the complete final Seal certificate under the exact frozen
+/// configuration referenced by the Seal.
+pub fn verify_seal_quorum_signatures(
+    seal: &Seal,
+    configuration: &NotaryValue,
+    digest_suite: arkret_canonical::DigestSuite,
+) -> arkret_wire::Result<()> {
+    seal.validate_structural()?;
+    configuration.validate()?;
+    if seal.notary_signature.signatures.len() != configuration.quorum_size() {
+        return Err(WireError::Protocol(
+            "Seal certificate must contain exactly 2f+1 signatures".to_owned(),
+        ));
+    }
+    let transcript = seal.commit_transcript_bytes(digest_suite)?;
+    for signature in &seal.notary_signature.signatures {
+        let descriptor = configuration
+            .signer_descriptor(&signature.verification_method)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "Seal signature is outside the exact referenced configuration".to_owned(),
+                )
+            })?;
+        verify_frozen_notary_signature(signature, descriptor, &transcript, digest_suite)?;
+    }
+    Ok(())
 }
 
 /// Verify a domain-specific detached JWS against a frozen notary descriptor.

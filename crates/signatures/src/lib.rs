@@ -27,7 +27,10 @@ pub use eddsa_jcs_2022::{
     EddsaJcs2022Error, build_eddsa_jcs_2022_proof, eddsa_jcs_2022_proof_config,
     eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
-pub use frozen_notary::{verify_frozen_notary_detached_jws, verify_frozen_notary_signature};
+pub use frozen_notary::{
+    verify_frozen_notary_detached_jws, verify_frozen_notary_signature,
+    verify_seal_quorum_signatures,
+};
 #[cfg(feature = "collaboration")]
 pub use seal_conclusion::{
     sign_seal_conclusion, sign_seal_configuration_handoff,
