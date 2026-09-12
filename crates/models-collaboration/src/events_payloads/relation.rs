@@ -56,7 +56,7 @@ mod update_tests {
             .unwrap();
         assert!(serde_json::from_value::<RelationUpdatePayload>(old_target).is_err());
         let mut null_guard = canonical.clone();
-        null_guard["expected_state_digest"] = serde_json::Value::Null;
+        null_guard["expected_state_digest"] = Value::Null;
         assert!(serde_json::from_value::<RelationUpdatePayload>(null_guard).is_err());
         let mut unguarded = canonical;
         unguarded
