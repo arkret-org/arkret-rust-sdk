@@ -1798,18 +1798,6 @@
       "spec_pointer": "directory-operations.schema.json#/$defs/directory_search_organizations_request_body/properties/claims"
     },
     {
-      "finding": "crates/models-discovery/src/service_description.rs::ClaimedProfileEntry.extra",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "service-describe.schema.json#/properties/claimed_profiles/items/additionalProperties",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "service-describe.schema.json#/properties/claimed_profiles/items/additionalProperties"
-    },
-    {
       "finding": "crates/models-discovery/src/service_description.rs::RateLimitEntry.extra",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -3085,15 +3073,16 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:crates/models-discovery/src/http_bodies.rs::maximal_match_success_unpadded_bytes:55aaaec013706a5d",
+      "finding": "json_authoring:crates/models-discovery/src/http_bodies.rs::maximal_match_success_unpadded_bytes:c9e65edcbbb16430",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind,state",
+      "authority": "arkret-spec private-contact-discovery schema and closed ConsentScope vocabulary",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "action": "Retain this reviewed size-estimation boundary; keep its closed vocabulary and worst-case capacity tests aligned with the authoritative response schema.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
+      "reason": "This private capacity estimator constructs a synthetic maximal match response only to measure canonical byte length; it never emits or admits a protocol object. voice_call is the longest surviving ConsentScope after direct_message removal. The all-hit, maximal-expiry, maximal-hash envelope intentionally reserves the worst-case per-item handoff size.",
+      "adjudication": "manual"
     },
     {
       "finding": "json_authoring:crates/models-identity/src/member_identity.rs::member_display_state_digest:f72ac927fb27aeb2",
@@ -3168,17 +3157,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "arkret-spec protocol schema owning device_id,realm_id",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
-    },
-    {
-      "finding": "json_authoring:inkson/src/views/agents/components.rs::ActionApproveDialog:3c4db0db9789bf1d",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -6771,17 +6749,6 @@
     },
     {
       "finding": "soland/crates/storage/src/records.rs::MessageRecord.content",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Value",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "soland/crates/storage/src/records.rs::OutboundPushBridgeCacheRecord.remote_contract",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
