@@ -41,51 +41,6 @@ impl Client {
             )
             .await?;
         outcome.validate_binding(request)?;
-        let expected_root = outcome
-            .covering_seal
-            .data_event_set_root
-            .as_ref()
-            .ok_or_else(|| {
-                crate::Error::Protocol(
-                    "franking covering Seal has no data_event_set_root".to_owned(),
-                )
-            })?;
-        let suite_name = expected_root
-            .as_str()
-            .split_once(':')
-            .map(|(suite, _)| suite)
-            .ok_or_else(|| crate::Error::Protocol("invalid data Event set root".to_owned()))?;
-        let digest_suite = arkret_canonical::digest_suite(suite_name)
-            .map_err(|error| crate::Error::Protocol(error.to_string()))?;
-        let proof = arkret_state::EventDigestSetInclusionProof {
-            leaf_digest: outcome.data_event_inclusion_proof.leaf_digest.clone(),
-            leaf_index: outcome.data_event_inclusion_proof.leaf_index,
-            leaf_count: outcome.data_event_inclusion_proof.leaf_count,
-            audit_path: outcome.data_event_inclusion_proof.audit_path.clone(),
-        };
-        if !arkret_state::verify_event_digest_set_inclusion_proof(
-            &proof,
-            expected_root,
-            digest_suite,
-        )
-        .map_err(|error| crate::Error::Protocol(error.to_string()))?
-        {
-            return Err(crate::Error::Protocol(
-                "franking data Event inclusion proof is invalid".to_owned(),
-            ));
-        }
-        let proof_event_digest = arkret_wire::Hash::new(
-            outcome
-                .proof_event
-                .event_digest_with_digest_suite(digest_suite)
-                .map_err(|error| crate::Error::Protocol(error.to_string()))?,
-        )
-        .map_err(|error| crate::Error::Protocol(error.to_string()))?;
-        if proof_event_digest != outcome.data_event_inclusion_proof.leaf_digest {
-            return Err(crate::Error::Protocol(
-                "franking inclusion leaf does not match the durable proof Event".to_owned(),
-            ));
-        }
         Ok(outcome)
     }
 }

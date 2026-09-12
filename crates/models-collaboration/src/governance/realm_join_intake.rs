@@ -178,10 +178,8 @@ pub struct RealmJoinGovernanceFacts {
     /// `seal_basis`.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub join_rule: JoinRule,
-    /// Complete current accepted Seal frontier of the holder service: exactly
-    /// one leaf for `single_signer` and `threshold`, the complete canonical
-    /// duplicate-free non-quarantined antichain for `open_set`. A compressed
-    /// head is never a substitute.
+    /// Complete current accepted Seal frontier of the holder service: the
+    /// unique quorum-confirmed head. A compressed head is never a substitute.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub seal_basis: SealBasis,
     /// Live Realm digest suite from the verified joined projection of the
@@ -402,7 +400,6 @@ impl RealmJoinUnsignedEvent {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: self.preconditions.clone(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: Some(self.seal_basis.clone()),
             payload: serde_json::from_value(serde_json::to_value(&self.payload)?)?,
@@ -939,7 +936,9 @@ impl RealmJoinSelfApplicationStatusOutcome {
 #[cfg(test)]
 mod tests {
     use arkret_canonical::DigestSuite;
-    use arkret_wire::seal::{NotarySig, Seal, SealSignature};
+    use arkret_wire::seal::{
+        CommandOutcome, CommandResult, MultiSigKind, MultiSignature, Seal, SealSignature,
+    };
     use arkret_wire::{
         ActorId, CellRef, ControlProposalAuthorityKind, DidCoreId, DidUrl, Predicate, PredicateOp,
     };
@@ -983,25 +982,38 @@ mod tests {
         let mut seal = Seal {
             id: SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).expect("seal id"),
             realm_id: realm_id(),
-            predecessor_refs: Vec::new(),
+            predecessor_ref: None,
             delta: vec![hash(delta_byte)],
             control_event_set_root: hash('2'),
             state_root: hash('3'),
-            completeness_root: hash('4'),
             notary_seq: 0,
-            data_view_root: None,
-            data_event_set_root: None,
             availability_receipt_digests: Vec::new(),
             covered_event_digests: Vec::new(),
             previous_state_root: None,
             previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(SealSignature {
-                verification_method: DidUrl::new("did:web:notary.example#key-1").expect("method"),
-                payload_digest: hash('5'),
-                jws: "AAAA.BBBB.CCCC".to_owned(),
-            }),
+            notary_signature: MultiSignature {
+                kind: MultiSigKind::MultiSig,
+                signatures: vec![SealSignature {
+                    verification_method: DidUrl::new("did:web:notary.example#key-1")
+                        .expect("method"),
+                    payload_digest: hash('5'),
+                    jws: "AAAA.BBBB.CCCC".to_owned(),
+                }],
+                view: 0,
+            },
             sealed_at: "2026-09-10T08:00:00Z".parse().expect("timestamp"),
             hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").expect("hlc"),
+            configuration_ref: event_id(),
+            command_results: vec![CommandResult {
+                event_digest: hash(delta_byte),
+                outcome: CommandOutcome::Committed,
+                result_digest: hash('4'),
+                reason_code: None,
+                unit_event_digests: vec![hash(delta_byte)],
+            }],
+            authorization_closures: Vec::new(),
+            existence_anchors: Vec::new(),
+            transaction_records: Vec::new(),
         };
         seal.id = seal
             .derive_id(DigestSuite::Sha256)

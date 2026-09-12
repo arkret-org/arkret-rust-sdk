@@ -63,7 +63,6 @@ pub struct SealTransparencyChecks {
     pub seal_signatures: SealTransparencyVerifiedCheck,
     pub dag_edges_verified: SealTransparencyVerifiedCheck,
     pub set_root_monotonic: SealTransparencyVerifiedCheck,
-    pub completeness_monotonic: SealTransparencyVerifiedCheck,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/seal-transparency.schema.json`.
@@ -75,7 +74,6 @@ pub struct SealTransparency {
     pub realm_id: RealmId,
     pub seal_id: SealId,
     pub control_event_set_root: Hash,
-    pub completeness_root: Hash,
     pub state_root: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prev_entry_digest: Option<Hash>,

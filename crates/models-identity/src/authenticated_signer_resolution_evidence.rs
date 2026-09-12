@@ -10,6 +10,14 @@ use crate::{
     AgentSignerEvidence, AuthenticatedServiceResolution, DidDocument, PublicPrincipalResolution,
 };
 
+/// Ed25519 verification material resolved from one authenticated historical
+/// signer-evidence object.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResolvedEd25519VerificationKey {
+    pub verification_method: DidUrl,
+    pub public_key: [u8; 32],
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -40,9 +48,81 @@ pub enum AuthenticatedSignerResolutionEvidence {
         agent_signer_evidence: Box<AgentSignerEvidence>,
         attester_signer_evidence_ref: SignerEvidenceRef,
         account_authority_signer_evidence_ref: SignerEvidenceRef,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        receiver_signer_evidence_ref: Option<SignerEvidenceRef>,
     },
+}
+
+/// Resolve the exact Ed25519 method carried by authenticated historical
+/// evidence. This is the shared verifier boundary for Event producer proofs.
+pub fn ed25519_verification_key_from_evidence(
+    evidence: &AuthenticatedSignerResolutionEvidence,
+) -> Result<ResolvedEd25519VerificationKey> {
+    evidence.validate_attester_binding()?;
+    let public_key = match evidence {
+        AuthenticatedSignerResolutionEvidence::Service {
+            authenticated_resolution,
+            ..
+        } => verification_method_key(
+            &authenticated_resolution.normalized_did_document,
+            evidence.verification_method(),
+        )?,
+        AuthenticatedSignerResolutionEvidence::Principal {
+            normalized_did_document,
+            ..
+        } => verification_method_key(normalized_did_document, evidence.verification_method())?,
+        AuthenticatedSignerResolutionEvidence::AccountDevice {
+            device_projection_attestation,
+            ..
+        } => {
+            let did_key = device_projection_attestation
+                .attestation
+                .device_signing_key_did
+                .as_str();
+            let multibase = did_key.strip_prefix("did:key:").ok_or_else(|| {
+                WireError::Protocol("device signer evidence key is not did:key".to_owned())
+            })?;
+            decode_ed25519_material(multibase)?
+        }
+        AuthenticatedSignerResolutionEvidence::Agent {
+            agent_signer_evidence,
+            ..
+        } => {
+            let admission = match agent_signer_evidence.as_ref() {
+                AgentSignerEvidence::HistoricalEvent {
+                    admission_evidence, ..
+                }
+                | AgentSignerEvidence::CurrentAdmission {
+                    admission_evidence, ..
+                } => admission_evidence,
+            };
+            let key = admission
+                .agent_authority_state_evidence
+                .state
+                .authorized_key()?;
+            let decoded = arkret_wire::base64url::base64url_decode(key.public_key.key.as_str())
+                .map_err(|error| {
+                    WireError::Protocol(format!("invalid authenticated Agent key: {error}"))
+                })?;
+            decoded.try_into().map_err(|_| {
+                WireError::Protocol("authenticated Agent key must be Ed25519 raw32".to_owned())
+            })?
+        }
+    };
+    Ok(ResolvedEd25519VerificationKey {
+        verification_method: evidence.verification_method().clone(),
+        public_key,
+    })
+}
+
+fn verification_method_key(document: &DidDocument, method: &DidUrl) -> Result<[u8; 32]> {
+    let material = document
+        .verification_methods
+        .get(method.as_str())
+        .ok_or_else(|| {
+            WireError::Protocol(
+                "authenticated signer evidence omits the selected verification method".to_owned(),
+            )
+        })?;
+    decode_ed25519_material(material)
 }
 
 impl Eq for AuthenticatedSignerResolutionEvidence {}
@@ -205,24 +285,11 @@ impl AuthenticatedSignerResolutionEvidence {
             Self::Agent {
                 attester_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
-                receiver_signer_evidence_ref,
                 ..
-            } => {
-                if matches!(self, Self::Agent { agent_signer_evidence, .. } if matches!(agent_signer_evidence.as_ref(), AgentSignerEvidence::CurrentAdmission { .. }))
-                    == receiver_signer_evidence_ref.is_some()
-                {
-                    return Err(WireError::Protocol(
-                        "Agent receiver evidence must occur only for historical acceptance"
-                            .to_owned(),
-                    ));
-                }
-                let mut refs = vec![
-                    attester_signer_evidence_ref,
-                    account_authority_signer_evidence_ref,
-                ];
-                refs.extend(receiver_signer_evidence_ref.iter());
-                refs
-            }
+            } => vec![
+                attester_signer_evidence_ref,
+                account_authority_signer_evidence_ref,
+            ],
         };
         for evidence_ref in references {
             evidence_ref.content_digest()?;

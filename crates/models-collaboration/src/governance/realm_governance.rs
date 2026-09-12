@@ -182,7 +182,7 @@ pub const REALM_LINK_ALLOWED_TRANSITIONS: &[(RealmLinkStatus, RealmLinkStatus)] 
 
 /// Typed payload for the `ak.realm.link` event.
 ///
-/// Cell family: `ak.component.realm.link.v1` (`fsm` / `reject`). Cell
+/// Cell family: `ak.component.realm.link.v1` (`sequenced_state`). Cell
 /// subject key: `(target_realm_id, link_kind)` inside the envelope Realm.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

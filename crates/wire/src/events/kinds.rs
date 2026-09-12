@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::generated::EventWireScope;
 pub use crate::generated::event_kinds::{
-    CbsEffectPlane, EVENT_KIND_COUNT, EventCellBottom, EventCellLattice, EventCellWriteDescriptor,
-    EventKind, EventKindDescriptor, EventRegistryCategory, cbs_cell_family_plane,
+    CbsEffectPlane, EVENT_KIND_COUNT, EventCellBottom, EventCellExecution, EventCellStateModel,
+    EventCellValueShape, EventCellWriteDescriptor, EventKind, EventKindDescriptor,
+    EventRegistryCategory, cbs_cell_family_plane,
 };
 
 /// Object-only schema id; this is not an Event.kind.
@@ -97,7 +98,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
     match kind {
         EventKind::AccountBlocklist | EventKind::AccountDataSet => EventProductClass::Account,
         EventKind::ActorDiscovery => EventProductClass::Actor,
-        EventKind::ConflictRecovery | EventKind::ForkResolution => EventProductClass::State,
+        EventKind::ForkResolution => EventProductClass::State,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
         | EventKind::AgentActionRequest
@@ -142,8 +143,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CircleRestore
         | EventKind::CircleTombstone
         | EventKind::CircleHistoryAccess
-        | EventKind::CircleMemberState
-        | EventKind::CircleSealCommit => EventProductClass::Circle,
+        | EventKind::CircleMemberState => EventProductClass::Circle,
         EventKind::ConsentGrant | EventKind::ConsentRevoke => EventProductClass::Consent,
         EventKind::ContactRequested
         | EventKind::ContactAccepted

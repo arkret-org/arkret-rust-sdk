@@ -8,17 +8,16 @@ use serde_json::Value;
 use thiserror::Error;
 
 use super::state_root::{
-    CasHeadsByCell, GovernanceView, compute_state_root, seal_merkle_audit_path_from_leaf_data,
+    GovernanceView, compute_state_root, seal_merkle_audit_path_from_leaf_data,
     seal_merkle_root_from_leaf_data, verify_seal_merkle_audit_path_from_leaf_data,
 };
-use super::store::{CellRegistry, CellStore, ControlEventStore, SealStore};
+use super::store::{CellStateRegistry, CellStore, ControlEventStore, SealStore};
 use super::verify::{
-    ControlMoveReject, ControlMoveVerificationContext, recovery_capability_is_active,
-    verify_accepted_control_move_in_context, verify_control_move_in_context,
-    verify_replayed_control_move_in_context,
+    ControlMoveReject, ControlMoveVerificationContext, verify_accepted_control_move_in_context,
+    verify_control_move_in_context, verify_replayed_control_move_in_context,
 };
-use crate::lattice::ordered_log::IssuedOp;
-use crate::lattice::{CellState, SealedOp};
+use crate::state_model::ordered_log::IssuedOp;
+use crate::state_model::{ResolvedCellState, StateWrite};
 use crate::{CellRef, Hash, ProjectedCellWrite, RealmId, Seal, SealId, canonical};
 
 #[derive(Clone, Debug)]
@@ -60,7 +59,7 @@ pub struct SealDigestSuites {
     pub previous_state_digest_suite: Option<arkret_canonical::DigestSuite>,
 }
 
-/// Seal-DAG and frozen-state dependencies required to verify one Event's
+/// Seal-chain and frozen-state dependencies required to verify one Event's
 /// declared Seal basis.
 #[derive(Clone, Copy)]
 pub struct SealBasisVerificationContext<'a> {
@@ -68,7 +67,7 @@ pub struct SealBasisVerificationContext<'a> {
     pub realm_id: &'a RealmId,
     pub seals: &'a dyn SealStore,
     pub cells: &'a dyn CellStore,
-    pub registry: &'a dyn CellRegistry,
+    pub registry: &'a dyn CellStateRegistry,
     pub digest_suite: arkret_canonical::DigestSuite,
 }
 
@@ -121,7 +120,7 @@ pub enum SealReject {
     #[error("Seal structural / signature error: {0}")]
     Structural(String),
 
-    #[error("Seal predecessor_refs contain unknown ids")]
+    #[error("Seal predecessor_ref is unknown")]
     UnknownPredecessor,
 
     #[error("Seal.delta contains an event already covered by a predecessor")]
@@ -154,12 +153,6 @@ pub enum SealReject {
     #[error("covered_event_digests does not equal predecessor coverage plus delta")]
     CoveredSetMismatch,
 
-    #[error("declared completeness_root {declared} does not match recomputed {recomputed}")]
-    CompletenessRootMismatch {
-        declared: String,
-        recomputed: String,
-    },
-
     #[error("declared state_root {declared} does not match recomputed {recomputed}")]
     StateRootMismatch {
         declared: String,
@@ -190,7 +183,7 @@ pub async fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
@@ -228,7 +221,7 @@ pub async fn prepare_seal_in_context<VerifyProofs, ProjectWrites>(
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
@@ -254,16 +247,14 @@ where
     .await
 }
 
-/// Apply a Seal whose delta is loaded from the durable accepted-event lane.
-/// Each Event must carry the closed Producer + StationAdmission proof
-/// set; producer-submission Seals continue to use [`apply_seal_in_context`].
+/// Apply a Seal whose producer-signed delta is loaded from durable accepted history.
 #[allow(clippy::too_many_arguments)]
 pub async fn apply_accepted_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
@@ -290,17 +281,14 @@ where
     commit_prepared_seal(seal, events, seals, cells, digest_suites, prepared).await
 }
 
-/// Apply a retained Seal whose Events may use either the historical
-/// sole-Producer direct regime or the Producer + Admission federation regime.
-/// The selected structural contract is derived from each exact Event proof
-/// set; all remaining CBS, reducer, recovery, and state-root checks are shared.
+/// Apply a retained Seal using the producer-only Event proof contract.
 #[allow(clippy::too_many_arguments)]
 pub async fn apply_replayed_seal_in_context<VerifyProofs, ProjectWrites>(
     seal: &Seal,
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
@@ -340,7 +328,7 @@ async fn prepare_seal_with_proof_set<VerifyProofs, ProjectWrites>(
     events: &dyn ControlEventStore,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     digest_suites: SealDigestSuites,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
@@ -352,7 +340,7 @@ where
     ProjectWrites:
         Fn(&Event, arkret_canonical::DigestSuite) -> Result<Vec<ProjectedCellWrite>, String> + Copy,
 {
-    if context == EventSubmitContext::AnchorUnit && !seal.predecessor_refs.is_empty() {
+    if context == EventSubmitContext::AnchorUnit && seal.predecessor_ref.is_some() {
         return Err(SealReject::Structural(
             "anchor-unit context is only valid for the first Seal".to_owned(),
         ));
@@ -361,16 +349,20 @@ where
         .map_err(|e| SealReject::Structural(format!("id: {e}")))?;
     seal.validate_structural()
         .map_err(|e| SealReject::Structural(e.to_string()))?;
-    if !seals.predecessors_known(&seal.predecessor_refs).await? {
+    if !seals
+        .predecessors_known(seal_predecessor_slice(seal))
+        .await?
+    {
         return Err(SealReject::UnknownPredecessor);
     }
-    if seal.predecessor_refs.is_empty() && seal.delta.is_empty() {
+    if seal.predecessor_ref.is_none() && seal.delta.is_empty() {
         return Err(SealReject::Structural(
             "the first Seal must cover the complete non-empty Realm anchor unit".to_owned(),
         ));
     }
 
-    let pred_covered = union_predecessor_covered_events(&seal.predecessor_refs, seals).await?;
+    let pred_covered =
+        union_predecessor_covered_events(seal_predecessor_slice(seal), seals).await?;
     if seal.delta.iter().any(|m| pred_covered.contains(m)) {
         return Err(SealReject::DeltaAlreadyCovered);
     }
@@ -404,8 +396,7 @@ where
     let pre_state =
         effective_joined_view_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)
             .await?;
-    let pre_heads = &pre_state.cas_heads;
-    let pred_closure = predecessor_seal_closure(&seal.predecessor_refs, seals).await?;
+    let pred_closure = predecessor_seal_closure(seal_predecessor_slice(seal), seals).await?;
 
     let mut new_events: Vec<(Hash, Event)> = Vec::with_capacity(seal.delta.len());
     for digest in &seal.delta {
@@ -452,17 +443,6 @@ where
         })?;
         covered_events.push((event, event_digest_suite));
     }
-    let recomputed_completeness = control_event_completeness_root(
-        &covered_events,
-        &covered,
-        digest_suites.seal_digest_suite,
-    )?;
-    if recomputed_completeness != seal.completeness_root {
-        return Err(SealReject::CompletenessRootMismatch {
-            declared: seal.completeness_root.as_str().to_owned(),
-            recomputed: recomputed_completeness.as_str().to_owned(),
-        });
-    }
     let ordered = deterministic_order(new_events);
 
     let mut accepted: Vec<(Hash, Event, Vec<crate::ProjectionEffect>)> =
@@ -498,7 +478,7 @@ where
                     .map_err(|error| SealReject::Structural(error.to_string()))?,
             );
             let own_pcr = match genesis {
-                Some(CellState::Value(value)) => {
+                Some(ResolvedCellState::Value(value)) => {
                     value.get("purpose").and_then(Value::as_str) == Some("principal_control")
                         && covered_events.iter().any(|(genesis, _)| {
                             genesis.kind == arkret_wire::EventKind::RealmCreate
@@ -623,33 +603,18 @@ where
         };
         match verification {
             Ok(effects) => {
-                verify_recovery_witness(
-                    &event,
-                    &effects,
-                    &seal.realm_id,
-                    &pre_state.cells,
-                    &pred_closure,
-                    seals,
-                    cells,
-                    registry,
-                    event_digest_suite,
-                )
-                .await
-                .map_err(|reject| SealReject::ControlMoveRejected {
-                    event_digest: digest.as_str().to_owned(),
-                    reason: reject.to_string(),
-                })?;
                 if context == EventSubmitContext::AnchorUnit {
                     for effect in &effects {
                         let cell_ops = staged_anchor_ops.entry(effect.cell_id.clone()).or_default();
                         cell_ops.push(IssuedOp {
                             issuer_id: event.actor_id.clone(),
-                            op: SealedOp::from_projection(digest.clone(), effect),
+                            op: StateWrite::from_projection(digest.clone(), effect),
                         });
                         let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
                         staged_anchor_state.insert(
                             effect.cell_id.clone(),
-                            join_cell(binding.lattice.as_ref(), &effect.cell_id, cell_ops),
+                            join_cell(binding.model.as_ref(), &effect.cell_id, cell_ops)
+                                .map_err(|error| SealReject::Structural(error.to_string()))?,
                         );
                     }
                 }
@@ -673,155 +638,23 @@ where
     }
 
     let mut new_ops: Vec<(CellRef, IssuedOp)> = Vec::new();
-    // One rebuild per distinct basis, not per Move. A Seal's Moves are usually
-    // authored against the same frontier, and rebuilding the head view is a
-    // whole-Realm pass: a `list_cells` plus one history read per cell. Nothing
-    // in this loop writes to the store — new effects are collected into
-    // `new_ops` and applied later — so the same leaf set answers the same way
-    // every time, which is what makes reusing it sound rather than merely
-    // faster. The key is order-insensitive because the rebuild unions its
-    // leaves' covered sets.
-    let mut basis_heads_by_leaves: BTreeMap<Vec<SealId>, CasHeadsByCell> = BTreeMap::new();
     for (digest, event, effects) in &accepted {
-        // §9.3.1.3 item 1: the baseline is the Move's *own* signed `seal_basis`,
-        // not the receiving Seal's predecessor set. Anchor units have no basis
-        // to rebuild (§9.3.1.3 "two closed exceptions"), and their staged
-        // context is what admission already used.
-        let basis_heads = match event.seal_basis.as_ref() {
-            Some(basis) => {
-                let key: Vec<SealId> = basis
-                    .leaves
-                    .iter()
-                    .cloned()
-                    .collect::<BTreeSet<_>>()
-                    .into_iter()
-                    .collect();
-                match basis_heads_by_leaves.get(&key) {
-                    Some(cached) => cached.clone(),
-                    None => {
-                        let heads = effective_cas_heads_at(
-                            &basis.leaves,
-                            &seal.realm_id,
-                            seals,
-                            cells,
-                            registry,
-                        )
-                        .await?;
-                        basis_heads_by_leaves.insert(key, heads.clone());
-                        heads
-                    }
-                }
-            }
-            None => BTreeMap::new(),
-        };
         for effect in effects {
-            let kind = {
-                let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
-                let kind = binding.lattice.kind();
-                if effect.recovery_reset {
-                    // §9.5.1 `fsm` additional admission. The recovery supersedes
-                    // every divergent head, so each of their `to` values is one of
-                    // its sources and each has to be a registered transition into
-                    // the resolved state. This is the one site with those values:
-                    // the pre-state the Move verifier sees is `⊥`, which carries no
-                    // usable head list, and the whole point of §9.5.1 item 1 is that
-                    // the proof comes from the write's *own* signed basis.
-                    let sources: Vec<Value> = basis_heads
-                        .get(&effect.cell_id)
-                        .into_iter()
-                        .flatten()
-                        .map(|head| head.value.clone())
-                        .collect();
-                    binding
-                        .lattice
-                        .validate_recovery_sources(&sources, &effect.op)
-                        .map_err(|error| SealReject::ControlMoveRejected {
-                            event_digest: digest.as_str().to_owned(),
-                            reason: format!(
-                                "recovery write on {} is not admissible: {error}",
-                                effect.cell_id.as_str()
-                            ),
-                        })?;
-                }
-                kind
-            };
-            let supersedes = if is_causal_register(kind) {
-                let observed = head_identities(basis_heads.get(&effect.cell_id));
-                if event.seal_basis.is_some() {
-                    let frozen = head_identities(pre_heads.get(&effect.cell_id));
-                    // §9.3.1.3 item 3: identity-for-identity, and stale even when
-                    // both sides settle to the same business value. That equality
-                    // is the whole point — it is what a claim/release/claim slot
-                    // needs and what a whole-value compare cannot express.
-                    if !head_identities_match(&observed, &frozen) {
-                        return Err(SealReject::ControlMoveRejected {
-                            event_digest: digest.as_str().to_owned(),
-                            reason: format!(
-                                "cas_register cell {} basis heads {:?} are stale against the \
-                                 frozen predecessor heads {:?}",
-                                effect.cell_id.as_str(),
-                                observed.iter().map(Hash::as_str).collect::<Vec<_>>(),
-                                frozen.iter().map(Hash::as_str).collect::<Vec<_>>(),
-                            ),
-                        });
-                    }
-                }
-                observed
-            } else if kind == crate::lattice::LatticeKind::MvRegister
-                && is_selector_cell(&effect.cell_id)
+            let binding = registry.resolve(&seal.realm_id, &effect.cell_id)?;
+            if binding.execution != arkret_wire::EventCellExecution::Security
+                || binding.state_model != crate::state_model::StateModelKind::SequencedState
             {
-                let observed = match &event.seal_basis {
-                    Some(basis) => {
-                        let coverage =
-                            union_predecessor_covered_events(&basis.leaves, seals).await?;
-                        let ops = cells
-                            .sealed_ops_for_cell(&seal.realm_id, &effect.cell_id)
-                            .await?
-                            .into_iter()
-                            .filter(|issued| coverage.contains(&issued.op.move_id))
-                            .collect::<Vec<_>>();
-                        selector_current_heads(&ops)
-                            .into_iter()
-                            .map(|issued| issued.op.move_id.clone())
-                            .collect::<BTreeSet<_>>()
-                            .into_iter()
-                            .collect::<Vec<_>>()
-                    }
-                    None => Vec::new(),
-                };
-                if event.kind == arkret_wire::EventKind::AgentSelectorClaim
-                    && event.payload.get("subject_account_id") == Some(&Value::Null)
-                {
-                    let sources = event
-                        .payload
-                        .get("source_refs")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                        .map(|source| {
-                            arkret_wire::EventId::new(source.as_str().unwrap_or_default())
-                                .map(|id| id.event_digest())
-                                .map_err(|error| SealReject::Structural(error.to_string()))
-                        })
-                        .collect::<Result<BTreeSet<_>, _>>()?;
-                    if sources != observed.iter().cloned().collect() {
-                        return Err(SealReject::Structural(
-                            "selector unbind must name exactly its observed current heads".into(),
-                        ));
-                    }
-                }
-                observed
-            } else {
-                Vec::new()
-            };
-            // The actor travels with the op so ordered-log slots stay keyed by
-            // the real actor rather than a synthetic one (9.3.1).
+                return Err(SealReject::Structural(format!(
+                    "Seal command {} projected non-security cell {}",
+                    digest,
+                    effect.cell_id.as_str()
+                )));
+            }
             new_ops.push((
                 effect.cell_id.clone(),
                 IssuedOp {
                     issuer_id: event.actor_id.clone(),
-                    op: SealedOp::from_projection(digest.clone(), effect)
-                        .with_supersedes(supersedes),
+                    op: StateWrite::from_projection(digest.clone(), effect),
                 },
             ));
         }
@@ -829,7 +662,7 @@ where
     // Validate the candidate state before publishing any of its effects. A
     // durable backend may deliberately hide cell ops until their accepting
     // Seal exists (PostgreSQL does this with a JOIN against state_seals), so
-    // re-reading the store after append_sealed_effects cannot portably expose
+    // re-reading the store after append_confirmed_effects cannot portably expose
     // the candidate batch. Resolve the already-sealed predecessor batches and
     // layer this Seal's receiver-derived ops onto them in memory instead.
     let post_state =
@@ -862,6 +695,13 @@ where
     })
 }
 
+fn seal_predecessor_slice(seal: &Seal) -> &[SealId] {
+    seal.predecessor_ref
+        .as_ref()
+        .map(std::slice::from_ref)
+        .unwrap_or_default()
+}
+
 async fn commit_prepared_seal(
     seal: &Seal,
     events: &dyn ControlEventStore,
@@ -871,7 +711,7 @@ async fn commit_prepared_seal(
     prepared: PreparedSealEffect,
 ) -> Result<SealEffect, SealReject> {
     cells
-        .append_sealed_effects(&seal.realm_id, &seal.id, &prepared.new_ops)
+        .append_confirmed_effects(&seal.realm_id, &seal.id, &prepared.new_ops)
         .await?;
     if let Err(error) = seals.put(seal, digest_suites.seal_digest_suite).await {
         let _ = cells.rollback_seal(&seal.realm_id, &seal.id).await;
@@ -888,7 +728,7 @@ fn event_digest_suite_for_seal(
     seal: &Seal,
     digest_suites: SealDigestSuites,
 ) -> arkret_canonical::DigestSuite {
-    if seal.predecessor_refs.is_empty() && event.kind == arkret_wire::EventKind::RealmCreate {
+    if seal.predecessor_ref.is_none() && event.kind == arkret_wire::EventKind::RealmCreate {
         arkret_canonical::DigestSuite::Sha256
     } else {
         digest_suites.event_digest_suite
@@ -907,7 +747,7 @@ fn validate_digest_suite_bridge(
         .map(|(_, event)| event)
         .collect::<Vec<_>>();
 
-    if seal.predecessor_refs.is_empty() {
+    if seal.predecessor_ref.is_none() {
         if seal.previous_state_root.is_some()
             || seal.previous_digest_algorithm.is_some()
             || !transition_events.is_empty()
@@ -1059,12 +899,12 @@ fn parse_digest_suite(value: &str) -> Result<arkret_canonical::DigestSuite, Seal
 /// create-locked genesis cell and deliberately does not emit a separate
 /// digest-suite-cell write.
 pub fn live_digest_suite_from_state(
-    state: &BTreeMap<CellRef, CellState>,
+    state: &BTreeMap<CellRef, ResolvedCellState>,
 ) -> Result<arkret_canonical::DigestSuite, SealReject> {
     let cell = arkret_wire::null_subject_cell(arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1);
     match state.iter().find(|(cell_ref, _)| cell_ref.as_str() == cell) {
-        Some((_, CellState::Value(Value::String(value)))) => parse_digest_suite(value),
-        Some((_, CellState::Bottom(_))) => Err(SealReject::Structural(
+        Some((_, ResolvedCellState::Value(Value::String(value)))) => parse_digest_suite(value),
+        Some((_, ResolvedCellState::Bottom(_))) => Err(SealReject::Structural(
             "predecessor digest-suite cell is Bottom".to_owned(),
         )),
         Some(_) => Err(SealReject::Structural(
@@ -1077,7 +917,7 @@ pub fn live_digest_suite_from_state(
                 .iter()
                 .find(|(cell_ref, _)| cell_ref.as_str() == genesis_cell)
             {
-                Some((_, CellState::Value(Value::Object(genesis)))) => genesis
+                Some((_, ResolvedCellState::Value(Value::Object(genesis)))) => genesis
                     .get("digest_algorithm")
                     .and_then(Value::as_str)
                     .ok_or_else(|| {
@@ -1086,7 +926,7 @@ pub fn live_digest_suite_from_state(
                         )
                     })
                     .and_then(parse_digest_suite),
-                Some((_, CellState::Bottom(_))) => Err(SealReject::Structural(
+                Some((_, ResolvedCellState::Bottom(_))) => Err(SealReject::Structural(
                     "Realm genesis cell is Bottom".to_owned(),
                 )),
                 Some(_) => Err(SealReject::Structural(
@@ -1100,252 +940,6 @@ pub fn live_digest_suite_from_state(
     }
 }
 
-const DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS: i64 = 86_400_000;
-const MAX_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS: i64 = 604_800_000;
-
-/// Validate the Seal-DAG-dependent §9.5 conflict-recovery conditions.
-///
-/// [`verify_control_move_in_context`] owns the pure checks (registered reset,
-/// target currently in `Bottom`, critical refs). This function owns the checks
-/// that require accepted Seal and cell history: witness reconstruction,
-/// pre-conflict ancestry, capability inclusion, freshness, and revoke lag.
-#[allow(clippy::too_many_arguments)]
-pub async fn verify_recovery_witness(
-    event: &Event,
-    effects: &[crate::ProjectionEffect],
-    realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    predecessor_closure: &BTreeSet<SealId>,
-    seals: &dyn SealStore,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-    _event_digest_suite: arkret_canonical::DigestSuite,
-) -> Result<(), ControlMoveReject> {
-    let Some(reset) = effects.iter().find(|effect| effect.recovery_reset) else {
-        return Ok(());
-    };
-    let reject = |reason: &str| ControlMoveReject::FailedPrecondition {
-        cell: reset.cell_id.as_str().to_owned(),
-        reason: reason.to_owned(),
-    };
-    let capability_ref = event
-        .refs
-        .iter()
-        .find(|reference| reference.role == "recovery_capability" && reference.critical)
-        .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED))?;
-
-    let CellState::Bottom(bottom) = pre_state
-        .get(&reset.cell_id)
-        .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?
-    else {
-        return Err(reject(
-            arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
-        ));
-    };
-    if bottom.move_ids.is_empty() {
-        return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
-    }
-
-    // §9.5.1: a causal-register recovery proves its target conflict from its own
-    // signed basis and its authority from its registered capability path. Those
-    // are two separate proofs and neither is a witness to a pre-conflict value —
-    // a cell that conflicted on its *first* write never had one, so requiring a
-    // `state_witness` here would make exactly the case that most needs repair
-    // unrepairable. The freshness window goes with it: a conflict left standing
-    // for a week must not age out of a still-valid authority's reach.
-    //
-    // `fsm` joined this branch when §9.3.1.5-§9.3.1.8 gave it the identity-based
-    // supersession the argument rests on. Before that it had no way to say which
-    // heads a recovery replaced, so it needed a witness to a prior value
-    // instead. The three obligations 1610 names are all still checked: the
-    // divergence in the Move's own basis and the active capability here, the
-    // transition table through `validate_op`, and `H_c(B) = H_c(P)` in
-    // `apply_seal`.
-    let reset_lattice = registry
-        .resolve(realm_id, &reset.cell_id)
-        .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?
-        .lattice
-        .kind();
-    if is_causal_register(reset_lattice) {
-        let basis = event
-            .seal_basis
-            .as_ref()
-            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?;
-        let basis_view = effective_joined_view_at(&basis.leaves, realm_id, seals, cells, registry)
-            .await
-            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM))?;
-        // Item 1: the divergence must be visible in the *Move's own* basis, not
-        // merely in the frozen predecessor. A recovery authored against a view
-        // where the cell still resolved cleanly is repairing something it never
-        // saw. (Item 3's `H_c(B) = H_c(P)` guard runs separately in `apply_seal`
-        // and is what rejects a recovery whose branch set has since moved on.)
-        if !matches!(
-            basis_view.cells.get(&reset.cell_id),
-            Some(CellState::Bottom(_))
-        ) {
-            return Err(reject(
-                arkret_wire::ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
-            ));
-        }
-        // Item 2: authority is verified on its own, against the frozen
-        // predecessor. Being in `⊥` never excuses a revoked capability.
-        if !recovery_capability_is_active(capability_ref.id.as_str(), &event.actor_id, pre_state) {
-            return Err(reject(
-                arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING,
-            ));
-        }
-        return Ok(());
-    }
-
-    let witnesses = event
-        .refs
-        .iter()
-        .filter(|reference| reference.role == "state_witness" && reference.critical)
-        .map(|reference| {
-            SealId::new(reference.id.as_str().to_owned())
-                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    if witnesses.is_empty() {
-        return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_MISSING));
-    }
-
-    for witness_id in witnesses {
-        if !predecessor_closure.contains(&witness_id) {
-            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
-        }
-        let witness = seals
-            .get(&witness_id)
-            .await
-            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
-            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        if &witness.realm_id != realm_id {
-            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
-        }
-
-        let witness_covered =
-            union_predecessor_covered_events(std::slice::from_ref(&witness_id), seals)
-                .await
-                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        let witness_state =
-            effective_joined_view_for_covered_events(&witness_covered, realm_id, cells, registry)
-                .await
-                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        let witness_digest_suite = digest_suite_from_trusted_hash(&witness.state_root)
-            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        let witness_root = witness_state
-            .state_root(witness_digest_suite)
-            .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        if witness_root != witness.state_root
-            || !matches!(
-                witness_state.cells.get(&reset.cell_id),
-                Some(CellState::Value(_))
-            )
-        {
-            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
-        }
-        if !recovery_capability_is_active(
-            capability_ref.id.as_str(),
-            &event.actor_id,
-            &witness_state.cells,
-        ) {
-            return Err(reject(
-                arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED,
-            ));
-        }
-
-        for move_id in &bottom.move_ids {
-            let mut conflict_seal = None;
-            for seal_id in predecessor_closure {
-                if let Ok(Some(seal)) = seals.get(seal_id).await
-                    && seal.delta.contains(move_id)
-                {
-                    conflict_seal = Some(seal);
-                    break;
-                }
-            }
-            let conflict_seal = conflict_seal
-                .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-            let conflict_closure =
-                predecessor_seal_closure(std::slice::from_ref(&conflict_seal.id), seals)
-                    .await
-                    .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-            if witness_id == conflict_seal.id || !conflict_closure.contains(&witness_id) {
-                return Err(reject(
-                    arkret_wire::ReasonCode::RECOVERY_WITNESS_POST_CONFLICT,
-                ));
-            }
-        }
-
-        let basis = event
-            .seal_basis
-            .as_ref()
-            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-        let mut latest_basis_time: Option<chrono::DateTime<chrono::Utc>> = None;
-        for leaf in &basis.leaves {
-            let leaf_closure = predecessor_seal_closure(std::slice::from_ref(leaf), seals)
-                .await
-                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?;
-            if !leaf_closure.contains(&witness_id) {
-                return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
-            }
-            let leaf_time = seals
-                .get(leaf)
-                .await
-                .map_err(|_| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
-                .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
-                .sealed_at;
-            latest_basis_time = Some(match latest_basis_time {
-                Some(current) => current.max(leaf_time),
-                None => leaf_time,
-            });
-        }
-        let age_ms = latest_basis_time
-            .ok_or_else(|| reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID))?
-            .signed_duration_since(witness.sealed_at)
-            .num_milliseconds();
-        let freshness_window_ms = recovery_witness_freshness_window_ms(pre_state);
-        if age_ms < 0 || age_ms > freshness_window_ms {
-            return Err(reject(arkret_wire::ReasonCode::RECOVERY_WITNESS_INVALID));
-        }
-    }
-
-    if !recovery_capability_is_active(capability_ref.id.as_str(), &event.actor_id, pre_state) {
-        return Err(reject(
-            arkret_wire::ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING,
-        ));
-    }
-    Ok(())
-}
-
-fn recovery_witness_freshness_window_ms(pre_state: &BTreeMap<CellRef, CellState>) -> i64 {
-    pre_state
-        .iter()
-        .find_map(|(cell, state)| {
-            let cell_id = crate::CellId::parse(cell.as_str()).ok()?;
-            if cell_id.component() != arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1 {
-                return None;
-            }
-            let CellState::Value(value) = state else {
-                return None;
-            };
-            value
-                .get("recovery_witness_freshness_window_ms")
-                .and_then(Value::as_u64)
-                .and_then(|value| i64::try_from(value).ok())
-        })
-        .unwrap_or(DEFAULT_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS)
-        .min(MAX_RECOVERY_WITNESS_FRESHNESS_WINDOW_MS)
-}
-
-/// §5.1 steps 2-4: the Control Move's `seal_basis` must name only Seals
-/// inside the receiving Seal's predecessor closure. The receiver resolves
-/// those leaves and recomputes the effective roots instead of trusting root
-/// copies in the Event.
-///
-/// This is split out of `verify_control_move` because it is the only part
-/// of §5.1 that needs the Seal DAG; the rest is a pure function of the Event
-/// and the frozen pre-state.
 pub async fn verify_seal_basis(
     event_digest: &Hash,
     event: &Event,
@@ -1385,7 +979,7 @@ pub async fn verify_seal_basis(
     Ok(())
 }
 
-/// Every Seal reachable from `predecessor_refs`, the roots included.
+/// Every Seal reachable from the supplied basis leaves, including the leaves.
 ///
 /// §6.3 step 5 scopes "already sealed" and §5.1 step 2 scopes an admissible
 /// `seal_basis` leaf to exactly this set — never to the receiver's own global
@@ -1405,7 +999,7 @@ pub async fn predecessor_seal_closure(
             .get(&id)
             .await?
             .ok_or_else(|| SealReject::Store(format!("predecessor {id} not in store")))?;
-        queue.extend(seal.predecessor_refs);
+        queue.extend(seal.predecessor_ref);
     }
     Ok(out)
 }
@@ -1415,7 +1009,7 @@ pub async fn effective_seal_view(
     realm_id: &RealmId,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<EffectiveSealView, SealReject> {
     let mut sorted = leaves.to_vec();
@@ -1531,7 +1125,7 @@ async fn collect_covered_events(
             out.extend(seal.covered_event_digests);
             continue;
         }
-        pending.extend(seal.predecessor_refs);
+        pending.extend(seal.predecessor_ref);
         out.extend(seal.delta);
     }
     Ok(())
@@ -1577,8 +1171,8 @@ fn event_digest_leaf_data(digests: &BTreeSet<Hash>) -> Result<Vec<Vec<u8>>, Seal
 }
 
 /// Compute the shared Seal Merkle root for a canonical ordered set of Event
-/// digests. This is the single implementation used by both
-/// `control_event_set_root` and `data_event_set_root`.
+/// digests. This is the single implementation used by the signed
+/// `control_event_set_root`.
 pub fn event_digest_set_root(
     digests: &BTreeSet<Hash>,
     digest_suite: arkret_canonical::DigestSuite,
@@ -1642,116 +1236,6 @@ pub fn verify_event_digest_set_inclusion_proof(
     .map_err(|error| SealReject::Store(format!("event digest inclusion proof: {error}")))
 }
 
-#[derive(serde::Serialize)]
-struct CompletenessLeaf<'a> {
-    actor_id: &'a arkret_wire::ActorId,
-    from_seq: u64,
-    to_seq: u64,
-    event_digests: Vec<&'a Hash>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ListedControlEvent {
-    pub actor_id: arkret_wire::ActorId,
-    pub actor_seq: u64,
-    pub event_digest: Hash,
-}
-
-/// Compute the Seal `completeness_root` from the listed Control Events.
-///
-/// The caller supplies the exact cumulative covered set. Every covered digest
-/// must resolve to exactly one Event; extra Events are ignored.
-pub fn control_event_completeness_root(
-    events: &[(Event, arkret_canonical::DigestSuite)],
-    covered: &BTreeSet<Hash>,
-    root_digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, SealReject> {
-    let mut resolved = BTreeSet::new();
-    let mut listed = Vec::new();
-    for (event, event_digest_suite) in events {
-        let digest = Hash::new(
-            event
-                .event_digest_with_digest_suite(*event_digest_suite)
-                .map_err(|error| {
-                    SealReject::Structural(format!("Control Event digest failed: {error}"))
-                })?,
-        )
-        .map_err(|error| {
-            SealReject::Structural(format!("Control Event digest is invalid: {error}"))
-        })?;
-        if !covered.contains(&digest) {
-            continue;
-        }
-        if !resolved.insert(digest.clone()) {
-            return Err(SealReject::Structural(
-                "duplicate listed Control Event digest".to_owned(),
-            ));
-        }
-        listed.push(ListedControlEvent {
-            actor_id: event.actor_id.clone(),
-            actor_seq: event.actor_seq,
-            event_digest: digest,
-        });
-    }
-    if &resolved != covered {
-        return Err(SealReject::Structural(
-            "Seal coverage contains an unresolved Control Event digest".to_owned(),
-        ));
-    }
-
-    control_event_completeness_root_from_listed(&listed, root_digest_suite)
-}
-
-/// Compute `completeness_root` from an exact resolved listed Control Event set.
-///
-/// This lower-level form is for notary construction paths that already retain
-/// authenticated actor/sequence descriptors beside Event digests. Callers must
-/// supply every cumulatively covered Control Event exactly once.
-pub fn control_event_completeness_root_from_listed(
-    events: &[ListedControlEvent],
-    root_digest_suite: arkret_canonical::DigestSuite,
-) -> Result<Hash, SealReject> {
-    let mut by_actor = BTreeMap::<arkret_wire::ActorId, Vec<(u64, Hash)>>::new();
-    let mut digests = BTreeSet::new();
-    for event in events {
-        if !digests.insert(event.event_digest.clone()) {
-            return Err(SealReject::Structural(
-                "duplicate listed Control Event digest".to_owned(),
-            ));
-        }
-        by_actor
-            .entry(event.actor_id.clone())
-            .or_default()
-            .push((event.actor_seq, event.event_digest.clone()));
-    }
-
-    let mut leaf_data = Vec::with_capacity(by_actor.len());
-    for (actor_id, mut actor_events) in by_actor {
-        actor_events.sort();
-        let from_seq = actor_events
-            .first()
-            .map(|(sequence, _)| *sequence)
-            .expect("actor group is non-empty");
-        let to_seq = actor_events
-            .last()
-            .map(|(sequence, _)| *sequence)
-            .expect("actor group is non-empty");
-        let leaf = CompletenessLeaf {
-            actor_id: &actor_id,
-            from_seq,
-            to_seq,
-            event_digests: actor_events.iter().map(|(_, digest)| digest).collect(),
-        };
-        leaf_data.push(
-            arkret_canonical::canonical_json_bytes(&leaf).map_err(|error| {
-                SealReject::Structural(format!("completeness leaf encoding failed: {error}"))
-            })?,
-        );
-    }
-    seal_merkle_root_from_leaf_data(&leaf_data, root_digest_suite)
-        .map_err(|error| SealReject::Store(format!("completeness_root: {error}")))
-}
-
 fn digest_suite_from_trusted_hash(
     hash: &Hash,
 ) -> Result<arkret_canonical::DigestSuite, SealReject> {
@@ -1767,196 +1251,23 @@ pub async fn effective_state_at(
     realm_id: &RealmId,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
+    registry: &dyn CellStateRegistry,
+) -> Result<BTreeMap<CellRef, ResolvedCellState>, SealReject> {
     let covered = union_predecessor_covered_events(leaves, seals).await?;
     effective_state_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
 /// The identity half of one cell's active heads, or an empty set when the cell
 /// has never been written.
-fn head_identities(heads: Option<&Vec<crate::lattice::cas_register::CasHead>>) -> Vec<Hash> {
-    heads.map_or_else(Vec::new, |heads| {
-        heads.iter().map(|head| head.move_id.clone()).collect()
-    })
-}
-
-/// Whether two derived head-identity sets name the same writes.
-///
-/// Order and repetition are not part of the comparison: both sides come from
-/// [`cas_heads`], which already deduplicates by identity and sorts by the
-/// decoded `event_id` token, so this is a set equality that stays correct if
-/// either producer ever changes its ordering.
-fn head_identities_match(left: &[Hash], right: &[Hash]) -> bool {
-    let left: BTreeSet<&str> = left.iter().map(Hash::as_str).collect();
-    let right: BTreeSet<&str> = right.iter().map(Hash::as_str).collect();
-    left == right
-}
-
-/// The active `cas_register` head identities of every written cell in the view
-/// those Seal leaves cover.
-///
-/// This is `H_c(V)` of `event-auth-state-resolution.md` §9.3.1.1, reduced to the
-/// identities. It is what a write's own signed `seal_basis` contributes to
-/// admission: §9.3.1.3 item 3 compares the writer's `H_c(B)` against the frozen
-/// predecessor `H_c(P)` identity-for-identity, and item 4 makes the accepted
-/// write supersede exactly that set.
-///
-/// Cells whose lattice is not `cas_register`, and cells with no head, are
-/// absent rather than present-and-empty: "no entry" and "no head" are the same
-/// statement here, and a first write on an untouched cell supersedes nothing.
-pub async fn effective_cas_heads_at(
-    leaves: &[SealId],
-    realm_id: &RealmId,
-    seals: &dyn SealStore,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-) -> Result<CasHeadsByCell, SealReject> {
-    let covered = union_predecessor_covered_events(leaves, seals).await?;
-    cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[], None).await
-}
-
-/// Resolve only named causal-register cells at the same exact covered view.
-/// This avoids materializing every unrelated cell for a membership query.
-pub async fn causal_heads_for_cells_at(
-    leaves: &[SealId],
-    realm_id: &RealmId,
-    seals: &dyn SealStore,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-    targets: &[CellRef],
-) -> Result<CasHeadsByCell, SealReject> {
-    let covered = union_predecessor_covered_events(leaves, seals).await?;
-    cas_heads_for_covered_events(&covered, realm_id, cells, registry, &[], Some(targets)).await
-}
-
-/// The `cas_register` heads of a candidate post-state: an explicit covered set
-/// layered with the ops a Seal is about to accept.
-///
-/// A durable backend may hide a cell op until its accepting Seal exists, so a
-/// committer that has to recompute `state_root` before the commit assembles the
-/// post-state in memory. This is the head half of that same assembly.
-pub async fn effective_cas_heads_with_new_ops(
-    covered: &BTreeSet<Hash>,
-    realm_id: &RealmId,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-    new_ops: &[(CellRef, IssuedOp)],
-) -> Result<CasHeadsByCell, SealReject> {
-    cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops, None).await
-}
-
-/// [`effective_cas_heads_at`] over an explicit covered set, optionally layered
-/// with ops this Seal is about to accept.
-///
-/// The candidate ops are the same ones `apply_seal` layers onto the state: a
-/// durable backend may hide a cell op until its accepting Seal exists, so the
-/// post-state has to be assembled in memory rather than re-read.
-/// Whether a lattice keeps its state as active write identities (§9.3.1.1 /
-/// §9.3.1.5).
-///
-/// `cas_register` and `fsm` are the same causal register; they differ only in
-/// what a head carries and in what makes a write well-shaped. Everything in this
-/// module that derives `supersedes`, guards staleness or builds a head map
-/// applies to both, so it asks this rather than naming one of them.
-pub fn is_causal_register(kind: crate::lattice::LatticeKind) -> bool {
-    matches!(
-        kind,
-        crate::lattice::LatticeKind::CasRegister | crate::lattice::LatticeKind::Fsm
-    )
-}
-
-fn causal_heads_for_kind(
-    kind: crate::lattice::LatticeKind,
-    ops: &[SealedOp],
-) -> Result<Vec<crate::lattice::cas_register::CasHead>, Box<crate::Bottom>> {
-    match kind {
-        crate::lattice::LatticeKind::Fsm => crate::lattice::fsm::fsm_heads(ops),
-        _ => crate::lattice::cas_register::cas_heads(ops),
-    }
-}
-
-async fn cas_heads_for_covered_events(
-    covered: &BTreeSet<Hash>,
-    realm_id: &RealmId,
-    cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-    new_ops: &[(CellRef, IssuedOp)],
-    targets: Option<&[CellRef]>,
-) -> Result<CasHeadsByCell, SealReject> {
-    let mut targets = match targets {
-        Some(targets) => targets.iter().cloned().collect::<BTreeSet<_>>(),
-        None => cells.list_cells(realm_id).await?.into_iter().collect(),
-    };
-    targets.extend(new_ops.iter().map(|(cell, _)| cell.clone()));
-
-    let mut out = BTreeMap::new();
-    for cell in targets {
-        // `CellBinding` owns a `Box<dyn Lattice>`, which is not `Send`. Reading
-        // the kind and dropping the binding *before* the first await is what
-        // keeps this future `Send` for the axum/salvo handlers that call it.
-        let kind = {
-            let binding = registry.resolve(realm_id, &cell)?;
-            binding.lattice.kind()
-        };
-        if !is_causal_register(kind) {
-            continue;
-        }
-        let mut ops: Vec<SealedOp> = cells
-            .sealed_op_batches_for_cell(realm_id, &cell)
-            .await?
-            .into_iter()
-            .flat_map(|(_, batch)| batch)
-            .filter(|issued| covered.contains(&issued.op.move_id))
-            .map(|issued| issued.op)
-            .collect();
-        ops.extend(
-            new_ops
-                .iter()
-                .filter(|(candidate, issued)| {
-                    candidate == &cell && covered.contains(&issued.op.move_id)
-                })
-                .map(|(_, issued)| issued.op.clone()),
-        );
-        if ops.is_empty() {
-            continue;
-        }
-        // A cell whose identities disagree is a store fault or a §6.3.3 digest
-        // collision, not a state. Dropping it here used to be read as
-        // "fails closed on the empty answer", which holds only for admission:
-        // to a reader — the snapshot exporter above all — an absent cell is
-        // indistinguishable from one that was never written, which is exactly
-        // the reading `realm-state-snapshot-schema.md` §3 forbids. Both callers
-        // are better served by the loud answer.
-        let heads = causal_heads_for_kind(kind, &ops).map_err(|bottom| {
-            SealReject::Store(format!(
-                "cas_register cell {cell} carries one write identity with two canonical effects:                  {bottom:?}"
-            ))
-        })?;
-        if heads.is_empty() {
-            continue;
-        }
-        out.insert(cell, heads);
-    }
-    Ok(out)
-}
-
-/// One joined governance view: the settled values readers and preconditions
-/// see, plus the `cas_register` head identities `state_root` needs.
-///
-/// The two halves are always derived from the same op set. Keeping them in one
-/// value is what stops a caller from recomputing a root against a state whose
-/// heads it never fetched — §6.2.1 hashes a different preimage for a CAS cell,
-/// so a mismatched pair silently produces a wrong root rather than an error.
+/// One joined view of Seal-confirmed security state.
 #[derive(Clone, Debug, Default)]
 pub struct JoinedView {
-    pub cells: BTreeMap<CellRef, CellState>,
-    pub cas_heads: CasHeadsByCell,
+    pub cells: BTreeMap<CellRef, ResolvedCellState>,
 }
 
 impl JoinedView {
     pub fn as_governance_view(&self) -> GovernanceView<'_> {
-        GovernanceView::new(&self.cells, &self.cas_heads)
+        GovernanceView::new(&self.cells)
     }
 
     pub fn state_root(
@@ -1967,52 +1278,46 @@ impl JoinedView {
     }
 }
 
-/// [`effective_state_at`] paired with the head identities of the same view.
 pub async fn effective_joined_view_at(
     leaves: &[SealId],
     realm_id: &RealmId,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
 ) -> Result<JoinedView, SealReject> {
     let covered = union_predecessor_covered_events(leaves, seals).await?;
     effective_joined_view_for_covered_events(&covered, realm_id, cells, registry).await
 }
 
-/// Both halves of the view from **one** pass over the cell store.
-///
-/// The two halves come from the same op set by construction — a caller that
-/// builds one without the other has a bug rather than an option — so reading
-/// the history twice was never buying independence, only a second
-/// `list_cells` and a second `sealed_op_batches_for_cell` per cell. On a Realm
-/// with `C` written cells that is `2 + 2C` round trips where `1 + C` do, and
-/// `prepare_seal_with_proof_set` pays it several times per Seal.
 async fn effective_joined_view_for_covered_events(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
 ) -> Result<JoinedView, SealReject> {
-    let mut view = JoinedView {
-        cells: BTreeMap::new(),
-        cas_heads: BTreeMap::new(),
-    };
+    let mut view = JoinedView::default();
     for cell in cells.list_cells(realm_id).await? {
-        // `CellBinding` owns a `Box<dyn Lattice>`, which is not `Send`. Reading
+        // `CellBinding` owns a `Box<dyn StateModel>`, which is not `Send`. Reading
         // the kind and dropping the binding *before* the first await is what
         // keeps this future `Send` for the handlers that call it.
-        let kind = {
+        let execution = {
             let binding = registry.resolve(realm_id, &cell)?;
-            binding.lattice.kind()
+            binding.execution
         };
+        if execution != arkret_wire::EventCellExecution::Security {
+            return Err(SealReject::Store(format!(
+                "Seal-confirmed store contains ordinary data cell {}",
+                cell.as_str()
+            )));
+        }
         let batches: Vec<Vec<IssuedOp>> = cells
-            .sealed_op_batches_for_cell(realm_id, &cell)
+            .confirmed_write_batches_for_cell(realm_id, &cell)
             .await?
             .into_iter()
             .filter_map(|(_, ops)| {
                 let covered_ops = ops
                     .into_iter()
-                    .filter(|issued| covered.contains(&issued.op.move_id))
+                    .filter(|issued| covered.contains(&issued.op.event_id.event_digest()))
                     .collect::<Vec<_>>();
                 (!covered_ops.is_empty()).then_some(covered_ops)
             })
@@ -2023,33 +1328,9 @@ async fn effective_joined_view_for_covered_events(
         let binding = registry.resolve(realm_id, &cell)?;
         view.cells.insert(
             cell.clone(),
-            join_cell_seal_batches(binding.lattice.as_ref(), &cell, &batches),
+            join_cell_seal_batches(binding.model.as_ref(), &cell, &batches)
+                .map_err(|error| SealReject::Structural(error.to_string()))?,
         );
-        drop(binding);
-        if !is_causal_register(kind) {
-            continue;
-        }
-        // The head half reads the same ops flat: §9.3.1.1 / §9.3.1.5 derive
-        // supersession from write identity, so batch boundaries carry no
-        // information for it.
-        let ops: Vec<SealedOp> = batches
-            .into_iter()
-            .flatten()
-            .map(|issued| issued.op)
-            .collect();
-        // One identity with two canonical effects is a store fault or a §6.3.3
-        // collision. Skipping the cell here used to read as failing closed; to
-        // `state_root_leaves` it reads as a cell that has a value and no heads,
-        // which is not a state §6.2.1 can encode.
-        let heads = causal_heads_for_kind(kind, &ops).map_err(|bottom| {
-            SealReject::Store(format!(
-                "causal register cell {cell} carries one write identity with two canonical                  effects: {bottom:?}"
-            ))
-        })?;
-        if heads.is_empty() {
-            continue;
-        }
-        view.cas_heads.insert(cell, heads);
     }
     Ok(view)
 }
@@ -2058,18 +1339,25 @@ async fn effective_state_for_covered_events(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
-) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
+    registry: &dyn CellStateRegistry,
+) -> Result<BTreeMap<CellRef, ResolvedCellState>, SealReject> {
     let mut out = BTreeMap::new();
     for cell in cells.list_cells(realm_id).await? {
+        let binding = registry.resolve(realm_id, &cell)?;
+        if binding.execution != arkret_wire::EventCellExecution::Security {
+            return Err(SealReject::Store(format!(
+                "Seal-confirmed store contains ordinary data cell {}",
+                cell.as_str()
+            )));
+        }
         let batches: Vec<(SealId, Vec<IssuedOp>)> = cells
-            .sealed_op_batches_for_cell(realm_id, &cell)
+            .confirmed_write_batches_for_cell(realm_id, &cell)
             .await?
             .into_iter()
             .filter_map(|(seal, ops)| {
                 let covered_ops = ops
                     .into_iter()
-                    .filter(|issued| covered.contains(&issued.op.move_id))
+                    .filter(|issued| covered.contains(&issued.op.event_id.event_digest()))
                     .collect::<Vec<_>>();
                 (!covered_ops.is_empty()).then_some((seal, covered_ops))
             })
@@ -2077,14 +1365,14 @@ async fn effective_state_for_covered_events(
         if batches.is_empty() {
             continue;
         }
-        let binding = registry.resolve(realm_id, &cell)?;
         out.insert(
             cell.clone(),
             join_cell_seal_batches(
-                binding.lattice.as_ref(),
+                binding.model.as_ref(),
                 &cell,
                 &batches.into_iter().map(|(_, ops)| ops).collect::<Vec<_>>(),
-            ),
+            )
+            .map_err(|error| SealReject::Structural(error.to_string()))?,
         );
     }
     Ok(out)
@@ -2097,9 +1385,9 @@ async fn effective_state_for_covered_events_with_new_ops(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     new_ops: &[(CellRef, IssuedOp)],
-) -> Result<BTreeMap<CellRef, CellState>, SealReject> {
+) -> Result<BTreeMap<CellRef, ResolvedCellState>, SealReject> {
     let mut cells_to_resolve = cells
         .list_cells(realm_id)
         .await?
@@ -2109,14 +1397,21 @@ async fn effective_state_for_covered_events_with_new_ops(
 
     let mut out = BTreeMap::new();
     for cell in cells_to_resolve {
+        let binding = registry.resolve(realm_id, &cell)?;
+        if binding.execution != arkret_wire::EventCellExecution::Security {
+            return Err(SealReject::Store(format!(
+                "Seal-confirmed store contains ordinary data cell {}",
+                cell.as_str()
+            )));
+        }
         let mut batches = cells
-            .sealed_op_batches_for_cell(realm_id, &cell)
+            .confirmed_write_batches_for_cell(realm_id, &cell)
             .await?
             .into_iter()
             .filter_map(|(_, ops)| {
                 let covered_ops = ops
                     .into_iter()
-                    .filter(|issued| covered.contains(&issued.op.move_id))
+                    .filter(|issued| covered.contains(&issued.op.event_id.event_digest()))
                     .collect::<Vec<_>>();
                 (!covered_ops.is_empty()).then_some(covered_ops)
             })
@@ -2124,7 +1419,7 @@ async fn effective_state_for_covered_events_with_new_ops(
         let candidate = new_ops
             .iter()
             .filter(|(candidate_cell, issued)| {
-                candidate_cell == &cell && covered.contains(&issued.op.move_id)
+                candidate_cell == &cell && covered.contains(&issued.op.event_id.event_digest())
             })
             .map(|(_, issued)| issued.clone())
             .collect::<Vec<_>>();
@@ -2134,22 +1429,20 @@ async fn effective_state_for_covered_events_with_new_ops(
         if batches.is_empty() {
             continue;
         }
-        let binding = registry.resolve(realm_id, &cell)?;
         out.insert(
             cell.clone(),
-            join_cell_seal_batches(binding.lattice.as_ref(), &cell, &batches),
+            join_cell_seal_batches(binding.model.as_ref(), &cell, &batches)
+                .map_err(|error| SealReject::Structural(error.to_string()))?,
         );
     }
     Ok(out)
 }
 
-/// [`effective_state_for_covered_events_with_new_ops`] paired with the head
-/// identities of the same candidate view.
 async fn effective_joined_view_with_new_ops(
     covered: &BTreeSet<Hash>,
     realm_id: &RealmId,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     new_ops: &[(CellRef, IssuedOp)],
 ) -> Result<JoinedView, SealReject> {
     Ok(JoinedView {
@@ -2157,8 +1450,6 @@ async fn effective_joined_view_with_new_ops(
             covered, realm_id, cells, registry, new_ops,
         )
         .await?,
-        cas_heads: cas_heads_for_covered_events(covered, realm_id, cells, registry, new_ops, None)
-            .await?,
     })
 }
 
@@ -2260,160 +1551,51 @@ pub fn view_hash(leaves: &[SealId]) -> Result<Hash, crate::WireError> {
     Hash::new(canonical::sha256_digest(&bytes))
         .map_err(|e| crate::WireError::Protocol(format!("invalid view_hash: {e}")))
 }
-/// Join one cell's ops, routing `ordered_log` to its issuer-aware entry point.
-///
-/// `event-auth-state-resolution.md` §9.3.1 scopes ordered-log sequences to
-/// `(effect.cell_id, actor_id)`, so this lattice cannot be joined through the
-/// issuer-free `Lattice::join`: that path has no way to separate sub-chains
-/// and would stamp a synthetic issuer into the `state_root` leaf.
+/// Resolve one cell from authenticated writes.
 pub fn join_cell(
-    lattice: &dyn crate::lattice::Lattice,
+    model: &dyn crate::state_model::StateModel,
     cell: &CellRef,
     ops: &[IssuedOp],
-) -> CellState {
-    let ops = ops_since_last_recovery_reset(lattice.kind(), ops);
-    if lattice.kind() == crate::lattice::LatticeKind::OrderedLog {
-        return crate::lattice::OrderedLog.join_with_issuers(cell, ops);
+) -> Result<ResolvedCellState, crate::state_model::OpError> {
+    if model.kind() == crate::state_model::StateModelKind::OrderedLog {
+        return Ok(crate::state_model::OrderedLog.join_with_issuers(cell, ops));
     }
-    let sealed: Vec<SealedOp> = ops.iter().map(|issued| issued.op.clone()).collect();
-    lattice.join(cell, &sealed)
+    let writes: Vec<StateWrite> = ops.iter().map(|issued| issued.op.clone()).collect();
+    model.resolve(cell, &writes)
 }
 
-/// The cell's join input after a §9.5 conflict recovery.
-///
-/// **`cas_register` never truncates.** §9.5.1 makes its recovery an ordinary
-/// identity write that supersedes exactly the divergent heads its own signed
-/// basis observed, so the reset needs no special join input: a late branch the
-/// recovery never covered stays a head and still merges, and two concurrent
-/// recoveries with different values still conflict. §9.5.1 item 5 names this
-/// `rposition` slice specifically and forbids it, because slicing the log by
-/// arrival order makes the result depend on delivery.
-///
-/// `fsm` is the same causal register (§9.3.1.5-§9.3.1.8), so it is exempt for
-/// the same reason: its recovery is an authorized new identity write that
-/// supersedes exactly the heads its own basis saw. What still truncates here is
-/// a `bottom=reject` lattice that is not causal -- today only `ordered_log` --
-/// whose recovery is still the §9.5 `state_witness` form.
-fn ops_since_last_recovery_reset(
-    kind: crate::lattice::LatticeKind,
-    ops: &[IssuedOp],
-) -> &[IssuedOp] {
-    if is_causal_register(kind) {
-        return ops;
-    }
-    ops.iter()
-        .rposition(|issued| issued.op.recovery_reset)
-        .map_or(ops, |boundary| &ops[boundary..])
-}
-
-/// The active `cas_register` heads of one cell over its accepted Seal batches.
-///
-/// The batch structure carries no causal information for this lattice — heads
-/// come from the identities each write superseded — so this simply flattens and
-/// derives. It exists so a caller that already holds batches (the bootstrap and
-/// Agent-PCR projectors do) can build the head half of a
-/// [`crate::state::state_root::GovernanceView`] without going back to a store.
-///
-/// A cell whose identities disagree yields an empty head set: the caller is
-/// about to reject the view anyway, and an empty set keeps it out of the
-/// `state_root` rather than hashing a leaf nothing can verify.
-pub fn cas_heads_for_batches(
-    batches: &[Vec<IssuedOp>],
-) -> Vec<crate::lattice::cas_register::CasHead> {
-    causal_heads_for_batches(crate::lattice::LatticeKind::CasRegister, batches)
-}
-
-/// [`cas_heads_for_batches`] for whichever causal register the cell is.
-///
-/// `fsm` heads carry the transition's `to` rather than a written value
-/// (§9.3.1.5), so a caller that asked for `cas_register` heads on an `fsm` cell
-/// got an empty set — and an empty set is how §6.2.1 spells "never written".
-pub fn causal_heads_for_batches(
-    kind: crate::lattice::LatticeKind,
-    batches: &[Vec<IssuedOp>],
-) -> Vec<crate::lattice::cas_register::CasHead> {
-    let ops: Vec<SealedOp> = batches
+/// Derive ordinary causal-register heads from authenticated write batches.
+pub fn causal_heads_for_batches(batches: &[Vec<IssuedOp>]) -> Vec<crate::CausalHead> {
+    let writes: Vec<StateWrite> = batches
         .iter()
         .flat_map(|batch| batch.iter().map(|issued| issued.op.clone()))
         .collect();
-    causal_heads_for_kind(kind, &ops).unwrap_or_default()
+    crate::state_model::causal_register::causal_heads(&writes)
+        .map(|state| state.heads)
+        .unwrap_or_default()
 }
 
-/// Join accepted operations while preserving frozen-predecessor Seal batches.
-///
-/// `mv_register` writes in a successor Seal causally replace the previous head,
-/// and multiple writes inside one Seal share one predecessor view and therefore
-/// remain sibling heads; that lattice carries no predecessor on the op, so the
-/// Seal batch is the only causal signal it has. Every other core lattice
-/// consumes the full accepted history, because its join already models causal
-/// supersession, ordered transitions or commutative accumulation.
-/// `cas_register` in particular MUST see the whole history: its heads are
-/// derived from the identities each write superseded (§9.3.1.1), so a truncated
-/// input would resurrect writes whose superseder was cut away.
+/// Resolve the unique confirmed order of one security cell.
 pub fn join_cell_seal_batches(
-    lattice: &dyn crate::lattice::Lattice,
+    model: &dyn crate::state_model::StateModel,
     cell: &CellRef,
     batches: &[Vec<IssuedOp>],
-) -> CellState {
-    // Selector writes observe their own signed basis, not the order in which
-    // a notary later batches them. Keep unseen siblings until a successor
-    // explicitly observes them; expiry is evaluated only after this join.
-    if lattice.kind() == crate::lattice::LatticeKind::MvRegister && is_selector_cell(cell) {
-        let ops = batches.iter().flatten().cloned().collect::<Vec<_>>();
-        let heads = selector_current_heads(&ops)
-            .into_iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        return join_cell(lattice, cell, &heads);
-    }
-    // A §9.5 recovery reset ends the prior history for the lattices that still
-    // express recovery by truncation. Neither causal register is one of them:
-    // their recovery is an ordinary identity write (§9.5.1), so every batch
-    // stays. Truncating them would make the answer depend on batch order --
-    // two concurrent recoveries with different values must stay two heads and
-    // conflict, not collapse to whichever arrived last.
-    let batches = if is_causal_register(lattice.kind()) {
-        batches
-    } else {
-        batches
-            .iter()
-            .rposition(|ops| ops.iter().any(|issued| issued.op.recovery_reset))
-            .map_or(batches, |boundary| &batches[boundary..])
-    };
-    match lattice.kind() {
-        crate::lattice::LatticeKind::MvRegister => batches
-            .iter()
-            .rev()
-            .find(|ops| !ops.is_empty())
-            .map_or_else(
-                || lattice.join(cell, &[]),
-                |ops| join_cell(lattice, cell, ops),
+) -> Result<ResolvedCellState, crate::state_model::OpError> {
+    if model.kind() != crate::state_model::StateModelKind::SequencedState {
+        return Err(crate::state_model::OpError::InvalidValue {
+            kind: "sequenced_state",
+            field: "state_model",
+            reason: format!(
+                "security cell {} resolved with {}",
+                cell.as_str(),
+                model.kind().as_wire_str()
             ),
-        _ => {
-            let ops = batches
-                .iter()
-                .flat_map(|ops| ops.iter().cloned())
-                .collect::<Vec<_>>();
-            join_cell(lattice, cell, &ops)
-        }
+        });
     }
-}
-
-fn is_selector_cell(cell: &CellRef) -> bool {
-    arkret_wire::CellId::parse(cell.as_str())
-        .is_ok_and(|id| id.component() == arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1)
-}
-
-fn selector_current_heads(ops: &[IssuedOp]) -> Vec<&IssuedOp> {
-    let superseded = ops
+    let writes = batches
         .iter()
-        .flat_map(|issued| issued.op.supersedes.iter())
-        .collect::<BTreeSet<_>>();
-    ops.iter()
-        .filter(|issued| !superseded.contains(&issued.op.move_id))
-        .collect()
+        .flatten()
+        .map(|issued| issued.op.clone())
+        .collect::<Vec<_>>();
+    model.resolve(cell, &writes)
 }
-
-#[cfg(test)]
-#[path = "seal_tests.rs"]
-mod tests;

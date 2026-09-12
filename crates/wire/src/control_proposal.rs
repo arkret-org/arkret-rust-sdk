@@ -1427,14 +1427,16 @@ mod tests {
         second.signature.verification_method =
             DidUrl::new("did:webvh:z6mkfixtureb:authority-b.example#notary-1").unwrap();
         second.signature.payload_digest = second.authority_ack_digest().unwrap();
-        let profile = NotaryValue::Threshold {
-            threshold: 2,
+        let profile = NotaryValue {
+            kind: crate::NotaryKind::Quorum,
+            fault_tolerance: 1,
+            max_clock_error_ms: 1_000,
             signers: vec![
                 descriptor("z6mkfixture", "authority.example"),
                 descriptor("z6mkfixtureb", "authority-b.example"),
                 descriptor("z6mkfixturec", "authority-c.example"),
+                descriptor("z6mkfixtured", "authority-d.example"),
             ],
-            forensic_attribution: crate::notary::ForensicAttribution::QuorumIntersection,
         };
         assert!(
             ControlProposalAck::from_authority_acks_for_notary(

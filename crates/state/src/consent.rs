@@ -1,4 +1,4 @@
-//! Holder-private **consent** as an or-set Lattice cell.
+//! Holder-private **consent** as an or-set StateModel cell.
 //!
 //! Per [`identity/consent-model.md`](https://arkret.org/spec/v1/zh/identity/consent-model.md)
 //! §3, consent lives on the holder's principal-control-Space cell

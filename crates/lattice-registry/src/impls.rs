@@ -1,4 +1,4 @@
-use arkret_state::lattice::LatticeKind as SdkLatticeKind;
+use arkret_state::state_model::StateModelKind;
 use arkret_wire::SchemaId;
 use serde_json::Value;
 
@@ -8,21 +8,21 @@ fn actor_subject_component(
     value: Option<&Value>,
     cell_family: &'static str,
     field: &'static str,
-) -> Result<String, LatticeKindError> {
-    let value = value.ok_or(LatticeKindError::MissingSubjectField { cell_family, field })?;
+) -> Result<String, CellFamilyAdapterError> {
+    let value = value.ok_or(CellFamilyAdapterError::MissingSubjectField { cell_family, field })?;
     let actor: arkret_wire::ActorId = serde_json::from_value(value.clone()).map_err(|error| {
-        LatticeKindError::InvalidCompositeSubject {
+        CellFamilyAdapterError::InvalidCompositeSubject {
             cell_family,
             reason: format!("{field} must be a complete ActorId: {error}"),
         }
     })?;
     let bytes = arkret_wire::canonical::canonical_json_bytes(&actor).map_err(|error| {
-        LatticeKindError::InvalidCompositeSubject {
+        CellFamilyAdapterError::InvalidCompositeSubject {
             cell_family,
             reason: error.to_string(),
         }
     })?;
-    String::from_utf8(bytes).map_err(|error| LatticeKindError::InvalidCompositeSubject {
+    String::from_utf8(bytes).map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
         cell_family,
         reason: error.to_string(),
     })
@@ -31,10 +31,10 @@ fn actor_subject_component(
 fn actor_composite_subject(
     cell_family: &'static str,
     parts: &[&str],
-) -> Result<Option<String>, LatticeKindError> {
+) -> Result<Option<String>, CellFamilyAdapterError> {
     arkret_wire::composite_subject(parts)
         .map(Some)
-        .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+        .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
             cell_family,
             reason: error.to_string(),
         })
@@ -46,22 +46,30 @@ fn actor_composite_subject(
 // derivation and component metadata. Algebra, bottom mode and Event routing
 // are owned solely by the generated descriptors.
 
-macro_rules! singleton_lattice {
+macro_rules! singleton_cell {
     ($struct_name:ident, $cell_family:expr, $criticality:expr) => {
         pub struct $struct_name;
         impl $struct_name {
             pub const CELL_FAMILY: &'static str = $cell_family;
         }
-        impl LatticeKind for $struct_name {
+        impl CellFamilyAdapter for $struct_name {
             fn cell_family(&self) -> &'static str {
                 Self::CELL_FAMILY
             }
-            fn lattice(&self) -> SdkLatticeKind {
-                generated_lattice(Self::CELL_FAMILY)
+            fn state_model(&self) -> StateModelKind {
+                generated_state_model(Self::CELL_FAMILY)
             }
-            fn bottom_policy(&self) -> EventCellBottom {
+            fn bottom_policy(&self) -> Option<EventCellBottom> {
                 generated_bottom_policy(Self::CELL_FAMILY)
             }
+            fn execution(&self) -> EventCellExecution {
+                generated_execution(self.cell_family())
+            }
+
+            fn value_shape(&self) -> EventCellValueShape {
+                generated_value_shape(self.cell_family())
+            }
+
             fn component(&self) -> ComponentDescriptor {
                 ComponentDescriptor {
                     component_type: Self::CELL_FAMILY,
@@ -72,29 +80,37 @@ macro_rules! singleton_lattice {
             fn subject_for_effect(
                 &self,
                 _effect_payload: &Value,
-            ) -> Result<Option<String>, LatticeKindError> {
+            ) -> Result<Option<String>, CellFamilyAdapterError> {
                 Ok(None)
             }
         }
     };
 }
 
-macro_rules! per_subject_lattice {
+macro_rules! per_subject_cell {
     ($struct_name:ident, $cell_family:expr, $criticality:expr, $subject_field:expr) => {
         pub struct $struct_name;
         impl $struct_name {
             pub const CELL_FAMILY: &'static str = $cell_family;
         }
-        impl LatticeKind for $struct_name {
+        impl CellFamilyAdapter for $struct_name {
             fn cell_family(&self) -> &'static str {
                 Self::CELL_FAMILY
             }
-            fn lattice(&self) -> SdkLatticeKind {
-                generated_lattice(Self::CELL_FAMILY)
+            fn state_model(&self) -> StateModelKind {
+                generated_state_model(Self::CELL_FAMILY)
             }
-            fn bottom_policy(&self) -> EventCellBottom {
+            fn bottom_policy(&self) -> Option<EventCellBottom> {
                 generated_bottom_policy(Self::CELL_FAMILY)
             }
+            fn execution(&self) -> EventCellExecution {
+                generated_execution(self.cell_family())
+            }
+
+            fn value_shape(&self) -> EventCellValueShape {
+                generated_value_shape(self.cell_family())
+            }
+
             fn component(&self) -> ComponentDescriptor {
                 ComponentDescriptor {
                     component_type: Self::CELL_FAMILY,
@@ -105,12 +121,12 @@ macro_rules! per_subject_lattice {
             fn subject_for_effect(
                 &self,
                 effect_payload: &Value,
-            ) -> Result<Option<String>, LatticeKindError> {
+            ) -> Result<Option<String>, CellFamilyAdapterError> {
                 effect_payload
                     .get($subject_field)
                     .and_then(Value::as_str)
                     .map(|s| Some(s.to_owned()))
-                    .ok_or(LatticeKindError::MissingSubjectField {
+                    .ok_or(CellFamilyAdapterError::MissingSubjectField {
                         cell_family: Self::CELL_FAMILY,
                         field: $subject_field,
                     })
@@ -121,14 +137,14 @@ macro_rules! per_subject_lattice {
 
 // ─────────── Consent, capability, device and key families ───────────
 
-per_subject_lattice!(
+per_subject_cell!(
     ConsentGrant,
     arkret_wire::CellFamilyId::CONSENT_GRANT_V1,
     Criticality::Required,
     "consent_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     ModerationState,
     arkret_wire::CellFamilyId::MODERATION_STATE_V1,
     Criticality::Required,
@@ -140,29 +156,39 @@ pub struct CapabilityGrant;
 impl CapabilityGrant {
     pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1;
 
-    fn referenced_grant_id(effect_payload: &Value) -> Result<Option<String>, LatticeKindError> {
+    fn referenced_grant_id(
+        effect_payload: &Value,
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         effect_payload
             .get("grant_id")
             .and_then(Value::as_str)
             .map(|grant_id| Some(grant_id.to_owned()))
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: Self::CELL_FAMILY,
                 field: "grant_id",
             })
     }
 }
 
-impl LatticeKind for CapabilityGrant {
+impl CellFamilyAdapter for CapabilityGrant {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(Self::CELL_FAMILY)
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(Self::CELL_FAMILY)
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(Self::CELL_FAMILY)
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -176,7 +202,7 @@ impl LatticeKind for CapabilityGrant {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         Self::referenced_grant_id(effect_payload)
     }
 
@@ -185,7 +211,7 @@ impl LatticeKind for CapabilityGrant {
         event_kind: &str,
         envelope_event_id: &arkret_wire::EventId,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         match event_kind {
             arkret_wire::event_kind_str::CAPABILITY_GRANT => Ok(Some(
                 arkret_wire::GrantId::from_event_id(envelope_event_id)
@@ -196,7 +222,7 @@ impl LatticeKind for CapabilityGrant {
             | arkret_wire::event_kind_str::CAPABILITY_RELINQUISH => {
                 Self::referenced_grant_id(effect_payload)
             }
-            observed => Err(LatticeKindError::UnknownEventKind {
+            observed => Err(CellFamilyAdapterError::UnknownEventKind {
                 observed: observed.to_owned(),
                 cell_family: Self::CELL_FAMILY,
             }),
@@ -204,7 +230,7 @@ impl LatticeKind for CapabilityGrant {
     }
 }
 
-per_subject_lattice!(
+per_subject_cell!(
     CapabilityDerived,
     arkret_wire::CellFamilyId::CAPABILITY_DERIVED_V1,
     Criticality::Required,
@@ -217,17 +243,25 @@ impl DeviceAuthorized {
     pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::DEVICE_AUTHORIZATION_V1;
 }
 
-impl LatticeKind for DeviceAuthorized {
+impl CellFamilyAdapter for DeviceAuthorized {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(Self::CELL_FAMILY)
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(Self::CELL_FAMILY)
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(Self::CELL_FAMILY)
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -241,31 +275,31 @@ impl LatticeKind for DeviceAuthorized {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let principal_id = effect_payload
             .get("principal_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: Self::CELL_FAMILY,
                 field: "principal_id",
             })?;
         let device_id = effect_payload
             .get("device_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: Self::CELL_FAMILY,
                 field: "device_id",
             })?;
         arkret_wire::composite_subject(&[principal_id, device_id])
             .map(Some)
-            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
                 cell_family: Self::CELL_FAMILY,
                 reason: error.to_string(),
             })
     }
 }
 
-per_subject_lattice!(
+per_subject_cell!(
     DeviceListUpdate,
     arkret_wire::CellFamilyId::DEVICE_LIST_UPDATE_V1,
     Criticality::Required,
@@ -273,16 +307,24 @@ per_subject_lattice!(
 );
 
 pub struct AgentKey;
-impl LatticeKind for AgentKey {
+impl CellFamilyAdapter for AgentKey {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::AGENT_KEY_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::AGENT_KEY_V1,
@@ -293,23 +335,23 @@ impl LatticeKind for AgentKey {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let agent_id = effect_payload
             .get("agent_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 field: "agent_id",
             })?;
         let key_id = effect_payload.get("key_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 field: "key_id",
             },
         )?;
         arkret_wire::composite_subject(&[agent_id, key_id])
             .map(Some)
-            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
                 cell_family: arkret_wire::CellFamilyId::AGENT_KEY_V1,
                 reason: error.to_string(),
             })
@@ -322,16 +364,24 @@ impl KeyBackupActiveSeries {
     pub const SCHEMA: &'static str = SchemaId::KEY_BACKUP_ACTIVE_SERIES_V1;
 }
 
-impl LatticeKind for KeyBackupActiveSeries {
+impl CellFamilyAdapter for KeyBackupActiveSeries {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
@@ -342,7 +392,7 @@ impl LatticeKind for KeyBackupActiveSeries {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let actor_id = actor_subject_component(
             effect_payload.get("actor_id"),
             self.cell_family(),
@@ -351,7 +401,7 @@ impl LatticeKind for KeyBackupActiveSeries {
         let backup_kind = effect_payload
             .get("backup_kind")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1,
                 field: "backup_kind",
             })?;
@@ -361,34 +411,34 @@ impl LatticeKind for KeyBackupActiveSeries {
 
 // ────── Applet, strand placement, notary, MLS and call families ──────
 
-per_subject_lattice!(
+per_subject_cell!(
     AppletRegistration,
     arkret_wire::CellFamilyId::APPLET_REGISTRATION_V1,
     Criticality::Required,
     "applet_id"
 );
 
-singleton_lattice!(
+singleton_cell!(
     CircleTombstone,
     arkret_wire::CellFamilyId::CIRCLE_TOMBSTONE_V1,
     Criticality::Required
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     StrandPosition,
     arkret_wire::CellFamilyId::STRAND_POSITION_V1,
     Criticality::Required,
     "strand_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     StrandStage,
     arkret_wire::CellFamilyId::STRAND_STAGE_V1,
     Criticality::Required,
     "strand_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     MorphStage,
     arkret_wire::CellFamilyId::MORPH_STAGE_V1,
     Criticality::Required,
@@ -402,16 +452,24 @@ per_subject_lattice!(
 // growing tuple support; the cell store still treats each (strand, actor)
 // pair as an independent slot.
 pub struct StrandWatch;
-impl LatticeKind for StrandWatch {
+impl CellFamilyAdapter for StrandWatch {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::STRAND_WATCH_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::STRAND_WATCH_V1,
@@ -422,18 +480,18 @@ impl LatticeKind for StrandWatch {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let strand_id = effect_payload
             .get("strand_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::STRAND_WATCH_V1,
                 field: "strand_id",
             })?;
         let watcher_actor_id = effect_payload
             .get("watcher_actor_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::STRAND_WATCH_V1,
                 field: "watcher_actor_id",
             })?;
@@ -441,24 +499,32 @@ impl LatticeKind for StrandWatch {
     }
 }
 
-singleton_lattice!(
+singleton_cell!(
     NotaryCell,
     arkret_wire::CellFamilyId::NOTARY_V1,
     Criticality::Required
 );
 
 pub struct IdentityAccountability;
-impl LatticeKind for IdentityAccountability {
+impl CellFamilyAdapter for IdentityAccountability {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::IDENTITY_ACCOUNTABILITY_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -472,16 +538,16 @@ impl LatticeKind for IdentityAccountability {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let payload = serde_json::from_value::<
             arkret_models_collaboration::governance::accountability::AccountabilityGrantPayload,
         >(effect_payload.clone())
-        .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+        .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
             cell_family: self.cell_family(),
             reason: error.to_string(),
         })?;
         payload.cell_subject().map(Some).map_err(|error| {
-            LatticeKindError::InvalidCompositeSubject {
+            CellFamilyAdapterError::InvalidCompositeSubject {
                 cell_family: self.cell_family(),
                 reason: error.to_string(),
             }
@@ -489,34 +555,34 @@ impl LatticeKind for IdentityAccountability {
     }
 }
 
-singleton_lattice!(
+singleton_cell!(
     MlsEpoch,
     arkret_wire::CellFamilyId::MLS_EPOCH_V1,
     Criticality::Required
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     CallSummary,
     arkret_wire::CellFamilyId::CALL_SUMMARY_V1,
     Criticality::Required,
     "call_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     CallFocus,
     arkret_wire::CellFamilyId::CALL_FOCUS_V1,
     Criticality::Required,
     "call_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     CallModeration,
     arkret_wire::CellFamilyId::CALL_MODERATION_V1,
     Criticality::Required,
     "call_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     CallRoster,
     arkret_wire::CellFamilyId::CALL_ROSTER_V1,
     Criticality::Required,
@@ -527,11 +593,11 @@ fn call_capture_subject(
     effect_payload: &Value,
     transition_field: &'static str,
     cell_family: &'static str,
-) -> Result<Option<String>, LatticeKindError> {
+) -> Result<Option<String>, CellFamilyAdapterError> {
     let call_id = effect_payload
         .get("call_id")
         .and_then(Value::as_str)
-        .ok_or(LatticeKindError::MissingSubjectField {
+        .ok_or(CellFamilyAdapterError::MissingSubjectField {
             cell_family,
             field: "call_id",
         })?;
@@ -543,13 +609,13 @@ fn call_capture_subject(
                 .and_then(|transition| transition.get("recording_id"))
         })
         .and_then(Value::as_str)
-        .ok_or(LatticeKindError::MissingSubjectField {
+        .ok_or(CellFamilyAdapterError::MissingSubjectField {
             cell_family,
             field: "recording_id",
         })?;
     arkret_wire::composite_subject(&[call_id, recording_id])
         .map(Some)
-        .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+        .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
             cell_family,
             reason: error.to_string(),
         })
@@ -557,17 +623,25 @@ fn call_capture_subject(
 
 pub struct CallRecording;
 
-impl LatticeKind for CallRecording {
+impl CellFamilyAdapter for CallRecording {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CALL_RECORDING_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -581,24 +655,32 @@ impl LatticeKind for CallRecording {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         call_capture_subject(effect_payload, "recording_transition", self.cell_family())
     }
 }
 
 pub struct CallTranscript;
 
-impl LatticeKind for CallTranscript {
+impl CellFamilyAdapter for CallTranscript {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CALL_TRANSCRIPT_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -612,24 +694,32 @@ impl LatticeKind for CallTranscript {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         call_capture_subject(effect_payload, "transcript_transition", self.cell_family())
     }
 }
 
 pub struct CallRecordingResult;
 
-impl LatticeKind for CallRecordingResult {
+impl CellFamilyAdapter for CallRecordingResult {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CALL_RECORDING_RESULT_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -643,24 +733,32 @@ impl LatticeKind for CallRecordingResult {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         call_capture_subject(effect_payload, "recording_transition", self.cell_family())
     }
 }
 
 pub struct CallTranscriptResult;
 
-impl LatticeKind for CallTranscriptResult {
+impl CellFamilyAdapter for CallTranscriptResult {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CALL_TRANSCRIPT_RESULT_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -674,24 +772,32 @@ impl LatticeKind for CallTranscriptResult {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         call_capture_subject(effect_payload, "transcript_transition", self.cell_family())
     }
 }
 
 pub struct CallMuteOverride;
 
-impl LatticeKind for CallMuteOverride {
+impl CellFamilyAdapter for CallMuteOverride {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CALL_MUTE_OVERRIDE_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -705,35 +811,34 @@ impl LatticeKind for CallMuteOverride {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let call_id = effect_payload
             .get("call_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: self.cell_family(),
                 field: "call_id",
             })?;
-        let mute =
-            effect_payload
-                .get("mute_override")
-                .ok_or(LatticeKindError::MissingSubjectField {
-                    cell_family: self.cell_family(),
-                    field: "mute_override",
-                })?;
+        let mute = effect_payload.get("mute_override").ok_or(
+            CellFamilyAdapterError::MissingSubjectField {
+                cell_family: self.cell_family(),
+                field: "mute_override",
+            },
+        )?;
         let actor_id = actor_subject_component(
             mute.get("actor_id"),
             self.cell_family(),
             "mute_override.actor_id",
         )?;
         let device_id = mute.get("device_id").and_then(Value::as_str).ok_or(
-            LatticeKindError::MissingSubjectField {
+            CellFamilyAdapterError::MissingSubjectField {
                 cell_family: self.cell_family(),
                 field: "mute_override.device_id",
             },
         )?;
         arkret_wire::composite_subject(&[call_id, actor_id.as_str(), device_id])
             .map(Some)
-            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
                 cell_family: self.cell_family(),
                 reason: error.to_string(),
             })
@@ -748,16 +853,24 @@ impl MemberState {
     pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::MEMBER_STATE_V1;
 }
 
-impl LatticeKind for MemberState {
+impl CellFamilyAdapter for MemberState {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(Self::CELL_FAMILY)
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: Self::CELL_FAMILY,
@@ -768,7 +881,7 @@ impl LatticeKind for MemberState {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let member = actor_subject_component(
             effect_payload.get("member_id"),
             Self::CELL_FAMILY,
@@ -779,17 +892,25 @@ impl LatticeKind for MemberState {
 }
 
 pub struct InviteLifecycle;
-impl LatticeKind for InviteLifecycle {
+impl CellFamilyAdapter for InviteLifecycle {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::INVITE_LIFECYCLE_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -803,7 +924,7 @@ impl LatticeKind for InviteLifecycle {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         effect_payload
             .get("invite_id")
             .and_then(Value::as_str)
@@ -814,14 +935,14 @@ impl LatticeKind for InviteLifecycle {
                     .and_then(Value::as_str)
             })
             .map(|subject| Some(subject.to_owned()))
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::INVITE_LIFECYCLE_V1,
                 field: "invite_id or invite.id",
             })
     }
 }
 
-per_subject_lattice!(
+per_subject_cell!(
     AgentStatus,
     arkret_wire::CellFamilyId::AGENT_STATUS_V1,
     Criticality::Required,
@@ -830,28 +951,28 @@ per_subject_lattice!(
 
 // The applet-binding lifecycle FSM lives on `audit.binding.state.v1`;
 // `audit.binding.v1` is the immutable binding config beside it.
-per_subject_lattice!(
+per_subject_cell!(
     AuditBinding,
     arkret_wire::CellFamilyId::AUDIT_BINDING_V1,
     Criticality::Required,
     "binding_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     AuditBindingState,
     arkret_wire::CellFamilyId::AUDIT_BINDING_STATE_V1,
     Criticality::Required,
     "binding_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     AuditSession,
     arkret_wire::CellFamilyId::AUDIT_SESSION_V1,
     Criticality::Required,
     "session_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     CallState,
     arkret_wire::CellFamilyId::CALL_STATE_V1,
     Criticality::Required,
@@ -859,17 +980,25 @@ per_subject_lattice!(
 );
 
 pub struct RealmLink;
-impl LatticeKind for RealmLink {
+impl CellFamilyAdapter for RealmLink {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::REALM_LINK_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -883,24 +1012,24 @@ impl LatticeKind for RealmLink {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let target_realm_id = effect_payload
             .get("target_realm_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::REALM_LINK_V1,
                 field: "target_realm_id",
             })?;
         let link_kind = effect_payload
             .get("link_kind")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::REALM_LINK_V1,
                 field: "link_kind",
             })?;
         arkret_wire::composite_subject(&[target_realm_id, link_kind])
             .map(Some)
-            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
                 cell_family: arkret_wire::CellFamilyId::REALM_LINK_V1,
                 reason: error.to_string(),
             })
@@ -908,16 +1037,24 @@ impl LatticeKind for RealmLink {
 }
 
 pub struct CircleMember;
-impl LatticeKind for CircleMember {
+impl CellFamilyAdapter for CircleMember {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
@@ -928,11 +1065,11 @@ impl LatticeKind for CircleMember {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let circle_id = effect_payload
             .get("circle_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::CIRCLE_MEMBER_V1,
                 field: "circle_id",
             })?;
@@ -947,54 +1084,62 @@ impl LatticeKind for CircleMember {
 
 // ────── Audit release, create, account, policy and contact families ──────
 
-per_subject_lattice!(
+per_subject_cell!(
     AuditRelease,
     arkret_wire::CellFamilyId::AUDIT_RELEASE_V1,
     Criticality::Required,
     "session_id"
 );
 
-singleton_lattice!(
+singleton_cell!(
     CircleCreate,
     arkret_wire::CellFamilyId::CIRCLE_CREATE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     SidecarCreate,
     arkret_wire::CellFamilyId::SIDECAR_CREATE_V1,
     Criticality::Required
 );
 
 // `ak.space.parent` is keyed by the child Space ID, not by the parent.
-per_subject_lattice!(
+per_subject_cell!(
     SpaceParent,
     arkret_wire::CellFamilyId::SPACE_PARENT_V1,
     Criticality::Required,
     "space_id"
 );
 
-per_subject_lattice!(
+per_subject_cell!(
     PolicyRule,
     arkret_wire::CellFamilyId::POLICY_RULE_V1,
     Criticality::Required,
     "rule_id"
 );
 
-/// Lattice marker for the `ak.component.member.identity.v1` cell family.
-/// Named `MemberIdentityLattice` (not `MemberIdentity`) to avoid colliding
+/// Typed adapter for the `ak.component.member.identity.v1` cell family.
+/// Named `MemberIdentity` (not `MemberIdentity`) to avoid colliding
 /// with the wire object `models::MemberIdentity`.
-pub struct MemberIdentityLattice;
-impl LatticeKind for MemberIdentityLattice {
+pub struct MemberIdentity;
+impl CellFamilyAdapter for MemberIdentity {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
@@ -1005,11 +1150,11 @@ impl LatticeKind for MemberIdentityLattice {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let realm_id = effect_payload
             .get("realm_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "realm_id",
             })?;
@@ -1021,7 +1166,7 @@ impl LatticeKind for MemberIdentityLattice {
         let segment = effect_payload
             .get("segment")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::MEMBER_IDENTITY_V1,
                 field: "segment",
             })?;
@@ -1030,16 +1175,24 @@ impl LatticeKind for MemberIdentityLattice {
 }
 
 pub struct ContactFactLog;
-impl LatticeKind for ContactFactLog {
+impl CellFamilyAdapter for ContactFactLog {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1,
@@ -1050,14 +1203,14 @@ impl LatticeKind for ContactFactLog {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         effect_payload
             .get("target")
             .or_else(|| effect_payload.get("requester"))
             .or_else(|| effect_payload.get("peer"))
             .and_then(Value::as_str)
             .map(|s| Some(s.to_owned()))
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::CONTACT_FACT_LOG_V1,
                 field: "target/requester/peer",
             })
@@ -1068,7 +1221,7 @@ impl LatticeKind for ContactFactLog {
 // `(binding_digest, envelope.actor_id)` — both participants endorsing the same
 // coordinates are compatible adds that MUST NOT join to bottom
 // (`contact-and-direct-conversation.md` §8.3).
-per_subject_lattice!(
+per_subject_cell!(
     DirectConversationBinding,
     arkret_wire::CellFamilyId::DIRECT_CONVERSATION_BINDING_V1,
     Criticality::Required,
@@ -1077,7 +1230,7 @@ per_subject_lattice!(
 
 // ────── Profile, agent selector and view families ──────
 
-per_subject_lattice!(
+per_subject_cell!(
     ProfileCreate,
     arkret_wire::CellFamilyId::PROFILE_CREATE_V1,
     Criticality::Required,
@@ -1090,17 +1243,25 @@ impl AgentSelectorClaim {
     pub const SCHEMA: &'static str = SchemaId::AGENT_SELECTOR_CLAIM_V1;
 }
 
-impl LatticeKind for AgentSelectorClaim {
+impl CellFamilyAdapter for AgentSelectorClaim {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::AGENT_SELECTOR_CLAIM_V1
     }
 
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
+    }
+
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
     }
 
     fn component(&self) -> ComponentDescriptor {
@@ -1114,24 +1275,24 @@ impl LatticeKind for AgentSelectorClaim {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let controller_subject_id = effect_payload
             .get("controller_subject_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: self.cell_family(),
                 field: "controller_subject_id",
             })?;
         let agent_slug = effect_payload
             .get("agent_slug")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: self.cell_family(),
                 field: "agent_slug",
             })?;
         arkret_wire::composite_subject(&[controller_subject_id, agent_slug])
             .map(Some)
-            .map_err(|error| LatticeKindError::InvalidCompositeSubject {
+            .map_err(|error| CellFamilyAdapterError::InvalidCompositeSubject {
                 cell_family: self.cell_family(),
                 reason: error.to_string(),
             })
@@ -1142,16 +1303,24 @@ pub struct View;
 impl View {
     pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::VIEW_V1;
 }
-impl LatticeKind for View {
+impl CellFamilyAdapter for View {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(Self::CELL_FAMILY)
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: Self::CELL_FAMILY,
@@ -1159,12 +1328,15 @@ impl LatticeKind for View {
             criticality: Criticality::Required,
         }
     }
-    fn subject_for_effect(&self, payload: &Value) -> Result<Option<String>, LatticeKindError> {
+    fn subject_for_effect(
+        &self,
+        payload: &Value,
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         payload
             .get("view_id")
             .and_then(Value::as_str)
             .map(|id| Some(id.to_owned()))
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: Self::CELL_FAMILY,
                 field: "view_id",
             })
@@ -1174,7 +1346,7 @@ impl LatticeKind for View {
         kind: &str,
         event_id: &arkret_wire::EventId,
         payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         match kind {
             arkret_wire::event_kind_str::VIEW_CREATE => Ok(Some(
                 arkret_wire::ViewId::from_event_id(event_id)
@@ -1183,7 +1355,7 @@ impl LatticeKind for View {
             )),
             arkret_wire::event_kind_str::VIEW_UPDATE
             | arkret_wire::event_kind_str::VIEW_RECONCILE => self.subject_for_effect(payload),
-            observed => Err(LatticeKindError::UnknownEventKind {
+            observed => Err(CellFamilyAdapterError::UnknownEventKind {
                 observed: observed.to_owned(),
                 cell_family: Self::CELL_FAMILY,
             }),
@@ -1205,16 +1377,24 @@ impl MimiRoomBinding {
     const SUBJECT_FIELD: &'static str = "mimi_room_uri";
 }
 
-impl LatticeKind for MimiRoomBinding {
+impl CellFamilyAdapter for MimiRoomBinding {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(Self::CELL_FAMILY)
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: Self::CELL_FAMILY,
@@ -1225,12 +1405,12 @@ impl LatticeKind for MimiRoomBinding {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         effect_payload
             .get(Self::SUBJECT_FIELD)
             .and_then(Value::as_str)
             .map(|uri| Some(arkret_wire::uri_cell_subject(uri)))
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: Self::CELL_FAMILY,
                 field: Self::SUBJECT_FIELD,
             })
@@ -1241,14 +1421,14 @@ impl LatticeKind for MimiRoomBinding {
 
 // ── Realm singleton families ──
 
-per_subject_lattice!(
+per_subject_cell!(
     PolicyDefinition,
     arkret_wire::CellFamilyId::POLICY_DEFINITION_V1,
     Criticality::Required,
     "policy_id"
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmPolicy,
     arkret_wire::CellFamilyId::REALM_POLICY_V1,
     Criticality::Required
@@ -1256,37 +1436,37 @@ singleton_lattice!(
 
 // Per-Realm minimal identity/security root. Mutable and display state is never
 // written here.
-singleton_lattice!(
+singleton_cell!(
     RealmGenesis,
     arkret_wire::CellFamilyId::REALM_GENESIS_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmProfile,
     arkret_wire::CellFamilyId::REALM_PROFILE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmReadReceiptPolicy,
     arkret_wire::CellFamilyId::REALM_READ_RECEIPT_POLICY_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmHistoryAccess,
     arkret_wire::CellFamilyId::REALM_HISTORY_ACCESS_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmJoinRule,
     arkret_wire::CellFamilyId::REALM_JOIN_RULE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmDiscovery,
     arkret_wire::CellFamilyId::REALM_DISCOVERY_V1,
     Criticality::Required
@@ -1297,16 +1477,24 @@ singleton_lattice!(
 // It is NOT a singleton keyed by realm_id; distinct (organization_id, relationship)
 // pairs must form independent cells so they cannot overwrite each other.
 pub struct RealmOrganization;
-impl LatticeKind for RealmOrganization {
+impl CellFamilyAdapter for RealmOrganization {
     fn cell_family(&self) -> &'static str {
         arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(self.cell_family())
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(self.cell_family())
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1,
@@ -1317,18 +1505,18 @@ impl LatticeKind for RealmOrganization {
     fn subject_for_effect(
         &self,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         let organization_id = effect_payload
             .get("organization_id")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1,
                 field: "organization_id",
             })?;
         let relationship = effect_payload
             .get("relationship")
             .and_then(Value::as_str)
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: arkret_wire::CellFamilyId::REALM_ORGANIZATION_V1,
                 field: "relationship",
             })?;
@@ -1336,79 +1524,79 @@ impl LatticeKind for RealmOrganization {
     }
 }
 
-singleton_lattice!(
+singleton_cell!(
     RealmArchive,
     arkret_wire::CellFamilyId::REALM_ARCHIVE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmFreeze,
     arkret_wire::CellFamilyId::REALM_FREEZE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmTombstone,
     arkret_wire::CellFamilyId::REALM_TOMBSTONE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmDestroy,
     arkret_wire::CellFamilyId::REALM_DESTROY_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     CircleHistoryAccess,
     arkret_wire::CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmPreviewPolicy,
     arkret_wire::CellFamilyId::REALM_PREVIEW_POLICY_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmAssetPrivacyPolicy,
     arkret_wire::CellFamilyId::REALM_ASSET_PRIVACY_POLICY_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmPolicyBundle,
     arkret_wire::CellFamilyId::REALM_POLICY_BUNDLE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmAlias,
     arkret_wire::CellFamilyId::REALM_ALIAS_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmPlaintextVisibleServices,
     arkret_wire::CellFamilyId::REALM_PLAINTEXT_VISIBLE_SERVICES_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmMediaService,
     arkret_wire::CellFamilyId::REALM_MEDIA_SERVICE_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmSchema,
     arkret_wire::CellFamilyId::REALM_SCHEMA_V1,
     Criticality::Required
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmSearchPolicy,
     arkret_wire::CellFamilyId::REALM_SEARCH_POLICY_V1,
     Criticality::Required
@@ -1416,14 +1604,14 @@ singleton_lattice!(
 
 // ── Realm per-subject families ──
 
-per_subject_lattice!(
+per_subject_cell!(
     RealmInheritancePolicy,
     arkret_wire::CellFamilyId::REALM_INHERITANCE_POLICY_V1,
     Criticality::Required,
     "source_realm_id"
 );
 
-singleton_lattice!(
+singleton_cell!(
     RealmReducerProfile,
     arkret_wire::CellFamilyId::REALM_REDUCER_PROFILE_V1,
     Criticality::Required
@@ -1431,7 +1619,7 @@ singleton_lattice!(
 
 // ── Realm and Strand create families ──
 
-singleton_lattice!(
+singleton_cell!(
     RealmCreate,
     arkret_wire::CellFamilyId::REALM_CREATE_V1,
     Criticality::Required
@@ -1442,16 +1630,24 @@ pub struct StrandObject;
 impl StrandObject {
     pub const CELL_FAMILY: &'static str = arkret_wire::CellFamilyId::STRAND_OBJECT_V1;
 }
-impl LatticeKind for StrandObject {
+impl CellFamilyAdapter for StrandObject {
     fn cell_family(&self) -> &'static str {
         Self::CELL_FAMILY
     }
-    fn lattice(&self) -> SdkLatticeKind {
-        generated_lattice(Self::CELL_FAMILY)
+    fn state_model(&self) -> StateModelKind {
+        generated_state_model(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> EventCellBottom {
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
         generated_bottom_policy(Self::CELL_FAMILY)
     }
+    fn execution(&self) -> EventCellExecution {
+        generated_execution(self.cell_family())
+    }
+
+    fn value_shape(&self) -> EventCellValueShape {
+        generated_value_shape(self.cell_family())
+    }
+
     fn component(&self) -> ComponentDescriptor {
         ComponentDescriptor {
             component_type: Self::CELL_FAMILY,
@@ -1459,12 +1655,15 @@ impl LatticeKind for StrandObject {
             criticality: Criticality::Required,
         }
     }
-    fn subject_for_effect(&self, payload: &Value) -> Result<Option<String>, LatticeKindError> {
+    fn subject_for_effect(
+        &self,
+        payload: &Value,
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         payload
             .get("target_ref")
             .and_then(Value::as_str)
             .map(|id| Some(id.to_owned()))
-            .ok_or(LatticeKindError::MissingSubjectField {
+            .ok_or(CellFamilyAdapterError::MissingSubjectField {
                 cell_family: Self::CELL_FAMILY,
                 field: "target_ref",
             })
@@ -1474,7 +1673,7 @@ impl LatticeKind for StrandObject {
         kind: &str,
         event_id: &arkret_wire::EventId,
         payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         match kind {
             arkret_wire::event_kind_str::STRAND_CREATE => Ok(Some(
                 arkret_wire::StrandId::from_event_id(event_id)
@@ -1483,7 +1682,7 @@ impl LatticeKind for StrandObject {
             )),
             arkret_wire::event_kind_str::STRAND_UPDATE
             | arkret_wire::event_kind_str::STRAND_TRACKS_UPDATE => self.subject_for_effect(payload),
-            observed => Err(LatticeKindError::UnknownEventKind {
+            observed => Err(CellFamilyAdapterError::UnknownEventKind {
                 observed: observed.to_owned(),
                 cell_family: Self::CELL_FAMILY,
             }),

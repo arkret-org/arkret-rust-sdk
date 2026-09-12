@@ -331,8 +331,7 @@ impl ActorAggregateFrontierView {
 
 /// Realm Seal view shape of the account-client frontier: the current
 /// accepted Seal head of the Realm. `seal_basis()` mints the single-leaf
-/// Control Move basis (`leaves=[seal_id]`); `seal_id` alone is the DataEvent
-/// `seal_ref`.
+/// Control Move basis (`leaves=[seal_id]`).
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -520,8 +519,8 @@ pub struct RealmSealFrontierObservationCoordinate {
 /// `spec/v1/artifacts/schemas/service-operation-dtos.schema.json#/$defs/RealmSealFrontierView`.
 ///
 /// `seal_basis.leaves[]` is the complete canonical non-quarantined accepted
-/// Seal leaf antichain: exactly one leaf under `single_signer` / `threshold`
-/// notary authority, every live leaf under `open_set`. Self clients consume
+/// Seal leaf frontier: exactly one confirmed leaf under quorum notary
+/// authority. Self clients consume
 /// their authenticated Account Station result without replaying history; peer
 /// servers independently verify foreign governance. The live digest suite is
 /// the effective suite at exactly this accepted basis.
@@ -562,11 +561,7 @@ impl RealmSealFrontierView {
         self.seal_basis.clone()
     }
 
-    /// The single accepted leaf of a `single_signer` / `threshold` authority.
-    ///
-    /// An `open_set` antichain that carries more than one live leaf has no
-    /// single-Seal citation; it is rejected here instead of being silently
-    /// narrowed to an arbitrary member.
+    /// The unique accepted leaf of the quorum-confirmed Realm history.
     pub fn sole_leaf(&self) -> Result<&SealId> {
         match self.seal_basis.leaves.as_slice() {
             [leaf] => Ok(leaf),
@@ -893,7 +888,7 @@ pub struct EventsSubmitFederationBatchRequestBody {
     /// receipts that authorized its first publication.
     pub events: Vec<EventFederationSubmission>,
     /// Receiver-relative CBS dependency bundles rooted at the transported
-    /// Events' `seal_ref` or `seal_basis` leaves.
+    /// Events' authority refs or `seal_basis` leaves.
     ///
     /// These are transport prerequisites, not Events and not an alternate
     /// federation write rail. A bundle MAY be a bounded verifiable superset;
@@ -979,12 +974,16 @@ impl EventsSubmitFederationBatchRequestBody {
         let required_targets = self
             .transported_events()
             .flat_map(|event| {
-                event.seal_ref.iter().chain(
-                    event
-                        .seal_basis
-                        .iter()
-                        .flat_map(|basis| basis.leaves.iter()),
-                )
+                event
+                    .auth_context
+                    .iter()
+                    .flat_map(|context| context.authority_refs.iter())
+                    .chain(
+                        event
+                            .seal_basis
+                            .iter()
+                            .flat_map(|basis| basis.leaves.iter()),
+                    )
             })
             .cloned()
             .collect::<BTreeSet<_>>();
@@ -1046,7 +1045,7 @@ impl EventsSubmitFederationBatchRequestBody {
         }
 
         // Reject disclosure that is not reachable from a transported
-        // DataEvent seal_ref or Control Event seal_basis leaf. Receiver-local
+        // DataEvent authority ref or Control Event seal_basis leaf. Receiver-local
         // predecessors may be omitted.
         let transported_by_id = seals
             .iter()
@@ -1054,10 +1053,14 @@ impl EventsSubmitFederationBatchRequestBody {
             .collect::<BTreeMap<_, _>>();
         let mut pending = Vec::new();
         for event in self.transported_events() {
-            if let Some(seal_ref) = &event.seal_ref
-                && transported_by_id.contains_key(seal_ref)
-            {
-                pending.push(seal_ref.clone());
+            if let Some(auth_context) = &event.auth_context {
+                pending.extend(
+                    auth_context
+                        .authority_refs
+                        .iter()
+                        .filter(|seal_id| transported_by_id.contains_key(*seal_id))
+                        .cloned(),
+                );
             }
             if let Some(seal_basis) = &event.seal_basis {
                 pending.extend(
@@ -1076,7 +1079,7 @@ impl EventsSubmitFederationBatchRequestBody {
             }
             if let Some(seal) = transported_by_id.get(&seal_id) {
                 pending.extend(
-                    seal.predecessor_refs
+                    seal.predecessor_ref
                         .iter()
                         .filter(|predecessor| transported_by_id.contains_key(*predecessor))
                         .cloned(),
@@ -1148,10 +1151,14 @@ impl EventsSubmitFederationBatchRequestBody {
         for event in self.transported_events() {
             let node = format!("event:{}", event.event_id);
             let event_dependencies = dependencies.entry(node).or_default();
-            if let Some(seal_ref) = &event.seal_ref
-                && transported_by_id.contains_key(seal_ref)
-            {
-                event_dependencies.insert(format!("seal:{seal_ref}"));
+            if let Some(auth_context) = &event.auth_context {
+                event_dependencies.extend(
+                    auth_context
+                        .authority_refs
+                        .iter()
+                        .filter(|seal_id| transported_by_id.contains_key(*seal_id))
+                        .map(|seal_id| format!("seal:{seal_id}")),
+                );
             }
             if let Some(seal_basis) = &event.seal_basis {
                 event_dependencies.extend(
@@ -1167,7 +1174,7 @@ impl EventsSubmitFederationBatchRequestBody {
             let node = format!("seal:{}", seal.id);
             let seal_dependencies = dependencies.entry(node).or_default();
             seal_dependencies.extend(
-                seal.predecessor_refs
+                seal.predecessor_ref
                     .iter()
                     .filter(|seal_id| transported_by_id.contains_key(*seal_id))
                     .map(|seal_id| format!("seal:{seal_id}")),

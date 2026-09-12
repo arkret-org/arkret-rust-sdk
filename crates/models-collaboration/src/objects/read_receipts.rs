@@ -877,7 +877,7 @@ impl From<NotificationInboxState> for NotificationState {
 /// Plaintext behind the encrypted `ak.notifications.inbox.<notification_id>`
 /// account-data value.
 ///
-/// The registry stores this key as a `cas_register`, so concurrent devices
+/// The registry stores this key as a causal register, so concurrent devices
 /// converge by re-reading and re-merging rather than by server-side ordering;
 /// [`NotificationInboxValue::compare_precedence`] is that merge rule.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -174,10 +174,7 @@ impl DirectConversationFoundingPlan {
             event.verify_event_id_matches_content_with_digest_suite(genesis_suite)?;
         }
         for event in events {
-            if event.seal_ref.is_some()
-                || event.auth_context.is_some()
-                || event.seal_basis.is_some()
-            {
+            if event.auth_context.is_some() || event.seal_basis.is_some() {
                 return Err(founding_unit_invalid(
                     "founding Events must use the bootstrap no-contact_round shape",
                 ));

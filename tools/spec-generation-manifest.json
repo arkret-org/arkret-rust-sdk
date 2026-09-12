@@ -17,9 +17,9 @@
       ]
     },
     {
-      "generator": "lattice-bindings",
+      "generator": "state-model-bindings",
       "outputs": [
-        "crates/lattice-registry/src/generated/lattice_bindings.rs"
+        "crates/lattice-registry/src/generated/state_model_bindings.rs"
       ],
       "owner": "arkret-lattice-registry",
       "mode": "registered+descriptor",
@@ -116,9 +116,7 @@
     },
     {
       "generator": "spec-codegen",
-      "outputs": [
-        "crates/state/src/generated/sole_recovery_families.rs"
-      ],
+      "outputs": [],
       "owner": "arkret-state",
       "mode": "registered+descriptor",
       "artifacts": [

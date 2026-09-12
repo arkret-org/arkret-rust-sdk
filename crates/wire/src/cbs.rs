@@ -181,7 +181,7 @@ pub enum PredicateOp {
     Contains,
 }
 
-/// One receiver-derived write: a cell plus the lattice operation the
+/// One receiver-derived write: a cell plus the state-model operation the
 /// registered reducer contract projects for it.
 ///
 /// This type exists only between the projection evaluator and the lattice /
@@ -192,44 +192,11 @@ pub enum PredicateOp {
 pub struct ProjectionEffect {
     pub cell_id: CellRef,
     pub op: LatticeOp,
-    /// This write is the `event-auth-state-resolution.md` §9.5 recovery reset,
-    /// not an ordinary lattice write.
-    ///
-    /// On a **causal register** (`cas_register` / `fsm`) a reset replaces
-    /// nothing: §9.5.1 makes it an authorized new identity write that supersedes
-    /// exactly the divergent heads its own signed basis observed, and a branch
-    /// outside that basis still merges. On the remaining `bottom=reject`
-    /// lattices it is still the boundary §9.5 describes.
-    ///
-    /// The flag is what the derived op cannot say for itself. The lattice op
-    /// vocabulary is spec-registered and has no `reset` member, so the write
-    /// travels as the target lattice's own op — a `set` for `cas_register`, a
-    /// `transition` carrying only its `to` for `fsm` — and only this flag
-    /// distinguishes it from an ordinary write. `fsm` needs the distinction
-    /// twice over: an ordinary transition owes a single `from`, and a recovery
-    /// has none to give, because it leaves every divergent head at once.
-    #[serde(default, skip_serializing_if = "core::ops::Not::not")]
-    pub recovery_reset: bool,
 }
 
 impl ProjectionEffect {
-    /// An ordinary lattice write: joins with everything already on the cell.
-    pub fn join(cell: CellRef, op: LatticeOp) -> Self {
-        Self {
-            cell_id: cell,
-            op,
-            recovery_reset: false,
-        }
-    }
-
-    /// The §9.5 recovery write. On a causal register it supersedes the heads
-    /// its basis saw (§9.5.1); elsewhere it is a boundary in the cell's history.
-    pub fn reset(cell: CellRef, op: LatticeOp) -> Self {
-        Self {
-            cell_id: cell,
-            op,
-            recovery_reset: true,
-        }
+    pub fn new(cell: CellRef, op: LatticeOp) -> Self {
+        Self { cell_id: cell, op }
     }
 }
 
@@ -245,10 +212,10 @@ impl ProjectionEffect {
 pub enum ProjectedOp {
     /// Fully determined by the signed Event.
     Direct(LatticeOp),
-    /// `fsm` transition to `to`; the reducer supplies `from` from the frozen
+    /// Sequenced transition to `to`; the reducer supplies `from` from the frozen
     /// pre-state and checks the transition against the cell's closed table.
     TransitionTo { to: Value },
-    /// `mv_register` / `cas_register` update produced by applying a
+    /// Register update produced by applying a
     /// schema-defined Patch to the frozen pre-state. The Patch itself is never
     /// stored as the cell value.
     ApplyPatch {
@@ -260,8 +227,7 @@ pub enum ProjectedOp {
         /// The reducer MUST reject the whole Event when this is present and
         /// does not byte-equal the frozen pre-state's canonical digest. It is
         /// an optimistic guard layered on top of the lattice, not a substitute
-        /// for it: a `cas_register` still needs its `head_eq` precondition and
-        /// an `mv_register` still exposes concurrent heads.
+        /// for it: a causal register still retains concurrent heads.
         expected_prestate: Option<Value>,
     },
     /// `or_set` observed-remove of every surviving add dot on the target cell
@@ -274,21 +240,6 @@ pub enum ProjectedOp {
     RemoveObserved {
         element_match: Option<ObservedRemoveMatch>,
     },
-    /// Resolve a cell in `⊥` back to one legal value
-    /// (`event-auth-state-resolution.md` §9.5).
-    ///
-    /// `ak.conflict.recovery` is the only kind whose contract may project it,
-    /// and the reducer MUST apply it only to a cell already in `⊥`. On a cell in
-    /// any other state the write MUST be rejected — otherwise recovery becomes a
-    /// general overwrite channel that bypasses every lattice.
-    ///
-    /// The registered contract names no lattice, so the concrete op shape is
-    /// decided from the target cell when the write is resolved: `set` for
-    /// `cas_register`, `transition` carrying only its `to` for `fsm`. Which
-    /// refs the Move owes also splits by lattice — a causal register proves its
-    /// target conflict from its own signed basis and owes no `state_witness`
-    /// (§9.5.1), the remaining `bottom=reject` lattices still owe one (§9.5).
-    Reset { value: Value },
 }
 
 /// Narrowing predicate for [`ProjectedOp::RemoveObserved`].
@@ -315,7 +266,7 @@ impl ProjectedCellWrite {
     pub fn as_direct(&self) -> Option<ProjectionEffect> {
         match &self.op {
             ProjectedOp::Direct(op) => {
-                Some(ProjectionEffect::join(self.cell_id.clone(), op.clone()))
+                Some(ProjectionEffect::new(self.cell_id.clone(), op.clone()))
             }
             _ => None,
         }
@@ -324,9 +275,9 @@ impl ProjectedCellWrite {
 
 /// Lattice operation. Shape is `{kind, tag?, value?, from?, to?, reason?, issuer_seq?}`.
 ///
-/// Which members are populated depends on the target cell's declared Lattice
+/// Which members are populated depends on the target cell's declared state model
 /// type (see `event-auth-state-resolution.md` §9). This struct accepts the
-/// union; per-type validation lives in the `arkret-state` lattice
+/// union; per-type validation lives in the `arkret-state` state-model
 /// implementations' `validate_op`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -367,9 +318,9 @@ pub enum LatticeOpType {
     Add,
     /// or-set remove (requires `tag`, optional `reason`).
     Remove,
-    /// mv-register / cas-register set (requires `value`).
+    /// register set (requires `value`).
     Set,
-    /// fsm transition (requires `from` + `to`).
+    /// sequenced-state transition (requires `from` + `to`).
     Transition,
     /// counter increment (requires non-negative `value`).
     Inc,

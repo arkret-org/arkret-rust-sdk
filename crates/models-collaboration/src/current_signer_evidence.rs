@@ -262,41 +262,30 @@ impl CurrentSignerEvidence {
                 available.insert(dependency.canonical_sha256_digest()?, dependency);
             }
         }
-        let mut supplied = BTreeSet::new();
-        for dependency in dependencies {
-            let digest = dependency.canonical_sha256_digest()?;
-            if !supplied.insert(digest.clone()) {
-                return Err(WireError::Protocol(
-                    "Agent response repeats dependency".to_owned(),
-                ));
-            }
-            available.insert(digest, dependency);
-        }
-        let mut used = BTreeMap::new();
-        let mut stack = referenced_digests(&root, &available)?;
-        while let Some(digest) = stack.pop() {
-            if used.contains_key(&digest) {
-                continue;
-            }
-            let dependency = available.get(&digest).ok_or_else(|| {
-                WireError::Protocol("Agent response dependency missing".to_owned())
-            })?;
-            stack.extend(referenced_digests(dependency, &available)?);
-            used.insert(digest, (*dependency).clone());
-            if used.len() > 64 {
-                return Err(WireError::Protocol(
-                    "Agent response dependency bound exceeded".to_owned(),
-                ));
-            }
-        }
-        if supplied.iter().any(|digest| !used.contains_key(digest)) {
+        resolve_agent_dependency_closure(root, dependencies, available)
+    }
+
+    /// Hydrate activation-time Agent evidence without omitted state or cached
+    /// dependencies. This is the closed form delivered by pairing status and
+    /// retained in the active Agent projection for offline authoring.
+    pub fn hydrate_complete_agent(
+        &self,
+    ) -> arkret_wire::Result<(
+        AuthenticatedSignerResolutionEvidence,
+        Vec<AuthenticatedSignerResolutionEvidence>,
+    )> {
+        let Self::Agent {
+            authenticated_signer_evidence,
+            dependencies,
+            ..
+        } = self
+        else {
             return Err(WireError::Protocol(
-                "Agent response supplies unrelated dependency".to_owned(),
+                "complete Agent evidence requires the Agent branch".to_owned(),
             ));
-        }
-        let closure = used.into_values().collect::<Vec<_>>();
-        validate_agent_dependency_closure(&root, &closure)?;
-        Ok((root, closure))
+        };
+        let root = authenticated_signer_evidence.hydrate(&BTreeMap::new())?;
+        resolve_agent_dependency_closure(root, dependencies, BTreeMap::new())
     }
 
     fn validate_binding(
@@ -378,6 +367,51 @@ impl CurrentSignerEvidence {
     }
 }
 
+fn resolve_agent_dependency_closure<'a>(
+    root: AuthenticatedSignerResolutionEvidence,
+    dependencies: &'a [AuthenticatedSignerResolutionEvidence],
+    mut available: BTreeMap<Hash, &'a AuthenticatedSignerResolutionEvidence>,
+) -> arkret_wire::Result<(
+    AuthenticatedSignerResolutionEvidence,
+    Vec<AuthenticatedSignerResolutionEvidence>,
+)> {
+    let mut supplied = BTreeSet::new();
+    for dependency in dependencies {
+        let digest = dependency.canonical_sha256_digest()?;
+        if !supplied.insert(digest.clone()) {
+            return Err(WireError::Protocol(
+                "Agent response repeats dependency".to_owned(),
+            ));
+        }
+        available.insert(digest, dependency);
+    }
+    let mut used = BTreeMap::new();
+    let mut stack = referenced_digests(&root, &available)?;
+    while let Some(digest) = stack.pop() {
+        if used.contains_key(&digest) {
+            continue;
+        }
+        let dependency = available
+            .get(&digest)
+            .ok_or_else(|| WireError::Protocol("Agent response dependency missing".to_owned()))?;
+        stack.extend(referenced_digests(dependency, &available)?);
+        used.insert(digest, (*dependency).clone());
+        if used.len() > 64 {
+            return Err(WireError::Protocol(
+                "Agent response dependency bound exceeded".to_owned(),
+            ));
+        }
+    }
+    if supplied.iter().any(|digest| !used.contains_key(digest)) {
+        return Err(WireError::Protocol(
+            "Agent response supplies unrelated dependency".to_owned(),
+        ));
+    }
+    let closure = used.into_values().collect::<Vec<_>>();
+    validate_agent_dependency_closure(&root, &closure)?;
+    Ok((root, closure))
+}
+
 /// Validate a finite, exact, content-addressed dependency DAG rooted at the
 /// Agent evidence returned for this request. Service evidence is terminal;
 /// Principal and Agent evidence may only advance through the digests embedded
@@ -407,7 +441,6 @@ fn referenced_digests(
         AuthenticatedSignerResolutionEvidence::Agent {
             attester_signer_evidence_ref,
             account_authority_signer_evidence_ref,
-            receiver_signer_evidence_ref,
             agent_signer_evidence,
             ..
         } => {
@@ -415,12 +448,6 @@ fn referenced_digests(
                 attester_signer_evidence_ref.content_digest()?,
                 account_authority_signer_evidence_ref.content_digest()?,
             ];
-            refs.extend(
-                receiver_signer_evidence_ref
-                    .iter()
-                    .map(SignerEvidenceRef::content_digest)
-                    .collect::<arkret_wire::Result<Vec<_>>>()?,
-            );
             for reference in agent_signer_evidence.required_historical_signer_refs() {
                 refs.push(reference.content_digest()?);
             }
@@ -764,7 +791,6 @@ impl CompactAgentSignerResolutionEvidence {
             }),
             attester_signer_evidence_ref: attester_signer_evidence_ref.clone(),
             account_authority_signer_evidence_ref: account_authority_signer_evidence_ref.clone(),
-            receiver_signer_evidence_ref: None,
         };
         root.validate_attester_binding()?;
         Ok(root)

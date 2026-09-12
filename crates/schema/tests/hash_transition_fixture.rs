@@ -3,6 +3,27 @@ use arkret_schema_conformance::spec_json_artifact;
 use arkret_wire::EventId;
 use serde_json::Value;
 
+fn assert_seal_commit(value: &Value, suite: DigestSuite) {
+    let body_bytes = canonical_bytes(value, "seal_body_canonical_bytes_utf8");
+    let seal_digest = digest(suite, &body_bytes);
+    let body: Value = serde_json::from_slice(&body_bytes).unwrap();
+    let transcript = serde_json::json!({
+        "context": "ak.seal.commit.v1",
+        "seal_digest": seal_digest,
+        "configuration_ref": body["configuration_ref"],
+        "notary_seq": body["notary_seq"],
+        "view": 0,
+    });
+    assert_eq!(
+        digest(suite, canonical_json_bytes(&transcript).unwrap()),
+        value["notary_signature_payload_digest"].as_str().unwrap()
+    );
+    assert_eq!(
+        format!("ak:seal:{seal_digest}"),
+        value["seal_id"].as_str().unwrap()
+    );
+}
+
 fn canonical_bytes(value: &Value, field: &str) -> Vec<u8> {
     let bytes = value[field].as_str().unwrap().as_bytes().to_vec();
     let parsed: Value = serde_json::from_slice(&bytes).unwrap();
@@ -84,25 +105,7 @@ fn hash_transition_fixture_authenticates_genesis_and_transition_bytes() {
         ),
         genesis["control_event_set_root"].as_str().unwrap()
     );
-    assert_eq!(
-        digest(
-            DigestSuite::Blake3,
-            hex::decode(genesis["completeness_leaf_preimage_hex"].as_str().unwrap()).unwrap(),
-        ),
-        genesis["completeness_root"].as_str().unwrap()
-    );
-    let genesis_seal_digest = digest(
-        DigestSuite::Blake3,
-        canonical_bytes(genesis, "seal_body_canonical_bytes_utf8"),
-    );
-    assert_eq!(
-        genesis_seal_digest,
-        genesis["notary_signature_payload_digest"].as_str().unwrap()
-    );
-    assert_eq!(
-        format!("ak:seal:{genesis_seal_digest}"),
-        genesis["seal_id"].as_str().unwrap()
-    );
+    assert_seal_commit(genesis, DigestSuite::Blake3);
 
     let transition = &fixture["cases"][1];
     assert_sha256(
@@ -157,32 +160,7 @@ fn hash_transition_fixture_authenticates_genesis_and_transition_bytes() {
         [&[1][..], &leaves[0], &leaves[1]].concat(),
     );
     assert_eq!(root, transition["control_event_set_root"].as_str().unwrap());
-    assert_eq!(
-        digest(
-            DigestSuite::Blake3,
-            hex::decode(
-                transition["completeness_leaf_preimage_hex"]
-                    .as_str()
-                    .unwrap(),
-            )
-            .unwrap(),
-        ),
-        transition["completeness_root"].as_str().unwrap()
-    );
-    let transition_seal_digest = digest(
-        DigestSuite::Blake3,
-        canonical_bytes(transition, "seal_body_canonical_bytes_utf8"),
-    );
-    assert_eq!(
-        transition_seal_digest,
-        transition["notary_signature_payload_digest"]
-            .as_str()
-            .unwrap()
-    );
-    assert_eq!(
-        format!("ak:seal:{transition_seal_digest}"),
-        transition["seal_id"].as_str().unwrap()
-    );
+    assert_seal_commit(transition, DigestSuite::Blake3);
     assert_eq!(
         digest(
             DigestSuite::Blake3,

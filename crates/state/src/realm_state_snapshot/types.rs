@@ -455,7 +455,7 @@ pub struct RealmStateSnapshotVerificationHints {
     pub erasure_stubs_digest: Option<Hash>,
 }
 
-/// One still-active `cas_register` write inside a snapshot chunk.
+/// One still-active `causal_register` write inside a snapshot chunk.
 ///
 /// The wire form of `event-auth-state-resolution.md` §6.2.1's head entry. The
 /// identity is the `ak:event:` spelling here rather than the `event_digest` the
@@ -464,7 +464,7 @@ pub struct RealmStateSnapshotVerificationHints {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RealmStateSnapshotCasHead {
+pub struct RealmStateSnapshotCausalHead {
     pub event_id: EventId,
     pub value: Value,
 }
@@ -473,21 +473,21 @@ pub struct RealmStateSnapshotCasHead {
 /// `event-auth-state-resolution.md` §6.2.1 gives that cell's registered
 /// lattice.
 ///
-/// `{"heads":[…]}` for a `cas_register` cell, `{"value":…}` for every other
+/// `{"heads":[…]}` for a `causal_register` cell, `{"value":…}` for every other
 /// lattice. The two shapes are mutually exclusive and carry no other member, so
 /// a cell's snapshot state and its `state_root` leaf preimage
 /// `{"cell","state"}` are one definition, not two that can drift
 /// (`realm-state-snapshot-schema.md` §3 / §4).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SnapshotCellState {
-    /// Joined lattice value of a materialized non-`cas_register` cell, verbatim.
+    /// Joined lattice value of a materialized non-`causal_register` cell, verbatim.
     /// An encrypted envelope projected from an Event payload stays an
     /// envelope: the issuer never decrypts, re-encrypts or substitutes.
     Value(Value),
-    /// Complete active head set of a written `cas_register` cell, ordered by the
+    /// Complete active head set of a written `causal_register` cell, ordered by the
     /// decoded 33-octet `event_id` token with identities unique. Never empty:
     /// an unwritten cell is not a member.
-    Heads(Vec<RealmStateSnapshotCasHead>),
+    Heads(Vec<RealmStateSnapshotCausalHead>),
 }
 
 impl SnapshotCellState {
@@ -521,11 +521,11 @@ impl<'de> Deserialize<'de> for SnapshotCellState {
                 Ok(Self::Value(object.remove("value").unwrap_or(Value::Null)))
             }
             [key] if key == "heads" => {
-                let heads = serde_json::from_value::<Vec<RealmStateSnapshotCasHead>>(
+                let heads = serde_json::from_value::<Vec<RealmStateSnapshotCausalHead>>(
                     object.remove("heads").unwrap_or(Value::Null),
                 )
                 .map_err(D::Error::custom)?;
-                cas_heads_are_canonical(&heads).map_err(D::Error::custom)?;
+                causal_heads_are_canonical(&heads).map_err(D::Error::custom)?;
                 Ok(Self::Heads(heads))
             }
             _ => Err(D::Error::custom(
@@ -552,10 +552,12 @@ fn event_token_bytes(event_id: &EventId) -> std::result::Result<Vec<u8>, String>
 
 /// §6.2.1: a head set is non-empty, sorted by decoded token in unsigned
 /// lexicographic ascending order, and carries each identity once.
-fn cas_heads_are_canonical(heads: &[RealmStateSnapshotCasHead]) -> std::result::Result<(), String> {
+fn causal_heads_are_canonical(
+    heads: &[RealmStateSnapshotCausalHead],
+) -> std::result::Result<(), String> {
     if heads.is_empty() {
         return Err(
-            "a cas_register snapshot item carries at least one head; an unwritten cell \
+            "a causal_register snapshot item carries at least one head; an unwritten cell \
                     is not a member"
                 .to_owned(),
         );
@@ -567,7 +569,7 @@ fn cas_heads_are_canonical(heads: &[RealmStateSnapshotCasHead]) -> std::result::
             && token <= *previous
         {
             return Err(
-                "cas_register heads must be sorted by decoded event_id token in ascending order \
+                "causal_register heads must be sorted by decoded event_id token in ascending order \
                  with unique identities"
                     .to_owned(),
             );
@@ -587,12 +589,12 @@ pub const SNAPSHOT_CELL_KIND: &str = "cell";
 /// materialized-object branch — a snapshot ships the reducer's own state and a
 /// consumer derives display objects locally, exactly as it does from replay —
 /// and no `source_event_id`: write identities live inside the lattice state
-/// (CAS heads, or_set dots, ordered_log entries), and one identity could not
+/// (causal-register heads, or_set dots, ordered_log entries), and one identity could not
 /// name several live writes anyway.
 ///
 /// Construction and deserialization both enforce the registry: the family must
 /// be one a registered `cell_writes[]` row writes, and the state shape must be
-/// the one its lattice gets — `heads` for `cas_register`, `value` otherwise.
+/// the one its lattice gets — `heads` for `causal_register`, `value` otherwise.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RealmStateSnapshotMaterializedItem {
     cell: CellRef,
@@ -606,14 +608,14 @@ impl RealmStateSnapshotMaterializedItem {
         Ok(Self { cell, state })
     }
 
-    /// An item for a materialized non-`cas_register` cell.
+    /// An item for a materialized non-`causal_register` cell.
     pub fn value(cell: CellRef, value: Value) -> Result<Self> {
         Self::new(cell, SnapshotCellState::Value(value))
     }
 
-    /// An item for one written `cas_register` cell.
+    /// An item for one written `causal_register` cell.
     ///
-    /// `heads` comes from [`crate::lattice::cas_register::cas_heads`], already
+    /// `heads` comes from [`crate::state_model::causal_register::causal_heads`], already
     /// ordered by the decoded `event_id` token. Each head's identity is
     /// recovered losslessly from its `event_digest`, so the chunk never depends
     /// on a second stored spelling of the same identity.
@@ -621,16 +623,12 @@ impl RealmStateSnapshotMaterializedItem {
     /// An empty head set is rejected rather than emitted: §6.2.1 makes an
     /// unwritten cell a non-member, so an empty entry would put a leaf in the
     /// tree for a cell that must not have one.
-    pub fn cas_cell(
-        cell: CellRef,
-        heads: &[crate::lattice::cas_register::CasHead],
-    ) -> Result<Self> {
+    pub fn causal_cell(cell: CellRef, heads: &[crate::CausalHead]) -> Result<Self> {
         let heads = heads
             .iter()
             .map(|head| {
-                Ok(RealmStateSnapshotCasHead {
-                    event_id: EventId::from_event_digest(&head.move_id)
-                        .map_err(|error| WireError::Protocol(error.to_string()))?,
+                Ok(RealmStateSnapshotCausalHead {
+                    event_id: head.event_id.clone(),
                     value: head.value.clone(),
                 })
             })
@@ -656,8 +654,7 @@ impl RealmStateSnapshotMaterializedItem {
         self.cell.as_str()
     }
 
-    /// The §6.2.1 leaf preimage `{"cell": id, "state": state_object}` — the
-    /// same bytes the Seal `state_root` hashes for this cell.
+    /// The snapshot-state leaf preimage `{"cell": id, "state": state_object}`.
     pub fn leaf_preimage(&self) -> Value {
         serde_json::json!({
             "cell": self.cell.as_str(),
@@ -673,17 +670,17 @@ fn validate_snapshot_cell(cell: &CellRef, state: &SnapshotCellState) -> Result<(
              snapshot item"
         )));
     }
-    let cas = arkret_wire::is_registered_cas_register_cell(cell.as_str());
-    match (cas, state) {
+    let causal = arkret_wire::is_registered_causal_register_cell(cell.as_str());
+    match (causal, state) {
         (true, SnapshotCellState::Heads(heads)) => {
-            cas_heads_are_canonical(heads).map_err(WireError::Protocol)
+            causal_heads_are_canonical(heads).map_err(WireError::Protocol)
         }
         (false, SnapshotCellState::Value(_)) => Ok(()),
         (true, SnapshotCellState::Value(_)) => Err(WireError::Protocol(format!(
-            "{cell} is a cas_register cell; its snapshot state is {{\"heads\":[…]}}, not a value"
+            "{cell} is a causal_register cell; its snapshot state is {{\"heads\":[…]}}, not a value"
         ))),
         (false, SnapshotCellState::Heads(_)) => Err(WireError::Protocol(format!(
-            "{cell} is not a cas_register cell; its snapshot state is {{\"value\":…}}, not heads"
+            "{cell} is not a causal_register cell; its snapshot state is {{\"value\":…}}, not heads"
         ))),
     }
 }
@@ -748,7 +745,7 @@ impl<'de> Deserialize<'de> for RealmStateSnapshotMaterializedItem {
 }
 
 /// One row of a chunk's `conflict_records[]` (`realm-state-snapshot-schema.md` §3): either
-/// a written non-`cas_register` cell whose join is `⊥` — it has no leaf, but a
+/// a written non-`causal_register` cell whose join is `⊥` — it has no leaf, but a
 /// restoring receiver must fail closed on it rather than read it as never
 /// written — or an Event input whose admission is still undecided.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

@@ -7,7 +7,7 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::{
     ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
     EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef, RegistryContentRef,
-    ScopeRef, SealBasis, SealId,
+    ScopeRef, SealBasis,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -37,7 +37,6 @@ pub struct TypedEventDraft<K: EventSpec> {
     refs: Vec<EventRef>,
     causal_refs: Vec<Hash>,
     preconditions: Vec<Precondition>,
-    seal_ref: Option<SealId>,
     auth_context: Option<AuthContext>,
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
@@ -61,7 +60,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -95,11 +93,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
 
     pub fn with_preconditions(mut self, preconditions: Vec<Precondition>) -> Self {
         self.preconditions = preconditions;
-        self
-    }
-
-    pub fn with_seal_ref(mut self, seal_ref: SealId) -> Self {
-        self.seal_ref = Some(seal_ref);
         self
     }
 
@@ -169,7 +162,6 @@ impl<K: EventSpec> TypedEventDraft<K> {
         .with_causal_refs(self.causal_refs)
         .with_preconditions(self.preconditions)
         .with_requirements(self.requirements)
-        .with_optional_seal_ref(self.seal_ref)
         .with_optional_auth_context(self.auth_context)
         .with_optional_seal_basis(self.seal_basis)
         .with_optional_executed_by(self.executed_by)

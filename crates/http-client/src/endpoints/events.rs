@@ -612,19 +612,24 @@ impl Client {
             .events_read_query("/_arkret/self/seals/resolve", request)
             .await?;
         outcome.validate_structural()?;
-        let requested = request.seal_refs.iter().cloned().collect::<BTreeSet<_>>();
-        let returned = outcome
-            .seals
-            .iter()
-            .map(|seal| seal.id.clone())
-            .chain(outcome.missing_seal_refs.iter().cloned())
-            .collect::<BTreeSet<_>>();
-        if returned != requested
-            || outcome
-                .seals
-                .iter()
-                .any(|seal| seal.realm_id != request.realm_id)
-        {
+        outcome.validate_for_selection(&request.selection)?;
+        let cross_realm = match &outcome {
+            SealResolveOutcome::Seals { seals, .. } => {
+                seals.iter().any(|seal| seal.realm_id != request.realm_id)
+            }
+            SealResolveOutcome::Conclusions { conclusion_set, .. } => {
+                conclusion_set.as_ref().is_some_and(|set| {
+                    set.conclusions
+                        .iter()
+                        .any(|certificate| certificate.statement.realm_id != request.realm_id)
+                        || set
+                            .configuration_handoffs
+                            .iter()
+                            .any(|certificate| certificate.statement.realm_id != request.realm_id)
+                })
+            }
+        };
+        if cross_realm {
             return Err(Error::Protocol(
                 "Seal resolve outcome is cross-Realm or not every-and-only the request".to_owned(),
             ));
@@ -879,7 +884,7 @@ impl Client {
     /// **only** when it re-sends byte-identical canonical bytes: hold one
     /// [`SealPrepareRequestBody`] value and pass that same value again. Do not
     /// regenerate `hlc`, re-order `event_digests` or re-collect
-    /// `predecessor_refs` on a retry — that is a second request, and
+    /// `predecessor_ref` on a retry — that is a second request, and
     /// [`arkret_wire::ErrorCode::SealSignerSlotFenced`] (409) refuses it so
     /// that the position cannot yield a second signable body while a device may
     /// already have signed the first one offline. On that error, re-send the

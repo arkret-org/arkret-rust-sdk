@@ -521,7 +521,7 @@ impl DeviceReanchorPayload {
 /// once both Events are formed.
 pub fn validate_device_reanchor_recovery_first_seal(
     payload: &DeviceReanchorPayload,
-    predecessor_refs: &[SealId],
+    predecessor_ref: Option<&SealId>,
     delta: &[Hash],
     reanchor_digest: &Hash,
     replacement_authorize_digest: &Hash,
@@ -531,9 +531,9 @@ pub fn validate_device_reanchor_recovery_first_seal(
             "device reanchor recovery-first Seal requires pre_fence_seal_frontier=null".to_owned(),
         ));
     }
-    if !predecessor_refs.is_empty() {
+    if predecessor_ref.is_some() {
         return Err(WireError::Protocol(
-            "device reanchor recovery-first Seal must have predecessor_refs=[]".to_owned(),
+            "device reanchor recovery-first Seal must have predecessor_ref=null".to_owned(),
         ));
     }
     if delta
@@ -1020,7 +1020,7 @@ mod tests {
         assert!(
             validate_device_reanchor_recovery_first_seal(
                 &payload,
-                &[],
+                None,
                 &delta,
                 &reanchor_digest,
                 &authorize_digest
@@ -1030,7 +1030,7 @@ mod tests {
         assert!(
             validate_device_reanchor_recovery_first_seal(
                 &payload,
-                &[SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap()],
+                Some(&SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap()),
                 &delta,
                 &reanchor_digest,
                 &authorize_digest
@@ -1040,7 +1040,7 @@ mod tests {
         assert!(
             validate_device_reanchor_recovery_first_seal(
                 &payload,
-                &[],
+                None,
                 &delta[..2],
                 &reanchor_digest,
                 &authorize_digest
@@ -1051,7 +1051,7 @@ mod tests {
         assert!(
             validate_device_reanchor_recovery_first_seal(
                 &payload,
-                &[],
+                None,
                 &missing_reanchor,
                 &reanchor_digest,
                 &authorize_digest
@@ -1062,7 +1062,7 @@ mod tests {
         assert!(
             validate_device_reanchor_recovery_first_seal(
                 &payload,
-                &[],
+                None,
                 &duplicate,
                 &reanchor_digest,
                 &authorize_digest

@@ -2,7 +2,7 @@
 //!
 //! The event-kind registry is the sole authority for reducer targets. There is
 //! no producer-supplied cell write to compare against: the receiver recomputes
-//! every target and every lattice operation from the signed envelope, the
+//! every target and every state-model operation from the signed envelope, the
 //! schema-validated payload and the frozen pre-state
 //! (`zh/models/event-and-patch.md` section 2.4.2).
 
@@ -11,9 +11,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
     AccountId, ActorId, CbsEffectPlane, CellRef, Event, EventCellRule, EventCellRuleKey,
-    EventCellRuleOperator, EventCellWriteDescriptor, EventId, EventKind, LatticeOp, LatticeOpType,
-    NULL_SUBJECT, Precondition, Predicate, PredicateOp, ProjectedCellWrite, ProjectedEventInput,
-    ProjectedOp,
+    EventCellRuleOperator, EventCellValueShape, EventCellWriteDescriptor, EventId, EventKind,
+    LatticeOp, LatticeOpType, NULL_SUBJECT, Precondition, Predicate, PredicateOp,
+    ProjectedCellWrite, ProjectedEventInput, ProjectedOp,
 };
 use serde_json::Value;
 use thiserror::Error;
@@ -22,7 +22,7 @@ use thiserror::Error;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum EventCellContractContext {
     /// A post-genesis Event: control writes require `seal_basis`; data writes
-    /// require `seal_ref` plus `auth_context`.
+    /// require `auth_context`.
     #[default]
     Standard,
     /// A follow-up in the closed ordinary Realm genesis transaction. There is
@@ -445,7 +445,8 @@ fn project_registered_operation_writes_with_pre_state(
     }
 
     let mut projected = Vec::new();
-    let mut seen = BTreeMap::<String, (String, EventCellRuleOperator)>::new();
+    let mut seen =
+        BTreeMap::<String, (String, EventCellValueShape, EventCellRuleOperator)>::new();
     for (write_index, write) in writes.iter().enumerate() {
         // `write_index` is the registry index, so a write skipped by its
         // `condition` still consumes one. The dot must be reproducible from the
@@ -468,46 +469,11 @@ fn project_registered_operation_writes_with_pre_state(
             }
             continue;
         }
-        // `event-and-patch.md` §2.4.2: the one registered write whose target is
-        // not statically addressable. A conflict recovery names one cell of an
-        // arbitrary family, so the target is the signed `payload.target_cell_id`
-        // and the projection is a reset rather than a lattice op. The grammar is
-        // closed to `ak.conflict.recovery`; anything else declaring it is
-        // a registry error, not a shape to interpret.
         if let Some(cell_ref_rule) = write.cell_ref_rule {
-            if event.kind != EventKind::ConflictRecovery {
-                return Err(effect_set_error(
-                    &kind,
-                    "cell_ref is reserved to ak.conflict.recovery",
-                ));
-            }
-            let cell = conflict_recovery_cell(event, cell_ref_rule, &kind)?;
-            let projection = write.effect_projection_rule.ok_or_else(|| {
-                effect_set_error(&kind, "conflict recovery write omits effect_projection")
-            })?;
-            if projection.operator() != Some(EventCellRuleOperator::Reset) {
-                return Err(effect_set_error(
-                    &kind,
-                    "conflict recovery effect_projection must be kind=reset",
-                ));
-            }
-            let source = projection
-                .field(EventCellRuleKey::Value)
-                .ok_or_else(|| effect_set_error(&kind, "reset effect_projection omits value"))?;
-            let value = effect_source_value(
-                event,
-                write,
-                source,
+            return Err(effect_set_error(
                 &kind,
-                &dot_for(event, write_index),
-                digest_suite,
-                authority_resolver,
-            )?;
-            projected.push(ProjectedCellWrite {
-                cell_id: cell,
-                op: ProjectedOp::Reset { value },
-            });
-            continue;
+                &format!("unsupported dynamic cell_ref rule {cell_ref_rule:?}"),
+            ));
         }
         let family = write
             .cell_family
@@ -523,10 +489,13 @@ fn project_registered_operation_writes_with_pre_state(
                 message: error.to_string(),
             }
         })?;
-        let lattice = write
-            .lattice
-            .map(|lattice| lattice.as_str())
-            .ok_or_else(|| effect_set_error(&kind, "cell write omits lattice"))?;
+        let state_model = write
+            .state_model
+            .map(|state_model| state_model.as_str())
+            .ok_or_else(|| effect_set_error(&kind, "cell write omits state_model"))?;
+        let value_shape = write
+            .value_shape
+            .ok_or_else(|| effect_set_error(&kind, "cell write omits value_shape"))?;
         let projection = write
             .effect_projection_rule
             .ok_or_else(|| effect_set_error(&kind, "cell write omits effect_projection"))?;
@@ -534,18 +503,19 @@ fn project_registered_operation_writes_with_pre_state(
             .operator()
             .ok_or_else(|| effect_set_error(&kind, "effect_projection omits kind"))?;
         // Two active writes on one cell are a registry error in general, because
-        // nothing orders them. The one registered exception is an or_set
+        // nothing orders them. The one registered exception is a set-shaped
         // observed-remove paired with an add, which `key-management.md` §3.6.1
         // permits for agent-key re-authorization when old and new key ids coincide:
         // remove only the named old authorization dot, then add the new one.
         // The remove is checked against frozen pre-state, so it cannot consume
         // the sibling add or any unrelated authorization or revocation dot.
-        if let Some((previous_lattice, previous_kind)) = seen.insert(
+        if let Some((previous_state_model, previous_value_shape, previous_kind)) = seen.insert(
             cell.as_str().to_owned(),
-            (lattice.to_owned(), projection_kind),
+            (state_model.to_owned(), value_shape, projection_kind),
         ) {
-            let atomic_or_set_pair = previous_lattice == "or_set"
-                && lattice == "or_set"
+            let atomic_or_set_pair = previous_state_model == state_model
+                && previous_value_shape == EventCellValueShape::Set
+                && value_shape == EventCellValueShape::Set
                 && is_or_set_remove(previous_kind) != is_or_set_remove(projection_kind);
             if !atomic_or_set_pair {
                 return Err(effect_set_error(
@@ -559,7 +529,8 @@ fn project_registered_operation_writes_with_pre_state(
             event,
             write,
             projection,
-            lattice,
+            state_model,
+            value_shape,
             &kind,
             &dot,
             digest_suite,
@@ -870,12 +841,12 @@ pub fn invite_live_target_cell(
 /// live directed invite for this account".
 ///
 /// It is JSON `null`, and it is not a sentinel the registry declares. Since
-/// `event-auth-state-resolution.md` section 9.3.1.2 a `cas_register` cell with
+/// `event-auth-state-resolution.md` section 9.3.1.2 a `sequenced_state` cell with
 /// no active head reads `null` protocol-wide; the registry's `initial_value` /
 /// `sentinel_writers` mechanism is gone. A released slot is *not* an unwritten
 /// slot: the release Move writes `null` explicitly and keeps its own head, so
 /// the two are the same business value but different protocol states, and the
-/// Seal-admission head-identity guard (section 9.3.1.3 item 3) is what stops an
+/// signed precondition and sequenced reducer order are what stop an
 /// older basis from claiming a slot that was freed by a *later* release.
 pub fn invite_live_target_free_value() -> Value {
     Value::Null
@@ -974,56 +945,40 @@ impl InviteLiveTargetSlot {
     }
 }
 
-fn require_lattice(
+fn require_state_model_shape(
     kind: &str,
     projection_kind: &str,
-    lattice: &str,
-    allowed: &[&str],
+    state_model: &str,
+    value_shape: EventCellValueShape,
+    allowed: &[(&str, EventCellValueShape)],
 ) -> Result<(), EventCellContractError> {
-    if allowed.contains(&lattice) {
+    if allowed.contains(&(state_model, value_shape)) {
         return Ok(());
     }
     Err(effect_set_error(
         kind,
-        &format!("effect_projection {projection_kind} is not valid for lattice {lattice}"),
+        &format!(
+            "effect_projection {projection_kind} is not valid for state model {state_model} with value shape {value_shape:?}"
+        ),
     ))
 }
 
-/// Canonical dot for the write at `write_index` of this Event.
-fn dot_for(event: &ProjectedEventInput, write_index: usize) -> String {
-    or_set_dot(event.event_id.as_str(), write_index)
-}
-
-/// Resolve the recovery target from the signed payload.
-///
-/// The source is pinned to `payload.target_cell_id` rather than read from the
-/// registry rule, so a registry that named some other field cannot silently
-/// redirect which cell a recovery may reset.
-fn conflict_recovery_cell(
-    event: &ProjectedEventInput,
-    cell_ref_rule: EventCellRule,
+fn require_set_shape(
     kind: &str,
-) -> Result<CellRef, EventCellContractError> {
-    if cell_ref_rule.operator() != Some(EventCellRuleOperator::CellRef)
-        || cell_ref_rule
-            .field(EventCellRuleKey::Field)
-            .and_then(EventCellRule::as_str)
-            != Some("payload.target_cell_id")
-    {
-        return Err(effect_set_error(
-            kind,
-            "conflict recovery cell_ref must be {kind: cell_ref, field: payload.target_cell_id}",
-        ));
-    }
-    let raw = event
-        .payload
-        .get("target_cell_id")
-        .and_then(Value::as_str)
-        .ok_or_else(|| effect_set_error(kind, "payload.target_cell_id must be a cell id string"))?;
-    CellRef::new(raw.to_owned()).map_err(|error| EventCellContractError::InvalidCell {
-        kind: kind.to_owned(),
-        message: error.to_string(),
-    })
+    projection_kind: &str,
+    state_model: &str,
+    value_shape: EventCellValueShape,
+) -> Result<(), EventCellContractError> {
+    require_state_model_shape(
+        kind,
+        projection_kind,
+        state_model,
+        value_shape,
+        &[
+            ("or_set", EventCellValueShape::Set),
+            ("sequenced_state", EventCellValueShape::Set),
+        ],
+    )
 }
 
 // The registry descriptor is destructured into its parts by the caller, and
@@ -1034,7 +989,8 @@ fn derive_effect_ops(
     event: &ProjectedEventInput,
     write: &EventCellWriteDescriptor,
     projection: EventCellRule,
-    lattice: &str,
+    state_model: &str,
+    value_shape: EventCellValueShape,
     kind: &str,
     dot: &str,
     digest_suite: arkret_canonical::DigestSuite,
@@ -1061,7 +1017,13 @@ fn derive_effect_ops(
     };
     match projection_kind {
         EventCellRuleOperator::Transition => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["fsm"])?;
+            require_state_model_shape(
+                kind,
+                projection_kind.as_str(),
+                state_model,
+                value_shape,
+                &[("sequenced_state", EventCellValueShape::Register)],
+            )?;
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Transition;
             op.from = Some(source(EventCellRuleKey::From, "from")?);
@@ -1069,36 +1031,50 @@ fn derive_effect_ops(
             Ok(vec![ProjectedOp::Direct(op)])
         }
         EventCellRuleOperator::TransitionTo => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["fsm"])?;
+            require_state_model_shape(
+                kind,
+                projection_kind.as_str(),
+                state_model,
+                value_shape,
+                &[("sequenced_state", EventCellValueShape::Register)],
+            )?;
             Ok(vec![ProjectedOp::TransitionTo {
                 to: source(EventCellRuleKey::To, "to")?,
             }])
         }
         EventCellRuleOperator::Set => {
-            require_lattice(
+            require_state_model_shape(
                 kind,
                 projection_kind.as_str(),
-                lattice,
-                &["cas_register", "mv_register"],
+                state_model,
+                value_shape,
+                &[
+                    ("causal_register", EventCellValueShape::Register),
+                    ("sequenced_state", EventCellValueShape::Register),
+                ],
             )?;
             let mut op = LatticeOp::empty();
             op.value = Some(source(EventCellRuleKey::Value, "value")?);
-            // `cas_register` deliberately leaves `op.from` absent.
+            // Register writes deliberately leave `op.from` absent.
             // `event-auth-state-resolution.md` §9.3.1.4 deleted the rule that had
             // the projector copy this Move's whole-value `head_eq` into `from`:
             // binding supersession to the business value cannot tell
             // `A -> B -> A` from `A -> B -> A -> B`. Causality now travels as the
-            // derived head-identity set the Seal admission path puts on
-            // `SealedOp::supersedes`, which the projector cannot compute because
+            // derived head-identity set that acceptance puts on
+            // `StateWrite::supersedes`, which the projector cannot compute because
             // it only sees `kind + payload`.
             Ok(vec![ProjectedOp::Direct(op)])
         }
         EventCellRuleOperator::ApplyPatch => {
-            require_lattice(
+            require_state_model_shape(
                 kind,
                 projection_kind.as_str(),
-                lattice,
-                &["cas_register", "mv_register"],
+                state_model,
+                value_shape,
+                &[
+                    ("causal_register", EventCellValueShape::Register),
+                    ("sequenced_state", EventCellValueShape::Register),
+                ],
             )?;
             // `expected_prestate` is the only registered exception to "an
             // absent source path fails the Event closed" (`event-and-patch.md`
@@ -1129,7 +1105,16 @@ fn derive_effect_ops(
             }])
         }
         EventCellRuleOperator::Append => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["ordered_log"])?;
+            require_state_model_shape(
+                kind,
+                projection_kind.as_str(),
+                state_model,
+                value_shape,
+                &[
+                    ("ordered_log", EventCellValueShape::Log),
+                    ("sequenced_state", EventCellValueShape::Log),
+                ],
+            )?;
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Append;
             op.value = Some(source(EventCellRuleKey::Value, "value")?);
@@ -1143,7 +1128,7 @@ fn derive_effect_ops(
             Ok(vec![ProjectedOp::Direct(op)])
         }
         EventCellRuleOperator::OrSetAdd => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
+            require_set_shape(kind, projection_kind.as_str(), state_model, value_shape)?;
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Add;
             op.tag = Some(or_set_tag(
@@ -1159,13 +1144,13 @@ fn derive_effect_ops(
             Ok(vec![ProjectedOp::Direct(op)])
         }
         EventCellRuleOperator::OrSetRemoveObserved => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
+            require_set_shape(kind, projection_kind.as_str(), state_model, value_shape)?;
             Ok(vec![ProjectedOp::RemoveObserved {
                 element_match: None,
             }])
         }
         EventCellRuleOperator::OrSetRemoveDots => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
+            require_set_shape(kind, projection_kind.as_str(), state_model, value_shape)?;
             let dots = source(EventCellRuleKey::Dots, "dots")?;
             let dots = dots.as_array().ok_or_else(|| {
                 effect_set_error(kind, "or_set_remove_dots dots must be an array")
@@ -1197,7 +1182,7 @@ fn derive_effect_ops(
                 .collect()
         }
         EventCellRuleOperator::OrSetDelta => {
-            require_lattice(kind, projection_kind.as_str(), lattice, &["or_set"])?;
+            require_set_shape(kind, projection_kind.as_str(), state_model, value_shape)?;
             let selector = projection
                 .field(EventCellRuleKey::Selector)
                 .and_then(EventCellRule::as_str)
@@ -1476,10 +1461,6 @@ fn projected_envelope_value(event: &ProjectedEventInput, field: &str) -> Option<
         "created_at" => Some(Value::String(arkret_canonical::format_timestamp_canonical(
             event.created_at,
         ))),
-        "seal_ref" => event
-            .seal_ref
-            .as_ref()
-            .and_then(|value| serde_json::to_value(value).ok()),
         "seal_basis" => event
             .seal_basis
             .as_ref()
@@ -1844,18 +1825,18 @@ fn validate_plane(
     let kind = event.kind.as_str().to_owned();
     let matches = match (plane, context) {
         (Some(CbsEffectPlane::Control), EventCellContractContext::Standard) => {
-            event.seal_basis.is_some() && event.seal_ref.is_none() && event.auth_context.is_none()
+            event.seal_basis.is_some() && event.auth_context.is_none()
         }
         (Some(CbsEffectPlane::Data), EventCellContractContext::Standard) => {
-            event.seal_basis.is_none() && event.seal_ref.is_some() && event.auth_context.is_some()
+            event.seal_basis.is_none() && event.auth_context.is_some()
         }
         (Some(CbsEffectPlane::Control), EventCellContractContext::OrdinaryRealmBootstrap) => {
-            event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none()
+            event.seal_basis.is_none() && event.auth_context.is_none()
         }
         (
             Some(CbsEffectPlane::Control | CbsEffectPlane::Data),
             EventCellContractContext::DirectConversationFounding,
-        ) => event.seal_basis.is_none() && event.seal_ref.is_none() && event.auth_context.is_none(),
+        ) => event.seal_basis.is_none() && event.auth_context.is_none(),
         _ => false,
     };
     if matches {
@@ -2525,102 +2506,6 @@ mod tests {
         ProjectedOp::Direct(op)
     }
 
-    /// `event-auth-state-resolution.md` §9.5 recovery, built as a Control Move.
-    ///
-    /// Both targets below are causal registers, so the Move carries no
-    /// `state_witness`: §9.5.1 makes that role a non-condition on this path,
-    /// because a cell that conflicted on its very first write never had a
-    /// pre-conflict value to witness. The conflict is proved from the Move's own
-    /// signed basis and the authority from its registered capability.
-    fn conflict_recovery_event(target_cell_id: &str, resolved: Value) -> Event {
-        serde_json::from_value(json!({
-            "event_id": "ak:event:AbTm4abxkmMcE7rkV-Wz8Uk_vFh-cUlesAd-EsJX395Y",
-            "kind": "ak.conflict.recovery",
-            "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
-            "scope_ref": {"kind": "realm", "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"},
-            "actor_id": {"kind": "account", "account_id": {
-                "principal_id": "ak:did_core:webvh:z6mkfixture",
-                "station_id": "ak:did_core:web:principal.example"
-            }},
-            "actor_seq": 9,
-            "created_at": "2026-07-26T01:00:00.000Z",
-            "hlc": "019f9e500000-0000-aabbccde",
-            "prev_refs": [],
-            "seal_basis": {
-                "leaves": ["ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
-            },
-            "refs": [
-                {"role": "recovery_capability", "critical": true,
-                 "id": "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi"}
-            ],
-            "payload": {"target_cell_id": target_cell_id, "resolved_value": resolved},
-            "proofs": []
-        }))
-        .expect("conflict recovery fixture must deserialize")
-    }
-
-    #[test]
-    fn conflict_recovery_resets_the_cell_named_by_the_signed_payload() {
-        // The target is not statically addressable: it comes from the payload,
-        // so the same kind recovers cells of different families.
-        for family in [
-            arkret_wire::CellFamilyId::REALM_POLICY_V1,
-            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-        ] {
-            let cell = format!("ak:cell:{family}:null");
-            let event = conflict_recovery_event(&cell, json!({"policy_revision": 8}));
-            assert_eq!(
-                project(&event),
-                vec![write(
-                    &cell,
-                    ProjectedOp::Reset {
-                        value: json!({"policy_revision": 8}),
-                    },
-                )],
-            );
-        }
-    }
-
-    #[test]
-    fn projection_input_reuses_the_event_effect_grammar() {
-        let event = conflict_recovery_event(
-            "ak:cell:ak.component.realm.policy.v1:null",
-            json!({"policy_revision": 8}),
-        );
-        let input = ProjectedEventInput::from(&event);
-        assert_eq!(
-            project_registered_operation_writes(&input, arkret_canonical::DigestSuite::Sha256)
-                .unwrap(),
-            project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256).unwrap()
-        );
-    }
-
-    #[test]
-    fn conflict_recovery_without_a_target_cell_fails_closed() {
-        let mut event =
-            conflict_recovery_event("ak:cell:ak.component.realm.policy.v1:null", json!(1));
-        event.payload.remove("target_cell_id");
-        let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
-            .expect_err("a recovery with no target must not project a write");
-        assert!(
-            error.to_string().contains("target_cell_id"),
-            "unexpected error: {error}"
-        );
-
-        // The retired `target_cell` alias is not a fallback: the registered
-        // field is `target_cell_id` only (event-auth-state-resolution.md §9.5).
-        event.payload.insert(
-            "target_cell".to_owned(),
-            json!("ak:cell:ak.component.realm.policy.v1:null"),
-        );
-        let error = project_registered_cell_writes(&event, arkret_canonical::DigestSuite::Sha256)
-            .expect_err("the retired target_cell alias must not select a recovery target");
-        assert!(
-            error.to_string().contains("target_cell_id"),
-            "unexpected error: {error}"
-        );
-    }
-
     fn rsvp_event(occurrence: Value) -> Event {
         serde_json::from_value(json!({
             "event_id": "ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe",
@@ -2635,12 +2520,10 @@ mod tests {
             "created_at": "2026-07-26T01:00:00.000Z",
             "hlc": "019f9e500000-0000-aabbccdd",
             "prev_refs": [],
-            // `ak.rsvp.set` is registered on the data plane, so its CBS basis is
-            // `seal_ref` plus `auth_context`, never a control `seal_basis`.
-            "seal_ref": "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
             "auth_context": {
                 "key_id": "device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
-                "key_epoch": 1
+                "key_epoch": 1,
+                "authority_refs": ["ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
             },
             "payload": {
                 "event_ref": "ak:strand:AQVC6IqFkbYCve-UUUa0ciJb36fBVkZWvlnEwgTs3Q15",
@@ -3977,15 +3860,17 @@ mod tests {
                     "security_class": "standard",
                     "encryption_profile": "mls_rfc9420",
                     "notary": {
-                        "kind": "single_signer",
-                        "signer": {
+                        "kind": "quorum",
+                        "signers": [{
                             "actor_id": "ak:did_core:webvh:z6mkfixture:alice.example",
                             "verification_method": "did:webvh:z6mkfixture:alice.example#key-1",
                             "key_kind": "ed25519_raw32",
                             "jose_algorithm": "Ed25519",
                             "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                             "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
-                        }
+                        }],
+                        "fault_tolerance": 0,
+                        "max_clock_error_ms": 0
                     }
                 }
             },
@@ -4494,10 +4379,12 @@ mod tests {
         )
         .unwrap();
 
-        event.seal_ref = Some(
-            arkret_wire::SealId::new(
-                "ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
-            )
+        event.auth_context = Some(
+            serde_json::from_value(serde_json::json!({
+                "key_id": "device:019f9e50-d787-74e0-8731-c9ad5eaa9183",
+                "key_epoch": 1,
+                "authority_refs": ["ak:seal:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
+            }))
             .unwrap(),
         );
         assert_eq!(

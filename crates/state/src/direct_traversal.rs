@@ -4,7 +4,7 @@
 //! two: the bounded near-current `group_security_frontier` query, and this
 //! receipt-bound direct traversal for everything older. The traversal walks
 //! backwards from the release service's `target_basis` along each Seal's
-//! already-signed `predecessor_refs[]` until it reaches the caller-pinned,
+//! already-signed `predecessor_ref` until it reaches the caller-pinned,
 //! independently verified predecessor-free `trusted_history_base_basis`, and
 //! only then replays the discovered cut forwards through the ordinary
 //! `apply_seal` reducer.
@@ -25,7 +25,7 @@
 //!
 //! The two verifier phases are separately callable because they consume
 //! different evidence: discovery needs only signed `(seal_ref,
-//! predecessor_refs)` descriptors, while replay needs complete Seal and Event
+//! predecessor_ref)` descriptors, while replay needs complete Seal and Event
 //! bytes. The closed-cut vectors in
 //! `fixtures/history-key-recovery-fixture.json#/direct_traversal_kat` exercise
 //! discovery directly; sibling `direct_traversal_replay_kat` constructs a
@@ -50,12 +50,12 @@ use arkret_wire::{
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::lattice::CellState;
 use crate::mls_governance_proof::{
     ReplayEventLookup, SealDependencyReplayContext, live_digest_suite_at_basis, replay_one_seal,
 };
 use crate::state::store::memory::{MemoryCellStore, MemoryControlEventStore, MemorySealStore};
-use crate::{CellRegistry, ControlEventStore, SealStore, effective_state_at};
+use crate::state_model::ResolvedCellState;
+use crate::{CellStateRegistry, ControlEventStore, SealStore, effective_state_at};
 
 /// Upper bound on the number of Seals one direct-traversal cut may visit.
 ///
@@ -131,7 +131,7 @@ impl DirectTraversalError {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SealPredecessorDescriptor {
     pub seal_ref: SealId,
-    pub predecessor_refs: Vec<SealId>,
+    pub predecessor_ref: Option<SealId>,
 }
 
 /// The caller-pinned coordinates of one direct-traversal cut.
@@ -330,9 +330,9 @@ pub trait DirectCutGraphSource {
         visit: &mut dyn FnMut(&SealId) -> arkret_wire::Result<()>,
     ) -> arkret_wire::Result<()>;
 
-    /// Signed `predecessor_refs[]` of one offered Seal, or `None` when the
-    /// responder did not offer it.
-    fn predecessor_refs(&self, seal_ref: &SealId) -> arkret_wire::Result<Option<Vec<SealId>>>;
+    /// Signed `predecessor_ref` of one offered Seal. The outer `Option` means
+    /// the responder omitted the descriptor; the inner `Option` is genesis.
+    fn predecessor_ref(&self, seal_ref: &SealId) -> arkret_wire::Result<Option<Option<SealId>>>;
 }
 
 /// Lazy access to the complete signed objects the replay needs.
@@ -354,7 +354,7 @@ pub trait DirectCutObjectSource: DirectCutGraphSource {
 /// In-memory reference graph source over signed predecessor descriptors.
 #[derive(Clone, Debug, Default)]
 pub struct DirectCutDescriptorIndex {
-    descriptors: BTreeMap<SealId, Vec<SealId>>,
+    descriptors: BTreeMap<SealId, Option<SealId>>,
 }
 
 impl DirectCutDescriptorIndex {
@@ -364,7 +364,7 @@ impl DirectCutDescriptorIndex {
         let mut index = BTreeMap::new();
         for descriptor in descriptors {
             if index
-                .insert(descriptor.seal_ref, descriptor.predecessor_refs)
+                .insert(descriptor.seal_ref, descriptor.predecessor_ref)
                 .is_some()
             {
                 return Err(traversal_error(DirectTraversalError::DuplicateDescriptor));
@@ -389,7 +389,7 @@ impl DirectCutGraphSource for DirectCutDescriptorIndex {
         Ok(())
     }
 
-    fn predecessor_refs(&self, seal_ref: &SealId) -> arkret_wire::Result<Option<Vec<SealId>>> {
+    fn predecessor_ref(&self, seal_ref: &SealId) -> arkret_wire::Result<Option<Option<SealId>>> {
         Ok(self.descriptors.get(seal_ref).cloned())
     }
 }
@@ -441,11 +441,11 @@ impl DirectCutGraphSource for DirectCutMaterial {
         Ok(())
     }
 
-    fn predecessor_refs(&self, seal_ref: &SealId) -> arkret_wire::Result<Option<Vec<SealId>>> {
+    fn predecessor_ref(&self, seal_ref: &SealId) -> arkret_wire::Result<Option<Option<SealId>>> {
         Ok(self
             .seals
             .get(seal_ref)
-            .map(|seal| seal.predecessor_refs.clone()))
+            .map(|seal| seal.predecessor_ref.clone()))
     }
 }
 
@@ -554,7 +554,7 @@ pub fn discover_direct_cut(
             errors.insert(DirectTraversalError::BoundsExceeded);
             break;
         }
-        let Some(predecessor_refs) = source.predecessor_refs(&item.seal_ref)? else {
+        let Some(predecessor_ref) = source.predecessor_ref(&item.seal_ref)? else {
             errors.insert(DirectTraversalError::DependencyMissing);
             continue;
         };
@@ -563,14 +563,14 @@ pub fn discover_direct_cut(
             journal.record_topological(&item.seal_ref)?;
             continue;
         }
-        if predecessor_refs.is_empty() {
+        if predecessor_ref.is_none() {
             errors.insert(DirectTraversalError::IntervalStopsBeforeBase);
         }
         journal.push_work(DirectTraversalWorkItem {
             seal_ref: item.seal_ref,
             expanded: true,
         })?;
-        for predecessor in predecessor_refs.iter().rev() {
+        for predecessor in predecessor_ref.iter() {
             if !journal.contains_visited(predecessor)? {
                 journal.push_work(DirectTraversalWorkItem {
                     seal_ref: predecessor.clone(),
@@ -627,7 +627,7 @@ pub struct VerifiedDirectTraversalCut {
     pub target_basis: SealBasis,
     pub live_digest_suite: DigestSuite,
     pub discovery: DirectCutDiscovery,
-    pub effective_state: BTreeMap<CellRef, CellState>,
+    pub effective_state: BTreeMap<CellRef, ResolvedCellState>,
 }
 
 impl Eq for VerifiedDirectTraversalCut {}
@@ -683,7 +683,7 @@ pub async fn verify_direct_traversal_cut_with_registry<
     source: &dyn DirectCutObjectSource,
     journal: &mut dyn DirectTraversalJournal,
     dependencies: &[GovernanceDependency],
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     verify_seal_signature: VerifySealSignature,
     verify_event_proofs: VerifyEventProofs,
     verify_seal_dependencies: VerifySealDependencies,
@@ -1001,9 +1001,10 @@ mod tests {
     }
 
     fn descriptor(seal: &SealId, predecessors: &[&SealId]) -> SealPredecessorDescriptor {
+        assert!(predecessors.len() <= 1);
         SealPredecessorDescriptor {
             seal_ref: seal.clone(),
-            predecessor_refs: predecessors.iter().map(|value| (*value).clone()).collect(),
+            predecessor_ref: predecessors.first().map(|value| (*value).clone()),
         }
     }
 
@@ -1140,7 +1141,9 @@ mod tests {
         let mut descriptors = cut.descriptors();
         descriptors.retain(|item| item.seal_ref != cut.mid_left);
         for item in &mut descriptors {
-            item.predecessor_refs.retain(|value| *value != cut.mid_left);
+            if item.predecessor_ref.as_ref() == Some(&cut.mid_left) {
+                item.predecessor_ref = None;
+            }
         }
         let (outcome, _) = discover(&cut.request(), descriptors);
         assert_eq!(
@@ -1232,7 +1235,10 @@ mod tests {
             panic!("an over-budget cut must be refused before enumeration");
         }
 
-        fn predecessor_refs(&self, _seal_ref: &SealId) -> arkret_wire::Result<Option<Vec<SealId>>> {
+        fn predecessor_ref(
+            &self,
+            _seal_ref: &SealId,
+        ) -> arkret_wire::Result<Option<Option<SealId>>> {
             panic!("an over-budget cut must be refused before any descriptor fetch");
         }
     }
@@ -1498,25 +1504,20 @@ mod tests {
         let incarnation = EventId::new(INCARNATION_REF).unwrap();
         let genesis_ref = EventId::new(GENESIS_REF).unwrap();
         let founder = DidCoreId::new("ak:did_core:key:z6MkfixtureFounder").unwrap();
-        for kind in [
-            event_kind_str::INVITE_ACCEPT,
-            arkret_wire::EventKind::ConflictRecovery.as_str(),
-        ] {
-            let retained = vec![
-                event(kind, 1, json!({}), INCARNATION_REF),
-                genesis(GENESIS_REF, &founder),
-                add_proposal(ADD_REF, &incarnation),
-                commit(
-                    COMMIT_REF,
-                    &genesis_ref,
-                    vec![EventId::new(ADD_REF).unwrap()],
-                ),
-            ];
-            assert_eq!(
-                join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
-                Some(1)
-            );
-        }
+        let retained = vec![
+            event(event_kind_str::INVITE_ACCEPT, 1, json!({}), INCARNATION_REF),
+            genesis(GENESIS_REF, &founder),
+            add_proposal(ADD_REF, &incarnation),
+            commit(
+                COMMIT_REF,
+                &genesis_ref,
+                vec![EventId::new(ADD_REF).unwrap()],
+            ),
+        ];
+        assert_eq!(
+            join_epoch_at(&retained, &subject(&incarnation), None, COMMIT_REF, 1).unwrap(),
+            Some(1)
+        );
     }
 
     #[test]

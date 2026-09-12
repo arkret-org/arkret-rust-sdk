@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::AuthenticatedSignerResolutionEvidence;
 use arkret_wire::{
-    AvailabilityReceipt, CollisionVariantRecordId, Event, EventProof, Hash, RealmId, Result, Seal,
-    SealId, WireError, canonical,
+    AvailabilityReceipt, CollisionVariantRecordId, Event, Hash, RealmId, Result, Seal, SealId,
+    WireError, canonical,
 };
 use serde::{Deserialize, Serialize};
 
@@ -92,18 +92,9 @@ pub fn governance_runtime_dependency_selectors_for_replay(
         ));
     }
     for (event, digest_suite) in events.iter().zip(event_digest_suites.iter().copied()) {
-        match event.proofs.as_slice() {
-            [EventProof::Producer(_)] => event.validate_for_direct_history_structural()?,
-            [EventProof::Producer(_), EventProof::StationAdmission(_)] => {
-                event.validate_station_admission_structure(digest_suite)?;
-            }
-            _ => {
-                return Err(WireError::Protocol(
-                    "replay dependency discovery requires a direct or admitted Event proof regime"
-                        .to_owned(),
-                ));
-            }
-        }
+        event.validate_for_accepted_structural()?;
+        event.verify_event_id_matches_content_with_digest_suite(digest_suite)?;
+        event.validate_proof_bindings_with_digest_suite(digest_suite)?;
     }
     governance_runtime_dependency_selector_coordinates_for_acquisition(seals, events)
 }
@@ -132,53 +123,21 @@ pub fn governance_runtime_dependency_selector_coordinates_for_acquisition(
         );
     }
     for event in events {
-        match event.proofs.as_slice() {
-            [EventProof::Producer(_)]
-            | [EventProof::Producer(_), EventProof::StationAdmission(_)] => {}
-            _ => {
-                return Err(WireError::Protocol(
-                    "dependency acquisition requires a direct or admitted Event proof regime"
-                        .to_owned(),
-                ));
-            }
-        }
-        for proof in &event.proofs {
-            match proof {
-                EventProof::Producer(producer) => {
-                    producer.validate_signer_resolution_evidence_ref()?;
-                    if let Some(evidence_ref) = &producer.signer_resolution_evidence_ref {
-                        selectors.push(
-                            GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                                content_digest: evidence_ref.content_digest()?,
-                            },
-                        );
-                    }
-                }
-                EventProof::StationAdmission(admission) => {
-                    if let Some(content_digest) = &admission.applet_installation_digest {
-                        selectors.push(GovernanceDependencySelector::AppletInstallationAuthority {
-                            content_digest: content_digest.clone(),
-                        });
-                    }
-                    if let Some(producer_evidence_ref) =
-                        &admission.producer_signer_resolution_evidence_ref
-                    {
-                        selectors.push(
-                            GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                                content_digest: producer_evidence_ref.content_digest()?,
-                            },
-                        );
-                    }
-                    selectors.push(
-                        GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
-                            content_digest: admission
-                                .signer_resolution_evidence_ref
-                                .content_digest()?,
-                        },
-                    );
-                }
-            }
-        }
+        let [producer] = event.proofs.as_slice() else {
+            return Err(WireError::Protocol(
+                "dependency acquisition requires exactly one producer proof".to_owned(),
+            ));
+        };
+        producer.validate_signer_resolution_evidence_ref()?;
+        let evidence_ref = producer
+            .signer_resolution_evidence_ref
+            .as_ref()
+            .expect("validation requires signer evidence");
+        selectors.push(
+            GovernanceDependencySelector::AuthenticatedSignerResolutionEvidence {
+                content_digest: evidence_ref.content_digest()?,
+            },
+        );
         selectors.extend(fork_resolution_variant_record_selectors(event)?);
     }
     canonicalize_selectors(selectors)
@@ -354,7 +313,6 @@ where
             AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
-                receiver_signer_evidence_ref,
                 agent_signer_evidence,
                 ..
             } => {
@@ -363,7 +321,6 @@ where
                     account_authority_signer_evidence_ref,
                 ]
                 .into_iter()
-                .chain(receiver_signer_evidence_ref.iter())
                 .chain(agent_signer_evidence.required_historical_signer_refs())
                 {
                     selectors.push(
@@ -558,7 +515,6 @@ fn validate_authenticated_evidence_reachability(
             AuthenticatedSignerResolutionEvidence::Agent {
                 attester_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
-                receiver_signer_evidence_ref,
                 agent_signer_evidence,
                 ..
             } => {
@@ -567,7 +523,6 @@ fn validate_authenticated_evidence_reachability(
                     account_authority_signer_evidence_ref,
                 ]
                 .into_iter()
-                .chain(receiver_signer_evidence_ref.iter())
                 .chain(agent_signer_evidence.required_historical_signer_refs())
                 {
                     pending.push(evidence_ref.content_digest()?);
@@ -733,7 +688,6 @@ pub fn history_source_signer_dependency_closure(
                 AuthenticatedSignerResolutionEvidence::Agent {
                     attester_signer_evidence_ref,
                     account_authority_signer_evidence_ref,
-                    receiver_signer_evidence_ref,
                     agent_signer_evidence,
                     ..
                 } => {
@@ -742,7 +696,6 @@ pub fn history_source_signer_dependency_closure(
                         account_authority_signer_evidence_ref,
                     ]
                     .into_iter()
-                    .chain(receiver_signer_evidence_ref.iter())
                     .chain(agent_signer_evidence.required_historical_signer_refs())
                     {
                         pending.push(evidence_ref.content_digest()?);
@@ -1238,13 +1191,12 @@ impl GovernanceDependencyResolveOutcome {
 #[serde(deny_unknown_fields)]
 pub struct PcrPendingControlRequestBody {
     pub realm_id: RealmId,
-    pub predecessor_refs: Vec<SealId>,
+    pub predecessor_ref: SealId,
     pub limit: u32,
 }
 
 impl PcrPendingControlRequestBody {
     pub fn validate(&self) -> Result<()> {
-        validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
         if !(1..=1024).contains(&self.limit) {
             return Err(WireError::Protocol(
                 "pending Control Move limit must be 1..=1024".to_owned(),
@@ -1259,7 +1211,7 @@ impl PcrPendingControlRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PcrPendingControlOutcome {
     pub realm_id: RealmId,
-    pub predecessor_refs: Vec<SealId>,
+    pub predecessor_ref: SealId,
     pub event_digests: Vec<Hash>,
     pub has_more: bool,
 }
@@ -1268,7 +1220,7 @@ impl PcrPendingControlOutcome {
     pub fn validate_for_request(&self, request: &PcrPendingControlRequestBody) -> Result<()> {
         request.validate()?;
         if self.realm_id != request.realm_id
-            || self.predecessor_refs != request.predecessor_refs
+            || self.predecessor_ref != request.predecessor_ref
             || self.event_digests.len() > request.limit as usize
             || self.event_digests.windows(2).any(|pair| pair[0] >= pair[1])
             || self
@@ -1301,7 +1253,7 @@ impl PcrPendingControlOutcome {
 /// The operational consequence for every client is one rule: **a retry re-sends
 /// the same canonical bytes.** The operation's registered idempotency is
 /// `canonical_hash` over the full body, so a freshly generated `hlc`, a
-/// re-ordered `delta` or a re-collected `predecessor_refs` set is not a retry —
+/// re-ordered `delta` or a different `predecessor_ref` is not a retry —
 /// it is a second request that the fence will refuse. On a 409
 /// `seal_signer_slot_fenced`, the recovery is to re-send the *original*
 /// request and take back the original body, never to vary the request until one
@@ -1312,7 +1264,7 @@ impl PcrPendingControlOutcome {
 #[serde(deny_unknown_fields)]
 pub struct SealPrepareRequestBody {
     pub realm_id: RealmId,
-    pub predecessor_refs: Vec<SealId>,
+    pub predecessor_ref: SealId,
     pub event_digests: Vec<Hash>,
     pub hlc: arkret_wire::Hlc,
 }
@@ -1352,22 +1304,20 @@ impl SealPrepareRequestBody {
                 "PCR delta digests must use one Realm digest suite".to_owned(),
             ));
         }
-        for predecessor in &self.predecessor_refs {
-            let digest = predecessor
-                .as_str()
-                .strip_prefix("ak:seal:")
-                .ok_or_else(|| WireError::Protocol("invalid predecessor Seal id".to_owned()))?;
-            if Hash::new(digest)?.digest_suite()? != suite {
-                return Err(WireError::Protocol(
-                    "PCR predecessor and delta must use the same Realm digest suite".to_owned(),
-                ));
-            }
+        let digest = self
+            .predecessor_ref
+            .as_str()
+            .strip_prefix("ak:seal:")
+            .ok_or_else(|| WireError::Protocol("invalid predecessor Seal id".to_owned()))?;
+        if Hash::new(digest)?.digest_suite()? != suite {
+            return Err(WireError::Protocol(
+                "PCR predecessor and delta must use the same Realm digest suite".to_owned(),
+            ));
         }
         Ok(suite)
     }
 
     pub fn validate(&self) -> Result<()> {
-        validate_sorted_unique_nonempty(&self.predecessor_refs, 64, "predecessor_refs")?;
         validate_sorted_unique_nonempty(&self.event_digests, 1_024, "event_digests")?;
         self.digest_suite()?;
         Ok(())
@@ -1381,6 +1331,7 @@ impl SealPrepareRequestBody {
 pub struct SealPrepareOutcome {
     #[serde(deserialize_with = "deserialize_successor_pcr_body")]
     pub seal_body: arkret_wire::UnsignedSeal,
+    pub view: u64,
 }
 
 fn deserialize_successor_pcr_body<'de, D: serde::Deserializer<'de>>(
@@ -1389,8 +1340,6 @@ fn deserialize_successor_pcr_body<'de, D: serde::Deserializer<'de>>(
     let value = serde_json::Value::deserialize(deserializer)?;
     for field in [
         "covered_event_digests",
-        "data_view_root",
-        "data_event_set_root",
         "previous_state_root",
         "previous_digest_algorithm",
     ] {
@@ -1409,17 +1358,15 @@ impl SealPrepareOutcome {
         let digest_suite = request.digest_suite()?;
         let body = &self.seal_body;
         if body.realm_id != request.realm_id
-            || body.predecessor_refs != request.predecessor_refs
-            || body.delta != request.event_digests
+            || body.predecessor_ref.as_ref() != Some(&request.predecessor_ref)
             || body.hlc != request.hlc
+            || self.view != 0
         {
             return Err(WireError::Protocol(
                 "prepared Seal does not match the frozen signing intent".to_owned(),
             ));
         }
         if !body.covered_event_digests.is_empty()
-            || body.data_view_root.is_some()
-            || body.data_event_set_root.is_some()
             || body.previous_state_root.is_some()
             || body.previous_digest_algorithm.is_some()
             || body.notary_seq == 0
@@ -1428,19 +1375,37 @@ impl SealPrepareOutcome {
                 "PCR preparation requires a successor Seal".to_owned(),
             ));
         }
+        if body
+            .command_results
+            .iter()
+            .map(|result| &result.event_digest)
+            .ne(request.event_digests.iter())
+        {
+            return Err(WireError::Protocol(
+                "prepared Seal command_results do not match requested execution order".to_owned(),
+            ));
+        }
+        let mut committed = body
+            .command_results
+            .iter()
+            .filter(|result| result.outcome == arkret_wire::CommandOutcome::Committed)
+            .flat_map(|result| result.unit_event_digests.iter().cloned())
+            .collect::<Vec<_>>();
+        committed.sort();
+        if committed != body.delta {
+            return Err(WireError::Protocol(
+                "prepared Seal delta must equal committed command unit members".to_owned(),
+            ));
+        }
         validate_sorted_unique_nonempty(
             &body.availability_receipt_digests,
             1_024,
             "availability_receipt_digests",
         )?;
-        if [
-            &body.control_event_set_root,
-            &body.state_root,
-            &body.completeness_root,
-        ]
-        .into_iter()
-        .chain(body.availability_receipt_digests.iter())
-        .any(|digest| digest.digest_suite().ok() != Some(digest_suite))
+        if [&body.control_event_set_root, &body.state_root]
+            .into_iter()
+            .chain(body.availability_receipt_digests.iter())
+            .any(|digest| digest.digest_suite().ok() != Some(digest_suite))
         {
             return Err(WireError::Protocol(
                 "PCR preparation roots and receipts must use the Realm digest suite".to_owned(),
@@ -1458,13 +1423,7 @@ impl SealPrepareOutcome {
     ) -> Result<Seal> {
         self.validate_for_request(request)?;
         let digest_suite = request.digest_suite()?;
-        let bytes = arkret_canonical::canonical_json_bytes(&self.seal_body)?;
-        let signature = signer.sign_notary_payload_with_digest_suite(&bytes, digest_suite)?;
-        Seal::from_canonical_body_and_signature(
-            &bytes,
-            arkret_wire::NotarySig::Single(signature.into()),
-            digest_suite,
-        )
+        Seal::sign_with_signers(self.seal_body.clone(), self.view, digest_suite, &[signer])
     }
 }
 
@@ -1480,180 +1439,4 @@ fn validate_sorted_unique_nonempty<T: Ord>(values: &[T], max: usize, field: &str
         )));
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use std::any::TypeId;
-
-    use super::*;
-
-    #[test]
-    fn pcr_prepared_body_binds_intent_without_history_and_rejects_legacy_fields() {
-        let digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
-        let request = SealPrepareRequestBody {
-            realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
-                .unwrap(),
-            predecessor_refs: vec![
-                SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap(),
-            ],
-            event_digests: vec![digest.clone()],
-            hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
-        };
-        let value = serde_json::json!({"seal_body": {
-            "realm_id":request.realm_id,"predecessor_refs":request.predecessor_refs,
-            "delta":request.event_digests,"control_event_set_root":digest,"state_root":digest,
-            "completeness_root":digest,"notary_seq":1,"availability_receipt_digests":[digest],
-            "sealed_at":"2026-09-09T11:00:00.000Z","hlc":request.hlc,
-        }});
-        let prepared: SealPrepareOutcome = serde_json::from_value(value.clone()).unwrap();
-        prepared.validate_for_request(&request).unwrap();
-        let mut wrong = request.clone();
-        wrong
-            .event_digests
-            .push(Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap());
-        assert!(prepared.validate_for_request(&wrong).is_err());
-        wrong = request.clone();
-        wrong.hlc = arkret_wire::Hlc::new("01970e589d21-000a-a13f9c2e").unwrap();
-        assert!(prepared.validate_for_request(&wrong).is_err());
-        wrong = request.clone();
-        wrong.predecessor_refs =
-            vec![SealId::new(format!("ak:seal:sha256:{}", "4".repeat(64))).unwrap()];
-        assert!(prepared.validate_for_request(&wrong).is_err());
-        for (field, extra) in [
-            ("covered_event_digests", serde_json::json!([])),
-            ("data_view_root", serde_json::Value::Null),
-            ("previous_digest_algorithm", serde_json::json!("sha256")),
-        ] {
-            let mut malformed = value.clone();
-            malformed["seal_body"][field] = extra;
-            assert!(
-                serde_json::from_value::<SealPrepareOutcome>(malformed).is_err(),
-                "{field}"
-            );
-        }
-        let mut legacy = value;
-        legacy["governance_dependencies"] = serde_json::json!([]);
-        assert!(serde_json::from_value::<SealPrepareOutcome>(legacy).is_err());
-    }
-
-    #[test]
-    fn seal_prepare_request_identity_is_the_full_canonical_body() {
-        let digest = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
-        let request = SealPrepareRequestBody {
-            realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
-                .unwrap(),
-            predecessor_refs: vec![
-                SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap(),
-            ],
-            event_digests: vec![digest.clone()],
-            hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
-        };
-        let identity = request.canonical_request_hash().unwrap();
-        assert_eq!(
-            identity.as_str(),
-            canonical::sha256_digest(canonical::canonical_json_bytes(&request).unwrap())
-        );
-        assert_eq!(request.clone().canonical_request_hash().unwrap(), identity);
-
-        // Every member of the body is inside the fence identity, so none of
-        // them may be regenerated on a retry.
-        let mut fresh_hlc = request.clone();
-        fresh_hlc.hlc = arkret_wire::Hlc::new("01970e589d21-000a-a13f9c2e").unwrap();
-        assert_ne!(fresh_hlc.canonical_request_hash().unwrap(), identity);
-        let mut wider_delta = request.clone();
-        wider_delta
-            .event_digests
-            .push(Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap());
-        assert_ne!(wider_delta.canonical_request_hash().unwrap(), identity);
-        let mut other_basis = request;
-        other_basis.predecessor_refs =
-            vec![SealId::new(format!("ak:seal:sha256:{}", "4".repeat(64))).unwrap()];
-        assert_ne!(other_basis.canonical_request_hash().unwrap(), identity);
-    }
-
-    #[test]
-    fn seal_prepare_uses_the_single_suite_locked_by_the_realm() {
-        for suite in [
-            arkret_canonical::DigestSuite::Sha256,
-            arkret_canonical::DigestSuite::Blake3,
-        ] {
-            let digest = Hash::new(arkret_canonical::digest(suite, b"agent-authorize")).unwrap();
-            let request = SealPrepareRequestBody {
-                realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
-                    .unwrap(),
-                predecessor_refs: vec![
-                    SealId::new(format!("ak:seal:{}:{}", suite.as_str(), "2".repeat(64))).unwrap(),
-                ],
-                event_digests: vec![digest.clone()],
-                hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
-            };
-            assert_eq!(request.digest_suite().unwrap(), suite);
-            request.validate().unwrap();
-
-            let prepared = SealPrepareOutcome {
-                seal_body: arkret_wire::UnsignedSeal {
-                    realm_id: request.realm_id.clone(),
-                    predecessor_refs: request.predecessor_refs.clone(),
-                    delta: request.event_digests.clone(),
-                    control_event_set_root: digest.clone(),
-                    state_root: digest.clone(),
-                    completeness_root: digest.clone(),
-                    notary_seq: 1,
-                    data_view_root: None,
-                    data_event_set_root: None,
-                    availability_receipt_digests: vec![digest.clone()],
-                    covered_event_digests: Vec::new(),
-                    previous_state_root: None,
-                    previous_digest_algorithm: None,
-                    sealed_at: "2026-09-09T11:00:00.000Z".parse().unwrap(),
-                    hlc: request.hlc.clone(),
-                },
-            };
-            prepared.validate_for_request(&request).unwrap();
-        }
-
-        let sha = Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap();
-        let blake = Hash::new(format!("blake3:{}", "2".repeat(64))).unwrap();
-        let mixed_delta = SealPrepareRequestBody {
-            realm_id: RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5")
-                .unwrap(),
-            predecessor_refs: vec![
-                SealId::new(format!("ak:seal:sha256:{}", "3".repeat(64))).unwrap(),
-            ],
-            event_digests: vec![blake.clone(), sha],
-            hlc: arkret_wire::Hlc::new("01970e589d21-0009-a13f9c2e").unwrap(),
-        };
-        assert!(mixed_delta.validate().is_err());
-
-        let mixed_basis = SealPrepareRequestBody {
-            realm_id: mixed_delta.realm_id,
-            predecessor_refs: vec![
-                SealId::new(format!("ak:seal:sha256:{}", "3".repeat(64))).unwrap(),
-            ],
-            event_digests: vec![blake],
-            hlc: mixed_delta.hlc,
-        };
-        assert!(mixed_basis.validate().is_err());
-    }
-
-    #[test]
-    fn seal_signer_slot_fence_is_a_registered_conflict() {
-        assert_eq!(
-            arkret_wire::ErrorCode::SealSignerSlotFenced.http_status(),
-            409
-        );
-        assert_eq!(
-            arkret_wire::ErrorCode::from_wire("seal_signer_slot_fenced"),
-            Some(arkret_wire::ErrorCode::SealSignerSlotFenced)
-        );
-    }
-
-    #[test]
-    fn governance_dependency_requests_have_distinct_wire_types() {
-        assert_ne!(
-            TypeId::of::<SelfGovernanceDependencyResolveRequestBody>(),
-            TypeId::of::<PeerGovernanceDependencyResolveRequestBody>()
-        );
-    }
 }

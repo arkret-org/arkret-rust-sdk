@@ -9,6 +9,8 @@ pub mod frozen_notary;
 pub mod http_signature;
 #[cfg(feature = "collaboration")]
 pub mod media;
+#[cfg(feature = "collaboration")]
+pub mod seal_conclusion;
 #[cfg(feature = "service-identity")]
 pub mod service_resolution;
 
@@ -26,6 +28,12 @@ pub use eddsa_jcs_2022::{
     eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
 pub use frozen_notary::{verify_frozen_notary_detached_jws, verify_frozen_notary_signature};
+#[cfg(feature = "collaboration")]
+pub use seal_conclusion::{
+    sign_seal_conclusion, sign_seal_configuration_handoff,
+    verify_seal_conclusion_quorum_signatures, verify_seal_conclusion_set_quorum_chain,
+    verify_seal_configuration_handoff_quorum_signatures,
+};
 
 // Agent key-pairing canonical binding digests. Gated by `collaboration` because
 // they validate against the `PublicKey` wire model owned by

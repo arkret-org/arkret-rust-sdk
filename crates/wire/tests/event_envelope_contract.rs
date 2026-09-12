@@ -60,7 +60,6 @@ fn event_digest_uses_canonical_payload_without_proofs_or_unsigned() {
         prev_refs: Vec::new(),
         refs: Vec::new(),
         preconditions: Vec::new(),
-        seal_ref: None,
         auth_context: None,
         seal_basis: None,
         requirements: EventRequirements::default(),

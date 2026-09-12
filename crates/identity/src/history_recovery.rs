@@ -370,8 +370,9 @@ mod tests {
                 .contains("service designation")
         );
 
-        use arkret_state::CellState;
-        use arkret_state::lattice::{CasRegister, Lattice, SealedOp};
+        use arkret_state::state_model::{
+            CausalRegister, ResolvedCellState, StateModel, StateWrite,
+        };
         use arkret_wire::{Event, Hash, ProjectedOp};
 
         let register_event: Event =
@@ -394,13 +395,13 @@ mod tests {
         .next()
         .unwrap();
         let ProjectedOp::Direct(register_op) = register_write.op else {
-            panic!("RHRK register must project a direct CAS set");
+            panic!("RHRK register must project a direct causal-register set");
         };
         let ProjectedOp::Direct(rotate_op) = rotate_write.op else {
-            panic!("RHRK rotate must project a direct CAS set");
+            panic!("RHRK rotate must project a direct causal-register set");
         };
         // Section 9.3.1.4 deleted the rule that copied this Move's head_eq into
-        // `op.from`, so a projected `cas_register` set carries no predecessor
+        // `op.from`, so a projected register set carries no predecessor
         // value. The signed whole-value `head_eq` is still on the Event and is
         // still enforced; what changed is that causality no longer rides on the
         // business value.
@@ -410,45 +411,34 @@ mod tests {
             Some(&kat["projected_rotate_op"]["to"])
         );
 
-        let register_move_id = Hash::new(
-            register_event.proofs[0]
-                .as_producer()
-                .unwrap()
-                .event_digest
-                .as_str()
-                .to_owned(),
-        )
-        .unwrap();
-        let rotate_move_id = Hash::new(
-            rotate_event.proofs[0]
-                .as_producer()
-                .unwrap()
-                .event_digest
-                .as_str()
-                .to_owned(),
-        )
-        .unwrap();
-        // The rotate's own signed basis covered the register write, so Seal
-        // admission derives that identity as what it supersedes (§9.3.1.3 items
-        // 1 and 4) and the cell settles on the rotated tuple.
-        let sealed = vec![
-            SealedOp::new(register_move_id.clone(), register_op.clone()),
-            SealedOp::superseding(
+        let register_move_id =
+            Hash::new(register_event.proofs[0].event_digest.as_str().to_owned()).unwrap();
+        let rotate_move_id =
+            Hash::new(rotate_event.proofs[0].event_digest.as_str().to_owned()).unwrap();
+        // The rotate's signed precondition covered the register write, so
+        // acceptance derives that identity as what it supersedes and the cell
+        // settles on the rotated tuple.
+        let writes = vec![
+            StateWrite::new(register_move_id.clone(), register_op.clone()),
+            StateWrite::superseding(
                 rotate_move_id.clone(),
                 rotate_op,
                 vec![register_move_id.clone()],
             ),
         ];
         assert_eq!(
-            CasRegister.join(&register_write.cell_id, &sealed),
-            CellState::Value(kat["projected_rotate_op"]["to"].clone())
+            CausalRegister
+                .resolve(&register_write.cell_id, &writes)
+                .unwrap()
+                .settled_value(),
+            Some(&kat["projected_rotate_op"]["to"])
         );
 
         // A rotate that superseded nothing is concurrent with the register
         // write, not a replacement of it, so the cell is in conflict. This is
         // where "stale" lives now: dropping the signed `head_eq` no longer
         // changes the projected op at all — §9.3.1.3 item 3 rejects the write at
-        // Seal admission by comparing head identities, and the join below is the
+        // acceptance by comparing head identities, and the resolution below is the
         // defensive backstop for an op that somehow reached the log anyway.
         let mut stale_event = rotate_event;
         stale_event.preconditions.clear();
@@ -461,18 +451,20 @@ mod tests {
         .next()
         .unwrap();
         let ProjectedOp::Direct(stale_op) = stale_write.op else {
-            panic!("RHRK mutation must remain a direct CAS set");
+            panic!("RHRK mutation must remain a direct causal-register set");
         };
         assert!(stale_op.from.is_none());
         assert!(matches!(
-            CasRegister.join(
-                &register_write.cell_id,
-                &[
-                    SealedOp::new(register_move_id, register_op),
-                    SealedOp::new(rotate_move_id, stale_op),
-                ],
-            ),
-            CellState::Bottom(_)
+            CausalRegister
+                .resolve(
+                    &register_write.cell_id,
+                    &[
+                        StateWrite::new(register_move_id, register_op),
+                        StateWrite::new(rotate_move_id, stale_op),
+                    ],
+                )
+                .unwrap(),
+            ResolvedCellState::Bottom(_)
         ));
     }
 }

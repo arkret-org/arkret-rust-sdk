@@ -5,21 +5,6 @@ use arkret_wire::ActorId;
 use crate::internal_prelude::*;
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_seal_commit_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CircleSealCommitPayload {
-    pub circle_id: CircleId,
-    pub sub_seal_head_digest: Hash,
-    pub epoch: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub covered_seals_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub committed_at: Option<DateTime<Utc>>,
-}
-
-/// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_create_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,8 +16,8 @@ pub struct CircleCreatePayload {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/circle_member_state_payload`.
 ///
-/// The CAS guard is tri-state per `zh/models/circle.md` §9.1: omission applies
-/// no CAS and leaves legality to the transition guard, null asserts that the
+/// The expected-value guard is tri-state: omission leaves legality to the
+/// registered transition guard, null asserts that the
 /// actor has no membership record yet, and a concrete state asserts that exact
 /// current membership.
 #[derive(Clone, Debug, Serialize, Deserialize)]

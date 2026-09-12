@@ -1,10 +1,10 @@
-//! Arkret v1 control-plane Event / Seal / Lattice state resolution.
+//! Arkret v1 security Event, Seal, and sequenced-state resolution.
 //!
 //! This module hosts the SDK-side runtime for the CBS control plane. It
 //! provides:
 //!
-//! - [`store`] — `ControlEventStore` / `SealStore` / `CellStore` / `CellRegistry` trait contracts,
-//!   with [`store::memory`] in-memory backends used by tests and the SDK harness.
+//! - [`store`] — security Event, Seal, and cell-state storage contracts, with [`store::memory`]
+//!   in-memory backends used by tests and the SDK harness.
 //! - [`verify`] — the Control Move verifier pipeline (structural → proofs → critical refs →
 //!   preconditions → receiver-derived writes).
 //! - [`seal`] — `apply_seal_in_context`, `verify_seal_basis` and `effective_seal_view` per spec
@@ -21,63 +21,34 @@ pub mod store;
 pub mod verify;
 
 pub use seal::{
-    EffectiveSealView, EventDigestSetInclusionProof, JoinedView, ListedControlEvent,
-    PreparedSealEffect, SealBasisVerificationContext, SealDigestSuites, SealEffect,
-    SealLeafUnionProof, SealReject, apply_accepted_seal_in_context, apply_replayed_seal_in_context,
-    apply_seal_in_context, cas_heads_for_batches, causal_heads_for_batches,
-    causal_heads_for_cells_at, control_event_completeness_root,
-    control_event_completeness_root_from_listed, control_event_set_root, deterministic_order,
-    effective_cas_heads_at, effective_cas_heads_with_new_ops, effective_joined_view_at,
-    effective_seal_view, effective_state_at, event_digest_set_inclusion_proof,
-    event_digest_set_root, is_causal_register, join_cell, join_cell_seal_batches, leaf_union_proof,
-    live_digest_suite_from_state, predecessor_seal_closure, prepare_seal_in_context,
-    union_predecessor_covered_events, verify_event_digest_set_inclusion_proof,
-    verify_recovery_witness, verify_seal_basis, view_hash,
+    EffectiveSealView, EventDigestSetInclusionProof, JoinedView, PreparedSealEffect,
+    SealBasisVerificationContext, SealDigestSuites, SealEffect, SealLeafUnionProof, SealReject,
+    apply_accepted_seal_in_context, apply_replayed_seal_in_context, apply_seal_in_context,
+    causal_heads_for_batches, control_event_set_root, deterministic_order,
+    effective_joined_view_at, effective_seal_view, effective_state_at,
+    event_digest_set_inclusion_proof, event_digest_set_root, join_cell, join_cell_seal_batches,
+    leaf_union_proof, live_digest_suite_from_state, predecessor_seal_closure,
+    prepare_seal_in_context, union_predecessor_covered_events,
+    verify_event_digest_set_inclusion_proof, verify_seal_basis, view_hash,
 };
 pub use state_root::{
-    CasHeadsByCell, EMPTY_STATE_ROOT, GovernanceView, StateInclusionProof, cas_leaf_hash,
-    causal_register_leaf_value, compute_state_root, leaf_hash, state_inclusion_proof,
-    state_leaf_canonical_preimage, state_leaf_hash_from_state_object, state_value_leaf_digest,
-    value_frontier_digest, verify_state_inclusion_proof,
+    CausalHeadsByCell, EMPTY_STATE_ROOT, GovernanceView, StateInclusionProof, compute_state_root,
+    leaf_hash, sequenced_state_leaf_digest, state_inclusion_proof, state_leaf_canonical_preimage,
+    state_leaf_hash_from_state_object, value_frontier_digest, verify_state_inclusion_proof,
 };
 pub use store::memory::{
-    MemoryCellRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
+    MemoryCellStateRegistry, MemoryCellStore, MemoryControlEventStore, MemorySealStore,
 };
 pub use store::{
-    AcklessSelfPrincipalIngress, CellLatticeBinding, CellRegistry, CellStore, ControlEventStore,
-    ControlProposalIngress, ControlProposalIngressClass, ControlProposalSnapshot,
-    ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
-    ControlSealScheduleRepairStats, ControlSealScheduleStats, EventCellBottom,
-    PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError, StoreResult,
-    control_event_digest,
+    AcklessSelfPrincipalIngress, CellStateModelBinding, CellStateRegistry, CellStore,
+    ControlEventStore, ControlProposalIngress, ControlProposalIngressClass,
+    ControlProposalSnapshot, ControlSealAttemptCompletion, ControlSealAttemptOutcome,
+    ControlSealScheduleClaim, ControlSealScheduleRepairStats, ControlSealScheduleStats,
+    EventCellBottom, PendingControlEventRecord, SealStore, SealedControlEventRecord, StoreError,
+    StoreResult, control_event_digest,
 };
 pub use verify::{
     ControlMoveReject, ControlMoveVerificationContext, reject_to_error_code,
     resolve_projected_write, verify_accepted_control_move_in_context, verify_control_move,
     verify_control_move_in_context,
 };
-
-/// Whether a cell wire id names a family whose only exit from Bottom is
-/// `ak.conflict.recovery`.
-///
-/// `event-auth-state-resolution.md` section 9.3.1.4: where a write's own
-/// authorization or business precondition reads the cell, Bottom leaves nobody
-/// able to author an ordinary write, so recovery is the only way back. Every
-/// other `cas_register` family heals through an ordinary write that already
-/// holds authority for its action.
-///
-/// This is the `cas_register` half only. Every `fsm` family is in the same
-/// position by construction (section 9.3.1.7 item 2), and `ak.component.notary.v1`
-/// is deliberately absent, because verifying any Seal reads that cell so no
-/// recovery Seal for it could ever be accepted.
-#[must_use]
-pub fn is_sole_recovery_cell(cell_id: &str) -> bool {
-    crate::generated::sole_recovery_families::SOLE_RECOVERY_FAMILIES
-        .iter()
-        .any(|family| {
-            cell_id
-                .strip_prefix("ak:cell:")
-                .and_then(|rest| rest.strip_prefix(*family))
-                .is_some_and(|rest| rest.starts_with(':'))
-        })
-}

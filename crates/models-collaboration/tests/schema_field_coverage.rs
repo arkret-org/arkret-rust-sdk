@@ -175,7 +175,7 @@ fn the_gate_detects_a_dto_missing_a_declared_field() {
 /// Spec artifact holding the Event payload `$defs`.
 const EVENT_PAYLOAD: &str = "schemas/event-payload.schema.json";
 
-/// `ak.realm.policy_bundle` is a `cas_register`: a revision restates the
+/// `ak.realm.policy_bundle` is sequenced state: a revision restates the
 /// complete enabled component set, so a payload type that is behind the schema
 /// does not merely fail to express a component — it **clears** it on every
 /// write. The set comparison is therefore a correctness gate, not tidiness.
@@ -235,11 +235,6 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
             "seal_compaction_max_interval_ms": 300000,
             "max_authority_lifetime_ms": 86400000,
             "bottom_escalation_after_ms": 60000,
-            "cell_lattices": [{
-                "cell_family": arkret_wire::CellFamilyId::STRAND_OBJECT_V1,
-                "lattice": "cas_register",
-                "bottom": "reject"
-            }],
             "preauth": { "consent_required": true },
             "allowed_third_party_invite_verification_ids": [
                 "ak:did_core:web:verification.example"

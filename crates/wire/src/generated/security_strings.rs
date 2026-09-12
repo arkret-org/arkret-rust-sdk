@@ -1,23 +1,23 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-11.1;
-//! sha256=0a3537f77af76918b62a871299678a6640f5df259aeedb1646dcf853808eb4cb Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-12.6;
+//! sha256=3379d50912a673368739e7666cd9bc92bebbfd0dea16b46ffb2b009be478f4b8 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
-//! digest-suite-registry.json; version=2026-08-31;
-//! sha256=d75d7fd0feb27c7a29db2255ce503f6137f31a9102086cb05be4b84ce03f297b Input: registry/
+//! digest-suite-registry.json; version=2026-09-12.9;
+//! sha256=058dd9899654b807480d27c8df92e0b5e113a1cdd771f6736eb558aaf11cf966 Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
+//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
 //! hpke-suite-registry.json; version=2026-09-08.3;
-//! sha256=27bffd654557d827a4adc82768624f2927e0301909f42201eb82ac1535a49bf8 Input: registry/
+//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
 //! mls-extension-registry.json; version=2026-09-10;
-//! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
+//! sha256=ea13071db2a81e0ef386b16b31d094af845b5f60d8a83f32ff437835e80f9481 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=72, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=40, aead_profiles=2
+//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
+//! Entries: proof_contexts=71, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -91,7 +91,6 @@ pub enum ProofContextId {
     SessionGrantAcceptedDevicePossessionProofV1,
     SessionGrantPairwiseEndpointPossessionProofV1,
     SignalProofV1,
-    StationAdmissionProofV1,
     ThirdPartyInviteAcceptanceAttestationProofV1,
     ThirdPartyInviteProvisionRequestProofV1,
 }
@@ -167,7 +166,6 @@ impl ProofContextId {
         Self::SessionGrantAcceptedDevicePossessionProofV1,
         Self::SessionGrantPairwiseEndpointPossessionProofV1,
         Self::SignalProofV1,
-        Self::StationAdmissionProofV1,
         Self::ThirdPartyInviteAcceptanceAttestationProofV1,
         Self::ThirdPartyInviteProvisionRequestProofV1,
     ];
@@ -285,7 +283,6 @@ impl ProofContextId {
     pub const SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1: &'static str =
         "ak.session_grant_pairwise_endpoint_possession_proof.v1";
     pub const SIGNAL_PROOF_V1: &'static str = "ak.signal_proof.v1";
-    pub const STATION_ADMISSION_PROOF_V1: &'static str = "ak.station_admission_proof.v1";
     pub const THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1: &'static str =
         "ak.third_party_invite_acceptance_attestation_proof.v1";
     pub const THIRD_PARTY_INVITE_PROVISION_REQUEST_PROOF_V1: &'static str =
@@ -406,7 +403,6 @@ impl ProofContextId {
                 Self::SESSION_GRANT_PAIRWISE_ENDPOINT_POSSESSION_PROOF_V1
             }
             Self::SignalProofV1 => Self::SIGNAL_PROOF_V1,
-            Self::StationAdmissionProofV1 => Self::STATION_ADMISSION_PROOF_V1,
             Self::ThirdPartyInviteAcceptanceAttestationProofV1 => {
                 Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1
             }
@@ -557,7 +553,6 @@ impl ProofContextId {
                 Some(Self::SessionGrantPairwiseEndpointPossessionProofV1)
             }
             Self::SIGNAL_PROOF_V1 => Some(Self::SignalProofV1),
-            Self::STATION_ADMISSION_PROOF_V1 => Some(Self::StationAdmissionProofV1),
             Self::THIRD_PARTY_INVITE_ACCEPTANCE_ATTESTATION_PROOF_V1 => {
                 Some(Self::ThirdPartyInviteAcceptanceAttestationProofV1)
             }
@@ -574,7 +569,6 @@ impl ProofContextId {
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
     AgentAuthorityStateEvidenceV1,
-    AgentSignerAdmissionReceiptV1,
     AppletDeliveryAuthenticationRecordDigestV1,
     AppletManagedActorAuthoringRequestProofV1,
     AppletManagedActorBundleProofV1,
@@ -618,7 +612,6 @@ impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
         Self::AgentAuthorityStateEvidenceV1,
-        Self::AgentSignerAdmissionReceiptV1,
         Self::AppletDeliveryAuthenticationRecordDigestV1,
         Self::AppletManagedActorAuthoringRequestProofV1,
         Self::AppletManagedActorBundleProofV1,
@@ -661,8 +654,6 @@ impl DomainSeparationId {
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
     pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
         "ak.agent_authority_state_evidence.v1";
-    pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
-        "ak.agent_signer_admission_receipt.v1";
     pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
         "ak.applet.delivery_authentication_record_digest.v1";
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
@@ -727,7 +718,6 @@ impl DomainSeparationId {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
             Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
-            Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AppletDeliveryAuthenticationRecordDigestV1 => {
                 Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
             }
@@ -798,7 +788,6 @@ impl DomainSeparationId {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
             Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
-            Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
                 Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
             }
@@ -2236,24 +2225,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/signal-envelope.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::StationAdmissionProofV1,
-        context: "ak.station_admission_proof.v1",
-        object_family: "station_event_admission",
-        consumer_operation: None,
-        binding_fields: &[
-            "event_digest",
-            "producer_proof_digest",
-            "producer_verification_method",
-            "producer_signing_key_did",
-            "producer_signer_resolution_evidence_ref?",
-            "signer_resolution_evidence_ref",
-            "applet_installation_digest?",
-            "accepted_at",
-            "verification_method",
-        ],
-        schema_ref: "schemas/event-envelope.schema.json#/$defs/station_admission_proof",
     },
     ProofContextDescriptor {
         id: ProofContextId::ThirdPartyInviteAcceptanceAttestationProofV1,

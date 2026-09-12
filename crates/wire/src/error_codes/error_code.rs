@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.1;
-//! sha256=e412bfa02ad19698d0672d193ace3ad7637da56400bc59b3d146180d78022acb Entries: error_codes=281
+//! Input: registry/error-code-registry.json; version=2026-09-12.11;
+//! sha256=810f75931e1a0e111c984186f51055f30f868df5f43eb7026aa29a7760b37426 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -183,7 +183,6 @@ pub enum ErrorCode {
     NotFound,
     NotImplemented,
     NotMember,
-    NotaryRecoveryMissing,
     OneTimeKeysExhausted,
     OperationSelectorRequired,
     OrganizationRegistrationChallengeInvalid,
@@ -480,7 +479,6 @@ impl ErrorCode {
         Self::NotFound,
         Self::NotImplemented,
         Self::NotMember,
-        Self::NotaryRecoveryMissing,
         Self::OneTimeKeysExhausted,
         Self::OperationSelectorRequired,
         Self::OrganizationRegistrationChallengeInvalid,
@@ -779,7 +777,6 @@ impl ErrorCode {
     pub const NOT_FOUND: &'static str = "not_found";
     pub const NOT_IMPLEMENTED: &'static str = "not_implemented";
     pub const NOT_MEMBER: &'static str = "not_member";
-    pub const NOTARY_RECOVERY_MISSING: &'static str = "notary_recovery_missing";
     pub const ONE_TIME_KEYS_EXHAUSTED: &'static str = "one_time_keys_exhausted";
     pub const OPERATION_SELECTOR_REQUIRED: &'static str = "operation_selector_required";
     pub const ORGANIZATION_REGISTRATION_CHALLENGE_INVALID: &'static str =
@@ -1092,7 +1089,6 @@ impl ErrorCode {
             Self::NotFound => "not_found",
             Self::NotImplemented => "not_implemented",
             Self::NotMember => "not_member",
-            Self::NotaryRecoveryMissing => "notary_recovery_missing",
             Self::OneTimeKeysExhausted => "one_time_keys_exhausted",
             Self::OperationSelectorRequired => "operation_selector_required",
             Self::OrganizationRegistrationChallengeInvalid => {
@@ -1410,7 +1406,6 @@ impl ErrorCode {
             "not_found" => Some(Self::NotFound),
             "not_implemented" => Some(Self::NotImplemented),
             "not_member" => Some(Self::NotMember),
-            "notary_recovery_missing" => Some(Self::NotaryRecoveryMissing),
             "one_time_keys_exhausted" => Some(Self::OneTimeKeysExhausted),
             "operation_selector_required" => Some(Self::OperationSelectorRequired),
             "organization_registration_challenge_invalid" => {
@@ -2302,7 +2297,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md and zh/authz/event-auth-state-resolution.md §4.3.",
+        description: "The receiver knows an authenticated device-generation revocation or the security command fails the current generation revision check. New affected live submissions are fenced; ordinary historical eligibility is recomputed from the signed authority context and authenticated closures, not the receiver arrival time.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorAuthorityMismatch,
@@ -3115,16 +3110,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Actor is not a member of the target Realm or scoped membership set for this operation.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::NotaryRecoveryMissing,
-        type_uri: "https://arkret.org/problems/notary_recovery_missing",
-        title: "Notary recovery missing",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "Realm create rejected: notary.kind=single_signer was configured without the required disjoint recovery signer organization, in violation of zh/authz/event-auth-state-resolution.md §9.3.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::OneTimeKeysExhausted,
         type_uri: "https://arkret.org/problems/one_time_keys_exhausted",
         title: "One time keys exhausted",
@@ -3862,7 +3847,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The supplied seal_ref or seal_basis leaf does not identify a Seal known to the receiving service for the target Realm.",
+        description: "A Seal named by an ordinary Event auth_context.authority_refs entry or by a security command seal_basis leaf is not available to the receiving service for the target Realm.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealSignerSlotFenced,

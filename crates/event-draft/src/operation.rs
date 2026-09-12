@@ -5,10 +5,10 @@ use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    ActorId, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId, DeviceMessageId, Did,
-    Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef, GrantId, Hash, Hlc,
-    OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef, RealmId, ScopeRef,
-    SealBasis, SealId, canonical, project_did_to_core_id,
+    ActorId, AuthContext, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId,
+    DeviceMessageId, Did, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef,
+    GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef,
+    RealmId, ScopeRef, SealBasis, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -34,10 +34,11 @@ pub struct ProjectionContext {
     pub accepted_event_id: EventId,
     pub canonical_event_digest: Hash,
     pub envelope_causal_refs: Vec<Hash>,
-    pub seal_ref: Option<SealId>,
     pub seal_basis: Option<SealBasis>,
     pub hlc: Option<Hlc>,
     pub executed_by: Option<ActorId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub accepted_scope_ref: ScopeRef,
@@ -103,10 +104,10 @@ impl ProjectedEventOperation {
                     event.event_digest_with_digest_suite(digest_suite)?,
                 )?,
                 envelope_causal_refs: event.causal_refs.clone(),
-                seal_ref: event.seal_ref.clone(),
                 seal_basis: event.seal_basis.clone(),
                 hlc: event.hlc.clone(),
                 executed_by: event.executed_by.clone(),
+                auth_context: event.auth_context.clone(),
                 authorization_ref: event.authorization_ref.clone(),
                 accepted_scope_ref: event.scope_ref.clone(),
             },
@@ -146,7 +147,6 @@ impl ProjectedEventOperation {
             payload: payload.into_iter().collect(),
             refs: self.refs.clone(),
             preconditions: self.context.preconditions.clone(),
-            seal_ref: self.context.seal_ref.clone(),
             seal_basis: self.context.seal_basis.clone(),
         })
     }
@@ -176,7 +176,7 @@ impl ProjectedEventOperation {
 }
 
 fn producer_device_id(event: &Event) -> Option<DeviceId> {
-    let mut producer_proofs = event.proofs.iter().filter_map(|proof| proof.as_producer());
+    let mut producer_proofs = event.proofs.iter();
     let producer_proof = producer_proofs.next()?;
     if producer_proofs.next().is_some() {
         return None;

@@ -180,6 +180,7 @@ where
     F: Fn(&VerificationMethodDocument, &ProducerEventProof) -> Result<bool>,
 {
     proof.validate_production()?;
+    proof.validate_signer_resolution_evidence_ref()?;
     if proof.event_digest != context.expected_payload_digest {
         return Err(Error::Protocol(
             "proof event_digest does not match expected digest".to_owned(),

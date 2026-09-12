@@ -292,7 +292,7 @@ impl RsvpResponse {
     }
 }
 
-/// Complete RSVP cell value. The whole entry is the `mv_register` set value, so
+/// Complete RSVP cell value. The whole entry is the causal-register value, so
 /// every head independently carries the schedule the responder observed plus
 /// the response itself.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

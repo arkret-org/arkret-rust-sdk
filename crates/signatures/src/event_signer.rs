@@ -14,7 +14,7 @@
 //!
 //! ```text
 //! { event_digest, actor_id, verification_method,
-//!   signer_resolution_evidence_ref?,
+//!   signer_resolution_evidence_ref,
 //!   created_at, domain?, audience? }
 //! ```
 //!
@@ -41,12 +41,12 @@ use crate::{Error, Result};
 
 /// Options threaded into [`sign_event`].
 ///
-/// `domain`, `audience`, and the direct-regime signer-resolution evidence
-/// ref are optional binding additions threaded into the produced [`ProducerEventProof`].
-/// They default to `None`. `created_at`
-/// defaults to `Utc::now()` when omitted so callers don't have to
-/// stamp the wall clock themselves.
-#[derive(Clone, Debug, Default)]
+/// `domain` and `audience` are optional binding additions. The authenticated
+/// signer-resolution evidence reference is required for portable Events.
+/// The closed PCR genesis and recovery unit validators instead resolve their
+/// pre-authorized signer from unit-local proof-of-possession material.
+/// `created_at` defaults to `Utc::now()` when omitted.
+#[derive(Clone, Debug)]
 pub struct SignEventOptions {
     pub domain: Option<String>,
     pub audience: Option<Audience>,
@@ -55,8 +55,25 @@ pub struct SignEventOptions {
 }
 
 impl SignEventOptions {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(signer_resolution_evidence_ref: SignerEvidenceRef) -> Self {
+        Self {
+            domain: None,
+            audience: None,
+            created_at: None,
+            signer_resolution_evidence_ref: Some(signer_resolution_evidence_ref),
+        }
+    }
+
+    /// Select the proof form reserved for a native PCR genesis or recovery
+    /// unit. A dedicated unit validator must reject its Events outside the
+    /// pre-authorized slots defined by that unit.
+    pub fn for_native_unit() -> Self {
+        Self {
+            domain: None,
+            audience: None,
+            created_at: None,
+            signer_resolution_evidence_ref: None,
+        }
     }
 
     pub fn with_domain(mut self, domain: impl Into<String>) -> Self {
@@ -113,15 +130,9 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
     event.verify_identity()?;
 
     // Refuse to mix proofs from different signers — caller mistake.
-    if let Some(existing) = event
-        .proofs
-        .iter()
-        .filter_map(|proof| proof.as_producer())
-        .find(|proof| {
-            &proof.verification_method != verification_method
-                && proof.kind == proof_kind::DETACHED_JWS
-        })
-    {
+    if let Some(existing) = event.proofs.iter().find(|proof| {
+        &proof.verification_method != verification_method && proof.kind == proof_kind::DETACHED_JWS
+    }) {
         return Err(Error::Protocol(format!(
             "sign_event refuses to append: event already carries a detached-jws proof for a \
              different verification_method '{}'",
@@ -153,14 +164,18 @@ pub fn sign_event<S: PayloadSigner + ?Sized>(
         proof_purpose: None,
         jws: String::new(),
     };
-    proof.validate_signer_resolution_evidence_ref()?;
+    if proof.signer_resolution_evidence_ref.is_some() {
+        proof.validate_signer_resolution_evidence_ref()?;
+    } else {
+        proof.validate_unit_local_signer_resolution()?;
+    }
     let binding_bytes = proof.canonical_binding_bytes(&event.actor_id)?;
     let signature = signer.sign_payload(&binding_bytes)?;
     proof.jws = signature.jws;
 
     // Idempotent: replace any existing proof from the same verification
     // method (e.g. a re-sign with a refreshed `created_at`).
-    event.attach_proof(proof.into());
+    event.attach_proof(proof);
 
     debug_assert_eq!(
         canonical::digest(digest_suite, canonical_bytes),
@@ -199,6 +214,10 @@ mod tests {
         DidUrl::new("did:web:alice.example#key-1").unwrap()
     }
 
+    fn evidence_ref() -> SignerEvidenceRef {
+        SignerEvidenceRef::new(format!("ak:signer_evidence:sha256:{}", "5".repeat(64))).unwrap()
+    }
+
     fn bob() -> Did {
         Did::new("did:web:bob.example").unwrap()
     }
@@ -216,7 +235,6 @@ mod tests {
             prev_refs: Vec::new(),
             refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -297,12 +315,18 @@ mod tests {
     fn sign_event_attaches_one_proof_matching_digest() {
         let mut event = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(
+            &mut event,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
         assert_eq!(event.proofs.len(), 1);
         let digest = event
             .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
             .unwrap();
-        let proof = event.proofs[0].as_producer().unwrap();
+        let proof = &event.proofs[0];
         assert_eq!(proof.event_digest.as_str(), digest);
         assert_eq!(proof.verification_method, vm_alice());
         assert_eq!(proof.kind, proof_kind::DETACHED_JWS);
@@ -330,7 +354,13 @@ mod tests {
         let authored_event_id = event.event_id().clone();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(
+            &mut event,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
 
         assert_eq!(event.event_id(), &authored_event_id);
         event.verify_identity().unwrap();
@@ -347,15 +377,14 @@ mod tests {
         )
         .unwrap();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut event, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
-        assert!(
-            event.proofs[0]
-                .as_producer()
-                .unwrap()
-                .event_digest
-                .as_str()
-                .starts_with("blake3:")
-        );
+        sign_event(
+            &mut event,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
+        assert!(event.proofs[0].event_digest.as_str().starts_with("blake3:"));
     }
 
     #[test]
@@ -368,20 +397,28 @@ mod tests {
         let mut with = AuthoredEvent::finalize_with_digest_suite(with, SUITE).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
-        sign_event(&mut with, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(
+            &mut without,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
+        sign_event(
+            &mut with,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
 
         // The signing transcript MUST cover executed_by → the digests
         // and therefore the produced JWS must differ.
         assert_ne!(
-            without.proofs[0].as_producer().unwrap().event_digest,
-            with.proofs[0].as_producer().unwrap().event_digest,
+            without.proofs[0].event_digest, with.proofs[0].event_digest,
             "executed_by must enter the signing transcript"
         );
-        assert_ne!(
-            without.proofs[0].as_producer().unwrap().jws,
-            with.proofs[0].as_producer().unwrap().jws
-        );
+        assert_ne!(without.proofs[0].jws, with.proofs[0].jws);
     }
 
     #[test]
@@ -397,12 +434,23 @@ mod tests {
         let mut with = AuthoredEvent::finalize_with_digest_suite(with, SUITE).unwrap();
 
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut without, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
-        sign_event(&mut with, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(
+            &mut without,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
+        sign_event(
+            &mut with,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
 
         assert_ne!(
-            without.proofs[0].as_producer().unwrap().event_digest,
-            with.proofs[0].as_producer().unwrap().event_digest,
+            without.proofs[0].event_digest, with.proofs[0].event_digest,
             "authorization_ref must enter the signing transcript"
         );
     }
@@ -411,11 +459,11 @@ mod tests {
     fn sign_event_with_options_binds_domain_and_audience() {
         let mut event = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        let opts = SignEventOptions::new()
+        let opts = SignEventOptions::new(evidence_ref())
             .with_domain("api.example")
             .with_audience(Audience::Single("did:web:svc.example".to_owned()));
         sign_event(&mut event, &signer, &vm_alice(), opts).unwrap();
-        let proof = event.proofs[0].as_producer().unwrap();
+        let proof = &event.proofs[0];
         assert_eq!(proof.domain.as_deref(), Some("api.example"));
         match &proof.audience {
             Some(Audience::Single(value)) => assert_eq!(value, "did:web:svc.example"),
@@ -435,7 +483,7 @@ mod tests {
             &mut event,
             &signer,
             &vm_alice(),
-            SignEventOptions::new().with_created_at(subsecond),
+            SignEventOptions::new(evidence_ref()).with_created_at(subsecond),
         )
         .unwrap();
 
@@ -455,7 +503,7 @@ mod tests {
             &mut event,
             &signer,
             &vm_alice(),
-            SignEventOptions::new().with_created_at(pinned_at),
+            SignEventOptions::new(evidence_ref()).with_created_at(pinned_at),
         )
         .unwrap();
         assert_eq!(event.proofs.len(), 1);
@@ -465,7 +513,7 @@ mod tests {
             &mut event,
             &signer,
             &vm_alice(),
-            SignEventOptions::new().with_created_at(pinned_at),
+            SignEventOptions::new(evidence_ref()).with_created_at(pinned_at),
         )
         .unwrap();
         assert_eq!(event.proofs.len(), 1, "re-sign must replace, not append");
@@ -482,14 +530,19 @@ mod tests {
             &mut event,
             &alice_signer,
             &vm_alice(),
-            SignEventOptions::new(),
+            SignEventOptions::new(evidence_ref()),
         )
         .unwrap();
 
         let bob_kid = DidUrl::new("did:web:bob.example#key-1").unwrap();
         let bob_signer = StubPayloadSigner::new(bob(), bob_kid.clone());
-        let err = sign_event(&mut event, &bob_signer, &bob_kid, SignEventOptions::new())
-            .expect_err("re-signing under a different VM must be rejected");
+        let err = sign_event(
+            &mut event,
+            &bob_signer,
+            &bob_kid,
+            SignEventOptions::new(evidence_ref()),
+        )
+        .expect_err("re-signing under a different VM must be rejected");
         let msg = format!("{err}");
         assert!(
             msg.contains("different verification_method") || msg.contains("verification_method"),
@@ -504,7 +557,13 @@ mod tests {
     fn tampered_event_fails_proof_binding_validation() {
         let mut authored = authored();
         let signer = StubPayloadSigner::new(alice(), vm_alice());
-        sign_event(&mut authored, &signer, &vm_alice(), SignEventOptions::new()).unwrap();
+        sign_event(
+            &mut authored,
+            &signer,
+            &vm_alice(),
+            SignEventOptions::new(evidence_ref()),
+        )
+        .unwrap();
         authored
             .validate_proof_bindings_with_digest_suite(SUITE)
             .unwrap();
@@ -522,10 +581,7 @@ mod tests {
         // Proof tamper: swapping event_digest for another well-formed hash
         // must be rejected against the recomputed digest.
         let mut digest_tampered = event.clone();
-        digest_tampered.proofs[0]
-            .as_producer_mut()
-            .unwrap()
-            .event_digest =
+        digest_tampered.proofs[0].event_digest =
             Hash::new("sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
                 .unwrap();
         assert!(

@@ -40,7 +40,7 @@ use crate::cbs::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
 use crate::events::kinds::{CbsEffectPlane, EventKind};
 use crate::primitives::{
-    ActorId, Audience, CriticalExtension, EventProof, ProofBindingRequirements,
+    ActorId, Audience, CriticalExtension, ProducerEventProof, ProofBindingRequirements,
     SignatureBindingPayload,
 };
 use crate::{
@@ -49,7 +49,7 @@ use crate::{
 };
 
 /// Full canonical Event Envelope bound, measured over the accepted envelope including every
-/// producer and Station-admission proof, excluding the read-view `unsigned`.
+/// producer proof, excluding the read-view `unsigned`.
 ///
 /// See `zh/conformance/scalability-constraints.md` section 2.1.1.
 pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
@@ -248,18 +248,12 @@ pub struct EventRequirements {
     pub critical_extensions: Vec<CriticalExtension>,
 }
 
-/// DataEvent authorization context.
+/// Signed portable authorization coordinates for an ordinary Event.
 ///
-/// Pins the signing key identifier and key epoch a receiver verifies against
-/// at `seal_ref`. The envelope `actor_id` remains the sole actor carrier. It
-/// carries no capability list: effective capabilities are derived from the
-/// accepted governance basis, never selected by the producer.
-/// `event-and-patch.md` §75 names producer-selected
-/// `auth_context.capability_refs` alongside `effects` as a field a v1 receiver
-/// MUST reject with `schema_violation`, and the envelope schema closes this
-/// object over `{key_id, key_epoch, credential_epoch}` — so
-/// `deny_unknown_fields` here is what makes an inbound one fail rather than be
-/// silently dropped.
+/// `authority_refs` names already accepted safety decisions. It is immutable,
+/// sorted, and has no freshness lease. A receiver resolves and verifies those
+/// decisions independently; no origin callback or newly advanced Seal is part
+/// of ordinary admission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthContext {
@@ -267,6 +261,23 @@ pub struct AuthContext {
     pub key_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credential_epoch: Option<u64>,
+    pub authority_refs: Vec<SealId>,
+}
+
+impl AuthContext {
+    pub fn validate(&self) -> Result<()> {
+        if self.authority_refs.is_empty() || self.authority_refs.len() > 64 {
+            return Err(WireError::Protocol(
+                "auth_context.authority_refs must contain 1..=64 references".to_owned(),
+            ));
+        }
+        if !self.authority_refs.windows(2).all(|pair| pair[0] < pair[1]) {
+            return Err(WireError::Protocol(
+                "auth_context.authority_refs must be canonical sorted and unique".to_owned(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl EventRequirements {
@@ -316,8 +327,6 @@ pub struct Event {
     pub causal_refs: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub preconditions: Vec<Precondition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<SealId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -327,7 +336,7 @@ pub struct Event {
     /// canonical Event Envelope transcript.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub unsigned: BTreeMap<String, Value>,
-    pub proofs: Vec<EventProof>,
+    pub proofs: Vec<ProducerEventProof>,
     #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
     pub requirements: EventRequirements,
 }
@@ -350,7 +359,6 @@ pub struct ProjectedEventInput {
     pub payload: BTreeMap<String, Value>,
     pub refs: Vec<EventRef>,
     pub preconditions: Vec<Precondition>,
-    pub seal_ref: Option<SealId>,
     pub seal_basis: Option<SealBasis>,
 }
 
@@ -367,7 +375,6 @@ impl From<&Event> for ProjectedEventInput {
             payload: event.payload.clone(),
             refs: event.refs.clone(),
             preconditions: event.preconditions.clone(),
-            seal_ref: event.seal_ref.clone(),
             seal_basis: event.seal_basis.clone(),
         }
     }
@@ -695,15 +702,13 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     preconditions: &'a Vec<Precondition>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    seal_ref: &'a Option<SealId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     auth_context: &'a Option<AuthContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
     seal_basis: &'a Option<SealBasis>,
     payload: &'a BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     unsigned: &'a BTreeMap<String, Value>,
-    proofs: &'a Vec<EventProof>,
+    proofs: &'a Vec<ProducerEventProof>,
     #[serde(skip_serializing_if = "EventRequirements::is_empty")]
     requirements: &'a EventRequirements,
 }
@@ -727,7 +732,6 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             refs: &event.refs,
             causal_refs: &event.causal_refs,
             preconditions: &event.preconditions,
-            seal_ref: &event.seal_ref,
             auth_context: &event.auth_context,
             seal_basis: &event.seal_basis,
             payload: &event.payload,
@@ -778,15 +782,13 @@ struct EventWire {
     #[serde(default)]
     pub preconditions: Vec<Precondition>,
     #[serde(default)]
-    pub seal_ref: Option<SealId>,
-    #[serde(default)]
     pub auth_context: Option<AuthContext>,
     #[serde(default)]
     pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
     #[serde(default)]
     pub unsigned: BTreeMap<String, Value>,
-    pub proofs: Vec<EventProof>,
+    pub proofs: Vec<ProducerEventProof>,
     #[serde(default)]
     pub requirements: EventRequirements,
 }
@@ -845,7 +847,6 @@ impl TryFrom<EventWire> for Event {
             refs,
             causal_refs,
             preconditions: wire.preconditions,
-            seal_ref: wire.seal_ref,
             auth_context: wire.auth_context,
             seal_basis: wire.seal_basis,
             payload: wire.payload,
@@ -1151,12 +1152,6 @@ pub enum EventSubmitContext {
     AnchorUnit,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum EventProofSetRequirement {
-    ProducerSubmission,
-    AcceptedEvent,
-}
-
 /// A canonical-shaped `event_id` that stands in while the real one is being
 /// derived. It never enters a digest preimage, so its value is arbitrary — it
 /// only has to parse.
@@ -1324,8 +1319,8 @@ impl Event {
         &self,
         context: EventSubmitContext,
     ) -> Result<()> {
-        self.validate_structural_in_context(context, EventProofSetRequirement::ProducerSubmission)?;
-        let [EventProof::Producer(producer)] = self.proofs.as_slice() else {
+        self.validate_structural_in_context(context)?;
+        let [producer] = self.proofs.as_slice() else {
             unreachable!("producer proof set was validated above")
         };
         producer.validate_direct_signer_resolution_evidence()
@@ -1349,18 +1344,20 @@ impl Event {
         &self,
         context: EventSubmitContext,
     ) -> Result<()> {
-        self.validate_structural_in_context(context, EventProofSetRequirement::ProducerSubmission)
+        self.validate_structural_in_context(context)
     }
 
-    /// Validate the wire-level shape of an Event already admitted by its
-    /// declared origin Station.
+    /// Validate the wire-level shape of a federated Event.
+    ///
+    /// Federation preserves the same sole producer proof. Receiver-local
+    /// admission receipts are transport state and never mutate Event bytes.
     pub fn validate_for_federation_structural_in_context(
         &self,
         context: EventSubmitContext,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        self.validate_structural_in_context(context, EventProofSetRequirement::AcceptedEvent)?;
-        self.validate_station_admission_structure(digest_suite)
+        self.validate_structural_in_context(context)?;
+        self.validate_proof_bindings_with_digest_suite(digest_suite)
     }
 
     /// Shape of an already-accepted Event carried as evidence rather than as a
@@ -1368,24 +1365,13 @@ impl Event {
     ///
     /// `cbs-profiles.md` §5 fixes the receiver's order as «structure, Realm,
     /// count and canonical order → object id/digest/signature → ...», so the
-    /// container-level pass owns the proof-set *shape* — one producer proof
-    /// followed by one Station admission proof — while recomputing the digest
-    /// that binds them belongs to the next step, where the digest suite the
-    /// Seal roots name is available. Checking accepted evidence against the
-    /// caller-submission proof set instead would reject every object a Station
-    /// has actually accepted.
+    /// The container-level pass owns the exact single producer-proof shape;
+    /// recomputing its binding digest belongs to the next verification step.
     pub fn validate_for_accepted_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(
-            EventSubmitContext::Standard,
-            EventProofSetRequirement::AcceptedEvent,
-        )
+        self.validate_structural_in_context(EventSubmitContext::Standard)
     }
 
-    fn validate_structural_in_context(
-        &self,
-        context: EventSubmitContext,
-        proof_requirement: EventProofSetRequirement,
-    ) -> Result<()> {
+    fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
         // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
         // no realm_id, so the equality check applies to every other kind and
         // the genesis branch instead pins the closed scope shape.
@@ -1407,37 +1393,21 @@ impl Event {
         }
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
-        match proof_requirement {
-            EventProofSetRequirement::ProducerSubmission => match self.proofs.as_slice() {
-                [EventProof::Producer(producer)] => {
-                    producer.validate_signer_resolution_evidence_ref()?;
-                }
-                _ => {
-                    return Err(WireError::Protocol(
-                        "caller submission must carry exactly one producer proof and no Station admission proof"
-                            .to_owned(),
-                    ));
-                }
-            },
-            EventProofSetRequirement::AcceptedEvent => match self.proofs.as_slice() {
-                [
-                    EventProof::Producer(producer),
-                    EventProof::StationAdmission(_),
-                ] => {
-                    if producer.signer_resolution_evidence_ref.is_some() {
-                        return Err(WireError::Protocol(
-                            "admission-backed producer proof must omit direct signer resolution evidence"
-                                .to_owned(),
-                        ));
-                    }
-                }
-                _ => {
-                    return Err(WireError::Protocol(
-                        "federated Event must carry exactly one producer proof followed by one Station admission proof"
-                            .to_owned(),
-                    ));
-                }
-            },
+        let [producer] = self.proofs.as_slice() else {
+            return Err(WireError::Protocol(
+                "Event must carry exactly one producer proof".to_owned(),
+            ));
+        };
+        match context {
+            EventSubmitContext::Standard => {
+                producer.validate_signer_resolution_evidence_ref()?;
+            }
+            EventSubmitContext::AnchorUnit => {
+                producer.validate_unit_local_signer_resolution()?;
+            }
+        }
+        if let Some(auth_context) = &self.auth_context {
+            auth_context.validate()?;
         }
         if self
             .requirements
@@ -1453,12 +1423,10 @@ impl Event {
             basis.validate_protocol_bounds()?;
         }
         if self.kind.is_reducer_input() {
-            let is_data_event = self.seal_ref.is_some()
-                && self.auth_context.is_some()
+            let is_data_event = self.auth_context.is_some()
                 && self.seal_basis.is_none()
                 && self.preconditions.is_empty();
-            let is_control_move =
-                self.seal_ref.is_none() && self.auth_context.is_none() && self.seal_basis.is_some();
+            let is_control_move = self.auth_context.is_none() && self.seal_basis.is_some();
             // The §5 anchor units carry no basis field at all: bootstrap has no
             // accepted Seal to point at, and the B-model re-anchor fixes its
             // frontier in the payload's `pre_fence_seal_frontier`. A bootstrap Event
@@ -1466,7 +1434,6 @@ impl Event {
             // unit's empty frozen predecessor state; only the three mutually
             // exclusive CBS basis fields participate in this shape test.
             let is_anchor_unit = context == EventSubmitContext::AnchorUnit
-                && self.seal_ref.is_none()
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
             match self.kind.cbs_plane() {
@@ -1474,13 +1441,13 @@ impl Event {
                 Some(CbsEffectPlane::Control) if is_control_move || is_anchor_unit => {}
                 Some(CbsEffectPlane::Data) => {
                     return Err(WireError::Protocol(format!(
-                        "data-plane Event kind {} requires seal_ref + auth_context and forbids seal_basis",
+                        "data-plane Event kind {} requires auth_context and forbids seal_basis",
                         self.kind
                     )));
                 }
                 Some(CbsEffectPlane::Control) => {
                     return Err(WireError::Protocol(format!(
-                        "control-plane Event kind {} requires seal_basis and forbids seal_ref + auth_context",
+                        "control-plane Event kind {} requires seal_basis and forbids auth_context",
                         self.kind
                     )));
                 }
@@ -1491,8 +1458,7 @@ impl Event {
                     )));
                 }
             }
-        } else if self.seal_ref.is_some()
-            || self.auth_context.is_some()
+        } else if self.auth_context.is_some()
             || self.seal_basis.is_some()
             || !self.preconditions.is_empty()
         {
@@ -1530,9 +1496,6 @@ impl Event {
         let digest = self.event_digest_with_digest_suite(digest_suite)?;
         let expected_hash = Hash::new(digest)?;
         for proof in &self.proofs {
-            let Some(proof) = proof.as_producer() else {
-                continue;
-            };
             proof.validate()?;
             if proof.event_digest != expected_hash {
                 return Err(WireError::Protocol(format!(
@@ -1552,7 +1515,7 @@ impl Event {
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
         let expected_hash = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
-        for proof in self.proofs.iter().filter_map(EventProof::as_producer) {
+        for proof in &self.proofs {
             let expected = SignatureBindingPayload {
                 payload_digest: expected_hash.clone(),
                 actor_id: self.actor_id.clone(),
@@ -1564,74 +1527,6 @@ impl Event {
             proof.validate_binding_with_requirements(&expected, requirements)?;
         }
         Ok(())
-    }
-
-    /// Validate the closed accepted-Event proof set: exactly one producer
-    /// proof followed by exactly one origin Station admission proof.
-    pub fn validate_station_admission_binding(
-        &self,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<()> {
-        if self.applet_id.is_some() {
-            return Err(WireError::Protocol(
-                "Applet admission requires verified installation authority dependencies".to_owned(),
-            ));
-        }
-        self.validate_station_admission_structure(digest_suite)
-    }
-
-    /// Validate digest/proof structure before authority dependency acquisition.
-    /// Applet controller authorization is deliberately deferred to the policy
-    /// verifier, which must authenticate the referenced installation evidence.
-    pub fn validate_station_admission_structure(
-        &self,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<()> {
-        let expected_event_digest = Hash::new(self.event_digest_with_digest_suite(digest_suite)?)?;
-        let [
-            EventProof::Producer(producer),
-            EventProof::StationAdmission(admission),
-        ] = self.proofs.as_slice()
-        else {
-            return Err(WireError::Protocol(
-                "accepted event must contain one producer proof followed by one Station admission proof"
-                    .to_owned(),
-            ));
-        };
-        producer.validate()?;
-        if producer.event_digest != expected_event_digest {
-            return Err(WireError::Protocol(
-                "producer proof event digest does not match accepted event".to_owned(),
-            ));
-        }
-        let author = self.executed_by.as_ref().unwrap_or(&self.actor_id);
-        if self.applet_id.is_some() {
-            let Some(installation_digest) = &admission.applet_installation_digest else {
-                return Err(WireError::Protocol(
-                    "Applet admission omitted installation authority dependency".to_owned(),
-                ));
-            };
-            if !installation_digest.as_str().starts_with("sha256:") {
-                return Err(WireError::Protocol(
-                    "Applet installation authority must use SHA-256".to_owned(),
-                ));
-            }
-            let (controller, _) = admission
-                .verification_method
-                .as_str()
-                .split_once('#')
-                .ok_or_else(|| {
-                    WireError::Protocol("admission method has no fragment".to_owned())
-                })?;
-            let controller = project_did_to_core_id(&Did::new(controller.to_owned())?)?;
-            return admission.validate_binding(&expected_event_digest, producer, &controller);
-        }
-        if admission.applet_installation_digest.is_some() {
-            return Err(WireError::Protocol(
-                "non-Applet admission must omit installation authority".to_owned(),
-            ));
-        }
-        admission.validate_binding(&expected_event_digest, producer, author.route_service_id())
     }
 
     /// Construct an Event in the given signed security scope.
@@ -1759,7 +1654,6 @@ impl Event {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -1817,7 +1711,6 @@ mod event_wire_surface_tests {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -1836,18 +1729,24 @@ mod event_wire_surface_tests {
         }
     }
 
-    fn producer_proof() -> EventProof {
-        EventProof::Producer(ProducerEventProof {
+    fn producer_proof() -> ProducerEventProof {
+        ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_ref: Some(
+                crate::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "1".repeat(64)
+                ))
+                .unwrap(),
+            ),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,
             audience: None,
             proof_purpose: None,
             jws: "a..b".to_owned(),
-        })
+        }
     }
 
     #[test]
@@ -1903,17 +1802,23 @@ mod event_wire_surface_tests {
         .unwrap();
         let whole_second = "2026-06-03T12:34:56.000Z".parse().unwrap();
         event.created_at = whole_second;
-        event.proofs.push(EventProof::Producer(ProducerEventProof {
+        event.proofs.push(ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_ref: Some(
+                crate::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "2".repeat(64)
+                ))
+                .unwrap(),
+            ),
             created_at: whole_second,
             domain: None,
             audience: None,
             proof_purpose: None,
             jws: "a..b".to_owned(),
-        }));
+        });
         let value = serde_json::to_value(&event).unwrap();
         let created_at = value["created_at"].as_str().unwrap();
 
@@ -2174,110 +2079,6 @@ mod event_wire_surface_tests {
             err.to_string().contains("scope_ref.realm_id"),
             "unexpected error: {err}"
         );
-    }
-
-    #[test]
-    fn standard_submit_uses_the_registry_plane_instead_of_the_envelope_shape() {
-        let seal_id = SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap();
-
-        let mut data_kind_with_control_shape = base_event();
-        data_kind_with_control_shape.proofs.push(producer_proof());
-        data_kind_with_control_shape.seal_basis = Some(SealBasis {
-            leaves: vec![seal_id.clone()],
-        });
-        let error = data_kind_with_control_shape
-            .validate_for_submit_structural()
-            .expect_err("data kind must not be reclassified by a control-shaped envelope");
-        assert!(
-            error.to_string().contains("data-plane Event kind"),
-            "{error}"
-        );
-
-        let mut control_kind_with_data_shape = base_event();
-        control_kind_with_data_shape.kind = EventKind::RealmPolicy;
-        control_kind_with_data_shape.proofs.push(producer_proof());
-        control_kind_with_data_shape.seal_ref = Some(seal_id);
-        control_kind_with_data_shape.auth_context = Some(AuthContext {
-            key_id: OpaqueLocalId::new("device").unwrap(),
-            key_epoch: 0,
-            credential_epoch: None,
-        });
-        let error = control_kind_with_data_shape
-            .validate_for_submit_structural()
-            .expect_err("control kind must not be reclassified by a data-shaped envelope");
-        assert!(
-            error.to_string().contains("control-plane Event kind"),
-            "{error}"
-        );
-    }
-
-    #[test]
-    fn every_registered_kind_accepts_only_its_declared_cbs_shape() {
-        let seal_id = SealId::new(format!("ak:seal:sha256:{}", "2".repeat(64))).unwrap();
-        for kind in EventKind::ALL {
-            let mut matching = base_event();
-            matching.kind = kind.clone();
-            matching.proofs.push(producer_proof());
-            matching.seal_ref = None;
-            matching.auth_context = None;
-            matching.seal_basis = None;
-            matching.preconditions.clear();
-            if *kind == EventKind::RealmCreate {
-                matching.scope_ref = ScopeRef::RealmGenesis;
-            }
-            match kind.cbs_plane() {
-                Some(CbsEffectPlane::Data) => {
-                    matching.seal_ref = Some(seal_id.clone());
-                    matching.auth_context = Some(AuthContext {
-                        key_id: OpaqueLocalId::new("device").unwrap(),
-                        key_epoch: 0,
-                        credential_epoch: None,
-                    });
-                }
-                Some(CbsEffectPlane::Control) => {
-                    matching.seal_basis = Some(SealBasis {
-                        leaves: vec![seal_id.clone()],
-                    });
-                }
-                None => {}
-            }
-            matching
-                .validate_for_submit_structural()
-                .unwrap_or_else(|error| panic!("matching shape rejected for {kind}: {error}"));
-
-            let mut mismatched = matching;
-            let expected_error = match kind.cbs_plane() {
-                Some(CbsEffectPlane::Data) => {
-                    mismatched.seal_ref = None;
-                    mismatched.auth_context = None;
-                    mismatched.seal_basis = Some(SealBasis {
-                        leaves: vec![seal_id.clone()],
-                    });
-                    "data-plane Event kind"
-                }
-                Some(CbsEffectPlane::Control) => {
-                    mismatched.seal_basis = None;
-                    mismatched.seal_ref = Some(seal_id.clone());
-                    mismatched.auth_context = Some(AuthContext {
-                        key_id: OpaqueLocalId::new("device").unwrap(),
-                        key_epoch: 0,
-                        credential_epoch: None,
-                    });
-                    "control-plane Event kind"
-                }
-                None => {
-                    mismatched.seal_basis = Some(SealBasis {
-                        leaves: vec![seal_id.clone()],
-                    });
-                    "non-reducer events"
-                }
-            };
-            let error = mismatched.validate_for_submit_structural().unwrap_err();
-            assert!(
-                error.to_string().contains(expected_error),
-                "unexpected mismatch error for {kind}: {error}"
-            );
-        }
     }
 
     #[test]

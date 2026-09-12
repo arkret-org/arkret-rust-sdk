@@ -100,7 +100,7 @@ pub use authored_event::AuthoredEvent;
 pub use authorization_lease_issuance_fixture::{
     AuthorizationLeaseIssuanceProjection, run_authorization_lease_issuance_fixture,
 };
-pub use bottom::{Bottom, BottomContext, BottomKind, SealView, bottom_details};
+pub use bottom::{Bottom, BottomKind, CausalHead};
 pub use cbs::{
     DeviceReanchorPreFenceSealFrontier, LatticeOp, LatticeOpType, ObservedRemoveMatch,
     Precondition, Predicate, PredicateOp, ProjectedCellWrite, ProjectedOp, ProjectionEffect,
@@ -110,8 +110,7 @@ pub use cbs_proof_bundle::{AvailabilityReceipt, CbsProofBundle};
 pub use cell::{
     CellId, CompositeSubjectComponent, NULL_SUBJECT, REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL,
     REALM_GENESIS_CELL, REALM_NOTARY_CELL, REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,
-    composite_subject, composite_subject_pipe, is_registered_cas_register_cell,
-    is_registered_cas_register_family, is_registered_causal_register_cell,
+    composite_subject, composite_subject_pipe, is_registered_causal_register_cell,
     is_registered_causal_register_family, is_registered_cell, is_registered_cell_family,
     null_subject_cell, string_set_digest_component, subject_cell, uri_cell_subject,
 };
@@ -139,8 +138,8 @@ pub use event_submission::{
     AcklessSelfPrincipalAdmissionEvidence, AuthorizationLeaseIssueIntent,
     AuthorizationLeaseIssueOutcome, AuthorizationLeaseIssueRequestBody, EventFederationSubmission,
     EventInitialSubmission, EventPublicationLane, EventsSubmitBatchRequestBody, PcrGenesisUnit,
-    classify_event_submit_context, classify_federated_event_submit_context,
-    validate_anchor_unit_lease_bindings,
+    ProofAuthenticatedPublication, classify_event_submit_context,
+    classify_federated_event_submit_context, validate_anchor_unit_lease_bindings,
 };
 pub use events::*;
 pub use extension_manifest::{
@@ -181,7 +180,7 @@ pub use ingress_budget::WireBodyClass;
 pub use invite_token::{INVITE_TOKEN_MAX_CHARS, validate_invite_token};
 pub use mls_transition::mls_genesis_transition_digest;
 pub use notary::{
-    ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
+    NotaryJoseAlgorithm, NotaryKeyKind, NotaryKind, NotarySignerDescriptor, NotaryValue,
 };
 pub use object_address::*;
 pub use object_ref::is_object_ref;
@@ -219,8 +218,10 @@ pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
 pub use seal::{
-    MultiSigKind, MultiSignature, NotarySig, PayloadSignature, Seal, SealKind, SealSignature,
-    UnsignedSeal, compute_seal_id, seal_canonical_bytes,
+    AuthorizationClosure, CommandOutcome, CommandResult, CommandResultCellState,
+    CommandResultEffect, ExistenceAnchor, MultiSigKind, MultiSignature, PayloadSignature, Seal,
+    SealSignature, TransactionManifest, TransactionParticipant, TransactionRecord, UnsignedSeal,
+    compute_seal_id, seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,

@@ -292,7 +292,7 @@ impl Patch {
     /// (`event-and-patch.md` §4.3.1). The caller supplies the frozen
     /// pre-state; the result is the **whole** post-state value that an
     /// `apply_patch` projection turns into a single `set` on the target
-    /// `mv_register` / `cas_register` cell — never a partial patch
+    /// causal-register or sequenced-state cell, never a partial patch
     /// (§4.3.1 step 3). `prestate` is never mutated: everything happens on a
     /// clone that is discarded on the first failure, which is how §4.4's
     /// "every path succeeds or none applies" atomicity is met.

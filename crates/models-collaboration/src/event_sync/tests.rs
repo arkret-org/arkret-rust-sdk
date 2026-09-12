@@ -1,10 +1,10 @@
 use arkret_wire::{
     AccountId, ActorId, AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,
     AuthoritySetPolicy, AuthoritySetPolicyKind, AuthoritySetPolicySource, AuthoritySetRef,
-    AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, ControlProposalAckKind,
-    DeviceId, DidKey, DidUrl, EventProof, Hash, IngressReceipt, LeaseBasisRef, NotarySig,
-    PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef, SealSignature,
-    StationAdmissionProof, StationAdmissionProofKind,
+    AuthoritySetSourceKind, AuthorizationLease, AuthorizationLeaseId, CommandOutcome,
+    CommandResult, ControlProposalAckKind, DeviceId, DidUrl, Hash, IngressReceipt, LeaseBasisRef,
+    MultiSigKind, MultiSignature, PayloadProof, PayloadSignature, ReceiptId, RiskTier, ScopeRef,
+    SealSignature,
 };
 use serde_json::json;
 
@@ -201,9 +201,8 @@ fn realm_actor_frontier_digest_matches_the_spec_vector() {
     );
 }
 
-/// A well-formed reducer-input DataEvent: `ak.message.create` is registered
-/// on the data plane, so the envelope must carry `seal_ref` + `auth_context`
-/// and no `seal_basis`.
+/// A well-formed ordinary Event: `ak.message.create` carries portable
+/// authorization references and no `seal_basis`.
 fn event_with_device_proof() -> Event {
     serde_json::from_value(json!({
         "event_id": "ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
@@ -224,16 +223,17 @@ fn event_with_device_proof() -> Event {
         "created_at": "2026-07-21T08:00:00.000Z",
         "hlc": "01970e589d21-0001-a13f9c2e",
         "prev_refs": [],
-        "seal_ref": format!("ak:seal:sha256:{}", "e".repeat(64)),
         "auth_context": {
             "key_id": "device:01904100-0000-7000-8000-000000000002",
-            "key_epoch": 1
+            "key_epoch": 1,
+            "authority_refs": [format!("ak:seal:sha256:{}", "e".repeat(64))]
         },
         "payload": {},
         "proofs": [{
             "kind": "detached_jws",
             "verification_method": "did:web:alice.example#ak:device:01904100-0000-7000-8000-000000000002",
             "event_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "signer_resolution_evidence_ref": format!("ak:signer_evidence:sha256:{}", "1".repeat(64)),
             "created_at": "2026-07-21T08:00:00.000Z",
             "jws": "header..signature"
         }]
@@ -269,27 +269,7 @@ fn federation_submission(mut event: Event) -> EventFederationSubmission {
             .unwrap(),
     )
     .unwrap();
-    event.proofs[0].as_producer_mut().unwrap().event_digest = event_digest;
-    let producer = event.proofs[0].as_producer().unwrap().clone();
-    event
-        .proofs
-        .push(EventProof::StationAdmission(StationAdmissionProof {
-            applet_installation_digest: None,
-            kind: StationAdmissionProofKind::StationAdmission,
-            verification_method: DidUrl::new("did:web:ps.example#key-1").unwrap(),
-            event_digest: producer.event_digest.clone(),
-            producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer).unwrap(),
-            producer_verification_method: producer.verification_method.clone(),
-            producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
-            producer_signer_resolution_evidence_ref: None,
-            signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "11".repeat(32)
-            ))
-            .unwrap(),
-            accepted_at: issued_at,
-            jws: "admission..signature".to_owned(),
-        }));
+    event.proofs[0].event_digest = event_digest;
     let authority_set_policy = AuthoritySetPolicy {
         schema: SchemaId::AUTHORITY_SET_POLICY_V1.to_owned(),
         authority_set_id: "ak.authority_set.realm_admission.v1".to_owned(),
@@ -525,12 +505,11 @@ fn federation_request(events: Vec<Event>) -> EventsSubmitFederationBatchRequestB
     }
 }
 
-/// Turn the DataEvent fixture into a Control Move: registered control-plane
-/// kinds carry `seal_basis` and MUST NOT carry `seal_ref`/`auth_context`.
+/// Turn the ordinary Event fixture into a Control Move: registered security
+/// kinds carry `seal_basis` and omit `auth_context`.
 fn control_move_over(basis_seal: &Seal) -> Event {
     let mut control = event_with_device_proof();
     control.kind = "ak.capability.grant".into();
-    control.seal_ref = None;
     control.auth_context = None;
     control.seal_basis = Some(basis_seal.seal_basis());
     control
@@ -541,25 +520,38 @@ fn federation_prerequisite_seal() -> Seal {
     let mut seal = Seal {
         id: SealId::new(format!("ak:seal:sha256:{}", "0".repeat(64))).unwrap(),
         realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-        predecessor_refs: Vec::new(),
+        predecessor_ref: None,
         delta: vec![Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
         control_event_set_root: hash('2'),
         state_root: hash('3'),
-        completeness_root: hash('4'),
         notary_seq: 0,
-        data_view_root: None,
-        data_event_set_root: None,
         availability_receipt_digests: Vec::new(),
         covered_event_digests: Vec::new(),
         previous_state_root: None,
         previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(SealSignature {
-            verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
-            payload_digest: hash('5'),
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        }),
+        notary_signature: MultiSignature {
+            kind: MultiSigKind::MultiSig,
+            signatures: vec![SealSignature {
+                verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
+                payload_digest: hash('5'),
+                jws: "AAAA.BBBB.CCCC".to_owned(),
+            }],
+            view: 0,
+        },
         sealed_at: "2026-07-21T08:00:00Z".parse().unwrap(),
         hlc: arkret_wire::Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
+        configuration_ref: EventId::new("ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2")
+            .unwrap(),
+        command_results: vec![CommandResult {
+            event_digest: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
+            outcome: CommandOutcome::Committed,
+            result_digest: hash('4'),
+            reason_code: None,
+            unit_event_digests: vec![Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
+        }],
+        authorization_closures: Vec::new(),
+        existence_anchors: Vec::new(),
+        transaction_records: Vec::new(),
     };
     seal.id = seal.derive_id(DigestSuite::Sha256).unwrap();
     seal
@@ -621,7 +613,7 @@ fn federation_transport_seal_closure_is_rooted_at_control_basis_leaves() {
     // The federation body no longer carries a bare `seals[]`: CBS
     // prerequisites travel inside `cbs_proof_bundles`, and the closure rule
     // is unchanged — every disclosed Seal must be reachable from a
-    // transported DataEvent `seal_ref` or Control Move `seal_basis` leaf.
+    // transported Control Move `seal_basis` leaf.
     let seal = federation_prerequisite_seal();
     let control = control_move_over(&seal);
 

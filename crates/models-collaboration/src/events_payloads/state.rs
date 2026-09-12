@@ -1472,53 +1472,6 @@ impl<'de> Deserialize<'de> for SchemaDefineStatePayload {
     }
 }
 
-/// Counterpart for `event-payload.schema.json#/$defs/state_conflict_recovery_payload`.
-#[derive(Clone, Debug, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct StateConflictRecoveryPayload {
-    pub target_cell_id: CellRef,
-    pub resolved_value: Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reason: Option<String>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct StateConflictRecoveryPayloadWire {
-    target_cell_id: CellRef,
-    resolved_value: Value,
-    reason: Option<String>,
-}
-
-impl StateConflictRecoveryPayload {
-    pub fn validate(&self) -> Result<()> {
-        if self
-            .reason
-            .as_ref()
-            .is_some_and(|reason| reason.chars().count() > 512)
-        {
-            return schema_violation("conflict recovery reason exceeds 512 characters");
-        }
-        Ok(())
-    }
-}
-
-impl<'de> Deserialize<'de> for StateConflictRecoveryPayload {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = StateConflictRecoveryPayloadWire::deserialize(deserializer)?;
-        let payload = Self {
-            target_cell_id: wire.target_cell_id,
-            resolved_value: wire.resolved_value,
-            reason: wire.reason,
-        };
-        payload.validate().map_err(serde::de::Error::custom)?;
-        Ok(payload)
-    }
-}
-
 /// The disputed scope one `ak.fork.resolution` normalizes.
 ///
 /// This is the whole cell subject, so it carries the position and nothing
@@ -1814,7 +1767,7 @@ impl ForkResolutionRecord {
                 "fork resolution record source is not an exact same-Realm ak.fork.resolution Event",
             );
         }
-        if covering_seal.predecessor_refs.is_empty() {
+        if covering_seal.predecessor_ref.is_none() {
             return schema_violation("fork resolution cannot be carried by a genesis Seal");
         }
         let payload = decode_payload_after_kind_validation::<ForkResolutionPayload>(event)?;
@@ -1833,7 +1786,9 @@ impl ForkResolutionRecord {
             .count()
             != 1
         {
-            return schema_violation(ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED);
+            return schema_violation(
+                "fork resolution requires exactly one critical recovery capability reference",
+            );
         }
         // `state_witness` attests the legal value a cell held before Bottom.
         // The fork-resolution cell has no head at all until this very write, so

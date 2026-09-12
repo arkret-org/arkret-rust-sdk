@@ -1,4 +1,4 @@
-//! PN-Counter Lattice.
+//! PN-Counter StateModel.
 //!
 //! Per spec §5.3:
 //! - `inc(value)` adds a non-negative integer increment.
@@ -9,23 +9,22 @@
 //!
 //! Negative increments / decrements are validation errors; the counter
 //! sum may go negative if dec exceeds inc on a tag, which the runtime
-//! treats as a domain violation surfaced via `bottom=reject` semantics
-//! when the cell schema declares non-negative invariant. This Lattice
-//! itself is monotonic over Z.
+//! rejects as a domain error when the cell schema declares a non-negative
+//! invariant. This StateModel itself is monotonic over Z.
 
 use std::collections::BTreeMap;
 
 use serde_json::{Number, Value, json};
 
-use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
-use crate::{Bottom, BottomKind, CellRef, LatticeOp, LatticeOpType, bottom_details};
+use super::{OpError, ResolvedCellState, StateModel, StateModelKind, StateWrite};
+use crate::{CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Counter;
 
-impl Lattice for Counter {
-    fn kind(&self) -> LatticeKind {
-        LatticeKind::Counter
+impl StateModel for Counter {
+    fn kind(&self) -> StateModelKind {
+        StateModelKind::Counter
     }
 
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
@@ -56,16 +55,18 @@ impl Lattice for Counter {
         }
     }
 
-    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
+    fn resolve(
+        &self,
+        _cell: &CellRef,
+        sealed_ops: &[StateWrite],
+    ) -> Result<ResolvedCellState, OpError> {
         // Tagged dimensions go into a sorted map; un-tagged go into the
         // empty-string bucket. We return either an integer (single
         // un-tagged dim) or an object (when any tagged dim exists).
         let mut totals: BTreeMap<String, i64> = BTreeMap::new();
         let mut any_tagged = false;
         for entry in sealed_ops {
-            if self.validate_op(&entry.op).is_err() {
-                continue;
-            }
+            self.validate_op(&entry.op)?;
             let Some(v) = entry.op.value.as_ref().and_then(|v| v.as_i64()) else {
                 continue;
             };
@@ -87,13 +88,10 @@ impl Lattice for Counter {
             match slot.checked_add(signed) {
                 Some(next) => *slot = next,
                 None => {
-                    let mut bottom = Bottom::new(BottomKind::SchemaError, vec![cell.clone()]);
-                    bottom.move_ids = vec![entry.move_id.clone()];
-                    bottom.details = Some(bottom_details([
-                        ("error", json!("pn_counter_overflow")),
-                        ("tag", json!(tag)),
-                    ]));
-                    return CellState::Bottom(bottom);
+                    return Err(OpError::Unrepresentable {
+                        kind: "counter",
+                        reason: format!("integer overflow for tag {tag:?}"),
+                    });
                 }
             }
         }
@@ -107,12 +105,12 @@ impl Lattice for Counter {
                 };
                 obj.insert(key, Value::Number(Number::from(total)));
             }
-            CellState::Value(Value::Object(obj))
+            Ok(ResolvedCellState::Value(Value::Object(obj)))
         } else {
             // Single un-tagged bucket; values already overflow-checked above,
             // and there is at most one entry, so a plain read cannot overflow.
             let total: i64 = totals.values().copied().next().unwrap_or(0);
-            CellState::Value(json!(total))
+            Ok(ResolvedCellState::Value(json!(total)))
         }
     }
 }
@@ -206,28 +204,34 @@ mod tests {
     #[test]
     fn untagged_inc_dec_sums_deterministically() {
         let ops = vec![
-            SealedOp::new(move_id(1), inc(5)),
-            SealedOp::new(move_id(2), inc(3)),
-            SealedOp::new(move_id(3), dec(2)),
+            StateWrite::new(move_id(1), inc(5)),
+            StateWrite::new(move_id(2), inc(3)),
+            StateWrite::new(move_id(3), dec(2)),
         ];
-        assert_eq!(Counter.join(&cell(), &ops), CellState::Value(json!(6)));
+        assert_eq!(
+            Counter.resolve(&cell(), &ops),
+            Ok(ResolvedCellState::Value(json!(6)))
+        );
     }
 
     #[test]
     fn empty_join_returns_zero() {
-        assert_eq!(Counter.join(&cell(), &[]), CellState::Value(json!(0)));
+        assert_eq!(
+            Counter.resolve(&cell(), &[]),
+            Ok(ResolvedCellState::Value(json!(0)))
+        );
     }
 
     #[test]
     fn tagged_dimensions_returns_object() {
         let ops = vec![
-            SealedOp::new(move_id(1), inc_tag("approve", 3)),
-            SealedOp::new(move_id(2), inc_tag("reject", 1)),
-            SealedOp::new(move_id(3), inc_tag("approve", 2)),
+            StateWrite::new(move_id(1), inc_tag("approve", 3)),
+            StateWrite::new(move_id(2), inc_tag("reject", 1)),
+            StateWrite::new(move_id(3), inc_tag("approve", 2)),
         ];
-        let state = Counter.join(&cell(), &ops);
+        let state = Counter.resolve(&cell(), &ops).unwrap();
         match state {
-            CellState::Value(v) => {
+            ResolvedCellState::Value(v) => {
                 assert_eq!(v.get("approve").unwrap().as_i64().unwrap(), 5);
                 assert_eq!(v.get("reject").unwrap().as_i64().unwrap(), 1);
             }
@@ -238,12 +242,12 @@ mod tests {
     #[test]
     fn mixed_tagged_and_untagged_uses_object_with_default_bucket() {
         let ops = vec![
-            SealedOp::new(move_id(1), inc(10)),
-            SealedOp::new(move_id(2), inc_tag("voted", 3)),
+            StateWrite::new(move_id(1), inc(10)),
+            StateWrite::new(move_id(2), inc_tag("voted", 3)),
         ];
-        let state = Counter.join(&cell(), &ops);
+        let state = Counter.resolve(&cell(), &ops).unwrap();
         match state {
-            CellState::Value(v) => {
+            ResolvedCellState::Value(v) => {
                 assert_eq!(v.get("_default").unwrap().as_i64().unwrap(), 10);
                 assert_eq!(v.get("voted").unwrap().as_i64().unwrap(), 3);
             }
@@ -253,8 +257,11 @@ mod tests {
 
     #[test]
     fn dec_can_drive_total_negative() {
-        let ops = vec![SealedOp::new(move_id(1), dec(5))];
-        assert_eq!(Counter.join(&cell(), &ops), CellState::Value(json!(-5)));
+        let ops = vec![StateWrite::new(move_id(1), dec(5))];
+        assert_eq!(
+            Counter.resolve(&cell(), &ops),
+            Ok(ResolvedCellState::Value(json!(-5)))
+        );
     }
 
     #[test]
@@ -275,17 +282,16 @@ mod tests {
 
     #[test]
     fn kind_is_counter() {
-        assert_eq!(Counter.kind(), LatticeKind::Counter);
-        assert_eq!(LatticeKind::Counter.as_wire_str(), "counter");
+        assert_eq!(Counter.kind(), StateModelKind::Counter);
+        assert_eq!(StateModelKind::Counter.as_wire_str(), "counter");
     }
 
     #[test]
-    fn invalid_ops_skipped() {
+    fn invalid_ops_fail_resolution() {
         let ops = vec![
-            SealedOp::new(move_id(1), inc(-3)), // invalid
-            SealedOp::new(move_id(2), inc(7)),
+            StateWrite::new(move_id(1), inc(-3)), // invalid
+            StateWrite::new(move_id(2), inc(7)),
         ];
-        // Invalid op skipped; result is just inc(7) = 7.
-        assert_eq!(Counter.join(&cell(), &ops), CellState::Value(json!(7)));
+        assert!(Counter.resolve(&cell(), &ops).is_err());
     }
 }

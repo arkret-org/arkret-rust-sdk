@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-12.2;
-//! sha256=153db91288d2b05f75a41ca4cc782575d59be4d7bf6c32ea7266cfe24aaeae0f Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-12.12;
+//! sha256=642e46d669af8f44f5b221702430ba8e3adaced82393eeb105750e08ebc780da Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
-//! Entries: active_events=173, pre_state_requirements=8
+//! Entries: active_events=171, pre_state_requirements=8
 
 use arkret_wire::{
     CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
@@ -221,7 +221,7 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::AGENT_ACTION_APPROVE,
-        reducer_input: false,
+        reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],
         pre_state_requirements: &[],
@@ -472,13 +472,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         pre_state_requirements: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CIRCLE_SEAL_COMMIT,
-        reducer_input: false,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::CIRCLE_TOMBSTONE,
         reducer_input: true,
         id_source: None,
@@ -487,13 +480,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::CIRCLE_UPDATE,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::CONFLICT_RECOVERY,
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],

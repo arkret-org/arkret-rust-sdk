@@ -24,7 +24,13 @@ fn valid_proof() -> ProducerEventProof {
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
-        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_ref: Some(
+            arkret_wire::SignerEvidenceRef::new(format!(
+                "ak:signer_evidence:sha256:{}",
+                "6".repeat(64)
+            ))
+            .unwrap(),
+        ),
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
@@ -219,7 +225,13 @@ fn event_validate_proof_bindings_checks_digest_match() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest,
-        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_ref: Some(
+            arkret_wire::SignerEvidenceRef::new(format!(
+                "ak:signer_evidence:sha256:{}",
+                "6".repeat(64)
+            ))
+            .unwrap(),
+        ),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -259,7 +271,13 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest,
-        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_ref: Some(
+            arkret_wire::SignerEvidenceRef::new(format!(
+                "ak:signer_evidence:sha256:{}",
+                "6".repeat(64)
+            ))
+            .unwrap(),
+        ),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -300,7 +318,13 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest,
-        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_ref: Some(
+            arkret_wire::SignerEvidenceRef::new(format!(
+                "ak:signer_evidence:sha256:{}",
+                "6".repeat(64)
+            ))
+            .unwrap(),
+        ),
         created_at: Utc::now(),
         domain: None,
         audience: Some(Audience::Single(
@@ -325,8 +349,7 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         error.to_string().contains("proof_binding_missing"),
         "{error}"
     );
-    signed_event.proofs[0].as_producer_mut().unwrap().domain =
-        Some("ak:trust_domain:example.net".to_owned());
+    signed_event.proofs[0].domain = Some("ak:trust_domain:example.net".to_owned());
     assert!(
         signed_event
             .validate_proof_bindings_with_context_and_digest_suite(

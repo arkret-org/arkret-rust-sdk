@@ -129,7 +129,7 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 /// Payload of `ak.realm.policy_bundle`: the payload **is** this flat closed
 /// object, not a `state_payload` wrapper. Every revision restates the complete
 /// enabled component set, because the bundle is written wholesale into the
-/// `ak.component.realm.policy_bundle.v1` `cas_register` cell and the Realm
+/// `ak.component.realm.policy_bundle.v1` sequenced-state cell and the Realm
 /// object's derived policy fields re-derive from the latest accepted bundle.
 ///
 /// The closed property set is exactly the Realm policy components that have
@@ -147,7 +147,7 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 /// second, mutable truth for a create-locked field.
 ///
 /// `policy_revision` is strictly monotonic and is what gives this cell family a
-/// generation dimension inside its value — `cas_register` supersession binds by
+/// generation dimension inside its value; sequenced-state supersession binds by
 /// value, so a family that can otherwise repeat a value needs one
 /// (`event-auth-state-resolution.md` §9.3.1).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -206,8 +206,6 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom_escalation_after_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cell_lattices: Option<Vec<CellLatticeDeclaration>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_third_party_invite_verification_ids: Option<Vec<DidCoreId>>,
@@ -217,7 +215,7 @@ impl RealmPolicyBundlePayload {
     /// A bundle revision carrying one component set.
     ///
     /// Every component starts absent, and absent means **disabled**: the cell
-    /// is a `cas_register`, so a revision restates the complete enabled set and
+    /// is sequenced state, so a revision restates the complete enabled set and
     /// anything not written here is cleared. Authors building the next revision
     /// start from the currently accepted bundle
     /// ([`Self::restate`]) rather than from this constructor.
@@ -244,7 +242,6 @@ impl RealmPolicyBundlePayload {
             seal_compaction_max_interval_ms: None,
             max_authority_lifetime_ms: None,
             bottom_escalation_after_ms: None,
-            cell_lattices: None,
             preauth: None,
             allowed_third_party_invite_verification_ids: None,
         }
@@ -254,7 +251,7 @@ impl RealmPolicyBundlePayload {
     /// forward.
     ///
     /// This is the only safe way to author a follow-up revision. Because
-    /// `ak.component.realm.policy_bundle.v1` is a `cas_register`, a revision
+    /// `ak.component.realm.policy_bundle.v1` is sequenced state, a revision
     /// that writes only the components it means to change **clears** the rest.
     pub fn restate(&self, policy_revision: u64) -> Self {
         Self {
@@ -1098,8 +1095,8 @@ mod realm_control_payload_tests {
         let value = json!({
             "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "notary": {
-                "kind": "single_signer",
-                "signer": {
+                "kind": "quorum",
+                "signers": [{
                     "actor_id": {
                         "kind": "service",
                         "service_id": "ak:did_core:web:notary.example"
@@ -1109,7 +1106,9 @@ mod realm_control_payload_tests {
                     "jose_algorithm": "Ed25519",
                     "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                     "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
-                }
+                }],
+                "fault_tolerance": 0,
+                "max_clock_error_ms": 0
             }
         });
         let payload: RealmNotaryPayload = serde_json::from_value(value.clone()).unwrap();
@@ -1242,7 +1241,7 @@ mod realm_policy_bundle_tests {
 
     #[test]
     fn restating_a_revision_carries_every_component_forward() {
-        // The cas_register hazard: a next revision that only writes what it
+        // A sequenced revision that only writes what it
         // changes clears everything else. `restate` is the safe author path.
         let accepted = declared_bundle();
         let next = accepted.restate(4);

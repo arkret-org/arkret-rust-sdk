@@ -349,17 +349,22 @@ mod tests {
     }
 
     fn notary(creator: &Did) -> NotaryValue {
-        NotaryValue::single_signer(NotarySignerDescriptor {
-            actor_id: ActorId::service(arkret_wire::project_did_to_core_id(creator).unwrap()),
-            verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
-            key_kind: NotaryKeyKind::Ed25519Raw32,
-            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-            frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
-            frozen_public_key_digest: Hash::new(
-                "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
-            )
-            .unwrap(),
-        })
+        NotaryValue::new(
+            vec![NotarySignerDescriptor {
+                actor_id: ActorId::service(arkret_wire::project_did_to_core_id(creator).unwrap()),
+                verification_method: DidUrl::new(format!("{}#key-1", creator.as_str())).unwrap(),
+                key_kind: NotaryKeyKind::Ed25519Raw32,
+                jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+                frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+                frozen_public_key_digest: Hash::new(
+                    "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+                )
+                .unwrap(),
+            }],
+            0,
+            0,
+        )
+        .unwrap()
     }
 
     #[test]

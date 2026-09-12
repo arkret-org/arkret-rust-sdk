@@ -8,7 +8,7 @@ use arkret_wire::{ActorId, CellRef, Event, EventId, HistoryEffectiveScope, SealB
 use serde_json::Value;
 
 use crate::mls_governance_proof::ReplayEventLookup;
-use crate::{CasHeadsByCell, CellRegistry, CellStore, SealStore};
+use crate::{CellStateRegistry, CellStore, ResolvedCellState, SealStore};
 
 /// An exact membership result, independent of whether MLS has consumed its Add.
 /// No serialization or public field constructor can turn checkpoint material
@@ -54,10 +54,13 @@ fn membership_cell(
     ))?)
 }
 
-fn unique_join(heads: &CasHeadsByCell, cell: &CellRef) -> arkret_wire::Result<EventId> {
-    match heads.get(cell).map(Vec::as_slice) {
-        Some([head]) if head.value.as_str() == Some("join") => {
-            Ok(EventId::from_event_digest(&head.move_id)?)
+fn unique_join(
+    cells: &std::collections::BTreeMap<CellRef, ResolvedCellState>,
+    cell: &CellRef,
+) -> arkret_wire::Result<EventId> {
+    match cells.get(cell) {
+        Some(ResolvedCellState::Sequenced(state)) if state.value.as_str() == Some("join") => {
+            Ok(state.revision_event_id.clone())
         }
         _ => Err(WireError::Protocol(
             "membership has no unique effective join identity".to_owned(),
@@ -65,7 +68,7 @@ fn unique_join(heads: &CasHeadsByCell, cell: &CellRef) -> arkret_wire::Result<Ev
     }
 }
 
-/// Query accepted stores at this exact basis using the registered FSM heads.
+/// Query accepted stores at this exact basis using confirmed sequenced state.
 /// Invite acceptance and recovery use the same head identity as any other
 /// registered producer; payload kind is not an authorization discriminator.
 pub async fn membership_at_verified_basis(
@@ -74,7 +77,7 @@ pub async fn membership_at_verified_basis(
     basis: &SealBasis,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     events: &dyn ReplayEventLookup,
 ) -> arkret_wire::Result<VerifiedMembership> {
     basis.validate_protocol_bounds()?;
@@ -97,19 +100,20 @@ pub async fn membership_at_verified_basis(
     if let Some(circle) = scope.circle_id() {
         targets.push(membership_cell(actor, Some(circle))?);
     }
-    let heads = crate::causal_heads_for_cells_at(
-        &basis.leaves,
-        scope.realm_id(),
-        seals,
-        cells,
-        registry,
-        &targets,
-    )
-    .await
-    .map_err(|error| WireError::Protocol(error.to_string()))?;
-    let realm_join = unique_join(&heads, &realm_cell)?;
+    let view =
+        crate::effective_joined_view_at(&basis.leaves, scope.realm_id(), seals, cells, registry)
+            .await
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+    for target in &targets {
+        if !view.cells.contains_key(target) {
+            return Err(WireError::Protocol(format!(
+                "membership cell {target} is unavailable at the requested basis"
+            )));
+        }
+    }
+    let realm_join = unique_join(&view.cells, &realm_cell)?;
     let incarnation = if let Some(circle) = scope.circle_id() {
-        let circle_join = unique_join(&heads, &membership_cell(actor, Some(circle))?)?;
+        let circle_join = unique_join(&view.cells, &membership_cell(actor, Some(circle))?)?;
         let activation = events
             .event(&circle_join.event_digest())
             .await?
@@ -159,7 +163,7 @@ pub async fn member_history_at_verified_basis(
     basis: &SealBasis,
     seals: &dyn SealStore,
     cells: &dyn CellStore,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     events: &dyn ReplayEventLookup,
     retained_events: &[Event],
 ) -> arkret_wire::Result<(VerifiedMembership, Option<u64>)> {
@@ -168,20 +172,11 @@ pub async fn member_history_at_verified_basis(
     let group = scope.canonical_mls_group_id()?;
     let cell =
         crate::mls_cells::mls_epoch_cell_id(&arkret_wire::ScopeRef::from(scope.clone()), &group)?;
-    let heads = crate::causal_heads_for_cells_at(
-        &basis.leaves,
-        scope.realm_id(),
-        seals,
-        cells,
-        registry,
-        std::slice::from_ref(&cell),
-    )
-    .await
-    .map_err(|error| WireError::Protocol(error.to_string()))?;
-    let Some((transition, epoch)) = epoch_transition_from_heads(
-        scope,
-        heads.get(&cell).map(Vec::as_slice).unwrap_or_default(),
-    )?
+    let view =
+        crate::effective_joined_view_at(&basis.leaves, scope.realm_id(), seals, cells, registry)
+            .await
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+    let Some((transition, epoch)) = epoch_transition_from_state(scope, view.cells.get(&cell))?
     else {
         return Ok((membership, None));
     };
@@ -220,17 +215,19 @@ pub async fn member_history_at_verified_basis(
     Ok((membership, epoch))
 }
 
-fn epoch_transition_from_heads(
+fn epoch_transition_from_state(
     scope: &HistoryEffectiveScope,
-    heads: &[crate::lattice::cas_register::CasHead],
+    state: Option<&ResolvedCellState>,
 ) -> arkret_wire::Result<Option<(EventId, u64)>> {
-    let Some(first) = heads.first() else {
+    let Some(state) = state else {
         return Ok(None);
     };
-    if heads.iter().any(|head| head.value != first.value) {
-        return Err(WireError::Protocol("MLS epoch cell is Bottom".to_owned()));
-    }
-    let value = &first.value;
+    let ResolvedCellState::Sequenced(state) = state else {
+        return Err(WireError::Protocol(
+            "MLS epoch cell is not confirmed sequenced_state".to_owned(),
+        ));
+    };
+    let value = &state.value;
     if value.get("mls_group_id").and_then(Value::as_str)
         != Some(scope.canonical_mls_group_id()?.as_str())
         || value.get("effective_scope")
@@ -258,10 +255,9 @@ fn epoch_transition_from_heads(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lattice::cas_register::CasHead;
 
     #[test]
-    fn epoch_selection_uses_recovered_heads_and_rejects_unresolved_bottom() {
+    fn epoch_selection_requires_confirmed_sequenced_state() {
         let scope = HistoryEffectiveScope::Realm {
             realm_id: arkret_wire::RealmId::new(
                 "ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN",
@@ -269,9 +265,6 @@ mod tests {
             .unwrap(),
         };
         let first = EventId::new("ak:event:ARrXzX07X_prHPMAeOGPMrI4_sUFneJW2aYSvHN_-9aQ").unwrap();
-        let second = EventId::new("ak:event:AaDhdv-ZXFF_BFoRFd0wDaCk_iEjsbNYRgnubpgUwTGC").unwrap();
-        let recovery =
-            EventId::new("ak:event:AbNAprqpf8plo9xcY8bDOmf3mEUhUCZbN63erkPaxN_8").unwrap();
         let value = |id: &EventId| {
             serde_json::json!({
                 "effective_scope": arkret_wire::ScopeRef::from(scope.clone()),
@@ -280,45 +273,19 @@ mod tests {
                 "next_epoch": 1,
             })
         };
-        let op = |id: &EventId| crate::LatticeOp {
-            op_type: crate::LatticeOpType::Set,
-            value: Some(value(id)),
-            tag: None,
-            from: None,
-            to: None,
-            reason: None,
-            issuer_seq: None,
-        };
-        let mut writes = vec![
-            crate::SealedOp::new(first.event_digest(), op(&first)),
-            crate::SealedOp::new(second.event_digest(), op(&second)),
-        ];
-        let heads = crate::lattice::cas_register::cas_heads(&writes).unwrap();
-        assert!(epoch_transition_from_heads(&scope, &heads).is_err());
-        // Recovery selects a transition value, but owns a fresh write identity.
-        writes.push(crate::SealedOp::superseding(
-            recovery.event_digest(),
-            op(&first),
-            vec![first.event_digest(), second.event_digest()],
-        ));
-        let heads = crate::lattice::cas_register::cas_heads(&writes).unwrap();
-        assert_eq!(heads[0].move_id, recovery.event_digest());
+        let state = ResolvedCellState::Sequenced(crate::SequencedStateValue {
+            revision_event_id: first.clone(),
+            value: value(&first),
+        });
         assert_eq!(
-            epoch_transition_from_heads(&scope, &heads).unwrap(),
+            epoch_transition_from_state(&scope, Some(&state)).unwrap(),
             Some((first.clone(), 1))
         );
-        let same_value_heads = vec![
-            heads[0].clone(),
-            CasHead {
-                move_id: second.event_digest(),
-                value: value(&first),
-            },
-        ];
-        assert_eq!(
-            epoch_transition_from_heads(&scope, &same_value_heads).unwrap(),
-            Some((first, 1))
+        assert!(
+            epoch_transition_from_state(&scope, Some(&ResolvedCellState::Value(value(&first))))
+                .is_err()
         );
-        assert_eq!(epoch_transition_from_heads(&scope, &[]).unwrap(), None);
+        assert_eq!(epoch_transition_from_state(&scope, None).unwrap(), None);
     }
 
     #[test]
@@ -343,55 +310,29 @@ mod tests {
         )
         .unwrap();
         let write = writes.iter().find(|write| write.cell_id == cell).unwrap();
-        let mut registry = crate::MemoryCellRegistry::default();
-        registry.register_fsm(
-            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-            Some(Value::String("leave".into())),
-            vec![(Value::String("leave".into()), Value::String("join".into()))],
-            crate::EventCellBottom::Reject,
-        );
+        let mut registry = crate::MemoryCellStateRegistry::default();
+        registry
+            .register_domain_transition(
+                arkret_wire::CellFamilyId::MEMBER_STATE_V1,
+                Some(Value::String("leave".into())),
+                vec![(Value::String("leave".into()), Value::String("join".into()))],
+            )
+            .unwrap();
         let pre = std::collections::BTreeMap::from([(
             cell.clone(),
-            crate::CellState::Value(Value::String("leave".into())),
+            crate::ResolvedCellState::Sequenced(crate::SequencedStateValue {
+                revision_event_id: event.event_id.clone(),
+                value: Value::String("leave".into()),
+            }),
         )]);
         let effects =
             crate::resolve_projected_write(write, &event.realm_id, &pre, &registry).unwrap();
-        let ops = effects
-            .iter()
-            .map(|effect| crate::SealedOp::from_projection(event.event_id.event_digest(), effect))
-            .collect::<Vec<_>>();
-        let heads = CasHeadsByCell::from([(cell.clone(), crate::fsm_heads(&ops).unwrap())]);
-        assert_eq!(unique_join(&heads, &cell).unwrap(), event.event_id);
+        let state = ResolvedCellState::Sequenced(crate::SequencedStateValue {
+            revision_event_id: event.event_id.clone(),
+            value: effects[0].op.to.clone().unwrap(),
+        });
+        let cells = std::collections::BTreeMap::from([(cell.clone(), state)]);
+        assert_eq!(unique_join(&cells, &cell).unwrap(), event.event_id);
         assert!(!event.payload.contains_key("member_id"));
-    }
-
-    #[test]
-    fn membership_head_cases_match_the_normative_fixture() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/history-key-recovery-fixture.json",
-        )
-        .unwrap();
-        let cases = fixture["direct_traversal_kat"]["since_join_lineage"]["membership_head_cases"]
-            .as_array()
-            .unwrap();
-        let cell = CellRef::new("ak:cell:ak.component.member.state.v1:subject").unwrap();
-        for case in cases {
-            let heads = case["heads"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|head| CasHead {
-                    move_id: EventId::new(head["event_id"].as_str().unwrap())
-                        .unwrap()
-                        .event_digest(),
-                    value: head["value"].clone(),
-                })
-                .collect::<Vec<_>>();
-            let actual = unique_join(&CasHeadsByCell::from([(cell.clone(), heads)]), &cell).ok();
-            let expected = case["expected_incarnation"]
-                .as_str()
-                .map(|value| EventId::new(value).unwrap());
-            assert_eq!(actual, expected, "{}", case["name"]);
-        }
     }
 }

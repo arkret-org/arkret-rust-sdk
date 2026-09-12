@@ -474,15 +474,17 @@ mod tests {
                 "security_class": "standard",
                 "encryption_profile": "mls_rfc9420",
                 "notary": {
-                    "kind": "single_signer",
-                    "signer": {
+                    "kind": "quorum",
+                    "signers": [{
                         "actor_id": actor(),
                         "verification_method": "did:webvh:z6mkfixture:founder.example#key-1",
                         "key_kind": "ed25519_raw32",
                         "jose_algorithm": "Ed25519",
                         "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
                         "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
-                    }
+                    }],
+                    "fault_tolerance": 0,
+                    "max_clock_error_ms": 0
                 }
             }}),
         )
@@ -664,8 +666,14 @@ mod tests {
     fn rejects_bootstrap_followup_routed_with_data_plane_basis() {
         let mut events = complete_unit();
         let followup = events.get_mut(1).unwrap();
-        followup.seal_ref =
-            Some(arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
+        followup.auth_context = Some(arkret_wire::AuthContext {
+            key_id: arkret_wire::OpaqueLocalId::new("device:fixture").unwrap(),
+            key_epoch: 1,
+            credential_epoch: None,
+            authority_refs: vec![
+                arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            ],
+        });
         assert_eq!(
             validate_realm_bootstrap_unit(&events),
             Err(RealmBootstrapValidationError::PlaneCrossWrite)

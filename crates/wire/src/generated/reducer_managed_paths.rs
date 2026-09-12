@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/reducer-managed-path-registry.json; version=2026-08-23.1;
-//! sha256=aaff5fbfe2de048b5659500ea4a618242031ae305bea54ad8c585fb4641726b2
-//! Entries: universal_paths=9, object_kinds=7, any_object_paths=17
+//! Input: registry/reducer-managed-path-registry.json; version=2026-09-12.6;
+//! sha256=ef3c5d173ec1ff9f31693d6355990f10303e9819c6f2263c02ed94d96a7b4632
+//! Entries: universal_paths=9, object_kinds=7, any_object_paths=20
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReducerManagedPathDescriptor {
@@ -150,7 +150,26 @@ pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[
     },
     ReducerManagedObjectDescriptor {
         object_kind: "space",
-        forbidden_paths: &[],
+        forbidden_paths: &[
+            ReducerManagedObjectPathDescriptor {
+                path: "child_scope_policy",
+                basis: "cell_projection",
+                reason_code: "patch_path_reducer_managed",
+                schema_enforced: true,
+            },
+            ReducerManagedObjectPathDescriptor {
+                path: "parent_space_id",
+                basis: "cell_projection",
+                reason_code: "patch_path_reducer_managed",
+                schema_enforced: true,
+            },
+            ReducerManagedObjectPathDescriptor {
+                path: "scope_circle_id",
+                basis: "create_locked",
+                reason_code: "patch_path_reducer_managed",
+                schema_enforced: true,
+            },
+        ],
         universal_exemptions: &[],
     },
     ReducerManagedObjectDescriptor {
@@ -184,6 +203,7 @@ pub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[
 /// the per-object table instead, because applying this superset to a
 /// View rejects the `state` patch that `views.md` section 3.1 requires.
 pub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[
+    "child_scope_policy",
     "created_at",
     "created_by",
     "effective_scope",
@@ -191,10 +211,12 @@ pub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[
     "id",
     "mls_group_id",
     "morph_kind",
+    "parent_space_id",
     "realm_id",
     "resolution",
     "schema",
     "schema_refs",
+    "scope_circle_id",
     "stage",
     "stage_changed_at",
     "state",

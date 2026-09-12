@@ -237,7 +237,7 @@ impl RealmJoinBootstrapAssembly {
             let seal = seals
                 .get(&id)
                 .ok_or_else(|| invalid("bootstrap omitted a Seal predecessor"))?;
-            pending.extend(seal.predecessor_refs.iter().cloned());
+            pending.extend(seal.predecessor_ref.iter().cloned());
             pending_dependencies.extend(coordinates(std::slice::from_ref(*seal), &[])?);
             for digest in &seal.delta {
                 if !seen_events.insert(digest.clone()) {

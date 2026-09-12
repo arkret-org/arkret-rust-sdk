@@ -1,7 +1,6 @@
 use arkret_models_integration::{AppletPackage, AppletWireNamespaces};
 use arkret_wire::{
-    AccountId, AppletId, Did, DidKey, DidUrl, Hlc, ProducerEventProof, RealmId,
-    StationAdmissionProof, StationAdmissionProofKind,
+    AccountId, AppletId, Did, DidUrl, Hash, Hlc, ProducerEventProof, RealmId, SignerEvidenceRef,
 };
 use serde_json::json;
 
@@ -14,7 +13,7 @@ fn account(name: &str) -> ActorId {
     ActorId::account(AccountId::new(core(name), core("station")))
 }
 
-fn resign(event: &mut Event, accepted: bool) {
+fn resign(event: &mut Event, _accepted: bool) {
     let suite = arkret_canonical::DigestSuite::Sha256;
     event
         .refresh_content_bound_identity_with_digest_suite(suite)
@@ -37,40 +36,17 @@ fn resign(event: &mut Event, accepted: bool) {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new(method).unwrap(),
         event_digest: digest.clone(),
-        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_ref: Some(
+            SignerEvidenceRef::new(format!("ak:signer_evidence:sha256:{}", "33".repeat(32)))
+                .unwrap(),
+        ),
         created_at: event.created_at,
         domain: None,
         audience: None,
         proof_purpose: None,
         jws: arkret_wire::test_support::structural_only_detached_jws(&digest),
     };
-    event.proofs = vec![producer.clone().into()];
-    if accepted {
-        event.proofs.push(
-            StationAdmissionProof {
-                kind: StationAdmissionProofKind::StationAdmission,
-                verification_method: DidUrl::new("did:web:station.example#admission").unwrap(),
-                event_digest: digest.clone(),
-                producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer)
-                    .unwrap(),
-                producer_verification_method: producer.verification_method,
-                producer_signing_key_did: DidKey::new(
-                    "did:key:z6MkvLM6yK9N3Z1GYikAQLnhdjZoFQv4u4sRZNzgmwLkYsXx",
-                )
-                .unwrap(),
-                producer_signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
-                    "ak:signer_evidence:sha256:{}",
-                    "33".repeat(32)
-                ))
-                .unwrap(),
-                applet_installation_digest: None,
-                accepted_at: event.created_at,
-                jws: arkret_wire::test_support::structural_only_detached_jws(&digest),
-            }
-            .into(),
-        );
-    }
+    event.proofs = vec![producer];
 }
 
 fn fixture() -> (Event, AppletInstallationAuthority) {
@@ -263,13 +239,9 @@ fn crossed_scope_applet_grant_epoch_and_action_fail_closed() {
 }
 
 #[test]
-fn replica_binds_frozen_authority_and_discovers_its_signers() {
-    let (mut event, authority) = fixture();
-    resign(&mut event, true);
+fn replica_binds_frozen_authority_and_verifies_dependencies() {
+    let (event, authority) = fixture();
     let digest = authority.canonical_sha256_digest().unwrap();
-    if let EventProof::StationAdmission(admission) = &mut event.proofs[1] {
-        admission.applet_installation_digest = Some(digest.clone());
-    }
     let mut verified = Vec::new();
     let origin = verify_applet_installation_authority(&event, &authority, |dependency| {
         verified.push(dependency.event_id.clone());
@@ -289,32 +261,11 @@ fn replica_binds_frozen_authority_and_discovers_its_signers() {
         applet_installation_authority: Box::new(authority.clone()),
     };
     assert_eq!(dependency.dependency_selectors().unwrap().len(), 1);
-    for mutation in ["missing", "wrong-digest", "wrong-station", "producer"] {
-        let mut wrong = event.clone();
-        if let EventProof::StationAdmission(admission) = &mut wrong.proofs[1] {
-            match mutation {
-                "missing" => admission.applet_installation_digest = None,
-                "wrong-digest" => {
-                    admission.applet_installation_digest =
-                        Some(Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap())
-                }
-                "wrong-station" => {
-                    admission.verification_method =
-                        DidUrl::new("did:web:other.example#admission").unwrap()
-                }
-                _ => {
-                    admission.producer_proof_digest =
-                        Hash::new(format!("sha256:{}", "ff".repeat(32))).unwrap()
-                }
-            }
-        }
-        assert!(
-            validate_applet_installation_coordinates(&wrong, &authority).is_err(),
-            "{mutation}"
-        );
-    }
+    let mut missing_proof = event.clone();
+    missing_proof.proofs.clear();
+    assert!(validate_applet_installation_coordinates(&missing_proof, &authority).is_err());
     // There is deliberately no current installation or revocation lookup in
-    // historical origin verification: only the original frozen evidence wins.
+    // historical producer verification: only the original frozen evidence wins.
     assert_eq!(
         validate_applet_installation_coordinates(&event, &authority).unwrap(),
         origin

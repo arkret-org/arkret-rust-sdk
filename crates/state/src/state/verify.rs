@@ -33,9 +33,8 @@ use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
 
-use super::is_sole_recovery_cell;
-use super::store::{CellRegistry, EventCellBottom, StoreError};
-use crate::lattice::CellState;
+use super::store::{CellStateRegistry, EventCellBottom, StoreError};
+use crate::state_model::ResolvedCellState;
 use crate::{
     BottomKind, CellRef, LatticeOp, LatticeOpType, ObservedRemoveMatch, Predicate, PredicateOp,
     ProjectedCellWrite, ProjectedOp, ProjectionEffect, RealmId,
@@ -86,8 +85,8 @@ impl From<StoreError> for ControlMoveReject {
 #[derive(Clone, Copy)]
 pub struct ControlMoveVerificationContext<'a> {
     pub realm_id: &'a RealmId,
-    pub pre_state: &'a BTreeMap<CellRef, CellState>,
-    pub registry: &'a dyn CellRegistry,
+    pub pre_state: &'a BTreeMap<CellRef, ResolvedCellState>,
+    pub registry: &'a dyn CellStateRegistry,
     pub digest_suite: arkret_canonical::DigestSuite,
     pub submit_context: EventSubmitContext,
 }
@@ -126,7 +125,7 @@ pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
 /// `pre_state` MUST be the joined governance state of the receiving Seal's
 /// predecessor view — never a baseline advanced by same-batch writes
 /// (§6.3.1 frozen-predecessor rule). Cells absent from the map are treated
-/// as `CellState::Value(Value::Null)`.
+/// as `ResolvedCellState::Value(Value::Null)`.
 ///
 /// `verify_proofs` owns cryptographic signature verification; pass
 /// `|_| Ok(())` when signatures are checked elsewhere (e.g. fixture replay).
@@ -141,8 +140,8 @@ pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
 pub fn verify_control_move<VerifyProofs, ProjectWrites>(
     event: &Event,
     realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
+    registry: &dyn CellStateRegistry,
     digest_suite: arkret_canonical::DigestSuite,
     verify_proofs: VerifyProofs,
     project_writes: ProjectWrites,
@@ -190,9 +189,7 @@ where
     )
 }
 
-/// Verify a Control Move after its origin Station has appended the
-/// mandatory admission proof. The remaining CBS checks are identical to the
-/// producer-submission path, but the closed proof set is Producer + Admission.
+/// Verify a Control Move loaded from accepted federation history.
 pub fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
     verification: ControlMoveVerificationContext<'_>,
@@ -212,9 +209,7 @@ where
     )
 }
 
-/// Verify one retained Control Move using its exact historical proof regime.
-/// Sole-Producer Events use the direct-history structural contract, while
-/// Producer + StationAdmission Events use the federation contract.
+/// Verify one retained producer-signed Control Move.
 pub fn verify_replayed_control_move_in_context<VerifyProofs, ProjectWrites>(
     event: &Event,
     verification: ControlMoveVerificationContext<'_>,
@@ -260,8 +255,8 @@ where
         submit_context: context,
     } = verification;
     // Step 1: structural. `validate_for_submit_structural` also enforces the
-    // CBS envelope shape, so a DataEvent (`seal_ref` + `auth_context`) or an
-    // Event with neither basis cannot reach the control-plane reducer here.
+    // CBS envelope shape, so an ordinary Event with `auth_context` or an Event
+    // with neither authorization context nor basis cannot reach this reducer.
     match proof_regime {
         StructuralProofRegime::ProducerSubmission => event
             .validate_for_submit_structural_in_context(context)
@@ -269,22 +264,9 @@ where
         StructuralProofRegime::FederationAccepted => event
             .validate_for_federation_structural_in_context(context, digest_suite)
             .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
-        StructuralProofRegime::RetainedReplay => match event.proofs.as_slice() {
-            [arkret_wire::EventProof::Producer(_)] => event
-                .validate_for_direct_history_structural_in_context(context)
-                .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
-            [
-                arkret_wire::EventProof::Producer(_),
-                arkret_wire::EventProof::StationAdmission(_),
-            ] => event
-                .validate_for_federation_structural_in_context(context, digest_suite)
-                .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
-            _ => {
-                return Err(ControlMoveReject::SchemaViolation(
-                    "retained Event has an unsupported proof regime".to_owned(),
-                ));
-            }
-        },
+        StructuralProofRegime::RetainedReplay => event
+            .validate_for_direct_history_structural_in_context(context)
+            .map_err(|e| ControlMoveReject::SchemaViolation(e.to_string()))?,
     }
     if event.realm_id != *realm_id {
         return Err(ControlMoveReject::SchemaViolation(format!(
@@ -334,13 +316,13 @@ where
         let cell_state = pre_state
             .get(&pre.cell_id)
             .cloned()
-            .unwrap_or(CellState::Value(Value::Null));
+            .unwrap_or(ResolvedCellState::Value(Value::Null));
         // bottom=reject cells fail closed.
-        if let CellState::Bottom(b) = &cell_state {
+        if let ResolvedCellState::Bottom(b) = &cell_state {
             let binding = registry
                 .resolve(realm_id, &pre.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode != EventCellBottom::Expose {
+            if binding.bottom_mode != Some(EventCellBottom::Expose) {
                 return Err(ControlMoveReject::FailedBottom {
                     cell: pre.cell_id.as_str().to_owned(),
                     kind: b.kind,
@@ -350,147 +332,55 @@ where
         evaluate_predicate(&pre.cell_id, &pre.predicate, &cell_state)?;
     }
 
-    // Step 5: derive every write from kind + payload, then validate its shape
-    // against the target cell's lattice.
+    // Step 5: derive each security write and validate it against the frozen
+    // predecessor state and the registered sequenced-state contract.
     let projected = project_writes(event).map_err(ControlMoveReject::ProjectionFailed)?;
-    for write in &projected {
-        if !matches!(write.op, ProjectedOp::Reset { .. }) {
-            continue;
-        }
-        // §9.5 splits by lattice, so the target cell decides which conditions
-        // apply — see `verify_recovery_refs`.
-        let lattice = registry
-            .resolve(realm_id, &write.cell_id)
-            .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
-            .lattice
-            .kind();
-        verify_recovery_refs(event, lattice)?;
-    }
     let mut effects = Vec::with_capacity(projected.len());
     for write in &projected {
         for effect in resolve_projected_write(write, realm_id, pre_state, registry)? {
             let binding = registry
                 .resolve(realm_id, &effect.cell_id)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            // No generalized whole-value head_eq is required here. Section
-            // 9.3.1.3 item 1 forbids it outright -- the signed seal_basis
-            // already fixes the complete pre-state, so demanding the old
-            // business value on the wire is redundant, and it cannot express a
-            // claim/release/claim slot in the first place. The guard that does
-            // the work is the identity comparison H_c(B) = H_c(P) at Seal
-            // admission (item 3, `apply_seal`); registered business
-            // preconditions are still evaluated above like any other predicate.
-            //
-            // What Bottom costs the write does depend on the family (9.3.1.4).
-            // Where the write's own authorization or business precondition
-            // reads the cell, Bottom leaves nobody able to author an ordinary
-            // write, so only `ak.conflict.recovery` may move it. Every other
-            // `cas_register` family heals through an authorized ordinary write,
-            // so a Bottom target alone is not a rejection.
-            //
-            // `fsm` needs no list: section 9.3.1.7 item 2 makes an ordinary
-            // transition's `from` equal the settled value, which does not exist
-            // under Bottom, so every fsm family is sole-recovery by
-            // construction. A `TransitionTo` projection derives `from` from the
-            // pre-state and so already fails closed there, but a Direct
-            // transition carries a producer-supplied `from` and would otherwise
-            // pass -- and it would then supersede the very heads that disagree,
-            // resolving a Bottom that only a recovery may resolve.
-            let blocked_by_bottom = match binding.lattice.kind() {
-                crate::lattice::LatticeKind::CasRegister => {
-                    effect.op.op_type == LatticeOpType::Set
-                        && is_sole_recovery_cell(effect.cell_id.as_str())
-                }
-                crate::lattice::LatticeKind::Fsm => effect.op.op_type == LatticeOpType::Transition,
-                _ => false,
-            };
-            if blocked_by_bottom
-                && !matches!(write.op, ProjectedOp::Reset { .. })
-                && binding.bottom_mode != EventCellBottom::Expose
-                && let Some(CellState::Bottom(bottom)) = pre_state.get(&effect.cell_id)
+            if binding.execution != arkret_wire::EventCellExecution::Security
+                || binding.state_model != crate::state_model::StateModelKind::SequencedState
             {
+                return Err(ControlMoveReject::SchemaViolation(format!(
+                    "control Event projected ordinary data cell {}",
+                    effect.cell_id
+                )));
+            }
+            if let Some(ResolvedCellState::Bottom(bottom)) = pre_state.get(&effect.cell_id) {
                 return Err(ControlMoveReject::FailedBottom {
                     cell: effect.cell_id.as_str().to_owned(),
                     kind: bottom.kind,
                 });
             }
-            // A §9.5.1 recovery answers to its own shape rule: on `fsm` it is a
-            // transition with no `from`, which the ordinary check rejects.
-            let shape = if effect.recovery_reset {
-                binding.lattice.validate_recovery_op(&effect.op)
-            } else {
-                binding.lattice.validate_op(&effect.op)
-            };
-            shape.map_err(|e| {
+            binding.model.validate_op(&effect.op).map_err(|e| {
                 ControlMoveReject::SchemaViolation(format!(
                     "derived write on {} invalid: {e}",
                     effect.cell_id
                 ))
             })?;
+            if let Some(rule) = &binding.domain_transition {
+                let current = pre_state
+                    .get(&effect.cell_id)
+                    .and_then(ResolvedCellState::settled_value);
+                rule.validate(current, &effect.op).map_err(|e| {
+                    ControlMoveReject::FailedPrecondition {
+                        cell: effect.cell_id.as_str().to_owned(),
+                        reason: e.to_string(),
+                    }
+                })?;
+            }
             effects.push(effect);
         }
     }
     Ok(effects)
 }
 
-/// `event-auth-state-resolution.md` §9.5 condition 1 — the recovery Move MUST
-/// carry its authorization as a critical `refs[]` entry, and for the lattices
-/// §9.5 still anchors that way, its pre-conflict `state_witness` too.
-///
-/// These are refs, not payload fields, so nothing in the payload schema can
-/// enforce them; without this check a Move that merely names the right kind
-/// resets a cell with no authorization at all.
-///
-/// **`cas_register` requires no `state_witness`** (§9.5.1). Its recovery is an
-/// ordinary identity write whose target conflict is proved by the Move's own
-/// signed basis showing divergent heads, and whose authority is proved by its
-/// registered capability path — two separate proofs, neither of which is a
-/// witness to a pre-conflict value. Demanding one is not merely redundant, it
-/// is unsatisfiable in the case that matters most: a cell that conflicted on its
-/// *first* write never had a legal prior value for anything to witness. §9.5.1
-/// also drops `recovery_witness_freshness_window_ms` on this path, so a
-/// long-unrepaired conflict cannot age out of a still-valid authority's reach.
-///
-/// For the remaining `bottom=reject` lattices (`fsm`) conditions 2–5 (witness
-/// inclusion proof, pre-conflict causality, capability sealed under the witness,
-/// freshness / revoke lag) are frontier-dependent and belong to the
-/// Seal-accepting caller, which is the only layer holding the Seal DAG.
-fn verify_recovery_refs(
-    event: &Event,
-    lattice: crate::lattice::LatticeKind,
-) -> Result<(), ControlMoveReject> {
-    let critical_ref = |role: &str| {
-        event
-            .refs
-            .iter()
-            .any(|reference| reference.role == role && reference.critical)
-    };
-    if !critical_ref("recovery_capability") {
-        return Err(ControlMoveReject::FailedPrecondition {
-            cell: event
-                .payload
-                .get("target_cell_id")
-                .and_then(Value::as_str)
-                .unwrap_or(event.realm_id.as_str())
-                .to_owned(),
-            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
-        });
-    }
-    // §9.5.1: a causal register's recovery proves its target conflict from its
-    // own signed basis, so it owes no pre-conflict `state_witness`. The witness
-    // family is still MUST for a `bottom=reject` lattice that is not causal.
-    if !crate::state::seal::is_causal_register(lattice) && !critical_ref("state_witness") {
-        return Err(ControlMoveReject::FailedPrecondition {
-            cell: event.realm_id.as_str().to_owned(),
-            reason: "recovery_witness_missing".to_owned(),
-        });
-    }
-    Ok(())
-}
-
 fn verify_fork_resolution_refs(
     event: &Event,
-    pre_state: &BTreeMap<CellRef, CellState>,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
 ) -> Result<(), ControlMoveReject> {
     // Exactly one, never merely at least one: two grants would leave which
     // authority actually approved the resolution ambiguous.
@@ -502,12 +392,12 @@ fn verify_fork_resolution_refs(
         .next()
         .ok_or_else(|| ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
-            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
+            reason: "failed_precondition".to_owned(),
         })?;
     if capabilities.next().is_some() {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
-            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
+            reason: "failed_precondition".to_owned(),
         });
     }
     // `state_witness` attests the single legal value a cell held before it
@@ -570,7 +460,7 @@ fn verify_fork_resolution_refs(
     ) {
         return Err(ControlMoveReject::FailedPrecondition {
             cell: event.realm_id.as_str().to_owned(),
-            reason: arkret_wire::ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED.to_owned(),
+            reason: "failed_precondition".to_owned(),
         });
     }
     Ok(())
@@ -588,81 +478,32 @@ fn verify_fork_resolution_refs(
 pub fn resolve_projected_write(
     write: &ProjectedCellWrite,
     realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
+    registry: &dyn CellStateRegistry,
 ) -> Result<Vec<ProjectionEffect>, ControlMoveReject> {
     if let Some(direct) = write.as_direct() {
         return Ok(vec![direct]);
     }
-    // `event-auth-state-resolution.md` §9.5. A reset replaces the cell instead
-    // of joining into it, so it is resolved before `frozen_cell_value` — that
-    // helper rejects a `bottom=reject` cell in `⊥`, which is the only state a
-    // reset is allowed to see. The target MUST already be in `⊥`: permitting it
-    // on a live cell would turn recovery into a general overwrite channel that
-    // bypasses every lattice and every precondition.
-    if let ProjectedOp::Reset { value } = &write.op {
-        match pre_state.get(&write.cell_id) {
-            Some(CellState::Bottom(_)) => {}
-            _ => {
-                return Err(ControlMoveReject::FailedPrecondition {
-                    cell: write.cell_id.as_str().to_owned(),
-                    reason: "recovery_target_not_in_bottom".to_owned(),
-                });
-            }
-        }
-        let kind = registry
-            .resolve(realm_id, &write.cell_id)
-            .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
-            .lattice
-            .kind();
-        let mut op = LatticeOp::empty();
-        // The registered contract projects one `reset` regardless of target
-        // (`ak.conflict.recovery` declares no lattice — the cell does), so the
-        // op shape is decided here, from the target's own lattice. `fsm` accepts
-        // no `set`: §9.5.1 makes its recovery an ordinary transition write that
-        // still owes the §9.3.1.7 admission, so it has to travel as one.
-        //
-        // It carries no `from`. Under `⊥` the write supersedes two or more
-        // divergent heads, so its sources are a set; `Fsm::validate_recovery_op`
-        // rejects a single one, and `Fsm::validate_recovery_sources` checks the
-        // set against the transition table in `apply_seal`, where the basis
-        // heads exist.
-        if kind == crate::lattice::LatticeKind::Fsm {
-            op.op_type = LatticeOpType::Transition;
-            op.to = Some(value.clone());
-        } else {
-            op.op_type = LatticeOpType::Set;
-            op.value = Some(value.clone());
-        }
-        // Marked as a reset, not merely projected as an ordinary write. The op
-        // vocabulary is spec-registered and has no `reset` member, so an
-        // unmarked op is indistinguishable from a normal write — and for `fsm`
-        // it would additionally be held to the ordinary `from` requirement it
-        // cannot satisfy.
-        return Ok(vec![ProjectionEffect::reset(write.cell_id.clone(), op)]);
-    }
     let observed = frozen_cell_value(&write.cell_id, realm_id, pre_state, registry)?;
     match &write.op {
-        // Both handled above, before the pre-state is read: a direct write does
-        // not need it, and a reset is the one write allowed to see a cell in ⊥.
         ProjectedOp::Direct(_) => unreachable!("direct writes are resolved before the pre-state"),
-        ProjectedOp::Reset { .. } => unreachable!("a reset is resolved before the pre-state"),
         ProjectedOp::TransitionTo { to } => {
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Transition;
-            // A cell no write has reached yet reads as its registered initial
-            // state, not as null. The fsm join starts there, so deriving null
-            // here would make every first transition join to Bottom.
             op.from = Some(if pre_state.contains_key(&write.cell_id) {
                 current_head(&observed)
             } else {
                 let binding = registry
                     .resolve(realm_id, &write.cell_id)
                     .map_err(|error| ControlMoveReject::Registry(error.to_string()))?;
-                binding.lattice.initial_state().unwrap_or(Value::Null)
+                binding
+                    .domain_transition
+                    .as_ref()
+                    .and_then(|rule| rule.initial_state().cloned())
+                    .unwrap_or(Value::Null)
             });
             op.to = Some(to.clone());
-            Ok(vec![ProjectionEffect::join(write.cell_id.clone(), op)])
+            Ok(vec![ProjectionEffect::new(write.cell_id.clone(), op)])
         }
         ProjectedOp::ApplyPatch {
             patch,
@@ -707,7 +548,7 @@ pub fn resolve_projected_write(
                 ))
             })?;
             // §4.3.1 step 3: `apply_patch` is only registered for
-            // `mv_register` / `cas_register`, and those produce a single `set`
+            // `causal_register` / `causal_register`, and those produce a single `set`
             // whose value is the complete post-state — never the patch itself.
             let post_state = patch.apply(&observed).map_err(|err| {
                 ControlMoveReject::ProjectionFailed(format!(
@@ -717,7 +558,7 @@ pub fn resolve_projected_write(
             })?;
             let mut op = LatticeOp::empty();
             op.value = Some(post_state);
-            // §9.3.1 makes a `cas_register` set carry the whole value it
+            // §9.3.1 makes a `causal_register` set carry the whole value it
             // supersedes. A direct `set` copies it off the Move's `head_eq`
             // precondition; here the frozen pre-state *is* that value — it is
             // what the patch was applied to — so the receiver derives it rather
@@ -727,13 +568,13 @@ pub fn resolve_projected_write(
             if registry
                 .resolve(realm_id, &write.cell_id)
                 .map_err(|error| ControlMoveReject::Registry(error.to_string()))?
-                .lattice
+                .model
                 .kind()
-                == crate::lattice::LatticeKind::CasRegister
+                == crate::state_model::StateModelKind::CausalRegister
             {
                 op.from = Some(observed);
             }
-            Ok(vec![ProjectionEffect::join(write.cell_id.clone(), op)])
+            Ok(vec![ProjectionEffect::new(write.cell_id.clone(), op)])
         }
         ProjectedOp::RemoveObserved { element_match } => Ok(observed_remove_ops(
             &write.cell_id,
@@ -751,17 +592,19 @@ pub fn resolve_projected_write(
 fn frozen_cell_value(
     cell: &CellRef,
     realm_id: &RealmId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-    registry: &dyn CellRegistry,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
+    registry: &dyn CellStateRegistry,
 ) -> Result<Value, ControlMoveReject> {
     match pre_state.get(cell) {
         None => Ok(Value::Null),
-        Some(CellState::Value(value)) => Ok(value.clone()),
-        Some(CellState::Bottom(bottom)) => {
+        Some(state) if state.settled_value().is_some() => {
+            Ok(state.settled_value().expect("checked").clone())
+        }
+        Some(ResolvedCellState::Bottom(bottom)) => {
             let binding = registry
                 .resolve(realm_id, cell)
                 .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_mode == EventCellBottom::Expose {
+            if binding.bottom_mode == Some(EventCellBottom::Expose) {
                 Ok(Value::Null)
             } else {
                 Err(ControlMoveReject::FailedBottom {
@@ -770,20 +613,15 @@ fn frozen_cell_value(
                 })
             }
         }
+        Some(_) => Err(ControlMoveReject::FailedPrecondition {
+            cell: cell.as_str().to_owned(),
+            reason: "cell has no settled domain value".to_owned(),
+        }),
     }
 }
 
-/// The current head of a cell value.
-///
-/// Cells materialize either as the bare head (an `fsm` state string) or as a
-/// composite object carrying it under `head`; `evaluate_predicate` accepts
-/// both, and `transition_to`'s derived `from` must agree with what a
-/// `head_eq` precondition on the same cell would have compared.
 fn current_head(observed: &Value) -> Value {
-    observed
-        .get("head")
-        .cloned()
-        .unwrap_or_else(|| observed.clone())
+    observed.clone()
 }
 
 /// Every surviving add dot on an or-set cell, narrowed by `element_match`.
@@ -807,12 +645,12 @@ fn observed_remove_ops(
                 .and_then(|value| dotted_path(value, &rule.element_field))
                 .is_some_and(|found| *found == rule.expected),
         })
-        .filter_map(|item| item.get("tag").and_then(Value::as_str))
+        .filter_map(|item| item.get("tag_id").and_then(Value::as_str))
         .map(|tag| {
             let mut op = LatticeOp::empty();
             op.op_type = LatticeOpType::Remove;
             op.tag = Some(tag.to_owned());
-            ProjectionEffect::join(cell.clone(), op)
+            ProjectionEffect::new(cell.clone(), op)
         })
         .collect()
 }
@@ -862,7 +700,7 @@ impl CapabilityGrantCellValue {
 
 fn verify_capability_refs(
     event: &Event,
-    pre_state: &BTreeMap<CellRef, CellState>,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
 ) -> Result<(), ControlMoveReject> {
     for reference in event
         .refs
@@ -906,18 +744,18 @@ fn verify_capability_refs(
 
 fn find_capability_grant(
     grant_id: &str,
-    pre_state: &BTreeMap<CellRef, CellState>,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
 ) -> Result<CapabilityGrantCellValue, ControlMoveReject> {
     let mut saw_bottom = false;
     for (cell, state) in pre_state {
         if !is_capability_grant_cell(cell) {
             continue;
         }
-        match state {
-            CellState::Bottom(_) => {
+        match state.settled_value() {
+            None => {
                 saw_bottom = true;
             }
-            CellState::Value(value) => {
+            Some(value) => {
                 if let Some(grant) = grant_from_cell_value(grant_id, value)? {
                     return Ok(grant);
                 }
@@ -935,23 +773,10 @@ fn find_capability_grant(
     )))
 }
 
-pub(super) fn recovery_capability_is_active(
-    grant_id: &str,
-    actor_id: &ActorId,
-    pre_state: &BTreeMap<CellRef, CellState>,
-) -> bool {
-    recovery_capability_is_active_for(
-        grant_id,
-        actor_id,
-        pre_state,
-        arkret_wire::event_kind_str::CONFLICT_RECOVERY,
-    )
-}
-
 fn recovery_capability_is_active_for(
     grant_id: &str,
     actor_id: &ActorId,
-    pre_state: &BTreeMap<CellRef, CellState>,
+    pre_state: &BTreeMap<CellRef, ResolvedCellState>,
     action: &str,
 ) -> bool {
     find_capability_grant(grant_id, pre_state).is_ok_and(|grant| {
@@ -999,27 +824,15 @@ fn grant_from_cell_value(
 fn evaluate_predicate(
     cell: &CellRef,
     pred: &Predicate,
-    cell_state: &CellState,
+    cell_state: &ResolvedCellState,
 ) -> Result<(), ControlMoveReject> {
-    let observed: &Value = match cell_state {
-        CellState::Value(v) => v,
-        CellState::Bottom(_) => &Value::Null, // bottom already handled by caller
-    };
+    let observed = cell_state.settled_value().unwrap_or(&Value::Null);
     match pred.op {
         PredicateOp::HeadEq => {
             let expected = pred.value.as_ref().ok_or_else(|| {
                 ControlMoveReject::SchemaViolation("predicate head_eq requires `value`".to_owned())
             })?;
-            // For composite cell values like `{"head": ..., "value": ...}` (per spec),
-            // the precondition compares against either the whole value or a `head`
-            // sub-field. We accept both forms: equal to the value, OR equal to the
-            // value at `.head` if present.
             if observed == expected {
-                return Ok(());
-            }
-            if let Some(head) = observed.get("head")
-                && head == expected
-            {
                 return Ok(());
             }
             Err(ControlMoveReject::FailedPrecondition {
@@ -1031,15 +844,12 @@ fn evaluate_predicate(
             let values = pred.values.as_ref().ok_or_else(|| {
                 ControlMoveReject::SchemaViolation("predicate head_in requires `values`".to_owned())
             })?;
-            let observed_head = observed.get("head").unwrap_or(observed);
-            if values.iter().any(|v| v == observed_head) {
+            if values.iter().any(|v| v == observed) {
                 Ok(())
             } else {
                 Err(ControlMoveReject::FailedPrecondition {
                     cell: cell.as_str().to_owned(),
-                    reason: format!(
-                        "head_in: observed={observed_head}, expected one of {values:?}"
-                    ),
+                    reason: format!("head_in: observed={observed}, expected one of {values:?}"),
                 })
             }
         }
@@ -1094,1565 +904,5 @@ fn evaluate_predicate(
                  registry is configured (fail-closed per event-auth §5.1)"
             )))
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use arkret_wire::event_envelope::{EventRef, ScopeRef};
-    use arkret_wire::{
-        DidKey, DidUrl, EventProof, ProducerEventProof, StationAdmissionProof,
-        StationAdmissionProofKind,
-    };
-    use chrono::{TimeZone, Utc};
-    use serde_json::json;
-
-    use super::*;
-    use crate::lattice::{CellState, Lattice, SealedOp};
-    use crate::state::store::memory::MemoryCellRegistry;
-    use crate::{
-        CellRef, DidCoreId, EventId, EventRequirements, Hash, Hlc, Precondition, PredicateOp,
-        RealmId, SealBasis, SealId,
-    };
-
-    fn verify_control_move<VerifyProofs, ProjectWrites>(
-        event: &Event,
-        realm_id: &RealmId,
-        pre_state: &BTreeMap<CellRef, CellState>,
-        registry: &dyn CellRegistry,
-        verify_proofs: VerifyProofs,
-        project_writes: ProjectWrites,
-    ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
-    where
-        VerifyProofs: Fn(&Event) -> Result<(), String>,
-        ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
-    {
-        super::verify_control_move(
-            event,
-            realm_id,
-            pre_state,
-            registry,
-            arkret_canonical::DigestSuite::Sha256,
-            verify_proofs,
-            project_writes,
-        )
-    }
-
-    fn verify_accepted_control_move_in_context<VerifyProofs, ProjectWrites>(
-        event: &Event,
-        realm_id: &RealmId,
-        pre_state: &BTreeMap<CellRef, CellState>,
-        registry: &dyn CellRegistry,
-        verify_proofs: VerifyProofs,
-        project_writes: ProjectWrites,
-        context: EventSubmitContext,
-    ) -> Result<Vec<ProjectionEffect>, ControlMoveReject>
-    where
-        VerifyProofs: Fn(&Event) -> Result<(), String>,
-        ProjectWrites: Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String>,
-    {
-        super::verify_accepted_control_move_in_context(
-            event,
-            ControlMoveVerificationContext {
-                realm_id,
-                pre_state,
-                registry,
-                digest_suite: arkret_canonical::DigestSuite::Sha256,
-                submit_context: context,
-            },
-            verify_proofs,
-            project_writes,
-        )
-    }
-
-    fn realm() -> RealmId {
-        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
-    }
-
-    fn cell_member() -> CellRef {
-        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
-            .unwrap()
-    }
-
-    fn cell_capability_grant() -> CellRef {
-        CellRef::new(
-            "ak:cell:ak.component.capability.grant.v1:ak.grant.01js0gr0000000000000000000"
-                .to_owned(),
-        )
-        .unwrap()
-    }
-
-    fn actor() -> DidCoreId {
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture".to_owned()).unwrap()
-    }
-
-    fn control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
-        let mut event = Event {
-            event_id: EventId::new("ak:event:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-")
-                .unwrap(),
-            kind: "ak.member.state".into(),
-            realm_id: realm(),
-            scope_ref: ScopeRef::Realm { realm_id: realm() },
-            actor_id: ActorId::service(actor()),
-            executed_by: None,
-            authorization_ref: None,
-            applet_id: None,
-            external_ref: None,
-            actor_seq: 1,
-            created_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
-            hlc: Some(Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap()),
-            prev_refs: Vec::new(),
-            refs,
-            causal_refs: Vec::new(),
-            preconditions,
-            seal_ref: None,
-            auth_context: None,
-            seal_basis: Some(SealBasis {
-                leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "aa".repeat(32))).unwrap()],
-            }),
-            payload: BTreeMap::from([("state".to_owned(), json!("join"))]),
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
-            requirements: EventRequirements::default(),
-        };
-        event
-            .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        event.proofs.push(
-            ProducerEventProof {
-                kind: "detached_jws".to_owned(),
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
-                event_digest: Hash::new(
-                    event
-                        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                        .unwrap(),
-                )
-                .unwrap(),
-                signer_resolution_evidence_ref: Some(
-                    arkret_wire::SignerEvidenceRef::new(format!(
-                        "ak:signer_evidence:sha256:{}",
-                        "11".repeat(32)
-                    ))
-                    .unwrap(),
-                ),
-                created_at: event.created_at,
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "AAAA.BBBB.CCCC".to_owned(),
-            }
-            .into(),
-        );
-        event
-    }
-
-    fn accepted_control_move(preconditions: Vec<Precondition>, refs: Vec<EventRef>) -> Event {
-        let mut event = control_move(preconditions, refs);
-        let producer = event.proofs[0].as_producer_mut().unwrap();
-        producer.signer_resolution_evidence_ref = None;
-        let producer = event.proofs[0].as_producer().unwrap().clone();
-        event
-            .proofs
-            .push(EventProof::StationAdmission(StationAdmissionProof {
-                applet_installation_digest: None,
-                kind: StationAdmissionProofKind::StationAdmission,
-                verification_method: DidUrl::new(
-                    "did:webvh:z6mkfixture:admin.example#station-admission",
-                )
-                .unwrap(),
-                event_digest: producer.event_digest.clone(),
-                producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer)
-                    .unwrap(),
-                producer_verification_method: producer.verification_method.clone(),
-                producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
-                producer_signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
-                    "ak:signer_evidence:sha256:{}",
-                    "11".repeat(32)
-                ))
-                .unwrap(),
-                accepted_at: event.created_at,
-                jws: "admission..signature".to_owned(),
-            }));
-        event
-    }
-
-    fn authorized_ref(id: &str) -> EventRef {
-        EventRef::new(id, EVENT_REF_ROLE_AUTHORIZED_BY)
-    }
-
-    fn grant_cell_state(grant_id: &str, subject: &ActorId) -> CellState {
-        CellState::Value(json!([
-            {
-                "tag": grant_id,
-                "value": {
-                    "id": grant_id,
-                    "issuer_id": "ak:did_core:webvh:z6mkfixture",
-                    "subject": subject,
-                    "actions": ["ak.member.state"],
-                    "resources": [{"kind": "Realm", "realm_id": realm().as_str()}]
-                }
-            }
-        ]))
-    }
-
-    fn ok_proofs(_: &Event) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn fail_proofs(_: &Event) -> Result<(), String> {
-        Err("dummy signature failure".to_owned())
-    }
-
-    /// Stand-in for the injected `arkret-schema` evaluator: it returns a fixed
-    /// projection so these tests exercise the reducer pipeline, not the
-    /// registry. The real projector is wired in by the caller.
-    fn project(
-        writes: Vec<ProjectedCellWrite>,
-    ) -> impl Fn(&Event) -> Result<Vec<ProjectedCellWrite>, String> {
-        move |_| Ok(writes.clone())
-    }
-
-    fn transition_write(from: Value, to: Value) -> ProjectedCellWrite {
-        let mut op = LatticeOp::empty();
-        op.op_type = LatticeOpType::Transition;
-        op.from = Some(from);
-        op.to = Some(to);
-        ProjectedCellWrite {
-            cell_id: cell_member(),
-            op: ProjectedOp::Direct(op),
-        }
-    }
-
-    #[test]
-    fn a_transition_onto_an_absent_fsm_cell_derives_the_registered_initial_state() {
-        // The reducer derives `from` from the frozen pre-state, and the fsm
-        // join starts at the cell's registered `initial_state`. If an absent
-        // cell derived `from = null` the two would never agree and the FIRST
-        // transition onto any fsm cell with a declared initial state would
-        // join to Bottom, so no member could ever leave that state.
-        let event = control_move(vec![], vec![]);
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_member(),
-                op: ProjectedOp::TransitionTo { to: json!("join") },
-            }]),
-        )
-        .expect("a first transition must be derivable");
-
-        assert_eq!(effects.len(), 1);
-        // The registry's declared initial state, not null.
-        assert_eq!(effects[0].op.from, Some(json!("invited")));
-        assert_eq!(effects[0].op.to, Some(json!("join")));
-    }
-
-    #[test]
-    fn structural_pass_with_valid_control_move() {
-        let pre = Precondition {
-            cell_id: cell_member(),
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(json!("invited")),
-                values: None,
-                predicate_id: None,
-            },
-        };
-        let event = control_move(vec![pre], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_member(), CellState::Value(json!("invited")));
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap();
-        assert_eq!(effects.len(), 1);
-        assert_eq!(effects[0].cell_id, cell_member());
-    }
-
-    #[test]
-    fn producer_and_accepted_control_move_lanes_enforce_distinct_closed_proof_sets() {
-        let precondition = Precondition {
-            cell_id: cell_member(),
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(json!("invited")),
-                values: None,
-                predicate_id: None,
-            },
-        };
-        let producer = control_move(vec![precondition.clone()], vec![]);
-        let accepted = accepted_control_move(vec![precondition], vec![]);
-        let pre_state = BTreeMap::from([(cell_member(), CellState::Value(json!("invited")))]);
-        let writes = vec![transition_write(json!("invited"), json!("join"))];
-
-        let accepted_effects = verify_accepted_control_move_in_context(
-            &accepted,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(writes.clone()),
-            EventSubmitContext::Standard,
-        )
-        .expect("accepted lane must admit the closed Producer + Admission proof set");
-        assert_eq!(accepted_effects.len(), 1);
-
-        assert!(matches!(
-            verify_control_move(
-                &accepted,
-                &realm(),
-                &pre_state,
-                &MemoryCellRegistry::new(),
-                ok_proofs,
-                project(writes.clone()),
-            ),
-            Err(ControlMoveReject::SchemaViolation(_))
-        ));
-        assert!(matches!(
-            verify_accepted_control_move_in_context(
-                &producer,
-                &realm(),
-                &pre_state,
-                &MemoryCellRegistry::new(),
-                ok_proofs,
-                project(writes),
-                EventSubmitContext::Standard,
-            ),
-            Err(ControlMoveReject::SchemaViolation(_))
-        ));
-    }
-
-    #[test]
-    fn signature_failure_rejected() {
-        let event = control_move(vec![], vec![]);
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            fail_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::SignatureInvalid(_)));
-    }
-
-    #[test]
-    fn realm_mismatch_rejected() {
-        let event = control_move(vec![], vec![]);
-        let other =
-            RealmId::new("ak:realm:Aeby-FWM3msk23e39521f6t-Hjv_KBBemy4X9UD924MR".to_owned())
-                .unwrap();
-        let err = verify_control_move(
-            &event,
-            &other,
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::SchemaViolation(_)));
-    }
-
-    #[test]
-    fn authorized_by_ref_resolves_capability_grant_cell() {
-        let grant_id = "ak:grant:Ae9AOYURRtmDHAs3Nw_dqE_a9UIwCkI1yPGQQmxYgszW";
-        let event = control_move(vec![], vec![authorized_ref(grant_id)]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(
-            cell_capability_grant(),
-            grant_cell_state(grant_id, &event.actor_id),
-        );
-
-        verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn missing_authorized_by_grant_rejects() {
-        let grant_id = "ak:grant:Ae9AOYURRtmDHAs3Nw_dqE_a9UIwCkI1yPGQQmxYgszW";
-        let event = control_move(vec![], vec![authorized_ref(grant_id)]);
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::CapabilityDenied(_)));
-        assert_eq!(
-            reject_to_error_code(&err),
-            crate::ErrorCode::CAPABILITY_DENIED
-        );
-    }
-
-    #[test]
-    fn authorized_by_subject_mismatch_rejects() {
-        let grant_id = "ak:grant:Ae9AOYURRtmDHAs3Nw_dqE_a9UIwCkI1yPGQQmxYgszW";
-        let event = control_move(vec![], vec![authorized_ref(grant_id)]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(
-            cell_capability_grant(),
-            grant_cell_state(
-                grant_id,
-                &ActorId::service(
-                    DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
-                ),
-            ),
-        );
-
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::CapabilityDenied(_)));
-    }
-
-    fn fork_resolution_event(preconditions: Vec<Precondition>, with_capability: bool) -> Event {
-        let mut event = control_move(
-            preconditions,
-            if with_capability {
-                vec![EventRef::new(
-                    "ak:grant:AXikJ_OppAbhG0I7SBWrKFxHynEEyYO8-IZ1Lsd9SVu-",
-                    "recovery_capability",
-                )]
-            } else {
-                vec![]
-            },
-        );
-        event.kind = arkret_wire::EventKind::ForkResolution;
-        event
-    }
-
-    fn fork_resolution_slot_guard(value: Value) -> Precondition {
-        Precondition {
-            cell_id: CellRef::new(
-                "ak:cell:ak.component.fork_resolution.v1:AY9WrPRKKFmB5v6VmZC9qMYPmRLBWNzRy4mUvT0BQ2sT"
-                    .to_owned(),
-            )
-            .unwrap(),
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(value),
-                values: None,
-                predicate_id: None,
-            },
-        }
-    }
-
-    #[test]
-    fn fork_resolution_must_carry_head_eq_null_for_its_target_cell() {
-        // Section 6.3.2: the automatic complete-heads guard cannot catch a
-        // causal successor that already contains the settled verdict, because
-        // H_c(B) = H_c(P) holds for exactly that writer. Without the assertion
-        // an adjudication could be swapped or flipped after the fact.
-        let pre_state = BTreeMap::new();
-
-        let missing = verify_fork_resolution_refs(&fork_resolution_event(vec![], true), &pre_state)
-            .unwrap_err();
-        assert!(
-            format!("{missing:?}").contains("head_eq null"),
-            "{missing:?}"
-        );
-
-        let wrong_value = verify_fork_resolution_refs(
-            &fork_resolution_event(
-                vec![fork_resolution_slot_guard(json!({"verdict": "void_all"}))],
-                true,
-            ),
-            &pre_state,
-        )
-        .unwrap_err();
-        assert!(
-            format!("{wrong_value:?}").contains("must be null"),
-            "{wrong_value:?}"
-        );
-
-        let duplicated = verify_fork_resolution_refs(
-            &fork_resolution_event(
-                vec![
-                    fork_resolution_slot_guard(Value::Null),
-                    fork_resolution_slot_guard(Value::Null),
-                ],
-                true,
-            ),
-            &pre_state,
-        )
-        .unwrap_err();
-        assert!(
-            format!("{duplicated:?}").contains("exactly one"),
-            "{duplicated:?}"
-        );
-
-        // A well-shaped guard gets past the shape check and fails only on the
-        // capability, which this fixture's pre-state does not grant.
-        let shaped = verify_fork_resolution_refs(
-            &fork_resolution_event(vec![fork_resolution_slot_guard(Value::Null)], true),
-            &pre_state,
-        )
-        .unwrap_err();
-        assert!(
-            format!("{shaped:?}").contains("recovery_capability"),
-            "{shaped:?}"
-        );
-    }
-
-    #[test]
-    fn bottom_blocks_an_ordinary_write_only_on_a_sole_recovery_family() {
-        // Section 9.3.1.4: ak.mls.commit's base-epoch precondition reads the
-        // very cell it would have to heal, so the MLS epoch cell has no
-        // ordinary-write exit; ak.component.realm.policy.v1 is outside the list
-        // and heals through one.
-        let registry = MemoryCellRegistry::new();
-        for (cell_id, blocked) in [
-            ("ak:cell:ak.component.mls.epoch.v1:null", true),
-            ("ak:cell:ak.component.realm.policy.v1:null", false),
-        ] {
-            let cell = CellRef::new(cell_id.to_owned()).unwrap();
-            let mut op = LatticeOp::empty();
-            op.op_type = LatticeOpType::Set;
-            op.value = Some(json!({"disclosure": "required"}));
-            let write = ProjectedCellWrite {
-                cell_id: cell.clone(),
-                op: ProjectedOp::Direct(op),
-            };
-            let pre_state = BTreeMap::from([(
-                cell.clone(),
-                CellState::Bottom(arkret_wire::Bottom {
-                    kind: arkret_wire::BottomKind::Conflict,
-                    cell_ids: vec![cell.clone()],
-                    move_ids: Vec::new(),
-                    seal_view: None,
-                    head_ids: Vec::new(),
-                    details: None,
-                    escalated_at: None,
-                }),
-            )]);
-            let outcome = verify_control_move(
-                &control_move(vec![], vec![]),
-                &realm(),
-                &pre_state,
-                &registry,
-                ok_proofs,
-                project(vec![write]),
-            );
-            if blocked {
-                assert!(
-                    matches!(outcome, Err(ControlMoveReject::FailedBottom { .. })),
-                    "{cell_id} must have no ordinary-write exit, got {outcome:?}"
-                );
-            } else {
-                assert!(
-                    outcome.is_ok(),
-                    "{cell_id} must heal through an ordinary write"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn an_fsm_transition_fails_closed_under_bottom_without_consulting_the_list() {
-        // Section 9.3.1.7 item 2: an ordinary transition's `from` must equal the
-        // settled value, which does not exist under Bottom, so every fsm family
-        // is sole-recovery by construction. That is why the registered list is
-        // the cas_register half only -- this path must reject without reading it.
-        let cell = cell_member();
-        assert!(
-            !crate::state::is_sole_recovery_cell(cell.as_str()),
-            "member.state is an fsm family and is deliberately not listed"
-        );
-        let pre_state = BTreeMap::from([(
-            cell.clone(),
-            CellState::Bottom(arkret_wire::Bottom {
-                kind: arkret_wire::BottomKind::Conflict,
-                cell_ids: vec![cell.clone()],
-                move_ids: Vec::new(),
-                seal_view: None,
-                head_ids: Vec::new(),
-                details: None,
-                escalated_at: None,
-            }),
-        )]);
-        let err = verify_control_move(
-            &control_move(vec![], vec![]),
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap_err();
-        assert!(
-            matches!(err, ControlMoveReject::FailedBottom { .. }),
-            "{err:?}"
-        );
-    }
-
-    #[test]
-    fn sole_recovery_cell_match_is_whole_family_segment() {
-        assert!(crate::state::is_sole_recovery_cell(
-            "ak:cell:ak.component.realm.authority_root.v1:null"
-        ));
-        assert!(!crate::state::is_sole_recovery_cell(
-            "ak:cell:ak.component.realm.authority_root.v1x:null"
-        ));
-        assert!(!crate::state::is_sole_recovery_cell(
-            "ak:cell:ak.component.notary.v1:null"
-        ));
-    }
-
-    #[test]
-    fn cas_replacement_needs_no_wire_head_eq_but_a_declared_one_is_still_enforced() {
-        let cell = CellRef::new("ak:cell:ak.component.realm.policy.v1:null").unwrap();
-        let old = json!({"disclosure": "disabled", "visibility": "members"});
-        let mut op = LatticeOp::empty();
-        op.op_type = LatticeOpType::Set;
-        op.value = Some(json!({"disclosure": "required"}));
-        let write = ProjectedCellWrite {
-            cell_id: cell.clone(),
-            op: ProjectedOp::Direct(op.clone()),
-        };
-        let registry = MemoryCellRegistry::new();
-        let initial = control_move(vec![], vec![]);
-        assert!(
-            verify_control_move(
-                &initial,
-                &realm(),
-                &BTreeMap::new(),
-                &registry,
-                ok_proofs,
-                project(vec![write.clone()]),
-            )
-            .is_ok()
-        );
-
-        let pre_state = BTreeMap::from([(cell.clone(), CellState::Value(old.clone()))]);
-        let before = pre_state.clone();
-        // Section 9.3.1.3 item 1: a replacement over a non-initial cell carries
-        // no wire head_eq. The signed seal_basis already fixes the pre-state,
-        // and the identity comparison H_c(B) = H_c(P) runs at Seal admission.
-        assert!(
-            verify_control_move(
-                &initial,
-                &realm(),
-                &pre_state,
-                &registry,
-                ok_proofs,
-                project(vec![
-                    transition_write(json!("invited"), json!("join")),
-                    write.clone(),
-                ]),
-            )
-            .is_ok()
-        );
-        assert_eq!(pre_state, before);
-
-        // A declared business head_eq is still evaluated, and a wrong one still
-        // rejects before any write is returned.
-        let stale_guard = control_move(
-            vec![Precondition {
-                cell_id: cell.clone(),
-                predicate: Predicate {
-                    op: PredicateOp::HeadEq,
-                    value: Some(json!({"disclosure": "something-else"})),
-                    values: None,
-                    predicate_id: None,
-                },
-            }],
-            vec![],
-        );
-        let mismatched = verify_control_move(
-            &stale_guard,
-            &realm(),
-            &pre_state,
-            &registry,
-            ok_proofs,
-            project(vec![write.clone()]),
-        )
-        .unwrap_err();
-        assert!(matches!(
-            mismatched,
-            ControlMoveReject::FailedPrecondition { .. }
-        ));
-        assert_eq!(pre_state, before);
-
-        let replacement = control_move(
-            vec![Precondition {
-                cell_id: cell,
-                predicate: Predicate {
-                    op: PredicateOp::HeadEq,
-                    value: Some(old.clone()),
-                    values: None,
-                    predicate_id: None,
-                },
-            }],
-            vec![],
-        );
-        op.from = Some(old);
-        let replacement_write = ProjectedCellWrite {
-            op: ProjectedOp::Direct(op),
-            ..write
-        };
-        assert!(
-            verify_control_move(
-                &replacement,
-                &realm(),
-                &pre_state,
-                &registry,
-                ok_proofs,
-                project(vec![replacement_write]),
-            )
-            .is_ok()
-        );
-    }
-
-    #[test]
-    fn precondition_head_eq_mismatch_rejects() {
-        let pre = Precondition {
-            cell_id: cell_member(),
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(json!("join")), // expects join
-                values: None,
-                predicate_id: None,
-            },
-        };
-        let event = control_move(vec![pre], vec![]);
-        let mut pre_state = BTreeMap::new();
-        // Observed is invited, not join.
-        pre_state.insert(cell_member(), CellState::Value(json!("invited")));
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("join"), json!("ban"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::FailedPrecondition { .. }));
-    }
-
-    #[test]
-    fn bottom_reject_cell_fails_closed() {
-        let bottom = crate::Bottom::new(BottomKind::Conflict, vec![cell_member()]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_member(), CellState::Bottom(bottom));
-
-        let pre = Precondition {
-            cell_id: cell_member(),
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(json!("anything")),
-                values: None,
-                predicate_id: None,
-            },
-        };
-        let event = control_move(vec![pre], vec![]);
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::FailedBottom { .. }));
-    }
-
-    #[test]
-    fn bottom_inert_cell_fails_closed_when_used_as_a_precondition() {
-        let bottom = crate::Bottom::new(BottomKind::Conflict, vec![cell_member()]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_member(), CellState::Bottom(bottom));
-
-        let pre = Precondition {
-            cell_id: cell_member(),
-            predicate: Predicate {
-                op: PredicateOp::HeadEq,
-                value: Some(json!("anything")),
-                values: None,
-                predicate_id: None,
-            },
-        };
-        let event = control_move(vec![pre], vec![]);
-        let mut registry = MemoryCellRegistry::new();
-        registry.register_fsm(
-            arkret_wire::CellFamilyId::MEMBER_STATE_V1,
-            Some(json!("invited")),
-            vec![(json!("invited"), json!("join"))],
-            EventCellBottom::Inert,
-        );
-
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &registry,
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("join"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::FailedBottom { .. }));
-    }
-
-    #[test]
-    fn derived_write_shape_failure_rejects() {
-        // FSM cell with a disallowed transition: invited -> ban is not in
-        // MemoryCellRegistry's declared table.
-        let event = control_move(vec![], vec![]);
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![transition_write(json!("invited"), json!("ban"))]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::SchemaViolation(_)));
-    }
-
-    #[test]
-    fn transition_to_reads_from_off_the_frozen_pre_state() {
-        // The Event never names `from`. A producer that had asserted
-        // `invited -> join` while the frozen head was already `join` would be
-        // signing a pre-state it did not observe; the reducer derives `from`.
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_member(), CellState::Value(json!("invited")));
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_member(),
-                op: ProjectedOp::TransitionTo { to: json!("join") },
-            }]),
-        )
-        .unwrap();
-        assert_eq!(effects.len(), 1);
-        assert_eq!(effects[0].op.from, Some(json!("invited")));
-        assert_eq!(effects[0].op.to, Some(json!("join")));
-    }
-
-    #[test]
-    fn transition_to_against_a_stale_head_fails_the_lattice_shape_check() {
-        // Frozen head is already `join`, so the derived op is `join -> join`,
-        // which the declared FSM table rejects. This is the check a
-        // producer-supplied `from` would have bypassed.
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_member(), CellState::Value(json!("join")));
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_member(),
-                op: ProjectedOp::TransitionTo { to: json!("join") },
-            }]),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::SchemaViolation(_)));
-    }
-
-    #[test]
-    fn remove_observed_removes_every_surviving_add_dot() {
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(
-            cell_capability_grant(),
-            CellState::Value(json!([
-                {"tag": "ak:event:e1:0", "value": {"status": "active"}},
-                {"tag": "ak:event:e2:0", "value": {"status": "active"}}
-            ])),
-        );
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_capability_grant(),
-                op: ProjectedOp::RemoveObserved {
-                    element_match: None,
-                },
-            }]),
-        )
-        .unwrap();
-        let tags: Vec<&str> = effects
-            .iter()
-            .map(|effect| effect.op.tag.as_deref().unwrap())
-            .collect();
-        assert_eq!(tags, vec!["ak:event:e1:0", "ak:event:e2:0"]);
-        assert!(
-            effects
-                .iter()
-                .all(|effect| effect.op.op_type == LatticeOpType::Remove)
-        );
-    }
-
-    #[test]
-    fn remove_observed_match_narrows_to_the_named_element_field() {
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(
-            cell_capability_grant(),
-            CellState::Value(json!([
-                {"tag": "keep", "value": {"scope": {"kind": "other"}}},
-                {"tag": "drop", "value": {"scope": {"kind": "any"}}},
-                // `scope.kind` absent: not a candidate for removal at all.
-                {"tag": "absent", "value": {"unrelated": true}}
-            ])),
-        );
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_capability_grant(),
-                op: ProjectedOp::RemoveObserved {
-                    element_match: Some(ObservedRemoveMatch {
-                        element_field: "scope.kind".to_owned(),
-                        expected: json!("any"),
-                    }),
-                },
-            }]),
-        )
-        .unwrap();
-        assert_eq!(effects.len(), 1);
-        assert_eq!(effects[0].op.tag.as_deref(), Some("drop"));
-    }
-
-    fn cell_realm_policy() -> CellRef {
-        CellRef::new("ak:cell:ak.component.realm.policy.v1:ak.realm.fixture".to_owned()).unwrap()
-    }
-
-    fn policy_prestate() -> Value {
-        json!({"metadata": {"fields": {"review_status": "pending"}}})
-    }
-
-    fn apply_patch_write(patch: Value, expected_prestate: Option<Value>) -> ProjectedCellWrite {
-        ProjectedCellWrite {
-            cell_id: cell_realm_policy(),
-            op: ProjectedOp::ApplyPatch {
-                patch,
-                expected_prestate,
-            },
-        }
-    }
-
-    fn reset_write(value: Value) -> ProjectedCellWrite {
-        ProjectedCellWrite {
-            cell_id: cell_realm_policy(),
-            op: ProjectedOp::Reset { value },
-        }
-    }
-
-    /// The `refs[]` §9.5 condition 1 requires on every recovery Move, matching
-    /// `cbs-lattice-fixture.json`'s `conflict_recovery_move` vector.
-    fn recovery_refs() -> Vec<EventRef> {
-        vec![
-            EventRef::new(
-                "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi",
-                "recovery_capability",
-            ),
-            EventRef::new(
-                format!("ak:seal:sha256:{}", "cc".repeat(32)),
-                "state_witness",
-            ),
-        ]
-    }
-
-    fn recovery_move() -> Event {
-        control_move(vec![], recovery_refs())
-    }
-
-    fn bottom_policy_cell() -> BTreeMap<CellRef, CellState> {
-        BTreeMap::from([(
-            cell_realm_policy(),
-            CellState::Bottom(crate::Bottom::new(
-                BottomKind::Conflict,
-                vec![cell_realm_policy()],
-            )),
-        )])
-    }
-
-    /// §9.5.1: a `cas_register` recovery carries no `state_witness`.
-    ///
-    /// The requirement is not merely redundant there, it is unsatisfiable in the
-    /// case that most needs repair: a cell that conflicted on its *first* write
-    /// never held a legal prior value, so nothing exists to witness. The target
-    /// conflict is proved by the Move's own signed basis and the authority by
-    /// its registered capability path — two separate proofs, checked by the
-    /// Seal-accepting layer that holds the DAG.
-    #[test]
-    fn a_cas_register_reset_needs_no_state_witness_ref() {
-        let event = control_move(
-            vec![],
-            vec![EventRef::new(
-                "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi",
-                "recovery_capability",
-            )],
-        );
-
-        verify_control_move(
-            &event,
-            &realm(),
-            &bottom_policy_cell(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![reset_write(json!({"policy_revision": 8}))]),
-        )
-        .expect("a cas_register recovery needs only its capability ref");
-    }
-
-    /// `fsm` is on the same side of the split as `cas_register`
-    /// (§9.3.1.5-§9.3.1.8 made it the same causal register), so its recovery
-    /// also proves its target conflict from its own signed basis and owes no
-    /// pre-conflict witness.
-    ///
-    /// This test used to assert the opposite. It was right while §9.5.1 said a
-    /// state machine "MUST NOT directly apply this register's transition
-    /// proof"; that sentence is gone, and the witness family now applies to a
-    /// `bottom=reject` lattice that is *not* causal — see the `ordered_log`
-    /// case below, which is what still keeps the branch honest.
-    ///
-    /// It then asserted the *op shape* gap: a recovery projected `set`, and
-    /// `fsm` takes only `transition`, so an fsm cell could not be recovered at
-    /// all. That gap is closed — the assertion below is now the positive one.
-    #[test]
-    fn an_fsm_reset_needs_only_its_capability_ref() {
-        let event = control_move(
-            vec![],
-            vec![EventRef::new(
-                "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi",
-                "recovery_capability",
-            )],
-        );
-        let bottom_member = BTreeMap::from([(
-            cell_member(),
-            CellState::Bottom(crate::Bottom::new(
-                BottomKind::Conflict,
-                vec![cell_member()],
-            )),
-        )]);
-
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &bottom_member,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_member(),
-                op: ProjectedOp::Reset {
-                    value: json!("join"),
-                },
-            }]),
-        )
-        .expect("an fsm recovery needs only its capability ref");
-
-        assert_eq!(effects.len(), 1);
-        assert!(effects[0].recovery_reset);
-        // The derived write is a transition, not a `set`: `fsm` accepts no
-        // `set`, and §9.5.1 makes the recovery an ordinary identity write that
-        // still owes the §9.3.1.7 admission.
-        assert_eq!(effects[0].op.op_type, LatticeOpType::Transition);
-        assert_eq!(effects[0].op.to.as_ref(), Some(&json!("join")));
-        // No `from`: the write supersedes every divergent head, so its sources
-        // are a set. `apply_seal` checks them against the transition table with
-        // the basis heads in hand -- see
-        // `a_recovery_out_of_a_head_with_no_registered_edge_is_rejected`.
-        assert_eq!(effects[0].op.from, None);
-    }
-
-    /// The shape half of §9.5.1's fsm admission, at the layer that can decide
-    /// it: a recovery that arrives already carrying a `from` is not the write
-    /// §9.5.1 describes, because no single state is the one it leaves.
-    #[test]
-    fn an_fsm_recovery_op_may_not_carry_a_single_from() {
-        let fsm = crate::lattice::fsm::Fsm::new(vec![(json!("leave"), json!("join"))]);
-        let mut op = LatticeOp::empty();
-        op.op_type = LatticeOpType::Transition;
-        op.from = Some(json!("leave"));
-        op.to = Some(json!("join"));
-        let error = fsm
-            .validate_recovery_op(&op)
-            .expect_err("a recovery carrying one from must be refused");
-        assert!(
-            error.to_string().contains("carries no single from"),
-            "unexpected reason: {error}"
-        );
-
-        op.from = None;
-        fsm.validate_recovery_op(&op)
-            .expect("a recovery carrying only its to is well shaped");
-    }
-
-    /// The table half. Every superseded head is a source, so a recovery is
-    /// admissible only if it is a registered transition out of each of them --
-    /// which is also what keeps a terminal state terminal, since a terminal
-    /// state has no outgoing edge but its registered self-loop.
-    #[test]
-    fn an_fsm_recovery_must_be_a_registered_transition_out_of_every_head() {
-        let fsm = crate::lattice::fsm::Fsm::new(vec![
-            (json!("active"), json!("paused")),
-            (json!("paused"), json!("active")),
-            (json!("active"), json!("deactivated")),
-        ]);
-        let mut op = LatticeOp::empty();
-        op.op_type = LatticeOpType::Transition;
-        op.to = Some(json!("active"));
-
-        fsm.validate_recovery_sources(&[json!("paused")], &op)
-            .expect("paused -> active is registered");
-
-        // `deactivated` is terminal: no outgoing edge, so a recovery that would
-        // have to leave it is refused even though the other head allows it.
-        let error = fsm
-            .validate_recovery_sources(&[json!("paused"), json!("deactivated")], &op)
-            .expect_err("a recovery out of a terminal head must be refused");
-        assert!(
-            error
-                .to_string()
-                .contains("superseded head \"deactivated\""),
-            "unexpected reason: {error}"
-        );
-
-        // No heads means no proof of the target conflict, which §9.5.1 item 1
-        // makes a precondition rather than a formality.
-        let error = fsm
-            .validate_recovery_sources(&[], &op)
-            .expect_err("a recovery with no visible heads must be refused");
-        assert!(
-            error.to_string().contains("basis heads are unavailable"),
-            "unexpected reason: {error}"
-        );
-    }
-
-    /// The branch the witness family still governs: a `bottom=reject` lattice
-    /// that is not a causal register. The registry binds the capability grant
-    /// family to `or_set` + `reject`, so its recovery still has to anchor on a
-    /// pre-conflict `state_witness` (§9.5 condition 1).
-    #[test]
-    fn a_non_causal_reject_reset_without_a_state_witness_ref_is_rejected() {
-        let event = control_move(
-            vec![],
-            vec![EventRef::new(
-                "ak:grant:AeU_7Z5YbsdWTAAKFvW9oA9DXcPr6z96DcyEakiEm6xi",
-                "recovery_capability",
-            )],
-        );
-        let bottom_grant = BTreeMap::from([(
-            cell_capability_grant(),
-            CellState::Bottom(crate::Bottom::new(
-                BottomKind::Conflict,
-                vec![cell_capability_grant()],
-            )),
-        )]);
-
-        let error = verify_control_move(
-            &event,
-            &realm(),
-            &bottom_grant,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![ProjectedCellWrite {
-                cell_id: cell_capability_grant(),
-                op: ProjectedOp::Reset {
-                    value: json!({"released": true}),
-                },
-            }]),
-        )
-        .expect_err("a non-causal recovery Move without a state_witness must fail closed");
-
-        assert!(
-            matches!(
-                &error,
-                ControlMoveReject::FailedPrecondition { reason, .. }
-                    if reason == "recovery_witness_missing"
-            ),
-            "unexpected reject: {error:?}"
-        );
-    }
-
-    /// The authorization half of the same condition.
-    #[test]
-    fn a_reset_without_a_recovery_capability_ref_is_rejected() {
-        let event = control_move(
-            vec![],
-            vec![EventRef::new(
-                format!("ak:seal:sha256:{}", "cc".repeat(32)),
-                "state_witness",
-            )],
-        );
-
-        let error = verify_control_move(
-            &event,
-            &realm(),
-            &bottom_policy_cell(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![reset_write(json!({"policy_revision": 8}))]),
-        )
-        .expect_err("a recovery Move without a recovery_capability must fail closed");
-
-        assert!(
-            matches!(
-                &error,
-                ControlMoveReject::FailedPrecondition { reason, .. }
-                    if reason == "recovery_capability_not_sealed"
-            ),
-            "unexpected reject: {error:?}"
-        );
-    }
-
-    #[test]
-    fn a_reset_resolves_a_cell_that_is_in_bottom() {
-        let event = recovery_move();
-
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &bottom_policy_cell(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![reset_write(json!({"policy_revision": 8}))]),
-        )
-        .unwrap();
-
-        assert_eq!(effects.len(), 1);
-        assert_eq!(effects[0].op.op_type, LatticeOpType::Set);
-        assert_eq!(effects[0].op.value, Some(json!({"policy_revision": 8})));
-        assert!(
-            effects[0].recovery_reset,
-            "the projected effect must be marked as the §9.5 reset; a plain `set` \
-             joins with the branches that caused the ⊥ and never leaves it"
-        );
-
-        // The load-bearing assertion: the cell's resolved state, not the shape
-        // of the projected op. The op shape stayed correct throughout the
-        // period when recovery did not actually work.
-        let registry = MemoryCellRegistry::new();
-        let binding = registry.resolve(&realm(), &cell_realm_policy()).unwrap();
-        let digest = |byte: &str| Hash::new(format!("sha256:{}", byte.repeat(32))).unwrap();
-        let conflicting = |byte: &str, value: Value| crate::lattice::ordered_log::IssuedOp {
-            issuer_id: event.actor_id.clone(),
-            op: SealedOp::new(digest(byte), {
-                let mut op = LatticeOp::empty();
-                op.op_type = LatticeOpType::Set;
-                op.value = Some(value);
-                op
-            }),
-        };
-        let log = vec![
-            conflicting("ab", json!({"policy_revision": 6})),
-            conflicting("cd", json!({"policy_revision": 7})),
-            crate::lattice::ordered_log::IssuedOp {
-                issuer_id: event.actor_id.clone(),
-                // §9.5.1: the recovery is an ordinary identity write that
-                // supersedes exactly the divergent heads its own signed basis
-                // observed. The Seal admission path derives this set; here the
-                // fixture states it directly.
-                op: SealedOp::from_projection(digest("ef"), &effects[0])
-                    .with_supersedes(vec![digest("ab"), digest("cd")]),
-            },
-        ];
-        assert!(
-            crate::state::join_cell(binding.lattice.as_ref(), &cell_realm_policy(), &log[..2])
-                .is_bottom(),
-            "precondition: the two concurrent writes are what put the cell in ⊥"
-        );
-        assert_eq!(
-            crate::state::join_cell(binding.lattice.as_ref(), &cell_realm_policy(), &log),
-            CellState::Value(json!({"policy_revision": 8})),
-            "the cell must leave ⊥ and equal the signed resolved_value"
-        );
-    }
-
-    #[test]
-    fn a_reset_on_a_live_cell_is_rejected() {
-        // The converse of the case above, and the load-bearing half: without it
-        // ak.conflict.recovery would be a general overwrite channel that
-        // bypasses every lattice and precondition
-        // (`event-auth-state-resolution.md` §9.5).
-        let event = recovery_move();
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
-
-        let error = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![reset_write(json!({"policy_revision": 8}))]),
-        )
-        .expect_err("a reset must not apply to a cell that is not in bottom");
-
-        assert!(
-            matches!(
-                &error,
-                ControlMoveReject::FailedPrecondition { reason, .. }
-                    if reason == "recovery_target_not_in_bottom"
-            ),
-            "unexpected reject: {error:?}"
-        );
-    }
-
-    #[test]
-    fn a_reset_on_a_cell_with_no_prior_state_is_rejected() {
-        // An absent cell is not a cell in bottom. Treating "no entry" as
-        // recoverable would let a recovery mint a value for a cell that never
-        // conflicted.
-        let event = recovery_move();
-
-        let error = verify_control_move(
-            &event,
-            &realm(),
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![reset_write(json!({"policy_revision": 8}))]),
-        )
-        .expect_err("a reset must not apply to an absent cell");
-
-        assert!(
-            matches!(
-                &error,
-                ControlMoveReject::FailedPrecondition { reason, .. }
-                    if reason == "recovery_target_not_in_bottom"
-            ),
-            "unexpected reject: {error:?}"
-        );
-    }
-
-    #[test]
-    fn apply_patch_projection_sets_the_whole_post_state() {
-        let event = control_move(
-            vec![Precondition {
-                cell_id: cell_realm_policy(),
-                predicate: Predicate {
-                    op: PredicateOp::HeadEq,
-                    value: Some(policy_prestate()),
-                    values: None,
-                    predicate_id: None,
-                },
-            }],
-            vec![],
-        );
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
-
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![apply_patch_write(
-                json!({"metadata.fields.review_status": {"$op": "set", "value": "approved"}}),
-                None,
-            )]),
-        )
-        .unwrap();
-
-        assert_eq!(effects.len(), 1);
-        assert_eq!(effects[0].op.op_type, LatticeOpType::Set);
-        // The cell value is the complete post-state, never the partial patch
-        // (`event-and-patch.md` §4.3.1 step 3).
-        assert_eq!(
-            effects[0].op.value,
-            Some(json!({"metadata": {"fields": {"review_status": "approved"}}}))
-        );
-    }
-
-    #[test]
-    fn apply_patch_accepts_a_matching_prestate_binding() {
-        let event = control_move(
-            vec![Precondition {
-                cell_id: cell_realm_policy(),
-                predicate: Predicate {
-                    op: PredicateOp::HeadEq,
-                    value: Some(policy_prestate()),
-                    values: None,
-                    predicate_id: None,
-                },
-            }],
-            vec![],
-        );
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
-        let binding = crate::canonical::canonical_sha256(&policy_prestate()).unwrap();
-
-        let effects = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![apply_patch_write(
-                json!({"metadata.fields.review_status": {"$op": "set", "value": "approved"}}),
-                Some(json!(binding)),
-            )]),
-        )
-        .unwrap();
-
-        assert_eq!(
-            effects[0].op.value,
-            Some(json!({"metadata": {"fields": {"review_status": "approved"}}}))
-        );
-    }
-
-    #[test]
-    fn apply_patch_prestate_binding_mismatch_rejects_the_whole_event() {
-        // The producer signed a binding for a different pre-state; §2.4.2
-        // requires `failed_precondition` on the whole Event, not a patched
-        // value derived from a state it never observed.
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
-        let stale = crate::canonical::canonical_sha256(&json!({"metadata": {}})).unwrap();
-
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![apply_patch_write(
-                json!({"metadata.fields.review_status": {"$op": "set", "value": "approved"}}),
-                Some(json!(stale)),
-            )]),
-        )
-        .unwrap_err();
-
-        assert!(matches!(
-            err,
-            ControlMoveReject::PrestateBindingMismatch { .. }
-        ));
-        assert_eq!(
-            reject_to_error_code(&err),
-            crate::ErrorCode::FAILED_PRECONDITION
-        );
-    }
-
-    #[test]
-    fn apply_patch_against_an_unresolvable_path_fails_closed() {
-        // `unset` on a field the frozen pre-state does not carry: the patch
-        // cannot be applied, so the projection cannot be evaluated.
-        let event = control_move(vec![], vec![]);
-        let mut pre_state = BTreeMap::new();
-        pre_state.insert(cell_realm_policy(), CellState::Value(policy_prestate()));
-
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &pre_state,
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            project(vec![apply_patch_write(
-                json!({"metadata.fields.absent_field": {"$op": "unset"}}),
-                None,
-            )]),
-        )
-        .unwrap_err();
-
-        assert!(matches!(err, ControlMoveReject::ProjectionFailed(_)));
-    }
-
-    #[test]
-    fn projection_failure_rejects_the_whole_control_move() {
-        let event = control_move(vec![], vec![]);
-        let err = verify_control_move(
-            &event,
-            &realm(),
-            &BTreeMap::new(),
-            &MemoryCellRegistry::new(),
-            ok_proofs,
-            |_: &Event| Err("registry has no contract for this kind".to_owned()),
-        )
-        .unwrap_err();
-        assert!(matches!(err, ControlMoveReject::ProjectionFailed(_)));
-    }
-
-    #[test]
-    fn reject_to_error_code_full_mapping() {
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::SchemaViolation("x".into())),
-            crate::ErrorCode::SCHEMA_VIOLATION
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::SignatureInvalid("x".into())),
-            crate::ErrorCode::SIGNATURE_INVALID
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::CapabilityDenied("x".into())),
-            crate::ErrorCode::CAPABILITY_DENIED
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::FailedPrecondition {
-                cell: "x".into(),
-                reason: "y".into()
-            }),
-            crate::ErrorCode::STATE_MISMATCH
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::FailedBottom {
-                cell: "x".into(),
-                kind: BottomKind::Conflict
-            }),
-            crate::ErrorCode::STATE_MISMATCH
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::PrestateBindingMismatch {
-                cell: "x".into(),
-                expected: "sha256:aa".into(),
-                observed: "sha256:bb".into()
-            }),
-            crate::ErrorCode::FAILED_PRECONDITION
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::ProjectionFailed("x".into())),
-            crate::ErrorCode::SCHEMA_VIOLATION
-        );
-        assert_eq!(
-            reject_to_error_code(&ControlMoveReject::Registry("x".into())),
-            crate::ErrorCode::INTERNAL_ERROR
-        );
     }
 }

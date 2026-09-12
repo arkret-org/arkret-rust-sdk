@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
     ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
-    EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis, SealId,
+    EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -87,8 +87,6 @@ pub struct EventIntent {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     preconditions: Vec<Precondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    seal_ref: Option<SealId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     seal_basis: Option<SealBasis>,
@@ -129,7 +127,6 @@ impl EventIntent {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
@@ -202,10 +199,6 @@ impl EventIntent {
 
     pub fn preconditions(&self) -> &[Precondition] {
         &self.preconditions
-    }
-
-    pub fn seal_ref(&self) -> Option<&SealId> {
-        self.seal_ref.as_ref()
     }
 
     pub fn auth_context(&self) -> Option<&AuthContext> {
@@ -281,11 +274,6 @@ impl EventIntent {
         self
     }
 
-    pub fn with_seal_ref(mut self, seal_ref: SealId) -> Self {
-        self.seal_ref = Some(seal_ref);
-        self
-    }
-
     pub fn with_auth_context(mut self, auth_context: AuthContext) -> Self {
         self.auth_context = Some(auth_context);
         self
@@ -296,17 +284,10 @@ impl EventIntent {
         self
     }
 
-    /// Drop the per-attempt CBS basis so the frozen semantic intent does not
-    /// remember one attempt's Seal view.
-    pub fn without_cbs_basis(mut self) -> Self {
-        self.seal_ref = None;
+    /// Drop per-attempt authorization inputs before retrying authoring.
+    pub fn without_authorization_basis(mut self) -> Self {
         self.auth_context = None;
         self.seal_basis = None;
-        self
-    }
-
-    pub fn with_optional_seal_ref(mut self, seal_ref: Option<SealId>) -> Self {
-        self.seal_ref = seal_ref;
         self
     }
 
@@ -418,7 +399,6 @@ impl EventIntent {
             refs: self.refs,
             causal_refs: self.causal_refs,
             preconditions: self.preconditions,
-            seal_ref: self.seal_ref,
             auth_context: self.auth_context,
             seal_basis: self.seal_basis,
             payload: self.payload,
@@ -450,7 +430,6 @@ impl EventIntent {
             refs: event.refs.clone(),
             causal_refs: event.causal_refs.clone(),
             preconditions: event.preconditions.clone(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: event.requirements.clone(),
@@ -493,7 +472,6 @@ impl EventIntent {
             && self.authorization_ref == event.authorization_ref
             && self.applet_id == event.applet_id
             && self.external_ref == event.external_ref
-            && pinned_matches(self.seal_ref.as_ref(), event.seal_ref.as_ref())
             && pinned_matches(self.auth_context.as_ref(), event.auth_context.as_ref())
             && pinned_matches(self.seal_basis.as_ref(), event.seal_basis.as_ref())
     }

@@ -28,7 +28,7 @@ struct CurrentRegistry {
 #[derive(Clone, Debug, Deserialize)]
 pub struct CurrentFamilyDescriptor {
     pub cell_family: String,
-    pub lattice: String,
+    pub state_model: String,
     pub value_schema_ref: Option<String>,
     pub target_class: String,
     pub target_derivation: String,

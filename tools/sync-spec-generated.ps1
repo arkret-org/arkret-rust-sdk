@@ -47,12 +47,12 @@ $targetRoot = $temporaryRoot
 try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/wire/src/generated/profile_requirements.rs'
-    $latticeBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/lattice_bindings.rs'
+    $stateModelBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/state_model_bindings.rs'
     $mlsSecurityFrontierOutput = Join-Path $targetRoot 'crates/state/src/generated/mls_security_frontier.rs'
     @(
         $eventOutput,
         $requirementsOutput,
-        $latticeBindingsOutput
+        $stateModelBindingsOutput
         $mlsSecurityFrontierOutput
     ) | ForEach-Object {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $_) | Out-Null
@@ -63,7 +63,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'profile requirement generation failed'
     }
-    & python (Join-Path $PSScriptRoot 'generate-sdk-lattice-bindings.py') --artifacts-dir $artifacts --output $latticeBindingsOutput
+    & python (Join-Path $PSScriptRoot 'generate-sdk-state-model-bindings.py') --artifacts-dir $artifacts --output $stateModelBindingsOutput
     if ($LASTEXITCODE -ne 0) {
         throw 'lattice binding generation failed'
     }

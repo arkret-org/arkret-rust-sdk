@@ -26,7 +26,7 @@ use arkret_signatures::{SignEventOptions, sign_event};
 use arkret_wire::{
     ActorId, ActorKind, EncryptionProfile, Event, EventRef, GenesisSalt, Hash, NotaryValue,
     PayloadProof, PayloadSigner, ProfileId, SchemaId, ScopeRef, SealBasis, SecurityClass,
-    event_spec, proof_kind,
+    SignerEvidenceRef, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -46,6 +46,8 @@ pub struct AppletManagedActorBundleAuthoringInput {
     pub method_history_evidence: ResolutionMethodHistoryEvidence,
     pub service_actor_seq: u64,
     pub service_prev_refs: Vec<EventId>,
+    /// Frozen signer evidence retained by the offline Applet runtime.
+    pub signer_resolution_evidence_ref: SignerEvidenceRef,
     pub seal_basis: SealBasis,
     pub digest_suite: DigestSuite,
     pub trust_domain: TrustDomainId,
@@ -112,6 +114,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         authoring_hlc(created_at, "managed-provision")?,
         input.digest_suite,
         created_at,
+        input.signer_resolution_evidence_ref.clone(),
         signer,
     )?;
 
@@ -127,7 +130,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         input.digest_suite,
         input.security_class,
         EncryptionProfile::MlsRfc9420,
-        NotaryValue::single_signer(request.hosting_notary.clone()),
+        NotaryValue::new(vec![request.hosting_notary.clone()], 0, 0)?,
     )?;
     let pcr_intent = TypedEventDraft::<event_spec::RealmCreate>::new(
         ScopeRef::RealmGenesis,
@@ -151,6 +154,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         authoring_hlc(created_at, "pcr-genesis")?,
         input.digest_suite,
         created_at,
+        input.signer_resolution_evidence_ref.clone(),
         signer,
     )?;
 
@@ -191,6 +195,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         authoring_hlc(created_at, "accountability")?,
         input.digest_suite,
         created_at,
+        input.signer_resolution_evidence_ref.clone(),
         signer,
     )?;
 
@@ -229,6 +234,7 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         authoring_hlc(created_at, "profile")?,
         input.digest_suite,
         created_at,
+        input.signer_resolution_evidence_ref,
         signer,
     )?;
 
@@ -356,6 +362,7 @@ fn author_and_sign<S: PayloadSigner + ?Sized>(
     hlc: Hlc,
     digest_suite: DigestSuite,
     proof_created_at: DateTime<Utc>,
+    signer_resolution_evidence_ref: SignerEvidenceRef,
     signer: &S,
 ) -> Result<Event> {
     let mut event = intent.author_with_digest_suite(actor_seq, hlc, digest_suite)?;
@@ -363,7 +370,7 @@ fn author_and_sign<S: PayloadSigner + ?Sized>(
         &mut event,
         signer,
         signer.verification_method_id(),
-        SignEventOptions::new().with_created_at(proof_created_at),
+        SignEventOptions::new(signer_resolution_evidence_ref).with_created_at(proof_created_at),
     )?;
     Ok(event.into_event())
 }

@@ -1,4 +1,4 @@
-//! Store trait contracts for the control-plane Event / Seal / Lattice runtime.
+//! Store trait contracts for the control-plane Event / Seal / StateModel runtime.
 //!
 //! Four traits cleanly partitioned by what they own:
 //!
@@ -6,7 +6,7 @@
 //!   canonical `event_digest`).
 //! - [`SealStore`] — Seal DAG, addressed by `SealId`, plus leaf-set queries.
 //! - [`CellStore`] — per-cell sealed op log + per-view effective state cache.
-//! - [`CellRegistry`] — `cell_family` → `Lattice` instance + `bottom` mode mapping.
+//! - [`CellStateRegistry`] — `cell_family` → `StateModel` instance + `bottom` mode mapping.
 //!
 //! All four ship with [`memory`] backends used by tests / SDK harness.
 //! Production servers (soland, third-party) implement durable backends
@@ -14,14 +14,14 @@
 
 pub mod memory;
 
-pub use arkret_wire::EventCellBottom;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy};
+pub use arkret_wire::{EventCellBottom, EventCellExecution, EventCellValueShape};
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::lattice::ordered_log::IssuedOp;
-use crate::lattice::{CellState, Lattice};
+use crate::state_model::ordered_log::IssuedOp;
+use crate::state_model::{DomainTransitionRule, ResolvedCellState, StateModel, StateModelKind};
 use crate::{CellRef, Hash, RealmId, Seal, SealId};
 
 pub type StoreResult<T> = Result<T, StoreError>;
@@ -500,7 +500,7 @@ pub trait SealStore: Send + Sync {
     async fn genesis(&self, realm_id: &RealmId) -> StoreResult<Option<SealId>>;
 
     /// Direct successors of `seal_id` — every Seal `S` for which
-    /// `S.predecessor_refs.contains(seal_id)`. This is a read-only DAG query;
+    /// `S.predecessor_ref == Some(seal_id)`. This is a read-only chain query;
     /// callers MUST NOT rewrite signed predecessor references or delete an
     /// object while any successor, frontier, or retention pin still names it.
     /// Default implementation returns `StoreError::Backend("unsupported")`.
@@ -525,7 +525,7 @@ pub trait CellStore: Send + Sync {
     /// A store that dropped it would force every join back onto a synthetic
     /// issuer, merging distinct actors into one sub-chain and writing that
     /// synthetic DID into the `state_root` leaf.
-    async fn sealed_ops_for_cell(
+    async fn state_writes_for_cell(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
@@ -539,7 +539,7 @@ pub trait CellStore: Send + Sync {
     /// while ordinary MV properties use a successor batch to replace prior heads.
     /// Selector MV writes instead retain the supersession derived from their own
     /// signed basis; their current heads do not depend on batch arrival order.
-    async fn sealed_op_batches_for_cell(
+    async fn confirmed_write_batches_for_cell(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
@@ -551,49 +551,55 @@ pub trait CellStore: Send + Sync {
         realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
-    ) -> StoreResult<Option<CellState>>;
+    ) -> StoreResult<Option<ResolvedCellState>>;
 
     async fn put_cached_state(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
-        state: &CellState,
+        state: &ResolvedCellState,
     ) -> StoreResult<()>;
 
     /// `apply_seal` write-back: extend the per-cell op log atomically
     /// with one Seal's worth of effects.
-    async fn append_sealed_effects(
+    async fn append_confirmed_effects(
         &self,
         realm_id: &RealmId,
         seal: &SealId,
         new_ops: &[(CellRef, IssuedOp)],
     ) -> StoreResult<()>;
 
-    /// Roll back a previously-`append_sealed_effects` call when publishing the
+    /// Roll back a previously-`append_confirmed_effects` call when publishing the
     /// accepting Seal fails after candidate-state validation.
     async fn rollback_seal(&self, realm_id: &RealmId, seal: &SealId) -> StoreResult<()>;
 }
 
-/// Resolved Lattice binding for a cell: the Lattice impl + the cell's
-/// declared `bottom` mode (reject vs expose).
-pub struct CellLatticeBinding {
-    pub lattice: Box<dyn Lattice>,
-    pub bottom_mode: EventCellBottom,
+/// Complete executable binding for one registered Cell family.
+pub struct CellStateModelBinding {
+    pub model: Box<dyn StateModel>,
+    pub state_model: StateModelKind,
+    pub execution: EventCellExecution,
+    pub value_shape: EventCellValueShape,
+    pub bottom_mode: Option<EventCellBottom>,
+    pub domain_transition: Option<DomainTransitionRule>,
 }
 
-impl std::fmt::Debug for CellLatticeBinding {
+impl std::fmt::Debug for CellStateModelBinding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CellLatticeBinding")
-            .field("lattice_kind", &self.lattice.kind())
+        f.debug_struct("CellStateModelBinding")
+            .field("state_model", &self.state_model)
+            .field("execution", &self.execution)
+            .field("value_shape", &self.value_shape)
             .field("bottom_mode", &self.bottom_mode)
+            .field("has_domain_transition", &self.domain_transition.is_some())
             .finish()
     }
 }
 
-/// `cell_family` → `Lattice` instance mapping.
-pub trait CellRegistry: Send + Sync {
-    fn resolve(&self, realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding>;
+/// `cell_family` → `StateModel` instance mapping.
+pub trait CellStateRegistry: Send + Sync {
+    fn resolve(&self, realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellStateModelBinding>;
 
     /// Identifies all rules used to derive a durable cell view for this Realm.
     ///

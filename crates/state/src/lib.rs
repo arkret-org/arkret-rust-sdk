@@ -40,13 +40,13 @@ pub mod direct_traversal;
 pub mod history_authorization;
 pub mod history_backup;
 pub mod history_store;
-pub mod lattice;
 pub mod mls_cells;
 pub mod mls_governance_proof;
 pub mod realm_state_snapshot;
 pub mod resolver;
 pub mod state;
+pub mod state_model;
 
-pub use lattice::*;
 pub use realm_state_snapshot::*;
 pub use state::*;
+pub use state_model::*;

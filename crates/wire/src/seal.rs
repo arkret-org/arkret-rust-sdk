@@ -3,17 +3,17 @@
 //! A Seal is the notary-signed commitment for control-plane finality.
 //! `delta[]` contains only the control-plane `event_digest` values newly
 //! accepted by this Seal. Cumulative coverage is derived recursively from
-//! `predecessor_refs[]`.
+//! `predecessor_ref`.
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::{
-    DidUrl, Hash, Hlc, NotarySignerDescriptor, RealmId, Result, SealId, WireError, canonical,
+    CellRef, DidUrl, EventId, Hash, Hlc, NotarySignerDescriptor, RealmId, ReasonCode, Result,
+    ScopeRef, SealId, WireError, canonical,
 };
 
-pub const MAX_SEAL_PREDECESSOR_REFS: usize = 128;
 pub const MAX_SEAL_DELTA: usize = 4_096;
 pub const MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS: usize = 65_536;
 pub const MAX_SEAL_COVERED_EVENT_DIGESTS: usize = 1_048_576;
@@ -71,6 +71,10 @@ impl From<PayloadSignature> for SealSignature {
 }
 
 impl SealSignature {
+    pub fn validate_structural(&self) -> Result<()> {
+        validate_seal_signature(self)
+    }
+
     pub fn validate_descriptor_binding(&self, descriptor: &NotarySignerDescriptor) -> Result<()> {
         descriptor.validate()?;
         if self.verification_method != descriptor.verification_method {
@@ -126,12 +130,318 @@ impl SealSignature {
     }
 }
 
+/// Deterministic outcome of one registered atomic security command unit.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum NotarySig {
-    Single(SealSignature),
-    Multi(MultiSignature),
+#[serde(deny_unknown_fields)]
+pub struct CommandResult {
+    pub event_digest: Hash,
+    pub outcome: CommandOutcome,
+    pub result_digest: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason_code: Option<ReasonCode>,
+    pub unit_event_digests: Vec<Hash>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandOutcome {
+    Committed,
+    Rejected,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommandResultCellState {
+    pub revision_event_id: EventId,
+    pub value: Value,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommandResultEffect {
+    pub cell_id: CellRef,
+    pub state: CommandResultCellState,
+}
+
+#[derive(Serialize)]
+struct CommandResultDigestInput<'a> {
+    event_digest: &'a Hash,
+    unit_event_digests: &'a [Hash],
+    outcome: CommandOutcome,
+    effects: &'a [CommandResultEffect],
+    reason_code: &'a Option<ReasonCode>,
+}
+
+impl CommandResult {
+    pub fn committed(
+        event_digest: Hash,
+        unit_event_digests: Vec<Hash>,
+        effects: Vec<CommandResultEffect>,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Self> {
+        if effects
+            .windows(2)
+            .any(|pair| pair[0].cell_id >= pair[1].cell_id)
+        {
+            return Err(WireError::Protocol(
+                "command result effects must be sorted and unique by cell_id".to_owned(),
+            ));
+        }
+        let reason_code = None;
+        let result_digest = Hash::new(canonical::digest(
+            digest_suite,
+            &canonical::canonical_json_bytes(&CommandResultDigestInput {
+                event_digest: &event_digest,
+                unit_event_digests: &unit_event_digests,
+                outcome: CommandOutcome::Committed,
+                effects: &effects,
+                reason_code: &reason_code,
+            })?,
+        ))?;
+        let result = Self {
+            event_digest,
+            outcome: CommandOutcome::Committed,
+            result_digest,
+            reason_code,
+            unit_event_digests,
+        };
+        result.validate_structural()?;
+        Ok(result)
+    }
+
+    pub fn rejected(
+        event_digest: Hash,
+        unit_event_digests: Vec<Hash>,
+        reason_code: ReasonCode,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Self> {
+        let reason_code = Some(reason_code);
+        let result_digest = Hash::new(canonical::digest(
+            digest_suite,
+            &canonical::canonical_json_bytes(&CommandResultDigestInput {
+                event_digest: &event_digest,
+                unit_event_digests: &unit_event_digests,
+                outcome: CommandOutcome::Rejected,
+                effects: &[],
+                reason_code: &reason_code,
+            })?,
+        ))?;
+        let result = Self {
+            event_digest,
+            outcome: CommandOutcome::Rejected,
+            result_digest,
+            reason_code,
+            unit_event_digests,
+        };
+        result.validate_structural()?;
+        Ok(result)
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.unit_event_digests.is_empty() || self.unit_event_digests.len() > MAX_SEAL_DELTA {
+            return Err(WireError::Protocol(
+                "command result requires 1..=4096 unit_event_digests".to_owned(),
+            ));
+        }
+        if self.unit_event_digests[0] != self.event_digest {
+            return Err(WireError::Protocol(
+                "command result event_digest must be the first unit member".to_owned(),
+            ));
+        }
+        let mut members = std::collections::BTreeSet::new();
+        if !self
+            .unit_event_digests
+            .iter()
+            .all(|digest| members.insert(digest))
+        {
+            return Err(WireError::Protocol(
+                "command result unit_event_digests must be duplicate-free".to_owned(),
+            ));
+        }
+        match (self.outcome, self.reason_code.as_ref()) {
+            (CommandOutcome::Committed, None) | (CommandOutcome::Rejected, Some(_)) => Ok(()),
+            (CommandOutcome::Committed, Some(_)) => Err(WireError::Protocol(
+                "committed command result must omit reason_code".to_owned(),
+            )),
+            (CommandOutcome::Rejected, None) => Err(WireError::Protocol(
+                "rejected command result requires reason_code".to_owned(),
+            )),
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthorizationClosure {
+    pub command_event_id: EventId,
+    pub authorization_event_id: EventId,
+    pub generation_event_id: EventId,
+    pub scope_ref: ScopeRef,
+    pub actions: Vec<String>,
+    pub frontier: Vec<EventId>,
+}
+
+impl AuthorizationClosure {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.actions.is_empty()
+            || self.frontier.len() > 4096
+            || !self.actions.iter().all(|action| valid_action(action))
+        {
+            return Err(WireError::Protocol(
+                "authorization closure is outside protocol bounds".to_owned(),
+            ));
+        }
+        validate_sorted_unique("authorization closure actions", &self.actions)?;
+        validate_sorted_unique("authorization closure frontier", &self.frontier)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExistenceAnchor {
+    pub authorization_event_id: EventId,
+    pub generation_event_id: EventId,
+    pub frontier: Vec<EventId>,
+}
+
+impl ExistenceAnchor {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.frontier.is_empty() || self.frontier.len() > 4096 {
+            return Err(WireError::Protocol(
+                "existence anchor requires 1..=4096 frontier entries".to_owned(),
+            ));
+        }
+        validate_sorted_unique("existence anchor frontier", &self.frontier)
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransactionParticipant {
+    pub realm_id: RealmId,
+    pub basis_ref: SealId,
+    pub read_cell_refs: Vec<CellRef>,
+    pub write_cell_refs: Vec<CellRef>,
+}
+
+impl TransactionParticipant {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.read_cell_refs.len() > 4096 || self.write_cell_refs.len() > 4096 {
+            return Err(WireError::Protocol(
+                "transaction participant cell selector limit exceeded".to_owned(),
+            ));
+        }
+        if self.read_cell_refs.is_empty() && self.write_cell_refs.is_empty() {
+            return Err(WireError::Protocol(
+                "transaction participant requires a read or write Cell".to_owned(),
+            ));
+        }
+        validate_sorted_unique(
+            "transaction participant read_cell_refs",
+            &self.read_cell_refs,
+        )?;
+        validate_sorted_unique(
+            "transaction participant write_cell_refs",
+            &self.write_cell_refs,
+        )
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransactionManifest {
+    pub command_event_id: EventId,
+    pub participants: Vec<TransactionParticipant>,
+    pub decision_realm_id: RealmId,
+}
+
+impl TransactionManifest {
+    pub fn validate_structural(&self) -> Result<()> {
+        if !(2..=64).contains(&self.participants.len()) {
+            return Err(WireError::Protocol(
+                "transaction manifest requires 2..=64 participants".to_owned(),
+            ));
+        }
+        for participant in &self.participants {
+            participant.validate_structural()?;
+        }
+        if self
+            .participants
+            .windows(2)
+            .any(|pair| pair[0].realm_id >= pair[1].realm_id)
+        {
+            return Err(WireError::Protocol(
+                "transaction participants must be sorted and unique by realm_id".to_owned(),
+            ));
+        }
+        if self.participants[0].realm_id != self.decision_realm_id {
+            return Err(WireError::Protocol(
+                "transaction decision_realm_id must be the first participant".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum TransactionRecord {
+    Prepare {
+        manifest: TransactionManifest,
+    },
+    Commit {
+        manifest: TransactionManifest,
+        prepare_seal_refs: Vec<SealId>,
+    },
+    Abort {
+        manifest: TransactionManifest,
+    },
+    Apply {
+        manifest: TransactionManifest,
+        decision_seal_ref: SealId,
+    },
+}
+
+impl TransactionRecord {
+    pub fn manifest(&self) -> &TransactionManifest {
+        match self {
+            Self::Prepare { manifest }
+            | Self::Commit { manifest, .. }
+            | Self::Abort { manifest }
+            | Self::Apply { manifest, .. } => manifest,
+        }
+    }
+
+    pub fn validate_structural(&self) -> Result<()> {
+        self.manifest().validate_structural()?;
+        if let Self::Commit {
+            manifest,
+            prepare_seal_refs,
+        } = self
+        {
+            if prepare_seal_refs.len() != manifest.participants.len()
+                || !(2..=64).contains(&prepare_seal_refs.len())
+            {
+                return Err(WireError::Protocol(
+                    "commit prepare_seal_refs must match participant order".to_owned(),
+                ));
+            }
+            let mut unique = std::collections::BTreeSet::new();
+            if !prepare_seal_refs.iter().all(|seal| unique.insert(seal)) {
+                return Err(WireError::Protocol(
+                    "commit prepare_seal_refs must be duplicate-free".to_owned(),
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// `seal.schema.json#/$defs/multi_signature` is a closed object; `kind` is the
@@ -142,6 +452,7 @@ pub enum NotarySig {
 pub struct MultiSignature {
     pub kind: MultiSigKind,
     pub signatures: Vec<SealSignature>,
+    pub view: u64,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -152,36 +463,17 @@ pub enum MultiSigKind {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SealKind {
-    #[default]
-    Normal,
-    Compaction,
-}
-
-impl SealKind {
-    pub fn is_compaction(&self) -> bool {
-        matches!(self, SealKind::Compaction)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Seal {
     pub id: SealId,
     pub realm_id: RealmId,
-    pub predecessor_refs: Vec<SealId>,
+    #[serde(deserialize_with = "deserialize_required_option")]
+    pub predecessor_ref: Option<SealId>,
     pub delta: Vec<Hash>,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
-    pub completeness_root: Hash,
     pub notary_seq: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data_view_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data_event_set_root: Option<Hash>,
     pub availability_receipt_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub covered_event_digests: Vec<Hash>,
@@ -190,27 +482,30 @@ pub struct Seal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub previous_digest_algorithm: Option<arkret_canonical::DigestSuite>,
-    pub notary_signature: NotarySig,
+    pub notary_signature: MultiSignature,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
+    pub configuration_ref: EventId,
+    pub command_results: Vec<CommandResult>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authorization_closures: Vec<AuthorizationClosure>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub existence_anchors: Vec<ExistenceAnchor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transaction_records: Vec<TransactionRecord>,
 }
 
 #[derive(Serialize)]
 struct SealBody<'a> {
     realm_id: &'a RealmId,
-    predecessor_refs: &'a [SealId],
+    predecessor_ref: &'a Option<SealId>,
     delta: &'a [Hash],
     control_event_set_root: &'a Hash,
     state_root: &'a Hash,
-    completeness_root: &'a Hash,
     notary_seq: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data_view_root: &'a Option<Hash>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data_event_set_root: &'a Option<Hash>,
     availability_receipt_digests: &'a [Hash],
-    #[serde(skip_serializing_if = "move_slice_is_empty")]
+    #[serde(skip_serializing_if = "slice_is_empty")]
     covered_event_digests: &'a [Hash],
     #[serde(skip_serializing_if = "Option::is_none")]
     previous_state_root: &'a Option<Hash>,
@@ -219,6 +514,14 @@ struct SealBody<'a> {
     #[serde(serialize_with = "arkret_canonical::serde_helpers::serialize_canonical_timestamp")]
     sealed_at: DateTime<Utc>,
     hlc: &'a Hlc,
+    configuration_ref: &'a EventId,
+    command_results: &'a [CommandResult],
+    #[serde(skip_serializing_if = "slice_is_empty")]
+    authorization_closures: &'a [AuthorizationClosure],
+    #[serde(skip_serializing_if = "slice_is_empty")]
+    existence_anchors: &'a [ExistenceAnchor],
+    #[serde(skip_serializing_if = "slice_is_empty")]
+    transaction_records: &'a [TransactionRecord],
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -226,16 +529,12 @@ struct SealBody<'a> {
 #[serde(deny_unknown_fields)]
 pub struct UnsignedSeal {
     pub realm_id: RealmId,
-    pub predecessor_refs: Vec<SealId>,
+    #[serde(deserialize_with = "deserialize_required_option")]
+    pub predecessor_ref: Option<SealId>,
     pub delta: Vec<Hash>,
     pub control_event_set_root: Hash,
     pub state_root: Hash,
-    pub completeness_root: Hash,
     pub notary_seq: u64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data_view_root: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data_event_set_root: Option<Hash>,
     pub availability_receipt_digests: Vec<Hash>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub covered_event_digests: Vec<Hash>,
@@ -250,6 +549,14 @@ pub struct UnsignedSeal {
     )]
     pub sealed_at: DateTime<Utc>,
     pub hlc: Hlc,
+    pub configuration_ref: EventId,
+    pub command_results: Vec<CommandResult>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub authorization_closures: Vec<AuthorizationClosure>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub existence_anchors: Vec<ExistenceAnchor>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transaction_records: Vec<TransactionRecord>,
 }
 
 impl Seal {
@@ -257,7 +564,7 @@ impl Seal {
     /// body retained by a multi-signature aggregator.
     pub fn from_canonical_body_and_signature(
         canonical_body: &[u8],
-        notary_signature: NotarySig,
+        notary_signature: MultiSignature,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<Self> {
         let body: UnsignedSeal = serde_json::from_slice(canonical_body)?;
@@ -270,14 +577,11 @@ impl Seal {
         let seal = Self {
             id,
             realm_id: body.realm_id,
-            predecessor_refs: body.predecessor_refs,
+            predecessor_ref: body.predecessor_ref,
             delta: body.delta,
             control_event_set_root: body.control_event_set_root,
             state_root: body.state_root,
-            completeness_root: body.completeness_root,
             notary_seq: body.notary_seq,
-            data_view_root: body.data_view_root,
-            data_event_set_root: body.data_event_set_root,
             availability_receipt_digests: body.availability_receipt_digests,
             covered_event_digests: body.covered_event_digests,
             previous_state_root: body.previous_state_root,
@@ -285,6 +589,11 @@ impl Seal {
             notary_signature,
             sealed_at: body.sealed_at,
             hlc: body.hlc,
+            configuration_ref: body.configuration_ref,
+            command_results: body.command_results,
+            authorization_closures: body.authorization_closures,
+            existence_anchors: body.existence_anchors,
+            transaction_records: body.transaction_records,
         };
         seal.validate_structural()?;
         seal.validate_signature_payload_digests(|bytes| {
@@ -308,20 +617,22 @@ impl Seal {
     pub fn canonical_bytes_for_id(&self) -> Result<Vec<u8>> {
         let body = SealBody {
             realm_id: &self.realm_id,
-            predecessor_refs: &self.predecessor_refs,
+            predecessor_ref: &self.predecessor_ref,
             delta: &self.delta,
             control_event_set_root: &self.control_event_set_root,
             state_root: &self.state_root,
-            completeness_root: &self.completeness_root,
             notary_seq: self.notary_seq,
-            data_view_root: &self.data_view_root,
-            data_event_set_root: &self.data_event_set_root,
             availability_receipt_digests: &self.availability_receipt_digests,
             covered_event_digests: &self.covered_event_digests,
             previous_state_root: &self.previous_state_root,
             previous_digest_algorithm: &self.previous_digest_algorithm,
             sealed_at: self.sealed_at,
             hlc: &self.hlc,
+            configuration_ref: &self.configuration_ref,
+            command_results: &self.command_results,
+            authorization_closures: &self.authorization_closures,
+            existence_anchors: &self.existence_anchors,
+            transaction_records: &self.transaction_records,
         };
         Ok(canonical::canonical_json_bytes(&body)?)
     }
@@ -353,11 +664,6 @@ impl Seal {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
-        if self.predecessor_refs.len() > MAX_SEAL_PREDECESSOR_REFS {
-            return Err(WireError::Protocol(format!(
-                "Seal.predecessor_refs exceeds maximum item count {MAX_SEAL_PREDECESSOR_REFS}"
-            )));
-        }
         if self.delta.len() > MAX_SEAL_DELTA {
             return Err(WireError::Protocol(format!(
                 "Seal.delta exceeds maximum item count {MAX_SEAL_DELTA}"
@@ -373,7 +679,6 @@ impl Seal {
                 "Seal.covered_event_digests exceeds maximum item count {MAX_SEAL_COVERED_EVENT_DIGESTS}"
             )));
         }
-        validate_sorted_unique("Seal.predecessor_refs", &self.predecessor_refs)?;
         validate_sorted_unique("Seal.delta", &self.delta)?;
         validate_sorted_unique(
             "Seal.availability_receipt_digests",
@@ -386,25 +691,81 @@ impl Seal {
                     .to_owned(),
             ));
         }
-        match &self.notary_signature {
-            NotarySig::Single(signature) => validate_seal_signature(signature)?,
-            NotarySig::Multi(multi) => {
-                if multi.signatures.is_empty() {
+        if self.notary_seq == 0 && self.predecessor_ref.is_some()
+            || self.notary_seq > 0 && self.predecessor_ref.is_none()
+        {
+            return Err(WireError::Protocol(
+                "Seal predecessor_ref is null exactly at genesis".to_owned(),
+            ));
+        }
+        if self.notary_seq > 9_007_199_254_740_991
+            || self.notary_signature.view > 9_007_199_254_740_991
+        {
+            return Err(WireError::Protocol(
+                "Seal sequence and view must be JSON-safe integers".to_owned(),
+            ));
+        }
+        if self.command_results.len() > MAX_SEAL_DELTA
+            || self.authorization_closures.len() > MAX_SEAL_DELTA
+            || self.existence_anchors.len() > MAX_SEAL_DELTA
+            || self.transaction_records.len() > MAX_SEAL_DELTA
+        {
+            return Err(WireError::Protocol(
+                "Seal command or evidence collection exceeds 4096 entries".to_owned(),
+            ));
+        }
+        let mut command_members = std::collections::BTreeMap::new();
+        for result in &self.command_results {
+            result.validate_structural()?;
+            for digest in &result.unit_event_digests {
+                if command_members.insert(digest, result.outcome).is_some() {
                     return Err(WireError::Protocol(
-                        "Seal multi_sig must have at least one signature".to_owned(),
+                        "each Event digest must appear in exactly one command result unit"
+                            .to_owned(),
                     ));
                 }
-                for signature in &multi.signatures {
-                    validate_seal_signature(signature)?;
-                }
-                for pair in multi.signatures.windows(2) {
-                    if pair[0].verification_method >= pair[1].verification_method {
-                        return Err(WireError::Protocol(
-                            "Seal multi_sig signatures must be sorted and unique by verification_method"
-                                .to_owned(),
-                        ));
-                    }
-                }
+            }
+        }
+        if self
+            .delta
+            .iter()
+            .any(|digest| command_members.get(digest) != Some(&CommandOutcome::Committed))
+        {
+            return Err(WireError::Protocol(
+                "Seal delta may contain only committed command unit members".to_owned(),
+            ));
+        }
+        for closure in &self.authorization_closures {
+            closure.validate_structural()?;
+        }
+        for anchor in &self.existence_anchors {
+            anchor.validate_structural()?;
+        }
+        for record in &self.transaction_records {
+            record.validate_structural()?;
+        }
+        let mut transaction_records = std::collections::BTreeSet::new();
+        for record in &self.transaction_records {
+            if !transaction_records.insert(canonical::canonical_json_bytes(record)?) {
+                return Err(WireError::Protocol(
+                    "Seal transaction_records must be duplicate-free".to_owned(),
+                ));
+            }
+        }
+        if self.notary_signature.signatures.is_empty() {
+            return Err(WireError::Protocol(
+                "Seal multi_sig must have at least one signature".to_owned(),
+            ));
+        }
+        for signature in &self.notary_signature.signatures {
+            validate_seal_signature(signature)?;
+        }
+        for pair in self.notary_signature.signatures.windows(2) {
+            if pair[0].verification_method >= pair[1].verification_method {
+                return Err(WireError::Protocol(
+                    "Seal multi_sig signatures must be sorted and unique by verification_method"
+                        .to_owned(),
+                ));
             }
         }
         Ok(())
@@ -412,16 +773,22 @@ impl Seal {
 
     pub fn validate_signature_payload_digests<F>(&self, digest: F) -> Result<()>
     where
-        F: FnOnce(&[u8]) -> Result<Hash>,
+        F: Fn(&[u8]) -> Result<Hash>,
     {
-        let expected = digest(&self.canonical_bytes_for_id()?)?;
-        let matches = match &self.notary_signature {
-            NotarySig::Single(signature) => signature.payload_digest == expected,
-            NotarySig::Multi(multi) => multi
-                .signatures
-                .iter()
-                .all(|signature| signature.payload_digest == expected),
-        };
+        let seal_digest = digest(&self.canonical_bytes_for_id()?)?;
+        let transcript = canonical::canonical_json_bytes(&SealVoteTranscript {
+            context: "ak.seal.commit.v1",
+            seal_digest: &seal_digest,
+            configuration_ref: &self.configuration_ref,
+            notary_seq: self.notary_seq,
+            view: self.notary_signature.view,
+        })?;
+        let expected = digest(&transcript)?;
+        let matches = self
+            .notary_signature
+            .signatures
+            .iter()
+            .all(|signature| signature.payload_digest == expected);
         if !matches {
             return Err(WireError::Protocol(
                 "Seal signature payload_digest does not match canonical Seal bytes".to_owned(),
@@ -429,6 +796,33 @@ impl Seal {
         }
         Ok(())
     }
+
+    pub fn commit_transcript_bytes(
+        &self,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Vec<u8>> {
+        let seal_digest = Hash::new(canonical::digest(
+            digest_suite,
+            &self.canonical_bytes_for_id()?,
+        ))?;
+        canonical::canonical_json_bytes(&SealVoteTranscript {
+            context: "ak.seal.commit.v1",
+            seal_digest: &seal_digest,
+            configuration_ref: &self.configuration_ref,
+            notary_seq: self.notary_seq,
+            view: self.notary_signature.view,
+        })
+        .map_err(Into::into)
+    }
+}
+
+#[derive(Serialize)]
+struct SealVoteTranscript<'a> {
+    context: &'static str,
+    seal_digest: &'a Hash,
+    configuration_ref: &'a EventId,
+    notary_seq: u64,
+    view: u64,
 }
 
 fn validate_seal_signature(signature: &SealSignature) -> Result<()> {
@@ -464,194 +858,28 @@ where
     Ok(())
 }
 
-fn move_slice_is_empty(values: &&[Hash]) -> bool {
+fn slice_is_empty<T>(values: &&[T]) -> bool {
     values.is_empty()
 }
 
-#[cfg(test)]
-mod tests {
-    use chrono::TimeZone;
-    use serde_json::json;
+fn valid_action(action: &str) -> bool {
+    let mut segments = action.split('.');
+    segments.next() == Some("ak")
+        && segments.clone().count() >= 2
+        && segments.all(|segment| {
+            !segment.is_empty()
+                && segment
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        })
+}
 
-    use super::*;
-
-    fn realm() -> RealmId {
-        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
-    }
-
-    fn seal_id(byte: u8) -> SealId {
-        SealId::new(format!(
-            "ak:seal:sha256:{}",
-            format!("{byte:02x}").repeat(32)
-        ))
-        .unwrap()
-    }
-
-    fn move_id(byte: u8) -> Hash {
-        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
-    }
-
-    fn hash(byte: u8) -> Hash {
-        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
-    }
-
-    fn sig() -> PayloadSignature {
-        PayloadSignature {
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
-            payload_digest: hash(0xaa),
-            created_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        }
-    }
-
-    fn sample() -> Seal {
-        let mut seal = Seal {
-            id: seal_id(0x00),
-            realm_id: realm(),
-            predecessor_refs: vec![seal_id(0x11)],
-            delta: vec![move_id(0x22)],
-            control_event_set_root: hash(0x33),
-            state_root: hash(0x44),
-            completeness_root: hash(0x55),
-            notary_seq: 7,
-            data_view_root: None,
-            data_event_set_root: None,
-            availability_receipt_digests: Vec::new(),
-            covered_event_digests: Vec::new(),
-            previous_state_root: None,
-            previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(sig().into()),
-            sealed_at: Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap(),
-            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-        };
-        seal.id = seal
-            .derive_id(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        seal
-    }
-
-    #[test]
-    fn seal_id_round_trips() {
-        let seal = sample();
-        seal.validate_id(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        seal.validate_structural().unwrap();
-    }
-
-    #[test]
-    fn seal_id_uses_the_selected_realm_digest_suite() {
-        let mut seal = sample();
-        seal.id = seal
-            .derive_id(arkret_canonical::DigestSuite::Blake3)
-            .unwrap();
-        assert!(seal.id.as_str().starts_with("ak:seal:blake3:"));
-        seal.validate_id(arkret_canonical::DigestSuite::Blake3)
-            .unwrap();
-        assert!(
-            seal.validate_id(arkret_canonical::DigestSuite::Sha256)
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn canonical_bytes_exclude_id_and_signature() {
-        let seal = sample();
-        let text = String::from_utf8(seal.canonical_bytes_for_id().unwrap()).unwrap();
-        assert!(!text.contains("\"id\""));
-        assert!(!text.contains("notary_signature"));
-        assert!(text.contains("\"delta\""));
-        assert!(text.contains("\"control_event_set_root\""));
-    }
-
-    #[test]
-    fn reconstructs_from_exact_canonical_body_and_signature() {
-        let mut seal = sample();
-        let body = seal.canonical_bytes_for_id().unwrap();
-        let payload_digest = Hash::new(canonical::sha256_digest(&body)).unwrap();
-        match &mut seal.notary_signature {
-            NotarySig::Single(signature) => signature.payload_digest = payload_digest,
-            NotarySig::Multi(_) => unreachable!(),
-        }
-        let reconstructed = Seal::from_canonical_body_and_signature(
-            &body,
-            seal.notary_signature.clone(),
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap();
-        assert_eq!(reconstructed, seal);
-
-        let mut noncanonical = body;
-        noncanonical.push(b' ');
-        assert!(
-            Seal::from_canonical_body_and_signature(
-                &noncanonical,
-                seal.notary_signature,
-                arkret_canonical::DigestSuite::Sha256,
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn empty_predecessors_allow_a_canonical_non_empty_delta() {
-        let mut seal = sample();
-        seal.predecessor_refs.clear();
-        seal.id = seal
-            .derive_id(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        seal.validate_structural().unwrap();
-    }
-
-    #[test]
-    fn signature_variants_decode() {
-        let value = json!({
-            "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
-            "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "jws": "AAAA.BBBB.CCCC"
-        });
-        let decoded: NotarySig = serde_json::from_value(value).unwrap();
-        assert!(matches!(decoded, NotarySig::Single(_)));
-    }
-
-    /// The `notary_signature` union is untagged, so its branches must stay
-    /// mutually exclusive on the wire. `kind` discriminates the two aggregate
-    /// forms, and both are closed, so an instance that also carries the
-    /// single-signature members can only be the single-signature branch.
-    #[test]
-    fn notary_signature_branches_stay_mutually_exclusive() {
-        let multi = json!({
-            "kind": "multi_sig",
-            "signatures": [{
-                "verification_method": "did:webvh:z6mkfixture:notary.example#k1",
-                "payload_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "jws": "AAAA.BBBB.CCCC"
-            }]
-        });
-        let threshold = json!({
-            "kind": "threshold_sig",
-            "threshold": 2,
-            "signers": ["ak:did_core:webvh:z6mkfixturea", "ak:did_core:webvh:z6mkfixtureb"],
-            "proof": "AAAA"
-        });
-        assert!(matches!(
-            serde_json::from_value::<NotarySig>(multi).unwrap(),
-            NotarySig::Multi(_)
-        ));
-        assert!(serde_json::from_value::<NotarySig>(threshold.clone()).is_err());
-
-        // A future member added to either aggregate form must fail its own
-        // branch rather than silently widening the union.
-        let mut widened = threshold;
-        widened["future_member"] = json!(true);
-        assert!(serde_json::from_value::<NotarySig>(widened).is_err());
-    }
-
-    #[test]
-    fn predecessor_refs_enforce_schema_bound_before_set_validation() {
-        let mut seal = sample();
-        seal.predecessor_refs = vec![seal_id(0x11); MAX_SEAL_PREDECESSOR_REFS + 1];
-
-        let error = seal.validate_structural().unwrap_err();
-        assert!(error.to_string().contains("predecessor_refs exceeds"));
-    }
+fn deserialize_required_option<'de, D, T>(
+    deserializer: D,
+) -> std::result::Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
 }

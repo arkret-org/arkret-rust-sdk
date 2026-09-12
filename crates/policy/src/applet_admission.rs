@@ -10,8 +10,8 @@ use arkret_models_collaboration::governance::grant_constraint::{
 };
 use arkret_models_integration::AppletRegistrationPayload;
 use arkret_wire::{
-    ActorId, DidCoreId, Event, EventProof, GrantId, Hash, ResourceMatchScope, Result, ScopeRef,
-    WireError, WireResourceSelector,
+    ActorId, DidCoreId, Event, GrantId, ResourceMatchScope, Result, ScopeRef, WireError,
+    WireResourceSelector,
 };
 
 /// Authenticate the frozen authority Events with the caller's historical
@@ -105,10 +105,8 @@ pub fn validate_applet_installation_coordinates(
     {
         return Err(fail());
     }
-    let producer_proof = match event.proofs.as_slice() {
-        [EventProof::Producer(proof)]
-        | [EventProof::Producer(proof), EventProof::StationAdmission(_)] => proof,
-        _ => return Err(fail()),
+    let [producer_proof] = event.proofs.as_slice() else {
+        return Err(fail());
     };
     if producer == &service
         && !registration
@@ -117,36 +115,6 @@ pub fn validate_applet_installation_coordinates(
             .contains_signing_key(producer_proof.verification_method.as_str())
     {
         return Err(fail());
-    }
-    if let [
-        EventProof::Producer(proof),
-        EventProof::StationAdmission(admission),
-    ] = event.proofs.as_slice()
-    {
-        if admission.applet_installation_digest.as_ref()
-            != Some(&authority.canonical_sha256_digest()?)
-        {
-            return Err(fail());
-        }
-        for dependency in [registration_event, grant_event] {
-            let Some(dependency_admission) = dependency
-                .proofs
-                .last()
-                .and_then(EventProof::as_station_admission)
-            else {
-                return Err(fail());
-            };
-            if dependency_admission.accepted_at > admission.accepted_at {
-                return Err(fail());
-            }
-        }
-        let suite = event.event_id.event_digest().digest_suite()?;
-        event.verify_event_id_matches_content_with_digest_suite(suite)?;
-        admission.validate_binding(
-            &Hash::new(event.event_digest_with_digest_suite(suite)?)?,
-            proof,
-            target,
-        )?;
     }
     Ok(target.clone())
 }

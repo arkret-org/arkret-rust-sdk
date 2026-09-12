@@ -229,7 +229,7 @@ pub struct RealmBootstrapRegistry {
 pub struct RealmBootstrapProfile {
     pub atomic: bool,
     pub all_or_nothing: bool,
-    pub genesis_seal_covers_complete_unit: bool,
+    pub genesis_confirms_complete_unit: bool,
     pub ordered_slots: Vec<RealmBootstrapSlot>,
 }
 

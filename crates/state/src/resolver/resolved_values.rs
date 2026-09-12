@@ -66,11 +66,11 @@ pub(super) fn object_state_from_str(state: &str) -> Result<crate::ObjectState> {
     }
 }
 
-pub(super) fn space_state_from_str(state: &str) -> Result<crate::models::SpaceState> {
+pub(super) fn space_state_from_str(state: &str) -> Result<crate::SpaceState> {
     match state {
-        "active" => Ok(crate::models::SpaceState::Active),
-        "archived" => Ok(crate::models::SpaceState::Archived),
-        "tombstoned" => Ok(crate::models::SpaceState::Tombstoned),
+        "active" => Ok(crate::SpaceState::Active),
+        "archived" => Ok(crate::SpaceState::Archived),
+        "tombstoned" => Ok(crate::SpaceState::Tombstoned),
         _ => Err(WireError::Protocol(format!(
             "invalid space state: {}",
             state

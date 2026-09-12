@@ -1586,35 +1586,6 @@ pub enum AuthGrantExchangeKind {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BottomDiagnosticSealView {
-    pub leaves: Vec<SealId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_root: Option<Hash>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BottomDiagnostic {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub kind: BottomKind,
-    pub cell_ids: Vec<CellRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub event_ids: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_view: Option<BottomDiagnosticSealView>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub heads: Vec<Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<BottomContext>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
-    pub escalated_at: Option<DateTime<Utc>>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EgressNetworkPolicy {

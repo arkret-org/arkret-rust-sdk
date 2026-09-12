@@ -1,20 +1,21 @@
-use arkret_state::lattice::LatticeKind as SdkLatticeKind;
-use arkret_state::state::{EventCellBottom, MemoryCellRegistry};
+use arkret_state::state::MemoryCellStateRegistry;
+use arkret_state::state_model::StateModelKind;
+use arkret_wire::{EventCellBottom, EventCellExecution, EventCellValueShape};
 
-use super::contract_registry::{ContractRegistryError, canonical_fsm_contracts};
-use super::generated::SPEC_LATTICE_BINDINGS;
+use super::contract_registry::{ContractRegistryError, canonical_transition_contracts};
+use super::generated::SPEC_STATE_MODEL_BINDINGS;
 use super::impls::*;
 use super::registry::*;
 
 /// Build the typed registry used for subject derivation and event-kind dispatch.
 ///
-/// The complete executable family/lattice/bottom mapping is generated directly
-/// from `event-kind-registry.json`; see [`lattice_bindings_for_sdk_registry`].
+/// The complete executable family/state-model/bottom mapping is generated
+/// directly from `event-kind-registry.json`; see [`SPEC_STATE_MODEL_BINDINGS`].
 /// Registrations below are ordered alphabetically on purpose: grouping them by
-/// lattice algebra would restate a binding that only the generated table owns,
+/// state model would restate a binding that only the generated table owns,
 /// and such a grouping silently rots the moment a family's algebra changes.
-pub fn default_lattice_registry() -> LatticeRegistry {
-    let mut registry = LatticeRegistry::new();
+pub fn default_cell_family_registry() -> CellFamilyRegistry {
+    let mut registry = CellFamilyRegistry::new();
 
     registry.register(AgentKey);
     registry.register(AgentSelectorClaim);
@@ -48,7 +49,7 @@ pub fn default_lattice_registry() -> LatticeRegistry {
     registry.register(IdentityAccountability);
     registry.register(InviteLifecycle);
     registry.register(KeyBackupActiveSeries);
-    registry.register(MemberIdentityLattice);
+    registry.register(MemberIdentity);
     registry.register(MemberState);
     registry.register(MimiRoomBinding);
     registry.register(MlsEpoch);
@@ -95,39 +96,45 @@ pub fn default_lattice_registry() -> LatticeRegistry {
 
 /// One-shot list of `(cell_family, sdk_lattice_kind, sdk_bottom_mode)`
 /// generated from every active cell contract in `event-kind-registry.json`.
-pub fn lattice_bindings_for_sdk_registry() -> Vec<(&'static str, SdkLatticeKind, EventCellBottom)> {
-    SPEC_LATTICE_BINDINGS.to_vec()
+pub fn state_model_bindings_for_sdk_registry() -> Vec<(
+    &'static str,
+    EventCellExecution,
+    StateModelKind,
+    EventCellValueShape,
+    Option<EventCellBottom>,
+)> {
+    SPEC_STATE_MODEL_BINDINGS.to_vec()
 }
 
 /// Build the shared Realm cell registry from generated canonical descriptors.
 ///
 /// This convenience wrapper is appropriate when an invalid generated contract
 /// is a process invariant violation. Servers that need a recoverable startup
-/// error should call [`try_build_sdk_cell_registry`] and fail closed.
-pub fn build_sdk_cell_registry() -> MemoryCellRegistry {
-    try_build_sdk_cell_registry().expect("generated canonical cell contract must resolve")
+/// error should call [`try_build_sdk_state_registry`] and fail closed.
+pub fn build_sdk_state_registry() -> MemoryCellStateRegistry {
+    try_build_sdk_state_registry().expect("generated canonical cell contract must resolve")
 }
 
-pub fn try_build_sdk_cell_registry() -> Result<MemoryCellRegistry, ContractRegistryError> {
-    let mut sdk_registry = MemoryCellRegistry::empty();
-    for (family, kind, bottom_mode) in lattice_bindings_for_sdk_registry() {
-        if matches!(kind, SdkLatticeKind::Fsm) {
-            continue;
-        }
+pub fn try_build_sdk_state_registry() -> Result<MemoryCellStateRegistry, ContractRegistryError> {
+    let mut sdk_registry = MemoryCellStateRegistry::empty();
+    for (family, execution, state_model, value_shape, bottom_mode) in
+        state_model_bindings_for_sdk_registry()
+    {
         if family.starts_with("ak.private.") {
             return Err(ContractRegistryError::Invalid(format!(
                 "actor-private family {family} leaked into the shared registry"
             )));
         }
-        sdk_registry.register(family, kind, bottom_mode);
+        sdk_registry.register(family, execution, state_model, value_shape, bottom_mode);
     }
-    for contract in canonical_fsm_contracts()? {
-        sdk_registry.register_fsm(
-            &contract.cell_family,
-            contract.runtime_initial_state,
-            contract.runtime_transitions,
-            EventCellBottom::Reject,
-        );
+    for contract in canonical_transition_contracts()? {
+        sdk_registry
+            .register_domain_transition(
+                &contract.cell_family,
+                contract.runtime_initial_state,
+                contract.runtime_transitions,
+            )
+            .map_err(|error| ContractRegistryError::Invalid(error.to_string()))?;
     }
     Ok(sdk_registry)
 }

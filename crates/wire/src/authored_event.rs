@@ -26,8 +26,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 use crate::event_envelope::Event;
-use crate::primitives::EventProof;
-use crate::{EventId, Result, WireError};
+use crate::{EventId, ProducerEventProof, Result, WireError};
 
 /// An Event whose producer-signed content is complete and whose `event_id` was
 /// derived once from exactly that content.
@@ -154,24 +153,13 @@ impl AuthoredEvent {
         self.event
     }
 
-    /// Attach or replace a proof.
+    /// Attach or replace the sole producer proof.
     ///
     /// `proofs` is removed by `event_digest_preimage`, so this cannot move the
-    /// identity. A producer proof replaces an existing producer proof carrying
-    /// the same `verification_method`, matching the idempotent re-sign the
-    /// signer relies on.
-    pub fn attach_proof(&mut self, proof: EventProof) {
-        if let Some(incoming) = proof.as_producer() {
-            let method = incoming.verification_method.clone();
-            if let Some(slot) = self.event.proofs.iter_mut().find(|existing| {
-                existing
-                    .as_producer()
-                    .is_some_and(|existing| existing.verification_method == method)
-            }) {
-                *slot = proof;
-                return;
-            }
-        }
+    /// identity. Re-signing replaces the previous proof because receipts are
+    /// transport state and never appear in Event bytes.
+    pub fn attach_proof(&mut self, proof: ProducerEventProof) {
+        self.event.proofs.clear();
         self.event.proofs.push(proof);
     }
 
@@ -306,7 +294,6 @@ mod tests {
             refs: Vec::new(),
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             payload: serde_json::from_value(json!({
@@ -321,18 +308,24 @@ mod tests {
         }
     }
 
-    fn producer_proof() -> EventProof {
-        EventProof::Producer(ProducerEventProof {
+    fn producer_proof() -> ProducerEventProof {
+        ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "3".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: None,
+            signer_resolution_evidence_ref: Some(
+                crate::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "3".repeat(64)
+                ))
+                .unwrap(),
+            ),
             created_at: "2026-08-09T01:02:03.000Z".parse().unwrap(),
             domain: None,
             audience: None,
             proof_purpose: None,
             jws: "stub..signature".to_owned(),
-        })
+        }
     }
 
     #[test]

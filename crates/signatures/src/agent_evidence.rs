@@ -9,17 +9,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_canonical::{base64url_decode, canonical};
 use arkret_models_identity::agent_signer_evidence::{
     AGENT_KEY_COMPONENT, AGENT_STATUS_COMPONENT, AgentAdmissionEvidence, AgentAuthorizationStatus,
-    AgentAuthorizedSigningKey, AgentDetachedJws, AgentEventAdmission, AgentEventAdmissionReceipt,
-    AgentLifecycleProvenance, AgentLifecycleStatus, AgentLifecycleWitness, AgentSignerEvidence,
-    AgentSigningPublicKey, ControllerAccountEligibility, ControllerAccountStatus,
+    AgentAuthorizedSigningKey, AgentDetachedJws, AgentLifecycleProvenance, AgentLifecycleStatus,
+    AgentLifecycleWitness, AgentSignerEvidence, AgentSigningPublicKey,
+    ControllerAccountEligibility, ControllerAccountStatus,
 };
 use arkret_wire::{
     ActorId, CellRef, Did, DidCoreId, DidUrl, DomainSeparationId, EventId, Hash, NonEmptyString,
-    ProfileId, RealmId, SchemaId, Seal, SealId, SignerEvidenceRef, project_did_to_core_id,
+    ProfileId, SchemaId, Seal, SealId, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
-use ed25519_dalek::{Signer, SigningKey};
-use serde::{Deserialize, Serialize};
+use ed25519_dalek::SigningKey;
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::agent::agent_runtime_public_key_digest;
@@ -27,7 +27,6 @@ use crate::{Ed25519DetachedJwsVerifier, PublicKeyMaterial, sign_ed25519_detached
 
 const AUTHORITY_STATE_LEASE_DOMAIN: &str = DomainSeparationId::AGENT_AUTHORITY_STATE_EVIDENCE_V1;
 const CONTROLLER_GATE_DOMAIN: &str = DomainSeparationId::CONTROLLER_ACCOUNT_GATE_V1;
-const EVENT_ADMISSION_RECEIPT_DOMAIN: &str = DomainSeparationId::AGENT_SIGNER_ADMISSION_RECEIPT_V1;
 const DETACHED_JWS_KIND: &str = "detached_jws";
 const MAX_SEAL_LINEAGE: usize = 4096;
 
@@ -43,8 +42,6 @@ pub enum AgentEvidenceSigningError {
     InvalidProofShape(&'static str),
     #[error("agent evidence identifier is invalid: {0}")]
     InvalidIdentifier(String),
-    #[error("agent event admission receipt receiver does not match the signing method")]
-    ReceiverMismatch,
 }
 
 /// Canonical Account Authority signing bytes for the controller lifecycle
@@ -86,44 +83,6 @@ pub fn sign_agent_authority_state_lease(
     Ok(())
 }
 
-pub fn sign_agent_event_admission_receipt(
-    receipt: &mut AgentEventAdmissionReceipt,
-    receiver_verification_method: &DidUrl,
-    signing_key: &SigningKey,
-) -> Result<(), AgentEvidenceSigningError> {
-    let receiver_id =
-        did_url_controller_core_id(receiver_verification_method).map_err(|reason| {
-            AgentEvidenceSigningError::InvalidIdentifier(reason.as_str().to_owned())
-        })?;
-    if receipt.receiver_id != receiver_id {
-        return Err(AgentEvidenceSigningError::ReceiverMismatch);
-    }
-    receipt.proof.jws = domain_proof_jws_with_kid(
-        EVENT_ADMISSION_RECEIPT_DOMAIN,
-        receipt,
-        receiver_verification_method.as_str(),
-        signing_key,
-    )?;
-    Ok(())
-}
-
-pub fn verify_agent_event_admission_receipt(
-    receipt: &AgentEventAdmissionReceipt,
-    receiver_public_key: &PublicKeyMaterial,
-) -> Result<(), AgentEvidenceRejectedReason> {
-    let method = historical_receipt_verification_method(receipt)?;
-    if did_url_controller_core_id(&method)? != receipt.receiver_id {
-        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
-    }
-    verify_domain_proof(
-        EVENT_ADMISSION_RECEIPT_DOMAIN,
-        receipt,
-        &receipt.proof,
-        receiver_public_key,
-    )
-    .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)
-}
-
 fn domain_proof_jws(
     domain: &str,
     value: &impl Serialize,
@@ -137,26 +96,6 @@ fn domain_proof_jws(
     bytes.push(b'\n');
     bytes.extend_from_slice(&canonical);
     let jws = sign_ed25519_detached_jws(signing_key, &bytes)?;
-    NonEmptyString::new(jws)
-        .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_owned()))
-}
-
-fn domain_proof_jws_with_kid(
-    domain: &str,
-    value: &impl Serialize,
-    kid: &str,
-    signing_key: &SigningKey,
-) -> Result<NonEmptyString, AgentEvidenceSigningError> {
-    let mut value = serde_json::to_value(value)?;
-    remove_nested_jws_for_signing(&mut value)?;
-    let canonical = canonical::canonical_json_value_bytes(&value)?;
-    let mut bytes = Vec::with_capacity(domain.len() + 1 + canonical.len());
-    bytes.extend_from_slice(domain.as_bytes());
-    bytes.push(b'\n');
-    bytes.extend_from_slice(&canonical);
-    let input = crate::proof::ed25519_detached_jws_signing_input(&bytes, Some(kid))?;
-    let signature = signing_key.sign(input.as_bytes());
-    let jws = crate::proof::ed25519_detached_jws_from_signature(&signature.to_bytes(), Some(kid))?;
     NonEmptyString::new(jws)
         .map_err(|error| AgentEvidenceSigningError::InvalidIdentifier(error.to_owned()))
 }
@@ -295,7 +234,7 @@ pub enum AgentEvidenceRejectedReason {
     AuthorizationInactive,
     AuthorizationConflicted,
     SigningKeyMismatch,
-    HistoricalReceiptMismatch,
+    HistoricalClosureMismatch,
     MlsLeafBindingMismatch,
 }
 
@@ -306,7 +245,7 @@ impl AgentEvidenceRejectedReason {
             Self::AuthorizationInactive => "agent_authorization_inactive",
             Self::AuthorizationConflicted => "agent_authorization_conflicted",
             Self::SigningKeyMismatch => "agent_signing_key_mismatch",
-            Self::HistoricalReceiptMismatch => "agent_historical_receipt_mismatch",
+            Self::HistoricalClosureMismatch => "agent_historical_closure_mismatch",
             Self::MlsLeafBindingMismatch => "agent_mls_leaf_binding_mismatch",
         }
     }
@@ -373,16 +312,7 @@ pub struct CurrentAgentSignerEvidenceValidationContext<'a> {
 
 pub struct HistoricalAgentSignerEvidenceValidationContext<'a> {
     pub common: AgentEvidenceCommonContext<'a>,
-    pub event_id: &'a EventId,
-    pub realm_id: &'a RealmId,
-    pub producer_accepted_at: DateTime<Utc>,
-    pub producer_signer_resolution_evidence_ref: &'a SignerEvidenceRef,
-    pub receiver_id: &'a DidCoreId,
-    pub producer_station_id: &'a DidCoreId,
-    /// Resolve the exact receiver assertion key identified by the detached
-    /// JWS protected `kid` at the receipt acceptance time.
-    pub resolve_receiver_historical_key:
-        &'a dyn Fn(&DidUrl, DateTime<Utc>) -> Option<PublicKeyMaterial>,
+    pub observed_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -599,104 +529,29 @@ pub fn validate_historical_agent_signer_evidence(
     let AgentSignerEvidence::HistoricalEvent {
         schema,
         admission_evidence,
-        event_admission,
+        authorization_closure_refs,
         transparency,
     } = evidence
     else {
         return rejected(AgentEvidenceRejectedReason::WrongVerificationMode);
     };
     if schema.as_str() != SchemaId::AGENT_SIGNER_EVIDENCE_V1 {
-        return rejected(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
+        return rejected(AgentEvidenceRejectedReason::HistoricalClosureMismatch);
     }
-    let accepted_at = match verify_historical_admission(event_admission, context) {
-        Ok(at) => at,
-        Err(reason) => return rejected(reason),
-    };
+    if authorization_closure_refs
+        .windows(2)
+        .any(|pair| pair[0] >= pair[1])
+    {
+        return rejected(AgentEvidenceRejectedReason::HistoricalClosureMismatch);
+    }
     common_verdict(validate_common_evidence(
         evidence,
         admission_evidence,
         transparency.is_some(),
-        accepted_at,
+        context.observed_at,
         &context.common,
         None,
     ))
-}
-
-fn verify_historical_admission(
-    admission: &AgentEventAdmission,
-    context: &HistoricalAgentSignerEvidenceValidationContext<'_>,
-) -> Result<DateTime<Utc>, AgentEvidenceRejectedReason> {
-    let reject = || AgentEvidenceRejectedReason::HistoricalReceiptMismatch;
-    match admission {
-        AgentEventAdmission::ReceiverReceipt { receipt } => {
-            if receipt.receiver_id == *context.producer_station_id
-                && receipt.accepted_at == context.producer_accepted_at
-            {
-                return Err(reject());
-            }
-            if !historical_receipt_matches(receipt, context) {
-                return Err(reject());
-            }
-            let method = historical_receipt_verification_method(receipt)?;
-            if did_url_controller_core_id(&method)? != *context.receiver_id {
-                return Err(reject());
-            }
-            let key = (context.resolve_receiver_historical_key)(&method, receipt.accepted_at)
-                .ok_or_else(reject)?;
-            verify_domain_proof(
-                EVENT_ADMISSION_RECEIPT_DOMAIN,
-                receipt,
-                &receipt.proof,
-                &key,
-            )?;
-            Ok(receipt.producer_accepted_at)
-        }
-        AgentEventAdmission::StationAdmission { accepted_event } => {
-            let suite = accepted_event
-                .event_id
-                .event_digest()
-                .digest_suite()
-                .map_err(|_| reject())?;
-            accepted_event
-                .validate_station_admission_binding(suite)
-                .map_err(|_| reject())?;
-            let proof = accepted_event
-                .proofs
-                .iter()
-                .find_map(arkret_wire::EventProof::as_station_admission)
-                .ok_or_else(reject)?;
-            if accepted_event.event_id != *context.event_id
-                || accepted_event.realm_id != *context.realm_id
-                || accepted_event
-                    .executed_by
-                    .as_ref()
-                    .unwrap_or(&accepted_event.actor_id)
-                    .signing_principal_id()
-                    != context.common.signer_id
-                || proof.producer_verification_method != *context.common.verification_method
-                || context.receiver_id != context.producer_station_id
-                || proof.accepted_at != context.producer_accepted_at
-                || proof.producer_signer_resolution_evidence_ref.as_ref()
-                    != Some(context.producer_signer_resolution_evidence_ref)
-                || did_url_controller_core_id(&proof.verification_method)? != *context.receiver_id
-            {
-                return Err(reject());
-            }
-            let key = (context.resolve_receiver_historical_key)(
-                &proof.verification_method,
-                proof.accepted_at,
-            )
-            .ok_or_else(reject)?;
-            Ed25519DetachedJwsVerifier::new()
-                .verify_detached_jws(
-                    &proof.jws,
-                    &proof.canonical_binding_bytes().map_err(|_| reject())?,
-                    &key,
-                )
-                .map_err(|_| reject())?;
-            Ok(proof.accepted_at)
-        }
-    }
 }
 
 enum CommonEvidenceFailure {
@@ -884,85 +739,6 @@ fn validate_common_evidence(
     })
 }
 
-/// Extract and strictly validate the destination assertion method carried in
-/// the receipt's protected detached-JWS header. Missing `kid`, non-Ed25519,
-/// non-canonical headers, unsupported extensions, and malformed DIDs fail
-/// closed before historical key resolution.
-pub fn historical_admission_verification_method(
-    admission: &AgentEventAdmission,
-) -> Result<DidUrl, AgentEvidenceRejectedReason> {
-    match admission {
-        AgentEventAdmission::StationAdmission { .. } => Ok(admission
-            .station_admission()
-            .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)?
-            .verification_method
-            .clone()),
-        AgentEventAdmission::ReceiverReceipt { receipt } => {
-            historical_receipt_verification_method(receipt)
-        }
-    }
-}
-
-pub fn historical_receipt_verification_method(
-    receipt: &AgentEventAdmissionReceipt,
-) -> Result<DidUrl, AgentEvidenceRejectedReason> {
-    historical_receipt_protected_method(receipt)?
-        .ok_or(AgentEvidenceRejectedReason::HistoricalReceiptMismatch)
-}
-
-fn historical_receipt_protected_method(
-    receipt: &AgentEventAdmissionReceipt,
-) -> Result<Option<DidUrl>, AgentEvidenceRejectedReason> {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct ProtectedHeader {
-        alg: String,
-        kid: Option<String>,
-        #[serde(default)]
-        typ: Option<String>,
-        #[serde(default)]
-        crit: Option<Value>,
-    }
-
-    let mut parts = receipt.proof.jws.as_str().split('.');
-    let (Some(protected), Some(payload), Some(signature), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
-    };
-    if !payload.is_empty() || signature.is_empty() || base64url_decode(signature).is_err() {
-        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
-    }
-    let protected = base64url_decode(protected)
-        .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)?;
-    let header: ProtectedHeader = canonical::from_canonical_json_slice(&protected)
-        .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)?;
-    if header.alg != "Ed25519" || header.typ.is_some() || header.crit.is_some() {
-        return Err(AgentEvidenceRejectedReason::HistoricalReceiptMismatch);
-    }
-    header
-        .kid
-        .map(DidUrl::new)
-        .transpose()
-        .map_err(|_| AgentEvidenceRejectedReason::HistoricalReceiptMismatch)
-}
-
-fn historical_receipt_matches(
-    receipt: &AgentEventAdmissionReceipt,
-    context: &HistoricalAgentSignerEvidenceValidationContext<'_>,
-) -> bool {
-    receipt.schema.as_str() == SchemaId::AGENT_SIGNER_ADMISSION_RECEIPT_V1
-        && receipt.event_id == *context.event_id
-        && receipt.realm_id == *context.realm_id
-        && receipt.producer_accepted_at == context.producer_accepted_at
-        && receipt.agent_id == *context.common.signer_id
-        && receipt.verification_method == *context.common.verification_method
-        && receipt.producer_signer_resolution_evidence_ref
-            == *context.producer_signer_resolution_evidence_ref
-        && receipt.receiver_id == *context.receiver_id
-        && receipt.proof.kind.as_str() == DETACHED_JWS_KIND
-}
-
 fn validate_state_witnesses(
     admission: &AgentAdmissionEvidence,
     context: &AgentEvidenceStateVerificationContext<'_>,
@@ -1034,6 +810,7 @@ fn validate_state_witnesses(
         })
         && verify_witness_branch(
             &key.cell_ref,
+            &key.authorization_event_id,
             &key_value,
             &key.leaf_digest,
             key.leaf_index,
@@ -1060,8 +837,7 @@ fn validate_state_witnesses(
         && lifecycle_provenance_matches(lifecycle, &snapshot.state.seal_lineages))
 }
 
-/// Verify an accepted lifecycle Event using the Station-authenticated frozen
-/// producer key. The resolver supplies trusted Station verification keys.
+/// Verify an accepted lifecycle Event with its producer key.
 pub fn verify_agent_lifecycle_event_signature(
     witness: &AgentLifecycleWitness,
     resolve_key: &dyn Fn(&DidUrl) -> Option<PublicKeyMaterial>,
@@ -1081,13 +857,9 @@ pub fn verify_agent_accepted_event_signature(
         .digest_suite()
         .map_err(|_| reject())?;
     event
-        .validate_station_admission_binding(suite)
+        .validate_for_direct_history_structural()
         .map_err(|_| reject())?;
-    let [
-        arkret_wire::EventProof::Producer(producer),
-        arkret_wire::EventProof::StationAdmission(admission),
-    ] = event.proofs.as_slice()
-    else {
+    let [producer] = event.proofs.as_slice() else {
         return Err(reject());
     };
     if did_url_controller_core_id(&producer.verification_method)
@@ -1097,26 +869,14 @@ pub fn verify_agent_accepted_event_signature(
     {
         return Err(reject());
     }
-    let station_key = resolve_key(&admission.verification_method).ok_or_else(reject)?;
-    let admission_bytes = admission.canonical_binding_bytes().map_err(|_| reject())?;
-    Ed25519DetachedJwsVerifier::new()
-        .verify_detached_jws(&admission.jws, &admission_bytes, &station_key)
-        .map_err(|_| reject())?;
-    let multibase = admission
-        .producer_signing_key_did
-        .as_str()
-        .strip_prefix("did:key:")
-        .ok_or_else(reject)?;
-    let key = arkret_canonical::decode_ed25519_multibase(multibase).map_err(|_| reject())?;
+    let key = resolve_key(&producer.verification_method).ok_or_else(reject)?;
     let payload = event.digest_payload().map_err(|_| reject())?;
     let bytes = arkret_canonical::canonical_json_bytes(&payload).map_err(|_| reject())?;
     crate::verify_ed25519_detached_jws_proof_with_digest_suite(
         producer,
         &bytes,
         &event.actor_id,
-        &PublicKeyMaterial::Ed25519Raw {
-            bytes: key.to_vec(),
-        },
+        &key,
         suite,
     )
     .map_err(|_| reject())
@@ -1126,12 +886,7 @@ pub fn verify_agent_accepted_event_signature(
 /// ancestry. Signature/lineage verification remains mandatory in the caller.
 fn lifecycle_provenance_matches(witness: &AgentLifecycleWitness, lineage: &[Seal]) -> bool {
     let event = &witness.accepted_status_event;
-    if event.realm_id != witness.seal.realm_id
-        || !witness
-            .cell_heads
-            .iter()
-            .any(|head| head.event_id == event.event_id && head.value == witness.cell_value)
-    {
+    if event.realm_id != witness.seal.realm_id {
         return false;
     }
     let digest = event.event_id.event_digest();
@@ -1251,7 +1006,7 @@ fn validate_seal_lineage(
     }
     let mut referenced = BTreeSet::new();
     for seal in seals.values() {
-        for predecessor_id in &seal.predecessor_refs {
+        for predecessor_id in seal.predecessor_ref.iter() {
             let Some(predecessor) = seals.get(predecessor_id.as_str()) else {
                 return Ok(false);
             };
@@ -1300,7 +1055,7 @@ fn seal_is_ancestor(
             return Err(AgentEvidenceRejectedReason::SigningKeyMismatch);
         };
         pending.extend(
-            seal.predecessor_refs
+            seal.predecessor_ref
                 .iter()
                 .map(SealId::as_str)
                 .map(ToOwned::to_owned),
@@ -1309,11 +1064,7 @@ fn seal_is_ancestor(
     Ok(false)
 }
 
-/// The §6.2.1 leaf of a causal-register cell, from its declared head set.
-///
-/// `ak.component.agent.status.v1` is an `fsm` (§9.3.1.5), so its leaf hashes
-/// `{"heads":[…]}`. [`verify_witness_branch`] stays as it is for the `or_set`
-/// key cells, whose leaf really is the value.
+/// Verify the sequenced-state leaf against the exact accepted status revision.
 fn verify_lifecycle_branch(lifecycle: &AgentLifecycleWitness, settled: &Value) -> bool {
     let Ok(cell_ref) = CellRef::new(lifecycle.cell_ref.as_str().to_owned()) else {
         return false;
@@ -1324,32 +1075,12 @@ fn verify_lifecycle_branch(lifecycle: &AgentLifecycleWitness, settled: &Value) -
     let Ok(digest_suite) = arkret_canonical::digest_suite(suite) else {
         return false;
     };
-    if lifecycle.cell_heads.is_empty() {
-        return false;
-    }
-    // The declared settled value has to be what the heads say, or the two
-    // halves of the witness could disagree and the authorization check would
-    // read one while the proof covered the other.
-    let first = &lifecycle.cell_heads[0].value;
-    if lifecycle.cell_heads.iter().any(|head| &head.value != first) {
-        return false;
-    }
-    if serde_json::to_value(first).ok().as_ref() != Some(settled) {
-        return false;
-    }
-    let heads = lifecycle
-        .cell_heads
-        .iter()
-        .map(
-            |head| arkret_state::realm_state_snapshot::RealmStateSnapshotCasHead {
-                event_id: head.event_id.clone(),
-                value: settled.clone(),
-            },
-        )
-        .collect();
     let Ok(computed) = arkret_state::state::state_root::state_leaf_hash_from_state_object(
         &cell_ref,
-        arkret_state::realm_state_snapshot::SnapshotCellState::Heads(heads).to_state_object(),
+        serde_json::json!({
+            "revision_event_id": lifecycle.accepted_status_event.event_id,
+            "value": settled,
+        }),
         digest_suite,
     ) else {
         return false;
@@ -1368,6 +1099,7 @@ fn verify_lifecycle_branch(lifecycle: &AgentLifecycleWitness, settled: &Value) -
 
 fn verify_witness_branch(
     cell_ref: &NonEmptyString,
+    revision_event_id: &EventId,
     cell_value: &Value,
     declared_leaf_digest: &Hash,
     leaf_index: u64,
@@ -1384,9 +1116,14 @@ fn verify_witness_branch(
     let Ok(digest_suite) = arkret_canonical::digest_suite(suite) else {
         return false;
     };
-    let Ok(computed_leaf_digest) =
-        arkret_state::state_value_leaf_digest(&cell_ref, cell_value, digest_suite)
-    else {
+    let Ok(computed_leaf_digest) = arkret_state::state_leaf_hash_from_state_object(
+        &cell_ref,
+        serde_json::json!({
+            "revision_event_id": revision_event_id,
+            "value": cell_value,
+        }),
+        digest_suite,
+    ) else {
         return false;
     };
     computed_leaf_digest == *declared_leaf_digest

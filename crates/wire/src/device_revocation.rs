@@ -43,15 +43,13 @@ pub enum DeviceRevocationDeniedAction {
     KeypackageClaim,
     ToDeviceWrite,
     EventWrite,
-    StationAdmissionProofIssue,
 }
 
-pub const DEVICE_REVOCATION_DENIED_ACTIONS: [DeviceRevocationDeniedAction; 5] = [
+pub const DEVICE_REVOCATION_DENIED_ACTIONS: [DeviceRevocationDeniedAction; 4] = [
     DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh,
     DeviceRevocationDeniedAction::KeypackageClaim,
     DeviceRevocationDeniedAction::ToDeviceWrite,
     DeviceRevocationDeniedAction::EventWrite,
-    DeviceRevocationDeniedAction::StationAdmissionProofIssue,
 ];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -84,7 +82,7 @@ pub struct DeviceRevocationPendingState {
     pub control_proposal_ack: ControlProposalAck,
     pub status: DeviceRevocationPendingStatus,
     pub decision_state: DeviceRevocationDecisionState,
-    pub denied_actions: [DeviceRevocationDeniedAction; 5],
+    pub denied_actions: [DeviceRevocationDeniedAction; 4],
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decisions: Option<Vec<ControlProposalDecision>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -243,7 +241,6 @@ pub enum DeviceRevocationGateActionClass {
     KeypackageClaim,
     ToDeviceWrite,
     EventWrite,
-    StationAdmissionProofIssue,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

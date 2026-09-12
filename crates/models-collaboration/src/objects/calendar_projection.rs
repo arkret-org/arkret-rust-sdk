@@ -122,7 +122,7 @@ impl RsvpResponseClass {
     }
 }
 
-/// One classified `mv_register` head.
+/// One classified causal-register head.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CalendarRsvpHead {
     pub source_event_digest: Hash,

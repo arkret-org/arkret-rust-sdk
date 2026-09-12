@@ -18,15 +18,16 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use super::{
-    CellLatticeBinding, CellRegistry, CellStore, ControlEventStore, ControlProposalIngress,
+    CellStateModelBinding, CellStateRegistry, CellStore, ControlEventStore, ControlProposalIngress,
     ControlProposalIngressClass, ControlProposalSnapshot, ControlSealAttemptCompletion,
     ControlSealAttemptOutcome, ControlSealScheduleClaim, ControlSealScheduleRepairStats,
     ControlSealScheduleStats, EventCellBottom, PendingControlEventRecord, SealStore,
     SealedControlEventRecord, StoreError, StoreResult, control_event_digest,
 };
-use crate::lattice::ordered_log::IssuedOp;
-use crate::lattice::{
-    CasRegister, CellState, Counter, Fsm, Lattice, LatticeKind, MvRegister, OrSet, OrderedLog,
+use crate::state_model::ordered_log::IssuedOp;
+use crate::state_model::{
+    CausalRegister, Counter, DomainTransitionRule, OrSet, OrderedLog, ResolvedCellState,
+    SequencedState, StateModel, StateModelKind,
 };
 use crate::{CellRef, Hash, RealmId, Seal, SealId};
 
@@ -893,14 +894,14 @@ impl MemorySealStoreInner {
         self.seals.insert(id_str.clone(), seal.clone());
         self.digest_suites.insert(id_str, digest_suite);
 
-        if seal.predecessor_refs.is_empty() {
+        if seal.predecessor_ref.is_none() {
             self.genesis
                 .entry(realm.clone())
                 .or_insert_with(|| seal.id.clone());
         }
 
         let leaves = self.leaves.entry(realm).or_default();
-        leaves.retain(|leaf| !seal.predecessor_refs.iter().any(|p| p == leaf));
+        leaves.retain(|leaf| !seal.predecessor_ref.iter().any(|p| p == leaf));
         if !leaves.iter().any(|leaf| leaf == &seal.id) {
             leaves.push(seal.id.clone());
         }
@@ -1072,7 +1073,7 @@ impl SealStore for MemorySealStore {
             if seal.realm_id.as_str() != realm_id.as_str() {
                 continue;
             }
-            if seal.predecessor_refs.iter().any(|p| p == seal_id) {
+            if seal.predecessor_ref.iter().any(|p| p == seal_id) {
                 out.push(seal.id.clone());
             }
         }
@@ -1089,10 +1090,10 @@ pub struct MemoryCellStore {
 
 #[derive(Default)]
 struct MemoryCellStoreInner {
-    /// (realm, cell) -> ordered (accepting Seal, SealedOp) list
+    /// (realm, cell) -> ordered (accepting Seal, StateWrite) list
     cell_log: BTreeMap<(String, String), Vec<(SealId, IssuedOp)>>,
-    /// (realm, cell, view_hash) -> CellState
-    cache: BTreeMap<(String, String, String), CellState>,
+    /// (realm, cell, view_hash) -> ResolvedCellState
+    cache: BTreeMap<(String, String, String), ResolvedCellState>,
     /// seal → ops it appended (used for rollback)
     seal_ops: BTreeMap<String, Vec<(String, IssuedOp)>>, // (realm, cell), op
 }
@@ -1115,7 +1116,7 @@ impl CellStore for MemoryCellStore {
         Ok(cells)
     }
 
-    async fn sealed_ops_for_cell(
+    async fn state_writes_for_cell(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
@@ -1131,7 +1132,7 @@ impl CellStore for MemoryCellStore {
             .unwrap_or_default())
     }
 
-    async fn sealed_op_batches_for_cell(
+    async fn confirmed_write_batches_for_cell(
         &self,
         realm_id: &RealmId,
         cell: &CellRef,
@@ -1163,7 +1164,7 @@ impl CellStore for MemoryCellStore {
         realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
-    ) -> StoreResult<Option<CellState>> {
+    ) -> StoreResult<Option<ResolvedCellState>> {
         let inner = self
             .inner
             .lock()
@@ -1183,7 +1184,7 @@ impl CellStore for MemoryCellStore {
         realm_id: &RealmId,
         cell: &CellRef,
         view_hash: &Hash,
-        state: &CellState,
+        state: &ResolvedCellState,
     ) -> StoreResult<()> {
         let mut inner = self
             .inner
@@ -1200,7 +1201,7 @@ impl CellStore for MemoryCellStore {
         Ok(())
     }
 
-    async fn append_sealed_effects(
+    async fn append_confirmed_effects(
         &self,
         realm_id: &RealmId,
         seal: &SealId,
@@ -1258,138 +1259,27 @@ impl CellStore for MemoryCellStore {
     }
 }
 
-/// In-memory `CellRegistry` with hand-wired cell_family → Lattice mappings.
-///
-/// Production registry will load mappings from the spec
-/// `event-kind-registry.json` `cell_family` / `lattice` / `bottom`
-/// fields. This memory version covers the cell families exercised by
-/// SDK tests and the move-seal-lattice fixture.
-pub struct MemoryCellRegistry {
+/// In-memory registry of generated Cell-family execution contracts.
+pub struct MemoryCellStateRegistry {
     bindings: BTreeMap<String, BindingDescriptor>,
 }
 
 #[derive(Clone)]
 struct BindingDescriptor {
-    kind: LatticeKind,
-    bottom_mode: EventCellBottom,
-    fsm_initial: Option<Value>,
-    fsm_transitions: Vec<(Value, Value)>,
+    execution: arkret_wire::EventCellExecution,
+    state_model: StateModelKind,
+    value_shape: arkret_wire::EventCellValueShape,
+    bottom_mode: Option<EventCellBottom>,
+    domain_transition: Option<DomainTransitionRule>,
 }
 
-impl Default for MemoryCellRegistry {
+impl Default for MemoryCellStateRegistry {
     fn default() -> Self {
-        let mut bindings = BTreeMap::new();
-
-        // Membership FSM (per spec event-auth-state-resolution.md §5).
-        bindings.insert(
-            arkret_wire::CellFamilyId::MEMBER_STATE_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::Fsm,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: Some(json!("invited")),
-                fsm_transitions: vec![
-                    (json!("invited"), json!("join")),
-                    (json!("join"), json!("leave")),
-                    (json!("join"), json!("ban")),
-                    (json!("leave"), json!("join")),
-                    (json!("invited"), json!("leave")),
-                ],
-            },
-        );
-
-        // Capability grant or-set.
-        bindings.insert(
-            arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::OrSet,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // Consent or-set (ak.component.consent.grant.v1) — spec consent-model §3.1.
-        bindings.insert(
-            arkret_wire::CellFamilyId::CONSENT_GRANT_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::OrSet,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // Notary cell — cas-register, bottom=reject.
-        bindings.insert(
-            arkret_wire::CellFamilyId::NOTARY_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::CasRegister,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // Generic Realm policy — cas-register, bottom=reject (spec §5 example).
-        bindings.insert(
-            arkret_wire::CellFamilyId::REALM_POLICY_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::CasRegister,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // Realm digest suite — the create projection installs the initial
-        // value and a hash-transition Move causally replaces it.
-        bindings.insert(
-            arkret_wire::CellFamilyId::REALM_DIGEST_SUITE_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::CasRegister,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // Audit log / message log — ordered-log.
-        bindings.insert(
-            arkret_wire::CellFamilyId::AUDIT_ACCESS_LOG_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::OrderedLog,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-
-        // MLS commit Move target cells (spec §10).
-        // mls_epoch: cas-register, bottom=reject (racing commits fail closed).
-        bindings.insert(
-            arkret_wire::CellFamilyId::MLS_EPOCH_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::CasRegister,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-        // key_schedule: cas-register, bottom=reject (one schedule per epoch).
-        bindings.insert(
-            arkret_wire::CellFamilyId::MLS_KEY_SCHEDULE_V1.to_owned(),
-            BindingDescriptor {
-                kind: LatticeKind::CasRegister,
-                bottom_mode: EventCellBottom::Reject,
-                fsm_initial: None,
-                fsm_transitions: vec![],
-            },
-        );
-        Self { bindings }
+        Self::empty()
     }
 }
 
-impl MemoryCellRegistry {
+impl MemoryCellStateRegistry {
     pub fn new() -> Self {
         Self::default()
     }
@@ -1408,59 +1298,65 @@ impl MemoryCellRegistry {
     pub fn register(
         &mut self,
         cell_family: impl Into<String>,
-        kind: LatticeKind,
-        bottom_mode: EventCellBottom,
+        execution: arkret_wire::EventCellExecution,
+        state_model: StateModelKind,
+        value_shape: arkret_wire::EventCellValueShape,
+        bottom_mode: Option<EventCellBottom>,
     ) {
+        debug_assert_eq!(
+            execution == arkret_wire::EventCellExecution::Security,
+            state_model == StateModelKind::SequencedState,
+        );
         self.bindings.insert(
             cell_family.into(),
             BindingDescriptor {
-                kind,
+                execution,
+                state_model,
+                value_shape,
                 bottom_mode,
-                fsm_initial: None,
-                fsm_transitions: vec![],
+                domain_transition: None,
             },
         );
     }
 
-    pub fn register_fsm(
+    pub fn register_domain_transition(
         &mut self,
-        cell_family: impl Into<String>,
+        cell_family: &str,
         initial: Option<Value>,
         transitions: Vec<(Value, Value)>,
-        bottom_mode: EventCellBottom,
-    ) {
-        self.bindings.insert(
-            cell_family.into(),
-            BindingDescriptor {
-                kind: LatticeKind::Fsm,
-                bottom_mode,
-                fsm_initial: initial,
-                fsm_transitions: transitions,
-            },
-        );
+    ) -> StoreResult<()> {
+        let descriptor = self
+            .bindings
+            .get_mut(cell_family)
+            .ok_or_else(|| StoreError::NotFound(format!("unknown cell family: {cell_family}")))?;
+        let mut rule = DomainTransitionRule::new(transitions);
+        if let Some(initial) = initial {
+            rule = rule.with_initial(initial);
+        }
+        descriptor.domain_transition = Some(rule);
+        Ok(())
     }
 }
 
-impl CellRegistry for MemoryCellRegistry {
+impl CellStateRegistry for MemoryCellStateRegistry {
     fn checkpoint_context(&self, _realm_id: &RealmId) -> StoreResult<Option<Hash>> {
         // All registry mutation requires `&mut self`; an Arc-held registry is
-        // therefore one immutable rule snapshot. Include complete FSM rules,
-        // not merely lattice names, and conservatively invalidate when any
-        // local implementation of joins, heads or ordering changes. SHA-256,
+        // therefore one immutable rule snapshot. Include domain transition
+        // rules and conservatively invalidate when state resolution changes. SHA-256,
         // JCS and typed identifier ordering are fixed protocol algorithms;
         // semantic changes to those contracts must invalidate this evaluation
         // contract explicitly, rather than relying on a dependency source scan.
         static IMPLEMENTATION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
         let implementation = IMPLEMENTATION.get_or_init(|| {
             let sources = [
-                include_str!("../../lattice/mod.rs"),
-                include_str!("../../lattice/traits.rs"),
-                include_str!("../../lattice/cas_register.rs"),
-                include_str!("../../lattice/counter.rs"),
-                include_str!("../../lattice/fsm.rs"),
-                include_str!("../../lattice/mv_register.rs"),
-                include_str!("../../lattice/or_set.rs"),
-                include_str!("../../lattice/ordered_log.rs"),
+                include_str!("../../state_model/mod.rs"),
+                include_str!("../../state_model/traits.rs"),
+                include_str!("../../state_model/causal_register.rs"),
+                include_str!("../../state_model/counter.rs"),
+                include_str!("../../state_model/domain_transition.rs"),
+                include_str!("../../state_model/or_set.rs"),
+                include_str!("../../state_model/ordered_log.rs"),
+                include_str!("../../state_model/sequenced_state.rs"),
                 include_str!("../seal.rs"),
                 include_str!("../state_root.rs"),
                 include_str!("mod.rs"),
@@ -1480,10 +1376,11 @@ impl CellRegistry for MemoryCellRegistry {
                 (
                     family,
                     json!({
-                        "kind": descriptor.kind.as_wire_str(),
-                        "bottom_mode": descriptor.bottom_mode.as_str(),
-                        "fsm_initial": descriptor.fsm_initial,
-                        "fsm_transitions": descriptor.fsm_transitions,
+                        "execution": descriptor.execution,
+                        "state_model": descriptor.state_model.as_wire_str(),
+                        "value_shape": descriptor.value_shape,
+                        "bottom_mode": descriptor.bottom_mode,
+                        "domain_transition": descriptor.domain_transition.is_some(),
                     }),
                 )
             })
@@ -1499,7 +1396,7 @@ impl CellRegistry for MemoryCellRegistry {
             .map_err(|error| StoreError::Backend(error.to_string()))
     }
 
-    fn resolve(&self, _realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellLatticeBinding> {
+    fn resolve(&self, _realm_id: &RealmId, cell: &CellRef) -> StoreResult<CellStateModelBinding> {
         // Parse "ak:cell:<family>:<subject>" — family is between the 2nd and 3rd colons.
         let cell_id = crate::CellId::parse(cell.as_str())
             .map_err(|e| StoreError::Backend(format!("invalid cell ref: {e}")))?;
@@ -1508,1274 +1405,20 @@ impl CellRegistry for MemoryCellRegistry {
             .bindings
             .get(family)
             .ok_or_else(|| StoreError::NotFound(format!("unknown cell family: {family}")))?;
-        let lattice: Box<dyn Lattice> = match descriptor.kind {
-            LatticeKind::OrSet => Box::new(OrSet),
-            LatticeKind::MvRegister => Box::new(MvRegister),
-            LatticeKind::CasRegister => Box::new(CasRegister),
-            LatticeKind::Fsm => {
-                let mut fsm = Fsm::new(descriptor.fsm_transitions.clone());
-                if let Some(initial) = descriptor.fsm_initial.clone() {
-                    fsm = fsm.with_initial(initial);
-                }
-                Box::new(fsm)
-            }
-            LatticeKind::Counter => Box::new(Counter),
-            LatticeKind::OrderedLog => Box::new(OrderedLog),
+        let model: Box<dyn StateModel> = match descriptor.state_model {
+            StateModelKind::OrSet => Box::new(OrSet),
+            StateModelKind::CausalRegister => Box::new(CausalRegister),
+            StateModelKind::SequencedState => Box::new(SequencedState::new(descriptor.value_shape)),
+            StateModelKind::Counter => Box::new(Counter),
+            StateModelKind::OrderedLog => Box::new(OrderedLog),
         };
-        Ok(CellLatticeBinding {
-            lattice,
+        Ok(CellStateModelBinding {
+            model,
+            state_model: descriptor.state_model,
+            execution: descriptor.execution,
+            value_shape: descriptor.value_shape,
             bottom_mode: descriptor.bottom_mode,
+            domain_transition: descriptor.domain_transition.clone(),
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use arkret_wire::{ActorId, DidCoreId, DidUrl};
-
-    use crate::lattice::SealedOp;
-
-    fn issued(op: SealedOp) -> IssuedOp {
-        IssuedOp {
-            issuer_id: ActorId::service(
-                DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
-            ),
-            op,
-        }
-    }
-
-    use std::sync::Arc;
-
-    use arkret_wire::ProducerEventProof;
-    use arkret_wire::event_envelope::ScopeRef;
-    use chrono::{TimeZone, Utc};
-    use tokio::sync::Barrier;
-
-    use super::super::AcklessSelfPrincipalIngress;
-    use super::*;
-    use crate::{
-        Hlc, LatticeOp, LatticeOpType, NotarySig, PayloadSignature, SealBasis, SealSignature,
-    };
-
-    #[test]
-    fn checkpoint_context_binds_complete_rules_and_is_reproducible() {
-        let realm = derived_realm(12);
-        let mut first = MemoryCellRegistry::empty();
-        let mut second = MemoryCellRegistry::empty();
-        let family = arkret_wire::CellFamilyId::MEMBER_STATE_V1;
-        first.register_fsm(
-            family,
-            Some(json!("leave")),
-            vec![(json!("leave"), json!("join"))],
-            EventCellBottom::Reject,
-        );
-        second.register_fsm(
-            family,
-            Some(json!("leave")),
-            vec![(json!("leave"), json!("join"))],
-            EventCellBottom::Reject,
-        );
-        assert_eq!(
-            first.checkpoint_context(&realm).unwrap(),
-            second.checkpoint_context(&realm).unwrap()
-        );
-        let original = first.checkpoint_context(&realm).unwrap();
-        second.register_fsm(
-            family,
-            Some(json!("leave")),
-            vec![(json!("leave"), json!("ban"))],
-            EventCellBottom::Reject,
-        );
-        assert_ne!(original, second.checkpoint_context(&realm).unwrap());
-        second.register_fsm(
-            family,
-            Some(json!("join")),
-            vec![(json!("leave"), json!("join"))],
-            EventCellBottom::Reject,
-        );
-        assert_ne!(original, second.checkpoint_context(&realm).unwrap());
-        second.register_fsm(
-            family,
-            Some(json!("leave")),
-            vec![(json!("leave"), json!("join"))],
-            EventCellBottom::Expose,
-        );
-        assert_ne!(original, second.checkpoint_context(&realm).unwrap());
-    }
-
-    const SUITE: arkret_canonical::DigestSuite = arkret_canonical::DigestSuite::Sha256;
-
-    fn realm() -> RealmId {
-        RealmId::new("ak:realm:AYw-PHWIOTuZhm-EenZx-cCbOziC8pNCrh10oRfqiEmN".to_owned()).unwrap()
-    }
-
-    fn seal_id(byte: u8) -> SealId {
-        SealId::new(format!(
-            "ak:seal:sha256:{}",
-            format!("{byte:02x}").repeat(32)
-        ))
-        .unwrap()
-    }
-
-    fn hash(byte: u8) -> Hash {
-        Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap()
-    }
-
-    fn cell_member() -> CellRef {
-        CellRef::new("ak:cell:ak.component.member.state.v1:did.web.alice.example".to_owned())
-            .unwrap()
-    }
-
-    /// A Control Move: an Event carrying `seal_basis`, distinguished from
-    /// its siblings by `actor_seq` so each one hashes to a different
-    /// `event_digest` (the store key).
-    fn control_move_for_realm(actor_seq: u64, realm_id: RealmId) -> Event {
-        let created_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
-        let mut event = arkret_wire::test_support::raw_event_at(
-            "ak.member.state",
-            ScopeRef::Realm { realm_id },
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureadmin".to_owned()).unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps".to_owned()).unwrap(),
-            actor_seq,
-            Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-            serde_json::json!({"state": "join"}),
-            created_at,
-        )
-        .unwrap();
-        event.seal_basis = Some(SealBasis {
-            leaves: vec![seal_id(0xaa)],
-        });
-        event
-            .refresh_content_bound_identity_with_digest_suite(SUITE)
-            .unwrap();
-        event.proofs.push(
-            ProducerEventProof {
-                kind: "detached_jws".to_owned(),
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:admin.example#k1").unwrap(),
-                event_digest: Hash::new(event.event_digest_with_digest_suite(SUITE).unwrap())
-                    .unwrap(),
-                signer_resolution_evidence_ref: None,
-                created_at,
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "AAAA.BBBB.CCCC".to_owned(),
-            }
-            .into(),
-        );
-        event
-    }
-
-    fn control_move(actor_seq: u64) -> Event {
-        control_move_for_realm(actor_seq, realm())
-    }
-
-    fn derived_realm(seed: u8) -> RealmId {
-        let event_id =
-            arkret_identifiers::EventId::from_digest(SUITE, arkret_canonical::sha256_bytes([seed]));
-        RealmId::from_event_id(&event_id)
-    }
-
-    fn derived_realm_index(seed: u32) -> RealmId {
-        let event_id = arkret_identifiers::EventId::from_digest(
-            SUITE,
-            arkret_canonical::sha256_bytes(seed.to_be_bytes()),
-        );
-        RealmId::from_event_id(&event_id)
-    }
-
-    fn dummy_seal(id: SealId, predecessors: Vec<SealId>, delta: Vec<Hash>) -> Seal {
-        let seed = u64::from_str_radix(&id.as_str()[15..17], 16).unwrap();
-        let sig = SealSignature {
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1").unwrap(),
-            payload_digest: hash(0xff),
-            jws: "AAAA.BBBB.CCCC".to_owned(),
-        };
-        let mut seal = Seal {
-            id,
-            realm_id: realm(),
-            predecessor_refs: predecessors,
-            delta,
-            control_event_set_root: hash(0x22),
-            state_root: hash(0x77),
-            completeness_root: hash(0x33),
-            notary_seq: seed,
-            data_view_root: None,
-            data_event_set_root: None,
-            availability_receipt_digests: Vec::new(),
-            covered_event_digests: Vec::new(),
-            previous_state_root: None,
-            previous_digest_algorithm: None,
-            notary_signature: NotarySig::Single(sig),
-            sealed_at: Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap(),
-            hlc: Hlc::new("0189c4d2af00-0000-aabbccdd".to_owned()).unwrap(),
-        };
-        seal.id = seal.derive_id(SUITE).unwrap();
-        seal
-    }
-
-    fn control_proposal_ack(event: &Event) -> ControlProposalAck {
-        let received_at = Utc.with_ymd_and_hms(2026, 5, 8, 0, 0, 0).unwrap();
-        let proposal_digest = control_event_digest(event, SUITE).unwrap();
-        let authority_set_ref = hash(0x44);
-        let mut authority_ack = arkret_wire::ControlProposalAuthorityAck {
-            realm_id: event.realm_id.clone(),
-            proposal_digest: proposal_digest.clone(),
-            received_at,
-            decision_due_at: received_at + chrono::Duration::seconds(30),
-            absolute_due_at: received_at + chrono::Duration::seconds(90),
-            authority_set_ref: authority_set_ref.clone(),
-            signature: PayloadSignature {
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
-                    .unwrap(),
-                payload_digest: hash(0),
-                created_at: received_at,
-                jws: "e30..c2ln".to_owned(),
-            },
-        };
-        authority_ack.signature.payload_digest = authority_ack.authority_ack_digest().unwrap();
-        ControlProposalAck {
-            kind: arkret_wire::ControlProposalAckKind::SignedAck,
-            realm_id: event.realm_id.clone(),
-            proposal_digest,
-            received_at,
-            decision_due_at: received_at + chrono::Duration::seconds(30),
-            absolute_due_at: received_at + chrono::Duration::seconds(90),
-            defer_count: 0,
-            authority_set_ref,
-            authority_acks: vec![authority_ack],
-        }
-    }
-
-    fn signed_reject(ack: &ControlProposalAck) -> ControlProposalDecision {
-        let decided_at = ack.received_at + chrono::Duration::seconds(20);
-        let mut decision = ControlProposalDecision::SignedReject {
-            realm_id: ack.realm_id.clone(),
-            proposal_digest: ack.proposal_digest.clone(),
-            proposal_ack_digest: ack.proposal_ack_digest().unwrap(),
-            decided_at,
-            decision_due_at: ack.decision_due_at,
-            absolute_due_at: ack.absolute_due_at,
-            defer_count: 0,
-            reason_code: arkret_wire::ControlProposalRejectReason::PolicyDenied,
-            authority_set_ref: ack.authority_set_ref.clone(),
-            proofs: vec![PayloadSignature {
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:notary.example#k1")
-                    .unwrap(),
-                payload_digest: hash(0),
-                created_at: decided_at,
-                jws: "e30..c2ln".to_owned(),
-            }],
-        };
-        let decision_digest = decision.decision_digest().unwrap();
-        let ControlProposalDecision::SignedReject { proofs, .. } = &mut decision else {
-            unreachable!("constructed a signed reject");
-        };
-        proofs[0].payload_digest = decision_digest;
-        decision
-    }
-
-    #[tokio::test]
-    async fn control_event_store_records_decision_with_effective_realm_policy() {
-        let store = MemoryControlEventStore::default();
-        let event = control_move(1);
-        let event_digest = control_event_digest(&event, SUITE).unwrap();
-        let ack = control_proposal_ack(&event);
-        let decision = signed_reject(&ack);
-        let policy = arkret_wire::ControlProposalDecisionPolicy::default();
-
-        assert!(
-            decision
-                .validate_chain(
-                    &ack,
-                    &[],
-                    arkret_wire::ControlProposalDecisionPolicy::protocol_maximum(),
-                )
-                .is_err(),
-            "the protocol ceiling must not substitute for the effective Realm policy"
-        );
-
-        store
-            .put_pending_with_ingress(
-                &event,
-                &ControlProposalIngress::AckRequired(ack.clone()),
-                SUITE,
-            )
-            .await
-            .unwrap();
-        store
-            .record_proposal_decision(&event_digest, &decision, policy)
-            .await
-            .unwrap();
-        store
-            .record_proposal_decision(&event_digest, &decision, policy)
-            .await
-            .unwrap();
-        assert!(
-            store
-                .list_pending_records(&event.realm_id, 10)
-                .await
-                .unwrap()
-                .is_empty(),
-            "a terminal signed rejection must remove the proposal from the pending work set"
-        );
-        let snapshot = store
-            .control_proposal_snapshot(&event_digest)
-            .await
-            .unwrap()
-            .expect("rejected proposal remains durable");
-        assert_eq!(snapshot.control_proposal_ack, Some(ack));
-        assert_eq!(snapshot.decisions, vec![decision]);
-        assert!(snapshot.covering_seals.is_empty());
-    }
-
-    #[tokio::test]
-    async fn ack_leaves_the_proposal_pending_and_only_an_accepted_seal_finalizes_it() {
-        // `event-auth-state-resolution.md` §7.2: a Control Proposal Ack proves
-        // the authority set signed for the exact proposal digest and took on a
-        // bounded decision obligation. It is not an acceptance. Control-plane
-        // finality arrives only when an accepted Seal covers the digest.
-        let store = MemoryControlEventStore::default();
-        let event = control_move(1);
-        let digest = control_event_digest(&event, SUITE).unwrap();
-        let ack = control_proposal_ack(&event);
-
-        store
-            .put_pending_with_ingress(
-                &event,
-                &ControlProposalIngress::AckRequired(ack.clone()),
-                SUITE,
-            )
-            .await
-            .unwrap();
-
-        let pending = store.list_pending_records(&realm(), 10).await.unwrap();
-        assert_eq!(pending.len(), 1);
-        assert_eq!(
-            pending[0].control_proposal_ack.as_ref(),
-            Some(&ack),
-            "the Ack is retained as pending evidence"
-        );
-        assert!(
-            pending[0].decisions.is_empty(),
-            "an Ack on its own decides nothing"
-        );
-        assert!(
-            store
-                .list_sealed(&realm(), None, 10)
-                .await
-                .unwrap()
-                .is_empty(),
-            "an Ack must not produce control-plane finality"
-        );
-
-        let seal = dummy_seal(seal_id(0xaa), Vec::new(), vec![digest.clone()]);
-        store.mark_sealed(&digest, &seal).await.unwrap();
-        let concurrent_seal = dummy_seal(seal_id(0xab), Vec::new(), vec![digest.clone()]);
-        store.mark_sealed(&digest, &concurrent_seal).await.unwrap();
-
-        assert!(
-            store
-                .list_pending_records(&realm(), 10)
-                .await
-                .unwrap()
-                .is_empty(),
-            "the accepted Seal is what retires the pending proposal"
-        );
-        let sealed = store.list_sealed(&realm(), None, 10).await.unwrap();
-        assert_eq!(sealed.len(), 1);
-        let mut expected_covering_seals = vec![seal.id, concurrent_seal.id];
-        expected_covering_seals.sort();
-        assert_eq!(sealed[0].covering_seals, expected_covering_seals);
-    }
-
-    #[tokio::test]
-    async fn control_event_store_put_and_seal_idempotent() {
-        let store = MemoryControlEventStore::default();
-        let first = control_move(1);
-        let digest = control_event_digest(&first, SUITE).unwrap();
-        let ack = control_proposal_ack(&first);
-        store
-            .put_pending_with_ingress(
-                &first,
-                &ControlProposalIngress::AckRequired(ack.clone()),
-                SUITE,
-            )
-            .await
-            .unwrap();
-        store
-            .put_pending_with_ingress(&first, &ControlProposalIngress::AckRequired(ack), SUITE)
-            .await
-            .unwrap(); // idempotent
-        assert_eq!(
-            store.get(&digest).await.unwrap().unwrap().event_id,
-            first.event_id
-        );
-
-        let seal = dummy_seal(seal_id(0xaa), Vec::new(), vec![digest.clone()]);
-        store.mark_sealed(&digest, &seal).await.unwrap();
-        store.mark_sealed(&digest, &seal).await.unwrap(); // idempotent
-        let sealed = store.list_sealed(&realm(), None, 10).await.unwrap();
-        assert_eq!(sealed.len(), 1);
-        assert_eq!(sealed[0].covering_seals, vec![seal.id]);
-    }
-
-    fn ackless_ingress() -> ControlProposalIngress {
-        ControlProposalIngress::AcklessSelfPrincipal(AcklessSelfPrincipalIngress {
-            device_id: "ak:device:fixture".to_owned(),
-            device_authorize_event_id: "ak:event:fixture".to_owned(),
-            device_generation_ref: 1,
-            seal_basis_digest: "sha256:fixture".to_owned(),
-        })
-    }
-
-    #[tokio::test]
-    async fn control_event_store_rejects_ingress_class_mismatch_on_replay() {
-        let store = MemoryControlEventStore::default();
-        let event = control_move(1);
-        let ack = control_proposal_ack(&event);
-        store
-            .put_pending_with_ingress(
-                &event,
-                &ControlProposalIngress::AckRequired(ack.clone()),
-                SUITE,
-            )
-            .await
-            .unwrap();
-        // The same digest replayed under a different class is a conflict:
-        // the first admission's class is part of the durable basis.
-        let ackless = ControlProposalIngress::AcklessSelfPrincipal(AcklessSelfPrincipalIngress {
-            device_id: "ak:device:fixture".to_owned(),
-            device_authorize_event_id: "ak:event:fixture".to_owned(),
-            device_generation_ref: 1,
-            seal_basis_digest: "sha256:fixture".to_owned(),
-        });
-        assert!(
-            store
-                .put_pending_with_ingress(&event, &ackless, SUITE)
-                .await
-                .is_err(),
-            "an Ack-required Move cannot be replayed as Ack-less"
-        );
-        assert!(
-            store
-                .put_pending_with_ingress(&event, &ControlProposalIngress::AckRequired(ack), SUITE,)
-                .await
-                .is_ok(),
-            "the byte-identical class and Ack remain idempotent"
-        );
-    }
-
-    #[tokio::test]
-    async fn control_event_store_retains_ackless_self_principal_classification() {
-        let store = MemoryControlEventStore::default();
-        let event = control_move(1);
-        let class = AcklessSelfPrincipalIngress {
-            device_id: "ak:device:fixture".to_owned(),
-            device_authorize_event_id: "ak:event:fixture".to_owned(),
-            device_generation_ref: 7,
-            seal_basis_digest: "sha256:fixture".to_owned(),
-        };
-        store
-            .put_pending_with_ingress(
-                &event,
-                &ControlProposalIngress::AcklessSelfPrincipal(class.clone()),
-                SUITE,
-            )
-            .await
-            .unwrap();
-        let pending = store.list_pending_records(&realm(), 10).await.unwrap();
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].control_proposal_ack, None);
-        assert_eq!(
-            pending[0].ingress_class,
-            ControlProposalIngressClass::AcklessSelfPrincipal(class),
-            "the Ack-less classification is part of the durable pending row"
-        );
-    }
-
-    #[tokio::test]
-    async fn signing_lease_fence_remains_monotonic_after_release() {
-        let store = MemorySealStore::default();
-        let first = store
-            .try_claim_signing_lease(&realm(), "single_chain", "holder-a", 10, 20)
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(
-            store
-                .release_signing_lease(&realm(), "single_chain", "holder-a", first)
-                .await
-                .unwrap()
-        );
-        let second = store
-            .try_claim_signing_lease(&realm(), "single_chain", "holder-a", 21, 30)
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(second > first);
-        assert!(
-            !store
-                .release_signing_lease(&realm(), "single_chain", "holder-a", first)
-                .await
-                .unwrap()
-        );
-    }
-
-    #[tokio::test]
-    async fn control_event_store_lists_pending_by_insertion_order() {
-        let store = MemoryControlEventStore::default();
-        let first = control_move(1);
-        let second = control_move(2);
-        store
-            .put_pending_with_ingress(
-                &first,
-                &ControlProposalIngress::AckRequired(control_proposal_ack(&first)),
-                SUITE,
-            )
-            .await
-            .unwrap();
-        store
-            .put_pending_with_ingress(
-                &second,
-                &ControlProposalIngress::AckRequired(control_proposal_ack(&second)),
-                SUITE,
-            )
-            .await
-            .unwrap();
-
-        let pending = store
-            .list_pending_for_notary(&realm(), None, 10)
-            .await
-            .unwrap();
-        assert_eq!(pending.len(), 2);
-        assert_eq!(pending[0].event_id, first.event_id);
-        assert_eq!(pending[1].event_id, second.event_id);
-
-        let first_digest = control_event_digest(&first, SUITE).unwrap();
-        store
-            .mark_sealed(
-                &first_digest,
-                &dummy_seal(seal_id(0xaa), Vec::new(), vec![first_digest.clone()]),
-            )
-            .await
-            .unwrap();
-        let pending = store
-            .list_pending_for_notary(&realm(), None, 10)
-            .await
-            .unwrap();
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].event_id, second.event_id);
-    }
-
-    #[tokio::test]
-    async fn control_event_store_keys_on_digest_not_event_id() {
-        // Two variants of one `event_id` are exactly the §6.3.2 fork case: a
-        // store keyed on `event_id` would collapse them into one slot and lose
-        // the evidence the quarantine rule needs.
-        let store = MemoryControlEventStore::default();
-        let original = control_move(1);
-        let mut variant = original.clone();
-        variant.created_at = Utc.with_ymd_and_hms(2026, 5, 9, 0, 0, 0).unwrap();
-        assert_eq!(variant.event_id, original.event_id);
-
-        store
-            .put_pending_with_ingress(&original, &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        store
-            .put_pending_with_ingress(&variant, &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        assert_ne!(
-            control_event_digest(&original, SUITE).unwrap(),
-            control_event_digest(&variant, SUITE).unwrap()
-        );
-        assert_eq!(
-            store
-                .list_pending_for_notary(&realm(), None, 10)
-                .await
-                .unwrap()
-                .len(),
-            2
-        );
-    }
-
-    #[tokio::test]
-    async fn seal_store_tracks_genesis_and_leaves() {
-        let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xa0), vec![], vec![hash(0x01)]);
-        store.put(&g, SUITE).await.unwrap();
-        assert_eq!(store.genesis(&realm()).await.unwrap().unwrap(), g.id);
-        assert_eq!(
-            store.list_leaves(&realm()).await.unwrap(),
-            vec![g.id.clone()]
-        );
-
-        let child = dummy_seal(seal_id(0xa1), vec![g.id], vec![hash(0x02)]);
-        store.put(&child, SUITE).await.unwrap();
-        assert_eq!(store.list_leaves(&realm()).await.unwrap(), vec![child.id]);
-    }
-
-    #[tokio::test]
-    async fn seal_store_put_if_frontier_accepts_exact_set() {
-        let store = MemorySealStore::default();
-        let genesis = dummy_seal(seal_id(0xe0), vec![], vec![hash(0x01)]);
-        assert!(store.put_if_frontier(&genesis, &[], SUITE).await.unwrap());
-
-        let left = dummy_seal(seal_id(0xe1), vec![genesis.id.clone()], vec![hash(0x02)]);
-        store.put(&left, SUITE).await.unwrap();
-        let right = dummy_seal(seal_id(0xe2), vec![genesis.id], vec![hash(0x03)]);
-        store.put(&right, SUITE).await.unwrap();
-
-        let joined = dummy_seal(
-            seal_id(0xe3),
-            vec![left.id.clone(), right.id.clone()],
-            vec![hash(0x04)],
-        );
-        assert!(
-            store
-                .put_if_frontier(&joined, &[right.id.clone(), left.id, right.id], SUITE)
-                .await
-                .unwrap()
-        );
-        assert_eq!(store.list_leaves(&realm()).await.unwrap(), vec![joined.id]);
-    }
-
-    #[tokio::test]
-    async fn seal_store_put_if_frontier_rejects_stale_set_without_mutation() {
-        let store = MemorySealStore::default();
-        let genesis = dummy_seal(seal_id(0xf0), vec![], vec![hash(0x01)]);
-        store.put(&genesis, SUITE).await.unwrap();
-        let stale = dummy_seal(seal_id(0xf1), vec![genesis.id.clone()], vec![hash(0x02)]);
-
-        assert!(
-            !store
-                .put_if_frontier(&stale, &[seal_id(0xff)], SUITE)
-                .await
-                .unwrap()
-        );
-        assert!(store.get(&stale.id).await.unwrap().is_none());
-        assert_eq!(store.list_leaves(&realm()).await.unwrap(), vec![genesis.id]);
-    }
-
-    #[tokio::test]
-    async fn seal_store_put_if_frontier_allows_only_one_concurrent_writer() {
-        let store = Arc::new(MemorySealStore::default());
-        let genesis = dummy_seal(seal_id(0x90), vec![], vec![hash(0x01)]);
-        store.put(&genesis, SUITE).await.unwrap();
-        let barrier = Arc::new(Barrier::new(3));
-
-        let writers: Vec<_> = [
-            dummy_seal(seal_id(0x91), vec![genesis.id.clone()], vec![hash(0x02)]),
-            dummy_seal(seal_id(0x92), vec![genesis.id.clone()], vec![hash(0x03)]),
-        ]
-        .into_iter()
-        .map(|candidate| {
-            let store = Arc::clone(&store);
-            let barrier = Arc::clone(&barrier);
-            let expected = genesis.id.clone();
-            tokio::spawn(async move {
-                barrier.wait().await;
-                let inserted = store
-                    .put_if_frontier(&candidate, &[expected], SUITE)
-                    .await
-                    .unwrap();
-                (candidate.id, inserted)
-            })
-        })
-        .collect();
-
-        barrier.wait().await;
-        let mut outcomes = Vec::with_capacity(writers.len());
-        for writer in writers {
-            outcomes.push(writer.await.unwrap());
-        }
-        assert_eq!(outcomes.iter().filter(|(_, inserted)| *inserted).count(), 1);
-
-        let winner = outcomes
-            .iter()
-            .find_map(|(id, inserted)| inserted.then_some(id.clone()))
-            .unwrap();
-        let loser = outcomes
-            .iter()
-            .find_map(|(id, inserted)| (!inserted).then_some(id.clone()))
-            .unwrap();
-        assert_eq!(store.list_leaves(&realm()).await.unwrap(), vec![winner]);
-        assert!(store.get(&loser).await.unwrap().is_none());
-    }
-
-    #[tokio::test]
-    async fn seal_store_successors_lists_direct_children() {
-        // genesis ─► child_a ─► leaf_x
-        //          ▲
-        // genesis ─┴► child_b
-        let store = MemorySealStore::default();
-        let g = dummy_seal(seal_id(0xa0), vec![], vec![hash(0x01)]);
-        let child_a = dummy_seal(seal_id(0xa1), vec![g.id.clone()], vec![hash(0x02)]);
-        let child_b = dummy_seal(seal_id(0xa2), vec![g.id.clone()], vec![hash(0x03)]);
-        let leaf_x = dummy_seal(seal_id(0xa3), vec![child_a.id.clone()], vec![hash(0x04)]);
-        store.put(&g, SUITE).await.unwrap();
-        store.put(&child_a, SUITE).await.unwrap();
-        store.put(&child_b, SUITE).await.unwrap();
-        store.put(&leaf_x, SUITE).await.unwrap();
-
-        // genesis has two direct children.
-        let succ = store.successors(&realm(), &g.id).await.unwrap();
-        assert_eq!(succ.len(), 2);
-        assert!(succ.contains(&child_a.id));
-        assert!(succ.contains(&child_b.id));
-
-        // child_b is a leaf — no successors.
-        assert!(
-            store
-                .successors(&realm(), &child_b.id)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-    }
-
-    #[tokio::test]
-    async fn seal_store_predecessor_check() {
-        let store = MemorySealStore::default();
-        let a = dummy_seal(seal_id(0xa0), vec![], vec![]);
-        store.put(&a, SUITE).await.unwrap();
-        assert!(store.predecessors_known(&[a.id]).await.unwrap());
-        assert!(!store.predecessors_known(&[seal_id(0xee)]).await.unwrap());
-        assert!(store.predecessors_known(&[]).await.unwrap()); // empty = trivially known
-    }
-
-    #[tokio::test]
-    async fn cell_store_append_and_list() {
-        let store = MemoryCellStore::default();
-        let op = SealedOp::new(
-            hash(0x01),
-            LatticeOp {
-                op_type: LatticeOpType::Transition,
-                tag: None,
-                value: None,
-                from: Some(json!("invited")),
-                to: Some(json!("join")),
-                reason: None,
-                issuer_seq: None,
-            },
-        );
-        store
-            .append_sealed_effects(
-                &realm(),
-                &seal_id(0xaa),
-                &[(cell_member(), issued(op.clone()))],
-            )
-            .await
-            .unwrap();
-
-        let cells = store.list_cells(&realm()).await.unwrap();
-        assert_eq!(cells.len(), 1);
-        let ops = store
-            .sealed_ops_for_cell(&realm(), &cell_member())
-            .await
-            .unwrap();
-        assert_eq!(ops.len(), 1);
-        assert_eq!(ops[0].op, op);
-    }
-
-    #[tokio::test]
-    async fn cell_store_rollback_undoes_append() {
-        let store = MemoryCellStore::default();
-        let op = SealedOp::new(
-            hash(0x01),
-            LatticeOp {
-                op_type: LatticeOpType::Transition,
-                tag: None,
-                value: None,
-                from: Some(json!("invited")),
-                to: Some(json!("join")),
-                reason: None,
-                issuer_seq: None,
-            },
-        );
-        let seal = seal_id(0xaa);
-        store
-            .append_sealed_effects(&realm(), &seal, &[(cell_member(), issued(op))])
-            .await
-            .unwrap();
-        store.rollback_seal(&realm(), &seal).await.unwrap();
-        assert!(
-            store
-                .sealed_ops_for_cell(&realm(), &cell_member())
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        assert!(store.list_cells(&realm()).await.unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn cell_store_cache_round_trip_and_invalidation() {
-        let store = MemoryCellStore::default();
-        let view = hash(0x33);
-        store
-            .put_cached_state(
-                &realm(),
-                &cell_member(),
-                &view,
-                &CellState::Value(json!("x")),
-            )
-            .await
-            .unwrap();
-        assert_eq!(
-            store
-                .cached_state(&realm(), &cell_member(), &view)
-                .await
-                .unwrap(),
-            Some(CellState::Value(json!("x")))
-        );
-        // append should invalidate cache.
-        let op = SealedOp::new(
-            hash(0x05),
-            LatticeOp {
-                op_type: LatticeOpType::Transition,
-                tag: None,
-                value: None,
-                from: Some(json!("invited")),
-                to: Some(json!("join")),
-                reason: None,
-                issuer_seq: None,
-            },
-        );
-        store
-            .append_sealed_effects(&realm(), &seal_id(0xab), &[(cell_member(), issued(op))])
-            .await
-            .unwrap();
-        assert!(
-            store
-                .cached_state(&realm(), &cell_member(), &view)
-                .await
-                .unwrap()
-                .is_none()
-        );
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_releases_stale_generation_without_backoff() {
-        let store = MemoryControlEventStore::default();
-        let first = control_move(1);
-        store
-            .put_pending_with_ingress(&first, &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        let first_claim = store
-            .claim_due_control_seal_realms("worker-a", 100, 1_000, 1)
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
-        assert_eq!(first_claim.generation, 1);
-        let first_digest = control_event_digest(&first, SUITE).unwrap();
-        assert!(
-            store
-                .advance_control_seal_scan(&first_claim, Some(&first_digest), 101)
-                .await
-                .unwrap()
-        );
-
-        let second = control_move(2);
-        store
-            .put_pending_with_ingress(&second, &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        assert_eq!(
-            store
-                .complete_control_seal_attempt(
-                    &first_claim,
-                    &ControlSealAttemptOutcome::SigningFailed,
-                    200,
-                )
-                .await
-                .unwrap(),
-            ControlSealAttemptCompletion::ReleasedNewGeneration
-        );
-        let second_claim = store
-            .claim_due_control_seal_realms("worker-b", 200, 1_100, 1)
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
-        assert_eq!(second_claim.generation, 2);
-        assert_eq!(second_claim.scan_cursor, Some(first_digest.clone()));
-        assert!(
-            !store
-                .advance_control_seal_scan(&first_claim, None, 201)
-                .await
-                .unwrap()
-        );
-        assert_eq!(second_claim.fence, 2);
-        assert_eq!(
-            store
-                .complete_control_seal_attempt(
-                    &first_claim,
-                    &ControlSealAttemptOutcome::NoAcceptedMoves,
-                    250,
-                )
-                .await
-                .unwrap(),
-            ControlSealAttemptCompletion::StaleClaim
-        );
-    }
-
-    #[tokio::test]
-    async fn control_seal_scan_visits_ten_thousand_pending_items_despite_failed_pages() {
-        let store = MemoryControlEventStore::default();
-        for seq in 1..=10_000 {
-            store
-                .put_pending_with_ingress(&control_move(seq), &ackless_ingress(), SUITE)
-                .await
-                .unwrap();
-        }
-        let mut seen = BTreeSet::new();
-        let mut now_ms = 1_000;
-        while seen.len() < 10_000 {
-            let claim = store
-                .claim_due_control_seal_realms("worker", now_ms, now_ms + 1_000, 1)
-                .await
-                .unwrap()
-                .pop()
-                .unwrap();
-            let page = store
-                .list_pending_for_notary(&realm(), claim.scan_cursor.as_ref(), 128)
-                .await
-                .unwrap();
-            assert!(
-                !page.is_empty(),
-                "finite backlog must advance before wrapping"
-            );
-            for event in &page {
-                assert!(seen.insert(event.event_id.clone()));
-            }
-            let last = page.last().unwrap().event_id.event_digest();
-            assert!(
-                store
-                    .advance_control_seal_scan(&claim, Some(&last), now_ms + 1)
-                    .await
-                    .unwrap()
-            );
-            assert!(
-                !store
-                    .advance_control_seal_scan(&claim, None, now_ms + 1_000)
-                    .await
-                    .unwrap()
-            );
-            store
-                .complete_control_seal_attempt(
-                    &claim,
-                    &ControlSealAttemptOutcome::SigningFailed,
-                    now_ms + 2,
-                )
-                .await
-                .unwrap();
-            now_ms += 61_000;
-        }
-        let claim = store
-            .claim_due_control_seal_realms("restarted-worker", now_ms, now_ms + 1_000, 1)
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
-        assert!(
-            store
-                .list_pending_for_notary(&realm(), claim.scan_cursor.as_ref(), 128)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        let wrapped = store
-            .list_pending_for_notary(&realm(), None, 128)
-            .await
-            .unwrap();
-        assert_eq!(wrapped.len(), 128);
-        assert!(wrapped.iter().all(|event| seen.contains(&event.event_id)));
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_repair_rebuilds_missing_derived_row() {
-        let store = MemoryControlEventStore::default();
-        let event = control_move(1);
-        store
-            .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        store.inner.lock().unwrap().control_seal_schedule.clear();
-
-        let repaired = store.repair_control_seal_schedule(500, 16).await.unwrap();
-        assert_eq!(repaired.inserted, 1);
-        assert_eq!(repaired.scanned, 1);
-        assert_eq!(
-            store
-                .claim_due_control_seal_realms("worker", 500, 1_500, 16)
-                .await
-                .unwrap()
-                .len(),
-            1
-        );
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_expired_claim_is_reclaimed_with_a_new_fence() {
-        let store = MemoryControlEventStore::default();
-        store
-            .put_pending_with_ingress(&control_move(1), &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        let first = store
-            .claim_due_control_seal_realms("worker-a", 100, 200, 1)
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
-        assert!(!first.isolate_candidates);
-        assert_eq!(
-            store.control_seal_schedule_stats(199).await.unwrap(),
-            ControlSealScheduleStats {
-                pending: 1,
-                eligible: 0,
-                claimed: 1,
-                expired_claims: 0,
-                oldest_pending_at_ms: Some(1),
-                oldest_eligible_at_ms: None,
-            }
-        );
-        assert_eq!(
-            store.control_seal_schedule_stats(200).await.unwrap(),
-            ControlSealScheduleStats {
-                pending: 1,
-                eligible: 1,
-                claimed: 0,
-                expired_claims: 1,
-                oldest_pending_at_ms: Some(1),
-                oldest_eligible_at_ms: Some(0),
-            }
-        );
-        assert!(
-            store
-                .claim_due_control_seal_realms("worker-b", 199, 300, 1)
-                .await
-                .unwrap()
-                .is_empty()
-        );
-        let replacement = store
-            .claim_due_control_seal_realms("worker-b", 200, 300, 1)
-            .await
-            .unwrap()
-            .pop()
-            .unwrap();
-        assert_eq!(replacement.fence, first.fence + 1);
-        assert!(replacement.isolate_candidates);
-        let reclaimed_stats = store.control_seal_schedule_stats(200).await.unwrap();
-        assert_eq!(reclaimed_stats.claimed, 1);
-        assert_eq!(reclaimed_stats.expired_claims, 0);
-        assert_eq!(
-            store
-                .complete_control_seal_attempt(
-                    &first,
-                    &ControlSealAttemptOutcome::ProgressPublished,
-                    201,
-                )
-                .await
-                .unwrap(),
-            ControlSealAttemptCompletion::StaleClaim
-        );
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_timeout_isolates_until_progress_resumes() {
-        let store = MemoryControlEventStore::default();
-        store
-            .put_pending_with_ingress(&control_move(1), &ackless_ingress(), SUITE)
-            .await
-            .unwrap();
-        let mut now = 100;
-        for (expected_isolation, outcome) in [
-            (false, ControlSealAttemptOutcome::PassTimedOut),
-            (true, ControlSealAttemptOutcome::SigningFailed),
-            (true, ControlSealAttemptOutcome::ProgressPublished),
-            (false, ControlSealAttemptOutcome::NoAcceptedMoves),
-        ] {
-            let claim = store
-                .claim_due_control_seal_realms("worker", now, now + 1_000, 1)
-                .await
-                .unwrap()
-                .pop()
-                .unwrap();
-            assert_eq!(claim.isolate_candidates, expected_isolation);
-            assert_eq!(
-                store
-                    .complete_control_seal_attempt(&claim, &outcome, now)
-                    .await
-                    .unwrap(),
-                ControlSealAttemptCompletion::Applied
-            );
-            now += 61_000;
-        }
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_failed_front_page_does_not_starve_later_realms() {
-        let store = MemoryControlEventStore::default();
-        for seed in 1..=40 {
-            let event = control_move_for_realm(u64::from(seed), derived_realm(seed));
-            store
-                .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
-                .await
-                .unwrap();
-        }
-
-        let first = store
-            .claim_due_control_seal_realms("worker", 0, 100, 16)
-            .await
-            .unwrap();
-        assert_eq!(first.len(), 16);
-        for claim in first {
-            store
-                .complete_control_seal_attempt(
-                    &claim,
-                    &ControlSealAttemptOutcome::LocalSignerNotMember,
-                    0,
-                )
-                .await
-                .unwrap();
-        }
-        let second = store
-            .claim_due_control_seal_realms("worker", 0, 100, 16)
-            .await
-            .unwrap();
-        assert_eq!(second.len(), 16);
-        for claim in second {
-            store
-                .complete_control_seal_attempt(
-                    &claim,
-                    &ControlSealAttemptOutcome::LocalSignerNotMember,
-                    0,
-                )
-                .await
-                .unwrap();
-        }
-        assert_eq!(
-            store
-                .claim_due_control_seal_realms("worker", 0, 100, 16)
-                .await
-                .unwrap()
-                .len(),
-            8
-        );
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_serves_1025_realms_in_bounded_claim_waves() {
-        let store = MemoryControlEventStore::default();
-        for index in 0_u32..1_025 {
-            let event = control_move_for_realm(u64::from(index) + 1, derived_realm_index(index));
-            store
-                .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
-                .await
-                .unwrap();
-        }
-
-        let mut claimed_realms = BTreeSet::new();
-        loop {
-            let claims = store
-                .claim_due_control_seal_realms("worker", 0, 100, 16)
-                .await
-                .unwrap();
-            assert!(claims.len() <= 16);
-            if claims.is_empty() {
-                break;
-            }
-            for claim in claims {
-                assert!(claimed_realms.insert(claim.realm_id.clone()));
-                store
-                    .complete_control_seal_attempt(
-                        &claim,
-                        &ControlSealAttemptOutcome::LocalSignerNotMember,
-                        0,
-                    )
-                    .await
-                    .unwrap();
-            }
-        }
-        assert_eq!(claimed_realms.len(), 1_025);
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_repair_rotates_across_bounded_pages() {
-        let store = MemoryControlEventStore::default();
-        for seed in 1..=5 {
-            let event = control_move_for_realm(u64::from(seed), derived_realm(seed));
-            store
-                .put_pending_with_ingress(&event, &ackless_ingress(), SUITE)
-                .await
-                .unwrap();
-        }
-        store.inner.lock().unwrap().control_seal_schedule.clear();
-
-        let first = store.repair_control_seal_schedule(100, 2).await.unwrap();
-        let second = store.repair_control_seal_schedule(101, 2).await.unwrap();
-        let third = store.repair_control_seal_schedule(102, 2).await.unwrap();
-        assert_eq!(first.inserted + second.inserted + third.inserted, 5);
-        assert_eq!(first.scanned + second.scanned + third.scanned, 5);
-        let wrapped = store.repair_control_seal_schedule(103, 2).await.unwrap();
-        assert!(wrapped.cursor_wrapped);
-        assert_eq!(wrapped.scanned, 2);
-        assert_eq!(wrapped.inserted, 0);
-    }
-
-    #[tokio::test]
-    async fn control_seal_schedule_outcomes_use_bounded_and_time_aware_backoff() {
-        assert_eq!(
-            ControlSealAttemptOutcome::SigningFailed.next_eligible_at_ms(10_000, 1),
-            11_000
-        );
-        assert_eq!(
-            ControlSealAttemptOutcome::SigningFailed.next_eligible_at_ms(10_000, u32::MAX),
-            70_000
-        );
-        assert_eq!(
-            ControlSealAttemptOutcome::ProgressPublished.next_eligible_at_ms(10_000, 0),
-            10_000
-        );
-    }
-
-    #[tokio::test]
-    async fn cell_registry_resolves_known_families() {
-        let reg = MemoryCellRegistry::new();
-        let binding = reg.resolve(&realm(), &cell_member()).unwrap();
-        assert_eq!(binding.lattice.kind(), LatticeKind::Fsm);
-        assert_eq!(binding.bottom_mode, EventCellBottom::Reject);
-    }
-
-    #[tokio::test]
-    async fn cell_registry_unknown_family_fails_closed() {
-        let reg = MemoryCellRegistry::new();
-        let weird = CellRef::new("ak:cell:ak.component.future.unknown.v1:x".to_owned()).unwrap();
-        let err = reg.resolve(&realm(), &weird).unwrap_err();
-        assert!(format!("{err}").contains("unknown cell family"));
-    }
-
-    #[tokio::test]
-    async fn cell_registry_or_set_and_cas_lattices_resolve() {
-        let reg = MemoryCellRegistry::new();
-        let consent =
-            CellRef::new("ak:cell:ak.component.consent.grant.v1:ak.consent.x".to_owned()).unwrap();
-        assert_eq!(
-            reg.resolve(&realm(), &consent).unwrap().lattice.kind(),
-            LatticeKind::OrSet
-        );
-
-        let policy =
-            CellRef::new("ak:cell:ak.component.realm.policy.v1:ak.realm.x".to_owned()).unwrap();
-        assert_eq!(
-            reg.resolve(&realm(), &policy).unwrap().lattice.kind(),
-            LatticeKind::CasRegister
-        );
     }
 }

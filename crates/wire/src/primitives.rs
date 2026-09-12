@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
-use crate::{Did, DidCoreId, ProofContextId, SignerEvidenceRef};
+use crate::{DidCoreId, ProofContextId, SignerEvidenceRef};
 
 /// Complete protocol identity for one principal at one Station, including
 /// human accounts, Agents and integration actors. This identity does
@@ -1500,170 +1500,6 @@ impl PayloadProof {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum StationAdmissionProofKind {
-    #[serde(rename = "station_admission")]
-    StationAdmission,
-}
-
-/// Origin Station attestation over the exact producer proof it admitted.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct StationAdmissionProof {
-    pub kind: StationAdmissionProofKind,
-    pub verification_method: DidUrl,
-    pub event_digest: Hash,
-    pub producer_proof_digest: Hash,
-    pub producer_verification_method: DidUrl,
-    pub producer_signing_key_did: DidKey,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub producer_signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
-    pub signer_resolution_evidence_ref: SignerEvidenceRef,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub applet_installation_digest: Option<Hash>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-    pub jws: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(untagged)]
-pub enum EventProof {
-    Producer(ProducerEventProof),
-    StationAdmission(StationAdmissionProof),
-}
-
-impl EventProof {
-    pub fn as_producer(&self) -> Option<&ProducerEventProof> {
-        match self {
-            Self::Producer(proof) => Some(proof),
-            Self::StationAdmission(_) => None,
-        }
-    }
-
-    pub fn as_producer_mut(&mut self) -> Option<&mut ProducerEventProof> {
-        match self {
-            Self::Producer(proof) => Some(proof),
-            Self::StationAdmission(_) => None,
-        }
-    }
-
-    pub fn as_station_admission(&self) -> Option<&StationAdmissionProof> {
-        match self {
-            Self::Producer(_) => None,
-            Self::StationAdmission(proof) => Some(proof),
-        }
-    }
-}
-
-impl From<ProducerEventProof> for EventProof {
-    fn from(value: ProducerEventProof) -> Self {
-        Self::Producer(value)
-    }
-}
-
-impl From<StationAdmissionProof> for EventProof {
-    fn from(value: StationAdmissionProof) -> Self {
-        Self::StationAdmission(value)
-    }
-}
-
-pub const STATION_ADMISSION_PROOF_CONTEXT: &str = crate::ProofContextId::STATION_ADMISSION_PROOF_V1;
-
-impl StationAdmissionProof {
-    pub fn producer_proof_digest(proof: &ProducerEventProof) -> Result<Hash> {
-        Hash::new(canonical::canonical_sha256(proof)?).map_err(Into::into)
-    }
-
-    pub fn validate_binding(
-        &self,
-        expected_event_digest: &Hash,
-        producer_proof: &ProducerEventProof,
-        expected_station_id: &DidCoreId,
-    ) -> Result<()> {
-        let (controller, fragment) = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .ok_or_else(|| {
-                WireError::Protocol("admission verification method has no fragment".to_owned())
-            })?;
-        let controller = Did::new(controller.to_owned())?;
-        if fragment.is_empty()
-            || project_did_to_core_id(&controller)? != *expected_station_id
-            || self.event_digest != *expected_event_digest
-            || self.producer_proof_digest != Self::producer_proof_digest(producer_proof)?
-            || self.producer_verification_method != producer_proof.verification_method
-            || self
-                .producer_signer_resolution_evidence_ref
-                .as_ref()
-                .is_some_and(|reference| reference.content_digest().is_err())
-            || self
-                .signer_resolution_evidence_ref
-                .content_digest()
-                .is_err()
-            || !is_compact_jws(&self.jws)
-        {
-            return Err(WireError::Protocol(
-                "Station admission proof binding mismatch".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn canonical_binding_bytes(&self) -> Result<Vec<u8>> {
-        let mut binding = serde_json::Map::new();
-        binding.insert(
-            "context".to_owned(),
-            Value::String(STATION_ADMISSION_PROOF_CONTEXT.to_owned()),
-        );
-        binding.insert(
-            "verification_method".to_owned(),
-            serde_json::to_value(&self.verification_method)?,
-        );
-        binding.insert(
-            "event_digest".to_owned(),
-            serde_json::to_value(&self.event_digest)?,
-        );
-        binding.insert(
-            "producer_proof_digest".to_owned(),
-            serde_json::to_value(&self.producer_proof_digest)?,
-        );
-        binding.insert(
-            "producer_verification_method".to_owned(),
-            serde_json::to_value(&self.producer_verification_method)?,
-        );
-        binding.insert(
-            "producer_signing_key_did".to_owned(),
-            serde_json::to_value(&self.producer_signing_key_did)?,
-        );
-        if let Some(reference) = &self.producer_signer_resolution_evidence_ref {
-            binding.insert(
-                "producer_signer_resolution_evidence_ref".to_owned(),
-                serde_json::to_value(reference)?,
-            );
-        }
-        binding.insert(
-            "signer_resolution_evidence_ref".to_owned(),
-            serde_json::to_value(&self.signer_resolution_evidence_ref)?,
-        );
-        binding.insert(
-            "accepted_at".to_owned(),
-            Value::String(canonical::format_timestamp_canonical(self.accepted_at)),
-        );
-        if let Some(digest) = &self.applet_installation_digest {
-            binding.insert(
-                "applet_installation_digest".to_owned(),
-                serde_json::to_value(digest)?,
-            );
-        }
-        canonical::canonical_json_bytes(&Value::Object(binding)).map_err(Into::into)
-    }
-}
-
 /// Fixed signing-context domain tag for Event proof bindings (`encoding.md`
 /// §2). Included in every [`ProducerEventProof::binding_object`] so an Event proof
 /// signature is domain-separated from other proof families (receipts,
@@ -1723,17 +1559,28 @@ const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
 
 impl ProducerEventProof {
     pub fn validate_signer_resolution_evidence_ref(&self) -> Result<()> {
-        if let Some(reference) = &self.signer_resolution_evidence_ref {
-            reference.content_digest()?;
-        }
-        Ok(())
+        self.signer_resolution_evidence_ref
+            .as_ref()
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "portable producer proof requires signer_resolution_evidence_ref".to_owned(),
+                )
+            })?
+            .content_digest()
+            .map(|_| ())
     }
 
     pub fn validate_direct_signer_resolution_evidence(&self) -> Result<()> {
-        self.validate_signer_resolution_evidence_ref()?;
-        if self.signer_resolution_evidence_ref.is_none() {
+        self.validate_signer_resolution_evidence_ref()
+    }
+
+    /// Validate the unit-local proof form used by the closed PCR genesis and
+    /// recovery authorizations. The surrounding unit validator must resolve
+    /// the signer from the frozen registration or recovery proof-of-possession.
+    pub fn validate_unit_local_signer_resolution(&self) -> Result<()> {
+        if self.signer_resolution_evidence_ref.is_some() {
             return Err(WireError::Protocol(
-                "direct producer proof requires signer resolution evidence".to_owned(),
+                "unit-local producer proof must omit signer_resolution_evidence_ref".to_owned(),
             ));
         }
         Ok(())
@@ -1759,7 +1606,7 @@ impl ProducerEventProof {
     /// Build the canonical **proof binding object** that the detached JWS
     /// signs (encoding.md §6 / event-and-patch.md §3): a canonical-JSON
     /// object over `{event_digest, actor_id, verification_method,
-    /// signer_resolution_evidence_ref?,
+    /// signer_resolution_evidence_ref,
     /// created_at, domain?, audience?}`.
     ///
     /// The detached-JWS payload MUST be these bytes — **not** the raw
@@ -1812,10 +1659,10 @@ impl ProducerEventProof {
             "verification_method".to_owned(),
             Value::String(self.verification_method.as_str().to_owned()),
         );
-        if let Some(reference) = &self.signer_resolution_evidence_ref {
+        if let Some(evidence_ref) = &self.signer_resolution_evidence_ref {
             obj.insert(
                 "signer_resolution_evidence_ref".to_owned(),
-                Value::String(reference.as_ref().to_owned()),
+                Value::String(evidence_ref.as_ref().to_owned()),
             );
         }
         obj.insert(
@@ -1866,7 +1713,6 @@ impl ProducerEventProof {
                 "producer proof purpose is not registered for Event proofs".to_owned(),
             ));
         }
-        self.validate_signer_resolution_evidence_ref()?;
         Ok(())
     }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the executable cell-family lattice bindings from the spec registry."""
+"""Generate the executable cell-family state-model bindings from the spec registry."""
 
 from __future__ import annotations
 
@@ -10,13 +10,12 @@ import re
 from pathlib import Path
 
 
-LATTICE_VARIANTS = {
+STATE_MODEL_VARIANTS = {
+    "causal_register": "CausalRegister",
     "or_set": "OrSet",
-    "cas_register": "CasRegister",
-    "fsm": "Fsm",
     "ordered_log": "OrderedLog",
-    "mv_register": "MvRegister",
     "counter": "Counter",
+    "sequenced_state": "SequencedState",
 }
 
 BOTTOM_VARIANTS = {
@@ -31,12 +30,14 @@ def cell_family_constant(family: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", body).upper()
 
 
-def collect_bindings(registry: dict) -> dict[str, tuple[str, str]]:
+def collect_bindings(
+    registry: dict,
+) -> dict[str, tuple[str, str, str, str | None]]:
     event_kinds = registry.get("event_kinds")
     if not isinstance(event_kinds, list):
         raise ValueError("event-kind registry must contain an event_kinds array")
 
-    bindings: dict[str, tuple[str, str]] = {}
+    bindings: dict[str, tuple[str, str, str, str | None]] = {}
     for event in event_kinds:
         if not isinstance(event, dict):
             raise ValueError("event-kind registry entries must be objects")
@@ -48,31 +49,36 @@ def collect_bindings(registry: dict) -> dict[str, tuple[str, str]]:
                 f"{event.get('event_kind')} has a non-array cell_writes member"
             )
         writes = list(raw_writes or [])
-        if event.get("cell_family") is not None:
-            writes.append(
-                {
-                    "cell_family": event.get("cell_family"),
-                    "lattice": event.get("lattice"),
-                    "bottom": event.get("bottom"),
-                }
-            )
         for write in writes:
             if not isinstance(write, dict):
                 raise ValueError(
                     f"{event.get('event_kind')} has a non-object cell write"
                 )
             family = write.get("cell_family")
-            lattice = write.get("lattice")
+            state_model = write.get("state_model")
+            execution = write.get("execution")
+            value_shape = write.get("value_shape")
             bottom = write.get("bottom")
-            if family is None and lattice is None and bottom is None:
+            if family is None and state_model is None and execution is None:
                 # Dynamic writes carry a full cell_ref in the payload and
                 # resolve through the target family's separately registered binding.
                 continue
-            if not all(isinstance(value, str) for value in (family, lattice, bottom)):
+            if not all(
+                isinstance(value, str)
+                for value in (family, state_model, execution, value_shape)
+            ):
                 raise ValueError(
-                    f"{event.get('event_kind')} has an incomplete cell lattice binding"
+                    f"{event.get('event_kind')} has an incomplete cell state-model binding"
                 )
-            binding = (lattice, bottom)
+            if execution == "security" and state_model != "sequenced_state":
+                raise ValueError(f"{family} security write must use sequenced_state")
+            if execution == "security" and bottom is not None:
+                raise ValueError(f"{family} security write must not declare bottom")
+            if execution == "data" and state_model == "sequenced_state":
+                raise ValueError(f"{family} data write cannot use sequenced_state")
+            if execution == "data" and bottom not in BOTTOM_VARIANTS:
+                raise ValueError(f"{family} data write must declare a supported bottom")
+            binding = (execution, state_model, value_shape, bottom)
             previous = bindings.setdefault(family, binding)
             if previous != binding:
                 raise ValueError(
@@ -85,39 +91,39 @@ def render(source_path: Path, registry: dict) -> str:
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
     bindings = collect_bindings(registry)
     rows = []
-    for family, (lattice, bottom) in sorted(bindings.items()):
+    for family, (execution, state_model, value_shape, bottom) in sorted(bindings.items()):
         try:
-            lattice_variant = LATTICE_VARIANTS[lattice]
-            bottom_variant = BOTTOM_VARIANTS[bottom]
+            state_model_variant = STATE_MODEL_VARIANTS[state_model]
         except KeyError as error:
             raise ValueError(f"unsupported registry value: {error.args[0]}") from error
-        family_constant = cell_family_constant(family)
-        compact_row = (
-            f"    (CellFamilyId::{family_constant}, LatticeKind::{lattice_variant}, "
-            f"EventCellBottom::{bottom_variant}),"
+        execution_variant = execution.title()
+        value_shape_variant = value_shape.title()
+        bottom_value = (
+            f"Some(EventCellBottom::{BOTTOM_VARIANTS[bottom]})"
+            if bottom is not None
+            else "None"
         )
-        if len(compact_row) <= 70:
-            rows.append(compact_row)
-        else:
-            rows.extend(
-                [
-                    "    (",
-                    f"        CellFamilyId::{family_constant},",
-                    f"        LatticeKind::{lattice_variant},",
-                    f"        EventCellBottom::{bottom_variant},",
-                    "    ),",
-                ]
-            )
+        family_constant = cell_family_constant(family)
+        rows.extend(
+            [
+                "    (",
+                f"        CellFamilyId::{family_constant},",
+                f"        EventCellExecution::{execution_variant},",
+                f"        StateModelKind::{state_model_variant},",
+                f"        EventCellValueShape::{value_shape_variant},",
+                f"        {bottom_value},",
+                "    ),",
+            ]
+        )
     return "\n".join(
         [
-            "// @generated by tools/generate-sdk-lattice-bindings.py; do not edit.",
+            "// @generated by tools/generate-sdk-state-model-bindings.py; do not edit.",
             f"// Source sha256: {source_digest}",
             "",
-            "use arkret_state::lattice::LatticeKind;",
-            "use arkret_wire::EventCellBottom;",
-            "use arkret_wire::CellFamilyId;",
+            "use arkret_state::state_model::StateModelKind;",
+            "use arkret_wire::{CellFamilyId, EventCellBottom, EventCellExecution, EventCellValueShape};",
             "",
-            "pub(crate) const SPEC_LATTICE_BINDINGS: &[(&str, LatticeKind, EventCellBottom)] = &[",
+            "pub(crate) const SPEC_STATE_MODEL_BINDINGS: &[(&str, EventCellExecution, StateModelKind, EventCellValueShape, Option<EventCellBottom>)] = &[",
             *rows,
             "];",
             "",

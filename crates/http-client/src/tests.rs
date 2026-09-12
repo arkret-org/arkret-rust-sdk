@@ -435,7 +435,6 @@ mod events_submit_tests {
             prev_refs: Vec::new(),
             refs: Vec::new(),
             preconditions: Vec::new(),
-            seal_ref: None,
             auth_context: None,
             seal_basis: None,
             requirements: EventRequirements::default(),

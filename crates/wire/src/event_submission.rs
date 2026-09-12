@@ -29,7 +29,7 @@ pub enum EventPublicationLane {
     OnlineSelf,
     /// Pre-issued authorization lease, followed by an ingress receipt.
     OfflineDelayed,
-    /// Origin Station admission proof inside the Event envelope.
+    /// Peer transport of the unchanged producer-authenticated Event.
     PeerFederation,
 }
 
@@ -46,8 +46,7 @@ pub fn classify_event_submit_context(events: &[Event]) -> Result<EventSubmitCont
     Ok(context)
 }
 
-/// Classify and validate a complete ordered federation unit whose Events have
-/// already received their origin Station admission proof.
+/// Classify and validate a complete ordered federation unit.
 pub fn classify_federated_event_submit_context(
     events: &[Event],
     digest_suites: &[arkret_canonical::DigestSuite],
@@ -65,9 +64,7 @@ pub fn classify_federated_event_submit_context(
 }
 
 fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitContext> {
-    let basis_free = |event: &Event| {
-        event.seal_ref.is_none() && event.auth_context.is_none() && event.seal_basis.is_none()
-    };
+    let basis_free = |event: &Event| event.auth_context.is_none() && event.seal_basis.is_none();
     let has_basis_free = events.iter().any(basis_free);
     let all_basis_free = !events.is_empty() && events.iter().all(basis_free);
     if has_basis_free && !all_basis_free {
@@ -310,24 +307,12 @@ impl AuthorizationLeaseIssueOutcome {
         }
         let anchor_unit = events
             .iter()
-            .all(|event| event.seal_ref.is_none() && event.seal_basis.is_none());
+            .all(|event| event.auth_context.is_none() && event.seal_basis.is_none());
         if anchor_unit {
             validate_anchor_unit_lease_bindings(events, &self.authorization_leases, digest_suites)?;
         }
         for (lease, event) in self.authorization_leases.iter().zip(events) {
             validate_lease_binds_event(event, lease)?;
-            if !anchor_unit {
-                let basis_matches = match (&event.seal_ref, &event.seal_basis, &lease.basis_ref) {
-                    (Some(expected), None, LeaseBasisRef::Seal(actual)) => expected == actual,
-                    (None, Some(expected), LeaseBasisRef::Joined(actual)) => expected == actual,
-                    _ => false,
-                };
-                if !basis_matches {
-                    return Err(WireError::Protocol(
-                        "authorization lease outcome changed an ordered Event basis".to_owned(),
-                    ));
-                }
-            }
         }
         Ok(())
     }
@@ -415,6 +400,42 @@ pub struct EventInitialSubmission {
     /// Present only for an `ak.member.state` compensation submission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub membership_compensation_evidence: Option<crate::MembershipCompensationSubmissionEvidence>,
+}
+
+/// One ordinary producer-authenticated Event accepted without an account
+/// session, origin callback, handoff, or authorization lease.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ProofAuthenticatedPublication(pub EventInitialSubmission);
+
+impl ProofAuthenticatedPublication {
+    pub fn new(
+        submission: EventInitialSubmission,
+        digest_suite: arkret_canonical::DigestSuite,
+    ) -> Result<Self> {
+        submission.validate_structural(digest_suite)?;
+        if submission.event.auth_context.is_none()
+            || submission.event.seal_basis.is_some()
+            || submission.authorization_lease.is_some()
+            || submission.control_proposal_ack.is_some()
+            || submission.membership_compensation_evidence.is_some()
+            || submission.mls_frontier_leaves.is_some()
+        {
+            return Err(WireError::Protocol(
+                "proof-authenticated publication must contain one ordinary Event only".to_owned(),
+            ));
+        }
+        Ok(Self(submission))
+    }
+
+    pub fn submission(&self) -> &EventInitialSubmission {
+        &self.0
+    }
+
+    pub fn into_submission(self) -> EventInitialSubmission {
+        self.0
+    }
 }
 
 /// Stable first-admission references for the one Ack-less human
@@ -775,9 +796,8 @@ mod tests {
     };
     use crate::{
         AccountId, ActorId, AuthContext, AuthoritySetPolicyKind, AuthoritySetSourceKind,
-        AuthorizationLeaseId, Base64UrlString, DeviceId, DidCoreId, DidKey, DidUrl, EventProof,
-        Hash, PayloadProof, ProducerEventProof, RealmId, SchemaId, SealId, StationAdmissionProof,
-        StationAdmissionProofKind, proof_kind,
+        AuthorizationLeaseId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, PayloadProof,
+        ProducerEventProof, RealmId, SchemaId, SealId, proof_kind,
     };
 
     fn instant(hour: u32) -> chrono::DateTime<Utc> {
@@ -882,14 +902,15 @@ mod tests {
             serde_json::json!({}),
         )
         .unwrap();
-        event.seal_ref = Some(match intent().basis_ref {
+        let authority_ref = match intent().basis_ref {
             LeaseBasisRef::Seal(value) => value,
             _ => unreachable!(),
-        });
+        };
         event.auth_context = Some(AuthContext {
             key_id: crate::OpaqueLocalId::new("device-1").unwrap(),
             key_epoch: 1,
             credential_epoch: None,
+            authority_refs: vec![authority_ref],
         });
         let event_digest = Hash::new(
             event
@@ -897,118 +918,29 @@ mod tests {
                 .unwrap(),
         )
         .unwrap();
-        event.proofs = vec![
-            ProducerEventProof {
-                kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
-                    .unwrap(),
-                event_digest,
-                signer_resolution_evidence_ref: Some(
-                    crate::SignerEvidenceRef::new(format!(
-                        "ak:signer_evidence:sha256:{}",
-                        "22".repeat(32)
-                    ))
-                    .unwrap(),
-                ),
-                created_at: event.created_at,
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "a..b".to_owned(),
-            }
-            .into(),
-        ];
+        event.proofs = vec![ProducerEventProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#device-1")
+                .unwrap(),
+            event_digest,
+            signer_resolution_evidence_ref: Some(
+                crate::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "22".repeat(32)
+                ))
+                .unwrap(),
+            ),
+            created_at: event.created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        }];
         event
-    }
-
-    #[test]
-    fn applet_admission_requires_portable_authority_and_keeps_producer_binding() {
-        let mut event = federated_event();
-        let suite = arkret_canonical::DigestSuite::Sha256;
-        event.applet_id =
-            Some(crate::AppletId::new("ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa").unwrap());
-        event.authorization_ref = Some(
-            crate::AuthorizationRef::new(
-                crate::GrantId::from_event_id(&event.event_id).to_string(),
-            )
-            .unwrap(),
-        );
-        event.executed_by = Some(ActorId::service(
-            DidCoreId::new("ak:did_core:web:external-applet.example").unwrap(),
-        ));
-        event
-            .refresh_content_bound_identity_with_digest_suite(suite)
-            .unwrap();
-        let digest = Hash::new(event.event_digest_with_digest_suite(suite).unwrap()).unwrap();
-        let [
-            EventProof::Producer(producer),
-            EventProof::StationAdmission(admission),
-        ] = event.proofs.as_mut_slice()
-        else {
-            unreachable!()
-        };
-        producer.event_digest = digest.clone();
-        producer.verification_method =
-            DidUrl::new("did:web:external-applet.example#key-1").unwrap();
-        admission.event_digest = digest;
-        admission.producer_verification_method = producer.verification_method.clone();
-        admission.producer_proof_digest =
-            StationAdmissionProof::producer_proof_digest(producer).unwrap();
-        assert!(event.validate_station_admission_structure(suite).is_err());
-        let EventProof::StationAdmission(admission) = &mut event.proofs[1] else {
-            unreachable!()
-        };
-        admission.applet_installation_digest =
-            Some(Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap());
-        event.validate_station_admission_structure(suite).unwrap();
-        assert!(
-            event.validate_station_admission_binding(suite).is_err(),
-            "structure cannot confer installation authority"
-        );
-        assert!(
-            event.validate_for_submit_structural().is_err(),
-            "accepted Events cannot enter caller submit"
-        );
-        let EventProof::StationAdmission(admission) = &mut event.proofs[1] else {
-            unreachable!()
-        };
-        let before = admission.canonical_binding_bytes().unwrap();
-        admission.applet_installation_digest =
-            Some(Hash::new(format!("sha256:{}", "cd".repeat(32))).unwrap());
-        assert_ne!(before, admission.canonical_binding_bytes().unwrap());
-        admission.producer_proof_digest = Hash::new(format!("sha256:{}", "00".repeat(32))).unwrap();
-        assert!(event.validate_station_admission_structure(suite).is_err());
     }
 
     fn federated_event() -> Event {
-        let mut event = online_event();
-        let mut producer = event.proofs[0].as_producer().unwrap().clone();
-        producer.signer_resolution_evidence_ref = None;
-        event.proofs[0] = producer.clone().into();
-        event
-            .proofs
-            .push(EventProof::StationAdmission(StationAdmissionProof {
-                applet_installation_digest: None,
-                kind: StationAdmissionProofKind::StationAdmission,
-                verification_method: DidUrl::new(
-                    "did:webvh:z6mkfixturestation:principal.example#key-1",
-                )
-                .unwrap(),
-                event_digest: producer.event_digest.clone(),
-                producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer)
-                    .unwrap(),
-                producer_verification_method: producer.verification_method.clone(),
-                producer_signing_key_did: DidKey::new("did:key:z6Mkhfixture").unwrap(),
-                producer_signer_resolution_evidence_ref: None,
-                signer_resolution_evidence_ref: crate::SignerEvidenceRef::new(format!(
-                    "ak:signer_evidence:sha256:{}",
-                    "11".repeat(32)
-                ))
-                .unwrap(),
-                accepted_at: event.created_at,
-                jws: "admission..signature".to_owned(),
-            }));
-        event
+        online_event()
     }
 
     fn membership_compensation_submission()
@@ -1252,7 +1184,6 @@ mod tests {
     #[test]
     fn caller_proven_anchor_allows_its_control_proposal_ack_without_seal_basis() {
         let mut event = online_event();
-        event.seal_ref = None;
         event.seal_basis = None;
         let proposal_digest = Hash::new(
             event
@@ -1402,9 +1333,14 @@ mod tests {
             serde_json::json!({}),
         )
         .unwrap();
-        event.seal_ref = Some(match &target.basis_ref {
-            LeaseBasisRef::Seal(value) => value.clone(),
-            _ => unreachable!(),
+        event.auth_context = Some(AuthContext {
+            key_id: crate::OpaqueLocalId::new("device-1").unwrap(),
+            key_epoch: 1,
+            credential_epoch: None,
+            authority_refs: vec![match &target.basis_ref {
+                LeaseBasisRef::Seal(value) => value.clone(),
+                _ => unreachable!(),
+            }],
         });
         let mixed = AuthorizationLeaseIssueRequestBody {
             submissions: vec![EventInitialSubmission::online(event)],

@@ -135,13 +135,11 @@ impl ModerationReportRequestBody {
                 character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | ':' | '-')
             })
             || !event.proofs.iter().any(|proof| {
-                proof.as_producer().is_some_and(|proof| {
-                    proof_controller_matches_actor(
-                        proof.verification_method.as_str(),
-                        event.actor_id.signing_principal_id(),
-                    )
-                    .unwrap_or(false)
-                })
+                proof_controller_matches_actor(
+                    proof.verification_method.as_str(),
+                    event.actor_id.signing_principal_id(),
+                )
+                .unwrap_or(false)
             })
         {
             return Err(arkret_wire::WireError::Protocol(
@@ -303,11 +301,13 @@ mod signed_request_tests {
             created_at,
         )
         .unwrap();
-        event.seal_ref = Some(SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap());
         event.auth_context = Some(AuthContext {
             key_id: arkret_wire::OpaqueLocalId::new("device-1").unwrap(),
             key_epoch: 1,
             credential_epoch: None,
+            authority_refs: vec![
+                SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            ],
         });
         event
             .refresh_content_bound_identity_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
@@ -318,20 +318,23 @@ mod signed_request_tests {
                 .unwrap(),
         )
         .unwrap();
-        event.proofs = vec![
-            ProducerEventProof {
-                kind: proof_kind::DETACHED_JWS.to_owned(),
-                verification_method: DidUrl::new(VM).unwrap(),
-                event_digest,
-                signer_resolution_evidence_ref: None,
-                created_at,
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "a..b".to_owned(),
-            }
-            .into(),
-        ];
+        event.proofs = vec![ProducerEventProof {
+            kind: proof_kind::DETACHED_JWS.to_owned(),
+            verification_method: DidUrl::new(VM).unwrap(),
+            event_digest,
+            signer_resolution_evidence_ref: Some(
+                arkret_wire::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "b".repeat(64)
+                ))
+                .unwrap(),
+            ),
+            created_at,
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "a..b".to_owned(),
+        }];
         ModerationReportRequestBody {
             report_event: EventInitialSubmission::online(event),
         }
@@ -447,10 +450,7 @@ mod signed_request_tests {
         assert!(wrong_reporter.validate(SUITE).is_err());
 
         let mut wrong_proof = signed_request(None);
-        wrong_proof.report_event.event.proofs[0]
-            .as_producer_mut()
-            .unwrap()
-            .verification_method =
+        wrong_proof.report_event.event.proofs[0].verification_method =
             DidUrl::new("did:webvh:z6mkother:other.example#device-1").unwrap();
         assert!(wrong_proof.validate(SUITE).is_err());
 

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-12.2;
-//! sha256=b2a12a38ed81c1d6540c74a5acb897d32db8f0c696b389416e26ed594f8a346b Entries: schema_ids=228,
+//! Input: registry/schema-registry.json; version=2026-09-12.12;
+//! sha256=59cdd1ff7620d3d800f9052caa1c18728d160be728607f716ac1433944f9d994 Entries: schema_ids=228,
 //! active=228
 
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,6 @@ pub enum SchemaId {
     AgentSidecarExchangeControlV1,
     AgentSidecarExchangeProjectionV1,
     AgentSidecarViewStateV1,
-    AgentSignerAdmissionReceiptV1,
     AgentSignerEvidenceV1,
     AppletV1,
     AppletEdgeOperationsV1,
@@ -200,6 +199,7 @@ pub enum SchemaId {
     RsvpV1,
     SdkConformanceClaimV1,
     SealV1,
+    SealConclusionV1,
     SealTransparencyV1,
     SearchServiceV1,
     SecurityRotationLocalCommitV1,
@@ -264,7 +264,6 @@ impl SchemaId {
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
-        Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
@@ -432,6 +431,7 @@ impl SchemaId {
         Self::RsvpV1,
         Self::SdkConformanceClaimV1,
         Self::SealV1,
+        Self::SealConclusionV1,
         Self::SealTransparencyV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
@@ -496,7 +496,6 @@ impl SchemaId {
         Self::AgentSidecarExchangeControlV1,
         Self::AgentSidecarExchangeProjectionV1,
         Self::AgentSidecarViewStateV1,
-        Self::AgentSignerAdmissionReceiptV1,
         Self::AgentSignerEvidenceV1,
         Self::AppletV1,
         Self::AppletEdgeOperationsV1,
@@ -664,6 +663,7 @@ impl SchemaId {
         Self::RsvpV1,
         Self::SdkConformanceClaimV1,
         Self::SealV1,
+        Self::SealConclusionV1,
         Self::SealTransparencyV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
@@ -706,8 +706,8 @@ impl SchemaId {
         Self::WebsocketWelcomeFrameV1,
     ];
 
-    /// Server-trusted typed current cell results, complete MV heads, versioned removal and exact
-    /// baseline coverage.
+    /// Server-trusted typed current cell results, complete causal heads, versioned removal and
+    /// exact baseline coverage.
     pub const ACCOUNT_CURRENT_RESULT_V1: &'static str = "ak.schema.account_current_result.v1";
     /// Closed XChaCha20-Poly1305 envelope for principal-private encrypted Account Data values.
     pub const ACCOUNT_DATA_ENCRYPTED_VALUE_V1: &'static str =
@@ -768,10 +768,6 @@ impl SchemaId {
     /// Controller-private encrypted account-data plaintext for per-context Sidecar display mode and
     /// hosted-view state.
     pub const AGENT_SIDECAR_VIEW_STATE_V1: &'static str = "ak.schema.agent_sidecar_view_state.v1";
-    /// Destination-signed immutable receipt for the exact Agent signer evidence used when one Event
-    /// was accepted.
-    pub const AGENT_SIGNER_ADMISSION_RECEIPT_V1: &'static str =
-        "ak.schema.agent_signer_admission_receipt.v1";
     /// Portable Agent signer authorization, state-witness, and freshness evidence used outside the
     /// ordinary device directory.
     pub const AGENT_SIGNER_EVIDENCE_V1: &'static str = "ak.schema.agent_signer_evidence.v1";
@@ -857,7 +853,8 @@ impl SchemaId {
     /// Closed request/response DTO bundle for Blob service operations.
     pub const BLOB_OPERATIONS_V1: &'static str = "ak.schema.blob_operations.v1";
     /// Structured Bottom (⊥) diagnostic surfaced on /account/subscribe, /events, and state query
-    /// responses when a cell's effective Lattice value is undefined
+    /// responses for an unresolved ordinary projection; it is not an authoritative safety Cell
+    /// value
     pub const BOTTOM_V1: &'static str = "ak.schema.bottom.v1";
     /// Profile fields for calendar-event Strands.
     pub const CALENDAR_EVENT_V1: &'static str = "ak.schema.calendar_event.v1";
@@ -1156,9 +1153,10 @@ impl SchemaId {
     pub const READ_RECEIPT_V1: &'static str = "ak.schema.read_receipt.v1";
     pub const REALM_V1: &'static str = "ak.schema.realm.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
-    /// One bounded page of the request-authorized complete governance replay closure. Includes
-    /// necessary other-member control payloads; never message/key access or accepted state.
-    /// Terminal cursor is not a completeness proof.
+    /// One bounded page of the request-authorized governance replay closure for the unique
+    /// confirmed Realm head. Independent scope disclosure authorization is required for every
+    /// object; unavailable private dependencies fail closed. Terminal cursor is not a completeness
+    /// proof and downloading does not install accepted state.
     pub const REALM_JOIN_BOOTSTRAP_OUTCOME_V1: &'static str =
         "ak.schema.realm_join_bootstrap_outcome.v1";
     /// Authenticated service-to-service request for the bounded material required to author and
@@ -1257,6 +1255,9 @@ impl SchemaId {
     pub const SDK_CONFORMANCE_CLAIM_V1: &'static str = "ak.schema.sdk_conformance_claim.v1";
     /// Seal control-plane finality commitment schema
     pub const SEAL_V1: &'static str = "ak.schema.seal.v1";
+    /// Scope-authorized quorum conclusions and frozen configuration handoffs for non-voting
+    /// receivers.
+    pub const SEAL_CONCLUSION_V1: &'static str = "ak.schema.seal_conclusion.v1";
     /// Seal transparency append-only log entry and independent auditor attestation wire schema
     pub const SEAL_TRANSPARENCY_V1: &'static str = "ak.schema.seal_transparency.v1";
     /// Privacy-preserving search index manifest, blind index query, and policy shapes.
@@ -1381,7 +1382,6 @@ impl SchemaId {
             Self::AgentSidecarExchangeControlV1 => Self::AGENT_SIDECAR_EXCHANGE_CONTROL_V1,
             Self::AgentSidecarExchangeProjectionV1 => Self::AGENT_SIDECAR_EXCHANGE_PROJECTION_V1,
             Self::AgentSidecarViewStateV1 => Self::AGENT_SIDECAR_VIEW_STATE_V1,
-            Self::AgentSignerAdmissionReceiptV1 => Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
             Self::AgentSignerEvidenceV1 => Self::AGENT_SIGNER_EVIDENCE_V1,
             Self::AppletV1 => Self::APPLET_V1,
             Self::AppletEdgeOperationsV1 => Self::APPLET_EDGE_OPERATIONS_V1,
@@ -1579,6 +1579,7 @@ impl SchemaId {
             Self::RsvpV1 => Self::RSVP_V1,
             Self::SdkConformanceClaimV1 => Self::SDK_CONFORMANCE_CLAIM_V1,
             Self::SealV1 => Self::SEAL_V1,
+            Self::SealConclusionV1 => Self::SEAL_CONCLUSION_V1,
             Self::SealTransparencyV1 => Self::SEAL_TRANSPARENCY_V1,
             Self::SearchServiceV1 => Self::SEARCH_SERVICE_V1,
             Self::SecurityRotationLocalCommitV1 => Self::SECURITY_ROTATION_LOCAL_COMMIT_V1,
@@ -1654,7 +1655,6 @@ impl SchemaId {
                 "schemas/agent-sidecar-exchange-projection.schema.json"
             }
             Self::AgentSidecarViewStateV1 => "schemas/agent-sidecar-view-state.schema.json",
-            Self::AgentSignerAdmissionReceiptV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AgentSignerEvidenceV1 => "schemas/agent-signer-evidence.schema.json",
             Self::AppletV1 => "schemas/applet.schema.json",
             Self::AppletEdgeOperationsV1 => "schemas/applet-edge-operations.schema.json",
@@ -1862,6 +1862,7 @@ impl SchemaId {
             Self::RsvpV1 => "schemas/rsvp.schema.json",
             Self::SdkConformanceClaimV1 => "schemas/sdk-conformance-claim.schema.json",
             Self::SealV1 => "schemas/seal.schema.json",
+            Self::SealConclusionV1 => "schemas/seal-conclusion.schema.json",
             Self::SealTransparencyV1 => "schemas/seal-transparency.schema.json",
             Self::SearchServiceV1 => "schemas/search-service.schema.json",
             Self::SecurityRotationLocalCommitV1 => "schemas/security-transaction.schema.json",
@@ -1933,7 +1934,6 @@ impl SchemaId {
                 Some(Self::AgentSidecarExchangeProjectionV1)
             }
             Self::AGENT_SIDECAR_VIEW_STATE_V1 => Some(Self::AgentSidecarViewStateV1),
-            Self::AGENT_SIGNER_ADMISSION_RECEIPT_V1 => Some(Self::AgentSignerAdmissionReceiptV1),
             Self::AGENT_SIGNER_EVIDENCE_V1 => Some(Self::AgentSignerEvidenceV1),
             Self::APPLET_V1 => Some(Self::AppletV1),
             Self::APPLET_EDGE_OPERATIONS_V1 => Some(Self::AppletEdgeOperationsV1),
@@ -2137,6 +2137,7 @@ impl SchemaId {
             Self::RSVP_V1 => Some(Self::RsvpV1),
             Self::SDK_CONFORMANCE_CLAIM_V1 => Some(Self::SdkConformanceClaimV1),
             Self::SEAL_V1 => Some(Self::SealV1),
+            Self::SEAL_CONCLUSION_V1 => Some(Self::SealConclusionV1),
             Self::SEAL_TRANSPARENCY_V1 => Some(Self::SealTransparencyV1),
             Self::SEARCH_SERVICE_V1 => Some(Self::SearchServiceV1),
             Self::SECURITY_ROTATION_LOCAL_COMMIT_V1 => Some(Self::SecurityRotationLocalCommitV1),

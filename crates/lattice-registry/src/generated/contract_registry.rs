@@ -1,15 +1,16 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-12.7;
-//! sha256=a84b212eeba239661596f8e00ea9069672ede4c40553240fb94e80c35f9b8ebc
-//! Entries: actor_private_families=5, actor_private_writes=8, fsm_contracts=18
+//! Input: registry/contract-registry.json; version=2026-09-12.16;
+//! sha256=edb751967c5941e7d8ac4b6687c5d9b3bcf899bd658f14909d7d436e3f6a4c19
+//! Entries: actor_private_families=5, actor_private_writes=7, transition_contracts=18
 
 use arkret_wire::CellFamilyId;
 
 use crate::contract_registry::{
     ActorPrivateEffectProjection, ActorPrivateMergeKind, ActorPrivateSubjectComponent,
     ActorPrivateSubjectRule, ActorPrivateTombstoneMode, GeneratedActorPrivateFamily,
-    GeneratedActorPrivateFsm, GeneratedActorPrivateWrite, GeneratedFsmContract, GeneratedState,
+    GeneratedActorPrivateTransition, GeneratedActorPrivateWrite, GeneratedState,
+    GeneratedTransitionContract,
 };
 
 pub(crate) const GENERATED_ACTOR_PRIVATE_FAMILIES: &[GeneratedActorPrivateFamily] = &[
@@ -18,21 +19,21 @@ pub(crate) const GENERATED_ACTOR_PRIVATE_FAMILIES: &[GeneratedActorPrivateFamily
         merge: ActorPrivateMergeKind::ServerRevisionCas,
         tombstone: Some(ActorPrivateTombstoneMode::ValueTombstone),
         bottom_reject: false,
-        fsm: None,
+        transition_contract: None,
     },
     GeneratedActorPrivateFamily {
         cell_family: "ak.private.account_data.v1",
         merge: ActorPrivateMergeKind::ServerRevisionCas,
         tombstone: Some(ActorPrivateTombstoneMode::VersionedTombstone),
         bottom_reject: false,
-        fsm: None,
+        transition_contract: None,
     },
     GeneratedActorPrivateFamily {
         cell_family: "ak.private.agent.draft.v1",
-        merge: ActorPrivateMergeKind::FsmCas,
+        merge: ActorPrivateMergeKind::ServerRevisionCas,
         tombstone: None,
         bottom_reject: true,
-        fsm: Some(GeneratedActorPrivateFsm {
+        transition_contract: Some(GeneratedActorPrivateTransition {
             initial_state: "proposed",
             states: &["proposed", "approved", "rejected", "published"],
             terminal_states: &["rejected", "published"],
@@ -48,14 +49,14 @@ pub(crate) const GENERATED_ACTOR_PRIVATE_FAMILIES: &[GeneratedActorPrivateFamily
         merge: ActorPrivateMergeKind::ServerRevisionCas,
         tombstone: Some(ActorPrivateTombstoneMode::VersionedTombstone),
         bottom_reject: false,
-        fsm: None,
+        transition_contract: None,
     },
     GeneratedActorPrivateFamily {
         cell_family: "ak.private.read_cursor.v1",
         merge: ActorPrivateMergeKind::CausalThenHlcThenDevice,
         tombstone: None,
         bottom_reject: false,
-        fsm: None,
+        transition_contract: None,
     },
 ];
 
@@ -76,18 +77,6 @@ pub(crate) const GENERATED_ACTOR_PRIVATE_WRITES: &[GeneratedActorPrivateWrite] =
             ActorPrivateSubjectComponent::Field("payload.key"),
         ]),
         effect_projection: ActorPrivateEffectProjection::SetPayload,
-    },
-    GeneratedActorPrivateWrite {
-        event_kind: "ak.agent.action_approve",
-        cell_family: "ak.private.agent.draft.v1",
-        cell_subject: ActorPrivateSubjectRule::Composite(&[
-            ActorPrivateSubjectComponent::Field("payload.agent_id"),
-            ActorPrivateSubjectComponent::Field("payload.draft_id"),
-        ]),
-        effect_projection: ActorPrivateEffectProjection::Transition {
-            from: Some("proposed"),
-            to: "approved",
-        },
     },
     GeneratedActorPrivateWrite {
         event_kind: "ak.agent.action_reject",
@@ -147,8 +136,8 @@ pub(crate) const GENERATED_ACTOR_PRIVATE_WRITES: &[GeneratedActorPrivateWrite] =
     },
 ];
 
-pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
-    GeneratedFsmContract {
+pub(crate) const GENERATED_TRANSITION_CONTRACTS: &[GeneratedTransitionContract] = &[
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::AGENT_STATUS_V1,
         axis: "status",
         states: &["uninitialized", "active", "paused", "deactivated"],
@@ -185,7 +174,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::AUDIT_BINDING_STATE_V1,
         axis: "audit",
         states: &["active", "suspended", "revoked"],
@@ -218,7 +207,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::AUDIT_SESSION_V1,
         axis: "audit",
         states: &["request", "authorize", "notice", "close"],
@@ -256,18 +245,13 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::CALL_RECORDING_V1,
-        axis: "workflow",
-        states: &["recording", "stopped", "ready", "failed"],
-        terminal_states: &["ready", "failed"],
+        axis: "capture_permission",
+        states: &["recording", "stopped"],
+        terminal_states: &["stopped"],
         initial_states: &["recording"],
-        allowed_transitions: &[
-            ("recording", "stopped"),
-            ("recording", "ready"),
-            ("recording", "failed"),
-            ("stopped", "ready"),
-        ],
+        allowed_transitions: &[("recording", "stopped")],
         runtime_initial_state: GeneratedState::Null,
         runtime_transitions: &[
             (GeneratedState::Null, GeneratedState::String("recording")),
@@ -275,21 +259,9 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
                 GeneratedState::String("recording"),
                 GeneratedState::String("stopped"),
             ),
-            (
-                GeneratedState::String("recording"),
-                GeneratedState::String("ready"),
-            ),
-            (
-                GeneratedState::String("recording"),
-                GeneratedState::String("failed"),
-            ),
-            (
-                GeneratedState::String("stopped"),
-                GeneratedState::String("ready"),
-            ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::CALL_STATE_V1,
         axis: "workflow",
         states: &[
@@ -388,18 +360,13 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::CALL_TRANSCRIPT_V1,
-        axis: "workflow",
-        states: &["transcribing", "stopped", "ready", "failed"],
-        terminal_states: &["ready", "failed"],
+        axis: "capture_permission",
+        states: &["transcribing", "stopped"],
+        terminal_states: &["stopped"],
         initial_states: &["transcribing"],
-        allowed_transitions: &[
-            ("transcribing", "stopped"),
-            ("transcribing", "ready"),
-            ("transcribing", "failed"),
-            ("stopped", "ready"),
-        ],
+        allowed_transitions: &[("transcribing", "stopped")],
         runtime_initial_state: GeneratedState::Null,
         runtime_transitions: &[
             (GeneratedState::Null, GeneratedState::String("transcribing")),
@@ -407,21 +374,9 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
                 GeneratedState::String("transcribing"),
                 GeneratedState::String("stopped"),
             ),
-            (
-                GeneratedState::String("transcribing"),
-                GeneratedState::String("ready"),
-            ),
-            (
-                GeneratedState::String("transcribing"),
-                GeneratedState::String("failed"),
-            ),
-            (
-                GeneratedState::String("stopped"),
-                GeneratedState::String("ready"),
-            ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::CIRCLE_HISTORY_ACCESS_V1,
         axis: "history_access",
         states: &["since_join", "all_history_for_current_members"],
@@ -441,7 +396,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::CIRCLE_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived"],
@@ -460,7 +415,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::CIRCLE_MEMBER_V1,
         axis: "membership",
         states: &["join", "knock", "leave", "ban"],
@@ -517,7 +472,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::INVITE_LIFECYCLE_V1,
         axis: "workflow",
         states: &[
@@ -565,9 +520,8 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ("send_failed", "revoked_by_inviter_left"),
             ("send_failed", "invalidated_by_rate_limit"),
         ],
-        runtime_initial_state: GeneratedState::Null,
+        runtime_initial_state: GeneratedState::String("pending"),
         runtime_transitions: &[
-            (GeneratedState::Null, GeneratedState::String("pending")),
             (
                 GeneratedState::String("pending"),
                 GeneratedState::String("accepted"),
@@ -654,7 +608,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::MEMBER_STATE_V1,
         axis: "membership",
         states: &["join", "knock", "leave", "ban"],
@@ -711,7 +665,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::MLS_KEYPACKAGE_V1,
         axis: "key_material",
         states: &["published", "claimed", "consumed", "revoked", "retired"],
@@ -748,7 +702,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::MORPH_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived"],
@@ -767,7 +721,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::REALM_HISTORY_ACCESS_V1,
         axis: "history_access",
         states: &["since_join", "all_history_for_current_members"],
@@ -787,7 +741,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::REALM_LINK_V1,
         axis: "relationship",
         states: &["active", "rejected", "tombstoned"],
@@ -837,7 +791,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::RELATION_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "tombstoned"],
@@ -850,7 +804,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             GeneratedState::String("tombstoned"),
         )],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::SPACE_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived", "tombstoned"],
@@ -882,7 +836,7 @@ pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[
             ),
         ],
     },
-    GeneratedFsmContract {
+    GeneratedTransitionContract {
         cell_family: CellFamilyId::STRAND_LIFECYCLE_V1,
         axis: "object_lifecycle",
         states: &["active", "archived"],

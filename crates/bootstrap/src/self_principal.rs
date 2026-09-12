@@ -137,7 +137,6 @@ pub fn validate_self_principal_pcr_genesis_unit(
         || authorize.actor_seq != 1
         || authorize.prev_refs != vec![create.event_id.clone()]
         || authorize.event_id == create.event_id
-        || authorize.seal_ref.is_some()
         || authorize.auth_context.is_some()
         || authorize.seal_basis.is_some()
         || !authorize.preconditions.is_empty()
@@ -175,9 +174,9 @@ pub fn validate_self_principal_pcr_genesis_unit(
         DeviceOrPrincipalRef::DeviceId(_) => false,
     };
     let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
-    let NotaryValue::SingleSigner { signer, .. } = &create_payload.object.notary else {
+    let [signer] = create_payload.object.notary.signers.as_slice() else {
         return Err(WireError::Protocol(
-            "PCR genesis notary must identify the principal actor".to_owned(),
+            "PCR genesis notary must contain exactly one principal signer".to_owned(),
         ));
     };
     let descriptor = create_payload
@@ -257,7 +256,6 @@ pub(crate) fn validate_self_principal_pcr_create(
         || !event.refs[0].critical
         || event.refs[0].proof.is_some()
         || !event.preconditions.is_empty()
-        || event.seal_ref.is_some()
         || event.auth_context.is_some()
         || event.seal_basis.is_some()
         || event.executed_by.is_some()
@@ -295,12 +293,8 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
         .iter()
         .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
         .count();
-    let notary_matches = match &genesis.notary {
-        NotaryValue::SingleSigner { signer, .. } => {
-            signer.actor_id.signing_principal_id() == event.actor_id.signing_principal_id()
-        }
-        _ => false,
-    };
+    let notary_matches = matches!(genesis.notary.signers.as_slice(), [signer]
+        if signer.actor_id.signing_principal_id() == event.actor_id.signing_principal_id());
     let resolution_matches = genesis
         .initial_resolution
         .as_ref()
@@ -327,24 +321,10 @@ fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
 }
 
 fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerEventProof> {
-    // The producer form is used at initial registration. The accepted form is
-    // returned by events.read and appends the origin Station proof
-    // needed for federation. Both represent one and only one Event author.
-    let producer = match event.proofs.as_slice() {
-        [arkret_wire::EventProof::Producer(producer)] => producer,
-        [
-            arkret_wire::EventProof::Producer(producer),
-            arkret_wire::EventProof::StationAdmission(_),
-        ] => {
-            event.validate_station_admission_binding(arkret_canonical::DigestSuite::Sha256)?;
-            producer
-        }
-        _ => {
-            return Err(WireError::Protocol(
-                "bootstrap event must carry exactly one producer proof and at most one bound Station admission proof"
-                    .to_owned(),
-            ));
-        }
+    let [producer] = event.proofs.as_slice() else {
+        return Err(WireError::Protocol(
+            "bootstrap event must carry exactly one producer proof".to_owned(),
+        ));
     };
     let digest = event.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
     if producer.kind != proof_kind::DETACHED_JWS

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-12.2;
-//! sha256=cd18b32c82783f5c5c83360afb64039d3523cb7c53fd5bde809bac2cc9e12898 Entries: registered=163
+//! Input: registry/capability-action-registry.json; version=2026-09-12.5;
+//! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Entries: registered=162
 
 use serde::{Deserialize, Serialize};
 
@@ -46,7 +46,6 @@ pub enum CapabilityActionId {
     CircleMemberAdd,
     CircleMemberAddOthers,
     CircleMemberManage,
-    ConflictRecovery,
     ConsentGrant,
     ConsentRevoke,
     ContactScopeUpdate,
@@ -213,7 +212,6 @@ impl CapabilityActionId {
         Self::CircleMemberAdd,
         Self::CircleMemberAddOthers,
         Self::CircleMemberManage,
-        Self::ConflictRecovery,
         Self::ConsentGrant,
         Self::ConsentRevoke,
         Self::ContactScopeUpdate,
@@ -378,7 +376,6 @@ impl CapabilityActionId {
     pub const CIRCLE_MEMBER_ADD: &'static str = "ak.circle.member.add";
     pub const CIRCLE_MEMBER_ADD_OTHERS: &'static str = "ak.circle.member.add.others";
     pub const CIRCLE_MEMBER_MANAGE: &'static str = "ak.circle.member.manage";
-    pub const CONFLICT_RECOVERY: &'static str = "ak.conflict.recovery";
     pub const CONSENT_GRANT: &'static str = "ak.consent.grant";
     pub const CONSENT_REVOKE: &'static str = "ak.consent.revoke";
     pub const CONTACT_SCOPE_UPDATE: &'static str = "ak.contact.scope.update";
@@ -552,7 +549,6 @@ impl CapabilityActionId {
             Self::CircleMemberAdd => Self::CIRCLE_MEMBER_ADD,
             Self::CircleMemberAddOthers => Self::CIRCLE_MEMBER_ADD_OTHERS,
             Self::CircleMemberManage => Self::CIRCLE_MEMBER_MANAGE,
-            Self::ConflictRecovery => Self::CONFLICT_RECOVERY,
             Self::ConsentGrant => Self::CONSENT_GRANT,
             Self::ConsentRevoke => Self::CONSENT_REVOKE,
             Self::ContactScopeUpdate => Self::CONTACT_SCOPE_UPDATE,
@@ -726,7 +722,6 @@ impl CapabilityActionId {
             Self::CIRCLE_MEMBER_ADD => Some(Self::CircleMemberAdd),
             Self::CIRCLE_MEMBER_ADD_OTHERS => Some(Self::CircleMemberAddOthers),
             Self::CIRCLE_MEMBER_MANAGE => Some(Self::CircleMemberManage),
-            Self::CONFLICT_RECOVERY => Some(Self::ConflictRecovery),
             Self::CONSENT_GRANT => Some(Self::ConsentGrant),
             Self::CONSENT_REVOKE => Some(Self::ConsentRevoke),
             Self::CONTACT_SCOPE_UPDATE => Some(Self::ContactScopeUpdate),

@@ -1,19 +1,19 @@
 use std::collections::BTreeMap;
 
-use super::types::LatticeKind;
+use super::types::CellFamilyAdapter;
 
-/// Canonical-cell-family registry. Holds one `Box<dyn LatticeKind>` per
+/// Canonical cell-family registry. Holds one adapter per
 /// registered `cell_family` string; lookup is `O(log n)` over a
 /// `BTreeMap`. The inverted `event_kind → cell_family` index is built
 /// from the generated Event descriptor `cell_writes`; one Event may map to
 /// multiple cell families.
 #[derive(Default)]
-pub struct LatticeRegistry {
-    families: BTreeMap<&'static str, Box<dyn LatticeKind>>,
+pub struct CellFamilyRegistry {
+    families: BTreeMap<&'static str, Box<dyn CellFamilyAdapter>>,
     event_kind_index: BTreeMap<&'static str, Vec<&'static str>>,
 }
 
-impl LatticeRegistry {
+impl CellFamilyRegistry {
     pub fn new() -> Self {
         Self::default()
     }
@@ -22,7 +22,7 @@ impl LatticeRegistry {
     /// family id replace the existing impl (last-write-wins).
     pub fn register<K>(&mut self, kind: K)
     where
-        K: LatticeKind + 'static,
+        K: CellFamilyAdapter + 'static,
     {
         let family = kind.cell_family();
         for descriptor in arkret_wire::EVENT_KIND_DESCRIPTORS {
@@ -41,14 +41,14 @@ impl LatticeRegistry {
         self.families.insert(family, Box::new(kind));
     }
 
-    pub fn lookup(&self, cell_family: &str) -> Option<&dyn LatticeKind> {
+    pub fn lookup(&self, cell_family: &str) -> Option<&dyn CellFamilyAdapter> {
         self.families.get(cell_family).map(|boxed| boxed.as_ref())
     }
 
     pub fn lookups_for_event_kind(
         &self,
         event_kind: &str,
-    ) -> impl Iterator<Item = &dyn LatticeKind> {
+    ) -> impl Iterator<Item = &dyn CellFamilyAdapter> {
         self.event_kind_index
             .get(event_kind)
             .into_iter()

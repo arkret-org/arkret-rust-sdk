@@ -4,7 +4,7 @@
 //! and content-addressed chunks. This half is the inverse a receiver runs: it
 //! verifies the delivered manifest and chunks against §5's checklist, then
 //! materializes `items[]` back into the lattice states the reducer keeps —
-//! `cas_register` head sets and joined values for every other lattice.
+//! `causal_register` head sets and joined values for every other lattice.
 //!
 //! The part that is easy to skip and MUST NOT be is [`CoveredEventSet`]. §3
 //! requires a receiver restored from a snapshot to still answer «is this old
@@ -35,9 +35,8 @@ use super::types::{
     SnapshotNonAcceptedInput,
 };
 use super::verify_realm_state_snapshot_chunk_bytes;
-use crate::lattice::cas_register::CasHead;
-use crate::state::CasHeadsByCell;
-use crate::{CellRef, DidUrl, EventId, Hash, RealmStateSnapshotId};
+use crate::state::CausalHeadsByCell;
+use crate::{CausalHead, CellRef, DidUrl, EventId, Hash, RealmStateSnapshotId};
 
 type ValidationResult<T> = Result<T, RealmStateSnapshotValidationError>;
 
@@ -286,10 +285,10 @@ impl CoveredEventSet {
 /// One cell as a restored snapshot carries it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RestoredCell {
-    /// Joined value of a non-`cas_register` lattice, verbatim from the leaf.
+    /// Joined value of a non-`causal_register` lattice, verbatim from the leaf.
     Value(serde_json::Value),
-    /// The complete active head set of a `cas_register` cell.
-    CasHeads(Vec<CasHead>),
+    /// The complete active head set of a `causal_register` cell.
+    CausalHeads(Vec<CausalHead>),
 }
 
 /// A verified snapshot, materialized.
@@ -301,10 +300,10 @@ pub enum RestoredCell {
 pub struct RealmStateSnapshotRestore {
     pub realm_state_snapshot_ref: RealmStateSnapshotId,
     pub report: RealmStateSnapshotVerifyReport,
-    /// Non-`cas_register` cells, by cell ref.
+    /// Non-`causal_register` cells, by cell ref.
     pub values: BTreeMap<CellRef, serde_json::Value>,
-    /// `cas_register` cells, in the shape the joined view uses.
-    pub cas_heads: CasHeadsByCell,
+    /// `causal_register` cells, in the shape the joined view uses.
+    pub causal_heads: CausalHeadsByCell,
     /// Cells §3 reported in `⊥`. They have no leaf; the receiver MUST fail
     /// closed on them rather than treat them as unwritten.
     pub bottom_cells: BTreeSet<CellRef>,
@@ -328,8 +327,8 @@ impl RealmStateSnapshotRestore {
     /// [`Self::erasure_stubs`] first — both are cells the snapshot deliberately
     /// gave no leaf.
     pub fn cell(&self, cell: &CellRef) -> Option<RestoredCell> {
-        if let Some(heads) = self.cas_heads.get(cell) {
-            return Some(RestoredCell::CasHeads(heads.clone()));
+        if let Some(heads) = self.causal_heads.get(cell) {
+            return Some(RestoredCell::CausalHeads(heads.clone()));
         }
         self.values.get(cell).cloned().map(RestoredCell::Value)
     }
@@ -371,7 +370,7 @@ where
     verify_auxiliary_list_digests(manifest, &chunks)?;
 
     let mut values: BTreeMap<CellRef, serde_json::Value> = BTreeMap::new();
-    let mut cas_heads: CasHeadsByCell = BTreeMap::new();
+    let mut causal_heads: CausalHeadsByCell = BTreeMap::new();
     let mut bottom_cells = BTreeSet::new();
     let mut erasure_stubs = BTreeMap::new();
     let mut soft_failed = Vec::new();
@@ -386,12 +385,12 @@ where
                     values.insert(item.cell().clone(), value.clone());
                 }
                 SnapshotCellState::Heads(heads) => {
-                    cas_heads.insert(
+                    causal_heads.insert(
                         item.cell().clone(),
                         heads
                             .iter()
-                            .map(|head| CasHead {
-                                move_id: head.event_id.event_digest(),
+                            .map(|head| CausalHead {
+                                event_id: head.event_id.clone(),
                                 value: head.value.clone(),
                             })
                             .collect(),
@@ -416,7 +415,7 @@ where
     // a producer contradiction, not a precedence question.
     if let Some(cell) = erasure_stubs
         .keys()
-        .find(|cell| values.contains_key(*cell) || cas_heads.contains_key(*cell))
+        .find(|cell| values.contains_key(*cell) || causal_heads.contains_key(*cell))
     {
         return Err(schema_violation(format!(
             "{cell} carries both a state leaf and an erasure stub"
@@ -431,7 +430,7 @@ where
             state_digest,
         },
         values,
-        cas_heads,
+        causal_heads,
         bottom_cells,
         erasure_stubs,
         soft_failed,

@@ -128,12 +128,6 @@ pub struct Realm {
     pub max_authority_lifetime_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom_escalation_after_ms: Option<u64>,
-    /// Lattice declarations per cell_family used in this Realm. Reducer-
-    /// derived; this field exists so clients can render bottom diagnostics
-    /// before observing any Move. Empty means "use the cell registry
-    /// defaults from contract-registry".
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub cell_lattices: Vec<CellLatticeDeclaration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retention_policy_id: Option<PolicyId>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -154,22 +148,6 @@ pub struct Realm {
         with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
-}
-
-/// Per-cell-family lattice declaration carried on `Realm` (Move/Seal/Lattice
-/// data-structures.md §4). Maps a cell family used in this Realm to its
-/// declared lattice + bottom shape. Reducer-derived in practice; this is a
-/// **hint** so clients can set up bottom diagnostics surfaces upfront.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CellLatticeDeclaration {
-    /// `ak.component.<...>.v<N>` cell family identifier.
-    pub cell_family: String,
-    /// One of `or_set` / `mv_register` / `cas_register` / `fsm` / `counter` /
-    /// `ordered_log` per spec event-auth-state-resolution.md §5.3.
-    pub lattice: String,
-    /// `reject` (default) or `expose` per spec §5.3 bottom semantics.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bottom: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -293,7 +271,6 @@ impl Realm {
             seal_compaction_max_interval_ms: None,
             max_authority_lifetime_ms: default_max_delegation_lifetime_ms(),
             bottom_escalation_after_ms: None,
-            cell_lattices: Vec::new(),
             retention_policy_id: None,
             avatar_blob_ref: None,
             created_by,
@@ -400,17 +377,23 @@ mod tests {
             ActorId::service(notary_actor.clone()),
             TrustDomainId::new("ak:trust_domain:example.net".to_owned()).unwrap(),
             CORE_REDUCER_PROFILE,
-            NotaryValue::single_signer(NotarySignerDescriptor {
-                actor_id: ActorId::service(notary_actor),
-                verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
-                key_kind: NotaryKeyKind::Ed25519Raw32,
-                jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-                frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned(),
-                frozen_public_key_digest: Hash::new(
-                    "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
-                )
-                .unwrap(),
-            }),
+            NotaryValue::new(
+                vec![NotarySignerDescriptor {
+                    actor_id: ActorId::service(notary_actor),
+                    verification_method: DidUrl::new("did:web:notary.example#key-1").unwrap(),
+                    key_kind: NotaryKeyKind::Ed25519Raw32,
+                    jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+                    frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                        .to_owned(),
+                    frozen_public_key_digest: Hash::new(
+                        "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
+                    )
+                    .unwrap(),
+                }],
+                0,
+                0,
+            )
+            .unwrap(),
         )
     }
 

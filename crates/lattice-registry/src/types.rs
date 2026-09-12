@@ -1,9 +1,9 @@
 pub use arkret_schema::Criticality;
-use arkret_state::lattice::LatticeKind as SdkLatticeKind;
-pub use arkret_wire::EventCellBottom;
+use arkret_state::state_model::StateModelKind;
+pub use arkret_wire::{EventCellBottom, EventCellExecution, EventCellValueShape};
 use serde_json::Value;
 
-/// Stable identification of the logical cell this [`LatticeKind`] drives.
+/// Stable identification of the logical cell this [`CellFamilyAdapter`] drives.
 /// Multiple kinds operating on the same cell (paired kinds, e.g.
 /// `ak.capability.grant` + `ak.capability.revoke`) MUST share
 /// `component_type` so the receiver treats them as supersedes on the
@@ -18,24 +18,38 @@ pub struct ComponentDescriptor {
     pub criticality: Criticality,
 }
 
-pub(crate) fn generated_lattice(cell_family: &str) -> SdkLatticeKind {
-    crate::generated::SPEC_LATTICE_BINDINGS
+pub(crate) fn generated_state_model(cell_family: &str) -> StateModelKind {
+    crate::generated::SPEC_STATE_MODEL_BINDINGS
         .iter()
-        .find_map(|(family, lattice, _)| (*family == cell_family).then_some(*lattice))
-        .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"))
+        .find_map(|(family, _, state_model, ..)| (*family == cell_family).then_some(*state_model))
+        .unwrap_or_else(|| panic!("typed cell adapter {cell_family} has no generated binding"))
 }
 
-pub(crate) fn generated_bottom_policy(cell_family: &str) -> EventCellBottom {
-    crate::generated::SPEC_LATTICE_BINDINGS
+pub(crate) fn generated_execution(cell_family: &str) -> EventCellExecution {
+    crate::generated::SPEC_STATE_MODEL_BINDINGS
         .iter()
-        .find_map(|(family, _, bottom)| (*family == cell_family).then_some(*bottom))
-        .unwrap_or_else(|| panic!("typed lattice adapter {cell_family} has no generated binding"))
+        .find_map(|(family, execution, ..)| (*family == cell_family).then_some(*execution))
+        .unwrap_or_else(|| panic!("typed cell adapter {cell_family} has no generated binding"))
 }
 
-/// Errors a [`LatticeKind`] can raise during subject derivation.
+pub(crate) fn generated_value_shape(cell_family: &str) -> EventCellValueShape {
+    crate::generated::SPEC_STATE_MODEL_BINDINGS
+        .iter()
+        .find_map(|(family, _, _, value_shape, _)| (*family == cell_family).then_some(*value_shape))
+        .unwrap_or_else(|| panic!("typed cell adapter {cell_family} has no generated binding"))
+}
+
+pub(crate) fn generated_bottom_policy(cell_family: &str) -> Option<EventCellBottom> {
+    crate::generated::SPEC_STATE_MODEL_BINDINGS
+        .iter()
+        .find_map(|(family, _, _, _, bottom)| (*family == cell_family).then_some(*bottom))
+        .flatten()
+}
+
+/// Errors a [`CellFamilyAdapter`] can raise during subject derivation.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum LatticeKindError {
-    /// The Move's effects[] is missing the typed field used to derive the
+pub enum CellFamilyAdapterError {
+    /// The Event write is missing the typed field used to derive the
     /// cell subject (e.g. `payload.strand_id` for a strand-position cell).
     MissingSubjectField {
         cell_family: &'static str,
@@ -46,8 +60,7 @@ pub enum LatticeKindError {
         cell_family: &'static str,
         reason: String,
     },
-    /// The cell_family declared by a Move effect doesn't match this
-    /// `LatticeKind`. The dispatcher MUST route to a different impl.
+    /// The declared cell family doesn't match this adapter.
     UnknownCellFamily {
         observed: String,
         declared: &'static str,
@@ -60,7 +73,7 @@ pub enum LatticeKindError {
     },
 }
 
-impl std::fmt::Display for LatticeKindError {
+impl std::fmt::Display for CellFamilyAdapterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingSubjectField { cell_family, field } => {
@@ -79,7 +92,7 @@ impl std::fmt::Display for LatticeKindError {
             Self::UnknownCellFamily { observed, declared } => {
                 write!(
                     f,
-                    "cell_family `{observed}` is not handled by this LatticeKind ({declared})"
+                    "cell_family `{observed}` is not handled by this adapter ({declared})"
                 )
             }
             Self::UnknownEventKind {
@@ -93,30 +106,30 @@ impl std::fmt::Display for LatticeKindError {
     }
 }
 
-impl std::error::Error for LatticeKindError {}
+impl std::error::Error for CellFamilyAdapterError {}
 
 /// One canonical Arkret cell-family implementation.
 ///
 /// Each impl owns one `cell_family` (e.g. `ak.component.consent.v1`),
-/// declares the lattice algebra that resolves it (one of the six
-/// spec-normative lattices from `arkret_state::lattice::LatticeKind`), and
-/// exposes subject-derivation + post-resolution validation hooks.
-/// Move/Seal receive pipeline iterates sealed Moves, groups effects
-/// by `(cell_family, cell_subject)`, and dispatches to the matching
-/// `LatticeKind` for per-cell `Lattice::join`.
-pub trait LatticeKind: Send + Sync {
-    /// Stable cell-family id. Move effects route to this `LatticeKind`
-    /// when the effect's `cell` ref has this family path.
+/// declares the state model and execution plane that resolve it, and exposes
+/// subject derivation for typed Event writes.
+pub trait CellFamilyAdapter: Send + Sync {
+    /// Stable cell-family id.
     fn cell_family(&self) -> &'static str;
 
-    /// Which of the six normative lattices drives this family. The SDK's
-    /// `crate::lattice` module provides the runtime impl.
-    fn lattice(&self) -> SdkLatticeKind;
+    /// Which normative state model drives this family.
+    fn state_model(&self) -> StateModelKind;
+
+    /// Whether writes are ordinary data or Seal-confirmed security state.
+    fn execution(&self) -> EventCellExecution;
+
+    /// The resolved value shape required by the registry contract.
+    fn value_shape(&self) -> EventCellValueShape;
 
     /// `reject` → quarantine on Bottom (default, safety-critical cells);
     /// `expose` → render multi-value directly (advisory cells).
-    fn bottom_policy(&self) -> EventCellBottom {
-        EventCellBottom::Reject
+    fn bottom_policy(&self) -> Option<EventCellBottom> {
+        None
     }
 
     /// Component metadata for extension handling.
@@ -126,7 +139,7 @@ pub trait LatticeKind: Send + Sync {
     fn subject_for_effect(
         &self,
         _effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         Ok(None)
     }
 
@@ -137,7 +150,7 @@ pub trait LatticeKind: Send + Sync {
         _event_kind: &str,
         _envelope_event_id: &arkret_wire::EventId,
         effect_payload: &Value,
-    ) -> Result<Option<String>, LatticeKindError> {
+    ) -> Result<Option<String>, CellFamilyAdapterError> {
         self.subject_for_effect(effect_payload)
     }
 }

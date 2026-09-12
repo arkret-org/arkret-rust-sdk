@@ -3,8 +3,7 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{merkle, *};
-use crate::lattice::cas_register::CasHead;
-use crate::{CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId};
+use crate::{CausalHead, CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId};
 
 fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
@@ -223,7 +222,7 @@ fn realm_state_snapshot_id() -> RealmStateSnapshotId {
         .unwrap()
 }
 
-/// A materialized non-`cas_register` cell item (`realm-state-snapshot-schema.md` §3).
+/// A materialized non-`causal_register` cell item (`realm-state-snapshot-schema.md` §3).
 fn cell_item(cell: &str, value: Value) -> RealmStateSnapshotMaterializedItem {
     RealmStateSnapshotMaterializedItem::value(CellRef::new(cell.to_owned()).unwrap(), value)
         .unwrap()
@@ -530,9 +529,12 @@ fn witness_quorum_rejects_manifest_context_and_foreign_controller() {
 }
 
 /// One head, in the SDK form the lattice produces.
-fn cas_head(byte: u8, value: Value) -> CasHead {
-    CasHead {
-        move_id: Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
+fn causal_head(byte: u8, value: Value) -> CausalHead {
+    CausalHead {
+        event_id: EventId::from_event_digest(
+            &Hash::new(format!("sha256:{}", format!("{byte:02x}").repeat(32))).unwrap(),
+        )
+        .unwrap(),
         value,
     }
 }
@@ -546,13 +548,15 @@ fn slot_cell() -> CellRef {
 }
 
 /// `realm-state-snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`,
-/// a CAS cell's `state` is its head set, and its identity is the `ak:event:`
+/// a causal-register cell's `state` is its head set, and its identity is the `ak:event:`
 /// spelling recovered from the op log's `event_digest`.
 #[test]
-fn a_cas_cell_item_serializes_to_the_closed_branch() {
-    let item =
-        RealmStateSnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x11, Value::Null)])
-            .unwrap();
+fn a_causal_cell_item_serializes_to_the_closed_branch() {
+    let item = RealmStateSnapshotMaterializedItem::causal_cell(
+        slot_cell(),
+        &[causal_head(0x11, Value::Null)],
+    )
+    .unwrap();
     let wire = serde_json::to_value(&item).unwrap();
 
     assert_eq!(wire["kind"], "cell");
@@ -563,8 +567,7 @@ fn a_cas_cell_item_serializes_to_the_closed_branch() {
     let heads = wire["state"]["heads"].as_array().unwrap();
     assert_eq!(heads.len(), 1);
     assert_eq!(heads[0]["value"], Value::Null);
-    let expected_id =
-        EventId::from_event_digest(&cas_head(0x11, serde_json::json!(null)).move_id).unwrap();
+    let expected_id = causal_head(0x11, serde_json::json!(null)).event_id;
     assert_eq!(heads[0]["event_id"], expected_id.as_str());
 
     assert_eq!(
@@ -573,7 +576,7 @@ fn a_cas_cell_item_serializes_to_the_closed_branch() {
     );
 }
 
-/// A materialized non-CAS cell serializes to the same branch with a `value`
+/// A materialized non-causal-register cell serializes to the same branch with a `value`
 /// state, and the two state shapes never mix.
 #[test]
 fn a_value_cell_item_serializes_to_the_closed_branch() {
@@ -592,12 +595,14 @@ fn a_value_cell_item_serializes_to_the_closed_branch() {
 /// keep the release write's identity or the two become the same snapshot.
 #[test]
 fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
-    let released =
-        RealmStateSnapshotMaterializedItem::cas_cell(slot_cell(), &[cas_head(0x22, Value::Null)])
-            .unwrap();
-    let claimed = RealmStateSnapshotMaterializedItem::cas_cell(
+    let released = RealmStateSnapshotMaterializedItem::causal_cell(
         slot_cell(),
-        &[cas_head(0x22, serde_json::json!("ak:event:AUC6Bg"))],
+        &[causal_head(0x22, Value::Null)],
+    )
+    .unwrap();
+    let claimed = RealmStateSnapshotMaterializedItem::causal_cell(
+        slot_cell(),
+        &[causal_head(0x22, serde_json::json!("ak:event:AUC6Bg"))],
     )
     .unwrap();
     assert_ne!(
@@ -606,7 +611,7 @@ fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
     );
 
     // An unwritten cell is not a member at all (§6.2.1), so it cannot be built.
-    assert!(RealmStateSnapshotMaterializedItem::cas_cell(slot_cell(), &[]).is_err());
+    assert!(RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &[]).is_err());
 }
 
 /// Two heads that agree on a value still have two identities, and the leaf must
@@ -614,16 +619,16 @@ fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
 /// branch it never observed.
 #[test]
 fn same_value_heads_keep_both_identities_in_the_leaf() {
-    let one = RealmStateSnapshotMaterializedItem::cas_cell(
+    let one = RealmStateSnapshotMaterializedItem::causal_cell(
         slot_cell(),
-        &[cas_head(0x33, serde_json::json!("A"))],
+        &[causal_head(0x33, serde_json::json!("A"))],
     )
     .unwrap();
-    let two = RealmStateSnapshotMaterializedItem::cas_cell(
+    let two = RealmStateSnapshotMaterializedItem::causal_cell(
         slot_cell(),
         &[
-            cas_head(0x33, serde_json::json!("A")),
-            cas_head(0x44, serde_json::json!("A")),
+            causal_head(0x33, serde_json::json!("A")),
+            causal_head(0x44, serde_json::json!("A")),
         ],
     )
     .unwrap();
@@ -633,50 +638,26 @@ fn same_value_heads_keep_both_identities_in_the_leaf() {
     );
 }
 
-/// §4: a snapshot leaf *is* the §6.2.1 `state_root` leaf, byte for byte — for
-/// a CAS cell and for a value cell alike — so a control cell has one canonical
-/// leaf whether it is proven through a Seal or shipped in a snapshot.
+/// Snapshot leaves commit causal identities and values under the Realm digest suite.
 #[test]
-fn the_snapshot_leaf_is_the_state_root_leaf() {
-    let heads = [cas_head(0x55, serde_json::json!("v"))];
-    let item = RealmStateSnapshotMaterializedItem::cas_cell(slot_cell(), &heads).unwrap();
-    let state_root_leaf = crate::state::state_root::cas_leaf_hash(
-        &slot_cell(),
-        &heads,
-        arkret_canonical::DigestSuite::Sha256,
-    )
-    .unwrap();
-    assert_eq!(
+fn the_snapshot_leaf_uses_the_realm_digest_suite() {
+    let heads = [causal_head(0x55, serde_json::json!("v"))];
+    let item = RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &heads).unwrap();
+    assert!(
         realm_state_snapshot_state_leaf_hash(&item)
             .unwrap()
-            .as_str(),
-        format!("sha256:{}", hex::encode(state_root_leaf)),
+            .as_str()
+            .starts_with("sha256:")
     );
-
-    let value_item = cell_item(STRAND_LIFECYCLE_CELL, serde_json::json!("archived"));
-    let value_leaf = crate::state::state_root::leaf_hash(
-        value_item.cell(),
-        &crate::lattice::CellState::Value(serde_json::json!("archived")),
-        arkret_canonical::DigestSuite::Sha256,
-    )
-    .unwrap();
-    assert_eq!(
-        realm_state_snapshot_state_leaf_hash(&value_item)
-            .unwrap()
-            .as_str(),
-        format!("sha256:{}", hex::encode(value_leaf)),
-    );
-
-    // And the digest suite follows the Realm, not a hard-coded SHA-256.
     let blake = realm_state_snapshot_state_leaf_hash_with_digest_suite(
-        &value_item,
+        &item,
         arkret_canonical::DigestSuite::Blake3,
     )
     .unwrap();
     assert!(blake.as_str().starts_with("blake3:"));
 }
 
-/// The union is closed: the retired `object` branch, the retired `cas_cell`
+/// The union is closed: the retired `object` branch, the retired `causal_cell`
 /// literal, a state that mixes or misses both shapes, and a state shape that
 /// contradicts the cell family's registered lattice are all refused.
 #[test]
@@ -689,13 +670,13 @@ fn items_outside_the_cell_branch_are_rejected() {
     });
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(object_branch).is_err());
 
-    let cas_cell_literal = serde_json::json!({
-        "kind": "cas_cell",
+    let causal_cell_literal = serde_json::json!({
+        "kind": "causal_cell",
         "id": slot_cell().as_str(),
         "state": {"heads": [{"event_id": event_id("a").as_str(), "value": null}]},
     });
     assert!(
-        serde_json::from_value::<RealmStateSnapshotMaterializedItem>(cas_cell_literal).is_err()
+        serde_json::from_value::<RealmStateSnapshotMaterializedItem>(causal_cell_literal).is_err()
     );
 
     let mixed_state = serde_json::json!({
@@ -708,13 +689,14 @@ fn items_outside_the_cell_branch_are_rejected() {
     let no_state = serde_json::json!({"kind": "cell", "id": STRAND_LIFECYCLE_CELL});
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(no_state).is_err());
 
-    let value_on_cas_family = serde_json::json!({
+    let value_on_causal_family = serde_json::json!({
         "kind": "cell",
         "id": slot_cell().as_str(),
         "state": {"value": "ak:event:AQsHmGu_9sPOyJ4aG8VlWQBp8wGGhdC-BjfAaXqrIbk-"},
     });
     assert!(
-        serde_json::from_value::<RealmStateSnapshotMaterializedItem>(value_on_cas_family).is_err()
+        serde_json::from_value::<RealmStateSnapshotMaterializedItem>(value_on_causal_family)
+            .is_err()
     );
 
     let heads_on_value_family = serde_json::json!({
@@ -748,14 +730,17 @@ fn items_outside_the_cell_branch_are_rejected() {
 /// head set in any other order: the order is part of the leaf bytes.
 #[test]
 fn unsorted_heads_are_rejected() {
-    let mut ordered = [cas_head(0x66, Value::Null), cas_head(0x77, Value::Null)];
-    let item = RealmStateSnapshotMaterializedItem::cas_cell(slot_cell(), &ordered).unwrap();
+    let mut ordered = [
+        causal_head(0x66, Value::Null),
+        causal_head(0x77, Value::Null),
+    ];
+    let item = RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &ordered).unwrap();
     let mut wire = serde_json::to_value(&item).unwrap();
     wire["state"]["heads"].as_array_mut().unwrap().reverse();
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(wire).is_err());
 
     ordered.reverse();
-    assert!(RealmStateSnapshotMaterializedItem::cas_cell(slot_cell(), &ordered).is_err());
+    assert!(RealmStateSnapshotMaterializedItem::causal_cell(slot_cell(), &ordered).is_err());
 }
 
 /// The auxiliary rows are closed objects too: an unknown member on a
@@ -921,11 +906,11 @@ fn spec_snapshot_state_digest_fixture_replays() {
 const INVITE_LIVE_TARGET_CELL: &str =
     "ak:cell:ak.component.invite.live_target.v1:fAWD6k02hF3JHnquwsCU7inqyb8Qdajftruz5xEWFGc";
 
-fn cas_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMaterializedItem {
+fn causal_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMaterializedItem {
     let heads = heads
         .iter()
-        .map(|(suffix, value)| CasHead {
-            move_id: snapshot_v1_event_id(suffix).event_digest(),
+        .map(|(suffix, value)| CausalHead {
+            event_id: snapshot_v1_event_id(suffix),
             value: value.clone(),
         })
         .collect::<Vec<_>>();
@@ -933,8 +918,8 @@ fn cas_item(cell: &str, heads: &[(&str, Value)]) -> RealmStateSnapshotMaterializ
     // that is the digest hex, so the fixture sorts on it rather than on the
     // base64url spelling, whose alphabet is not byte-ordered.
     let mut heads = heads;
-    heads.sort_by(|a, b| a.move_id.as_str().cmp(b.move_id.as_str()));
-    RealmStateSnapshotMaterializedItem::cas_cell(CellRef::new(cell.to_owned()).unwrap(), &heads)
+    heads.sort_by(|a, b| a.event_id.as_str().cmp(b.event_id.as_str()));
+    RealmStateSnapshotMaterializedItem::causal_cell(CellRef::new(cell.to_owned()).unwrap(), &heads)
         .unwrap()
 }
 
@@ -964,7 +949,7 @@ fn restore_fixture() -> (
     Vec<RealmStateSnapshotMaterializedItem>,
 ) {
     let items = vec![
-        cas_item(
+        causal_item(
             INVITE_LIVE_TARGET_CELL,
             &[
                 ("000000000011", Value::Null),
@@ -979,7 +964,7 @@ fn restore_fixture() -> (
 }
 
 #[test]
-fn restore_materializes_values_and_cas_heads() {
+fn restore_materializes_values_and_causal_heads() {
     let (manifest, chunk_bytes, _) = restore_fixture();
     let transcript = manifest.unsigned_canonical_bytes().unwrap();
     let restored = restore_realm_state_snapshot(
@@ -1000,11 +985,11 @@ fn restore_materializes_values_and_cas_heads() {
         Some(RestoredCell::Value(serde_json::json!("archived")))
     );
 
-    // A CAS cell comes back as its complete head set, `null` head included:
+    // A causal-register cell comes back as its complete head set, `null` head included:
     // §6.2.1 makes the head set the state, so dropping the released slot would
     // silently turn two active writes into one.
     let invite = CellRef::new(INVITE_LIVE_TARGET_CELL.to_owned()).unwrap();
-    let Some(RestoredCell::CasHeads(heads)) = restored.cell(&invite) else {
+    let Some(RestoredCell::CausalHeads(heads)) = restored.cell(&invite) else {
         panic!("invite cell restored as a value");
     };
     assert_eq!(heads.len(), 2);
@@ -1015,7 +1000,7 @@ fn restore_materializes_values_and_cas_heads() {
             .any(|head| head.value == serde_json::json!("ak:account:slot-b"))
     );
     assert_eq!(
-        restored.cas_heads.get(&invite).map(Vec::len),
+        restored.causal_heads.get(&invite).map(Vec::len),
         Some(2),
         "the restored head set is the joined-view shape, not a settled value"
     );

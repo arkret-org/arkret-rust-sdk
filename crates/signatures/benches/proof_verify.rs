@@ -40,6 +40,11 @@ fn bench_proof_verify(c: &mut Criterion) {
         "detached_jws",
         verification_method,
         Hash::new(canonical::sha256_digest(&canonical_bytes)).expect("digest"),
+        arkret_wire::SignerEvidenceRef::new(format!(
+            "ak:signer_evidence:sha256:{}",
+            "11".repeat(32)
+        ))
+        .unwrap(),
         None,
         None,
         "",

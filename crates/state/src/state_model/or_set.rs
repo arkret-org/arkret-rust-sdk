@@ -1,27 +1,27 @@
-//! OR-set Lattice: tagged add/remove with deterministic remove-after-add.
+//! Observed-remove set with canonical Event dots.
 //!
 //! Per spec §5.3:
 //! - `add(tag, value?)` adds a tagged element.
 //! - `remove(tag, reason?)` removes the element bearing that tag.
-//! - Remove of a tag added in the **same join** wins iff the remove op is causally later (its
-//!   sealed order is later). Removing a never-added tag is a no-op (this lattice is monotonic).
+//! - A remove names the exact observed add dot, so it wins regardless of input order.
+//! - Removing a never-added dot is retained as a tombstone and remains a no-op in the value.
 //!
 //! Output value is a JSON array of `{tag, value?}` objects sorted by
 //! `tag` ascending so the resolved state is canonical.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 
-use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
+use super::{OpError, ResolvedCellState, StateModel, StateModelKind, StateWrite};
 use crate::{CellRef, LatticeOp, LatticeOpType};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrSet;
 
-impl Lattice for OrSet {
-    fn kind(&self) -> LatticeKind {
-        LatticeKind::OrSet
+impl StateModel for OrSet {
+    fn kind(&self) -> StateModelKind {
+        StateModelKind::OrSet
     }
 
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
@@ -51,32 +51,38 @@ impl Lattice for OrSet {
         }
     }
 
-    fn join(&self, _cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
-        // Deterministic walk over the sealed order; later remove on a
-        // tag wipes the prior add(s).
-        let mut state: BTreeMap<String, Option<Value>> = BTreeMap::new();
+    fn resolve(
+        &self,
+        _cell: &CellRef,
+        sealed_ops: &[StateWrite],
+    ) -> Result<ResolvedCellState, OpError> {
+        let mut adds: BTreeMap<String, Option<Value>> = BTreeMap::new();
+        let mut removals = BTreeSet::new();
         for entry in sealed_ops {
-            // Skip ops that fail validate_op (defensive — runtime should
-            // have rejected at submit time, but join is pure so it stays
-            // safe).
-            if self.validate_op(&entry.op).is_err() {
-                continue;
-            }
-            let Some(tag) = entry.op.tag.clone() else {
-                continue;
-            };
+            self.validate_op(&entry.op)?;
+            let tag = entry.op.tag.clone().expect("validated OR-set dot");
             match entry.op.op_type {
                 LatticeOpType::Add => {
-                    state.insert(tag, entry.op.value.clone());
+                    if let Some(previous) = adds.get(&tag)
+                        && previous != &entry.op.value
+                    {
+                        return Err(OpError::InvalidValue {
+                            kind: "or_set",
+                            field: "tag",
+                            reason: format!("dot {tag:?} maps to different values"),
+                        });
+                    }
+                    adds.insert(tag, entry.op.value.clone());
                 }
                 LatticeOpType::Remove => {
-                    state.remove(&tag);
+                    removals.insert(tag);
                 }
-                _ => {}
+                _ => unreachable!("validated OR-set operation"),
             }
         }
-        let arr: Vec<Value> = state
+        let arr: Vec<Value> = adds
             .into_iter()
+            .filter(|(tag, _)| !removals.contains(tag))
             .map(|(tag, value)| {
                 let mut obj = serde_json::Map::new();
                 obj.insert("tag".into(), Value::String(tag));
@@ -86,7 +92,7 @@ impl Lattice for OrSet {
                 Value::Object(obj)
             })
             .collect();
-        CellState::Value(json!(arr))
+        Ok(ResolvedCellState::Value(json!(arr)))
     }
 }
 
@@ -163,43 +169,40 @@ mod tests {
 
     #[test]
     fn join_empty_returns_empty_array() {
-        let state = OrSet.join(&cell(), &[]);
-        assert_eq!(state, CellState::Value(json!([])));
+        let state = OrSet.resolve(&cell(), &[]).unwrap();
+        assert_eq!(state, ResolvedCellState::Value(json!([])));
     }
 
     #[test]
     fn add_then_remove_same_tag_in_order_yields_empty() {
         let ops = vec![
-            SealedOp::new(move_id(1), add_op("t1", Some(json!("v1")))),
-            SealedOp::new(move_id(2), remove_op("t1")),
+            StateWrite::new(move_id(1), add_op("t1", Some(json!("v1")))),
+            StateWrite::new(move_id(2), remove_op("t1")),
         ];
-        let state = OrSet.join(&cell(), &ops);
-        assert_eq!(state, CellState::Value(json!([])));
+        let state = OrSet.resolve(&cell(), &ops).unwrap();
+        assert_eq!(state, ResolvedCellState::Value(json!([])));
     }
 
     #[test]
-    fn remove_before_add_is_overwritten_by_add() {
+    fn remove_before_add_still_removes_the_observed_dot() {
         let ops = vec![
-            SealedOp::new(move_id(1), remove_op("t1")),
-            SealedOp::new(move_id(2), add_op("t1", Some(json!("v1")))),
+            StateWrite::new(move_id(1), remove_op("t1")),
+            StateWrite::new(move_id(2), add_op("t1", Some(json!("v1")))),
         ];
-        let state = OrSet.join(&cell(), &ops);
-        assert_eq!(
-            state,
-            CellState::Value(json!([{"tag": "t1", "value": "v1"}]))
-        );
+        let state = OrSet.resolve(&cell(), &ops).unwrap();
+        assert_eq!(state, ResolvedCellState::Value(json!([])));
     }
 
     #[test]
     fn deterministic_output_is_sorted_by_tag() {
         let ops = vec![
-            SealedOp::new(move_id(1), add_op("zeta", None)),
-            SealedOp::new(move_id(2), add_op("alpha", None)),
-            SealedOp::new(move_id(3), add_op("middle", None)),
+            StateWrite::new(move_id(1), add_op("zeta", None)),
+            StateWrite::new(move_id(2), add_op("alpha", None)),
+            StateWrite::new(move_id(3), add_op("middle", None)),
         ];
-        let state = OrSet.join(&cell(), &ops);
+        let state = OrSet.resolve(&cell(), &ops).unwrap();
         match state {
-            CellState::Value(v) => {
+            ResolvedCellState::Value(v) => {
                 let arr = v.as_array().unwrap();
                 let tags: Vec<&str> = arr
                     .iter()
@@ -214,11 +217,11 @@ mod tests {
     #[test]
     fn add_value_optional_serializes_only_when_present() {
         let ops = vec![
-            SealedOp::new(move_id(1), add_op("plain", None)),
-            SealedOp::new(move_id(2), add_op("with-val", Some(json!(42)))),
+            StateWrite::new(move_id(1), add_op("plain", None)),
+            StateWrite::new(move_id(2), add_op("with-val", Some(json!(42)))),
         ];
-        let state = OrSet.join(&cell(), &ops);
-        let CellState::Value(v) = state else {
+        let state = OrSet.resolve(&cell(), &ops).unwrap();
+        let ResolvedCellState::Value(v) = state else {
             panic!("expected value")
         };
         let arr = v.as_array().unwrap();
@@ -236,29 +239,24 @@ mod tests {
 
     #[test]
     fn remove_of_never_added_tag_is_noop() {
-        let ops = vec![SealedOp::new(move_id(1), remove_op("nonexistent"))];
-        let state = OrSet.join(&cell(), &ops);
-        assert_eq!(state, CellState::Value(json!([])));
+        let ops = vec![StateWrite::new(move_id(1), remove_op("nonexistent"))];
+        let state = OrSet.resolve(&cell(), &ops).unwrap();
+        assert_eq!(state, ResolvedCellState::Value(json!([])));
     }
 
     #[test]
-    fn multiple_adds_same_tag_last_wins() {
+    fn one_dot_cannot_name_different_values() {
         let ops = vec![
-            SealedOp::new(move_id(1), add_op("t1", Some(json!("v1")))),
-            SealedOp::new(move_id(2), add_op("t1", Some(json!("v2")))),
+            StateWrite::new(move_id(1), add_op("t1", Some(json!("v1")))),
+            StateWrite::new(move_id(2), add_op("t1", Some(json!("v2")))),
         ];
-        let state = OrSet.join(&cell(), &ops);
-        assert_eq!(
-            state,
-            CellState::Value(json!([{"tag": "t1", "value": "v2"}]))
-        );
+        assert!(OrSet.resolve(&cell(), &ops).is_err());
     }
 
     #[test]
-    fn invalid_ops_skipped_during_join() {
-        // Op missing tag should be skipped (defensive).
+    fn invalid_ops_fail_resolution() {
         let ops = vec![
-            SealedOp::new(
+            StateWrite::new(
                 move_id(1),
                 LatticeOp {
                     op_type: LatticeOpType::Add,
@@ -270,18 +268,14 @@ mod tests {
                     issuer_seq: None,
                 },
             ),
-            SealedOp::new(move_id(2), add_op("valid", Some(json!("v")))),
+            StateWrite::new(move_id(2), add_op("valid", Some(json!("v")))),
         ];
-        let state = OrSet.join(&cell(), &ops);
-        assert_eq!(
-            state,
-            CellState::Value(json!([{"tag": "valid", "value": "v"}]))
-        );
+        assert!(OrSet.resolve(&cell(), &ops).is_err());
     }
 
     #[test]
     fn kind_is_or_set() {
-        assert_eq!(OrSet.kind(), LatticeKind::OrSet);
-        assert_eq!(LatticeKind::OrSet.as_wire_str(), "or_set");
+        assert_eq!(OrSet.kind(), StateModelKind::OrSet);
+        assert_eq!(StateModelKind::OrSet.as_wire_str(), "or_set");
     }
 }

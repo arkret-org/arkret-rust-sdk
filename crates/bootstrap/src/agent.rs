@@ -6,17 +6,19 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_event_draft::EventPayloadExt;
 use arkret_models_collaboration::events_payloads::{RealmCreatePayload, RealmGenesis};
 use arkret_models_identity::ResolutionCommitment;
-use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
+use arkret_state::state_model::ordered_log::{
+    IssuedOp, OrderedLog, ensure_unique_ordered_log_slots,
+};
 use arkret_state::{
-    CasHeadsByCell, CellRegistry, CellState, GovernanceView, LatticeKind, SealedOp,
-    causal_heads_for_batches, compute_state_root, control_event_set_root, join_cell_seal_batches,
+    CellStateRegistry, GovernanceView, ResolvedCellState, StateModelKind, StateWrite,
+    compute_state_root, control_event_set_root, join_cell, join_cell_seal_batches,
     resolve_projected_write,
 };
 use arkret_wire::{
-    ActorId, AuthorizationRef, CellRef, DidCoreId, EncryptionProfile, Event, EventKind,
-    GenesisSalt, Hash, Hlc, NotarySig, NotaryValue, PayloadSigner, ProfileId, RealmId, Result,
-    SchemaId, Seal, SealId, SealSignature, SecurityClass, TrustDomainId, WireError, event_spec,
-    project_did_to_core_id,
+    ActorId, AuthorizationRef, CellRef, CommandResult, CommandResultCellState, CommandResultEffect,
+    DidCoreId, EncryptionProfile, Event, EventCellExecution, EventKind, GenesisSalt, Hash, Hlc,
+    NotaryValue, PayloadSigner, ProfileId, RealmId, Result, SchemaId, Seal, SecurityClass,
+    TrustDomainId, UnsignedSeal, WireError, event_spec, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 
@@ -91,14 +93,10 @@ fn notary_primary_projects_to_principal(
     notary: &NotaryValue,
     signing_principal_id: &DidCoreId,
 ) -> Result<bool> {
-    match notary {
-        NotaryValue::SingleSigner { signer, .. } | NotaryValue::Mixed { signer, .. } => {
-            Ok(signer.actor_id.signing_principal_id() == signing_principal_id)
-        }
-        NotaryValue::Threshold { signers, .. } | NotaryValue::OpenSet { signers } => Ok(signers
-            .iter()
-            .any(|member| member.actor_id.signing_principal_id() == signing_principal_id)),
-    }
+    Ok(notary
+        .signers
+        .iter()
+        .any(|member| member.actor_id.signing_principal_id() == signing_principal_id))
 }
 
 fn notary_primary_projects_to_actor(notary: &NotaryValue, actor_id: &ActorId) -> Result<bool> {
@@ -121,7 +119,8 @@ pub struct AgentPcrControlMaterial {
     pub digest_suite: arkret_canonical::DigestSuite,
     pub covered_event_digests: Vec<Hash>,
     pub state_root: Hash,
-    pub joined: BTreeMap<CellRef, CellState>,
+    pub command_effects: Vec<CommandResultEffect>,
+    pub joined: BTreeMap<CellRef, ResolvedCellState>,
     /// Sealed effects with their issuer attached, ready for a store that
     /// must keep ordered-log slots keyed by the real actor.
     pub event_ops: Vec<(CellRef, IssuedOp)>,
@@ -272,12 +271,11 @@ pub fn materialize_agent_pcr_control(
         ));
     }
 
-    let registry = arkret_lattice_registry::build_sdk_cell_registry();
+    let registry = arkret_lattice_registry::build_sdk_state_registry();
     let mut covered = BTreeSet::new();
     let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
     let mut event_ops = Vec::new();
     let mut joined = BTreeMap::new();
-    let mut cas_heads = CasHeadsByCell::new();
 
     apply_agent_batch(
         &ordered[..anchor_len],
@@ -289,7 +287,6 @@ pub fn materialize_agent_pcr_control(
         &mut batches_by_cell,
         &mut event_ops,
         &mut joined,
-        &mut cas_heads,
     )?;
     let mut cursor = anchor_len;
     while cursor < ordered.len() {
@@ -310,13 +307,37 @@ pub fn materialize_agent_pcr_control(
             &mut batches_by_cell,
             &mut event_ops,
             &mut joined,
-            &mut cas_heads,
         )?;
         cursor = end;
     }
 
-    let state_root = compute_state_root(GovernanceView::new(&joined, &cas_heads), digest_suite)
+    let security_state = joined
+        .iter()
+        .filter_map(|(cell, state)| {
+            registry
+                .resolve(&create.realm_id, cell)
+                .ok()
+                .filter(|binding| binding.execution == EventCellExecution::Security)
+                .map(|_| (cell.clone(), state.clone()))
+        })
+        .collect();
+    let state_root = compute_state_root(GovernanceView::new(&security_state), digest_suite)
         .map_err(|error| WireError::Protocol(format!("Agent PCR state root: {error}")))?;
+    let command_effects = security_state
+        .into_iter()
+        .map(|(cell_id, state)| match state {
+            ResolvedCellState::Sequenced(state) => Ok(CommandResultEffect {
+                cell_id,
+                state: CommandResultCellState {
+                    revision_event_id: state.revision_event_id,
+                    value: state.value,
+                },
+            }),
+            _ => Err(WireError::Protocol(
+                "Agent PCR Seal effects may contain only sequenced_state Cells".to_owned(),
+            )),
+        })
+        .collect::<Result<Vec<_>>>()?;
     Ok(AgentPcrControlMaterial {
         realm_id: create.realm_id.clone(),
         agent_id: create.actor_id.clone(),
@@ -326,6 +347,7 @@ pub fn materialize_agent_pcr_control(
         digest_suite,
         covered_event_digests: covered.into_iter().collect(),
         state_root,
+        command_effects,
         joined,
         event_ops,
     })
@@ -352,12 +374,11 @@ fn apply_agent_batch(
     anchor: bool,
     create: &Event,
     project: CellWriteProjector<'_>,
-    registry: &dyn CellRegistry,
+    registry: &dyn CellStateRegistry,
     covered: &mut BTreeSet<Hash>,
     batches_by_cell: &mut BTreeMap<CellRef, Vec<Vec<IssuedOp>>>,
     event_ops: &mut Vec<(CellRef, IssuedOp)>,
-    joined: &mut BTreeMap<CellRef, CellState>,
-    cas_heads: &mut CasHeadsByCell,
+    joined: &mut BTreeMap<CellRef, ResolvedCellState>,
 ) -> Result<()> {
     let frozen_pre_state = joined.clone();
     let mut batch_ops = BTreeMap::<CellRef, Vec<IssuedOp>>::new();
@@ -405,7 +426,7 @@ fn apply_agent_batch(
         for effect in effects {
             let issued = IssuedOp {
                 issuer_id: create.actor_id.clone(),
-                op: SealedOp::new(move_id.clone(), effect.op),
+                op: StateWrite::new(move_id.clone(), effect.op),
             };
             batch_ops
                 .entry(effect.cell_id.clone())
@@ -417,7 +438,7 @@ fn apply_agent_batch(
 
     for (cell, issued) in batch_ops {
         if let Ok(binding) = registry.resolve(&create.realm_id, &cell)
-            && binding.lattice.kind() == LatticeKind::OrderedLog
+            && binding.state_model == StateModelKind::OrderedLog
         {
             let report = OrderedLog.join_with_issuer_report(&issued);
             if !report.identity_collisions.is_empty() {
@@ -430,25 +451,24 @@ fn apply_agent_batch(
     }
 
     joined.clear();
-    cas_heads.clear();
     for (cell, batches) in batches_by_cell {
         let binding = registry
             .resolve(&create.realm_id, cell)
             .map_err(|error| WireError::Protocol(format!("Agent PCR cell registry: {error}")))?;
-        let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
-        if let CellState::Bottom(bottom) = &state {
+        let state = if binding.execution == EventCellExecution::Security {
+            join_cell_seal_batches(binding.model.as_ref(), cell, batches)
+        } else {
+            join_cell(
+                binding.model.as_ref(),
+                cell,
+                &batches.iter().flatten().cloned().collect::<Vec<_>>(),
+            )
+        }
+        .map_err(|error| WireError::Protocol(format!("Agent PCR cell {cell}: {error}")))?;
+        if let ResolvedCellState::Bottom(bottom) = &state {
             return Err(WireError::Protocol(format!(
                 "Agent PCR cell {cell} resolved to Bottom: {bottom:?}"
             )));
-        }
-        // A `cas_register` cell's `state_root` leaf carries its heads rather
-        // than its settled value (spec section 6.2.1); they come from the same
-        // batches the join just consumed.
-        if arkret_state::is_causal_register(binding.lattice.kind()) {
-            let heads = causal_heads_for_batches(binding.lattice.kind(), batches);
-            if !heads.is_empty() {
-                cas_heads.insert(cell.clone(), heads);
-            }
         }
         joined.insert(cell.clone(), state);
     }
@@ -568,7 +588,6 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
         .iter()
         .cloned()
         .collect::<BTreeSet<_>>();
-    let predecessor_refs = Vec::new();
     let current = BTreeSet::new();
     let notary_seq = 0;
     if events.len() != 1 || events[0].kind != EventKind::RealmCreate {
@@ -585,53 +604,35 @@ pub fn build_agent_pcr_bootstrap_seal<S: PayloadSigner + ?Sized>(
     let digest_suite = material.digest_suite;
     let control_root = control_event_set_root(&target, digest_suite)
         .map_err(|error| WireError::Protocol(format!("Agent PCR control root: {error}")))?;
-    let completeness_root = arkret_state::control_event_completeness_root(
-        &events
-            .iter()
-            .cloned()
-            .map(|event| {
-                let event_suite = event_digest_suite(&event, digest_suite);
-                (event, event_suite)
-            })
-            .collect::<Vec<_>>(),
-        &target,
-        digest_suite,
-    )
-    .map_err(|error| WireError::Protocol(format!("Agent PCR completeness root: {error}")))?;
-    let sealed_at = Utc::now();
     let availability_receipt_digests = Vec::new();
-    let placeholder_digest = Hash::new(arkret_canonical::digest(digest_suite, b""))?;
-    let mut seal = Seal {
-        id: SealId::new(format!("ak:seal:{}", placeholder_digest.as_str()))?,
-        realm_id: material.realm_id,
-        predecessor_refs,
-        delta,
-        control_event_set_root: control_root,
-        state_root: material.state_root,
-        completeness_root,
-        notary_seq,
-        data_view_root: None,
-        data_event_set_root: None,
-        availability_receipt_digests,
-        covered_event_digests: material.covered_event_digests,
-        previous_state_root: None,
-        previous_digest_algorithm: None,
-        notary_signature: NotarySig::Single(SealSignature {
-            verification_method: signer.verification_method_id().clone(),
-            payload_digest: placeholder_digest,
-            jws: String::new(),
-        }),
-        sealed_at,
-        hlc,
-    };
-    let canonical_bytes = seal.canonical_bytes_for_id()?;
-    seal.id = Seal::id_from_canonical_bytes(&canonical_bytes, digest_suite)?;
-    seal.notary_signature = NotarySig::Single(
-        signer
-            .sign_notary_payload_with_digest_suite(&canonical_bytes, digest_suite)?
-            .into(),
-    );
-    seal.validate_structural()?;
-    seal.validate_id(digest_suite)?;
-    Ok(seal)
+    let command_result = CommandResult::committed(
+        delta[0].clone(),
+        delta.clone(),
+        material.command_effects,
+        digest_suite,
+    )?;
+    Seal::sign_with_signers(
+        UnsignedSeal {
+            realm_id: material.realm_id,
+            predecessor_ref: None,
+            delta,
+            control_event_set_root: control_root,
+            state_root: material.state_root,
+            notary_seq,
+            availability_receipt_digests,
+            covered_event_digests: material.covered_event_digests,
+            previous_state_root: None,
+            previous_digest_algorithm: None,
+            sealed_at: Utc::now(),
+            hlc,
+            configuration_ref: events[0].event_id.clone(),
+            command_results: vec![command_result],
+            authorization_closures: Vec::new(),
+            existence_anchors: Vec::new(),
+            transaction_records: Vec::new(),
+        },
+        0,
+        digest_suite,
+        &[signer],
+    )
 }

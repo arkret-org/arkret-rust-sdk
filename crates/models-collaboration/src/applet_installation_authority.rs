@@ -43,7 +43,7 @@ impl AppletInstallationAuthority {
             let suite = event.event_id.event_digest().digest_suite()?;
             event.validate_for_accepted_structural()?;
             event.verify_event_id_matches_content_with_digest_suite(suite)?;
-            event.validate_station_admission_binding(suite)?;
+            event.validate_proof_bindings_with_digest_suite(suite)?;
         }
         Ok(())
     }

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.1;
-//! sha256=e412bfa02ad19698d0672d193ace3ad7637da56400bc59b3d146180d78022acb
-//! Entries: reason_codes=430
+//! Input: registry/error-code-registry.json; version=2026-09-12.11;
+//! sha256=810f75931e1a0e111c984186f51055f30f868df5f43eb7026aa29a7760b37426
+//! Entries: reason_codes=423
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -317,7 +317,6 @@ pub enum ReasonCode {
     RecordingArtifactPipelineBypassed,
     RecordingConsentRequired,
     RecordingStateTransitionInvalid,
-    RecoveryCapabilityNotSealed,
     RecoveryEvidenceUnbound,
     RecoveryPolicyGenesisNotV1,
     RecoveryPolicyMismatch,
@@ -327,11 +326,6 @@ pub enum ReasonCode {
     RecoveryProofKindUnknown,
     RecoveryRequired,
     RecoverySessionChallengeMismatch,
-    RecoveryTargetNotInBottom,
-    RecoveryWitnessInvalid,
-    RecoveryWitnessMissing,
-    RecoveryWitnessPostConflict,
-    RecoveryWitnessRevokeLagging,
     ReducerProjectionFailed,
     RefsTooLarge,
     RelationAlreadyTerminal,
@@ -382,7 +376,6 @@ pub enum ReasonCode {
     SpaceHasLiveDependents,
     SpaceNotActive,
     SpaceNotArchived,
-    SpaceParentChainInBottomState,
     SpaceParentCycle,
     SpaceParentUnreadable,
     SpaceRealmMismatch,
@@ -825,7 +818,6 @@ impl ReasonCode {
     pub const RECORDING_CONSENT_REQUIRED: &'static str = "recording_consent_required";
     pub const RECORDING_STATE_TRANSITION_INVALID: &'static str =
         "recording_state_transition_invalid";
-    pub const RECOVERY_CAPABILITY_NOT_SEALED: &'static str = "recovery_capability_not_sealed";
     pub const RECOVERY_EVIDENCE_UNBOUND: &'static str = "recovery_evidence_unbound";
     pub const RECOVERY_POLICY_GENESIS_NOT_V1: &'static str = "recovery_policy_genesis_not_v1";
     pub const RECOVERY_POLICY_MISMATCH: &'static str = "recovery_policy_mismatch";
@@ -838,11 +830,6 @@ impl ReasonCode {
     pub const RECOVERY_REQUIRED: &'static str = "recovery_required";
     pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
         "recovery_session_challenge_mismatch";
-    pub const RECOVERY_TARGET_NOT_IN_BOTTOM: &'static str = "recovery_target_not_in_bottom";
-    pub const RECOVERY_WITNESS_INVALID: &'static str = "recovery_witness_invalid";
-    pub const RECOVERY_WITNESS_MISSING: &'static str = "recovery_witness_missing";
-    pub const RECOVERY_WITNESS_POST_CONFLICT: &'static str = "recovery_witness_post_conflict";
-    pub const RECOVERY_WITNESS_REVOKE_LAGGING: &'static str = "recovery_witness_revoke_lagging";
     pub const REDUCER_PROJECTION_FAILED: &'static str = "reducer_projection_failed";
     pub const REFS_TOO_LARGE: &'static str = "refs_too_large";
     pub const RELATION_ALREADY_TERMINAL: &'static str = "relation_already_terminal";
@@ -898,8 +885,6 @@ impl ReasonCode {
     pub const SPACE_HAS_LIVE_DEPENDENTS: &'static str = "space_has_live_dependents";
     pub const SPACE_NOT_ACTIVE: &'static str = "space_not_active";
     pub const SPACE_NOT_ARCHIVED: &'static str = "space_not_archived";
-    pub const SPACE_PARENT_CHAIN_IN_BOTTOM_STATE: &'static str =
-        "space_parent_chain_in_bottom_state";
     pub const SPACE_PARENT_CYCLE: &'static str = "space_parent_cycle";
     pub const SPACE_PARENT_UNREADABLE: &'static str = "space_parent_unreadable";
     pub const SPACE_REALM_MISMATCH: &'static str = "space_realm_mismatch";
@@ -1333,7 +1318,6 @@ impl ReasonCode {
             Self::RecordingArtifactPipelineBypassed => Self::RECORDING_ARTIFACT_PIPELINE_BYPASSED,
             Self::RecordingConsentRequired => Self::RECORDING_CONSENT_REQUIRED,
             Self::RecordingStateTransitionInvalid => Self::RECORDING_STATE_TRANSITION_INVALID,
-            Self::RecoveryCapabilityNotSealed => Self::RECOVERY_CAPABILITY_NOT_SEALED,
             Self::RecoveryEvidenceUnbound => Self::RECOVERY_EVIDENCE_UNBOUND,
             Self::RecoveryPolicyGenesisNotV1 => Self::RECOVERY_POLICY_GENESIS_NOT_V1,
             Self::RecoveryPolicyMismatch => Self::RECOVERY_POLICY_MISMATCH,
@@ -1343,11 +1327,6 @@ impl ReasonCode {
             Self::RecoveryProofKindUnknown => Self::RECOVERY_PROOF_KIND_UNKNOWN,
             Self::RecoveryRequired => Self::RECOVERY_REQUIRED,
             Self::RecoverySessionChallengeMismatch => Self::RECOVERY_SESSION_CHALLENGE_MISMATCH,
-            Self::RecoveryTargetNotInBottom => Self::RECOVERY_TARGET_NOT_IN_BOTTOM,
-            Self::RecoveryWitnessInvalid => Self::RECOVERY_WITNESS_INVALID,
-            Self::RecoveryWitnessMissing => Self::RECOVERY_WITNESS_MISSING,
-            Self::RecoveryWitnessPostConflict => Self::RECOVERY_WITNESS_POST_CONFLICT,
-            Self::RecoveryWitnessRevokeLagging => Self::RECOVERY_WITNESS_REVOKE_LAGGING,
             Self::ReducerProjectionFailed => Self::REDUCER_PROJECTION_FAILED,
             Self::RefsTooLarge => Self::REFS_TOO_LARGE,
             Self::RelationAlreadyTerminal => Self::RELATION_ALREADY_TERMINAL,
@@ -1402,7 +1381,6 @@ impl ReasonCode {
             Self::SpaceHasLiveDependents => Self::SPACE_HAS_LIVE_DEPENDENTS,
             Self::SpaceNotActive => Self::SPACE_NOT_ACTIVE,
             Self::SpaceNotArchived => Self::SPACE_NOT_ARCHIVED,
-            Self::SpaceParentChainInBottomState => Self::SPACE_PARENT_CHAIN_IN_BOTTOM_STATE,
             Self::SpaceParentCycle => Self::SPACE_PARENT_CYCLE,
             Self::SpaceParentUnreadable => Self::SPACE_PARENT_UNREADABLE,
             Self::SpaceRealmMismatch => Self::SPACE_REALM_MISMATCH,
@@ -1841,7 +1819,6 @@ impl ReasonCode {
             Self::RECORDING_ARTIFACT_PIPELINE_BYPASSED => Self::RecordingArtifactPipelineBypassed,
             Self::RECORDING_CONSENT_REQUIRED => Self::RecordingConsentRequired,
             Self::RECORDING_STATE_TRANSITION_INVALID => Self::RecordingStateTransitionInvalid,
-            Self::RECOVERY_CAPABILITY_NOT_SEALED => Self::RecoveryCapabilityNotSealed,
             Self::RECOVERY_EVIDENCE_UNBOUND => Self::RecoveryEvidenceUnbound,
             Self::RECOVERY_POLICY_GENESIS_NOT_V1 => Self::RecoveryPolicyGenesisNotV1,
             Self::RECOVERY_POLICY_MISMATCH => Self::RecoveryPolicyMismatch,
@@ -1851,11 +1828,6 @@ impl ReasonCode {
             Self::RECOVERY_PROOF_KIND_UNKNOWN => Self::RecoveryProofKindUnknown,
             Self::RECOVERY_REQUIRED => Self::RecoveryRequired,
             Self::RECOVERY_SESSION_CHALLENGE_MISMATCH => Self::RecoverySessionChallengeMismatch,
-            Self::RECOVERY_TARGET_NOT_IN_BOTTOM => Self::RecoveryTargetNotInBottom,
-            Self::RECOVERY_WITNESS_INVALID => Self::RecoveryWitnessInvalid,
-            Self::RECOVERY_WITNESS_MISSING => Self::RecoveryWitnessMissing,
-            Self::RECOVERY_WITNESS_POST_CONFLICT => Self::RecoveryWitnessPostConflict,
-            Self::RECOVERY_WITNESS_REVOKE_LAGGING => Self::RecoveryWitnessRevokeLagging,
             Self::REDUCER_PROJECTION_FAILED => Self::ReducerProjectionFailed,
             Self::REFS_TOO_LARGE => Self::RefsTooLarge,
             Self::RELATION_ALREADY_TERMINAL => Self::RelationAlreadyTerminal,
@@ -1910,7 +1882,6 @@ impl ReasonCode {
             Self::SPACE_HAS_LIVE_DEPENDENTS => Self::SpaceHasLiveDependents,
             Self::SPACE_NOT_ACTIVE => Self::SpaceNotActive,
             Self::SPACE_NOT_ARCHIVED => Self::SpaceNotArchived,
-            Self::SPACE_PARENT_CHAIN_IN_BOTTOM_STATE => Self::SpaceParentChainInBottomState,
             Self::SPACE_PARENT_CYCLE => Self::SpaceParentCycle,
             Self::SPACE_PARENT_UNREADABLE => Self::SpaceParentUnreadable,
             Self::SPACE_REALM_MISMATCH => Self::SpaceRealmMismatch,
@@ -2155,7 +2126,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_CONFLICT,
         applies_to: &["service_call", "event_envelope"],
-        description: "A second ak.agent.provision declared a principal_control_realm_id that another accepted provision already claims. Inside one controller PCR the cas_register, bottom=reject claim cell rejects it; across controllers the Station's local uniqueness index rejects it. Either way the write set is empty and the earlier claim is untouched. See zh/identity/key-management.md §3.6.3.",
+        description: "A second ak.agent.provision declared a principal_control_realm_id that another accepted provision already claims. Inside one controller PCR the sequenced_state claim cell rejects it; across controllers the Station's local uniqueness index rejects it. Either way the write set is empty and the earlier claim is untouched. See zh/identity/key-management.md §3.6.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PCR_GENESIS_DECLARATION_MISSING,
@@ -2395,7 +2366,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CELL_IN_BOTTOM_STATE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "A Move attempted to read or write a bottom=reject cell while the effective value is ⊥. Ordinary CAS writes MUST fail; recovery requires the conflict-recovery witness path. See zh/authz/event-auth-state-resolution.md §5.1 and §8.",
+        description: "An ordinary projection needed one domain value but retains unresolved eligible causal heads. This diagnostic grants no authority and creates no safety state; only an authorized causal successor may resolve the ordinary conflict.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_EXPIRED,
@@ -2495,7 +2466,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CREATED_AT_BEFORE_BASIS_SEAL,
         applies_to: &["event_envelope"],
-        description: "Sub-reason for schema_violation when created_at is earlier than the sealed_at of the Seal this Event binds to (seal_ref for a DataEvent, max of seal_basis.leaves[].sealed_at for a Control Move), beyond the symmetric hard_future_skew_ms tolerance. Anchor units carry no such basis and are exempt; see zh/models/event-and-patch.md.",
+        description: "Sub-reason for schema_violation when created_at is earlier than the greatest sealed_at among the signed auth_context.authority_refs of an ordinary Event or the seal_basis.leaves of a security command, beyond the symmetric hard_future_skew_ms tolerance. Native anchor units carry no such basis and are exempt; see zh/models/event-and-patch.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CREATED_AT_BEFORE_CAUSAL_PREDECESSOR,
@@ -2584,7 +2555,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_GENERATION_FENCED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A normal Event or Seal was signed by a device whose authorized_generation_ref does not equal the active current_device_generation_ref, or the principal generation state is conflicted. Dual-registered as a reason_code and a top-level service code (see codes[]).",
+        description: "The receiver knows an authenticated device-generation revocation or the security command fails the current generation revision check. New affected live submissions are fenced; ordinary historical eligibility is recomputed from the signed authority context and authenticated closures, not the receiver arrival time.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::DEVICE_MESSAGE_ID_CONFLICT,
@@ -3538,7 +3509,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_LINK_INVALID_TRANSITION,
         applies_to: &["state_resolution"],
-        description: "An ak.realm.link status transition is absent from the canonical FSM transition matrix, including any non-byte-identical attempt to leave terminal tombstoned state. The reducer MUST reject with top-level failed_precondition. See zh/models/realm-links.md §4.",
+        description: "An ak.realm.link status transition is absent from the canonical domain-transition contract, including any non-byte-identical attempt to leave terminal tombstoned state. The reducer MUST reject with top-level failed_precondition. See zh/models/realm-links.md §4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REALM_LINK_SELF_REFERENCE,
@@ -3606,11 +3577,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An `ak.call.state` event requested a `recording_transition` or `transcript_transition` not listed in the per-capture controlled state machine (e.g. transitioning out of terminal `ready` / `failed`, `stopped → failed`, or attempting to enter a capturing state without a new `ak.call.recording.start`). The reducer MUST `failed_precondition`. The same code covers both orthogonal capture dimensions. See zh/crypto-media/call-state.md §4.2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_CAPABILITY_NOT_SEALED,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Conflict-recovery witness's state_root does not contain (or contains a divergent value for) the recovery_capability cell referenced by the grant. See zh/authz/event-auth-state-resolution.md §9.5.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_EVIDENCE_UNBOUND,
         applies_to: &["recovery_transaction"],
         description: "Recovery evidence does not bind the current transaction, recovery session, principal, replacement device or prepared-plan digest.",
@@ -3654,31 +3620,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RECOVERY_SESSION_CHALLENGE_MISMATCH,
         applies_to: &["device_recovery", "schema_validation"],
         description: "A recovery proof echoes a challenge value that does not exactly match the server-issued challenge for the referenced recovery_session_id. Servers MUST reject the proof before completing device recovery. See artifacts/schemas/recovery-session.schema.json and zh/identity/security-transactions.md §2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_TARGET_NOT_IN_BOTTOM,
-        applies_to: &["state_resolution", "auth_decision"],
-        description: "An ak.conflict.recovery reset named a target_cell that is not in ⊥. The reset replaces a cell rather than joining into it, so allowing it on a live cell would make recovery a general overwrite channel that bypasses every lattice and every precondition. This is the converse of cell_in_bottom_state, which rejects an ordinary write against a cell that is in ⊥. See zh/authz/event-auth-state-resolution.md §9.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_WITNESS_INVALID,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Conflict-recovery Move's inclusion proof cannot reconstruct the witness's `state_root`. See zh/authz/event-auth-state-resolution.md §9.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_WITNESS_MISSING,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Conflict-recovery Move is missing the required `refs[role=state_witness]` reference. See zh/authz/event-auth-state-resolution.md §9.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_WITNESS_POST_CONFLICT,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Conflict-recovery witness frontier has a causal path from one of the sibling Moves that triggered the bottom — i.e., the witness is not strictly pre-conflict. See zh/authz/event-auth-state-resolution.md §9.5.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RECOVERY_WITNESS_REVOKE_LAGGING,
-        applies_to: &["event_envelope", "state_resolution"],
-        description: "Conflict-recovery witness is older than the permitted freshness window, or local frontier has observed a revoke / supersede for the referenced recovery_capability after the witness frontier. Receivers MUST reject stale witness replay. See zh/authz/event-auth-state-resolution.md §9.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REDUCER_PROJECTION_FAILED,
@@ -3933,11 +3874,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::SPACE_NOT_ARCHIVED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "`ak.space.restore` rejected because the target Space is not in `archived` state; `tombstoned` is a terminal state and MUST NOT be restored.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SPACE_PARENT_CHAIN_IN_BOTTOM_STATE,
-        applies_to: &["event_envelope", "auth_decision"],
-        description: "A `match_scope=subtree` / `children` selector required resolving the target Space's ancestor chain under the authorizing operation's CBS basis, but the `ak.space.parent` cell was in a multi-head / bottom (⊥) state. The subtree authorization branch MUST fail closed rather than pick an arbitrary head, otherwise the same grant could authorize divergently across receivers (split authz). See zh/authz/resource-selector-grammar.md §6.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SPACE_PARENT_CYCLE,

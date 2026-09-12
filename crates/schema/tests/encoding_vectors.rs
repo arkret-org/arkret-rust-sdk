@@ -797,7 +797,7 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                         );
                     }
                 }
-                for case in vector["mv_register_cases"].as_array().unwrap() {
+                for case in vector["causal_register_cases"].as_array().unwrap() {
                     assert!(
                         case["expected_heads"]
                             .as_array()

@@ -52,13 +52,12 @@ impl TryFrom<Event> for PreparedDataEvent {
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
         if !event.kind.is_data_plane()
-            || event.seal_ref.is_none()
             || event.auth_context.is_none()
             || event.seal_basis.is_some()
             || !event.preconditions.is_empty()
         {
             return Err(SchemaError::Protocol(
-                "prepared DataEvent requires seal_ref + auth_context and forbids seal_basis + preconditions"
+                "prepared DataEvent requires auth_context and forbids seal_basis + preconditions"
                     .to_owned(),
             ));
         }
@@ -72,13 +71,11 @@ impl TryFrom<Event> for PreparedControlMove {
     fn try_from(event: Event) -> Result<Self> {
         validate_event_for_submit(&event)?;
         if !event.kind.is_control_plane()
-            || event.seal_ref.is_some()
             || event.auth_context.is_some()
             || event.seal_basis.is_none()
         {
             return Err(SchemaError::Protocol(
-                "prepared Control Move requires seal_basis and forbids seal_ref + auth_context"
-                    .to_owned(),
+                "prepared Control Move requires seal_basis and forbids auth_context".to_owned(),
             ));
         }
         Ok(Self(event))
@@ -92,7 +89,6 @@ impl TryFrom<Event> for PreparedNonReducerEvent {
         validate_event_for_submit(&event)?;
         if event.kind.is_reducer_input()
             || event.kind.cbs_plane().is_some()
-            || event.seal_ref.is_some()
             || event.auth_context.is_some()
             || event.seal_basis.is_some()
             || !event.preconditions.is_empty()
@@ -183,7 +179,6 @@ impl From<PreparedNonReducerEvent> for PreparedStandardEvent {
 mod tests {
     use arkret_wire::{
         AuthContext, DidCoreId, DidUrl, Event, Hash, Hlc, ProducerEventProof, RealmId, ScopeRef,
-        SealId,
     };
     use serde_json::json;
 
@@ -208,32 +203,35 @@ mod tests {
             }),
         )
         .unwrap();
-        event.seal_ref = Some(SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap());
         event.auth_context = Some(AuthContext {
             key_id: arkret_wire::OpaqueLocalId::new("agent-device").unwrap(),
             key_epoch: 0,
             credential_epoch: None,
+            authority_refs: vec![
+                arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "11".repeat(32))).unwrap(),
+            ],
         });
-        event.proofs.push(
-            ProducerEventProof {
-                kind: "detached_jws".to_owned(),
-                verification_method: DidUrl::new(
-                    "did:webvh:z6mkfixture:agent.example#agent-device",
-                )
+        event.proofs.push(ProducerEventProof {
+            kind: "detached_jws".to_owned(),
+            verification_method: DidUrl::new("did:webvh:z6mkfixture:agent.example#agent-device")
                 .unwrap(),
-                event_digest: Hash::new(
-                    "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-                )
+            event_digest: Hash::new(
+                "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap(),
+            signer_resolution_evidence_ref: Some(
+                arkret_wire::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "12".repeat(32)
+                ))
                 .unwrap(),
-                signer_resolution_evidence_ref: None,
-                created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-                domain: None,
-                audience: None,
-                proof_purpose: None,
-                jws: "header.payload.signature".to_owned(),
-            }
-            .into(),
-        );
+            ),
+            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
+            domain: None,
+            audience: None,
+            proof_purpose: None,
+            jws: "header.payload.signature".to_owned(),
+        });
         event
     }
 
@@ -244,9 +242,8 @@ mod tests {
     }
 
     #[test]
-    fn prepared_data_event_rejects_missing_mandatory_basis() {
+    fn prepared_data_event_rejects_missing_authority_context() {
         let mut event = message_event();
-        event.seal_ref = None;
         event.auth_context = None;
 
         assert!(PreparedDataEvent::try_from(event).is_err());

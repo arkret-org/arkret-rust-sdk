@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=1ba728c6c6cd68504869a7315405377d9e4f7eeb72ecbc906d522bc0aebbcc93
-//! Entries: forbidden_wire_fields=260
+//! sha256=e56e048238e193eadca9b66a5b3dedf24d57bc1882ec0d2dc3e90920e4680d78
+//! Entries: forbidden_wire_fields=258
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -2313,34 +2313,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["encrypted_payload"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "cas-register",
-        context: "crdt_lattice_enum",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "lattice_kind_value",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "value",
-        match_values: &["cas-register"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "mv-register",
-        context: "crdt_lattice_enum",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "lattice_kind_value",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "value",
-        match_values: &["mv-register"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

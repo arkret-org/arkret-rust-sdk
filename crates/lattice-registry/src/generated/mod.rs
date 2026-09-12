@@ -1,5 +1,5 @@
 mod contract_registry;
-mod lattice_bindings;
+mod state_model_bindings;
 
 pub(crate) use contract_registry::*;
-pub(crate) use lattice_bindings::SPEC_LATTICE_BINDINGS;
+pub(crate) use state_model_bindings::SPEC_STATE_MODEL_BINDINGS;

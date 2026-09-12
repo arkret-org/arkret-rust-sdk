@@ -68,18 +68,6 @@ pub struct FrankingSealObservationRequest {
     pub target_event_id: EventId,
 }
 
-/// RFC 6962 path proving that the durable proof Event digest is present in
-/// `covering_seal.data_event_set_root`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct FrankingDataEventInclusionProof {
-    pub leaf_digest: Hash,
-    pub leaf_index: u64,
-    pub leaf_count: u64,
-    pub audit_path: Vec<Hash>,
-}
-
 /// Complete, independently verifiable observation material for one durable
 /// franking proof Event.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -91,14 +79,14 @@ pub struct FrankingSealObservationOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub target_event: Event,
     pub covering_seal: Seal,
-    pub data_event_inclusion_proof: FrankingDataEventInclusionProof,
     pub service_signer_evidence: AuthenticatedSignerResolutionEvidence,
+    pub existence_anchor: arkret_wire::ExistenceAnchor,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub ancestry_events: Vec<Event>,
 }
 
 impl FrankingSealObservationOutcome {
-    /// Validate all non-Merkle cross-object bindings. Transport clients should
-    /// additionally verify `data_event_inclusion_proof` against the signed
-    /// `covering_seal.data_event_set_root`.
+    /// Validate the exact cross-object bindings carried by the observation.
     pub fn validate_binding(
         &self,
         request: &FrankingSealObservationRequest,
@@ -109,10 +97,15 @@ impl FrankingSealObservationOutcome {
             || self.target_event.realm_id != request.realm_id
             || self.covering_seal.realm_id != request.realm_id
             || self.proof_event.kind != EventKind::ModerationFrankingProof
-            || self.data_event_inclusion_proof.leaf_count == 0
-            || self.data_event_inclusion_proof.leaf_index
-                >= self.data_event_inclusion_proof.leaf_count
-            || self.data_event_inclusion_proof.audit_path.len() > 64
+            || !self
+                .covering_seal
+                .existence_anchors
+                .contains(&self.existence_anchor)
+            || self.ancestry_events.len() > 4096
+            || self
+                .ancestry_events
+                .windows(2)
+                .any(|pair| pair[0].event_id >= pair[1].event_id)
         {
             return Err(WireError::Protocol(
                 "franking Seal observation does not match the requested Event binding".to_owned(),

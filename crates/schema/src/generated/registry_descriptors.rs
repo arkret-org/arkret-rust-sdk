@@ -2,13 +2,13 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886 Input: registry/
-//! capability-action-registry.json; version=2026-09-12.2;
-//! sha256=cd18b32c82783f5c5c83360afb64039d3523cb7c53fd5bde809bac2cc9e12898 Input: registry/
-//! schema-registry.json; version=2026-09-12.2;
-//! sha256=b2a12a38ed81c1d6540c74a5acb897d32db8f0c696b389416e26ed594f8a346b Input: registry/
-//! account-data-key-registry.json; version=2026-09-05.2;
-//! sha256=f9264874ccb6838a3eb561859e3634dc2c530392c0adfb4c74a85c018f9f64bf Entries: id_kinds=58,
-//! special_forms=14, actions=163, schemas=228, account_data_patterns=24
+//! capability-action-registry.json; version=2026-09-12.5;
+//! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Input: registry/
+//! schema-registry.json; version=2026-09-12.12;
+//! sha256=59cdd1ff7620d3d800f9052caa1c18728d160be728607f716ac1433944f9d994 Input: registry/
+//! account-data-key-registry.json; version=2026-09-12.6;
+//! sha256=ef2efd5f8dfd5f154d085382ccf70d7b63faf386d6665c9d231446d4d6fa33bf Entries: id_kinds=58,
+//! special_forms=14, actions=162, schemas=228, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -449,7 +449,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
     CapabilityActionDescriptor {
         action: CapabilityActionId::AgentActionApprove,
         category: "management",
-        risk_tier: CapabilityRiskTier::Medium,
+        risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         required_evaluator_checks: &[],
         target_event_kinds: &[event_kind_str::AGENT_ACTION_APPROVE],
@@ -997,20 +997,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         subject_only: false,
         reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ConflictRecovery,
-        category: "general",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::CONFLICT_RECOVERY],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ConsentGrant,
@@ -2089,7 +2075,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CIRCLE_RESTORE,
             event_kind_str::CIRCLE_TOMBSTONE,
             event_kind_str::CIRCLE_UPDATE,
-            event_kind_str::CONFLICT_RECOVERY,
             event_kind_str::CONTAINER_MOVE_ITEM,
             event_kind_str::CONTAINER_REBALANCE,
             event_kind_str::FORK_RESOLUTION,
@@ -2201,7 +2186,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.circle.member.add",
             "ak.circle.member.add.others",
             "ak.circle.member.manage",
-            "ak.conflict.recovery",
             "ak.container.move_item",
             "ak.container.rebalance",
             "ak.event.read",
@@ -3140,10 +3124,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-sidecar-view-state.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_ADMISSION_RECEIPT_V1,
-        file: "schemas/agent-signer-evidence.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_V1,
         file: "schemas/agent-signer-evidence.schema.json",
     },
@@ -3810,6 +3790,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SEAL_V1,
         file: "schemas/seal.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::SEAL_CONCLUSION_V1,
+        file: "schemas/seal-conclusion.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SEAL_TRANSPARENCY_V1,

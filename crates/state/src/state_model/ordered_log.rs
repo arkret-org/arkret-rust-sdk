@@ -1,4 +1,4 @@
-//! Ordered-log lattice: a grow-only set of accepted Event entries.
+//! Ordered-log model: a grow-only set of accepted Event entries.
 //!
 //! `issuer_seq` is the enclosing Event's Realm-scoped `actor_seq`. It is a
 //! sparse coordinate inside any one cell, not a cell-local counter. Every
@@ -10,11 +10,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 
-use super::{CellState, Lattice, LatticeKind, OpError, SealedOp};
-use crate::{
-    ActorId, Bottom, BottomKind, CellRef, Hash, LatticeOp, LatticeOpType, ProjectionEffect,
-    bottom_details, canonical,
-};
+use super::{OpError, ResolvedCellState, StateModel, StateModelKind, StateWrite};
+use crate::{ActorId, CellRef, Hash, LatticeOp, LatticeOpType, ProjectionEffect, canonical};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct OrderedLog;
@@ -22,7 +19,7 @@ pub struct OrderedLog;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IssuedOp {
     pub issuer_id: ActorId,
-    pub op: SealedOp,
+    pub op: StateWrite,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -124,7 +121,7 @@ impl OrderedLog {
             let (Some(issuer_seq), Some(value), Some(digest), Ok(op_bytes)) = (
                 entry.op.op.issuer_seq,
                 entry.op.op.value.clone(),
-                DigestKey::parse(&entry.op.move_id),
+                DigestKey::parse(&entry.op.event_id.event_digest()),
                 canonical::canonical_json_bytes(&entry.op.op),
             ) else {
                 continue;
@@ -136,7 +133,7 @@ impl OrderedLog {
                     .expect("validated ActorId in accepted Event"),
                 issuer_seq,
                 digest,
-                digest_wire: entry.op.move_id.as_str().to_owned(),
+                digest_wire: entry.op.event_id.as_str().to_owned(),
                 op_bytes,
                 value,
             });
@@ -229,14 +226,14 @@ impl OrderedLog {
         }
     }
 
-    pub fn join_with_issuers(&self, _cell: &CellRef, ops: &[IssuedOp]) -> CellState {
-        CellState::Value(json!(self.join_with_issuer_report(ops).entries))
+    pub fn join_with_issuers(&self, _cell: &CellRef, ops: &[IssuedOp]) -> ResolvedCellState {
+        ResolvedCellState::Value(json!(self.join_with_issuer_report(ops).entries))
     }
 }
 
-impl Lattice for OrderedLog {
-    fn kind(&self) -> LatticeKind {
-        LatticeKind::OrderedLog
+impl StateModel for OrderedLog {
+    fn kind(&self) -> StateModelKind {
+        StateModelKind::OrderedLog
     }
 
     fn validate_op(&self, op: &LatticeOp) -> Result<(), OpError> {
@@ -263,16 +260,16 @@ impl Lattice for OrderedLog {
         }
     }
 
-    fn join(&self, cell: &CellRef, sealed_ops: &[SealedOp]) -> CellState {
-        let mut bottom = Bottom::new(BottomKind::MissingDependency, vec![cell.clone()]);
-        bottom.move_ids = sealed_ops.iter().map(|op| op.move_id.clone()).collect();
-        bottom.details = Some(bottom_details([(
-            "reason",
-            Value::String(
-                "ordered_log requires issuer attribution; call join_with_issuers".to_owned(),
-            ),
-        )]));
-        CellState::Bottom(bottom)
+    fn resolve(
+        &self,
+        _cell: &CellRef,
+        _sealed_ops: &[StateWrite],
+    ) -> Result<ResolvedCellState, OpError> {
+        Err(OpError::InvalidValue {
+            kind: "ordered_log",
+            field: "issuer_id",
+            reason: "issuer attribution is required; use join_with_issuers".to_owned(),
+        })
     }
 }
 
@@ -305,7 +302,7 @@ mod tests {
     fn issued(issuer: &str, seq: u64, value: Value, byte: u8) -> IssuedOp {
         IssuedOp {
             issuer_id: ActorId::service(DidCoreId::new(issuer.to_owned()).unwrap()),
-            op: SealedOp::new(suited_digest("sha256", byte), append(seq, value)),
+            op: StateWrite::new(suited_digest("sha256", byte), append(seq, value)),
         }
     }
 
@@ -347,11 +344,11 @@ mod tests {
         let report = OrderedLog.join_with_issuer_report(&[
             IssuedOp {
                 issuer_id: issuer.clone(),
-                op: SealedOp::new(suited_digest("blake3", 0xff), append(1, json!("last"))),
+                op: StateWrite::new(suited_digest("blake3", 0xff), append(1, json!("last"))),
             },
             IssuedOp {
                 issuer_id: issuer,
-                op: SealedOp::new(suited_digest("sha256", 0x01), append(1, json!("first"))),
+                op: StateWrite::new(suited_digest("sha256", 0x01), append(1, json!("first"))),
             },
         ]);
         assert_eq!(report.entries[0]["value"], "first");
@@ -367,15 +364,15 @@ mod tests {
         let report = OrderedLog.join_with_issuer_report(&[
             IssuedOp {
                 issuer_id: issuer.clone(),
-                op: SealedOp::new(collision_digest.clone(), append(1, json!("a"))),
+                op: StateWrite::new(collision_digest.clone(), append(1, json!("a"))),
             },
             IssuedOp {
                 issuer_id: issuer.clone(),
-                op: SealedOp::new(collision_digest, append(1, json!("b"))),
+                op: StateWrite::new(collision_digest, append(1, json!("b"))),
             },
             IssuedOp {
                 issuer_id: issuer,
-                op: SealedOp::new(suited_digest("sha256", 0x22), append(2, json!("later"))),
+                op: StateWrite::new(suited_digest("sha256", 0x22), append(2, json!("later"))),
             },
         ]);
         assert_eq!(report.identity_collisions.len(), 1);
@@ -387,21 +384,21 @@ mod tests {
     fn duplicate_cell_projection_is_rejected() {
         let cell_ref = cell();
         let effects = vec![
-            ProjectionEffect::join(cell_ref.clone(), append(0, json!("one"))),
-            ProjectionEffect::join(cell_ref, append(0, json!("other"))),
+            ProjectionEffect::new(cell_ref.clone(), append(0, json!("one"))),
+            ProjectionEffect::new(cell_ref, append(0, json!("other"))),
         ];
         assert!(ensure_unique_ordered_log_slots(&effects).is_err());
     }
 
     #[test]
     fn issuer_free_join_fails_closed() {
-        let ops = vec![SealedOp::new(
+        let ops = vec![StateWrite::new(
             suited_digest("sha256", 1),
             append(0, json!("e0")),
         )];
         assert!(matches!(
-            OrderedLog.join(&cell(), &ops),
-            CellState::Bottom(_)
+            OrderedLog.resolve(&cell(), &ops),
+            Err(OpError::InvalidValue { .. })
         ));
     }
 }

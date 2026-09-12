@@ -17,13 +17,12 @@ use arkret_models_collaboration::governance_dependencies::{
 use arkret_models_identity::ResolutionCommitment;
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::{
-    ActorId, AuthorizationRef, Base64UrlString, CellRef, DeviceId, Did, DidCoreId, DidKey, DidUrl,
-    DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventProof, EventRef, Hash, Hlc,
-    NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySig, NotarySignerDescriptor,
-    NotaryValue, PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId,
-    ScopeRef, SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, SemanticRefProofRootField,
-    StationAdmissionProof, StationAdmissionProofKind, TrustDomainId, UnsignedSeal, WireError,
-    composite_subject, project_did_to_core_id, proof_kind,
+    ActorId, AuthorizationRef, Base64UrlString, CellRef, CommandResult, DeviceId, Did, DidCoreId,
+    DidUrl, DigestSuiteCode, Event, EventId, EventIdentityKey, EventKind, EventRef, Hash, Hlc,
+    NonEmptyString, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
+    PayloadSignature, PayloadSigner, ProducerEventProof, ProjectedCellWrite, RealmId, ScopeRef,
+    SealBasis, SealId, SemanticRefProof, SemanticRefProofKind, SemanticRefProofRootField,
+    TrustDomainId, UnsignedSeal, WireError, composite_subject, project_did_to_core_id, proof_kind,
 };
 use chrono::Utc;
 use serde_json::Value;
@@ -119,45 +118,17 @@ fn attach_fixture_proof(event: &mut Event, verification_method: &DidUrl) {
             .unwrap(),
     )
     .unwrap();
-    event.proofs = vec![
-        ProducerEventProof {
-            kind: proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: verification_method.clone(),
-            event_digest: digest,
-            signer_resolution_evidence_ref: None,
-            created_at: event.created_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
-        }
-        .into(),
-    ];
-}
-
-fn attach_fixture_admission_proof(event: &mut Event) {
-    let producer = event.proofs[0]
-        .as_producer()
-        .expect("fixture producer proof")
-        .clone();
-    let admission = StationAdmissionProof {
-        applet_installation_digest: None,
-        kind: StationAdmissionProofKind::StationAdmission,
-        verification_method: DidUrl::new("did:web:principal.example#admission").unwrap(),
-        event_digest: producer.event_digest.clone(),
-        producer_proof_digest: StationAdmissionProof::producer_proof_digest(&producer).unwrap(),
-        producer_verification_method: producer.verification_method.clone(),
-        producer_signing_key_did: DidKey::new(founding_device_public_key()).unwrap(),
-        producer_signer_resolution_evidence_ref: None,
-        signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef::new(format!(
-            "ak:signer_evidence:sha256:{}",
-            "11".repeat(32)
-        ))
-        .unwrap(),
-        accepted_at: event.created_at,
+    event.proofs = vec![ProducerEventProof {
+        kind: proof_kind::DETACHED_JWS.to_owned(),
+        verification_method: verification_method.clone(),
+        event_digest: digest,
+        signer_resolution_evidence_ref: None,
+        created_at: event.created_at,
+        domain: None,
+        audience: None,
+        proof_purpose: None,
         jws: "eyJhbGciOiJFZERTQSJ9..AA".to_owned(),
-    };
-    event.proofs.push(EventProof::StationAdmission(admission));
+    }];
 }
 
 fn bootstrap_unit() -> (Event, Event) {
@@ -236,15 +207,20 @@ fn fixture_notary(actor_id: &DidCoreId, actor_did: &Did, fragment: &str) -> Nota
             .expect("fixture public key is a did:key identifier"),
     )
     .expect("fixture public key is valid");
-    NotaryValue::single_signer(NotarySignerDescriptor {
-        actor_id: ActorId::service(actor_id.clone()),
-        verification_method: DidUrl::new(format!("{actor_did}#{fragment}")).unwrap(),
-        key_kind: NotaryKeyKind::Ed25519Raw32,
-        jose_algorithm: NotaryJoseAlgorithm::Ed25519,
-        frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
-        frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
-            .unwrap(),
-    })
+    NotaryValue::new(
+        vec![NotarySignerDescriptor {
+            actor_id: ActorId::service(actor_id.clone()),
+            verification_method: DidUrl::new(format!("{actor_did}#{fragment}")).unwrap(),
+            key_kind: NotaryKeyKind::Ed25519Raw32,
+            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+            frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
+            frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
+                .unwrap(),
+        }],
+        0,
+        0,
+    )
+    .unwrap()
 }
 
 fn founding_device_public_key() -> &'static str {
@@ -418,9 +394,7 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
 
 #[test]
 fn accepted_bootstrap_history_remains_valid_for_successor_seal_replay() {
-    let (mut create, mut authorize) = bootstrap_unit();
-    attach_fixture_admission_proof(&mut create);
-    attach_fixture_admission_proof(&mut authorize);
+    let (create, authorize) = bootstrap_unit();
 
     validate_self_principal_pcr_genesis_unit(&create, &authorize, &registry_projection).unwrap();
     let principal_id = input().principal_did;
@@ -449,10 +423,7 @@ fn bootstrap_authorize_proof_uses_the_exact_initial_resolution_did() {
         project_did_to_core_id(&same_core_different_did).unwrap(),
         *create.actor_id.signing_principal_id()
     );
-    authorize.proofs[0]
-        .as_producer_mut()
-        .expect("bootstrap authorize must carry a producer proof")
-        .verification_method = DidUrl::new(format!(
+    authorize.proofs[0].verification_method = DidUrl::new(format!(
         "{}#{}",
         same_core_different_did,
         founding_device_id()
@@ -483,30 +454,16 @@ fn first_bootstrap_seal_covers_both_events_and_is_signed_by_device_one() {
     )
     .unwrap();
 
-    assert!(seal.predecessor_refs.is_empty());
+    assert!(seal.predecessor_ref.is_none());
     assert_eq!(seal.notary_seq, 0);
     assert_eq!(seal.delta.len(), 2);
     assert_eq!(seal.covered_event_digests, seal.delta);
-    assert_eq!(
-        seal.completeness_root,
-        arkret_state::control_event_completeness_root(
-            &[
-                (create, arkret_canonical::DigestSuite::Sha256),
-                (authorize, arkret_canonical::DigestSuite::Sha256),
-            ],
-            &seal.delta.iter().cloned().collect(),
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap()
-    );
     assert_eq!(
         seal.derive_id(arkret_canonical::DigestSuite::Sha256)
             .unwrap(),
         seal.id
     );
-    let NotarySig::Single(signature) = seal.notary_signature else {
-        panic!("bootstrap Seal must use one device signature")
-    };
+    let signature = &seal.notary_signature.signatures[0];
     assert_eq!(signature.verification_method, signer.verification_method);
 }
 
@@ -903,11 +860,7 @@ fn agent_pcr_bootstrap_seal_follows_the_genesis_declared_digest_suite() {
             seal.control_event_set_root.digest_suite().unwrap(),
             digest_suite
         );
-        assert_eq!(seal.completeness_root.digest_suite().unwrap(), digest_suite);
-
-        let NotarySig::Single(signature) = &seal.notary_signature else {
-            panic!("Agent PCR bootstrap Seal must use one controller signature")
-        };
+        let signature = &seal.notary_signature.signatures[0];
         assert_eq!(
             signature.payload_digest.digest_suite().unwrap(),
             digest_suite
@@ -925,7 +878,7 @@ fn agent_pcr_bootstrap_seal_follows_the_genesis_declared_digest_suite() {
         arkret_signatures::verify_frozen_notary_signature(
             signature,
             &descriptor,
-            &seal.canonical_bytes_for_id().unwrap(),
+            &seal.commit_transcript_bytes(digest_suite).unwrap(),
             digest_suite,
         )
         .unwrap();
@@ -1011,8 +964,14 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
             &mut authored,
             &signer,
             signer.verification_method_id(),
-            arkret_signatures::SignEventOptions::new()
-                .with_created_at("2026-07-15T00:01:00.000Z".parse().unwrap()),
+            arkret_signatures::SignEventOptions::new(
+                arkret_wire::SignerEvidenceRef::new(format!(
+                    "ak:signer_evidence:sha256:{}",
+                    "11".repeat(32)
+                ))
+                .unwrap(),
+            )
+            .with_created_at("2026-07-15T00:01:00.000Z".parse().unwrap()),
         )
         .unwrap();
         authored
@@ -1046,32 +1005,20 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
             .collect::<BTreeSet<_>>();
         let control_event_set_root =
             arkret_state::control_event_set_root(&covered, digest_suite).unwrap();
-        let completeness_root = arkret_state::control_event_completeness_root(
-            &[
-                (create.clone(), arkret_canonical::DigestSuite::Sha256),
-                (authorize, digest_suite),
-            ],
-            &covered,
-            digest_suite,
-        )
-        .unwrap();
         let request = SealPrepareRequestBody {
             realm_id: create.realm_id.clone(),
-            predecessor_refs: vec![genesis_seal.id],
-            event_digests: vec![authorize_digest],
+            predecessor_ref: genesis_seal.id,
+            event_digests: vec![authorize_digest.clone()],
             hlc: Hlc::new("01970e589d21-0018-a13f9c2e").unwrap(),
         };
         let prepared = SealPrepareOutcome {
             seal_body: UnsignedSeal {
                 realm_id: request.realm_id.clone(),
-                predecessor_refs: request.predecessor_refs.clone(),
+                predecessor_ref: Some(request.predecessor_ref.clone()),
                 delta: request.event_digests.clone(),
                 control_event_set_root,
                 state_root: material.state_root,
-                completeness_root,
                 notary_seq: 1,
-                data_view_root: None,
-                data_event_set_root: None,
                 availability_receipt_digests: vec![
                     Hash::new(arkret_canonical::digest(
                         digest_suite,
@@ -1084,14 +1031,26 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 previous_digest_algorithm: None,
                 sealed_at: "2026-07-15T00:02:00.000Z".parse().unwrap(),
                 hlc: request.hlc.clone(),
+                configuration_ref: create.event_id.clone(),
+                command_results: vec![
+                    CommandResult::committed(
+                        authorize_digest.clone(),
+                        vec![authorize_digest],
+                        material.command_effects,
+                        digest_suite,
+                    )
+                    .unwrap(),
+                ],
+                authorization_closures: Vec::new(),
+                existence_anchors: Vec::new(),
+                transaction_records: Vec::new(),
             },
+            view: 0,
         };
         let seal = prepared.sign(&request, &signer).unwrap();
         seal.validate_id(digest_suite).unwrap();
         assert_eq!(seal.state_root.digest_suite().unwrap(), digest_suite);
-        let NotarySig::Single(signature) = &seal.notary_signature else {
-            panic!("Agent PCR successor Seal must use one controller signature")
-        };
+        let signature = &seal.notary_signature.signatures[0];
         assert_eq!(
             signature.payload_digest.digest_suite().unwrap(),
             digest_suite
@@ -1109,7 +1068,7 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
         arkret_signatures::verify_frozen_notary_signature(
             signature,
             &descriptor,
-            &seal.canonical_bytes_for_id().unwrap(),
+            &seal.commit_transcript_bytes(digest_suite).unwrap(),
             digest_suite,
         )
         .unwrap();

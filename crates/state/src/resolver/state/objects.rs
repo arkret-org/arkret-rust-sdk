@@ -21,7 +21,7 @@ impl RealmState {
             self.spaces.get(id).map(|space| SpaceStructureNode {
                 realm_id: space.realm_id.as_str(),
                 parent_space_id: space.parent_space_id.as_ref().map(SpaceId::as_str),
-                active: space.state == Some(crate::models::SpaceState::Active),
+                active: space.state == Some(crate::SpaceState::Active),
             })
         })
         .map_err(|reason| WireError::Protocol(reason.to_owned()))
@@ -199,7 +199,7 @@ impl RealmState {
             .extract_optional_field::<String>(object, "state")
             .map(|state| space_state_from_str(&state))
             .transpose()?
-            .unwrap_or(crate::models::SpaceState::Active);
+            .unwrap_or(crate::SpaceState::Active);
 
         let space = Space {
             schema: SchemaId::SPACE_V1.to_owned(),
@@ -247,7 +247,7 @@ impl RealmState {
         let space_id = self.extract_space_id(&event.payload)?;
         // Spec common-fields.md §5.1: update on non-active object MUST fail.
         if let Some(space) = self.spaces.get(&space_id)
-            && space.state != Some(crate::models::SpaceState::Active)
+            && space.state != Some(crate::SpaceState::Active)
         {
             return Err(WireError::Protocol("space_not_active".to_owned()));
         }
@@ -357,7 +357,7 @@ impl RealmState {
             .spaces
             .get(&space_id)
             .ok_or_else(|| WireError::Protocol("space_parent_unreadable".to_owned()))?;
-        if child.state != Some(crate::models::SpaceState::Active) {
+        if child.state != Some(crate::SpaceState::Active) {
             return Err(WireError::Protocol("space_not_active".to_owned()));
         }
         self.validate_space_parent(
@@ -379,7 +379,7 @@ impl RealmState {
     pub(super) fn set_space_state(
         &mut self,
         event: &Event,
-        state: crate::models::SpaceState,
+        state: crate::SpaceState,
     ) -> Result<()> {
         let space_id = self.extract_space_id(&event.payload)?;
         if let Some(space) = self.spaces.get_mut(&space_id) {
@@ -400,10 +400,10 @@ impl RealmState {
         let Some(space) = self.spaces.get(&space_id) else {
             return Ok(());
         };
-        if space.state != Some(crate::models::SpaceState::Active) {
+        if space.state != Some(crate::SpaceState::Active) {
             return Err(WireError::Protocol("space_not_active".to_owned()));
         }
-        self.set_space_state(event, crate::models::SpaceState::Archived)
+        self.set_space_state(event, crate::SpaceState::Archived)
     }
 
     // Reducer for `ak.space.tombstone`: validate current state ∈
@@ -416,13 +416,12 @@ impl RealmState {
             return Ok(());
         };
         match space.state {
-            Some(crate::models::SpaceState::Active) | Some(crate::models::SpaceState::Archived) => {
-            }
+            Some(crate::SpaceState::Active) | Some(crate::SpaceState::Archived) => {}
             _ => return Err(WireError::Protocol("space_already_terminal".to_owned())),
         }
         if self.spaces.values().any(|child| {
             child.parent_space_id.as_ref().map(SpaceId::as_str) == Some(space_id.as_str())
-                && child.state != Some(crate::models::SpaceState::Tombstoned)
+                && child.state != Some(crate::SpaceState::Tombstoned)
         }) || self.strand_positions.iter().any(|((board, strand), list)| {
             (board == &space_id || list == &space_id)
                 && self
@@ -432,7 +431,7 @@ impl RealmState {
         }) {
             return Err(WireError::Protocol("space_has_live_dependents".to_owned()));
         }
-        self.set_space_state(event, crate::models::SpaceState::Tombstoned)
+        self.set_space_state(event, crate::SpaceState::Tombstoned)
     }
 
     // Reducer for `ak.space.restore`: validate current state == archived per
@@ -444,10 +443,10 @@ impl RealmState {
         let Some(space) = self.spaces.get_mut(&space_id) else {
             return Ok(());
         };
-        if space.state != Some(crate::models::SpaceState::Archived) {
+        if space.state != Some(crate::SpaceState::Archived) {
             return Err(WireError::Protocol("space_not_archived".to_owned()));
         }
-        space.state = Some(crate::models::SpaceState::Active);
+        space.state = Some(crate::SpaceState::Active);
         space.state_changed_at = Some(event.created_at);
         space.updated_by = Some(event.actor_id.clone());
         space.updated_at = Some(event.created_at);
@@ -689,7 +688,7 @@ impl RealmState {
             arkret_models_collaboration::objects::space::validate_space_target(
                 subject.realm_id.as_str(),
                 target.realm_id.as_str(),
-                target.state == Some(crate::models::SpaceState::Active),
+                target.state == Some(crate::SpaceState::Active),
             )
             .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
         }

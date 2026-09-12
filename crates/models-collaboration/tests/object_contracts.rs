@@ -5,11 +5,11 @@ use arkret_models_collaboration::objects::profiles::{
     Morph, STRAND_TRACK_NAME_DISCUSSION, STRAND_TRACK_NAME_SYNTHESIS, StrandTrack,
     validate_strand_track_name,
 };
-use arkret_models_collaboration::objects::realm::{CellLatticeDeclaration, Realm};
+use arkret_models_collaboration::objects::realm::Realm;
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{
     ActorId, Did, DidCoreId, DidUrl, FederationPolicy, Hash, NotaryJoseAlgorithm, NotaryKeyKind,
-    NotarySignerDescriptor, ObjectStage, ObjectState, SchemaId, project_did_to_core_id,
+    NotaryKind, NotarySignerDescriptor, ObjectStage, ObjectState, SchemaId, project_did_to_core_id,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -28,8 +28,8 @@ fn signer(did: &str) -> NotarySignerDescriptor {
     }
 }
 
-fn single_signer_notary(did: &str) -> arkret_wire::NotaryValue {
-    arkret_wire::NotaryValue::single_signer(signer(did))
+fn quorum_notary(did: &str) -> arkret_wire::NotaryValue {
+    arkret_wire::NotaryValue::new(vec![signer(did)], 0, 0).unwrap()
 }
 
 fn actor(value: &str) -> ActorId {
@@ -185,35 +185,32 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         actor("did:webvh:z6mkfixture:alice.example"),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
-        single_signer_notary("did:webvh:z6mkfixture:alice.example"),
+        quorum_notary("did:webvh:z6mkfixture:alice.example"),
     );
     assert!(realm.preview_policy_id.is_none());
     assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Sha256);
-    assert!(matches!(
-        &realm.notary,
-        NotaryValue::SingleSigner { signer, .. }
-            if signer.actor_id.signing_principal_id().as_str()
-                == "ak:did_core:webvh:z6mkfixture"
-    ));
+    assert_eq!(
+        realm.notary.signers[0]
+            .actor_id
+            .signing_principal_id()
+            .as_str(),
+        "ak:did_core:webvh:z6mkfixture"
+    );
     assert_eq!(realm.max_authority_lifetime_ms, 86_400_000);
     assert!(realm.bottom_escalation_after_ms.is_none());
-    assert!(realm.cell_lattices.is_empty());
     assert!(realm.updated_by.is_none());
 
-    realm.notary = NotaryValue::Threshold {
-        threshold: 2,
-        signers: vec![
+    realm.notary = NotaryValue::new(
+        vec![
             signer("did:webvh:z6mkfixturea:a.example"),
             signer("did:webvh:z6mkfixtureb:b.example"),
             signer("did:webvh:z6mkfixturec:c.example"),
+            signer("did:webvh:z6mkfixtured:d.example"),
         ],
-        forensic_attribution: arkret_wire::ForensicAttribution::QuorumIntersection,
-    };
-    realm.cell_lattices.push(CellLatticeDeclaration {
-        cell_family: arkret_wire::CellFamilyId::STRAND_OBJECT_V1.to_owned(),
-        lattice: "cas_register".to_owned(),
-        bottom: Some("reject".to_owned()),
-    });
+        1,
+        0,
+    )
+    .unwrap();
     realm.preview_policy_id =
         Some(PolicyId::new("ak:policy:0196419b-0000-7000-8000-000000000003").unwrap());
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
@@ -226,19 +223,9 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
         Some("ak:policy:0196419b-0000-7000-8000-000000000003")
     );
     assert_eq!(realm.digest_algorithm, canonical::DigestSuite::Blake3);
-    assert!(matches!(
-        &realm.notary,
-        NotaryValue::Threshold { threshold: 2, .. }
-    ));
+    assert_eq!(realm.notary.quorum_size(), 3);
     assert_eq!(realm.max_authority_lifetime_ms, 3_600_000);
     assert_eq!(realm.bottom_escalation_after_ms, Some(120_000));
-    assert_eq!(realm.cell_lattices.len(), 1);
-    assert_eq!(
-        realm.cell_lattices[0].cell_family,
-        arkret_wire::CellFamilyId::STRAND_OBJECT_V1
-    );
-    assert_eq!(realm.cell_lattices[0].lattice, "cas_register");
-    assert_eq!(realm.cell_lattices[0].bottom.as_deref(), Some("reject"));
 
     // Round-trip through serde to confirm wire shape.
     let json = serde_json::to_value(&realm).unwrap();
@@ -252,10 +239,6 @@ fn realm_anchor_fields_are_required_and_builders_apply() {
     assert_eq!(
         json["updated_by"],
         json!({"kind":"service","service_id":"ak:did_core:webvh:z6mkfixture"})
-    );
-    assert_eq!(
-        json["cell_lattices"][0]["cell_family"],
-        arkret_wire::CellFamilyId::STRAND_OBJECT_V1
     );
 
     let restored: Realm = serde_json::from_value(json).unwrap();
@@ -285,15 +268,15 @@ fn realm_anchor_fields_include_required_notary() {
         actor("did:webvh:z6mkfixture:alice.example"),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
-        single_signer_notary("did:webvh:z6mkfixture:alice.example"),
+        quorum_notary("did:webvh:z6mkfixture:alice.example"),
     );
     let json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object().unwrap();
     assert!(!obj.contains_key("preview_policy_id"));
     assert!(!obj.contains_key("sync_endpoints"));
-    assert_eq!(json["notary"]["kind"], "single_signer");
+    assert_eq!(json["notary"]["kind"], "quorum");
     assert_eq!(
-        json["notary"]["signer"]["actor_id"],
+        json["notary"]["signers"][0]["actor_id"],
         json!({"kind":"service","service_id":"ak:did_core:webvh:z6mkfixture"})
     );
     assert_eq!(obj.get("digest_algorithm"), Some(&json!("sha256")));
@@ -302,7 +285,6 @@ fn realm_anchor_fields_include_required_notary() {
         Some(&json!(86_400_000))
     );
     assert!(!obj.contains_key("bottom_escalation_after_ms"));
-    assert!(!obj.contains_key("cell_lattices"));
     assert!(!obj.contains_key("updated_by"));
 }
 
@@ -314,10 +296,15 @@ fn realm_notary_descriptor_must_be_valid() {
         actor("did:webvh:z6mkfixture:alice.example"),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
-        arkret_wire::NotaryValue::single_signer(NotarySignerDescriptor {
-            frozen_public_key_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
-            ..signer("did:webvh:z6mkfixture:notary.example")
-        }),
+        arkret_wire::NotaryValue {
+            kind: NotaryKind::Quorum,
+            signers: vec![NotarySignerDescriptor {
+                frozen_public_key_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                ..signer("did:webvh:z6mkfixture:notary.example")
+            }],
+            fault_tolerance: 0,
+            max_clock_error_ms: 0,
+        },
     );
 
     let err = realm.validate_kind_invariants().unwrap_err();
@@ -332,7 +319,7 @@ fn realm_digest_algorithm_defaults_and_rejects_unknown_values() {
         actor("did:webvh:z6mkfixture:alice.example"),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
-        single_signer_notary("did:webvh:z6mkfixture:alice.example"),
+        quorum_notary("did:webvh:z6mkfixture:alice.example"),
     );
     let mut json = serde_json::to_value(&realm).unwrap();
     let obj = json.as_object_mut().unwrap();
@@ -509,7 +496,7 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
         created_by.clone(),
         TrustDomainId::new("ak:trust_domain:example.net").unwrap(),
         arkret_wire::CORE_REDUCER_PROFILE,
-        single_signer_notary("did:webvh:z6mkfixture:notary.example"),
+        quorum_notary("did:webvh:z6mkfixture:notary.example"),
     );
     realm.policy_id =
         Some(PolicyId::new("ak:policy:01904100-0000-7000-8000-0000000000f3").unwrap());
@@ -519,11 +506,6 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     realm.digest_algorithm = canonical::DigestSuite::Blake3;
     realm.max_authority_lifetime_ms = 3_600_000;
     realm.bottom_escalation_after_ms = Some(120_000);
-    realm.cell_lattices.push(CellLatticeDeclaration {
-        cell_family: arkret_wire::CellFamilyId::STRAND_OBJECT_V1.to_owned(),
-        lattice: "cas_register".to_owned(),
-        bottom: Some("reject".to_owned()),
-    });
     realm.updated_by = Some(updated_by);
     realm.updated_at = Some(now);
     let realm_keys = top_level_keys(&serde_json::to_string(&realm).unwrap());
@@ -535,7 +517,6 @@ fn materialized_objects_serialize_field_clusters_per_common_fields_3_2() {
     assert!(realm_pos("digest_algorithm") < realm_pos("notary"));
     assert!(realm_pos("notary") < realm_pos("max_authority_lifetime_ms"));
     assert!(realm_pos("max_authority_lifetime_ms") < realm_pos("bottom_escalation_after_ms"));
-    assert!(realm_pos("bottom_escalation_after_ms") < realm_pos("cell_lattices"));
 
     // Morph — scope/container cluster `scope_circle_id` precedes lifecycle `state`.
     let mut morph = Morph::new(

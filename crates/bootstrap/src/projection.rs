@@ -3,14 +3,16 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use arkret_state::lattice::ordered_log::{IssuedOp, OrderedLog, ensure_unique_ordered_log_slots};
+use arkret_state::state_model::ordered_log::{
+    IssuedOp, OrderedLog, ensure_unique_ordered_log_slots,
+};
 use arkret_state::{
-    CasHeadsByCell, CellRegistry, CellState, GovernanceView, LatticeKind, SealedOp,
-    causal_heads_for_batches, compute_state_root, join_cell_seal_batches, resolve_projected_write,
+    CellStateRegistry, GovernanceView, ResolvedCellState, StateModelKind, StateWrite,
+    compute_state_root, join_cell, join_cell_seal_batches, resolve_projected_write,
 };
 use arkret_wire::{
-    CellRef, Event, EventKind, Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result,
-    WireError,
+    CellRef, CommandResultCellState, CommandResultEffect, Event, EventCellExecution, EventKind,
+    Hash, ProjectedCellWrite, ProjectionEffect, RealmId, Result, WireError,
 };
 
 use crate::{
@@ -166,10 +168,19 @@ pub(crate) fn state_root_from_projection(
     digest_suite: arkret_canonical::DigestSuite,
     project: CellWriteProjector<'_>,
 ) -> Result<Hash> {
-    let registry = arkret_lattice_registry::build_sdk_cell_registry();
+    state_root_and_effects_from_projection(realm_id, covered, digest_suite, project)
+        .map(|(root, _)| root)
+}
+
+pub(crate) fn state_root_and_effects_from_projection(
+    realm_id: &RealmId,
+    covered: &[(&Event, Hash)],
+    digest_suite: arkret_canonical::DigestSuite,
+    project: CellWriteProjector<'_>,
+) -> Result<(Hash, Vec<CommandResultEffect>)> {
+    let registry = arkret_lattice_registry::build_sdk_state_registry();
     let mut batches_by_cell = BTreeMap::<CellRef, Vec<Vec<IssuedOp>>>::new();
-    let mut joined = BTreeMap::<CellRef, CellState>::new();
-    let mut cas_heads = CasHeadsByCell::new();
+    let mut joined = BTreeMap::<CellRef, ResolvedCellState>::new();
     for (event, move_id) in covered {
         let frozen_pre_state = joined.clone();
         let projected = project(event).map_err(|error| {
@@ -207,12 +218,12 @@ pub(crate) fn state_root_from_projection(
                 .push(IssuedOp {
                     // 9.3.1 keys the ordered log by the envelope `actor_id`.
                     issuer_id: event.actor_id.clone(),
-                    op: SealedOp::from_projection(move_id.clone(), effect),
+                    op: StateWrite::from_projection(move_id.clone(), effect),
                 });
         }
         for (cell, issued) in event_ops {
             if let Ok(binding) = registry.resolve(realm_id, &cell)
-                && binding.lattice.kind() == LatticeKind::OrderedLog
+                && binding.state_model == StateModelKind::OrderedLog
             {
                 let report = OrderedLog.join_with_issuer_report(&issued);
                 if !report.identity_collisions.is_empty() {
@@ -225,31 +236,56 @@ pub(crate) fn state_root_from_projection(
         }
 
         joined.clear();
-        cas_heads.clear();
         for (cell, batches) in &batches_by_cell {
             let binding = registry.resolve(realm_id, cell).map_err(|error| {
                 WireError::Protocol(format!("bootstrap cell registry: {error}"))
             })?;
-            let state = join_cell_seal_batches(binding.lattice.as_ref(), cell, batches);
-            if matches!(state, CellState::Bottom(_)) {
+            let state = if binding.execution == EventCellExecution::Security {
+                join_cell_seal_batches(binding.model.as_ref(), cell, batches)
+            } else {
+                join_cell(
+                    binding.model.as_ref(),
+                    cell,
+                    &batches.iter().flatten().cloned().collect::<Vec<_>>(),
+                )
+            }
+            .map_err(|error| WireError::Protocol(format!("bootstrap cell {cell}: {error}")))?;
+            if matches!(state, ResolvedCellState::Bottom(_)) {
                 return Err(WireError::Protocol(format!(
                     "bootstrap cell {cell} resolved to Bottom"
                 )));
             }
-            // A `cas_register` cell's `state_root` leaf carries its heads, not
-            // its settled value (spec section 6.2.1), and they come from the
-            // same batches the join just consumed.
-            if arkret_state::is_causal_register(binding.lattice.kind()) {
-                let heads = causal_heads_for_batches(binding.lattice.kind(), batches);
-                if !heads.is_empty() {
-                    cas_heads.insert(cell.clone(), heads);
-                }
-            }
             joined.insert(cell.clone(), state);
         }
     }
-    compute_state_root(GovernanceView::new(&joined, &cas_heads), digest_suite)
-        .map_err(|error| WireError::Protocol(format!("bootstrap state root: {error}")))
+    let security_state = joined
+        .into_iter()
+        .filter_map(|(cell, state)| {
+            registry
+                .resolve(realm_id, &cell)
+                .ok()
+                .filter(|binding| binding.execution == EventCellExecution::Security)
+                .map(|_| (cell, state))
+        })
+        .collect();
+    let root = compute_state_root(GovernanceView::new(&security_state), digest_suite)
+        .map_err(|error| WireError::Protocol(format!("bootstrap state root: {error}")))?;
+    let effects = security_state
+        .into_iter()
+        .map(|(cell_id, state)| match state {
+            ResolvedCellState::Sequenced(state) => Ok(CommandResultEffect {
+                cell_id,
+                state: CommandResultCellState {
+                    revision_event_id: state.revision_event_id,
+                    value: state.value,
+                },
+            }),
+            _ => Err(WireError::Protocol(
+                "Seal command effects may contain only sequenced_state Cells".to_owned(),
+            )),
+        })
+        .collect::<Result<Vec<_>>>()?;
+    Ok((root, effects))
 }
 
 #[cfg(test)]

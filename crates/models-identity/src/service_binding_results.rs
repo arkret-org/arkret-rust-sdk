@@ -356,7 +356,7 @@ mod tests {
             request_id: request_id(),
             account_id: account(),
             intended_purpose: GenesisNotaryPurpose::Collaboration,
-            notary: NotaryValue::single_signer(service_signer()),
+            notary: NotaryValue::new(vec![service_signer()], 0, 0).unwrap(),
         }
     }
 
@@ -382,7 +382,7 @@ mod tests {
         let mut outcome = notary_outcome();
         let mut signer = service_signer();
         signer.actor_id = ActorId::account(account());
-        outcome.notary = NotaryValue::single_signer(signer);
+        outcome.notary = NotaryValue::new(vec![signer], 0, 0).unwrap();
         assert!(outcome.validate().is_err());
     }
 

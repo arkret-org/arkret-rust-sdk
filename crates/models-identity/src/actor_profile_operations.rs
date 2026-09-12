@@ -5,7 +5,7 @@
 //! reach it through a cross-principal actor selector. This operation is the only
 //! outward carrier for that PCR-resident fact.
 
-use arkret_wire::{ActorId, Event, RealmId, Seal};
+use arkret_wire::{ActorId, Event, RealmId};
 use serde::{Deserialize, Serialize};
 
 use crate::actor_profile::ActorProfile;
@@ -58,11 +58,10 @@ impl ActorProfileResolveRequest {
     }
 }
 
-/// One actor's current global profile with the evidence to verify it.
+/// One actor's current global profile and one contributing accepted Event.
 ///
-/// The consumer recomputes the projection from `profile_event` and checks that
-/// `accepted_seal` covers that Event's digest. A bare `actor_profile` is a
-/// server assertion, not evidence.
+/// The Event is provenance for the authenticated Station projection. It does
+/// not prove complete causal history or grant authorization.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -72,11 +71,6 @@ pub struct ResolvedActorProfile {
     pub actor_profile: ActorProfile,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub profile_event: Event,
-    /// Accepted Seal in the owner's Principal Control Realm covering
-    /// `profile_event` only. It is coverage evidence for that one digest and
-    /// must not be used to enumerate the Realm's other sealed Events.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub accepted_seal: Seal,
 }
 
 /// Per-actor failure reason.

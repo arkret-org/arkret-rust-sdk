@@ -14,6 +14,7 @@ use arkret_wire::{
     IdempotencyKey, SchemaId, project_did_to_core_id,
 };
 
+use crate::CurrentSignerEvidence;
 use crate::events_payloads::agent::{AgentKeyAuthorizePayloadRuntimeAttestation, AgentKeyScope};
 use crate::governance::agent_artifacts::{AgentKeyAuthorizationState, GrantSnapshot, PublicKey};
 use crate::internal_prelude::*;
@@ -441,8 +442,10 @@ pub struct AgentRuntimeApprovalStatusRequestBody {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalStatusOutcome {
-    pub status: AgentLifecycleState,
+    pub lifecycle: AgentLifecycleState,
     pub runtime_state: AgentRuntimeState,
+    pub readiness: AgentReadiness,
+    pub presence: AgentPresence,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approval_request_id: Option<OpaqueLocalId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -451,6 +454,36 @@ pub struct AgentRuntimeApprovalStatusOutcome {
     pub authorized_verification_method: Option<DidUrl>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_public_key_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_signer_evidence: Option<CurrentSignerEvidence>,
+}
+
+impl AgentRuntimeApprovalStatusOutcome {
+    pub fn validate(&self) -> Result<()> {
+        self.readiness.validate()?;
+        let fields = [
+            self.authorized_event_ref.is_some(),
+            self.authorized_verification_method.is_some(),
+            self.authorized_public_key_digest.is_some(),
+            self.signer_resolution_evidence_ref.is_some(),
+            self.current_signer_evidence.is_some(),
+        ];
+        if fields.iter().any(|present| *present) && !fields.iter().all(|present| *present) {
+            return Err(WireError::Protocol(
+                "Agent activation authorization fields must appear together".to_owned(),
+            ));
+        }
+        if let (Some(method), Some(evidence_ref), Some(evidence)) = (
+            &self.authorized_verification_method,
+            &self.signer_resolution_evidence_ref,
+            &self.current_signer_evidence,
+        ) {
+            validate_agent_signer_evidence_delivery(None, Some(method), evidence_ref, evidence)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -2134,7 +2167,68 @@ pub struct KeyState {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub active_authorizations: Vec<AgentKeyAuthorizationState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_signer_evidence: Option<CurrentSignerEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub runtime_verifier_material: Option<AgentRuntimeVerifierMaterial>,
+}
+
+impl KeyState {
+    pub fn validate_signer_evidence_delivery(&self) -> Result<()> {
+        let has_ref = self.signer_resolution_evidence_ref.is_some();
+        let has_evidence = self.current_signer_evidence.is_some();
+        if has_ref != has_evidence || self.active_authorizations.is_empty() == has_ref {
+            return Err(WireError::Protocol(
+                "active Agent key state must carry its complete signer evidence and reference"
+                    .to_owned(),
+            ));
+        }
+        if let (Some(evidence_ref), Some(evidence)) = (
+            &self.signer_resolution_evidence_ref,
+            &self.current_signer_evidence,
+        ) {
+            validate_agent_signer_evidence_delivery(
+                Some(&self.agent_id),
+                None,
+                evidence_ref,
+                evidence,
+            )?;
+        }
+        Ok(())
+    }
+}
+
+fn validate_agent_signer_evidence_delivery(
+    expected_agent_id: Option<&DidCoreId>,
+    expected_method: Option<&DidUrl>,
+    expected_ref: &SignerEvidenceRef,
+    evidence: &CurrentSignerEvidence,
+) -> Result<()> {
+    let CurrentSignerEvidence::Agent {
+        actor,
+        verification_method,
+        ..
+    } = evidence
+    else {
+        return Err(WireError::Protocol(
+            "Agent activation requires Agent signer evidence".to_owned(),
+        ));
+    };
+    if expected_agent_id.is_some_and(|expected| actor.signing_principal_id() != expected)
+        || expected_method.is_some_and(|expected| verification_method != expected)
+    {
+        return Err(WireError::Protocol(
+            "Agent activation signer evidence identity mismatch".to_owned(),
+        ));
+    }
+    let (root, _) = evidence.hydrate_complete_agent()?;
+    if &root.evidence_ref()? != expected_ref {
+        return Err(WireError::Protocol(
+            "Agent activation signer evidence reference mismatch".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

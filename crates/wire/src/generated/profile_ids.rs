@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-11.1;
-//! sha256=8c00addfa302e62c858f10dee47e5711f3f4518ee075eac44291ff0184f4383a Entries: profile_ids=95
+//! Input: profiles/conformance-profiles.json; version=2026-09-12.7;
+//! sha256=41d3d497b31fcab82f60f84483e6cee4a22666c8b4f23a9568d657f2c1cf33c9 Entries: profile_ids=90
 
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,6 @@ pub enum ProfileId {
     CalendarNotificationDispatchV1,
     ChatMvpV1,
     CircleConformanceV1,
-    CircleSealCadenceFixed5mV1,
     ConstraintApprovalWorkflowV1,
     ConstraintClaimBasedV1,
     ConstraintEncryptionRequirementV1,
@@ -74,10 +73,6 @@ pub enum ProfileId {
     MlsCiphersuiteChacha20poly1305V1,
     MlsCiphersuitePqAuthV1,
     MlsGovernanceBindingFullV1,
-    NotaryMixedRecoveryV1,
-    NotaryOpenSetV1,
-    NotarySingleSignerV1,
-    NotaryThresholdV1,
     OrganizationV1,
     OrganizationHighAssuranceIdentityV1,
     PersonalNodeV1,
@@ -166,7 +161,6 @@ impl ProfileId {
         Self::CalendarNotificationDispatchV1,
         Self::ChatMvpV1,
         Self::CircleConformanceV1,
-        Self::CircleSealCadenceFixed5mV1,
         Self::ConstraintApprovalWorkflowV1,
         Self::ConstraintClaimBasedV1,
         Self::ConstraintEncryptionRequirementV1,
@@ -211,10 +205,6 @@ impl ProfileId {
         Self::MlsCiphersuiteChacha20poly1305V1,
         Self::MlsCiphersuitePqAuthV1,
         Self::MlsGovernanceBindingFullV1,
-        Self::NotaryMixedRecoveryV1,
-        Self::NotaryOpenSetV1,
-        Self::NotarySingleSignerV1,
-        Self::NotaryThresholdV1,
         Self::OrganizationV1,
         Self::OrganizationHighAssuranceIdentityV1,
         Self::PersonalNodeV1,
@@ -265,8 +255,6 @@ impl ProfileId {
         "ak.profile.calendar_notification_dispatch.v1";
     pub const CHAT_MVP_V1: &'static str = "ak.profile.chat_mvp.v1";
     pub const CIRCLE_CONFORMANCE_V1: &'static str = "ak.profile.circle_conformance.v1";
-    pub const CIRCLE_SEAL_CADENCE_FIXED_5M_V1: &'static str =
-        "ak.profile.circle_seal_cadence.fixed_5m.v1";
     pub const CONSTRAINT_APPROVAL_WORKFLOW_V1: &'static str =
         "ak.profile.constraint.approval_workflow.v1";
     pub const CONSTRAINT_CLAIM_BASED_V1: &'static str = "ak.profile.constraint.claim_based.v1";
@@ -327,10 +315,6 @@ impl ProfileId {
     pub const MLS_CIPHERSUITE_PQ_AUTH_V1: &'static str = "ak.profile.mls_ciphersuite.pq_auth.v1";
     pub const MLS_GOVERNANCE_BINDING_FULL_V1: &'static str =
         "ak.profile.mls_governance_binding.full.v1";
-    pub const NOTARY_MIXED_RECOVERY_V1: &'static str = "ak.profile.notary.mixed_recovery.v1";
-    pub const NOTARY_OPEN_SET_V1: &'static str = "ak.profile.notary.open_set.v1";
-    pub const NOTARY_SINGLE_SIGNER_V1: &'static str = "ak.profile.notary.single_signer.v1";
-    pub const NOTARY_THRESHOLD_V1: &'static str = "ak.profile.notary.threshold.v1";
     pub const ORGANIZATION_V1: &'static str = "ak.profile.organization.v1";
     pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
         "ak.profile.organization_high_assurance_identity.v1";
@@ -385,7 +369,6 @@ impl ProfileId {
             Self::CalendarNotificationDispatchV1 => Self::CALENDAR_NOTIFICATION_DISPATCH_V1,
             Self::ChatMvpV1 => Self::CHAT_MVP_V1,
             Self::CircleConformanceV1 => Self::CIRCLE_CONFORMANCE_V1,
-            Self::CircleSealCadenceFixed5mV1 => Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1,
             Self::ConstraintApprovalWorkflowV1 => Self::CONSTRAINT_APPROVAL_WORKFLOW_V1,
             Self::ConstraintClaimBasedV1 => Self::CONSTRAINT_CLAIM_BASED_V1,
             Self::ConstraintEncryptionRequirementV1 => Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1,
@@ -430,10 +413,6 @@ impl ProfileId {
             Self::MlsCiphersuiteChacha20poly1305V1 => Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1,
             Self::MlsCiphersuitePqAuthV1 => Self::MLS_CIPHERSUITE_PQ_AUTH_V1,
             Self::MlsGovernanceBindingFullV1 => Self::MLS_GOVERNANCE_BINDING_FULL_V1,
-            Self::NotaryMixedRecoveryV1 => Self::NOTARY_MIXED_RECOVERY_V1,
-            Self::NotaryOpenSetV1 => Self::NOTARY_OPEN_SET_V1,
-            Self::NotarySingleSignerV1 => Self::NOTARY_SINGLE_SIGNER_V1,
-            Self::NotaryThresholdV1 => Self::NOTARY_THRESHOLD_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
             Self::OrganizationHighAssuranceIdentityV1 => {
                 Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1
@@ -487,7 +466,6 @@ impl ProfileId {
             Self::CalendarNotificationDispatchV1 => ProfileRole::Server,
             Self::ChatMvpV1 => ProfileRole::Client,
             Self::CircleConformanceV1 => ProfileRole::Interop,
-            Self::CircleSealCadenceFixed5mV1 => ProfileRole::Admin,
             Self::ConstraintApprovalWorkflowV1 => ProfileRole::Admin,
             Self::ConstraintClaimBasedV1 => ProfileRole::Admin,
             Self::ConstraintEncryptionRequirementV1 => ProfileRole::Admin,
@@ -532,10 +510,6 @@ impl ProfileId {
             Self::MlsCiphersuiteChacha20poly1305V1 => ProfileRole::Interop,
             Self::MlsCiphersuitePqAuthV1 => ProfileRole::Interop,
             Self::MlsGovernanceBindingFullV1 => ProfileRole::Admin,
-            Self::NotaryMixedRecoveryV1 => ProfileRole::Admin,
-            Self::NotaryOpenSetV1 => ProfileRole::Admin,
-            Self::NotarySingleSignerV1 => ProfileRole::Admin,
-            Self::NotaryThresholdV1 => ProfileRole::Admin,
             Self::OrganizationV1 => ProfileRole::Admin,
             Self::OrganizationHighAssuranceIdentityV1 => ProfileRole::Directory,
             Self::PersonalNodeV1 => ProfileRole::Admin,
@@ -594,7 +568,6 @@ impl ProfileId {
             Self::CALENDAR_NOTIFICATION_DISPATCH_V1 => Some(Self::CalendarNotificationDispatchV1),
             Self::CHAT_MVP_V1 => Some(Self::ChatMvpV1),
             Self::CIRCLE_CONFORMANCE_V1 => Some(Self::CircleConformanceV1),
-            Self::CIRCLE_SEAL_CADENCE_FIXED_5M_V1 => Some(Self::CircleSealCadenceFixed5mV1),
             Self::CONSTRAINT_APPROVAL_WORKFLOW_V1 => Some(Self::ConstraintApprovalWorkflowV1),
             Self::CONSTRAINT_CLAIM_BASED_V1 => Some(Self::ConstraintClaimBasedV1),
             Self::CONSTRAINT_ENCRYPTION_REQUIREMENT_V1 => {
@@ -645,10 +618,6 @@ impl ProfileId {
             }
             Self::MLS_CIPHERSUITE_PQ_AUTH_V1 => Some(Self::MlsCiphersuitePqAuthV1),
             Self::MLS_GOVERNANCE_BINDING_FULL_V1 => Some(Self::MlsGovernanceBindingFullV1),
-            Self::NOTARY_MIXED_RECOVERY_V1 => Some(Self::NotaryMixedRecoveryV1),
-            Self::NOTARY_OPEN_SET_V1 => Some(Self::NotaryOpenSetV1),
-            Self::NOTARY_SINGLE_SIGNER_V1 => Some(Self::NotarySingleSignerV1),
-            Self::NOTARY_THRESHOLD_V1 => Some(Self::NotaryThresholdV1),
             Self::ORGANIZATION_V1 => Some(Self::OrganizationV1),
             Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => {
                 Some(Self::OrganizationHighAssuranceIdentityV1)

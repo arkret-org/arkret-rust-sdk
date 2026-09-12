@@ -47,6 +47,6 @@ pub use keys::{
 pub use negative::{WireNegativeBody, wire_negative_from_sdk};
 pub use proof::{ProofFidelity, StructuralOnlyPayloadSigner};
 pub use signed_event::{
-    FixtureClock, SignedEventFixture, SignedEventFixtureBuilder, StructuralOnlyAdmissionFixture,
-    sign_structural_only_event, sign_verifiable_event, structural_only_admitted_event,
+    FixtureClock, SignedEventFixture, SignedEventFixtureBuilder, sign_structural_only_event,
+    sign_verifiable_event,
 };

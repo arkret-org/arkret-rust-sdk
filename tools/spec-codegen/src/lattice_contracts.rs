@@ -9,7 +9,7 @@ use crate::render::{associated_name, header, rust_string, string_slice};
 use crate::runtime_contracts::GeneratedOutput;
 
 #[derive(Debug)]
-struct ResolvedFsm {
+struct ResolvedTransition {
     family: String,
     axis: String,
     states: Vec<String>,
@@ -30,28 +30,28 @@ pub fn generate(inputs: &SpecInputs) -> Result<GeneratedOutput> {
         .get("event_writes")
         .and_then(Value::as_object)
         .context("actor_private_contracts.event_writes must be an object")?;
-    let fsms = resolve_fsms(registry)?;
+    let transition_contracts = resolve_transitions(registry)?;
     let registered = registered_cell_families(&inputs.event_kinds)?;
 
     let mut body = String::new();
     render_actor_private_families(&mut body, families, &registered)?;
     render_actor_private_writes(&mut body, writes, families, &registered)?;
-    render_fsms(&mut body, &fsms, &registered);
+    render_transitions(&mut body, &transition_contracts, &registered);
 
     let mut output = header(
         &[&inputs.contracts_source],
         &format!(
-            "actor_private_families={}, actor_private_writes={}, fsm_contracts={}",
+            "actor_private_families={}, actor_private_writes={}, transition_contracts={}",
             families.len(),
             writes.len(),
-            fsms.len()
+            transition_contracts.len()
         ),
     );
     if body.contains(CELL_FAMILY_ID) {
         output.push_str("use arkret_wire::CellFamilyId;\n\n");
     }
     output.push_str(
-        "use crate::contract_registry::{\n    ActorPrivateEffectProjection, ActorPrivateMergeKind,\n    ActorPrivateSubjectComponent, ActorPrivateSubjectRule, ActorPrivateTombstoneMode,\n    GeneratedActorPrivateFamily, GeneratedActorPrivateFsm, GeneratedActorPrivateWrite,\n    GeneratedFsmContract, GeneratedState,\n};\n\n",
+        "use crate::contract_registry::{\n    ActorPrivateEffectProjection, ActorPrivateMergeKind,\n    ActorPrivateSubjectComponent, ActorPrivateSubjectRule, ActorPrivateTombstoneMode,\n    GeneratedActorPrivateFamily, GeneratedActorPrivateTransition, GeneratedActorPrivateWrite,\n    GeneratedTransitionContract, GeneratedState,\n};\n\n",
     );
     output.push_str(&body);
     Ok(GeneratedOutput {
@@ -121,8 +121,6 @@ fn render_actor_private_families(
         }
         let merge = match required_str(raw, "merge", family)? {
             "server_revision_cas" => "ActorPrivateMergeKind::ServerRevisionCas",
-            "fsm_cas" => "ActorPrivateMergeKind::FsmCas",
-            "cas_register" => "ActorPrivateMergeKind::CasRegister",
             "causal_then_hlc_then_device" => "ActorPrivateMergeKind::CausalThenHlcThenDevice",
             other => bail!("actor-private family {family} has unknown merge {other}"),
         };
@@ -132,28 +130,28 @@ fn render_actor_private_families(
             Some("versioned_tombstone") => "Some(ActorPrivateTombstoneMode::VersionedTombstone)",
             Some(other) => bail!("actor-private family {family} has unknown tombstone {other}"),
         };
-        let fsm = match raw.get("fsm") {
+        let transition_contract = match raw.get("transition_contract") {
             None => "None".to_owned(),
-            Some(value) => render_private_fsm(family, value)?,
+            Some(value) => render_private_transition(family, value)?,
         };
         writeln!(
             output,
-            "    GeneratedActorPrivateFamily {{ cell_family: {}, merge: {merge}, tombstone: {tombstone}, bottom_reject: {}, fsm: {fsm} }},",
+            "    GeneratedActorPrivateFamily {{ cell_family: {}, merge: {merge}, tombstone: {tombstone}, bottom_reject: {}, transition_contract: {transition_contract} }},",
             cell_family(family, registered),
             raw.get("bottom").and_then(Value::as_str) == Some("reject")
-                || merge.ends_with("FsmCas")
+                || transition_contract != "None"
         )?;
     }
     output.push_str("];\n\n");
     Ok(())
 }
 
-fn render_private_fsm(family: &str, value: &Value) -> Result<String> {
-    let fsm = object(value, &format!("actor-private FSM {family}"))?;
-    let states = strings(fsm, "states", family)?;
-    let terminal_states = strings(fsm, "terminal_states", family)?;
-    let initial = required_str(fsm, "initial_state", family)?;
-    let transitions = transitions(fsm, "allowed_transitions", family, false)?;
+fn render_private_transition(family: &str, value: &Value) -> Result<String> {
+    let contract = object(value, &format!("actor-private transition {family}"))?;
+    let states = strings(contract, "states", family)?;
+    let terminal_states = strings(contract, "terminal_states", family)?;
+    let initial = required_str(contract, "initial_state", family)?;
+    let transitions = transitions(contract, "allowed_transitions", family, false)?;
     let declared = states.iter().map(String::as_str).collect::<BTreeSet<_>>();
     if !declared.contains(initial)
         || terminal_states
@@ -165,10 +163,10 @@ fn render_private_fsm(family: &str, value: &Value) -> Result<String> {
                 || !declared.contains(to.as_str())
         })
     {
-        bail!("actor-private FSM {family} references an undeclared state");
+        bail!("actor-private transition {family} references an undeclared state");
     }
     Ok(format!(
-        "Some(GeneratedActorPrivateFsm {{ initial_state: {}, states: {}, terminal_states: {}, allowed_transitions: {} }})",
+        "Some(GeneratedActorPrivateTransition {{ initial_state: {}, states: {}, terminal_states: {}, allowed_transitions: {} }})",
         rust_string(initial),
         string_slice(&states),
         string_slice(&terminal_states),
@@ -287,18 +285,18 @@ fn render_private_effect(value: &Value, event_kind: &str) -> Result<String> {
     }
 }
 
-fn render_fsms(output: &mut String, fsms: &[ResolvedFsm], registered: &BTreeSet<String>) {
-    output.push_str("pub(crate) const GENERATED_FSM_CONTRACTS: &[GeneratedFsmContract] = &[\n");
-    for fsm in fsms {
-        let initial = if fsm.runtime_uses_null {
+fn render_transitions(output: &mut String, transition_contracts: &[ResolvedTransition], registered: &BTreeSet<String>) {
+    output.push_str("pub(crate) const GENERATED_TRANSITION_CONTRACTS: &[GeneratedTransitionContract] = &[\n");
+    for contract in transition_contracts {
+        let initial = if contract.runtime_uses_null {
             "GeneratedState::Null".to_owned()
         } else {
             format!(
                 "GeneratedState::String({})",
-                rust_string(&fsm.initial_states[0])
+                rust_string(&contract.initial_states[0])
             )
         };
-        let runtime_transitions = fsm
+        let runtime_transitions = contract
             .runtime_transitions
             .iter()
             .map(|(from, to)| {
@@ -312,135 +310,61 @@ fn render_fsms(output: &mut String, fsms: &[ResolvedFsm], registered: &BTreeSet<
             .join(", ");
         writeln!(
             output,
-            "    GeneratedFsmContract {{ cell_family: {}, axis: {}, states: {}, terminal_states: {}, initial_states: {}, allowed_transitions: {}, runtime_initial_state: {initial}, runtime_transitions: &[{runtime_transitions}] }},",
-            cell_family(&fsm.family, registered),
-            rust_string(&fsm.axis),
-            string_slice(&fsm.states),
-            string_slice(&fsm.terminal_states),
-            string_slice(&fsm.initial_states),
-            render_owned_transitions(&fsm.allowed_transitions),
+            "    GeneratedTransitionContract {{ cell_family: {}, axis: {}, states: {}, terminal_states: {}, initial_states: {}, allowed_transitions: {}, runtime_initial_state: {initial}, runtime_transitions: &[{runtime_transitions}] }},",
+            cell_family(&contract.family, registered),
+            rust_string(&contract.axis),
+            string_slice(&contract.states),
+            string_slice(&contract.terminal_states),
+            string_slice(&contract.initial_states),
+            render_owned_transitions(&contract.allowed_transitions),
         )
         .expect("write to String");
     }
     output.push_str("];\n");
 }
 
-/// `event-auth-state-resolution.md` section 9.3.1.4: the families whose write
-/// authorization or business precondition reads the cell itself, so Bottom leaves
-/// nobody able to author an ordinary write and only `ak.conflict.recovery` can
-/// move them. Generated so no consumer retypes the list; every `fsm` family is in
-/// the same position by construction (section 9.3.1.7 item 2) and is deliberately
-/// absent here, as is the notary cell, whose recovery Seal could never be accepted.
-pub fn generate_sole_recovery_families(inputs: &SpecInputs) -> Result<GeneratedOutput> {
-    let registry = object(&inputs.contracts.event_kind_registry, "event_kind_registry")?;
-    let families = resolve_sole_recovery_families(registry)?;
-    let registered = registered_cell_families(&inputs.event_kinds)?;
-    let mut body = String::new();
-    body.push_str(
-        "pub const SOLE_RECOVERY_FAMILIES: &[&str] = &[
-",
-    );
-    for family in &families {
-        writeln!(body, "    {},", cell_family(family, &registered)).expect("write to String");
-    }
-    body.push_str(
-        "];
-",
-    );
-    let mut output = header(
-        &[&inputs.contracts_source],
-        &format!("sole_recovery_families={}", families.len()),
-    );
-    if body.contains(CELL_FAMILY_ID) {
-        output.push_str(
-            "use arkret_wire::CellFamilyId;
-
-",
-        );
-    }
-    output.push_str(&body);
-    Ok(GeneratedOutput {
-        relative_path: "crates/state/src/generated/sole_recovery_families.rs".into(),
-        contents: output,
-    })
-}
-
-fn resolve_sole_recovery_families(registry: &Map<String, Value>) -> Result<Vec<String>> {
-    let cell_contracts = object_member(registry, "cell_contracts")?;
-    let recovery = cell_contracts
-        .get("ak.conflict.recovery")
-        .and_then(Value::as_object)
-        .context("cell_contracts must declare ak.conflict.recovery")?;
-    let write = recovery
-        .get("cell_writes")
-        .and_then(Value::as_array)
-        .and_then(|writes| writes.first())
-        .and_then(Value::as_object)
-        .context("ak.conflict.recovery must declare one cell_writes entry")?;
-    let listed = write
-        .get("sole_recovery_families")
-        .and_then(Value::as_array)
-        .context("ak.conflict.recovery must declare sole_recovery_families")?;
-    let mut families = Vec::with_capacity(listed.len());
-    for value in listed {
-        let family = value
-            .as_str()
-            .context("sole_recovery_families entries must be strings")?;
-        families.push(family.to_owned());
-    }
-    Ok(families)
-}
-
-fn resolve_fsms(registry: &Map<String, Value>) -> Result<Vec<ResolvedFsm>> {
-    let templates = object_member(registry, "fsm_templates")?;
-    let contracts = object_member(registry, "fsm_contracts")?;
-    let cell_contracts = object_member(registry, "cell_contracts")?;
+fn resolve_transitions(registry: &Map<String, Value>) -> Result<Vec<ResolvedTransition>> {
+    let templates = object_member(registry, "transition_templates")?;
+    let contracts = object_member(registry, "transition_contracts")?;
     let mut result = Vec::with_capacity(contracts.len());
     for (family, instance_value) in contracts {
         if family.starts_with("ak.private.") {
-            bail!("private FSM {family} is declared in the shared fsm_contracts map");
+            bail!("private transition {family} is declared in the shared transition_contracts map");
         }
-        let instance = object(instance_value, &format!("FSM contract {family}"))?;
+        let instance = object(instance_value, &format!("transition contract {family}"))?;
         let (source, parameters) =
             if let Some(template_id) = instance.get("template").and_then(Value::as_str) {
                 let template = templates
                     .get(template_id)
                     .and_then(Value::as_object)
                     .with_context(|| {
-                        format!("FSM contract {family} references unknown template {template_id}")
+                        format!("transition contract {family} references unknown template {template_id}")
                     })?;
                 let parameters = instance
                     .get("instance_parameters")
                     .and_then(Value::as_object)
-                    .with_context(|| format!("templated FSM {family} omits instance_parameters"))?;
+                    .with_context(|| format!("templated transition {family} omits instance_parameters"))?;
                 validate_parameters(family, template, parameters)?;
                 (template, Some(parameters))
             } else {
                 (instance, None)
             };
-        result.push(resolve_fsm(
-            family,
-            instance,
-            source,
-            parameters,
-            cell_contracts,
-        )?);
+        result.push(resolve_transition(family, instance, source, parameters)?);
     }
     Ok(result)
 }
 
-fn resolve_fsm(
+fn resolve_transition(
     family: &str,
     instance: &Map<String, Value>,
     source: &Map<String, Value>,
     parameters: Option<&Map<String, Value>>,
-    cell_contracts: &Map<String, Value>,
-) -> Result<ResolvedFsm> {
+) -> Result<ResolvedTransition> {
     let axis = required_str(instance, "axis", family)?.to_owned();
     let states = strings(source, "states", family)?;
     let state_set = states.iter().map(String::as_str).collect::<BTreeSet<_>>();
     if state_set.len() != states.len() {
-        bail!("FSM {family} declares duplicate states");
+        bail!("transition {family} declares duplicate states");
     }
     let terminal_states = strings(source, "terminal_states", family)?;
     let declared = transitions(source, "allowed_transitions", family, true)?;
@@ -455,19 +379,19 @@ fn resolve_fsm(
     if let Some(conditionals) = source.get("conditional_transitions") {
         for conditional in conditionals
             .as_array()
-            .with_context(|| format!("FSM template for {family} has invalid conditionals"))?
+            .with_context(|| format!("transition template for {family} has invalid conditionals"))?
         {
             let parameter = conditional
                 .pointer("/when/parameter")
                 .and_then(Value::as_str)
-                .with_context(|| format!("FSM conditional for {family} omits parameter"))?;
+                .with_context(|| format!("transition conditional for {family} omits parameter"))?;
             let expected = conditional
                 .pointer("/when/const")
-                .with_context(|| format!("FSM conditional for {family} omits const"))?;
+                .with_context(|| format!("transition conditional for {family} omits const"))?;
             if parameters.and_then(|values| values.get(parameter)) == Some(expected) {
                 let pair = transition_pair(
                     conditional.get("transition").with_context(|| {
-                        format!("FSM conditional for {family} omits transition")
+                        format!("transition conditional for {family} omits transition")
                     })?,
                     family,
                     false,
@@ -487,7 +411,7 @@ fn resolve_fsm(
             !state_set.contains(from.as_str()) || !state_set.contains(to.as_str())
         })
     {
-        bail!("FSM {family} references an unknown state");
+        bail!("transition {family} references an unknown state");
     }
     let initial_states = if let Some(value) = source.get("initial_states") {
         value_strings(value, "initial_states", family)?
@@ -500,24 +424,11 @@ fn resolve_fsm(
         .iter()
         .any(|state| !state_set.contains(state.as_str()))
     {
-        bail!("FSM {family} declares an unknown initial state");
+        bail!("transition {family} declares an unknown initial state");
     }
     explicit_initials.sort();
     explicit_initials.dedup();
-    let explicit_null_initial = cell_contracts.values().any(|contract| {
-        contract
-            .get("cell_writes")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .any(|write| {
-                write.get("cell_family").and_then(Value::as_str) == Some(family)
-                    && write
-                        .pointer("/effect_projection/from/const")
-                        .is_some_and(Value::is_null)
-            })
-    });
-    let runtime_uses_null = explicit_null_initial
+    let runtime_uses_null = source.get("initial_state").is_some_and(Value::is_null)
         || source.get("initial_states").is_some()
         || !explicit_initials.is_empty();
     let mut runtime_transitions = Vec::new();
@@ -530,7 +441,7 @@ fn resolve_fsm(
         runtime_transitions.extend(runtime_initials.iter().cloned().map(|to| (None, to)));
     }
     runtime_transitions.extend(allowed.iter().cloned().map(|(from, to)| (Some(from), to)));
-    Ok(ResolvedFsm {
+    Ok(ResolvedTransition {
         family: family.to_owned(),
         axis,
         states,
@@ -549,15 +460,15 @@ fn validate_parameters(
 ) -> Result<()> {
     let schema = object_member(template, "parameter_schema")?;
     if values.keys().collect::<BTreeSet<_>>() != schema.keys().collect::<BTreeSet<_>>() {
-        bail!("templated FSM {family} parameter closure does not match its template");
+        bail!("templated transition {family} parameter closure does not match its template");
     }
     for (name, definition) in schema {
         match definition.get("value_shape").and_then(Value::as_str) {
             Some("boolean") if values.get(name).is_some_and(Value::is_boolean) => {}
             Some(shape) => {
-                bail!("templated FSM {family} parameter {name} does not satisfy {shape}")
+                bail!("templated transition {family} parameter {name} does not satisfy {shape}")
             }
-            None => bail!("templated FSM {family} parameter {name} omits value_shape"),
+            None => bail!("templated transition {family} parameter {name} omits value_shape"),
         }
     }
     Ok(())
@@ -666,7 +577,7 @@ fn render_string_transitions(values: &[(Option<String>, String)]) -> String {
                 "({}, {})",
                 rust_string(
                     from.as_deref()
-                        .expect("private FSM transitions cannot start at null")
+                        .expect("private transition transitions cannot start at null")
                 ),
                 rust_string(to)
             ))

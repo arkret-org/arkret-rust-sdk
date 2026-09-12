@@ -9,7 +9,7 @@ use arkret_canonical::DigestSuite;
 use arkret_signatures::{Ed25519PayloadSigner, SignEventOptions, sign_event};
 use arkret_wire::{
     ActorId, AuthoredEvent, DidUrl, Event, EventId, Hlc, PayloadSigner, Precondition, Result,
-    ScopeRef,
+    ScopeRef, SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -274,54 +274,6 @@ pub fn sign_structural_only_event(
     })
 }
 
-/// Caller-owned identities and timestamp for a placeholder station admission.
-/// This is fixture configuration, not a protocol wire model.
-pub struct StructuralOnlyAdmissionFixture {
-    pub verification_method: DidUrl,
-    pub producer_signing_key_did: arkret_wire::DidKey,
-    pub signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef,
-    pub accepted_at: DateTime<Utc>,
-}
-
-/// Build producer and station proofs for read/projection tests without key material.
-///
-/// Both placeholders bind their respective canonical transcripts. Neither proves
-/// admission or signature verification; callers must unwrap as structural-only.
-///
-/// # Errors
-///
-/// Returns an error if authoring or either canonical proof binding fails.
-pub fn structural_only_admitted_event(
-    event: Event,
-    producer_signer: &StructuralOnlyPayloadSigner,
-    admission: StructuralOnlyAdmissionFixture,
-    digest_suite: DigestSuite,
-) -> Result<SignedEventFixture> {
-    let mut fixture = sign_structural_only_event(event, producer_signer, digest_suite)?;
-    let producer = fixture.event.proofs[0]
-        .as_producer()
-        .expect("sign_structural_only_event attaches one producer proof");
-    let mut proof = arkret_wire::StationAdmissionProof {
-        applet_installation_digest: None,
-        kind: arkret_wire::StationAdmissionProofKind::StationAdmission,
-        verification_method: admission.verification_method,
-        event_digest: producer.event_digest.clone(),
-        producer_proof_digest: arkret_wire::StationAdmissionProof::producer_proof_digest(producer)?,
-        producer_verification_method: producer.verification_method.clone(),
-        producer_signing_key_did: admission.producer_signing_key_did,
-        producer_signer_resolution_evidence_ref: producer.signer_resolution_evidence_ref.clone(),
-        signer_resolution_evidence_ref: admission.signer_resolution_evidence_ref,
-        accepted_at: admission.accepted_at,
-        jws: String::new(),
-    };
-    let digest = arkret_wire::Hash::new(arkret_canonical::canonical::sha256_digest(
-        proof.canonical_binding_bytes()?,
-    ))?;
-    proof.jws = arkret_wire::test_support::structural_only_detached_jws(&digest);
-    fixture.event.proofs.push(proof.into());
-    Ok(fixture)
-}
-
 fn attach_proof<S: PayloadSigner + ?Sized>(
     event: Event,
     signer: &S,
@@ -334,7 +286,11 @@ fn attach_proof<S: PayloadSigner + ?Sized>(
         &mut authored,
         signer,
         &verification_method,
-        SignEventOptions::new().with_created_at(created_at),
+        SignEventOptions::new(SignerEvidenceRef::new(format!(
+            "ak:signer_evidence:sha256:{}",
+            "5a".repeat(32)
+        ))?)
+        .with_created_at(created_at),
     )
     .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     Ok(authored.into_event())

@@ -7,7 +7,6 @@
 
 use std::collections::BTreeMap;
 
-use arkret_models_identity::agent_signer_evidence::AgentEventAdmission;
 use arkret_wire::{
     AccountId, ActorId, AppletId, AuditReasonText, Base64UrlString, BlobRef, CbsProofBundle,
     ConsentId, ControlProposalAck, Cursor, DeviceId, DidCoreId, DidKey, DomainSeparationId, Event,
@@ -40,6 +39,7 @@ use crate::objects::mimi::{
     MimiIdentifierMatch, MimiKeyPackage, MimiNotification, MimiNotificationRouting,
     MimiOhttpContext, MimiOpaquePayload, MimiRoomUpdate,
 };
+use crate::seal_conclusion::{SealConclusionQuery, SealConclusionSet};
 use crate::sync_frames::realm_state_snapshot::RealmStateSnapshotBootstrap;
 use crate::sync_frames::stream_trace::{StreamTraceFrame, StreamTraceFrameKind};
 
@@ -360,8 +360,6 @@ pub struct EventsSubmitOutcome {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub control_proposal_acks: Vec<ControlProposalAck>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub agent_event_admissions: Vec<AgentEventAdmission>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejections: Vec<EventsSubmitRejectedRow>,
@@ -408,26 +406,6 @@ impl EventsSubmitOutcome {
                 ));
             }
             original.validate_delivery_invariants()?;
-        }
-        let accepted_or_duplicate = self
-            .accepted
-            .iter()
-            .chain(&self.duplicate)
-            .collect::<std::collections::BTreeSet<_>>();
-        let mut receipt_keys = std::collections::BTreeSet::new();
-        for receipt in &self.agent_event_admissions {
-            if !accepted_or_duplicate.contains(receipt.event_id()) {
-                return Err(WireError::Protocol(
-                    "Agent Event admission receipt does not match an accepted or duplicate Event"
-                        .to_owned(),
-                ));
-            }
-            let key = (receipt.event_id(), receipt.receiver_id()?);
-            if !receipt_keys.insert(key) {
-                return Err(WireError::Protocol(
-                    "Agent Event admission receipts contain a duplicate selector".to_owned(),
-                ));
-            }
         }
         Ok(())
     }
@@ -540,15 +518,39 @@ pub const MAX_SEAL_RESOLVE_SELECTORS: usize = 256;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum SealResolveSelection {
+    SealRefs {
+        seal_refs: Vec<SealId>,
+    },
+    ConclusionQueries {
+        conclusion_queries: Vec<SealConclusionQuery>,
+    },
+}
+
+impl SealResolveSelection {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::SealRefs { seal_refs } => validate_seal_resolve_selectors(seal_refs),
+            Self::ConclusionQueries { conclusion_queries } => {
+                validate_seal_conclusion_queries(conclusion_queries)
+            }
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SealResolveRequestCore {
     pub realm_id: RealmId,
-    pub seal_refs: Vec<SealId>,
+    #[serde(flatten)]
+    pub selection: SealResolveSelection,
 }
 
 impl SealResolveRequestCore {
     pub fn validate(&self) -> Result<()> {
-        validate_seal_resolve_selectors(&self.seal_refs)
+        self.selection.validate()
     }
 }
 
@@ -557,14 +559,15 @@ impl SealResolveRequestCore {
 #[serde(deny_unknown_fields)]
 pub struct SelfSealResolveRequestBody {
     pub realm_id: RealmId,
-    pub seal_refs: Vec<SealId>,
+    #[serde(flatten)]
+    pub selection: SealResolveSelection,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_traversal_access: Option<SelfHistoryTraversalAccess>,
 }
 
 impl SelfSealResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        validate_seal_resolve_selectors(&self.seal_refs)
+        self.selection.validate()
     }
 }
 
@@ -573,41 +576,68 @@ impl SelfSealResolveRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct PeerSealResolveRequestBody {
     pub realm_id: RealmId,
-    pub seal_refs: Vec<SealId>,
+    #[serde(flatten)]
+    pub selection: SealResolveSelection,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history_traversal_access: Option<PeerHistoryTraversalAccess>,
 }
 
 impl PeerSealResolveRequestBody {
     pub fn validate(&self) -> Result<()> {
-        validate_seal_resolve_selectors(&self.seal_refs)
+        self.selection.validate()
     }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SealResolveOutcome {
-    pub seals: Vec<Seal>,
-    pub missing_seal_refs: Vec<SealId>,
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(untagged, deny_unknown_fields)]
+pub enum SealResolveOutcome {
+    Seals {
+        seals: Vec<Seal>,
+        missing_seal_refs: Vec<SealId>,
+    },
+    Conclusions {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        conclusion_set: Option<SealConclusionSet>,
+        missing_conclusion_queries: Vec<SealConclusionQuery>,
+    },
 }
 
 impl SealResolveOutcome {
     pub fn validate_structural(&self) -> Result<()> {
-        for seal in &self.seals {
-            seal.validate_structural()?;
-        }
-        if self.seals.windows(2).any(|pair| pair[0].id >= pair[1].id)
-            || !unique_strings(self.missing_seal_refs.iter().map(SealId::as_str))
-            || self.seals.iter().any(|seal| {
-                self.missing_seal_refs
-                    .iter()
-                    .any(|missing| missing == &seal.id)
-            })
-        {
-            return Err(WireError::Protocol(
-                "Seal resolve outcome must be sorted and duplicate-free".to_owned(),
-            ));
+        match self {
+            Self::Seals {
+                seals,
+                missing_seal_refs,
+            } => {
+                for seal in seals {
+                    seal.validate_structural()?;
+                }
+                if seals.windows(2).any(|pair| pair[0].id >= pair[1].id)
+                    || !unique_strings(missing_seal_refs.iter().map(SealId::as_str))
+                    || seals
+                        .iter()
+                        .any(|seal| missing_seal_refs.iter().any(|missing| missing == &seal.id))
+                {
+                    return Err(WireError::Protocol(
+                        "Seal resolve outcome must be sorted and duplicate-free".to_owned(),
+                    ));
+                }
+            }
+            Self::Conclusions {
+                conclusion_set,
+                missing_conclusion_queries,
+            } => {
+                if let Some(set) = conclusion_set {
+                    set.validate_structural()?;
+                } else if missing_conclusion_queries.is_empty() {
+                    return Err(WireError::Protocol(
+                        "Seal conclusion outcome without evidence must report a missing query"
+                            .to_owned(),
+                    ));
+                }
+                validate_optional_seal_conclusion_queries(missing_conclusion_queries)?;
+            }
         }
         Ok(())
     }
@@ -615,31 +645,77 @@ impl SealResolveOutcome {
     pub fn validate_for_peer_request(&self, request: &PeerSealResolveRequestBody) -> Result<()> {
         request.validate()?;
         self.validate_structural()?;
-        let returned = self
-            .seals
-            .iter()
-            .map(|seal| seal.id.clone())
-            .collect::<std::collections::BTreeSet<_>>();
-        let missing = self
-            .missing_seal_refs
-            .iter()
-            .cloned()
-            .collect::<std::collections::BTreeSet<_>>();
-        let requested = request
-            .seal_refs
-            .iter()
-            .cloned()
-            .collect::<std::collections::BTreeSet<_>>();
-        if !returned.is_disjoint(&missing)
-            || returned
-                .union(&missing)
-                .cloned()
-                .collect::<std::collections::BTreeSet<_>>()
-                != requested
-        {
-            return Err(WireError::Protocol(
-                "peer Seal resolve outcome does not account for every-and-only selector".to_owned(),
-            ));
+        self.validate_for_selection(&request.selection)
+    }
+
+    pub fn validate_for_selection(&self, selection: &SealResolveSelection) -> Result<()> {
+        match (selection, self) {
+            (
+                SealResolveSelection::SealRefs { seal_refs },
+                Self::Seals {
+                    seals,
+                    missing_seal_refs,
+                },
+            ) => {
+                let returned = seals
+                    .iter()
+                    .map(|seal| seal.id.clone())
+                    .collect::<std::collections::BTreeSet<_>>();
+                let missing = missing_seal_refs
+                    .iter()
+                    .cloned()
+                    .collect::<std::collections::BTreeSet<_>>();
+                let requested = seal_refs
+                    .iter()
+                    .cloned()
+                    .collect::<std::collections::BTreeSet<_>>();
+                if !returned.is_disjoint(&missing)
+                    || returned
+                        .union(&missing)
+                        .cloned()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        != requested
+                {
+                    return Err(WireError::Protocol(
+                        "peer Seal resolve outcome does not account for every-and-only selector"
+                            .to_owned(),
+                    ));
+                }
+            }
+            (
+                SealResolveSelection::ConclusionQueries { conclusion_queries },
+                Self::Conclusions {
+                    conclusion_set,
+                    missing_conclusion_queries,
+                },
+            ) => {
+                let mut accounted = missing_conclusion_queries.clone();
+                if let Some(set) = conclusion_set {
+                    for certificate in &set.conclusions {
+                        let Some(query) = conclusion_queries
+                            .iter()
+                            .find(|query| certificate.statement.matches_query(query))
+                        else {
+                            return Err(WireError::Protocol(
+                                "peer Seal conclusion does not match a requested query".to_owned(),
+                            ));
+                        };
+                        accounted.push(query.clone());
+                    }
+                }
+                if canonical_sorted_keys(&accounted)? != canonical_sorted_keys(conclusion_queries)?
+                {
+                    return Err(WireError::Protocol(
+                        "peer Seal conclusion outcome does not account for every query exactly once"
+                            .to_owned(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "peer Seal resolve request and outcome use different selector modes".to_owned(),
+                ));
+            }
         }
         Ok(())
     }
@@ -655,6 +731,50 @@ fn validate_seal_resolve_selectors(seal_refs: &[SealId]) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+fn validate_seal_conclusion_queries(queries: &[SealConclusionQuery]) -> Result<()> {
+    if queries.is_empty() || queries.len() > 128 {
+        return Err(WireError::Protocol(
+            "Seal resolve requires 1..=128 conclusion_queries".to_owned(),
+        ));
+    }
+    validate_optional_seal_conclusion_queries(queries)
+}
+
+fn validate_optional_seal_conclusion_queries(queries: &[SealConclusionQuery]) -> Result<()> {
+    if queries.len() > 128 {
+        return Err(WireError::Protocol(
+            "Seal resolve conclusion query limit exceeded".to_owned(),
+        ));
+    }
+    for query in queries {
+        query.validate_structural()?;
+    }
+    let keys = queries
+        .iter()
+        .map(canonical::canonical_json_bytes)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    if keys.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(WireError::Protocol(
+            "Seal conclusion queries must be JCS-byte sorted and duplicate-free".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn canonical_sorted_keys<T: Serialize>(values: &[T]) -> Result<Vec<Vec<u8>>> {
+    let mut keyed = values
+        .iter()
+        .map(canonical::canonical_json_bytes)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    keyed.sort();
+    if keyed.windows(2).any(|pair| pair[0] == pair[1]) {
+        return Err(WireError::Protocol(
+            "Seal conclusion queries must be duplicate-free".to_owned(),
+        ));
+    }
+    Ok(keyed)
 }
 
 fn unique_strings<'a>(mut values: impl Iterator<Item = &'a str>) -> bool {

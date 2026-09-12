@@ -51,11 +51,5 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 name = "causal_register"
 harness = false
 
-# The other half of the same question: what a Seal-view rebuild costs, and what
-# a chain of them costs in total. Same command, same "never in CI" rule.
-[[bench]]
-name = "seal_view_rebuild"
-harness = false
-
 [lints]
 workspace = true

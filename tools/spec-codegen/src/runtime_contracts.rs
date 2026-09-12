@@ -763,7 +763,7 @@ pub struct RealmBootstrapProfileDescriptor {
     pub profile: RealmBootstrapProfile,
     pub atomic: bool,
     pub all_or_nothing: bool,
-    pub genesis_seal_covers_complete_unit: bool,
+    pub genesis_confirms_complete_unit: bool,
     pub ordered_slots: &'static [RealmBootstrapSlotDescriptor],
 }
 
@@ -804,9 +804,9 @@ pub struct RealmBootstrapProfileDescriptor {
     for (name, profile) in bootstrap_profiles(inputs) {
         writeln!(
             output,
-            "    RealmBootstrapProfileDescriptor {{ profile: RealmBootstrapProfile::{}, atomic: {}, all_or_nothing: {}, genesis_seal_covers_complete_unit: {}, ordered_slots: {}_BOOTSTRAP_SLOTS }},",
+            "    RealmBootstrapProfileDescriptor {{ profile: RealmBootstrapProfile::{}, atomic: {}, all_or_nothing: {}, genesis_confirms_complete_unit: {}, ordered_slots: {}_BOOTSTRAP_SLOTS }},",
             variant(name, &[]), profile.atomic, profile.all_or_nothing,
-            profile.genesis_seal_covers_complete_unit, associated_name(name, &[])
+            profile.genesis_confirms_complete_unit, associated_name(name, &[])
         )
         .expect("write to String");
     }

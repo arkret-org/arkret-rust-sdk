@@ -5,7 +5,7 @@ use arkret_models_crypto::EncryptedEnvelope;
 use arkret_wire::{
     AccountId, ActorId, AuthContext, AuthoredEvent, AuthorizationRef, Base64UrlString,
     EncryptedPayloadScheme, Event, EventId, EventKind, EventRef, Hash, Hlc, RealmId, RequestId,
-    Result, ScopeRef, SealId, StrandId, WireError,
+    Result, ScopeRef, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -189,7 +189,6 @@ impl MessagePrepareOutcome {
         request: &MessagePrepareRequestBody,
         frontier: RealmActorFrontierView,
         scope_ref: ScopeRef,
-        seal_ref: SealId,
         auth_context: AuthContext,
         authorization_ref: Option<AuthorizationRef>,
         direct_binding: Option<EventId>,
@@ -209,7 +208,6 @@ impl MessagePrepareOutcome {
             created_at: request.created_at,
             hlc: request.hlc.clone(),
             prev_refs: frontier.frontier_event_ids.clone(),
-            seal_ref: Some(seal_ref),
             auth_context: Some(auth_context),
             authorization_ref,
             executed_by: None,
@@ -286,7 +284,6 @@ impl MessagePrepareOutcome {
             || e.actor_seq != f.next_actor_seq
             || e.prev_refs != f.frontier_event_ids
             || e.actor_seq > 9_007_199_254_740_991
-            || e.seal_ref.is_none()
             || e.auth_context.is_none()
             || e.seal_basis.is_some()
             || !valid_message_refs(e)
@@ -408,6 +405,9 @@ mod tests {
                 .unwrap(),
             key_epoch: 0,
             credential_epoch: None,
+            authority_refs: vec![
+                arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            ],
         }
     }
     fn prepare(
@@ -429,7 +429,6 @@ mod tests {
             ScopeRef::Realm {
                 realm_id: request.realm_id.clone(),
             },
-            SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
             auth(),
             None,
             None,
@@ -458,7 +457,6 @@ mod tests {
                 &request,
                 frontier.clone(),
                 scope.clone(),
-                SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
                 auth(),
                 Some(
                     AuthorizationRef::new(

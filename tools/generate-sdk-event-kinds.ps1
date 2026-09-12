@@ -169,12 +169,9 @@ foreach ($k in $arr) {
         ReducerInput = [bool]$row.reducer_input
         Admission = if ($null -eq $row.admission) { $null } else { [string]$row.admission }
         PayloadSchemaRef = if ($null -eq $row.payload_schema_ref) { $null } else { [string]$row.payload_schema_ref }
-        ConcurrencyClass = if ($null -eq $row.concurrency_class) { $null } else { [string]$row.concurrency_class }
         CellFamily = if ($null -eq $row.cell_family) { $null } else { [string]$row.cell_family }
         CellSubjectRule = $row.cell_subject
         ValueProjectionRule = $row.value_projection
-        Lattice = if ($null -eq $row.lattice) { $null } else { [string]$row.lattice }
-        Bottom = if ($null -eq $row.bottom) { $null } else { [string]$row.bottom }
         Plane = if ($null -eq $row.plane) { $null } else { [string]$row.plane }
         Sealed = [bool]$row.sealed
         CellWrites = @(
@@ -184,7 +181,9 @@ foreach ($k in $arr) {
                         CellFamily = if ($null -eq $write.cell_family) { $null } else { [string]$write.cell_family }
                         CellRefRule = $write.cell_ref
                         CellSubjectRule = $write.cell_subject
-                        Lattice = if ($null -eq $write.lattice) { $null } else { [string]$write.lattice }
+                        Execution = if ($null -eq $write.execution) { $null } else { [string]$write.execution }
+                        StateModel = if ($null -eq $write.state_model) { $null } else { [string]$write.state_model }
+                        ValueShape = if ($null -eq $write.value_shape) { $null } else { [string]$write.value_shape }
                         Bottom = if ($null -eq $write.bottom) { $null } else { [string]$write.bottom }
                         ValueProjectionRule = $write.value_projection
                         ForEachRule = $write.for_each
@@ -200,11 +199,10 @@ foreach ($k in $arr) {
 
 foreach ($entry in $entries) {
     if ($entry.ReducerInput) {
-        if ($entry.Plane -ne 'data' -and $entry.Plane -ne 'control') {
-            throw "reducer-input event kind '$($entry.Kind)' must declare plane=data|control"
-        }
-    } elseif ($null -ne $entry.Plane) {
-        throw "non-reducer event kind '$($entry.Kind)' must not declare a CBS plane"
+        $executions = @($entry.CellWrites | ForEach-Object { $_.Execution } | Where-Object { $null -ne $_ } | Sort-Object -Unique)
+        $entry.Plane = if ($executions -contains 'security') { 'control' } else { 'data' }
+    } else {
+        $entry.Plane = $null
     }
 }
 
@@ -223,17 +221,16 @@ foreach ($entry in $entries) {
     if ($families.Count -eq 0) {
         continue
     }
-    if ($entry.Plane -ne "data" -and $entry.Plane -ne "control") {
-        throw "event kind '$($entry.Kind)' with cell families '$($families -join ', ')' must declare plane=data|control"
-    }
     foreach ($family in $families) {
+        $write = @($entry.CellWrites | Where-Object { $_.CellFamily -eq $family })[0]
+        $familyPlane = if ($write.Execution -eq 'security') { 'control' } else { 'data' }
         if ($cellFamilyPlaneByFamily.ContainsKey($family)) {
             $existingPlane = [string]$cellFamilyPlaneByFamily[$family]
-            if ($existingPlane -ne $entry.Plane) {
-                throw "cell family '$family' has conflicting planes '$existingPlane' and '$($entry.Plane)'"
+            if ($existingPlane -ne $familyPlane) {
+                throw "cell family '$family' has conflicting planes '$existingPlane' and '$familyPlane'"
             }
         } else {
-            $cellFamilyPlaneByFamily[$family] = $entry.Plane
+            $cellFamilyPlaneByFamily[$family] = $familyPlane
         }
     }
 }
@@ -255,7 +252,9 @@ $cellFamilyPlanes = @($cellFamilyNames | ForEach-Object {
 })
 
 $categories = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.Category })
-$lattices = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Lattice) { $_.Lattice } } })
+$stateModels = @("causal_register", "counter", "or_set", "ordered_log", "sequenced_state")
+$executions = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Execution) { $_.Execution } } })
+$valueShapes = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.ValueShape) { $_.ValueShape } } })
 $bottomModes = Sort-Utf8ByteLexicographic -Values @($entries | ForEach-Object { $_.CellWrites | ForEach-Object { if ($null -ne $_.Bottom) { $_.Bottom } } })
 
 $lines = New-Object System.Collections.Generic.List[string]
@@ -371,26 +370,40 @@ foreach ($entry in $cellFamilyPlanes) {
 & $add "    }"
 & $add "}"
 & $add ""
-& $add "/// Closed lattice identifier used by registry-declared event cell writes."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
-& $add "pub enum EventCellLattice {"
-foreach ($lattice in $lattices) {
-    & $add "    $(ConvertTo-SimpleVariant -Value $lattice),"
+& $add "/// Closed state model used by registry-declared event cell writes."
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]"
+& $add "#[serde(rename_all = `"snake_case`")]"
+& $add "pub enum EventCellStateModel {"
+foreach ($stateModel in $stateModels) {
+    & $add "    $(ConvertTo-SimpleVariant -Value $stateModel),"
 }
 & $add "}"
 & $add ""
-& $add "impl EventCellLattice {"
+& $add "impl EventCellStateModel {"
 & $add "    pub const fn as_str(self) -> &'static str {"
 & $add "        match self {"
-foreach ($lattice in $lattices) {
-    & $add "            Self::$(ConvertTo-SimpleVariant -Value $lattice) => `"$lattice`","
+foreach ($stateModel in $stateModels) {
+    & $add "            Self::$(ConvertTo-SimpleVariant -Value $stateModel) => `"$stateModel`","
 }
 & $add "        }"
 & $add "    }"
 & $add "}"
 & $add ""
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]"
+& $add "#[serde(rename_all = `"snake_case`")]"
+& $add "pub enum EventCellExecution {"
+foreach ($execution in $executions) { & $add "    $(ConvertTo-SimpleVariant -Value $execution)," }
+& $add "}"
+& $add ""
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]"
+& $add "#[serde(rename_all = `"snake_case`")]"
+& $add "pub enum EventCellValueShape {"
+foreach ($valueShape in $valueShapes) { & $add "    $(ConvertTo-SimpleVariant -Value $valueShape)," }
+& $add "}"
+& $add ""
 & $add "/// Closed bottom-state behavior used by registry-declared event cell writes."
-& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]"
+& $add "#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]"
+& $add "#[serde(rename_all = `"snake_case`")]"
 & $add "pub enum EventCellBottom {"
 foreach ($bottom in $bottomModes) {
     & $add "    $(ConvertTo-SimpleVariant -Value $bottom),"
@@ -539,7 +552,9 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub cell_family: Option<CellFamilyId>,"
 & $add "    pub cell_ref_rule: Option<EventCellRule>,"
 & $add "    pub cell_subject_rule: Option<EventCellRule>,"
-& $add "    pub lattice: Option<EventCellLattice>,"
+& $add "    pub execution: Option<EventCellExecution>,"
+& $add "    pub state_model: Option<EventCellStateModel>,"
+& $add "    pub value_shape: Option<EventCellValueShape>,"
 & $add "    pub bottom: Option<EventCellBottom>,"
 & $add "    pub value_projection_rule: Option<EventCellRule>,"
 & $add "    pub for_each_rule: Option<EventCellRule>,"
@@ -564,7 +579,6 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    pub reducer_input: bool,"
 & $add "    pub admission: Option<&'static str>,"
 & $add "    pub payload_schema_ref: Option<&'static str>,"
-& $add "    pub concurrency_class: Option<&'static str>,"
 & $add "    pub cell_writes: &'static [EventCellWriteDescriptor],"
 & $add "    pub cell_family: Option<&'static str>,"
 & $add "    /// Cell-subject rule; ``None`` means the envelope ``realm_id``."
@@ -572,8 +586,6 @@ foreach ($operator in $sortedRuleOperators) {
 & $add "    /// ``op.value`` projection rule for ordered_log appends; ``None`` means"
 & $add "    /// the kind declares no registry-driven append value."
 & $add "    pub value_projection_rule: Option<EventCellRule>,"
-& $add "    pub lattice: Option<&'static str>,"
-& $add "    pub bottom: Option<&'static str>,"
 & $add "    plane: Option<CbsEffectPlane>,"
 & $add "    pub sealed: bool,"
 & $add "}"
@@ -703,6 +715,11 @@ foreach ($e in $entries) {
 & $add "    /// Whether the registry declares this reducer-input kind on the Control plane."
 & $add "    pub fn is_control_plane(&self) -> bool {"
 & $add "        self.cbs_plane() == Some(CbsEffectPlane::Control)"
+& $add "    }"
+& $add ""
+& $add "    /// Whether any registered write for this kind targets sequenced safety state."
+& $add "    pub fn has_security_writes(&self) -> bool {"
+& $add "        self.descriptor().is_some_and(|descriptor| descriptor.cell_writes.iter().any(|write| write.execution == Some(EventCellExecution::Security)))"
 & $add "    }"
 & $add "}"
 & $add ""
@@ -850,15 +867,12 @@ foreach ($e in $entries) {
     }
     $cellSubjectRule = if ($null -eq $e.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $e.CellSubjectRule))" }
     $valueProjectionRule = if ($null -eq $e.ValueProjectionRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $e.ValueProjectionRule))" }
-    $lattice = if ($null -eq $e.Lattice) { "None" } else { "Some(`"$($e.Lattice)`")" }
-    $bottom = if ($null -eq $e.Bottom) { "None" } else { "Some(`"$($e.Bottom)`")" }
     $plane = if ($null -eq $e.Plane) {
         "None"
     } else {
         "Some(CbsEffectPlane::$(ConvertTo-SimpleVariant -Value $e.Plane))"
     }
     $sealed = if ($e.Sealed) { "true" } else { "false" }
-    $concurrencyClass = if ($null -eq $e.ConcurrencyClass) { "None" } else { "Some(`"$($e.ConcurrencyClass)`")" }
     & $add "    EventKindDescriptor {"
     & $add "        kind: event_kind_str::$associatedName,"
     & $add "        category: EventRegistryCategory::$($e.CategoryVariant),"
@@ -866,7 +880,6 @@ foreach ($e in $entries) {
     & $add "        reducer_input: $reducerInput,"
     & $add "        admission: $admission,"
     & $add "        payload_schema_ref: $payloadSchemaRef,"
-    & $add "        concurrency_class: $concurrencyClass,"
     if ($e.CellWrites.Count -eq 0) {
         & $add "        cell_writes: &[],"
     } else {
@@ -879,7 +892,9 @@ foreach ($e in $entries) {
                 $familyVariant = ConvertTo-SimpleVariant -Value $familyBody
                 "Some(CellFamilyId::$familyVariant)"
             }
-            $cellWriteLattice = if ($null -eq $write.Lattice) { "None" } else { "Some(EventCellLattice::$(ConvertTo-SimpleVariant -Value $write.Lattice))" }
+            $cellWriteExecution = if ($null -eq $write.Execution) { "None" } else { "Some(EventCellExecution::$(ConvertTo-SimpleVariant -Value $write.Execution))" }
+            $cellWriteStateModel = if ($null -eq $write.StateModel) { "None" } else { "Some(EventCellStateModel::$(ConvertTo-SimpleVariant -Value $write.StateModel))" }
+            $cellWriteValueShape = if ($null -eq $write.ValueShape) { "None" } else { "Some(EventCellValueShape::$(ConvertTo-SimpleVariant -Value $write.ValueShape))" }
             $cellWriteBottom = if ($null -eq $write.Bottom) { "None" } else { "Some(EventCellBottom::$(ConvertTo-SimpleVariant -Value $write.Bottom))" }
             $cellRefRule = if ($null -eq $write.CellRefRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellRefRule))" }
             $cellSubject = if ($null -eq $write.CellSubjectRule) { "None" } else { "Some($(ConvertTo-RuleExpression -Value $write.CellSubjectRule))" }
@@ -892,7 +907,9 @@ foreach ($e in $entries) {
             & $add "                cell_family: $cellWriteFamily,"
             & $add "                cell_ref_rule: $cellRefRule,"
             & $add "                cell_subject_rule: $cellSubject,"
-            & $add "                lattice: $cellWriteLattice,"
+            & $add "                execution: $cellWriteExecution,"
+            & $add "                state_model: $cellWriteStateModel,"
+            & $add "                value_shape: $cellWriteValueShape,"
             & $add "                bottom: $cellWriteBottom,"
             & $add "                value_projection_rule: $valueProjection,"
             & $add "                for_each_rule: $forEach,"
@@ -906,8 +923,6 @@ foreach ($e in $entries) {
     & $add "        cell_family: $cellFamily,"
     & $add "        cell_subject_rule: $cellSubjectRule,"
     & $add "        value_projection_rule: $valueProjectionRule,"
-    & $add "        lattice: $lattice,"
-    & $add "        bottom: $bottom,"
     & $add "        plane: $plane,"
     & $add "        sealed: $sealed,"
     & $add "    },"

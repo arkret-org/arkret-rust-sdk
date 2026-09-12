@@ -128,6 +128,7 @@ pub use arkret_models_collaboration::call_signal::{
     MuteChangedBy, RenegotiationReason, ScreenMediaState, SessionDescription,
     SessionDescriptionType,
 };
+pub use arkret_models_collaboration::current_signer_evidence::*;
 pub use arkret_models_collaboration::direct_conversation_ops::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
@@ -194,6 +195,7 @@ pub use arkret_models_collaboration::objects::space::*;
 pub use arkret_models_collaboration::objects::strand::*;
 pub use arkret_models_collaboration::objects::view::*;
 pub use arkret_models_collaboration::prepared_event_draft::PreparedEventDraft;
+pub use arkret_models_collaboration::seal_conclusion::*;
 pub use arkret_models_collaboration::seal_transparency::*;
 pub use arkret_models_collaboration::session_grant_bodies::*;
 pub use arkret_models_collaboration::signal_message_stream::*;
@@ -347,12 +349,15 @@ pub use arkret_signatures::keypackages::{
 // reach one implementation: `arkret_sdk::webvh::prepare_principal_inception`,
 // `arkret_sdk::realm_organization_statement_sign`.
 pub use arkret_signatures::{
-    realm_organization, realm_organization_statement_sign, service_identity, webvh,
+    realm_organization, realm_organization_statement_sign, service_identity, sign_seal_conclusion,
+    sign_seal_configuration_handoff, verify_seal_conclusion_quorum_signatures,
+    verify_seal_conclusion_set_quorum_chain, verify_seal_configuration_handoff_quorum_signatures,
+    webvh,
 };
 pub use arkret_state::mls_governance_proof::*;
-pub use arkret_state::{lattice, realm_state_snapshot, state, *};
+pub use arkret_state::{realm_state_snapshot, state, state_model, *};
 pub use arkret_wire::authored_event::AuthoredEvent;
-pub use arkret_wire::bottom::{Bottom, BottomContext, BottomKind, SealView, bottom_details};
+pub use arkret_wire::bottom::{Bottom, BottomKind, CausalHead};
 pub use arkret_wire::cbs::{
     LatticeOp, LatticeOpType, ObservedRemoveMatch, Precondition, Predicate, PredicateOp,
     ProjectedCellWrite, ProjectedOp, ProjectionEffect, SealBasis,
@@ -364,7 +369,7 @@ pub use arkret_wire::device_revocation::*;
 pub use arkret_wire::error_codes::*;
 pub use arkret_wire::event_envelope::*;
 pub use arkret_wire::notary::{
-    ForensicAttribution, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
+    NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
 };
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::organization_recovery::{
@@ -381,7 +386,9 @@ pub use arkret_wire::receive_policy::{
     NewSourceQuotaOverride, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
 };
 pub use arkret_wire::seal::{
-    MultiSigKind, MultiSignature, NotarySig, Seal, SealKind, SealSignature, compute_seal_id,
+    AuthorizationClosure, CommandOutcome, CommandResult, CommandResultCellState,
+    CommandResultEffect, ExistenceAnchor, MultiSigKind, MultiSignature, Seal, SealSignature,
+    TransactionManifest, TransactionParticipant, TransactionRecord, compute_seal_id,
     seal_canonical_bytes,
 };
 pub use arkret_wire::self_contact_paths::*;
@@ -394,11 +401,11 @@ pub use arkret_wire::{
     DidFreshnessProfileId, DidFreshnessRiskTier, EXPORTER_LABELS, EffectId, EvaluationClass,
     EventInitialSubmission, EventKind, ExporterLabelId, GenesisSalt, HPKE_SUITES, IdempotencyKey,
     KeyPackageClaimId, KeyPackageRef, MLS_CIPHERSUITES, MLS_EXTENSIONS, MlsCiphersuiteId,
-    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofContextId, ProtocolOpaqueId, ProtocolOperationId,
-    ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES, RELATION_KIND_DESCRIPTORS, ReservationHandle,
-    ResourceMatchScope, ResourceSelectorKind, SERVICE_KIND_DESCRIPTORS,
-    SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId, ServiceKind,
-    ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
+    PROOF_CONTEXTS, ProfileId, ProfileRole, ProofAuthenticatedPublication, ProofContextId,
+    ProtocolOpaqueId, ProtocolOperationId, ProtocolSignature, QUERY_AUTH_PARAMETER_NAMES,
+    RELATION_KIND_DESCRIPTORS, ReservationHandle, ResourceMatchScope, ResourceSelectorKind,
+    SERVICE_KIND_DESCRIPTORS, SERVICE_OPERATION_DESCRIPTORS, SIGNATURE_ALGORITHMS, SchemaId,
+    ServiceKind, ServiceOperationDescriptor, ServiceOperationId, SignerEvidenceRef, WireError,
     WireResourceSelector, XExtensionMap, contains_query_auth_material, error_codes, event_spec,
     is_query_auth_parameter,
 };
@@ -418,12 +425,11 @@ pub use managed_actor_authoring::{
 pub use mls_governance::{
     AgentHistoricalTrustFuture, AgentHistoricalTrustRequest, VerifiedAgentCurrentContext,
     VerifiedMlsGovernanceClosure, VerifyAgentHistoryKeyFuture, VerifyAgentHistoryKeySend,
-    authenticated_document_key, authenticated_document_method_key,
-    build_agent_signer_resolution_evidence,
+    authenticated_document_key, authenticated_document_method_key, build_agent_signer_evidence,
     current_authorization_incarnation_from_verified_checkpoint, declared_genesis_live_digest_suite,
     derive_verified_mls_governance_checkpoint_at_basis,
     history_join_epoch_from_verified_checkpoint, materialize_mls_governance_frontier,
-    signed_event_digest_claim, verified_member_history_from_checkpoint,
+    signed_event_digest_claim, signer_evidence_ref, verified_member_history_from_checkpoint,
     verified_membership_from_checkpoint, verify_agent_current_context,
     verify_agent_current_signer_key, verify_agent_historical_event_key,
     verify_agent_history_source_key, verify_agent_portable_trust,
@@ -545,9 +551,8 @@ pub use server::reject_query_auth;
 /// receiver runs. A producer states no writes in v1, so this is a self-check,
 /// not a stamping step: a payload the contract cannot project fails here
 /// instead of reaching the wire and being rejected with
-/// `effects_payload_mismatch`. It deliberately checks the projection only, not
-/// the DataEvent-vs-Control-Move plane routing — the draft has no `seal_ref`
-/// yet, so that check belongs to the submit gate, not to authoring.
+/// `effects_payload_mismatch`. Plane and authority validation remains the
+/// submit gate's responsibility.
 /// A sentinel Event identity used only to prove that a projected cell does NOT
 /// depend on the Event's own id. It never reaches an envelope.
 const CELL_PROJECTION_SENTINEL: [u8; 32] = [0xEE; 32];
@@ -579,7 +584,6 @@ pub fn pre_authoring_cell_writes(
         payload: intent.payload().clone(),
         refs: intent.refs().to_vec(),
         preconditions: intent.preconditions().to_vec(),
-        seal_ref: intent.seal_ref().cloned(),
         seal_basis: intent.seal_basis().cloned(),
     };
     let writes = arkret_schema::project_registered_operation_writes(&input, digest_suite)?;

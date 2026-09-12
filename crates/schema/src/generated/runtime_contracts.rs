@@ -1,15 +1,15 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
-//! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-12.7;
-//! sha256=a84b212eeba239661596f8e00ea9069672ede4c40553240fb94e80c35f9b8ebc Input: registry/
-//! operation-registry.json; version=2026-09-12.4;
-//! sha256=0039b4e044ab8a6c4d16f7087ec4fef777fde8bfd646d63c571b39b0ab736d0a Input: registry/
-//! event-kind-registry.json; version=2026-09-12.2;
-//! sha256=153db91288d2b05f75a41ca4cc782575d59be4d7bf6c32ea7266cfe24aaeae0f Input: registry/
-//! schema-registry.json; version=2026-09-12.2;
-//! sha256=b2a12a38ed81c1d6540c74a5acb897d32db8f0c696b389416e26ed594f8a346b Input: registry/
+//! sha256=82991c3998023999d1c55dfcc3ff42c1e30fffa5501fed4ce033d29dc49a4f62 Input: registry/
+//! contract-registry.json; version=2026-09-12.16;
+//! sha256=edb751967c5941e7d8ac4b6687c5d9b3bcf899bd658f14909d7d436e3f6a4c19 Input: registry/
+//! operation-registry.json; version=2026-09-12.14;
+//! sha256=44642cb38642dd0602fc6c08be50f05ba603b158e51fdbf7bd53d1faf9a5992b Input: registry/
+//! event-kind-registry.json; version=2026-09-12.12;
+//! sha256=642e46d669af8f44f5b221702430ba8e3adaced82393eeb105750e08ebc780da Input: registry/
+//! schema-registry.json; version=2026-09-12.12;
+//! sha256=59cdd1ff7620d3d800f9052caa1c18728d160be728607f716ac1433944f9d994 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -159,7 +159,7 @@ pub struct RealmBootstrapProfileDescriptor {
     pub profile: RealmBootstrapProfile,
     pub atomic: bool,
     pub all_or_nothing: bool,
-    pub genesis_seal_covers_complete_unit: bool,
+    pub genesis_confirms_complete_unit: bool,
     pub ordered_slots: &'static [RealmBootstrapSlotDescriptor],
 }
 
@@ -265,14 +265,14 @@ pub const REALM_BOOTSTRAP_PROFILES: &[RealmBootstrapProfileDescriptor] = &[
         profile: RealmBootstrapProfile::OrdinaryCollaboration,
         atomic: true,
         all_or_nothing: true,
-        genesis_seal_covers_complete_unit: true,
+        genesis_confirms_complete_unit: true,
         ordered_slots: ORDINARY_COLLABORATION_BOOTSTRAP_SLOTS,
     },
     RealmBootstrapProfileDescriptor {
         profile: RealmBootstrapProfile::DirectConversation,
         atomic: true,
         all_or_nothing: true,
-        genesis_seal_covers_complete_unit: true,
+        genesis_confirms_complete_unit: true,
         ordered_slots: DIRECT_CONVERSATION_BOOTSTRAP_SLOTS,
     },
 ];
@@ -809,8 +809,8 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
     ServiceOperationId::SelfAccountReadDescribeV1,
 ];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-12.2";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-12.2";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-12.4";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-12.12";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-12.12";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-12.14";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

@@ -962,7 +962,7 @@ pub async fn history_access_from_verified_checkpoint(
         return invalid("history policy checkpoint belongs to another Realm");
     }
     let cell = arkret_wire::CellRef::new(cell)?;
-    let registry = arkret_lattice_registry::try_build_sdk_cell_registry()
+    let registry = arkret_lattice_registry::try_build_sdk_state_registry()
         .map_err(|error| WireError::Protocol(error.to_string()))?;
     let audits =
         arkret_schema::CapabilityAuthorityAuditIndex::from_events(&checkpoint.accepted_events);
@@ -988,7 +988,7 @@ pub async fn winning_history_cipher_suite_from_verified_checkpoint(
     if effective_scope.canonical_mls_group_id()? != mls_group_id {
         return invalid("history suite query group id is not canonical for its scope");
     }
-    let registry = arkret_lattice_registry::try_build_sdk_cell_registry().map_err(|error| {
+    let registry = arkret_lattice_registry::try_build_sdk_state_registry().map_err(|error| {
         WireError::Protocol(format!("MLS history registry construction failed: {error}"))
     })?;
     let cell = arkret_state::mls_cells::mls_epoch_cell_id(

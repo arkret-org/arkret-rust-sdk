@@ -4,7 +4,8 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::generated::{
-    GENERATED_ACTOR_PRIVATE_FAMILIES, GENERATED_ACTOR_PRIVATE_WRITES, GENERATED_FSM_CONTRACTS,
+    GENERATED_ACTOR_PRIVATE_FAMILIES, GENERATED_ACTOR_PRIVATE_WRITES,
+    GENERATED_TRANSITION_CONTRACTS,
 };
 
 #[derive(Clone, Debug, Error, PartialEq, Eq)]
@@ -14,7 +15,7 @@ pub enum ContractRegistryError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ResolvedFsmContract {
+pub struct ResolvedTransitionContract {
     pub cell_family: String,
     pub axis: String,
     pub states: Vec<String>,
@@ -28,8 +29,6 @@ pub struct ResolvedFsmContract {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ActorPrivateMergeKind {
     ServerRevisionCas,
-    FsmCas,
-    CasRegister,
     CausalThenHlcThenDevice,
 }
 
@@ -45,11 +44,11 @@ pub struct ActorPrivateFamilyContract {
     pub merge: ActorPrivateMergeKind,
     pub tombstone: Option<ActorPrivateTombstoneMode>,
     pub bottom_reject: bool,
-    pub fsm: Option<ActorPrivateFsmContract>,
+    pub transition_contract: Option<ActorPrivateTransitionContract>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ActorPrivateFsmContract {
+pub struct ActorPrivateTransitionContract {
     pub initial_state: String,
     pub states: Vec<String>,
     pub terminal_states: Vec<String>,
@@ -87,7 +86,7 @@ pub enum ActorPrivateEffectProjection {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct GeneratedActorPrivateFsm {
+pub(crate) struct GeneratedActorPrivateTransition {
     pub initial_state: &'static str,
     pub states: &'static [&'static str],
     pub terminal_states: &'static [&'static str],
@@ -100,7 +99,7 @@ pub(crate) struct GeneratedActorPrivateFamily {
     pub merge: ActorPrivateMergeKind,
     pub tombstone: Option<ActorPrivateTombstoneMode>,
     pub bottom_reject: bool,
-    pub fsm: Option<GeneratedActorPrivateFsm>,
+    pub transition_contract: Option<GeneratedActorPrivateTransition>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -127,7 +126,7 @@ impl GeneratedState {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct GeneratedFsmContract {
+pub(crate) struct GeneratedTransitionContract {
     pub cell_family: &'static str,
     pub axis: &'static str,
     pub states: &'static [&'static str],
@@ -242,57 +241,44 @@ impl ActorPrivateRegistry {
             ))
         })?;
         let Some(current) = current else {
-            if let Some(fsm) = &contract.fsm
-                && incoming.value.as_str() != Some(fsm.initial_state.as_str())
+            if let Some(transition_contract) = &contract.transition_contract
+                && incoming.value.as_str() != Some(transition_contract.initial_state.as_str())
             {
                 return Ok(ActorPrivateMergeOutcome::Conflict);
             }
-            if matches!(
-                contract.merge,
-                ActorPrivateMergeKind::ServerRevisionCas | ActorPrivateMergeKind::FsmCas
-            ) && (incoming.expected_revision != Some(0) || incoming.revision != Some(1))
+            if matches!(contract.merge, ActorPrivateMergeKind::ServerRevisionCas)
+                && (incoming.expected_revision != Some(0) || incoming.revision != Some(1))
             {
                 return Ok(ActorPrivateMergeOutcome::Conflict);
             }
             return Ok(ActorPrivateMergeOutcome::Accepted(incoming));
         };
         if current == &incoming
-            || !matches!(
-                contract.merge,
-                ActorPrivateMergeKind::ServerRevisionCas | ActorPrivateMergeKind::FsmCas
-            ) && current.value == incoming.value
+            || !matches!(contract.merge, ActorPrivateMergeKind::ServerRevisionCas)
+                && current.value == incoming.value
                 && same_position(current, &incoming)
         {
             return Ok(ActorPrivateMergeOutcome::Unchanged(current.clone()));
         }
         match contract.merge {
             ActorPrivateMergeKind::ServerRevisionCas => {
-                if valid_revision_successor(current, &incoming) {
-                    Ok(ActorPrivateMergeOutcome::Accepted(incoming))
-                } else {
-                    Ok(ActorPrivateMergeOutcome::Conflict)
-                }
-            }
-            ActorPrivateMergeKind::FsmCas => {
-                let transition_allowed = contract.fsm.as_ref().is_some_and(|fsm| {
-                    current
-                        .value
-                        .as_str()
-                        .zip(incoming.value.as_str())
-                        .is_some_and(|(from, to)| {
-                            fsm.allowed_transitions
-                                .iter()
-                                .any(|edge| edge.0 == from && edge.1 == to)
-                        })
-                });
+                let transition_allowed =
+                    contract
+                        .transition_contract
+                        .as_ref()
+                        .is_none_or(|contract| {
+                            current
+                                .value
+                                .as_str()
+                                .zip(incoming.value.as_str())
+                                .is_some_and(|edge| {
+                                    contract
+                                        .allowed_transitions
+                                        .iter()
+                                        .any(|allowed| allowed.0 == edge.0 && allowed.1 == edge.1)
+                                })
+                        });
                 if transition_allowed && valid_revision_successor(current, &incoming) {
-                    Ok(ActorPrivateMergeOutcome::Accepted(incoming))
-                } else {
-                    Ok(ActorPrivateMergeOutcome::Conflict)
-                }
-            }
-            ActorPrivateMergeKind::CasRegister => {
-                if valid_revision_successor(current, &incoming) {
                     Ok(ActorPrivateMergeOutcome::Accepted(incoming))
                 } else {
                     Ok(ActorPrivateMergeOutcome::Conflict)
@@ -339,12 +325,15 @@ pub fn build_actor_private_registry() -> Result<ActorPrivateRegistry, ContractRe
     let families = GENERATED_ACTOR_PRIVATE_FAMILIES
         .iter()
         .map(|generated| {
-            let fsm = generated.fsm.map(|fsm| ActorPrivateFsmContract {
-                initial_state: fsm.initial_state.to_owned(),
-                states: owned_strings(fsm.states),
-                terminal_states: owned_strings(fsm.terminal_states),
-                allowed_transitions: owned_transitions(fsm.allowed_transitions),
-            });
+            let transition_contract =
+                generated
+                    .transition_contract
+                    .map(|contract| ActorPrivateTransitionContract {
+                        initial_state: contract.initial_state.to_owned(),
+                        states: owned_strings(contract.states),
+                        terminal_states: owned_strings(contract.terminal_states),
+                        allowed_transitions: owned_transitions(contract.allowed_transitions),
+                    });
             (
                 generated.cell_family.to_owned(),
                 ActorPrivateFamilyContract {
@@ -352,7 +341,7 @@ pub fn build_actor_private_registry() -> Result<ActorPrivateRegistry, ContractRe
                     merge: generated.merge,
                     tombstone: generated.tombstone,
                     bottom_reject: generated.bottom_reject,
-                    fsm,
+                    transition_contract,
                 },
             )
         })
@@ -460,15 +449,18 @@ fn valid_revision_successor(
         && incoming.revision == current_revision.checked_add(1)
 }
 
-pub fn canonical_fsm_contracts() -> Result<Vec<ResolvedFsmContract>, ContractRegistryError> {
-    Ok(GENERATED_FSM_CONTRACTS
+pub fn canonical_transition_contracts()
+-> Result<Vec<ResolvedTransitionContract>, ContractRegistryError> {
+    Ok(GENERATED_TRANSITION_CONTRACTS
         .iter()
-        .map(resolved_fsm_contract)
+        .map(resolved_transition_contract)
         .collect())
 }
 
-fn resolved_fsm_contract(generated: &GeneratedFsmContract) -> ResolvedFsmContract {
-    ResolvedFsmContract {
+fn resolved_transition_contract(
+    generated: &GeneratedTransitionContract,
+) -> ResolvedTransitionContract {
+    ResolvedTransitionContract {
         cell_family: generated.cell_family.to_owned(),
         axis: generated.axis.to_owned(),
         states: owned_strings(generated.states),

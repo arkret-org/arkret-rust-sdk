@@ -280,7 +280,7 @@ impl CbsProofBundle {
             }
             if let Some(seal) = seals_by_id.get(&seal_id) {
                 pending.extend(
-                    seal.predecessor_refs
+                    seal.predecessor_ref
                         .iter()
                         .filter(|predecessor| seals_by_id.contains_key(*predecessor))
                         .cloned()
