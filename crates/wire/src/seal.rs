@@ -306,7 +306,7 @@ impl AuthorizationClosure {
             &self
                 .actions
                 .iter()
-                .map(CapabilityActionId::as_str)
+                .map(|action| action.as_str())
                 .collect::<Vec<_>>(),
         )?;
         validate_sorted_unique("authorization closure frontier", &self.frontier)
