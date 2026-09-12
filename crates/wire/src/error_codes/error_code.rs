@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.13;
-//! sha256=802864bbebd29109fbe1e2cdfe4ebd13bc3619ff3b4a09d6b0782d9b9d2f06df Entries: error_codes=280
+//! Input: registry/error-code-registry.json; version=2026-09-12.16;
+//! sha256=1f174adb0295cdf8fd72d9d07d1998a6a731fe32cb7f1e1a098e7c4eca69fda3 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -1767,7 +1767,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision", "state_resolution"],
-        description: "An Applet, bot actor, or Applet-managed Ghost Actor attempted to join an E2EE Realm / MLS group without the independent E2EE join authorization required by ak.profile.applet_e2ee_join.v1. Ordinary message/write capability grants do not imply MLS join authority. See zh/extensions/applet-integration.md §12.",
+        description: "An Applet, bot actor, or Applet-managed Ghost Actor attempted to join an E2EE Realm / MLS group without the independent E2EE join authorization required by ak.profile.applet_e2ee_join.v1. Ordinary message/write capability grants do not imply MLS join authority. See zh/extensions/applet-integration.md Â§12.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletEffectiveScopeMismatch,
@@ -1787,7 +1787,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call"],
-        description: "ak.self.applet.command.install.v1 recomputed the canonical InstallPlan from the submitted Applet Package, caller-signed registration/capability-grant Events, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before formal Event admission. See zh/extensions/applet-integration.md §4b.",
+        description: "ak.self.applet.command.install.v1 recomputed the canonical InstallPlan from the submitted Applet Package, caller-signed registration/capability-grant Events, effective_scope, and current Realm/Circle policy, and the recomputed plan_digest did not exactly match the submitted plan_digest. Server MUST fail closed and require a fresh preview/approval before formal Event admission. See zh/extensions/applet-integration.md Â§4b.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletInstallProjectionIncomplete,
@@ -1877,7 +1877,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "An Applet registration or transaction attempted to enter a Realm without an explicit grant from the Realm owner, Realm admin, or Realm-policy-authorized administrator actor, as checked by the Station authorization capability. Namespace claims and self-signed applet registration are insufficient. See zh/extensions/applet-integration.md §4.",
+        description: "An Applet registration or transaction attempted to enter a Realm without an explicit grant from the Realm owner, Realm admin, or Realm-policy-authorized administrator actor, as checked by the Station authorization capability. Namespace claims and self-signed applet registration are insufficient. See zh/extensions/applet-integration.md Â§4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletRevoked,
@@ -1887,7 +1887,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A revoked effective Applet install attempted a future write, transaction push side effect, delegated action, widget token use, or E2EE join. Reducers and service-call handlers MUST fail closed after ak.self.applet.command.revoke.v1 / ak.capability.revoke has taken effect. See zh/extensions/applet-integration.md §4b.",
+        description: "A revoked effective Applet install attempted a future write, transaction push side effect, delegated action, widget token use, or E2EE join. Reducers and service-call handlers MUST fail closed after ak.self.applet.command.revoke.v1 / ak.capability.revoke has taken effect. See zh/extensions/applet-integration.md Â§4b.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletTransactionInProgress,
@@ -2187,7 +2187,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "An Agent operation that must preserve controller authorship omitted the required controller-signed durable Event proof. The service MUST NOT synthesize, service-sign, or directly project the missing controller fact. The controller must author and submit the exact closed Event required by the operation. See zh/identity/key-management.md §3.6.1 Lifecycle.",
+        description: "An Agent operation that must preserve controller authorship omitted the required controller-signed durable Event proof. The service MUST NOT synthesize, service-sign, or directly project the missing controller fact. The controller must author and submit the exact closed Event required by the operation. See zh/identity/key-management.md Â§3.6.1 Lifecycle.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CredentialExpired,
@@ -2237,7 +2237,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Cursor integrity check failed for the v1 stateful opaque handle (client-sync §12.1, canonical body `{v, purpose, issued_at, expires_at, h}`): the `h` handle is unknown / revoked / expired / cross-bound, or its stored binding (principal, device, service, filter_digest, purpose) does not match the authenticated request. Distinct from cursor_expired (TTL) and cursor_unrecognized (cross-service portability miss). Client MUST clear local cursor cache and restart from initial /account/subscribe.",
+        description: "Cursor integrity check failed for the v1 stateful opaque handle (client-sync Â§12.1, canonical body `{v, purpose, issued_at, expires_at, h}`): the `h` handle is unknown / revoked / expired / cross-bound, or its stored binding (principal, device, service, filter_digest, purpose) does not match the authenticated request. Distinct from cursor_expired (TTL) and cursor_unrecognized (cross-service portability miss). Client MUST clear local cursor cache and restart from initial /account/subscribe.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorInvalid,
@@ -2257,7 +2257,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Cursor integrity is valid but the issuing service has explicitly revoked this cursor authority before TTL expiry. Endpoint MUST NOT advance subscription position, barrier wait, or dropped recovery state; caller MUST restart from a fresh cursor. To-device queue deletion is decoupled from cursors and unaffected (client-sync.md §10.1).",
+        description: "Cursor integrity is valid but the issuing service has explicitly revoked this cursor authority before TTL expiry. Endpoint MUST NOT advance subscription position, barrier wait, or dropped recovery state; caller MUST restart from a fresh cursor. To-device queue deletion is decoupled from cursors and unaffected (client-sync.md Â§10.1).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorUnrecognized,
@@ -2597,7 +2597,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBS lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md §13; MUST NOT be reported as cas_conflict.",
+        description: "CBS lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md Â§13; MUST NOT be reported as cas_conflict.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
@@ -2607,7 +2607,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBS plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a ordinary Event targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md §13 and zh/sync/service-http-binding.md (write outcomes).",
+        description: "CBS plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a ordinary Event targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md Â§13 and zh/sync/service-http-binding.md (write outcomes).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,
@@ -2617,7 +2617,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Reducer state-machine precondition failed. Carried with a reason_code in the {strand,space,morph}_not_active / _not_archived family or the {strand,space,morph,message,relation}_already_terminal family, or with object-specific reasons like space_parent_cycle. See zh/models/common-fields.md §5.1.",
+        description: "Reducer state-machine precondition failed. Carried with a reason_code in the {strand,space,morph}_not_active / _not_archived family or the {strand,space,morph,message,relation}_already_terminal family, or with object-specific reasons like space_parent_cycle. See zh/models/common-fields.md Â§5.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FederationActorOriginDenied,
@@ -2677,7 +2677,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "E2EE franking proof cannot be produced for the requested ciphertext (sender did not include franking sidecar). See zh/governance/content-moderation.md §3.4.",
+        description: "E2EE franking proof cannot be produced for the requested ciphertext (sender did not include franking sidecar). See zh/governance/content-moderation.md Â§3.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrankingTampered,
@@ -2747,7 +2747,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Session-grant rotation targeted a grant that was already single-use consumed (rotated). Treated as a credential-compromise signal; the rotation chain SHOULD be terminated. See account-lifecycle §4.1.",
+        description: "Session-grant rotation targeted a grant that was already single-use consumed (rotated). Treated as a credential-compromise signal; the rotation chain SHOULD be terminated. See account-lifecycle Â§4.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HandleUnverified,
@@ -2807,7 +2807,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A per-delivery RFC 9421 HTTP Message Signature failed verification; the Content-Digest header profile, exact-content digest, or canonical-JSON wire check failed; or source_id disagreed with the Source-Service-ID header / signature transcript. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A per-delivery RFC 9421 HTTP Message Signature failed verification; the Content-Digest header profile, exact-content digest, or canonical-JSON wire check failed; or source_id disagreed with the Source-Service-ID header / signature transcript. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md Â§5). See zh/extensions/applet-integration.md Â§7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HttpSignatureRequired,
@@ -2817,7 +2817,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A service-to-service request that MUST carry a per-delivery RFC 9421 HTTP Message Signature presented only Authorization: Bearer with no Signature. Applies to Applet transaction push in both directions (node->Applet and app/bridge->arkret edge inbound) and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A service-to-service request that MUST carry a per-delivery RFC 9421 HTTP Message Signature presented only Authorization: Bearer with no Signature. Applies to Applet transaction push in both directions (node->Applet and app/bridge->arkret edge inbound) and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md Â§5). See zh/extensions/applet-integration.md Â§7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::IceConfigDenied,
@@ -3177,7 +3177,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The organization binding is stale — the pinned version no longer reflects current control after a controller rotation, or the receipt has passed expires_at — and the attempted operation is on a high-risk path. Low-risk reads may still proceed; high-risk paths MUST fail closed until a successful refresh, so that one first-time proof cannot authorise the relationship indefinitely.",
+        description: "The organization binding is stale â€” the pinned version no longer reflects current control after a controller rotation, or the receipt has passed expires_at â€” and the attempted operation is on a high-risk path. Low-risk reads may still proceed; high-risk paths MUST fail closed until a successful refresh, so that one first-time proof cannot authorise the relationship indefinitely.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::OverbroadRequest,
@@ -3247,7 +3247,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "A federation high-assurance peer has missed proactive frontier probes or produced invalid/divergent frontier evidence and is quarantined for the affected Realm until fork resolution succeeds. See zh/sync/federation.md §4.5.3.",
+        description: "A federation high-assurance peer has missed proactive frontier probes or produced invalid/divergent frontier evidence and is quarantined for the affected Realm until fork resolution succeeds. See zh/sync/federation.md Â§4.5.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PeerStateStaleUnavailable,
@@ -3267,7 +3267,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The submitted Realm policy combination (discoverability × join_rule × history_access) violates the v1 normative compatibility matrix in zh/discovery/discovery-directory.md §3.1. Reducer keeps the prior accepted state.",
+        description: "The submitted Realm policy combination (discoverability Ã— join_rule Ã— history_access) violates the v1 normative compatibility matrix in zh/discovery/discovery-directory.md Â§3.1. Reducer keeps the prior accepted state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyDenied,
@@ -3317,7 +3317,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A realm-level policy refuses the requested write or fanout (read-receipts §2.5: ak.receipt.read drops when disclosure='disabled'; retry_after_ms is null because retry will not change the outcome).",
+        description: "A realm-level policy refuses the requested write or fanout (read-receipts Â§2.5: ak.receipt.read drops when disclosure='disabled'; retry_after_ms is null because retry will not change the outcome).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PreviewPolicyDenied,
@@ -3327,7 +3327,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "A directory/resolve/search/projection request attempted to obtain a stripped preview, history stub, history snippet, or token-scoped preview that is not allowed by the effective ak.realm.preview_policy. External responses that must be non-enumerating MAY map this to not_found. See zh/governance/history-visibility.md §4.",
+        description: "A directory/resolve/search/projection request attempted to obtain a stripped preview, history stub, history snippet, or token-scoped preview that is not allowed by the effective ak.realm.preview_policy. External responses that must be non-enumerating MAY map this to not_found. See zh/governance/history-visibility.md Â§4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PrincipalUnknown,
@@ -3357,7 +3357,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The private-contact-discovery batch is unavailable for match or replay because it is unknown, belongs to another authenticated device credential, or exceeded batch_completion_ttl_seconds (after which its pinned VOPRF epoch may be released). These causes intentionally share one response. A conforming provider MUST retain the pinned epoch for the full completion TTL. Returned as a padded PSI Class B RFC 9457 Problem Details; callers must start a new blind batch, subject to the existing PSI quota. See zh/discovery/discovery-directory.md §6.4.",
+        description: "The private-contact-discovery batch is unavailable for match or replay because it is unknown, belongs to another authenticated device credential, or exceeded batch_completion_ttl_seconds (after which its pinned VOPRF epoch may be released). These causes intentionally share one response. A conforming provider MUST retain the pinned epoch for the full completion TTL. Returned as a padded PSI Class B RFC 9457 Problem Details; callers must start a new blind batch, subject to the existing PSI quota. See zh/discovery/discovery-directory.md Â§6.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PsiQuotaExhausted,
@@ -3367,7 +3367,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The authenticated device exhausted `max_psi_queries_per_window` for private contact discovery in the current quota window. Returned only at first blind admission, before any target is evaluated; admitted match and exact retries MUST NOT be quota-denied. The response is a PSI Class B RFC 9457 Problem Details with required top-level ASCII-SP padding, exact phase Content-Length bucket, no Content-Encoding/content coding, and the advertised anti-enumeration delay distribution. It MUST carry a decimal-seconds `Retry-After` rounded up to a 300s multiple (minimum 300). Distinct from generic `rate_limited` and from 403 `quota_exceeded`. See zh/discovery/discovery-directory.md §6.3/§6.4.",
+        description: "The authenticated device exhausted `max_psi_queries_per_window` for private contact discovery in the current quota window. Returned only at first blind admission, before any target is evaluated; admitted match and exact retries MUST NOT be quota-denied. The response is a PSI Class B RFC 9457 Problem Details with required top-level ASCII-SP padding, exact phase Content-Length bucket, no Content-Encoding/content coding, and the advertised anti-enumeration delay distribution. It MUST carry a decimal-seconds `Retry-After` rounded up to a 300s multiple (minimum 300). Distinct from generic `rate_limited` and from 403 `quota_exceeded`. See zh/discovery/discovery-directory.md Â§6.3/Â§6.4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PushGatewayUnreachable,
@@ -3477,7 +3477,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' → child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md §2.5.",
+        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' â†’ child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md Â§2.5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyClosed,
@@ -3527,7 +3527,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The target Realm is reversibly frozen or archived and the attempted write is outside the closed exemption set in zh/models/realm-and-space.md §2.6.0. Terminal tombstone/destroy states use realm_terminal_state.",
+        description: "The target Realm is reversibly frozen or archived and the attempted write is outside the closed exemption set in zh/models/realm-and-space.md Â§2.6.0. Terminal tombstone/destroy states use realm_terminal_state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmStateSnapshotAuthorityUnverified,
@@ -3567,7 +3567,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure.v1) requires fresh high-risk action authentication — recent login, WebAuthn, recovery key or a deployment equivalent — and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
+        description: "A high-risk self-service action (for example ak.gate.account.command.request_erasure.v1) requires fresh high-risk action authentication â€” recent login, WebAuthn, recovery key or a deployment equivalent â€” and the presented session does not satisfy the deployment policy. The caller MUST re-authenticate and retry with new request material; the strength of the required proof is deployment governance. See zh/identity/account-lifecycle.md section 8.1 and section 10.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecordingDenied,
@@ -3687,7 +3687,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A recovery session or proof does not satisfy the principal's declared recovery policy. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md §9.5.",
+        description: "A recovery session or proof does not satisfy the principal's declared recovery policy. Dual-registered as a service code and a reason_code (see reason_codes[]). See zh/identity/key-management.md Â§9.5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RecoveryPolicyMissing,
@@ -3877,7 +3877,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md §3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md §5.",
+        description: "Resource selector or constraint exceeds parser hard limits defined in resource-selector-grammar.md Â§3.3 (string length, resources[] length, token count, nesting depth, single-field length, required_claims item count, constraint nesting). Dual-registered as a service code and a reason_code (see reason_codes[]) so it can be emitted as a top-level error and audit / abuse-detection can separate suspected parser-DoS attempts from ordinary format errors. See zh/authz/resource-selector-grammar.md Â§5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ServiceIdentityConflict,
@@ -3977,7 +3977,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "Session-grant rotation refused because the underlying Auth Server browser session has been logged out (finished). The rotation chain cannot be resumed; full re-authentication is required. See account-lifecycle §4.1.",
+        description: "Session-grant rotation refused because the underlying Auth Server browser session has been logged out (finished). The rotation chain cannot be resumed; full re-authentication is required. See account-lifecycle Â§4.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SessionRevokeSelectorConflict,
@@ -4057,7 +4057,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &["service_call", "auth_decision"],
-        description: "A per-delivery HTTP Message Signature created/expires parameters fell outside the protocol freshness window (expires-created over 300s, created skew over +/-30s, or expires already past), including byte-identical replays after the bounded replay cache evicted the entry. Window judged per zh/sync/federation.md §3.2. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md §5). See zh/extensions/applet-integration.md §7.3.1.",
+        description: "A per-delivery HTTP Message Signature created/expires parameters fell outside the protocol freshness window (expires-created over 300s, created skew over +/-30s, or expires already past), including byte-identical replays after the bounded replay cache evicted the entry. Window judged per zh/sync/federation.md Â§3.2. Applies to Applet transaction push and to MIMI provider-to-provider writes (zh/extensions/mimi-interop.md Â§5). See zh/extensions/applet-integration.md Â§7.3.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SoftLoggedOut,
@@ -4167,7 +4167,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The target Strand track has enabled=false and does not accept new writes (synthesis edits or track-scoped patches). Generic freeze code for any track; discussion_track_disabled is the discussion-track-specific specialization for ak.message.* writes. See zh/models/strand-and-message.md §4.1 / §4.7.",
+        description: "The target Strand track has enabled=false and does not accept new writes (synthesis edits or track-scoped patches). Generic freeze code for any track; discussion_track_disabled is the discussion-track-specific specialization for ak.message.* writes. See zh/models/strand-and-message.md Â§4.1 / Â§4.7.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::TransportPrivacyRequired,
@@ -4197,7 +4197,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "TURN REST-style ephemeral credential is past its TTL; client MUST request a fresh credential. See zh/crypto-media/webrtc-signaling.md §4.1.",
+        description: "TURN REST-style ephemeral credential is past its TTL; client MUST request a fresh credential. See zh/crypto-media/webrtc-signaling.md Â§4.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::Unauthenticated,
@@ -4227,7 +4227,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage claim or group negotiation. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed even if the underlying MLS library supports the suite. See zh/crypto-media/encryption-and-audit.md §2.6.",
+        description: "An MLS ciphersuite selector is not an active row of artifacts/registry/mls-ciphersuite-registry.json (unknown, inactive, or reserved-but-not-activated) during KeyPackage claim or group negotiation. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed even if the underlying MLS library supports the suite. See zh/crypto-media/encryption-and-audit.md Â§2.6.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedContentEncoding,
@@ -4257,7 +4257,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The digest suite prefix in a typed digest value (e.g. sha256:<hex>, cbor.sha256:<hex>) is not an active row of artifacts/registry/digest-suite-registry.json supported by the receiver (unknown id, unregistered tuple, or reserved suite) on a critical field. See zh/conformance/encoding.md §3.1-§3.2. Dual-registered (also a reason_code): all four algorithm-agility fail-closed errors (unsupported_digest_algorithm / unsupported_signature_alg / unsupported_hpke_suite / unsupported_ciphersuite) appear in both `codes` (top-level service error) and `reason_codes` (per-item sub-reason); see zh/conformance/schema-registry.md §1.1.1.",
+        description: "The digest suite prefix in a typed digest value (e.g. sha256:<hex>, cbor.sha256:<hex>) is not an active row of artifacts/registry/digest-suite-registry.json supported by the receiver (unknown id, unregistered tuple, or reserved suite) on a critical field. See zh/conformance/encoding.md Â§3.1-Â§3.2. Dual-registered (also a reason_code): all four algorithm-agility fail-closed errors (unsupported_digest_algorithm / unsupported_signature_alg / unsupported_hpke_suite / unsupported_ciphersuite) appear in both `codes` (top-level service error) and `reason_codes` (per-item sub-reason); see zh/conformance/schema-registry.md Â§1.1.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedEventKind,
@@ -4287,7 +4287,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "HPKE suite id on an application-layer sealed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md §7.5.2.",
+        description: "HPKE suite id on an application-layer sealed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md Â§7.5.2.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedJoinRule,
@@ -4297,7 +4297,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe.v1 / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md §4.3.",
+        description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe.v1 / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md Â§4.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedLatticeType,
@@ -4377,7 +4377,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A syntactically well-formed protocol-family bootstrap discriminator is not supported by the receiver. For v1 ServiceDescribe and equivalent ping surfaces, a protocol_version string other than the canonical value 1.0 makes the complete service unusable before capability intersection or route caching. Missing or non-string values remain schema_violation. A binding that implements Arkret-Protocol-Version header or equivalent media-type negotiation returns this code for an unsupported requested version. Dual-registered as a top-level service code and a reason_code. See zh/overview/evolution-and-compatibility.md §1 and §4.",
+        description: "A syntactically well-formed protocol-family bootstrap discriminator is not supported by the receiver. For v1 ServiceDescribe and equivalent ping surfaces, a protocol_version string other than the canonical value 1.0 makes the complete service unusable before capability intersection or route caching. Missing or non-string values remain schema_violation. A binding that implements Arkret-Protocol-Version header or equivalent media-type negotiation returns this code for an unsupported requested version. Dual-registered as a top-level service code and a reason_code. See zh/overview/evolution-and-compatibility.md Â§1 and Â§4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedSignatureAlg,
@@ -4387,7 +4387,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Proof / event signature `alg` is not in the conformance signature-algorithm allowlist (artifacts/registry/signature-alg-registry.json) on a critical field. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). See zh/conformance/encoding.md §6.1.",
+        description: "Proof / event signature `alg` is not in the conformance signature-algorithm allowlist (artifacts/registry/signature-alg-registry.json) on a critical field. One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). See zh/conformance/encoding.md Â§6.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UpstreamUnavailable,

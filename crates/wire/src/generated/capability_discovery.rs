@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-12.22;
-//! sha256=f72c29caef6d6341959d66359e2ee9d12580e1df20f91601422d853e2dbf7eaa
+//! Input: registry/contract-registry.json; version=2026-09-12.25;
+//! sha256=af5e410a2c4be724afea4bd1dbbc5580f00a073d739f3a8a9f91fdc1e08f06ec
 //! Entries: operation_bundles=36 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -97,10 +97,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::FindDirectoryCommandWithdrawV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id: ServiceOperationId::FindDirectoryPushCommandRegisterV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -330,11 +326,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
-                operation_id:
-                    ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallengeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -1157,10 +1148,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
-                operation_id: ServiceOperationId::SelfSealsReadMembershipAuthorityV1,
-                binding_kind: BindingKind::HttpJson,
-            },
-            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfSealsReadMlsAcceptedArtifactV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1268,10 +1255,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         operation_bundle_id: "ak.operation_bundle.station.push.v1",
         service_kind: ServiceKind::Station,
         members: &[
-            OperationBindingPair {
-                operation_id: ServiceOperationId::EdgePushCommandNotifyV1,
-                binding_kind: BindingKind::HttpJson,
-            },
             OperationBindingPair {
                 operation_id: ServiceOperationId::EdgePushCommandRegisterDeviceV1,
                 binding_kind: BindingKind::HttpJson,
@@ -1622,7 +1605,7 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         required_profiles: &[],
         required_limits: &[],
         semantic_guarantees: &[
-            "Last-resort KeyPackages follow the replay, consumption, and rotation rules of the normative MLS contract.",
+            "Last-resort KeyPackages follow the replay, consumption, and rotation rules of the normative MLS contract. Expiry bounds new distribution eligibility only; captured Welcome confidentiality is not restored by expiry or rotation, and future epoch recovery depends on effective secret updates and the MLS threat conditions.",
         ],
         conflicts: &[],
     },

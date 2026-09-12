@@ -4,11 +4,11 @@
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886 Input: registry/
 //! capability-action-registry.json; version=2026-09-12.5;
 //! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Input: registry/
-//! schema-registry.json; version=2026-09-12.14;
-//! sha256=d1a973ff6d95af905279bf76ef0e2b1c2f9bf267f13ad5492401268db089eeb5 Input: registry/
+//! schema-registry.json; version=2026-09-12.16;
+//! sha256=f33ba4dbd9cb473483751e408ad51ce0c0529f6afe396c1717a075e6fa961e5f Input: registry/
 //! account-data-key-registry.json; version=2026-09-12.6;
 //! sha256=ef2efd5f8dfd5f154d085382ccf70d7b63faf386d6665c9d231446d4d6fa33bf Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=228, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=227, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3450,10 +3450,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::IDENTITY_RESOLUTION_V1,
         file: "schemas/identity-resolution.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::INCLUSION_LIST_V1,
-        file: "schemas/inclusion-list.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::INVITE_V1,

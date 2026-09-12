@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-12.14;
-//! sha256=d1a973ff6d95af905279bf76ef0e2b1c2f9bf267f13ad5492401268db089eeb5 Entries: schema_ids=228,
-//! active=228
+//! Input: registry/schema-registry.json; version=2026-09-12.16;
+//! sha256=f33ba4dbd9cb473483751e408ad51ce0c0529f6afe396c1717a075e6fa961e5f Entries: schema_ids=227,
+//! active=227
 
 use serde::{Deserialize, Serialize};
 
@@ -114,7 +114,6 @@ pub enum SchemaId {
     IdentityLinkV1,
     IdentityReceiptV1,
     IdentityResolutionV1,
-    InclusionListV1,
     InviteV1,
     InviteDeliveryV1,
     InviteDeliveryRequestV1,
@@ -346,7 +345,6 @@ impl SchemaId {
         Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
-        Self::InclusionListV1,
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
@@ -578,7 +576,6 @@ impl SchemaId {
         Self::IdentityLinkV1,
         Self::IdentityReceiptV1,
         Self::IdentityResolutionV1,
-        Self::InclusionListV1,
         Self::InviteV1,
         Self::InviteDeliveryV1,
         Self::InviteDeliveryRequestV1,
@@ -899,7 +896,7 @@ impl SchemaId {
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
-    /// Closed request/response DTO bundle for quorum-capable Control Proposal Acks and signed
+    /// Closed request/response DTO bundle for single-authority Control Proposal Acks and signed
     /// deferrals (ak.self.control_proposal_decision.* operations). Deadlines provide bounded
     /// authority decisions, never acceptance or Seal finality.
     pub const CONTROL_PROPOSAL_DECISION_V1: &'static str = "ak.schema.control_proposal_decision.v1";
@@ -1017,10 +1014,6 @@ impl SchemaId {
     /// Principal resolution projection/update/evidence and signed service resolution record
     /// contracts for the did_core_id/did model.
     pub const IDENTITY_RESOLUTION_V1: &'static str = "ak.schema.identity_resolution.v1";
-    /// Inclusion-list accountability for a configuration with a distinct non-proposer signer. Each
-    /// obliged proposal requires its explicit committed or rejected result in the unique confirmed
-    /// Seal; a standalone verification-failure claim is insufficient.
-    pub const INCLUSION_LIST_V1: &'static str = "ak.schema.inclusion_list.v1";
     pub const INVITE_V1: &'static str = "ak.schema.invite.v1";
     /// Actor-private plaintext account-data cell value of ak.account.invite_delivery, the
     /// holder-private delivered invite credential carrier written by the recipient Station on the
@@ -1258,8 +1251,8 @@ impl SchemaId {
     pub const SDK_CONFORMANCE_CLAIM_V1: &'static str = "ak.schema.sdk_conformance_claim.v1";
     /// Seal control-plane finality commitment schema
     pub const SEAL_V1: &'static str = "ak.schema.seal.v1";
-    /// Scope-authorized quorum conclusions and frozen configuration handoffs for non-voting
-    /// receivers.
+    /// Scope-authorized single-authority governance conclusions and frozen configuration handoffs
+    /// for governance-result receivers.
     pub const SEAL_CONCLUSION_V1: &'static str = "ak.schema.seal_conclusion.v1";
     /// Seal transparency append-only log entry and independent auditor attestation wire schema
     pub const SEAL_TRANSPARENCY_V1: &'static str = "ak.schema.seal_transparency.v1";
@@ -1272,7 +1265,7 @@ impl SchemaId {
     pub const SECURITY_TRANSACTION_V1: &'static str = "ak.schema.security_transaction.v1";
     /// Canonical ServiceDescribe response for ak.server.read.describe.v1 and per-surface describe
     /// operations: base service metadata plus exact supported_operation_bundles and claim-level
-    /// partitions (supported_features / claimed_profiles / verified_profiles / interop_surfaces),
+    /// partitions (supported_features / supported_profiles / verified_profiles / interop_surfaces),
     /// with the registered directory_service overlay fields used by
     /// ak.find.directory.read.describe.v1. Enforces development_mode=true =&gt;
     /// verified_profiles=[]. interop_surfaces is limited to external interop surfaces. See
@@ -1485,7 +1478,6 @@ impl SchemaId {
             Self::IdentityLinkV1 => Self::IDENTITY_LINK_V1,
             Self::IdentityReceiptV1 => Self::IDENTITY_RECEIPT_V1,
             Self::IdentityResolutionV1 => Self::IDENTITY_RESOLUTION_V1,
-            Self::InclusionListV1 => Self::INCLUSION_LIST_V1,
             Self::InviteV1 => Self::INVITE_V1,
             Self::InviteDeliveryV1 => Self::INVITE_DELIVERY_V1,
             Self::InviteDeliveryRequestV1 => Self::INVITE_DELIVERY_REQUEST_V1,
@@ -1760,7 +1752,6 @@ impl SchemaId {
             Self::IdentityLinkV1 => "schemas/identity-link.schema.json",
             Self::IdentityReceiptV1 => "schemas/identity-receipt.schema.json",
             Self::IdentityResolutionV1 => "schemas/identity-resolution.schema.json",
-            Self::InclusionListV1 => "schemas/inclusion-list.schema.json",
             Self::InviteV1 => "schemas/invite.schema.json",
             Self::InviteDeliveryV1 => "schemas/invite-delivery.schema.json",
             Self::InviteDeliveryRequestV1 => "schemas/invite-delivery-request.schema.json",
@@ -2041,7 +2032,6 @@ impl SchemaId {
             Self::IDENTITY_LINK_V1 => Some(Self::IdentityLinkV1),
             Self::IDENTITY_RECEIPT_V1 => Some(Self::IdentityReceiptV1),
             Self::IDENTITY_RESOLUTION_V1 => Some(Self::IdentityResolutionV1),
-            Self::INCLUSION_LIST_V1 => Some(Self::InclusionListV1),
             Self::INVITE_V1 => Some(Self::InviteV1),
             Self::INVITE_DELIVERY_V1 => Some(Self::InviteDeliveryV1),
             Self::INVITE_DELIVERY_REQUEST_V1 => Some(Self::InviteDeliveryRequestV1),

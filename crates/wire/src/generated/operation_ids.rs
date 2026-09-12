@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-12.17;
-//! sha256=2960e07fac4e9ebbdfcde233ee223b8938044e5748b6fe75b2ba7580ce17059d Entries: registered=255
+//! Input: registry/operation-registry.json; version=2026-09-12.19;
+//! sha256=e3e458207f61de9b43d75985f9b4680db8ea352f1b04c55f97aef21756685b88 Entries: registered=252
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,6 @@ pub enum ServiceOperationId {
     EdgePushCommandUnregisterDeviceV1,
     FindDirectoryCommandAnnounceV1,
     FindDirectoryCommandWithdrawV1,
-    FindDirectoryPushCommandRegisterV1,
     FindDirectoryReadDescribeV1,
     FindDirectoryReadListHandlesForSubjectV1,
     FindDirectoryReadPrivateContactDiscoveryV1,
@@ -39,7 +38,6 @@ pub enum ServiceOperationId {
     GateAccountCommandIntrospectSessionGrantV1,
     GateAccountCommandIssueControllerGateAttestationV1,
     GateAccountCommandIssueDidBindingChallengeV1,
-    GateAccountCommandIssueIdentityAbandonmentChallengeV1,
     GateAccountCommandIssueIdentityBindingChallengeV1,
     GateAccountCommandIssueRecoveryCompletionGrantV1,
     GateAccountCommandIssueSessionGrantV1,
@@ -246,7 +244,6 @@ pub enum ServiceOperationId {
     SelfSealsReadFrontierV1,
     SelfSealsReadGovernanceDependenciesV1,
     SelfSealsReadHistoryAuthorityV1,
-    SelfSealsReadMembershipAuthorityV1,
     SelfSealsReadMlsAcceptedArtifactV1,
     SelfSealsReadMlsGovernanceProofV1,
     SelfSealsReadMlsMembershipRemovalV1,
@@ -280,7 +277,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
     ServiceOperationId::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
     ServiceOperationId::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
-    ServiceOperationId::FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_DESCRIBE_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_PRIVATE_CONTACT_DISCOVERY_V1,
@@ -297,7 +293,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1,
-    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_SESSION_GRANT_V1,
@@ -504,7 +499,6 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SEALS_READ_FRONTIER_V1,
     ServiceOperationId::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1,
     ServiceOperationId::SELF_SEALS_READ_HISTORY_AUTHORITY_V1,
-    ServiceOperationId::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_MEMBERSHIP_REMOVAL_V1,
@@ -580,7 +574,6 @@ impl ServiceOperationId {
         Self::EdgePushCommandUnregisterDeviceV1,
         Self::FindDirectoryCommandAnnounceV1,
         Self::FindDirectoryCommandWithdrawV1,
-        Self::FindDirectoryPushCommandRegisterV1,
         Self::FindDirectoryReadDescribeV1,
         Self::FindDirectoryReadListHandlesForSubjectV1,
         Self::FindDirectoryReadPrivateContactDiscoveryV1,
@@ -597,7 +590,6 @@ impl ServiceOperationId {
         Self::GateAccountCommandIntrospectSessionGrantV1,
         Self::GateAccountCommandIssueControllerGateAttestationV1,
         Self::GateAccountCommandIssueDidBindingChallengeV1,
-        Self::GateAccountCommandIssueIdentityAbandonmentChallengeV1,
         Self::GateAccountCommandIssueIdentityBindingChallengeV1,
         Self::GateAccountCommandIssueRecoveryCompletionGrantV1,
         Self::GateAccountCommandIssueSessionGrantV1,
@@ -804,7 +796,6 @@ impl ServiceOperationId {
         Self::SelfSealsReadFrontierV1,
         Self::SelfSealsReadGovernanceDependenciesV1,
         Self::SelfSealsReadHistoryAuthorityV1,
-        Self::SelfSealsReadMembershipAuthorityV1,
         Self::SelfSealsReadMlsAcceptedArtifactV1,
         Self::SelfSealsReadMlsGovernanceProofV1,
         Self::SelfSealsReadMlsMembershipRemovalV1,
@@ -848,8 +839,6 @@ impl ServiceOperationId {
         "ak.find.directory.command.announce.v1";
     pub const FIND_DIRECTORY_COMMAND_WITHDRAW_V1: &'static str =
         "ak.find.directory.command.withdraw.v1";
-    pub const FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1: &'static str =
-        "ak.find.directory.push.command.register.v1";
     pub const FIND_DIRECTORY_READ_DESCRIBE_V1: &'static str = "ak.find.directory.read.describe.v1";
     pub const FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1: &'static str =
         "ak.find.directory.read.list_handles_for_subject.v1";
@@ -881,8 +870,6 @@ impl ServiceOperationId {
         "ak.gate.account.command.issue_controller_gate_attestation.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1: &'static str =
         "ak.gate.account.command.issue_did_binding_challenge.v1";
-    pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE_V1: &'static str =
-        "ak.gate.account.command.issue_identity_abandonment_challenge.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1: &'static str =
         "ak.gate.account.command.issue_identity_binding_challenge.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT_V1: &'static str =
@@ -1226,8 +1213,6 @@ impl ServiceOperationId {
         "ak.self.seals.read.governance_dependencies.v1";
     pub const SELF_SEALS_READ_HISTORY_AUTHORITY_V1: &'static str =
         "ak.self.seals.read.history_authority.v1";
-    pub const SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1: &'static str =
-        "ak.self.seals.read.membership_authority.v1";
     pub const SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1: &'static str =
         "ak.self.seals.read.mls_accepted_artifact.v1";
     pub const SELF_SEALS_READ_MLS_GOVERNANCE_PROOF_V1: &'static str =
@@ -1277,9 +1262,6 @@ impl ServiceOperationId {
             Self::EdgePushCommandUnregisterDeviceV1 => Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
             Self::FindDirectoryCommandAnnounceV1 => Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1,
             Self::FindDirectoryCommandWithdrawV1 => Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1,
-            Self::FindDirectoryPushCommandRegisterV1 => {
-                Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1
-            }
             Self::FindDirectoryReadDescribeV1 => Self::FIND_DIRECTORY_READ_DESCRIBE_V1,
             Self::FindDirectoryReadListHandlesForSubjectV1 => {
                 Self::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1
@@ -1313,9 +1295,6 @@ impl ServiceOperationId {
             }
             Self::GateAccountCommandIssueDidBindingChallengeV1 => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1
-            }
-            Self::GateAccountCommandIssueIdentityAbandonmentChallengeV1 => {
-                Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE_V1
             }
             Self::GateAccountCommandIssueIdentityBindingChallengeV1 => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1
@@ -1651,9 +1630,6 @@ impl ServiceOperationId {
                 Self::SELF_SEALS_READ_GOVERNANCE_DEPENDENCIES_V1
             }
             Self::SelfSealsReadHistoryAuthorityV1 => Self::SELF_SEALS_READ_HISTORY_AUTHORITY_V1,
-            Self::SelfSealsReadMembershipAuthorityV1 => {
-                Self::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1
-            }
             Self::SelfSealsReadMlsAcceptedArtifactV1 => {
                 Self::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1
             }
@@ -1715,9 +1691,6 @@ impl ServiceOperationId {
             }
             Self::FIND_DIRECTORY_COMMAND_ANNOUNCE_V1 => Some(Self::FindDirectoryCommandAnnounceV1),
             Self::FIND_DIRECTORY_COMMAND_WITHDRAW_V1 => Some(Self::FindDirectoryCommandWithdrawV1),
-            Self::FIND_DIRECTORY_PUSH_COMMAND_REGISTER_V1 => {
-                Some(Self::FindDirectoryPushCommandRegisterV1)
-            }
             Self::FIND_DIRECTORY_READ_DESCRIBE_V1 => Some(Self::FindDirectoryReadDescribeV1),
             Self::FIND_DIRECTORY_READ_LIST_HANDLES_FOR_SUBJECT_V1 => {
                 Some(Self::FindDirectoryReadListHandlesForSubjectV1)
@@ -1761,9 +1734,6 @@ impl ServiceOperationId {
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1 => {
                 Some(Self::GateAccountCommandIssueDidBindingChallengeV1)
-            }
-            Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_ABANDONMENT_CHALLENGE_V1 => {
-                Some(Self::GateAccountCommandIssueIdentityAbandonmentChallengeV1)
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1 => {
                 Some(Self::GateAccountCommandIssueIdentityBindingChallengeV1)
@@ -2170,9 +2140,6 @@ impl ServiceOperationId {
             }
             Self::SELF_SEALS_READ_HISTORY_AUTHORITY_V1 => {
                 Some(Self::SelfSealsReadHistoryAuthorityV1)
-            }
-            Self::SELF_SEALS_READ_MEMBERSHIP_AUTHORITY_V1 => {
-                Some(Self::SelfSealsReadMembershipAuthorityV1)
             }
             Self::SELF_SEALS_READ_MLS_ACCEPTED_ARTIFACT_V1 => {
                 Some(Self::SelfSealsReadMlsAcceptedArtifactV1)
@@ -2588,31 +2555,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::FindDirectoryPushCommandRegisterV1,
-        http_method: "POST",
-        http_path: "/_arkret/find/directory/push/register",
-        grpc: Some("FindDirectory/PushRegister"),
-        mq: Some("find.directory.push.command.register"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("object_id"),
-        retry_safe: Some(false),
-        request_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_push_register_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/directory-operations.schema.json#/$defs/directory_push_register_outcome",
-        ),
-        uncertain_outcome: Some("{\"strategy\":\"manual_confirmation\"}"),
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::FindDirectoryReadDescribeV1,
         http_method: "GET",
         http_path: "/_arkret/find/directory/describe",
@@ -2941,33 +2883,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         response_schema_ref: Some(
             "schemas/account-operations.schema.json#/$defs/did_binding_challenge_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::None,
-            target: None,
-            rationale: Some(
-                "persists_only_a_service_local_single_use_challenge_no_event_is_authored",
-            ),
-            branch_contract_json: None,
-        }),
-    },
-    ServiceOperationDescriptor {
-        id: ServiceOperationId::GateAccountCommandIssueIdentityAbandonmentChallengeV1,
-        http_method: "POST",
-        http_path: "/_arkret/gate/account/identity-abandonment-challenges",
-        grpc: None,
-        mq: None,
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: None,
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: Some("request_id"),
-        retry_safe: Some(true),
-        request_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/identity_abandonment_challenge_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/account-operations.schema.json#/$defs/identity_abandonment_challenge_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
@@ -7638,26 +7553,6 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
-        id: ServiceOperationId::SelfSealsReadMembershipAuthorityV1,
-        http_method: "POST",
-        http_path: "/_arkret/self/seals/membership-authority",
-        grpc: Some("SelfSeals/MembershipAuthority"),
-        mq: Some("self.seals.read.membership_authority"),
-        body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(65536),
-        success_shape_kind: "typed_response",
-        idempotency_mechanism: None,
-        retry_safe: None,
-        request_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/membership_authority_request_body",
-        ),
-        response_schema_ref: Some(
-            "schemas/history-key.schema.json#/$defs/membership_authority_outcome",
-        ),
-        uncertain_outcome: None,
-        durable_effect: None,
-    },
-    ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSealsReadMlsAcceptedArtifactV1,
         http_method: "POST",
         http_path: "/_arkret/self/seals/mls-accepted-artifact",
@@ -7704,7 +7599,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         grpc: Some("SelfSeals/MlsMembershipRemoval"),
         mq: Some("self.seals.read.mls_membership_removal"),
         body_class: Some("non_streaming_json"),
-        max_canonical_body_bytes: Some(8388608),
+        max_canonical_body_bytes: Some(65536),
         success_shape_kind: "typed_response",
         idempotency_mechanism: None,
         retry_safe: None,

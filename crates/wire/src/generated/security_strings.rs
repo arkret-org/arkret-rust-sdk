@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-12.7;
-//! sha256=daaf97b987b242bf126edf7a40a6e04d57f5e20ecf5171626f8945001d21b11f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-12.8;
+//! sha256=60172662cfded47141ea14adffd32c609806f01f5446dd23bfc1bf12d4a1137f Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
-//! sha256=1bba5f530b6d6ce8d64c20b4418163bd3eebe8c44cef8a246d14b846c7d1b333 Input: registry/
+//! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
 //! digest-suite-registry.json; version=2026-09-12.9;
 //! sha256=058dd9899654b807480d27c8df92e0b5e113a1cdd771f6736eb558aaf11cf966 Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -1299,7 +1299,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
         object_family: "control_proposal_authority_ack",
         consumer_operation: None,
         binding_fields: &["payload_digest", "verification_method", "created_at"],
-        schema_ref: "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_authority_ack",
+        schema_ref: "schemas/control-proposal-decision.schema.json#/$defs/control_proposal_ack",
     },
     ProofContextDescriptor {
         id: ProofContextId::ControlProposalDecisionProofV1,
