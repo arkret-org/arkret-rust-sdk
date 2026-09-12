@@ -9,6 +9,58 @@ use serde_json::json;
 
 use super::*;
 
+#[test]
+fn self_submit_union_preserves_registered_single_and_batch_wire_bodies() {
+    let initial = arkret_wire::EventInitialSubmission::online(event_with_device_proof());
+    let single = serde_json::to_value(&initial).unwrap();
+    let parsed: EventsSubmitRequestBody = serde_json::from_value(single.clone()).unwrap();
+    assert!(matches!(&parsed, EventsSubmitRequestBody::Initial(_)));
+    assert_eq!(serde_json::to_value(parsed).unwrap(), single);
+
+    let batch = serde_json::to_value(arkret_wire::EventsSubmitBatchRequestBody {
+        events: vec![initial],
+    })
+    .unwrap();
+    let parsed: EventsSubmitRequestBody = serde_json::from_value(batch.clone()).unwrap();
+    assert!(matches!(&parsed, EventsSubmitRequestBody::InitialBatch(_)));
+    assert_eq!(serde_json::to_value(parsed).unwrap(), batch);
+}
+
+#[test]
+fn self_submit_union_rejects_peer_and_invalid_discriminators_without_fallback() {
+    let initial = arkret_wire::EventInitialSubmission::online(event_with_device_proof());
+    let single = serde_json::to_value(initial).unwrap();
+    let batch = json!({"events": [single.clone()]});
+    for body in [single, batch] {
+        for discriminator in [
+            Value::Null,
+            json!(17),
+            json!("unknown_unit"),
+            json!("direct_conversation_founding"),
+            json!("agent_membership_cascade"),
+        ] {
+            let mut invalid = body.clone();
+            invalid["unit_kind"] = discriminator;
+            assert!(serde_json::from_value::<EventsSubmitRequestBody>(invalid).is_err());
+        }
+        for member in [
+            "service_binding_ref",
+            "cbs_proof_bundles",
+            "unregistered_sidecar",
+        ] {
+            let mut invalid = body.clone();
+            invalid[member] = json!({});
+            assert!(serde_json::from_value::<EventsSubmitRequestBody>(invalid).is_err());
+        }
+    }
+    assert!(
+        serde_json::from_value::<EventsSubmitRequestBody>(
+            serde_json::to_value(event_with_device_proof()).unwrap()
+        )
+        .is_err()
+    );
+}
+
 fn account_actor(principal: &str) -> ActorId {
     ActorId::account(AccountId::new(
         DidCoreId::new(principal).unwrap(),

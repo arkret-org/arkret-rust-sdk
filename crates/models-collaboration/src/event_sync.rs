@@ -852,12 +852,12 @@ pub fn federation_frontier_leaf_data(
 
 // ── FederationServiceBindingRef ─────────────────────────────────────────
 
-/// Typed binding reference for federation transport. Carried inside
-/// `ak.self.events.command.submit.v1` (federation variant) and the
-/// `events/frontier` federation-peer response so a receiver can verify
+/// Typed binding reference for `ak.peer.events.command.submit.v1`
+/// and the federation-peer frontier response so a receiver can verify
 /// the request is bound to the sender's policy and delivery frontiers.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FederationServiceBindingRef {
     pub realm_id: RealmId,
     pub realm_policy_digest: Hash,
@@ -866,6 +866,57 @@ pub struct FederationServiceBindingRef {
 }
 
 // ── EventsSubmit variants ───────────────────────────────────────────────
+
+/// Closed request union for `ak.self.events.command.submit.v1`.
+/// Peer federation submissions use the separate federation request type.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
+pub enum EventsSubmitRequestBody {
+    Initial(arkret_wire::EventInitialSubmission),
+    InitialBatch(arkret_wire::EventsSubmitBatchRequestBody),
+    DirectConversationFounding(
+        crate::direct_conversation_ops::DirectConversationFoundingUnitSubmission,
+    ),
+    AgentMembershipCascade(
+        crate::governance::agent_membership_cascade::AgentMembershipCascadeSubmission,
+    ),
+}
+
+impl<'de> Deserialize<'de> for EventsSubmitRequestBody {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error as _;
+
+        let value = Value::deserialize(deserializer)?;
+        if value.get("unit_kind").is_some() {
+            return match value.get("unit_kind").and_then(Value::as_str) {
+                Some("direct_conversation_founding") => serde_json::from_value(value)
+                    .map(Self::DirectConversationFounding)
+                    .map_err(D::Error::custom),
+                Some("agent_membership_cascade") => serde_json::from_value(value)
+                    .map(Self::AgentMembershipCascade)
+                    .map_err(D::Error::custom),
+                Some(kind) => Err(D::Error::custom(format!(
+                    "unsupported Event submit unit_kind '{kind}'"
+                ))),
+                None => Err(D::Error::custom("Event submit unit_kind must be a string")),
+            };
+        }
+        if value.get("events").is_some() {
+            serde_json::from_value(value)
+                .map(Self::InitialBatch)
+                .map_err(D::Error::custom)
+        } else {
+            serde_json::from_value(value)
+                .map(Self::Initial)
+                .map_err(D::Error::custom)
+        }
+    }
+}
 
 pub const MAX_FEDERATED_EVENTS: usize = 500;
 
