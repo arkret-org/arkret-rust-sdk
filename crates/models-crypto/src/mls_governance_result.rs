@@ -211,13 +211,61 @@ impl MlsAcceptedArtifactRequestBody {
     }
 }
 
+/// Exact accepted transition identity. Scope and epoch authority belongs to
+/// the enclosing result's sole governance binding.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsAcceptedTransition {
+    pub transition_ref: EventId,
+    pub transition_event_digest: Hash,
+    pub mls_transition_digest: Hash,
+}
+
+impl MlsAcceptedTransition {
+    /// Reconstruct the local registered cell value from the sole accepted binding.
+    pub fn epoch_head(&self, binding: &MlsGovernanceBindingPayload) -> Result<MlsEpochHead> {
+        self.validate()?;
+        binding.validate()?;
+        let head = MlsEpochHead {
+            transition_ref: self.transition_ref.clone(),
+            transition_event_digest: self.transition_event_digest.clone(),
+            mls_transition_digest: self.mls_transition_digest.clone(),
+            effective_scope: binding.effective_scope().clone(),
+            mls_group_id: Base64UrlString::new(binding.mls_group_id())?,
+            previous_epoch: binding.previous_epoch(),
+            next_epoch: binding.next_epoch(),
+            content_scheme: binding.content_scheme(),
+        };
+        head.validate()?;
+        Ok(head)
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.transition_ref.event_digest() != self.transition_event_digest {
+            return mismatch("accepted MLS transition identity differs from its Event digest");
+        }
+        Ok(())
+    }
+}
+
+impl From<&MlsEpochHead> for MlsAcceptedTransition {
+    fn from(head: &MlsEpochHead) -> Self {
+        Self {
+            transition_ref: head.transition_ref.clone(),
+            transition_event_digest: head.transition_event_digest.clone(),
+            mls_transition_digest: head.mls_transition_digest.clone(),
+        }
+    }
+}
+
 /// Authenticated acceptance facts, without a client governance checkpoint.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsAcceptedArtifactOutcome {
     pub query_digest: Hash,
-    pub transition_head: MlsEpochHead,
+    pub transition_head: MlsAcceptedTransition,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub mls_frontier_leaves: Vec<MlsSecurityFrontierLeaf>,
 }
@@ -228,16 +276,12 @@ impl MlsAcceptedArtifactOutcome {
         self.transition_head.validate()?;
         self.governance_binding.validate()?;
         arkret_wire::mls_transition::validate_mls_frontier_leaves(&self.mls_frontier_leaves)?;
-        let head = &self.transition_head;
         let binding = &self.governance_binding;
         if self.query_digest != request.query_digest()?
-            || head.effective_scope != request.effective_scope
-            || head.mls_group_id != request.mls_group_id
-            || binding.effective_scope() != &head.effective_scope
-            || binding.mls_group_id() != head.mls_group_id.as_str()
-            || binding.previous_epoch() != head.previous_epoch
-            || binding.next_epoch() != head.next_epoch
-            || binding.content_scheme() != head.content_scheme
+            || binding.effective_scope() != &request.effective_scope
+            || binding.mls_group_id() != request.mls_group_id.as_str()
+            || !((binding.previous_epoch() == 0 && binding.next_epoch() == 0)
+                || binding.previous_epoch().checked_add(1) == Some(binding.next_epoch()))
             || binding.binding_profile() != arkret_wire::ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1
             || binding.reducer_profile() != arkret_wire::CORE_REDUCER_PROFILE
         {
@@ -490,7 +534,6 @@ mod tests {
             live_digest_suite: DigestSuite::Sha256,
             governance_binding: MlsGovernanceBindingPayload::realm(
                 request.effective_scope.realm_id_opt().unwrap().clone(),
-                request.mls_group_id.clone(),
                 request.previous_epoch,
                 request.next_epoch,
                 Hash::new(
@@ -658,7 +701,7 @@ mod tests {
         };
         let accepted = MlsAcceptedArtifactOutcome {
             query_digest: query.query_digest().unwrap(),
-            transition_head: head.clone(),
+            transition_head: MlsAcceptedTransition::from(&head),
             governance_binding: binding,
             mls_frontier_leaves: intent.local_mls_leaves,
         };

@@ -177,7 +177,6 @@ pub struct MlsCommitFailedPayload {
     pub welcome_ref: Option<EventId>,
     pub epoch: u64,
     pub failure_stage: MlsCommitFailureStage,
-    pub reporter_device_id: DeviceId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error_code: Option<String>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -196,9 +195,6 @@ pub struct MlsEpochRange {
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/mls_genesis_payload`.
 #[derive(Clone, Debug)]
 pub struct MlsGenesisPayload {
-    pub mls_group_id: MlsGroupId,
-    pub effective_scope: ScopeRef,
-    pub epoch: MlsGenesisEpoch,
     pub cipher_suite: NonEmptyString,
     pub group_info_ref: BlobRef,
     pub ratchet_tree_ref: BlobRef,
@@ -218,9 +214,6 @@ pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsGenesisPayloadWire {
-    mls_group_id: MlsGroupId,
-    effective_scope: ScopeRef,
-    epoch: MlsGenesisEpoch,
     cipher_suite: NonEmptyString,
     group_info_ref: BlobRef,
     ratchet_tree_ref: BlobRef,
@@ -232,15 +225,25 @@ struct MlsGenesisPayloadWire {
 }
 
 impl MlsGenesisPayload {
+    pub fn effective_scope(&self) -> &ScopeRef {
+        self.governance_binding.effective_scope()
+    }
+    pub fn mls_group_id(&self) -> &str {
+        self.governance_binding.mls_group_id()
+    }
+    pub fn epoch(&self) -> u64 {
+        self.governance_binding.next_epoch()
+    }
+
     pub fn validate(&self) -> Result<()> {
         crate::mls_group_state_material::material_digest_from_ref(&self.group_info_ref)?;
         crate::mls_group_state_material::material_digest_from_ref(&self.ratchet_tree_ref)?;
-        if self.governance_binding.mls_group_id() != self.mls_group_id.as_str()
-            || self.governance_binding.effective_scope() != &self.effective_scope
+        self.governance_binding.validate()?;
+        if self.governance_binding.previous_epoch() != 0
+            || self.governance_binding.next_epoch() != 0
         {
             return Err(WireError::Protocol(
-                "mls_genesis_payload governance binding does not match the group and scope"
-                    .to_owned(),
+                "MLS Genesis governance epochs must both be zero".to_owned(),
             ));
         }
         let transition_digest = self.transition_digest()?;
@@ -262,9 +265,6 @@ impl MlsGenesisPayload {
 
     fn wire(&self) -> MlsGenesisPayloadWire {
         MlsGenesisPayloadWire {
-            mls_group_id: self.mls_group_id.clone(),
-            effective_scope: self.effective_scope.clone(),
-            epoch: self.epoch,
             cipher_suite: self.cipher_suite.clone(),
             group_info_ref: self.group_info_ref.clone(),
             ratchet_tree_ref: self.ratchet_tree_ref.clone(),
@@ -292,9 +292,6 @@ impl<'de> Deserialize<'de> for MlsGenesisPayload {
     {
         let wire = MlsGenesisPayloadWire::deserialize(deserializer)?;
         let payload = Self {
-            mls_group_id: wire.mls_group_id,
-            effective_scope: wire.effective_scope,
-            epoch: wire.epoch,
             cipher_suite: wire.cipher_suite,
             group_info_ref: wire.group_info_ref,
             ratchet_tree_ref: wire.ratchet_tree_ref,
@@ -1003,8 +1000,6 @@ impl UnsignedMlsWelcomeClaimEnvelope {
 
 #[derive(Clone, Debug)]
 pub struct MlsWelcomePayload {
-    pub mls_group_id: MlsGroupId,
-    pub epoch: u64,
     pub recipient_principal_id: Option<DidCoreId>,
     pub recipient: MlsWelcomeRecipient,
     pub sender_device_id: Option<DeviceId>,
@@ -1022,8 +1017,6 @@ pub struct MlsWelcomePayload {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsWelcomePayloadWire {
-    mls_group_id: MlsGroupId,
-    epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_principal_id: Option<DidCoreId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1052,11 +1045,23 @@ struct MlsWelcomePayloadWire {
     expires_at: DateTime<Utc>,
 }
 
+impl MlsWelcomePayload {
+    pub fn mls_group_id(&self) -> &str {
+        self.governance_binding.mls_group_id()
+    }
+    pub fn epoch(&self) -> u64 {
+        self.governance_binding.next_epoch()
+    }
+}
+
 impl Serialize for MlsWelcomePayload {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
+        self.governance_binding
+            .validate()
+            .map_err(serde::ser::Error::custom)?;
         let expected_welcome_digest = arkret_canonical::sha256_digest(self.carrier.welcome_bytes());
         if self.claim_receipt.claim_request_id != self.claim_receipt.request.claim_request_id {
             return Err(serde::ser::Error::custom(
@@ -1111,8 +1116,6 @@ impl Serialize for MlsWelcomePayload {
             ),
         };
         MlsWelcomePayloadWire {
-            mls_group_id: self.mls_group_id.clone(),
-            epoch: self.epoch,
             recipient_principal_id: self.recipient_principal_id.clone(),
             recipient_device_id,
             recipient_agent_id,
@@ -1193,13 +1196,9 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
                 "mls_welcome_payload claim receipt request id context does not match",
             ));
         }
-        if wire.governance_binding.mls_group_id() != wire.mls_group_id.as_str()
-            || wire.governance_binding.next_epoch() != wire.epoch
-        {
-            return Err(serde::de::Error::custom(
-                "mls_welcome_payload governance binding does not match group and epoch",
-            ));
-        }
+        wire.governance_binding
+            .validate()
+            .map_err(serde::de::Error::custom)?;
         if wire.claim_ref.claim_id != wire.claim_id
             || wire.claim_ref.keypackage_ref != wire.keypackage_ref
             || wire.claim_envelope.claim_id != wire.claim_id
@@ -1243,8 +1242,6 @@ impl<'de> Deserialize<'de> for MlsWelcomePayload {
             ));
         }
         Ok(Self {
-            mls_group_id: wire.mls_group_id,
-            epoch: wire.epoch,
             recipient_principal_id: wire.recipient_principal_id,
             recipient,
             sender_device_id: wire.sender_device_id,
@@ -1654,12 +1651,10 @@ mod tests {
         let value = serde_json::json!({
             "binding_version": 1,
             "encoding_profile": "cbor-deterministic-rfc8949-v1",
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
             "effective_scope": {
                 "kind": "realm",
                 "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
             },
-            "mls_group_id": "Z3JvdXA",
             "previous_epoch": 0,
             "next_epoch": 1,
             "security_frontier_digest":

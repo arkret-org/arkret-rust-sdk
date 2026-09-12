@@ -8,7 +8,7 @@ use arkret_models_collaboration::objects::profiles::{
 use arkret_models_collaboration::objects::realm::Realm;
 use arkret_models_collaboration::objects::strand::Strand;
 use arkret_wire::{
-    ActorId, Did, DidCoreId, DidUrl, FederationPolicy, Hash, NotaryJoseAlgorithm, NotaryKeyKind,
+    ActorId, Did, DidCoreId, DidUrl, FederationPolicy, NotaryJoseAlgorithm, NotaryKeyKind,
     NotarySignerDescriptor, ObjectStage, ObjectState, SchemaId, project_did_to_core_id,
 };
 use chrono::Utc;
@@ -25,7 +25,6 @@ fn signer(did: &str) -> NotarySignerDescriptor {
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
         frozen_public_key_b64u: canonical::base64url_encode(&key_bytes),
-        frozen_public_key_digest: Hash::new(canonical::sha256_digest(&key_bytes)).unwrap(),
     }
 }
 
@@ -289,7 +288,7 @@ fn realm_notary_descriptor_must_be_valid() {
         arkret_wire::CORE_REDUCER_PROFILE,
         arkret_wire::NotaryValue {
             signer: NotarySignerDescriptor {
-                frozen_public_key_digest: Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap(),
+                frozen_public_key_b64u: "invalid-key".to_owned(),
                 ..signer("did:webvh:z6mkfixture:notary.example")
             },
             max_clock_error_ms: 0,
@@ -297,7 +296,7 @@ fn realm_notary_descriptor_must_be_valid() {
     );
 
     let err = realm.validate_kind_invariants().unwrap_err();
-    assert!(format!("{err}").contains("frozen_public_key_digest"));
+    assert!(format!("{err}").contains("frozen_public_key_b64u"));
 }
 
 #[test]

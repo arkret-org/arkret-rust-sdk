@@ -88,10 +88,6 @@ fn hosting_notary() -> NotarySignerDescriptor {
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
         frozen_public_key_b64u: "A".repeat(43),
-        frozen_public_key_digest: Hash::new(
-            "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
-        )
-        .unwrap(),
     }
 }
 

@@ -134,10 +134,8 @@ fn mls_commit_payload_matches_registered_event_schema() {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    let group_id = base64url::base64url_encode(b"arkret-mls-test-group");
     let binding = MlsGovernanceBindingPayload::realm(
         RealmId::new("ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
-        group_id.clone(),
         0,
         1,
         hash('2'),
@@ -149,14 +147,14 @@ fn mls_commit_payload_matches_registered_event_schema() {
     .unwrap();
     let commit_bytes = b"canonical-commit";
     let commit = MlsCommitEnvelope {
-        group_id,
+        group_id: binding.mls_group_id().to_owned(),
         epoch: 1,
         commit: base64url::base64url_encode(commit_bytes),
         commit_digest: Hash::new(canonical::sha256_digest(commit_bytes)).unwrap(),
         ratchet_tree: None,
     };
     let payload =
-        MlsCommitPayload::new(0, event(1).to_string(), Vec::new(), &commit, binding).unwrap();
+        MlsCommitPayload::new(event(1).to_string(), Vec::new(), &commit, binding).unwrap();
     let value = serde_json::to_value(&payload).unwrap();
 
     event_payload_validator_catalog()

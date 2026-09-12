@@ -33,7 +33,6 @@ fn descriptor(index: u8) -> NotarySignerDescriptor {
         key_kind: NotaryKeyKind::Ed25519Raw32,
         jose_algorithm: NotaryJoseAlgorithm::Ed25519,
         frozen_public_key_b64u: base64url_encode(key),
-        frozen_public_key_digest: Hash::new(sha256_digest(key)).unwrap(),
     }
 }
 

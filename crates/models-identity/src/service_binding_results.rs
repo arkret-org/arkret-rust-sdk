@@ -314,7 +314,7 @@ impl MediaServiceBindingOutcome {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
+    use arkret_wire::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
 
     use super::*;
 
@@ -336,10 +336,6 @@ mod tests {
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
             frozen_public_key_b64u: "WnA82IwABQeTR4DCdDNIbwpCZAbc6nFs1BaTzKuN3Gs".to_owned(),
-            frozen_public_key_digest: Hash::new(
-                "sha256:a6022dfca46e307e79cf859f5c23fbc6487277471d0d5c21bbd5b92286c80c83",
-            )
-            .unwrap(),
         }
     }
 

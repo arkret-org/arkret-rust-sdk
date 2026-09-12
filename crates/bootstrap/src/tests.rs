@@ -232,8 +232,6 @@ fn fixture_notary(actor_id: &DidCoreId, actor_did: &Did, fragment: &str) -> Nota
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
             frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
-            frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
-                .unwrap(),
         },
         0,
     )
@@ -899,8 +897,6 @@ fn agent_pcr_bootstrap_seal_follows_the_genesis_declared_digest_suite() {
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
             frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
-            frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
-                .unwrap(),
         };
         arkret_signatures::verify_frozen_notary_signature(
             signature,
@@ -1080,8 +1076,6 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
             key_kind: NotaryKeyKind::Ed25519Raw32,
             jose_algorithm: NotaryJoseAlgorithm::Ed25519,
             frozen_public_key_b64u: arkret_wire::base64url::base64url_encode(public_key),
-            frozen_public_key_digest: Hash::new(arkret_wire::canonical::sha256_digest(public_key))
-                .unwrap(),
         };
         arkret_signatures::verify_frozen_notary_signature(
             signature,

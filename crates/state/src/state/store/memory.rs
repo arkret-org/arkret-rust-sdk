@@ -990,6 +990,21 @@ struct MemorySealStoreInner {
 
 impl MemorySealStoreInner {
     fn put(&mut self, seal: &Seal, digest_suite: arkret_canonical::DigestSuite) -> StoreResult<()> {
+        if let Some((body, suite)) = self
+            .signing_bodies
+            .get(&(seal.realm_id.as_str().to_owned(), seal.notary_seq))
+        {
+            let expected = arkret_canonical::canonical_json_bytes(body)
+                .map_err(|error| StoreError::Conflict(error.to_string()))?;
+            let received = seal
+                .canonical_bytes_for_id()
+                .map_err(|error| StoreError::Conflict(error.to_string()))?;
+            if *suite != digest_suite || expected != received {
+                return Err(StoreError::Conflict(
+                    "accepted Seal differs from its immutable signing reservation".to_owned(),
+                ));
+            }
+        }
         seal.validate_id(digest_suite)
             .map_err(|error| StoreError::Conflict(error.to_string()))?;
         let realm = seal.realm_id.as_str().to_owned();
@@ -1866,6 +1881,51 @@ mod signing_reservation_tests {
         assert!(
             !store
                 .release_signing_lease(&first.realm_id, "authority", "worker-a", 1)
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn accepted_seal_cannot_bypass_the_reserved_signing_body() {
+        let store = MemorySealStore::default();
+        let first = body();
+        store
+            .reserve_signing_body(&first, DigestSuite::Sha256)
+            .await
+            .unwrap();
+        let seal_for = |body: &UnsignedSeal| {
+            let bytes = arkret_canonical::canonical_json_bytes(body).unwrap();
+            let mut value = serde_json::to_value(body).unwrap();
+            value["id"] = serde_json::to_value(
+                Seal::id_from_canonical_bytes(&bytes, DigestSuite::Sha256).unwrap(),
+            )
+            .unwrap();
+            value["notary_signature"] = serde_json::json!({
+                "verification_method": "did:web:station.example#notary",
+                "payload_digest": format!("sha256:{}", "1".repeat(64)),
+                "jws": "test-store-boundary"
+            });
+            serde_json::from_value::<Seal>(value).unwrap()
+        };
+        let mut competing = first.clone();
+        competing.sealed_at += chrono::Duration::seconds(1);
+        assert!(
+            store
+                .put_if_head(&seal_for(&competing), None, DigestSuite::Sha256)
+                .await
+                .is_err()
+        );
+        assert!(
+            store
+                .confirmed_head(&first.realm_id)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            store
+                .put_if_head(&seal_for(&first), None, DigestSuite::Sha256)
                 .await
                 .unwrap()
         );

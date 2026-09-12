@@ -1069,8 +1069,8 @@ pub async fn winning_history_cipher_suite_from_verified_checkpoint(
                     WireError::Protocol(format!("invalid winning MLS Genesis: {error}"))
                 })?;
                 payload.validate()?;
-                if payload.mls_group_id.as_str() != mls_group_id
-                    || !scope_matches(effective_scope, &payload.effective_scope)
+                if payload.mls_group_id() != mls_group_id
+                    || !scope_matches(effective_scope, payload.effective_scope())
                 {
                     return invalid("winning MLS Genesis crosses group or scope");
                 }

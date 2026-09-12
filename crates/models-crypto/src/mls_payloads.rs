@@ -73,12 +73,8 @@ impl SidecarMlsBinding {
 pub struct MlsGovernanceBindingPayload {
     binding_version: u8,
     encoding_profile: String,
-    realm_id: RealmId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    circle_id: Option<CircleId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    sidecar_id: Option<SidecarId>,
     effective_scope: ScopeRef,
+    #[serde(skip)]
     mls_group_id: MlsGroupId,
     previous_epoch: u64,
     next_epoch: u64,
@@ -96,7 +92,6 @@ impl MlsGovernanceBindingPayload {
     #[allow(clippy::too_many_arguments)]
     pub fn realm(
         realm_id: RealmId,
-        mls_group_id: impl Into<String>,
         previous_epoch: u64,
         next_epoch: u64,
         security_frontier_digest: Hash,
@@ -105,18 +100,13 @@ impl MlsGovernanceBindingPayload {
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
+        let effective_scope = ScopeRef::Realm { realm_id };
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
-            realm_id: realm_id.clone(),
-            circle_id: None,
-            sidecar_id: None,
-            effective_scope: ScopeRef::Realm { realm_id },
-            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
-                WireError::Protocol(format!(
-                    "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
-                ))
-            })?,
+            effective_scope,
+            mls_group_id,
             previous_epoch,
             next_epoch,
             security_frontier_digest,
@@ -134,7 +124,6 @@ impl MlsGovernanceBindingPayload {
     pub fn circle(
         realm_id: RealmId,
         circle_id: CircleId,
-        mls_group_id: impl Into<String>,
         previous_epoch: u64,
         next_epoch: u64,
         security_frontier_digest: Hash,
@@ -143,21 +132,16 @@ impl MlsGovernanceBindingPayload {
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
+        let effective_scope = ScopeRef::Circle {
+            realm_id,
+            circle_id,
+        };
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
-            realm_id: realm_id.clone(),
-            circle_id: Some(circle_id.clone()),
-            sidecar_id: None,
-            effective_scope: ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            },
-            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
-                WireError::Protocol(format!(
-                    "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
-                ))
-            })?,
+            effective_scope,
+            mls_group_id,
             previous_epoch,
             next_epoch,
             security_frontier_digest,
@@ -175,7 +159,6 @@ impl MlsGovernanceBindingPayload {
     pub fn sidecar(
         realm_id: RealmId,
         sidecar_id: SidecarId,
-        mls_group_id: impl Into<String>,
         previous_epoch: u64,
         next_epoch: u64,
         security_frontier_digest: Hash,
@@ -183,21 +166,16 @@ impl MlsGovernanceBindingPayload {
         binding_profile: impl Into<String>,
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
+        let effective_scope = ScopeRef::Sidecar {
+            realm_id,
+            sidecar_id,
+        };
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
-            realm_id: realm_id.clone(),
-            circle_id: None,
-            sidecar_id: Some(sidecar_id.clone()),
-            effective_scope: ScopeRef::Sidecar {
-                realm_id,
-                sidecar_id,
-            },
-            mls_group_id: MlsGroupId::new(mls_group_id.into()).map_err(|err| {
-                WireError::Protocol(format!(
-                    "mls_governance_binding.mls_group_id is invalid: {err} (schema_violation)"
-                ))
-            })?,
+            effective_scope,
+            mls_group_id,
             previous_epoch,
             next_epoch,
             security_frontier_digest,
@@ -243,60 +221,28 @@ impl MlsGovernanceBindingPayload {
             ));
         }
         match &self.effective_scope {
-            ScopeRef::Realm { realm_id } => {
-                if realm_id != &self.realm_id
-                    || self.circle_id.is_some()
-                    || self.sidecar_id.is_some()
-                    || self.sidecar_binding.is_some()
-                {
+            ScopeRef::Realm { .. } | ScopeRef::Circle { .. } if self.sidecar_binding.is_none() => {}
+            ScopeRef::Sidecar { sidecar_id, .. } => {
+                let binding = self.sidecar_binding.as_ref().ok_or_else(|| {
+                    WireError::Protocol("MLS Sidecar scope requires sidecar_binding".to_owned())
+                })?;
+                if &binding.sidecar_id != sidecar_id {
                     return Err(WireError::Protocol(
-                        "mls_governance_binding realm effective_scope mismatch (schema_violation)"
-                            .to_owned(),
-                    ));
-                }
-            }
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            } => {
-                if realm_id != &self.realm_id
-                    || self.circle_id.as_ref() != Some(circle_id)
-                    || self.sidecar_id.is_some()
-                    || self.sidecar_binding.is_some()
-                {
-                    return Err(WireError::Protocol(
-                        "mls_governance_binding circle effective_scope mismatch (schema_violation)"
-                            .to_owned(),
-                    ));
-                }
-            }
-            ScopeRef::Sidecar {
-                realm_id,
-                sidecar_id,
-            } => {
-                let Some(binding) = &self.sidecar_binding else {
-                    return Err(WireError::Protocol(
-                        "mls_governance_binding Sidecar scope requires sidecar_binding (schema_violation)".to_owned(),
-                    ));
-                };
-                if realm_id != &self.realm_id
-                    || self.circle_id.is_some()
-                    || self.sidecar_id.as_ref() != Some(sidecar_id)
-                    || &binding.sidecar_id != sidecar_id
-                {
-                    return Err(WireError::Protocol(
-                        "mls_governance_binding Sidecar effective_scope mismatch (schema_violation)".to_owned(),
+                        "MLS Sidecar binding has a different scope".to_owned(),
                     ));
                 }
                 binding.validate()?;
             }
-            // Fail closed on scope kinds this crate does not know about.
             _ => {
                 return Err(WireError::Protocol(
-                    "mls_governance_binding effective_scope kind is unsupported (schema_violation)"
-                        .to_owned(),
+                    "unsupported MLS scope or Sidecar binding".to_owned(),
                 ));
             }
+        }
+        if self.mls_group_id.as_str() != self.effective_scope.canonical_mls_group_id()? {
+            return Err(WireError::Protocol(
+                "derived MLS group cache differs from canonical scope".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -372,30 +318,9 @@ impl MlsGovernanceBindingPayload {
         self.validate()?;
         let mut out = Vec::new();
         cbor_put_map_len(&mut out, self.cbor_field_count());
-        // RFC 8949 4.2.1: map keys are ordered by the bytewise lexicographic
-        // order of their *encoded* form. A text string's head byte encodes its
-        // length, so for every key here that is "shorter first, then bytes" -
-        // realm_id (head 0x68) precedes binding_profile (head 0x6F). This is
-        // not plain lexicographic order over the key text; see
-        // `encryption-and-audit.md` 2.5.3.
-        cbor_put_tstr(&mut out, "realm_id");
-        cbor_put_tstr(&mut out, self.realm_id.as_str());
-        if let Some(circle_id) = &self.circle_id {
-            cbor_put_tstr(&mut out, "circle_id");
-            cbor_put_tstr(&mut out, circle_id.as_str());
-        }
+        // RFC 8949 deterministic ordering uses encoded-key length, then bytes.
         cbor_put_tstr(&mut out, "next_epoch");
         cbor_put_uint(&mut out, self.next_epoch);
-        if let Some(sidecar_id) = &self.sidecar_id {
-            cbor_put_tstr(&mut out, "sidecar_id");
-            cbor_put_tstr(&mut out, sidecar_id.as_str());
-        }
-        cbor_put_tstr(&mut out, "mls_group_id");
-        cbor_put_bstr(&mut out, &base64url_decode(self.mls_group_id.as_str()).map_err(|err| {
-            WireError::Protocol(format!(
-                "mls_governance_binding.mls_group_id must be base64url for CBOR bstr encoding: {err} (schema_violation)"
-            ))
-        })?);
         cbor_put_tstr(&mut out, "content_scheme");
         cbor_put_tstr(&mut out, self.content_scheme.as_str());
         cbor_put_tstr(&mut out, "previous_epoch");
@@ -418,8 +343,7 @@ impl MlsGovernanceBindingPayload {
             cbor_put_tstr(&mut out, "durability_policy");
             cbor_put_tstr(&mut out, durability_policy.as_str());
         }
-        // Digest values and the decoded base64url group id are CBOR bstr;
-        // protocol identifiers such as Realm and Sidecar ids remain tstr.
+        // Digests are CBOR bstr; scope identifiers remain tstr.
         cbor_put_tstr(&mut out, "security_frontier_digest");
         cbor_put_bstr(
             &mut out,
@@ -441,15 +365,21 @@ impl MlsGovernanceBindingPayload {
     }
 
     pub fn realm_id(&self) -> &RealmId {
-        &self.realm_id
+        self.effective_scope.realm_id()
     }
 
     pub fn circle_id(&self) -> Option<&CircleId> {
-        self.circle_id.as_ref()
+        match &self.effective_scope {
+            ScopeRef::Circle { circle_id, .. } => Some(circle_id),
+            _ => None,
+        }
     }
 
     pub fn sidecar_id(&self) -> Option<&SidecarId> {
-        self.sidecar_id.as_ref()
+        match &self.effective_scope {
+            ScopeRef::Sidecar { sidecar_id, .. } => Some(sidecar_id),
+            _ => None,
+        }
     }
 
     pub fn effective_scope(&self) -> &ScopeRef {
@@ -493,10 +423,7 @@ impl MlsGovernanceBindingPayload {
     }
 
     fn cbor_field_count(&self) -> u64 {
-        11 + self.circle_id.is_some() as u64
-            + self.sidecar_id.is_some() as u64
-            + self.sidecar_binding.is_some() as u64
-            + self.durability_policy.is_some() as u64
+        9 + self.sidecar_binding.is_some() as u64 + self.durability_policy.is_some() as u64
     }
 
     fn from_cbor_fields(mut fields: BTreeMap<String, CborValue>) -> Result<Self> {
@@ -505,41 +432,26 @@ impl MlsGovernanceBindingPayload {
         if binding_version > u64::from(u8::MAX) {
             return Err(cbor_error("binding_version is out of range"));
         }
-        let circle_id = take_optional_tstr(&mut fields, "circle_id")?
-            .map(CircleId::new)
-            .transpose()
-            .map_err(|err| cbor_error_message(format!("circle_id is invalid: {err}")))?;
         let content_scheme = content_scheme_from_str(&take_tstr(&mut fields, "content_scheme")?)?;
         let durability_policy = take_optional_tstr(&mut fields, "durability_policy")?
             .map(|value| durability_policy_from_str(&value))
             .transpose()?;
         let effective_scope = take_effective_scope(&mut fields)?;
         let encoding_profile = take_tstr(&mut fields, "encoding_profile")?;
-        let mls_group_id =
-            MlsGroupId::new(base64url_encode(&take_bstr(&mut fields, "mls_group_id")?))
-                .map_err(|err| cbor_error_message(format!("mls_group_id is invalid: {err}")))?;
         let next_epoch = take_uint(&mut fields, "next_epoch")?;
         let previous_epoch = take_uint(&mut fields, "previous_epoch")?;
-        let realm_id = RealmId::new(take_tstr(&mut fields, "realm_id")?)
-            .map_err(|err| cbor_error_message(format!("realm_id is invalid: {err}")))?;
         let reducer_profile = take_tstr(&mut fields, "reducer_profile")?;
         let security_frontier_digest = take_hash(&mut fields, "security_frontier_digest")?;
         let sidecar_binding = take_optional_sidecar_binding(&mut fields)?;
-        let sidecar_id = take_optional_tstr(&mut fields, "sidecar_id")?
-            .map(SidecarId::new)
-            .transpose()
-            .map_err(|err| cbor_error_message(format!("sidecar_id is invalid: {err}")))?;
         if let Some(extra) = fields.keys().next() {
             return Err(cbor_error_message(format!(
                 "unexpected mls_governance_binding CBOR key `{extra}`"
             )));
         }
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
         let payload = Self {
             binding_version: binding_version as u8,
             encoding_profile,
-            realm_id,
-            circle_id,
-            sidecar_id,
             effective_scope,
             mls_group_id,
             previous_epoch,
@@ -561,13 +473,7 @@ impl MlsGovernanceBindingPayload {
 struct MlsGovernanceBindingPayloadWire {
     binding_version: u8,
     encoding_profile: String,
-    realm_id: RealmId,
-    #[serde(default)]
-    circle_id: Option<CircleId>,
-    #[serde(default)]
-    sidecar_id: Option<SidecarId>,
     effective_scope: ScopeRef,
-    mls_group_id: MlsGroupId,
     previous_epoch: u64,
     next_epoch: u64,
     security_frontier_digest: Hash,
@@ -587,11 +493,8 @@ impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
         let payload = Self {
             binding_version: wire.binding_version,
             encoding_profile: wire.encoding_profile,
-            realm_id: wire.realm_id,
-            circle_id: wire.circle_id,
-            sidecar_id: wire.sidecar_id,
+            mls_group_id: MlsGroupId::new(wire.effective_scope.canonical_mls_group_id()?)?,
             effective_scope: wire.effective_scope,
-            mls_group_id: wire.mls_group_id,
             previous_epoch: wire.previous_epoch,
             next_epoch: wire.next_epoch,
             security_frontier_digest: wire.security_frontier_digest,
@@ -731,11 +634,8 @@ pub fn validate_transition_recovery_archive(
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct MlsCommitPayload {
-    mls_group_id: MlsGroupId,
-    base_epoch: u64,
     base_epoch_ref: String,
     proposal_refs: Vec<EventId>,
-    next_epoch: u64,
     commit_bytes_b64: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     commit_message_ref: Option<BlobRef>,
@@ -749,11 +649,8 @@ pub struct MlsCommitPayload {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsCommitPayloadWire {
-    mls_group_id: MlsGroupId,
-    base_epoch: u64,
     base_epoch_ref: String,
     proposal_refs: Vec<EventId>,
-    next_epoch: u64,
     commit_bytes_b64: String,
     #[serde(default)]
     commit_message_ref: Option<BlobRef>,
@@ -773,11 +670,8 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
         let commit_digest =
             Hash::new(canonical::sha256_digest(&commit_bytes)).map_err(serde::de::Error::custom)?;
         let payload = Self {
-            mls_group_id: wire.mls_group_id,
-            base_epoch: wire.base_epoch,
             base_epoch_ref: wire.base_epoch_ref,
             proposal_refs: wire.proposal_refs,
-            next_epoch: wire.next_epoch,
             commit_bytes_b64: wire.commit_bytes_b64,
             commit_message_ref: wire.commit_message_ref,
             commit_digest,
@@ -791,22 +685,22 @@ impl<'de> Deserialize<'de> for MlsCommitPayload {
 
 impl MlsCommitPayload {
     pub fn new(
-        base_epoch: u64,
         base_epoch_ref: impl Into<String>,
         proposal_refs: Vec<EventId>,
         commit: &MlsCommitEnvelope,
         governance_binding: MlsGovernanceBindingPayload,
     ) -> Result<Self> {
+        governance_binding.validate()?;
+        if commit.group_id != governance_binding.mls_group_id()
+            || commit.epoch != governance_binding.next_epoch()
+        {
+            return Err(WireError::Protocol(
+                "MLS Commit envelope differs from its governance binding".to_owned(),
+            ));
+        }
         let payload = Self {
-            mls_group_id: MlsGroupId::new(commit.group_id.clone()).map_err(|err| {
-                WireError::Protocol(format!(
-                    "mls_commit_payload.mls_group_id is invalid: {err} (schema_violation)"
-                ))
-            })?,
-            base_epoch,
             base_epoch_ref: base_epoch_ref.into(),
             proposal_refs,
-            next_epoch: commit.epoch,
             commit_bytes_b64: commit.commit.clone(),
             commit_message_ref: None,
             commit_digest: commit.commit_digest.clone(),
@@ -818,7 +712,7 @@ impl MlsCommitPayload {
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.base_epoch.checked_add(1) != Some(self.next_epoch) {
+        if self.base_epoch().checked_add(1) != Some(self.next_epoch()) {
             return Err(WireError::Protocol(
                 "mls_commit_payload.next_epoch must equal base_epoch + 1 (schema_violation)"
                     .to_owned(),
@@ -858,24 +752,10 @@ impl MlsCommitPayload {
             }
         }
         self.governance_binding.validate()?;
-        if self.governance_binding.mls_group_id() != self.mls_group_id.as_str() {
-            return Err(WireError::Protocol(
-                "mls_commit_payload.governance_binding.mls_group_id mismatch (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if self.governance_binding.previous_epoch() != self.base_epoch
-            || self.governance_binding.next_epoch() != self.next_epoch
-        {
-            return Err(WireError::Protocol(
-                "mls_commit_payload.governance_binding epoch mismatch (schema_violation)"
-                    .to_owned(),
-            ));
-        }
         validate_transition_recovery_archive(
             "mls_commit_payload",
             &self.governance_binding,
-            self.next_epoch,
+            self.next_epoch(),
             &self.commit_digest,
             self.organization_recovery_archive.as_ref(),
         )
@@ -891,11 +771,11 @@ impl MlsCommitPayload {
     }
 
     pub fn mls_group_id(&self) -> &str {
-        self.mls_group_id.as_str()
+        self.governance_binding.mls_group_id()
     }
 
     pub fn base_epoch(&self) -> u64 {
-        self.base_epoch
+        self.governance_binding.previous_epoch()
     }
 
     pub fn base_epoch_ref(&self) -> &str {
@@ -907,7 +787,7 @@ impl MlsCommitPayload {
     }
 
     pub fn next_epoch(&self) -> u64 {
-        self.next_epoch
+        self.governance_binding.next_epoch()
     }
 
     pub fn commit_bytes_b64(&self) -> &str {
@@ -920,8 +800,8 @@ impl MlsCommitPayload {
     /// their protocol-owned delivery surfaces.
     pub fn commit_envelope(&self) -> MlsCommitEnvelope {
         MlsCommitEnvelope {
-            group_id: self.mls_group_id.to_string(),
-            epoch: self.next_epoch,
+            group_id: self.mls_group_id().to_owned(),
+            epoch: self.next_epoch(),
             commit: self.commit_bytes_b64.clone(),
             commit_digest: self.commit_digest.clone(),
             ratchet_tree: None,
@@ -1454,10 +1334,6 @@ mod tests {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
     }
 
-    fn group_id() -> String {
-        base64url_encode(b"arkret-mls-test-group")
-    }
-
     fn reducer_profile() -> &'static str {
         "ak.reducer.core.v1"
     }
@@ -1491,7 +1367,6 @@ mod tests {
     fn full_binding() -> MlsGovernanceBindingPayload {
         MlsGovernanceBindingPayload::realm(
             realm(),
-            group_id(),
             0,
             1,
             hash('2'),
@@ -1504,13 +1379,64 @@ mod tests {
     }
 
     #[test]
+    fn derived_binding_coordinates_cannot_be_reintroduced_on_json_or_cbor_wire() {
+        let binding = full_binding();
+        let value = serde_json::to_value(&binding).unwrap();
+        for field in ["realm_id", "circle_id", "sidecar_id", "mls_group_id"] {
+            assert!(value.get(field).is_none());
+            let mut mirrored = value.clone();
+            mirrored[field] = json!("untrusted-coordinate");
+            assert!(serde_json::from_value::<MlsGovernanceBindingPayload>(mirrored).is_err());
+            let mut bytes = binding.to_deterministic_cbor().unwrap();
+            bytes[0] += 1;
+            cbor_put_tstr(&mut bytes, field);
+            cbor_put_tstr(&mut bytes, "untrusted-coordinate");
+            let error = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("unexpected mls_governance_binding CBOR key")
+            );
+        }
+    }
+
+    #[test]
+    fn compact_commit_still_checks_actual_mls_group_and_epoch() {
+        let binding = full_binding();
+        let bytes = b"commit";
+        let mut commit = MlsCommitEnvelope {
+            group_id: binding.mls_group_id().to_owned(),
+            epoch: binding.next_epoch(),
+            commit: base64url_encode(bytes),
+            commit_digest: Hash::new(canonical::sha256_digest(bytes)).unwrap(),
+            ratchet_tree: None,
+        };
+        let valid =
+            MlsCommitPayload::new(event(1).to_string(), Vec::new(), &commit, binding.clone())
+                .unwrap();
+        let value = serde_json::to_value(valid).unwrap();
+        for field in ["mls_group_id", "base_epoch", "next_epoch"] {
+            assert!(value.get(field).is_none());
+            let mut mirrored = value.clone();
+            mirrored[field] = json!(0);
+            assert!(serde_json::from_value::<MlsCommitPayload>(mirrored).is_err());
+        }
+        commit.epoch += 1;
+        assert!(
+            MlsCommitPayload::new(event(1).to_string(), Vec::new(), &commit, binding.clone())
+                .is_err()
+        );
+        commit.epoch = binding.next_epoch();
+        commit.group_id = base64url_encode(b"different-group");
+        assert!(MlsCommitPayload::new(event(1).to_string(), Vec::new(), &commit, binding).is_err());
+    }
+
+    #[test]
     fn mls_governance_binding_rejects_extra_fields_on_decode() {
         let err = serde_json::from_value::<MlsGovernanceBindingPayload>(json!({
             "binding_version": 1,
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
-            "realm_id": realm(),
             "effective_scope": {"kind": "realm", "realm_id": realm()},
-            "mls_group_id": "mls-group-test",
             "previous_epoch": 0,
             "next_epoch": 1,
             "security_frontier_digest": hash('2'),
@@ -1527,7 +1453,6 @@ mod tests {
     fn mls_governance_binding_has_one_frontier_commitment() {
         let binding = MlsGovernanceBindingPayload::realm(
             realm(),
-            group_id(),
             0,
             1,
             hash('2'),
@@ -1553,9 +1478,7 @@ mod tests {
         let error = serde_json::from_value::<MlsGovernanceBindingPayload>(json!({
             "binding_version": MLS_GOVERNANCE_BINDING_VERSION,
             "encoding_profile": MLS_GOVERNANCE_BINDING_ENCODING_PROFILE,
-            "realm_id": realm(),
             "effective_scope": {"kind": "realm", "realm_id": realm()},
-            "mls_group_id": group_id(),
             "previous_epoch": 0,
             "next_epoch": 1,
             "content_scheme": "mls_rfc9420",
@@ -1588,7 +1511,6 @@ mod tests {
         let binding = MlsGovernanceBindingPayload::circle(
             realm(),
             circle_id.clone(),
-            group_id(),
             7,
             8,
             hash('5'),
@@ -1693,7 +1615,6 @@ mod tests {
         let binding = MlsGovernanceBindingPayload::sidecar(
             realm(),
             sidecar_id,
-            group_id(),
             7,
             8,
             hash('5'),
@@ -1707,7 +1628,7 @@ mod tests {
         assert_rfc8949_key_order(&bytes);
         assert_eq!(
             canonical::sha256_digest(&bytes),
-            "sha256:a429ee45785f919fde2b132a4ec943b64969fce32bc7e52fbe1419965f6aae61"
+            "sha256:99904eaa22bdee64d381bfd2909d3c3ef87364709e3bd470d7377f9df70421b3"
         );
         let decoded = MlsGovernanceBindingPayload::from_deterministic_cbor(&bytes).unwrap();
         assert_eq!(decoded.sidecar_binding(), Some(&sidecar_binding));
@@ -1752,13 +1673,12 @@ mod tests {
             MlsGovernanceBindingPayload::sidecar(
                 realm(),
                 sidecar_binding.sidecar_id.clone(),
-                group_id(),
                 7,
                 8,
                 hash('5'),
                 sidecar_binding,
                 ProfileId::MLS_GOVERNANCE_BINDING_FULL_V1,
-                reducer_profile(),
+                reducer_profile()
             )
             .is_err()
         );
@@ -1829,15 +1749,10 @@ mod tests {
         let binding = full_binding();
         let mut bytes = Vec::new();
         cbor_put_map_len(&mut bytes, binding.cbor_field_count());
-        cbor_put_tstr(&mut bytes, "realm_id");
-        cbor_put_tstr(&mut bytes, binding.realm_id().as_str());
         cbor_put_tstr(&mut bytes, "next_epoch");
         cbor_put_uint(&mut bytes, binding.next_epoch());
-        cbor_put_tstr(&mut bytes, "mls_group_id");
-        cbor_put_bstr(
-            &mut bytes,
-            &base64url_decode(binding.mls_group_id()).unwrap(),
-        );
+        cbor_put_tstr(&mut bytes, "content_scheme");
+        cbor_put_tstr(&mut bytes, binding.content_scheme().as_str());
         // --- the swapped pair ---
         cbor_put_tstr(&mut bytes, "binding_profile");
         cbor_put_tstr(&mut bytes, &binding.binding_profile);

@@ -354,7 +354,7 @@ impl Realm {
 #[cfg(test)]
 mod tests {
     use arkret_wire::notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor};
-    use arkret_wire::{DidCoreId, DidUrl, Hash};
+    use arkret_wire::{DidCoreId, DidUrl};
 
     use super::*;
 
@@ -374,10 +374,6 @@ mod tests {
                     jose_algorithm: NotaryJoseAlgorithm::Ed25519,
                     frozen_public_key_b64u: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
                         .to_owned(),
-                    frozen_public_key_digest: Hash::new(
-                        "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925",
-                    )
-                    .unwrap(),
                 },
                 0,
             )

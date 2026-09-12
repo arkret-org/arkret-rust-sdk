@@ -209,8 +209,9 @@ mod tests {
         }
     }
 
-    fn governance_realm() -> RealmId {
-        RealmId::new("ak:realm:AdHF2JK9DIDVy_g03wqifslF_vA_Yuy3_0aWvazcsO_b").unwrap()
+    fn governance_realm(group_id: &str) -> RealmId {
+        let scope_key = arkret_canonical::base64url_decode(group_id).unwrap();
+        RealmId::new(String::from_utf8(scope_key).unwrap()).unwrap()
     }
 
     fn governance_hash(byte: char) -> Hash {
@@ -224,8 +225,7 @@ mod tests {
         security_frontier_digest: Hash,
     ) -> MlsGovernanceBindingPayload {
         MlsGovernanceBindingPayload::realm(
-            governance_realm(),
-            group_id.to_owned(),
+            governance_realm(group_id),
             previous_epoch,
             next_epoch,
             security_frontier_digest,
@@ -593,8 +593,7 @@ mod tests {
             .unwrap();
         let group_id = group.group_id();
         let binding = MlsGovernanceBindingPayload::realm(
-            governance_realm(),
-            group_id.clone(),
+            governance_realm(&group_id),
             0,
             1,
             governance_hash('3'),

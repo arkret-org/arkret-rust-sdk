@@ -1323,7 +1323,6 @@ mod tests {
     fn governance_binding(previous_epoch: u64, next_epoch: u64) -> MlsGovernanceBindingPayload {
         MlsGovernanceBindingPayload::realm(
             RealmId::new(REALM).expect("Realm id"),
-            GROUP,
             previous_epoch,
             next_epoch,
             Hash::new(format!("sha256:{}", "ab".repeat(32))).expect("frontier digest"),
@@ -1370,7 +1369,6 @@ mod tests {
     ) -> Event {
         let commit_bytes = b"arkret-test-commit";
         let payload = MlsCommitPayload::new(
-            base_epoch,
             base_epoch_ref.as_str(),
             proposal_refs,
             &MlsCommitEnvelope {

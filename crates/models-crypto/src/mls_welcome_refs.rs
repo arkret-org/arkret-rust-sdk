@@ -68,15 +68,13 @@ pub struct MlsWelcomeRefsOutcome {
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
     pub next_cursor: Option<String>,
-    pub limited: bool,
 }
 
 impl MlsWelcomeRefsOutcome {
     pub fn validate(&self) -> Result<()> {
         if self.welcome_refs.len() > MLS_WELCOME_REFS_MAX_LIMIT as usize
             || self.welcome_refs.iter().collect::<BTreeSet<_>>().len() != self.welcome_refs.len()
-            || self.limited != self.next_cursor.is_some()
-            || (self.limited && self.welcome_refs.is_empty())
+            || (self.next_cursor.is_some() && self.welcome_refs.is_empty())
         {
             return invalid(
                 "Welcome discovery page violates bounds or continuation shape (schema_violation)",
@@ -194,12 +192,9 @@ mod tests {
         let mut page = MlsWelcomeRefsOutcome {
             welcome_refs: vec![],
             next_cursor: None,
-            limited: false,
         };
         page.validate_for_request(&query).unwrap();
         page.next_cursor = Some("opaque".to_owned());
-        assert!(page.validate_for_request(&query).is_err());
-        page.limited = true;
         assert!(page.validate_for_request(&query).is_err());
         let event = EventId::new("ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap();
         page.welcome_refs.push(event.clone());

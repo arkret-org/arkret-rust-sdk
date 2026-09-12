@@ -480,7 +480,7 @@ mod tests {
                         "key_kind": "ed25519_raw32",
                         "jose_algorithm": "Ed25519",
                         "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                        "frozen_public_key_digest": "sha256:66687aadf862bd776c8fc18b8e9f8e20089714856ee233b3902a591d0d5f2925"
+
                     },
                     "max_clock_error_ms": 0
                 }

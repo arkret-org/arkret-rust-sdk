@@ -37,10 +37,17 @@ pub struct NotarySignerDescriptor {
     pub key_kind: NotaryKeyKind,
     pub jose_algorithm: NotaryJoseAlgorithm,
     pub frozen_public_key_b64u: String,
-    pub frozen_public_key_digest: Hash,
 }
 
 impl NotarySignerDescriptor {
+    /// Local fingerprint derived from the sole frozen public key bytes.
+    pub fn frozen_public_key_digest(&self) -> Result<Hash> {
+        self.validate()?;
+        let bytes = crate::base64url::base64url_decode(&self.frozen_public_key_b64u)
+            .map_err(|error| WireError::Protocol(format!("invalid frozen notary key: {error}")))?;
+        Ok(Hash::new(crate::canonical::sha256_digest(bytes))?)
+    }
+
     pub fn validate(&self) -> Result<()> {
         let controller = self
             .verification_method
@@ -76,15 +83,6 @@ impl NotarySignerDescriptor {
                     .to_owned(),
             ));
         }
-        if !self
-            .frozen_public_key_digest
-            .as_ref()
-            .starts_with("sha256:")
-        {
-            return Err(WireError::Protocol(
-                "notary signer frozen_public_key_digest must use sha256".to_owned(),
-            ));
-        }
         let public_key = crate::base64url::base64url_decode(&self.frozen_public_key_b64u)
             .map_err(|error| WireError::Protocol(format!("invalid frozen notary key: {error}")))?;
         let expected_decoded_len = match self.key_kind {
@@ -100,13 +98,6 @@ impl NotarySignerDescriptor {
         {
             return Err(WireError::Protocol(
                 "notary signer frozen public key has invalid encoded key shape".to_owned(),
-            ));
-        }
-        let expected_digest = Hash::new(crate::canonical::sha256_digest(public_key))?;
-        if self.frozen_public_key_digest != expected_digest {
-            return Err(WireError::Protocol(
-                "notary signer frozen_public_key_digest does not match frozen_public_key_b64u"
-                    .to_owned(),
             ));
         }
         Ok(())
@@ -145,5 +136,34 @@ impl NotaryValue {
         verification_method: &DidUrl,
     ) -> Option<&NotarySignerDescriptor> {
         (&self.signer.verification_method == verification_method).then_some(&self.signer)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn frozen_key_fingerprint_is_derived_and_rejected_as_wire_input() {
+        let key = [7_u8; 32];
+        let descriptor = NotarySignerDescriptor {
+            actor_id: ActorId::service(
+                crate::DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+            ),
+            verification_method: DidUrl::new("did:web:station.example#notary").unwrap(),
+            key_kind: NotaryKeyKind::Ed25519Raw32,
+            jose_algorithm: NotaryJoseAlgorithm::Ed25519,
+            frozen_public_key_b64u: crate::base64url::base64url_encode(key),
+        };
+        descriptor.validate().unwrap();
+        assert_eq!(
+            descriptor.frozen_public_key_digest().unwrap().as_str(),
+            crate::canonical::sha256_digest(key)
+        );
+        let mut value = serde_json::to_value(&descriptor).unwrap();
+        assert!(value.get("frozen_public_key_digest").is_none());
+        value["frozen_public_key_digest"] =
+            serde_json::to_value(descriptor.frozen_public_key_digest().unwrap()).unwrap();
+        assert!(serde_json::from_value::<NotarySignerDescriptor>(value).is_err());
     }
 }
