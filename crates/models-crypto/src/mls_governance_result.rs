@@ -232,7 +232,8 @@ impl MlsAcceptedTransition {
             transition_event_digest: self.transition_event_digest.clone(),
             mls_transition_digest: self.mls_transition_digest.clone(),
             effective_scope: binding.effective_scope().clone(),
-            mls_group_id: Base64UrlString::new(binding.mls_group_id())?,
+            mls_group_id: Base64UrlString::new(binding.mls_group_id())
+                .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
             previous_epoch: binding.previous_epoch(),
             next_epoch: binding.next_epoch(),
             content_scheme: binding.content_scheme(),

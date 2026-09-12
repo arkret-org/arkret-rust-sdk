@@ -57,8 +57,8 @@
 
 use arkret_models_integration::PushTargetId;
 pub use arkret_models_integration::push_vocab::{
-    ALLOWED_PUSH_HINTS, ALLOWED_TIMING_PROFILE_HINTS, ALLOWED_WAKEUP_KINDS, MAX_COUNT_VALUE,
-    is_valid_custom_wakeup_kind, is_valid_push_hint, is_valid_wakeup_kind,
+    ALLOWED_PUSH_HINTS, ALLOWED_WAKEUP_KINDS, MAX_COUNT_VALUE, is_valid_custom_wakeup_kind,
+    is_valid_push_hint, is_valid_wakeup_kind,
 };
 use serde_json::Value;
 use thiserror::Error;

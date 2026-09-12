@@ -1086,12 +1086,12 @@ mod tests {
             configuration_handoffs: Vec::new(),
             conclusions: vec![SealConclusionCertificate {
                 statement,
-                signatures: vec![SealSignature {
+                signature: SealSignature {
                     verification_method: DidUrl::new("did:web:notary.example#key-1")
                         .expect("method"),
                     payload_digest,
                     jws: "AAAA..CCCC".to_owned(),
-                }],
+                },
             }],
         }
     }

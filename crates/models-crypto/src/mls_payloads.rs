@@ -3,7 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
-use arkret_wire::base64url::{base64url_decode, base64url_encode};
+use arkret_wire::base64url::base64url_decode;
+#[cfg(test)]
+use arkret_wire::base64url::base64url_encode;
 use arkret_wire::event_envelope::ScopeRef;
 use arkret_wire::{
     BlobRef, CircleId, ContentScheme, DurabilityPolicy, EventId, Hash, HistoryEffectiveScope,
@@ -101,7 +103,8 @@ impl MlsGovernanceBindingPayload {
         reducer_profile: impl Into<String>,
     ) -> Result<Self> {
         let effective_scope = ScopeRef::Realm { realm_id };
-        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?;
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
@@ -136,7 +139,8 @@ impl MlsGovernanceBindingPayload {
             realm_id,
             circle_id,
         };
-        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?;
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
@@ -170,7 +174,8 @@ impl MlsGovernanceBindingPayload {
             realm_id,
             sidecar_id,
         };
-        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?;
         let payload = Self {
             binding_version: MLS_GOVERNANCE_BINDING_VERSION,
             encoding_profile: MLS_GOVERNANCE_BINDING_ENCODING_PROFILE.to_owned(),
@@ -448,7 +453,8 @@ impl MlsGovernanceBindingPayload {
                 "unexpected mls_governance_binding CBOR key `{extra}`"
             )));
         }
-        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)?;
+        let mls_group_id = MlsGroupId::new(effective_scope.canonical_mls_group_id()?)
+            .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?;
         let payload = Self {
             binding_version: binding_version as u8,
             encoding_profile,
@@ -493,7 +499,8 @@ impl TryFrom<MlsGovernanceBindingPayloadWire> for MlsGovernanceBindingPayload {
         let payload = Self {
             binding_version: wire.binding_version,
             encoding_profile: wire.encoding_profile,
-            mls_group_id: MlsGroupId::new(wire.effective_scope.canonical_mls_group_id()?)?,
+            mls_group_id: MlsGroupId::new(wire.effective_scope.canonical_mls_group_id()?)
+                .map_err(|error| arkret_wire::WireError::Protocol(error.to_owned()))?,
             effective_scope: wire.effective_scope,
             previous_epoch: wire.previous_epoch,
             next_epoch: wire.next_epoch,

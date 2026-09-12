@@ -1,30 +1,8 @@
-//! Inclusion-list and seal-transparency log wire shapes.
-//!
-//! Counterparts for `spec/v1/artifacts/schemas/inclusion-list.schema.json`
-//! and `spec/v1/artifacts/schemas/seal-transparency.schema.json`. Migrated
-//! from the `arkret` umbrella (`models::artifacts::self_ops`).
+//! Seal-transparency log wire shapes.
 
-use arkret_wire::{DidCoreId, Hash, PayloadProof, RealmId, SchemaId, SealId};
+use arkret_wire::{Hash, PayloadProof, RealmId, SchemaId, SealId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-
-/// Counterpart for `spec/v1/artifacts/schemas/inclusion-list.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InclusionList {
-    pub realm_id: RealmId,
-    pub signer_id: DidCoreId,
-    pub list_seq: u64,
-    pub event_digests: Vec<Hash>,
-    pub expiry_seal_count: u64,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub created_at: DateTime<Utc>,
-    pub signature: PayloadProof,
-}
-
-impl InclusionList {
-    pub const SCHEMA: &'static str = SchemaId::INCLUSION_LIST_V1;
-}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/seal-transparency.schema.json#/$defs/auditor_attestation/properties/
