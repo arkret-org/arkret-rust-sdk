@@ -53,6 +53,7 @@
 
 pub mod contact_authorization;
 mod control_projection;
+pub mod device_authorization_history;
 mod history_response;
 mod keypackage_claim_receipt;
 mod managed_actor_authoring;
@@ -417,6 +418,9 @@ pub use arkret_wire::{
 };
 pub use control_projection::{
     project_control_writes_at_state, project_control_writes_with_revision_guard,
+};
+pub use device_authorization_history::{
+    DeviceAuthorizationHistory, DeviceAuthorizationInterval, DeviceGenerationInterval,
 };
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,
