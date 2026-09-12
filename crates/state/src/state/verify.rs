@@ -73,6 +73,9 @@ pub enum ControlMoveReject {
     #[error("verified signed causal data context unavailable for cell {cell}")]
     MissingDataContext { cell: String },
 
+    #[error("verified ordinary publication context unavailable for approval Event {event_id}")]
+    MissingPublicationContext { event_id: arkret_wire::EventId },
+
     #[error("registry error: {0}")]
     Registry(String),
 }
@@ -113,7 +116,8 @@ pub fn classify_control_move_reject(reject: &ControlMoveReject) -> ControlMoveFa
         ControlMoveReject::ProjectionFailed(reason) => {
             classify_registered_failure_reason(reason, crate::ReasonCode::ReducerProjectionFailed)
         }
-        ControlMoveReject::MissingDataContext { .. } => {
+        ControlMoveReject::MissingDataContext { .. }
+        | ControlMoveReject::MissingPublicationContext { .. } => {
             ControlMoveFailureDisposition::Pending(crate::ReasonCode::DependencyMissing)
         }
         ControlMoveReject::Registry(_) => ControlMoveFailureDisposition::Infrastructure,
@@ -186,7 +190,10 @@ pub fn reject_to_error_code(r: &ControlMoveReject) -> &'static str {
         // the Event's declared writes could not be derived, which is the same
         // family of failure as a malformed envelope.
         ControlMoveReject::ProjectionFailed(_) => crate::ErrorCode::SCHEMA_VIOLATION,
-        ControlMoveReject::MissingDataContext { .. } => crate::ErrorCode::DEPENDENCY_MISSING,
+        ControlMoveReject::MissingDataContext { .. }
+        | ControlMoveReject::MissingPublicationContext { .. } => {
+            crate::ErrorCode::DEPENDENCY_MISSING
+        }
         ControlMoveReject::Registry(_) => crate::ErrorCode::INTERNAL_ERROR,
     }
 }
@@ -383,6 +390,15 @@ where
         verify_fork_resolution_refs(event, pre_state)?;
     }
     verify_proofs(event).map_err(ControlMoveReject::SignatureInvalid)?;
+
+    // The signed approval payload alone cannot prove its ordinary publication.
+    // Every execution/replay entry point must also verify that exact Event and
+    // its security read set; no such context is supplied by this API yet.
+    if event.kind == arkret_wire::EventKind::AgentActionApprove {
+        return Err(ControlMoveReject::MissingPublicationContext {
+            event_id: event.event_id.clone(),
+        });
+    }
 
     let projected = project_writes(event).map_err(ControlMoveReject::ProjectionFailed)?;
     let mut dependencies = additional_security_reads
