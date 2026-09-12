@@ -1323,7 +1323,10 @@ impl Event {
         let [producer] = self.proofs.as_slice() else {
             unreachable!("producer proof set was validated above")
         };
-        producer.validate_direct_signer_resolution_evidence()
+        match context {
+            EventSubmitContext::Standard => producer.validate_direct_signer_resolution_evidence(),
+            EventSubmitContext::AnchorUnit => Ok(()),
+        }
     }
 
     /// [`Event::validate_for_submit_structural`] under an explicit CBS context.
@@ -2103,6 +2106,9 @@ mod event_wire_surface_tests {
         event
             .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)
             .expect("anchor-unit precondition is evaluated against the frozen predecessor");
+        event
+            .validate_for_direct_history_structural_in_context(EventSubmitContext::AnchorUnit)
+            .expect("retained anchor units keep their unit-local producer proof");
         assert!(
             event
                 .validate_for_submit_structural_in_context(EventSubmitContext::Standard)

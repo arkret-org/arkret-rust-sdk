@@ -80,7 +80,7 @@ pub struct FrankingSealObservationOutcome {
     pub target_event: Event,
     pub covering_seal: Seal,
     pub service_signer_evidence: AuthenticatedSignerResolutionEvidence,
-    pub existence_anchor: arkret_wire::ExistenceAnchor,
+    pub existence_anchor: ExistenceAnchor,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
     pub ancestry_events: Vec<Event>,
 }
