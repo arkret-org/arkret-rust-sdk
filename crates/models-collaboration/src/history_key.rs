@@ -15,7 +15,7 @@ pub use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Exact current history authorization query to the Account Station.
+/// Exact current membership and history authorization query to the Account Station.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -43,24 +43,40 @@ impl HistoryAuthorityRequestBody {
     }
 }
 
-/// Server-derived scope floor; later key release still checks current authority.
+/// Current membership incarnation, with a scope floor only when MLS is available.
+/// Missing epochs do not prevent MLS Add intent authoring. History consumers
+/// must instead keep their task unavailable; absence never means epoch zero.
+/// Later writes and key release still check current authority.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, try_from = "HistoryAuthorityOutcomeWire")]
 pub struct HistoryAuthorityOutcome {
     pub account_id: arkret_wire::AccountId,
     pub query_digest: Hash,
     pub authorization_incarnation: AuthorizationIncarnation,
-    pub join_epoch: u64,
-    pub history_floor_epoch: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub join_epoch: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_floor_epoch: Option<u64>,
 }
 
 impl HistoryAuthorityOutcome {
+    fn validate_epoch_pair(&self) -> Result<()> {
+        match (self.join_epoch, self.history_floor_epoch) {
+            (None, None) => Ok(()),
+            (Some(join), Some(floor)) if floor == 0 || floor == join => Ok(()),
+            _ => Err(WireError::Protocol(
+                "history authority epochs must appear together with floor zero or join_epoch"
+                    .to_owned(),
+            )),
+        }
+    }
+
     pub fn validate_for_request(&self, request: &HistoryAuthorityRequestBody) -> Result<()> {
         request.validate()?;
         current_authority_size(self, arkret_wire::ErrorCode::LimitExceeded)?;
+        self.validate_epoch_pair()?;
         if self.query_digest != request.query_digest()?
-            || (self.history_floor_epoch != 0 && self.history_floor_epoch != self.join_epoch)
             || !matches!(
                 (&request.effective_scope, &self.authorization_incarnation),
                 (
@@ -94,79 +110,40 @@ impl HistoryAuthorityOutcome {
     }
 }
 
-/// Exact current membership query to the authenticated Account Station.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// The private decode adapter enforces paired presence before a result can be
+// consumed merely for its incarnation, without calling a request validator.
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MembershipAuthorityRequestBody {
-    pub effective_scope: HistoryEffectiveScope,
-    pub actor_id: ActorId,
-    pub seal_basis: SealBasis,
+struct HistoryAuthorityOutcomeWire {
+    account_id: arkret_wire::AccountId,
+    query_digest: Hash,
+    authorization_incarnation: AuthorizationIncarnation,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    join_epoch: Option<u64>,
+    #[serde(
+        default,
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    history_floor_epoch: Option<u64>,
 }
 
-impl MembershipAuthorityRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        current_authority_size(self, arkret_wire::ErrorCode::PayloadTooLarge)?;
-        self.seal_basis.validate_protocol_bounds()
-    }
+impl TryFrom<HistoryAuthorityOutcomeWire> for HistoryAuthorityOutcome {
+    type Error = WireError;
 
-    pub fn query_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        let bytes = arkret_canonical::canonical_json_bytes(self)?;
-        Hash::new(arkret_canonical::canonical::sha256_digest_from_slices(&[
-            b"ak.membership-authority-query-v1",
-            &[0],
-            &bytes,
-        ]))
-        .map_err(Into::into)
-    }
-}
-
-/// Current join identity; subsequent writes still undergo server admission.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MembershipAuthorityOutcome {
-    pub account_id: arkret_wire::AccountId,
-    pub query_digest: Hash,
-    pub authorization_incarnation: AuthorizationIncarnation,
-}
-
-impl MembershipAuthorityOutcome {
-    pub fn validate_for_request(&self, request: &MembershipAuthorityRequestBody) -> Result<()> {
-        request.validate()?;
-        current_authority_size(self, arkret_wire::ErrorCode::LimitExceeded)?;
-        if self.query_digest != request.query_digest()?
-            || !matches!(
-                (&request.effective_scope, &self.authorization_incarnation),
-                (
-                    HistoryEffectiveScope::Realm { .. },
-                    AuthorizationIncarnation::Realm { .. }
-                ) | (
-                    HistoryEffectiveScope::Circle { .. },
-                    AuthorizationIncarnation::Circle { .. }
-                )
-            )
-        {
-            return Err(WireError::Protocol(
-                "membership authority differs from the exact request".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    pub fn validate_for_account(
-        &self,
-        request: &MembershipAuthorityRequestBody,
-        account: &arkret_wire::AccountId,
-    ) -> Result<()> {
-        self.validate_for_request(request)?;
-        if &self.account_id != account {
-            return Err(WireError::Protocol(
-                "membership authority belongs to another account".to_owned(),
-            ));
-        }
-        Ok(())
+    fn try_from(wire: HistoryAuthorityOutcomeWire) -> Result<Self> {
+        let result = Self {
+            account_id: wire.account_id,
+            query_digest: wire.query_digest,
+            authorization_incarnation: wire.authorization_incarnation,
+            join_epoch: wire.join_epoch,
+            history_floor_epoch: wire.history_floor_epoch,
+        };
+        result.validate_epoch_pair()?;
+        current_authority_size(&result, arkret_wire::ErrorCode::LimitExceeded)?;
+        Ok(result)
     }
 }
 
@@ -3766,77 +3743,6 @@ mod history_source_send_disposition_tests {
 }
 
 #[cfg(test)]
-mod membership_authority_tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn request() -> MembershipAuthorityRequestBody {
-        serde_json::from_value(json!({
-            "effective_scope":{"kind":"realm","realm_id":"ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI"},
-            "actor_id":{"kind":"account","account_id":{"principal_id":"ak:did_core:web:alice.example","station_id":"ak:did_core:web:station.example"}},
-            "seal_basis":{"leaves":[format!("ak:seal:sha256:{}", "b".repeat(64))]}
-        })).unwrap()
-    }
-
-    fn outcome(query: &MembershipAuthorityRequestBody) -> MembershipAuthorityOutcome {
-        MembershipAuthorityOutcome {
-            account_id: query.actor_id.as_account_id().unwrap().clone(),
-            query_digest: query.query_digest().unwrap(),
-            authorization_incarnation: AuthorizationIncarnation::Realm {
-                realm_membership_incarnation_ref: EventId::from_event_digest(
-                    &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-                )
-                .unwrap(),
-            },
-        }
-    }
-
-    #[test]
-    fn membership_result_binds_query_and_account() {
-        let query = request();
-        let result = outcome(&query);
-        result
-            .validate_for_account(&query, &result.account_id)
-            .unwrap();
-        let mut account = result.account_id.clone();
-        account.station_id = "ak:did_core:web:other.example".parse().unwrap();
-        assert!(result.validate_for_account(&query, &account).is_err());
-        let mut other = query.clone();
-        other.actor_id = ActorId::account(account);
-        assert!(result.validate_for_request(&other).is_err());
-        other = query.clone();
-        other.seal_basis.leaves[0] = format!("ak:seal:sha256:{}", "c".repeat(64))
-            .parse()
-            .unwrap();
-        assert!(result.validate_for_request(&other).is_err());
-    }
-
-    #[test]
-    fn membership_result_rejects_wrong_scope_branch_and_extra_fields() {
-        let query = request();
-        let mut result = outcome(&query);
-        result.authorization_incarnation = AuthorizationIncarnation::Circle {
-            realm_membership_incarnation_ref: EventId::from_event_digest(
-                &Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            )
-            .unwrap(),
-            circle_membership_incarnation_ref: EventId::from_event_digest(
-                &Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
-            )
-            .unwrap(),
-        };
-        assert!(result.validate_for_request(&query).is_err());
-        let mut wire = serde_json::to_value(outcome(&query)).unwrap();
-        wire["checkpoint"] = json!({});
-        assert!(serde_json::from_value::<MembershipAuthorityOutcome>(wire).is_err());
-        let mut wire = serde_json::to_value(&query).unwrap();
-        wire["proof"] = json!({});
-        assert!(serde_json::from_value::<MembershipAuthorityRequestBody>(wire).is_err());
-    }
-}
-
-#[cfg(test)]
 mod history_authority_tests {
     use serde_json::json;
 
@@ -3860,8 +3766,8 @@ mod history_authority_tests {
                 )
                 .unwrap(),
             },
-            join_epoch: 7,
-            history_floor_epoch: 7,
+            join_epoch: Some(7),
+            history_floor_epoch: Some(7),
         }
     }
 
@@ -3872,11 +3778,11 @@ mod history_authority_tests {
         result
             .validate_for_account(&query, &result.account_id)
             .unwrap();
-        result.history_floor_epoch = 0;
+        result.history_floor_epoch = Some(0);
         result.validate_for_request(&query).unwrap();
-        result.history_floor_epoch = 3;
+        result.history_floor_epoch = Some(3);
         assert!(result.validate_for_request(&query).is_err());
-        result.history_floor_epoch = 7;
+        result.history_floor_epoch = Some(7);
         let mut account = result.account_id.clone();
         account.station_id = "ak:did_core:web:other.example".parse().unwrap();
         assert!(result.validate_for_account(&query, &account).is_err());
@@ -3888,13 +3794,6 @@ mod history_authority_tests {
             .parse()
             .unwrap();
         assert!(result.validate_for_request(&other).is_err());
-        let member = MembershipAuthorityRequestBody {
-            effective_scope: query.effective_scope.clone(),
-            actor_id: query.actor_id.clone(),
-            seal_basis: query.seal_basis.clone(),
-        };
-        result.query_digest = member.query_digest().unwrap();
-        assert!(result.validate_for_request(&query).is_err());
     }
 
     #[test]
@@ -3914,6 +3813,78 @@ mod history_authority_tests {
             circle_membership_incarnation_ref: event,
         };
         assert!(result.validate_for_request(&query).is_err());
+    }
+
+    #[test]
+    fn history_authority_without_mls_retains_membership_and_omits_both_epochs() {
+        let query = query();
+        let mut result = result(&query);
+        result.join_epoch = None;
+        result.history_floor_epoch = None;
+        result
+            .validate_for_account(&query, &result.account_id)
+            .unwrap();
+        let wire = serde_json::to_value(&result).unwrap();
+        assert!(wire.get("join_epoch").is_none());
+        assert!(wire.get("history_floor_epoch").is_none());
+        assert_eq!(
+            serde_json::from_value::<HistoryAuthorityOutcome>(wire).unwrap(),
+            result
+        );
+        let mut foreign_account = result.account_id.clone();
+        foreign_account.station_id = "ak:did_core:web:other.example".parse().unwrap();
+        assert!(
+            result
+                .validate_for_account(&query, &foreign_account)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn history_authority_rejects_half_present_null_and_invalid_floor_epochs() {
+        let query = query();
+        let original = result(&query);
+        for field in ["join_epoch", "history_floor_epoch"] {
+            let mut missing = serde_json::to_value(&original).unwrap();
+            missing.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<HistoryAuthorityOutcome>(missing).is_err());
+            let mut null = serde_json::to_value(&original).unwrap();
+            null[field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<HistoryAuthorityOutcome>(null).is_err());
+        }
+        let mut null = serde_json::to_value(&original).unwrap();
+        null["join_epoch"] = serde_json::Value::Null;
+        null["history_floor_epoch"] = serde_json::Value::Null;
+        assert!(serde_json::from_value::<HistoryAuthorityOutcome>(null).is_err());
+        for floor in [3, 8] {
+            let mut wire = serde_json::to_value(&original).unwrap();
+            wire["history_floor_epoch"] = json!(floor);
+            assert!(serde_json::from_value::<HistoryAuthorityOutcome>(wire).is_err());
+        }
+        let mut result = original.clone();
+        result.join_epoch = None;
+        assert!(result.validate_for_request(&query).is_err());
+        let mut result = original;
+        result.history_floor_epoch = None;
+        assert!(result.validate_for_request(&query).is_err());
+    }
+
+    #[test]
+    fn history_authority_preserves_real_epoch_zero_and_full_u64_range() {
+        let query = query();
+        for (join, floor) in [(0, 0), (7, 0), (u64::MAX, u64::MAX)] {
+            let mut result = result(&query);
+            result.join_epoch = Some(join);
+            result.history_floor_epoch = Some(floor);
+            result.validate_for_request(&query).unwrap();
+            let wire = serde_json::to_value(&result).unwrap();
+            assert_eq!(wire["join_epoch"], json!(join));
+            assert_eq!(wire["history_floor_epoch"], json!(floor));
+            assert_eq!(
+                serde_json::from_value::<HistoryAuthorityOutcome>(wire).unwrap(),
+                result
+            );
+        }
     }
 
     #[test]
