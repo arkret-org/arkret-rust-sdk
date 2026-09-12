@@ -904,9 +904,9 @@ impl RealmJoinSelfApplicationStatusRequestBody {
 /// Own-Station validated progress of one join application.
 ///
 /// It carries no Ack, no authority set, no authority signature and no covering
-/// Seal bytes: the client learns whether it has joined, not a second
-/// governance read surface. Once `sealed`, the account is a member and
-/// continues through the ordinary member federation and sync surfaces.
+/// Seal bytes. `sealed` reports a terminal command decision, including a
+/// rejected command. Membership must be confirmed from the committed command
+/// result or an authenticated membership read before enabling member access.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -921,7 +921,8 @@ pub struct RealmJoinSelfApplicationStatusOutcome {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_state: Option<RealmJoinRealmState>,
     /// Present exactly when `realm_state` is `sealed` and the own Station has
-    /// itself verified and accepted that covering Seal. It is an acceptance
+    /// itself verified and accepted the Seal deciding this command, including
+    /// a rejected decision. It is an acceptance
     /// observation, never an authoring `seal_basis`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_seal_id: Option<SealId>,

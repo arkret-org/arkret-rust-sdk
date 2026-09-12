@@ -36,6 +36,7 @@ pub mod history_backup;
 pub mod history_store;
 pub mod mls_cells;
 pub mod mls_governance_proof;
+pub mod ordinary_history;
 pub mod realm_state_snapshot;
 pub mod resolver;
 pub mod state;
