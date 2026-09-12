@@ -91,14 +91,7 @@ impl MemoryControlEventStore {
     fn pending_realm_counts(inner: &MemoryControlEventStoreInner) -> BTreeMap<RealmId, u64> {
         let mut counts = BTreeMap::new();
         for (digest, event) in &inner.events {
-            if inner.command_decisions.contains_key(digest)
-                || inner
-                    .proposal_decisions
-                    .get(digest)
-                    .is_some_and(|decisions| {
-                        decisions.iter().any(ControlProposalDecision::is_reject)
-                    })
-            {
+            if inner.command_decisions.contains_key(digest) {
                 continue;
             }
             *counts.entry(event.realm_id.clone()).or_default() += 1;
@@ -504,6 +497,13 @@ impl ControlEventStore for MemoryControlEventStore {
                 "control Event {event_digest} not in store"
             )));
         }
+        if inner
+            .proposal_decisions
+            .get(event_digest.as_str())
+            .is_some_and(|decisions| decisions.contains(decision))
+        {
+            return Ok(());
+        }
         if inner.command_decisions.contains_key(event_digest.as_str()) {
             return Err(StoreError::Conflict(format!(
                 "Seal-decided control Event {event_digest} cannot receive another proposal decision"
@@ -522,14 +522,6 @@ impl ControlEventStore for MemoryControlEventStore {
             .proposal_decisions
             .entry(event_digest.as_str().to_owned())
             .or_default();
-        if decisions.contains(decision) {
-            return Ok(());
-        }
-        if decisions.iter().any(ControlProposalDecision::is_reject) {
-            return Err(StoreError::Conflict(format!(
-                "control Event {event_digest} already has a terminal signed rejection"
-            )));
-        }
         decision
             .validate_chain(&ack, decisions, policy)
             .map_err(|error| StoreError::Conflict(error.to_string()))?;
@@ -550,14 +542,6 @@ impl ControlEventStore for MemoryControlEventStore {
             .insertion_order
             .iter()
             .filter(|digest| !inner.command_decisions.contains_key(*digest))
-            .filter(|digest| {
-                !inner
-                    .proposal_decisions
-                    .get(*digest)
-                    .is_some_and(|decisions| {
-                        decisions.iter().any(ControlProposalDecision::is_reject)
-                    })
-            })
             .filter_map(|digest| {
                 let event = inner.events.get(digest)?;
                 // Written atomically with the Event row in
@@ -878,15 +862,9 @@ impl ControlEventStore for MemoryControlEventStore {
                     "registered command unit boundary is missing".to_owned(),
                 ));
             };
-            let is_pending = member_keys.iter().all(|digest| {
-                !inner.command_decisions.contains_key(digest)
-                    && !inner
-                        .proposal_decisions
-                        .get(digest)
-                        .is_some_and(|decisions| {
-                            decisions.iter().any(ControlProposalDecision::is_reject)
-                        })
-            });
+            let is_pending = member_keys
+                .iter()
+                .all(|digest| !inner.command_decisions.contains_key(digest));
             if !is_pending {
                 continue;
             }
@@ -1574,15 +1552,6 @@ fn record_memory_seal_command_results(
             {
                 return Err(StoreError::Conflict(format!(
                     "control Event {digest} already has a different Seal command decision"
-                )));
-            }
-            if inner
-                .proposal_decisions
-                .get(digest.as_str())
-                .is_some_and(|existing| existing.iter().any(ControlProposalDecision::is_reject))
-            {
-                return Err(StoreError::Conflict(format!(
-                    "control Event {digest} already has a terminal signed proposal rejection"
                 )));
             }
             if result.outcome == arkret_wire::CommandOutcome::Rejected

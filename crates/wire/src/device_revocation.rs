@@ -67,6 +67,13 @@ pub enum DeviceRevokedStatus {
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeviceRevocationRejectedStatus {
+    #[serde(rename = "revocation_rejected")]
+    RevocationRejected,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceRevocationPendingState {
@@ -107,6 +114,59 @@ pub struct DeviceRevokedState {
     pub covering_seal_id: SealId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub sealed_at: DateTime<Utc>,
+}
+
+/// A rejected revocation clears only the pending gate for this exact proposal.
+/// Its rejection reason is authenticated by the deciding Seal command result.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceRevocationRejectedState {
+    pub schema: DeviceRevocationStateSchema,
+    pub account_id: AccountId,
+    pub device_id: DeviceId,
+    pub target_device_authorize_event_id: EventId,
+    pub target_device_generation_ref: u64,
+    pub proposal_event_id: EventId,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub accepted_at: DateTime<Utc>,
+    pub acceptance_seq: u64,
+    pub control_proposal_ack: ControlProposalAck,
+    pub status: DeviceRevocationRejectedStatus,
+    pub deciding_seal_id: SealId,
+}
+
+impl DeviceRevocationRejectedState {
+    pub fn validate(&self) -> Result<()> {
+        validate_record_common(
+            &self.account_id,
+            self.target_device_generation_ref,
+            &self.proposal_event_id,
+            self.acceptance_seq,
+            &self.control_proposal_ack,
+        )
+    }
+
+    /// The caller authenticates the Seal and the proposal's original device
+    /// binding. This check binds its unique rejected unit result to this record.
+    pub fn validate_deciding_seal(&self, seal: &crate::Seal) -> Result<()> {
+        self.validate()?;
+        seal.validate_structural()?;
+        let digest = self.proposal_event_id.event_digest();
+        let mut matching = seal
+            .command_results
+            .iter()
+            .filter(|result| result.unit_event_digests.contains(&digest));
+        let result = matching.next();
+        if self.deciding_seal_id != seal.id
+            || self.control_proposal_ack.realm_id != seal.realm_id
+            || !result.is_some_and(|result| result.outcome == crate::CommandOutcome::Rejected)
+            || matching.next().is_some()
+        {
+            return Err(WireError::Protocol("device revocation rejection must bind one rejected command result in its deciding Seal".to_owned()));
+        }
+        Ok(())
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -150,12 +210,12 @@ impl DeviceRevocationPendingState {
         )?;
         if self.denied_actions != DEVICE_REVOCATION_DENIED_ACTIONS {
             return Err(WireError::Protocol(
-                "device revocation denied_actions must equal the canonical five-action list"
+                "device revocation denied_actions must equal the canonical four-action list"
                     .to_owned(),
             ));
         }
         let decisions = self.decisions.as_deref().unwrap_or_default();
-        if decisions.len() > 2 || decisions.iter().any(ControlProposalDecision::is_reject) {
+        if decisions.len() > 2 {
             return Err(WireError::Protocol(
                 "pending revocation decisions must contain at most two signed defers".to_owned(),
             ));

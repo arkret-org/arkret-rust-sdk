@@ -178,8 +178,8 @@ pub struct PendingControlUnitRecord {
 
 /// Exact durable state for one Control Proposal digest.
 ///
-/// Unlike pending/notary work queues, this point lookup preserves terminal
-/// signed rejects and accepted Seal coverage, so decision submit replay and
+/// Unlike pending/notary work queues, this point lookup preserves bounded
+/// defers and terminal Seal command decisions, so decision submit replay and
 /// the authenticated decision-read operation never infer state from queue
 /// membership.
 #[derive(Clone, Debug, PartialEq)]

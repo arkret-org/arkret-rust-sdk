@@ -42,7 +42,7 @@ fn event(
     )
     .unwrap();
     event.prev_refs = previous.to_vec();
-    event.causal_refs = causal.iter().map(|id| id.event_digest().unwrap()).collect();
+    event.causal_refs = causal.iter().map(|id| id.event_digest()).collect();
     event.event_id = EventId::from_event_digest(
         &Hash::new(
             event

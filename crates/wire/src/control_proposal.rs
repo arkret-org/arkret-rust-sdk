@@ -1,9 +1,8 @@
 //! Bounded decisions for acknowledged CBS Control Move proposals.
 //!
 //! A Control Proposal Ack commits the first decision deadline and an immutable
-//! absolute deadline. Signed reject and signed defer are verifiable authority
-//! decisions, but only inclusion in an accepted Seal provides control-plane
-//! finality.
+//! absolute deadline. Signed defer extends a pending proposal's deadline;
+//! only an accepted Seal command result provides committed/rejected finality.
 
 use std::collections::BTreeSet;
 
@@ -37,17 +36,6 @@ pub enum ControlProposalAckKind {
 pub enum ControlProposalPublicationMode {
     Online,
     Delayed,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ControlProposalRejectReason {
-    CapabilityDenied,
-    CasConflict,
-    PolicyDenied,
-    SchemaViolation,
-    Superseded,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -97,21 +85,6 @@ pub struct ControlProposalAck {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ControlProposalDecision {
-    SignedReject {
-        realm_id: RealmId,
-        proposal_digest: Hash,
-        proposal_ack_digest: Hash,
-        #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-        decided_at: DateTime<Utc>,
-        #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-        decision_due_at: DateTime<Utc>,
-        #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-        absolute_due_at: DateTime<Utc>,
-        defer_count: u8,
-        reason_code: ControlProposalRejectReason,
-        authority_set_ref: Hash,
-        proofs: Vec<PayloadSignature>,
-    },
     SignedDefer {
         realm_id: RealmId,
         proposal_digest: Hash,
@@ -169,7 +142,6 @@ pub enum ControlProposalDecisionSubmitStatus {
 #[serde(rename_all = "snake_case")]
 pub enum ControlProposalDecisionKind {
     SignedDefer,
-    SignedReject,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -179,7 +151,6 @@ pub enum ControlProposalState {
     Pending,
     Deferred,
     Overdue,
-    Rejected,
     Sealed,
 }
 
@@ -230,8 +201,6 @@ pub struct ControlProposalDecisionReadOutcome {
     pub control_proposal_ack: Option<ControlProposalAck>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub defer_decisions: Option<Vec<ControlProposalDecision>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_reject: Option<ControlProposalDecision>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fault_reason: Option<ControlProposalDecisionFaultReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -296,15 +265,8 @@ impl ControlProposalDecisionSubmitOutcome {
         request: &ControlProposalDecisionSubmitRequestBody,
     ) -> Result<()> {
         request.validate_structural()?;
-        let expected_kind = if request.decision.is_reject() {
-            ControlProposalDecisionKind::SignedReject
-        } else {
-            ControlProposalDecisionKind::SignedDefer
-        };
-        let expected_state = match expected_kind {
-            ControlProposalDecisionKind::SignedDefer => ControlProposalState::Deferred,
-            ControlProposalDecisionKind::SignedReject => ControlProposalState::Rejected,
-        };
+        let expected_kind = ControlProposalDecisionKind::SignedDefer;
+        let expected_state = ControlProposalState::Deferred;
         if self.proposal_digest != *request.decision.proposal_digest()
             || self.decision_digest != request.decision.decision_digest()?
             || self.decision_kind != expected_kind
@@ -341,13 +303,7 @@ impl ControlProposalDecisionReadOutcome {
             ));
         }
         let defers = self.defer_decisions.as_deref().unwrap_or_default();
-        if defers.len() > usize::from(MAX_PROPOSAL_DEFERS)
-            || defers.iter().any(ControlProposalDecision::is_reject)
-            || self
-                .terminal_reject
-                .as_ref()
-                .is_some_and(|decision| !decision.is_reject())
-        {
+        if defers.len() > usize::from(MAX_PROPOSAL_DEFERS) {
             return Err(WireError::Protocol(
                 "control proposal read decision variants are inconsistent".to_owned(),
             ));
@@ -355,27 +311,18 @@ impl ControlProposalDecisionReadOutcome {
         match self.proposal_state {
             ControlProposalState::Pending
                 if self.defer_decisions.is_none()
-                    && self.terminal_reject.is_none()
                     && self.fault_reason.is_none()
                     && self.accepted_seal_id.is_none() => {}
             ControlProposalState::Deferred
                 if !defers.is_empty()
-                    && self.terminal_reject.is_none()
                     && self.fault_reason.is_none()
                     && self.accepted_seal_id.is_none() => {}
             ControlProposalState::Overdue
                 if self.fault_reason
                     == Some(ControlProposalDecisionFaultReason::DecisionOverdue)
-                    && self.terminal_reject.is_none()
-                    && self.accepted_seal_id.is_none() => {}
-            ControlProposalState::Rejected
-                if self.terminal_reject.is_some()
-                    && self.fault_reason.is_none()
                     && self.accepted_seal_id.is_none() => {}
             ControlProposalState::Sealed
-                if self.accepted_seal_id.is_some()
-                    && self.terminal_reject.is_none()
-                    && self.fault_reason.is_none() => {}
+                if self.accepted_seal_id.is_some() && self.fault_reason.is_none() => {}
             _ => {
                 return Err(WireError::Protocol(
                     "control proposal read state fields are inconsistent".to_owned(),
@@ -396,14 +343,10 @@ impl ControlProposalDecisionReadOutcome {
                 for (index, decision) in defers.iter().enumerate() {
                     decision.validate_chain_protocol_bounds(ack, &defers[..index])?;
                 }
-                if let Some(reject) = &self.terminal_reject {
-                    reject.validate_chain_protocol_bounds(ack, defers)?;
-                }
             }
             ControlProposalAuthorityKind::AcklessEventProof => {
                 if self.control_proposal_ack.is_some()
                     || self.defer_decisions.is_some()
-                    || self.terminal_reject.is_some()
                     || !matches!(
                         self.proposal_state,
                         ControlProposalState::Pending | ControlProposalState::Sealed
@@ -909,16 +852,13 @@ impl ControlProposalAck {
 impl ControlProposalDecision {
     pub fn realm_id(&self) -> &RealmId {
         match self {
-            Self::SignedReject { realm_id, .. } | Self::SignedDefer { realm_id, .. } => realm_id,
+            Self::SignedDefer { realm_id, .. } => realm_id,
         }
     }
 
     pub fn proposal_digest(&self) -> &Hash {
         match self {
-            Self::SignedReject {
-                proposal_digest, ..
-            }
-            | Self::SignedDefer {
+            Self::SignedDefer {
                 proposal_digest, ..
             } => proposal_digest,
         }
@@ -929,20 +869,6 @@ impl ControlProposalDecision {
     /// preceding defer chain has already been resolved.
     pub fn validate_standalone_protocol_bounds(&self) -> Result<()> {
         let (decision_due_at, absolute_due_at, proofs) = match self {
-            Self::SignedReject {
-                decision_due_at,
-                absolute_due_at,
-                defer_count,
-                proofs,
-                ..
-            } => {
-                if *defer_count > MAX_PROPOSAL_DEFERS {
-                    return Err(WireError::Protocol(
-                        "signed_reject exceeds the protocol defer bound".to_owned(),
-                    ));
-                }
-                (decision_due_at, absolute_due_at, proofs)
-            }
             Self::SignedDefer {
                 decision_due_at,
                 absolute_due_at,
@@ -968,11 +894,9 @@ impl ControlProposalDecision {
 
     pub fn canonical_bytes_for_signature(&self) -> Result<Vec<u8>> {
         let proof = match self {
-            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => {
-                proofs.first().ok_or_else(|| {
-                    WireError::Protocol("control proposal decision has no proof".to_owned())
-                })?
-            }
+            Self::SignedDefer { proofs, .. } => proofs.first().ok_or_else(|| {
+                WireError::Protocol("control proposal decision has no proof".to_owned())
+            })?,
         };
         self.proof_binding_bytes(proof)
     }
@@ -981,7 +905,7 @@ impl ControlProposalDecision {
     /// of this decision's canonical proof set.
     pub fn proof_binding_bytes(&self, proof: &PayloadSignature) -> Result<Vec<u8>> {
         let proofs = match self {
-            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => proofs,
+            Self::SignedDefer { proofs, .. } => proofs,
         };
         let digest = self.decision_digest()?;
         validate_proofs(proofs, &digest, self.decided_at())?;
@@ -1004,18 +928,13 @@ impl ControlProposalDecision {
 
     pub fn defer_count(&self) -> u8 {
         match self {
-            Self::SignedReject { defer_count, .. } | Self::SignedDefer { defer_count, .. } => {
-                *defer_count
-            }
+            Self::SignedDefer { defer_count, .. } => *defer_count,
         }
     }
 
     pub fn decision_due_at(&self) -> DateTime<Utc> {
         match self {
-            Self::SignedReject {
-                decision_due_at, ..
-            }
-            | Self::SignedDefer {
+            Self::SignedDefer {
                 decision_due_at, ..
             } => *decision_due_at,
         }
@@ -1023,14 +942,8 @@ impl ControlProposalDecision {
 
     pub fn decided_at(&self) -> DateTime<Utc> {
         match self {
-            Self::SignedReject { decided_at, .. } | Self::SignedDefer { decided_at, .. } => {
-                *decided_at
-            }
+            Self::SignedDefer { decided_at, .. } => *decided_at,
         }
-    }
-
-    pub fn is_reject(&self) -> bool {
-        matches!(self, Self::SignedReject { .. })
     }
 
     /// Require the canonical proof set to satisfy the exact notary profile
@@ -1038,7 +951,7 @@ impl ControlProposalDecision {
     pub fn validate_notary_quorum(&self, notary: &NotaryValue) -> Result<()> {
         notary.validate()?;
         let proofs = match self {
-            Self::SignedReject { proofs, .. } | Self::SignedDefer { proofs, .. } => proofs,
+            Self::SignedDefer { proofs, .. } => proofs,
         };
         let signers = proofs
             .iter()
@@ -1053,7 +966,7 @@ impl ControlProposalDecision {
         Ok(())
     }
 
-    /// Validate the full defer/reject chain and every canonical decision proof
+    /// Validate the full defer chain and every canonical decision proof
     /// set against the same Control Proposal Ack authority profile.
     pub fn validate_chain_for_notary(
         &self,
@@ -1117,11 +1030,6 @@ impl ControlProposalDecision {
             .unwrap_or(ack.decision_due_at);
 
         for (index, decision) in previous_defers.iter().enumerate() {
-            if !matches!(decision, Self::SignedDefer { .. }) {
-                return Err(WireError::Protocol(
-                    "only signed_defer may precede another proposal decision".to_owned(),
-                ));
-            }
             decision.validate_chain_common(ack, &previous_defers[..index], policy)?;
         }
 
@@ -1133,16 +1041,7 @@ impl ControlProposalDecision {
             authority_set_ref,
             proofs,
         ) = match self {
-            Self::SignedReject {
-                realm_id,
-                proposal_digest,
-                proposal_ack_digest,
-                absolute_due_at,
-                authority_set_ref,
-                proofs,
-                ..
-            }
-            | Self::SignedDefer {
+            Self::SignedDefer {
                 realm_id,
                 proposal_digest,
                 proposal_ack_digest,
@@ -1171,17 +1070,6 @@ impl ControlProposalDecision {
         }
 
         match self {
-            Self::SignedReject {
-                decision_due_at,
-                defer_count,
-                ..
-            } => {
-                if *defer_count != expected_count || *decision_due_at != previous_due_at {
-                    return Err(WireError::Protocol(
-                        "signed_reject must bind the current decision window".to_owned(),
-                    ));
-                }
-            }
             Self::SignedDefer {
                 decision_due_at,
                 defer_count,
@@ -1339,9 +1227,8 @@ mod tests {
             proofs: vec![signature(hash('0'), decided_at)],
         };
         let digest = decision.decision_digest().unwrap();
-        if let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision {
-            proofs[0].payload_digest = digest;
-        }
+        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision;
+        proofs[0].payload_digest = digest;
         decision
     }
 
@@ -1536,9 +1423,8 @@ mod tests {
         let ack = ack();
         let mut first = defer(&ack, 1, at(20), at(60));
         let second = defer(&ack, 2, at(50), at(90));
-        if let ControlProposalDecision::SignedDefer { proofs, .. } = &mut first {
-            proofs[0].payload_digest = hash('f');
-        }
+        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut first;
+        proofs[0].payload_digest = hash('f');
         assert!(
             second
                 .validate_chain(
@@ -1581,9 +1467,7 @@ mod tests {
         let mut second = signature(digest, at(20));
         second.verification_method =
             DidUrl::new("did:webvh:z7mkfixture:authority-2.example#notary-2").unwrap();
-        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision else {
-            unreachable!("constructed a signed defer");
-        };
+        let ControlProposalDecision::SignedDefer { proofs, .. } = &mut decision;
         proofs.push(second);
         let request = ControlProposalDecisionSubmitRequestBody {
             decision: decision.clone(),
@@ -1609,7 +1493,6 @@ mod tests {
             proposal_state: ControlProposalState::Deferred,
             control_proposal_ack: Some(ack),
             defer_decisions: Some(vec![decision]),
-            terminal_reject: None,
             fault_reason: None,
             accepted_seal_id: None,
         };

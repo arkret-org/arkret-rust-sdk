@@ -168,10 +168,7 @@ impl VerifiedClosurePrefix {
                 .map_err(|error| HistoryEvidenceError::Invalid(error.to_string()))?;
             verify_seal_and_closure_semantics(seal)?;
             for closure in &seal.authorization_closures {
-                let command_digest = closure
-                    .command_event_id
-                    .event_digest()
-                    .map_err(|error| HistoryEvidenceError::Invalid(error.to_string()))?;
+                let command_digest = closure.command_event_id.event_digest();
                 if !seal.command_results.iter().any(|result| {
                     result.outcome == CommandOutcome::Committed
                         && result.unit_event_digests.contains(&command_digest)

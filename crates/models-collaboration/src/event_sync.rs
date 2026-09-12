@@ -435,11 +435,6 @@ impl ControlGovernanceHealth {
             }
             let mut verified_defers = Vec::with_capacity(pending.decisions.len());
             for decision in &pending.decisions {
-                if decision.is_reject() {
-                    return Err(WireError::Protocol(
-                        "terminal signed_reject cannot remain pending".to_owned(),
-                    ));
-                }
                 if let Some(policy) = policy {
                     decision.validate_chain(
                         &pending.control_proposal_ack,

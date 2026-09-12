@@ -637,7 +637,6 @@ pub enum RealmJoinRealmState {
     AuthorityPending,
     Deferred,
     Overdue,
-    Rejected,
     Sealed,
 }
 
@@ -651,7 +650,6 @@ impl RealmJoinRealmState {
             Self::AuthorityPending => Some(ControlProposalState::Pending),
             Self::Deferred => Some(ControlProposalState::Deferred),
             Self::Overdue => Some(ControlProposalState::Overdue),
-            Self::Rejected => Some(ControlProposalState::Rejected),
             Self::Sealed => Some(ControlProposalState::Sealed),
         }
     }
@@ -661,7 +659,6 @@ impl RealmJoinRealmState {
             ControlProposalState::Pending => Self::AuthorityPending,
             ControlProposalState::Deferred => Self::Deferred,
             ControlProposalState::Overdue => Self::Overdue,
-            ControlProposalState::Rejected => Self::Rejected,
             ControlProposalState::Sealed => Self::Sealed,
         }
     }
@@ -1620,7 +1617,6 @@ mod tests {
             proposal_state: state,
             control_proposal_ack: None,
             defer_decisions: None,
-            terminal_reject: None,
             fault_reason: None,
             accepted_seal_id: None,
         }
@@ -1658,7 +1654,6 @@ mod tests {
             RealmJoinRealmState::AuthorityPending,
             RealmJoinRealmState::Deferred,
             RealmJoinRealmState::Overdue,
-            RealmJoinRealmState::Rejected,
             RealmJoinRealmState::Sealed,
         ] {
             let mapped = state.proposal_state().expect("an adjudicated state maps");
@@ -1762,7 +1757,7 @@ mod tests {
         assert!(
             self_status_outcome(
                 RealmJoinOriginState::Forwarded,
-                Some(RealmJoinRealmState::Rejected),
+                Some(RealmJoinRealmState::Overdue),
                 Some(seal_id)
             )
             .validate_structural()
@@ -2000,7 +1995,6 @@ mod tests {
                     RealmJoinRealmState::AuthorityPending,
                     RealmJoinRealmState::Deferred,
                     RealmJoinRealmState::Overdue,
-                    RealmJoinRealmState::Rejected,
                     RealmJoinRealmState::Sealed,
                 ],
             );
@@ -2018,7 +2012,6 @@ mod tests {
                 ControlProposalState::Pending,
                 ControlProposalState::Deferred,
                 ControlProposalState::Overdue,
-                ControlProposalState::Rejected,
                 ControlProposalState::Sealed,
             ] {
                 assert_eq!(
