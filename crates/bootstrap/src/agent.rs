@@ -254,7 +254,7 @@ pub fn materialize_agent_pcr_control(
     }
 
     // A first Agent PCR Seal is one closed anchor unit. Every later Event
-    // is an ordinary Control Move and therefore carries the accepted Seal view
+    // is a non-anchor Control Move and therefore carries the accepted Seal view
     // it was authored against. Keeping the batches explicit is load-bearing:
     // all Moves in one successor batch read the same frozen pre-state, while
     // the next batch reads the joined result of the preceding Seal.

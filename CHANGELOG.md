@@ -16,7 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `Event.refs` and `Event.causal_refs` are now omitted when empty and explicit
   empty arrays are rejected during decoding. `prev_refs` remains required and
   may be empty.
-- Removed the Realm-configured DataEvent revocation grace window and its stale-Seal error,
+- Removed the Realm-configured ordinary Event revocation grace window and its stale-Seal error,
   and Seal-distance grace handling. Origin admission freezes its validated
   proof atomically; later revocation blocks new admissions without invalidating
   events already admitted.

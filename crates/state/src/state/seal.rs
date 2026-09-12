@@ -46,7 +46,7 @@ pub struct PreparedSealEffect {
 }
 
 /// Digest suites selected from the verified predecessor Realm state for one
-/// Seal application. An ordinary Seal uses one suite everywhere. A Genesis
+/// Seal application. A successor Seal uses one suite everywhere. A genesis
 /// Seal uses `event_digest_suite` for every founding Event except the fixed
 /// SHA-256 `ak.realm.create` bridge. A transition Seal authenticates its delta
 /// Event under `event_digest_suite`, its pre-transition state under
@@ -386,7 +386,7 @@ where
         });
     }
 
-    // The baseline every ordinary Control Move in this batch is evaluated
+    // The baseline every non-anchor Control Move in this batch is evaluated
     // against is frozen at the predecessor view: same-batch writes MUST NOT
     // advance a later Move's precondition basis (§6.3.1
     // frozen-predecessor rule). The first closed anchor unit is the sole
@@ -822,7 +822,7 @@ fn validate_digest_suite_bridge(
                 || digest_suites.seal_digest_suite != live_suite
             {
                 return Err(SealReject::Structural(
-                    "ordinary Seal digest suites do not match predecessor live suite".to_owned(),
+                    "successor Seal digest suites do not match predecessor live suite".to_owned(),
                 ));
             }
         }

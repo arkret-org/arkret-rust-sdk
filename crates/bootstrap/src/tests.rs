@@ -150,7 +150,7 @@ fn bootstrap_unit() -> (Event, Event) {
     let mut authorize = arkret_wire::test_support::raw_event(
         EventKind::DeviceAuthorize.to_string(),
         // The genesis scope belongs to the create alone; the first authorize is
-        // an ordinary Control Move inside the Realm the create just named.
+        // a non-anchor Control Move inside the Realm the create just named.
         ScopeRef::Realm {
             realm_id: create.realm_id.clone(),
         },

@@ -2107,7 +2107,7 @@ mod event_wire_surface_tests {
             event
                 .validate_for_submit_structural_in_context(EventSubmitContext::Standard)
                 .is_err(),
-            "the same basis-less Event is not an ordinary Control Move"
+            "the same basis-less Event is not a non-anchor Control Move"
         );
     }
 }
