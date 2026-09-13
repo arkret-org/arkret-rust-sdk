@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use arkret_canonical::DigestSuite;
 use arkret_wire::{
     ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
-    EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis,
+    EventRequirements, Hash, Hlc, Precondition, ProfileRef, RealmId, ScopeRef, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -89,6 +89,8 @@ pub struct EventIntent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    data_basis: Option<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     seal_basis: Option<SealBasis>,
     #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
     requirements: EventRequirements,
@@ -128,6 +130,7 @@ impl EventIntent {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
             executed_by: None,
@@ -209,6 +212,10 @@ impl EventIntent {
         self.seal_basis.as_ref()
     }
 
+    pub fn data_basis(&self) -> Option<&SealId> {
+        self.data_basis.as_ref()
+    }
+
     pub fn requirements(&self) -> &EventRequirements {
         &self.requirements
     }
@@ -284,15 +291,26 @@ impl EventIntent {
         self
     }
 
+    pub fn with_data_basis(mut self, data_basis: SealId) -> Self {
+        self.data_basis = Some(data_basis);
+        self
+    }
+
     /// Drop per-attempt authorization inputs before retrying authoring.
     pub fn without_authorization_basis(mut self) -> Self {
         self.auth_context = None;
+        self.data_basis = None;
         self.seal_basis = None;
         self
     }
 
     pub fn with_optional_auth_context(mut self, auth_context: Option<AuthContext>) -> Self {
         self.auth_context = auth_context;
+        self
+    }
+
+    pub fn with_optional_data_basis(mut self, data_basis: Option<SealId>) -> Self {
+        self.data_basis = data_basis;
         self
     }
 
@@ -400,6 +418,7 @@ impl EventIntent {
             causal_refs: self.causal_refs,
             preconditions: self.preconditions,
             auth_context: self.auth_context,
+            data_basis: self.data_basis,
             seal_basis: self.seal_basis,
             payload: self.payload,
             unsigned: BTreeMap::new(),
@@ -432,6 +451,7 @@ impl EventIntent {
             causal_refs: event.causal_refs.clone(),
             preconditions: event.preconditions.clone(),
             auth_context: None,
+            data_basis: event.data_basis.clone(),
             seal_basis: None,
             requirements: event.requirements.clone(),
             executed_by: event.executed_by.clone(),

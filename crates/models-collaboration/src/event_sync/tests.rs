@@ -564,6 +564,8 @@ fn federation_prerequisite_seal() -> Seal {
         predecessor_ref: None,
         delta: vec![Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
         control_event_set_root: hash('2'),
+        data_delta: Vec::new(),
+        data_event_set_root: hash('6'),
         state_root: hash('3'),
         notary_seq: 0,
         availability_receipt_digests: Vec::new(),
@@ -587,6 +589,8 @@ fn federation_prerequisite_seal() -> Seal {
             unit_event_digests: vec![Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap()],
         }],
         authorization_closures: Vec::new(),
+        data_closure_announcements: Vec::new(),
+        data_closures: Vec::new(),
         existence_anchors: Vec::new(),
     };
     seal.id = seal.derive_id(DigestSuite::Sha256).unwrap();

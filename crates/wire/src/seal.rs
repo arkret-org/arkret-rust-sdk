@@ -18,6 +18,8 @@ use crate::{
 pub const MAX_SEAL_DELTA: usize = 4_096;
 pub const MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS: usize = 65_536;
 pub const MAX_SEAL_COVERED_EVENT_DIGESTS: usize = 1_048_576;
+pub const DATA_PUBLICATION_TARGET_PERIOD_MS: u64 = 300_000;
+pub const DATA_CLOSURE_GRACE_PERIOD_MS: u64 = 300_000;
 
 pub fn seal_canonical_bytes(seal: &Seal) -> Result<Vec<u8>> {
     seal.canonical_bytes_for_id()
@@ -28,6 +30,10 @@ pub fn compute_seal_id(
     digest_suite: arkret_canonical::DigestSuite,
 ) -> Result<SealId> {
     Seal::id_from_canonical_bytes(canonical_bytes, digest_suite)
+}
+
+pub fn empty_data_event_set_root(digest_suite: arkret_canonical::DigestSuite) -> Result<Hash> {
+    Hash::new(canonical::digest(digest_suite, b"")).map_err(Into::into)
 }
 
 /// Detached signature over the canonical bytes of a non-Event protocol object.
@@ -322,6 +328,32 @@ pub struct ExistenceAnchor {
     pub frontier: Vec<EventId>,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DataSetCommitment {
+    pub root: Hash,
+    pub member_count: u64,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DataClosureAnnouncement {
+    pub data_basis: SealId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub not_before: DateTime<Utc>,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DataClosure {
+    pub data_basis: SealId,
+    pub announcement_ref: SealId,
+    pub allowed_event_set: DataSetCommitment,
+}
+
 impl ExistenceAnchor {
     pub fn validate_structural(&self) -> Result<()> {
         if self.frontier.is_empty() || self.frontier.len() > 4096 {
@@ -343,6 +375,8 @@ pub struct Seal {
     pub predecessor_ref: Option<SealId>,
     pub delta: Vec<Hash>,
     pub control_event_set_root: Hash,
+    pub data_delta: Vec<Hash>,
+    pub data_event_set_root: Hash,
     pub state_root: Hash,
     pub notary_seq: u64,
     pub availability_receipt_digests: Vec<Hash>,
@@ -362,6 +396,10 @@ pub struct Seal {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authorization_closures: Vec<AuthorizationClosure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub data_closure_announcements: Vec<DataClosureAnnouncement>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub data_closures: Vec<DataClosure>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub existence_anchors: Vec<ExistenceAnchor>,
 }
 
@@ -371,6 +409,8 @@ struct SealBody<'a> {
     predecessor_ref: &'a Option<SealId>,
     delta: &'a [Hash],
     control_event_set_root: &'a Hash,
+    data_delta: &'a [Hash],
+    data_event_set_root: &'a Hash,
     state_root: &'a Hash,
     notary_seq: u64,
     availability_receipt_digests: &'a [Hash],
@@ -388,6 +428,10 @@ struct SealBody<'a> {
     #[serde(skip_serializing_if = "slice_is_empty")]
     authorization_closures: &'a [AuthorizationClosure],
     #[serde(skip_serializing_if = "slice_is_empty")]
+    data_closure_announcements: &'a [DataClosureAnnouncement],
+    #[serde(skip_serializing_if = "slice_is_empty")]
+    data_closures: &'a [DataClosure],
+    #[serde(skip_serializing_if = "slice_is_empty")]
     existence_anchors: &'a [ExistenceAnchor],
 }
 
@@ -400,6 +444,8 @@ pub struct UnsignedSeal {
     pub predecessor_ref: Option<SealId>,
     pub delta: Vec<Hash>,
     pub control_event_set_root: Hash,
+    pub data_delta: Vec<Hash>,
+    pub data_event_set_root: Hash,
     pub state_root: Hash,
     pub notary_seq: u64,
     pub availability_receipt_digests: Vec<Hash>,
@@ -420,6 +466,10 @@ pub struct UnsignedSeal {
     pub command_results: Vec<SealCommandOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authorization_closures: Vec<AuthorizationClosure>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub data_closure_announcements: Vec<DataClosureAnnouncement>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub data_closures: Vec<DataClosure>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub existence_anchors: Vec<ExistenceAnchor>,
 }
@@ -445,6 +495,8 @@ impl Seal {
             predecessor_ref: body.predecessor_ref,
             delta: body.delta,
             control_event_set_root: body.control_event_set_root,
+            data_delta: body.data_delta,
+            data_event_set_root: body.data_event_set_root,
             state_root: body.state_root,
             notary_seq: body.notary_seq,
             availability_receipt_digests: body.availability_receipt_digests,
@@ -457,6 +509,8 @@ impl Seal {
             configuration_ref: body.configuration_ref,
             command_results: body.command_results,
             authorization_closures: body.authorization_closures,
+            data_closure_announcements: body.data_closure_announcements,
+            data_closures: body.data_closures,
             existence_anchors: body.existence_anchors,
         };
         seal.validate_structural()?;
@@ -484,6 +538,8 @@ impl Seal {
             predecessor_ref: &self.predecessor_ref,
             delta: &self.delta,
             control_event_set_root: &self.control_event_set_root,
+            data_delta: &self.data_delta,
+            data_event_set_root: &self.data_event_set_root,
             state_root: &self.state_root,
             notary_seq: self.notary_seq,
             availability_receipt_digests: &self.availability_receipt_digests,
@@ -495,6 +551,8 @@ impl Seal {
             configuration_ref: &self.configuration_ref,
             command_results: &self.command_results,
             authorization_closures: &self.authorization_closures,
+            data_closure_announcements: &self.data_closure_announcements,
+            data_closures: &self.data_closures,
             existence_anchors: &self.existence_anchors,
         };
         Ok(canonical::canonical_json_bytes(&body)?)
@@ -527,9 +585,9 @@ impl Seal {
     }
 
     pub fn validate_structural(&self) -> Result<()> {
-        if self.delta.len() > MAX_SEAL_DELTA {
+        if self.delta.len() > MAX_SEAL_DELTA || self.data_delta.len() > MAX_SEAL_DELTA {
             return Err(WireError::Protocol(format!(
-                "Seal.delta exceeds maximum item count {MAX_SEAL_DELTA}"
+                "Seal delta collection exceeds maximum item count {MAX_SEAL_DELTA}"
             )));
         }
         if self.availability_receipt_digests.len() > MAX_SEAL_AVAILABILITY_RECEIPT_DIGESTS {
@@ -543,6 +601,7 @@ impl Seal {
             )));
         }
         validate_sorted_unique("Seal.delta", &self.delta)?;
+        validate_sorted_unique("Seal.data_delta", &self.data_delta)?;
         validate_sorted_unique(
             "Seal.availability_receipt_digests",
             &self.availability_receipt_digests,
@@ -568,6 +627,8 @@ impl Seal {
         }
         if self.command_results.len() > MAX_SEAL_DELTA
             || self.authorization_closures.len() > MAX_SEAL_DELTA
+            || self.data_closure_announcements.len() > MAX_SEAL_DELTA
+            || self.data_closures.len() > MAX_SEAL_DELTA
             || self.existence_anchors.len() > MAX_SEAL_DELTA
         {
             return Err(WireError::Protocol(
@@ -602,6 +663,23 @@ impl Seal {
                     "authorization closure scope must belong to its Seal Realm".into(),
                 ));
             }
+        }
+        if !self
+            .data_closure_announcements
+            .windows(2)
+            .all(|pair| pair[0].data_basis < pair[1].data_basis)
+            || !self
+                .data_closures
+                .windows(2)
+                .all(|pair| pair[0].data_basis < pair[1].data_basis)
+            || self
+                .data_closures
+                .iter()
+                .any(|closure| closure.allowed_event_set.member_count > 9_007_199_254_740_991)
+        {
+            return Err(WireError::Protocol(
+                "Seal data closure entries must be sorted, unique, and JSON-safe".to_owned(),
+            ));
         }
         for anchor in &self.existence_anchors {
             anchor.validate_structural()?;

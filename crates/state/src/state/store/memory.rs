@@ -18,13 +18,12 @@ use async_trait::async_trait;
 use serde_json::{Value, json};
 
 use super::{
-    CausalRegisterBottomPolicy, CellStateModelBinding, CellStateRegistry, CellStore,
-    ControlEventStore, ControlProposalIngressClass, ControlProposalSnapshot,
-    ControlSealAttemptCompletion, ControlSealAttemptOutcome, ControlSealScheduleClaim,
-    ControlSealScheduleRepairStats, ControlSealScheduleStats, ControlUnitIngressMember,
-    DecidedControlEventRecord, PendingControlEventRecord, PendingControlUnitRecord,
-    SealCommandEventDecision, SealCommitStore, SealStore, StoreError, StoreResult,
-    control_event_digest,
+    CellStateModelBinding, CellStateRegistry, CellStore, ControlEventStore,
+    ControlProposalIngressClass, ControlProposalSnapshot, ControlSealAttemptCompletion,
+    ControlSealAttemptOutcome, ControlSealScheduleClaim, ControlSealScheduleRepairStats,
+    ControlSealScheduleStats, ControlUnitIngressMember, DecidedControlEventRecord,
+    PendingControlEventRecord, PendingControlUnitRecord, SealCommandEventDecision, SealCommitStore,
+    SealStore, StoreError, StoreResult, control_event_digest,
 };
 use crate::state_model::ordered_log::IssuedOp;
 use crate::state_model::{
@@ -1436,7 +1435,6 @@ struct BindingDescriptor {
     execution: arkret_wire::EventCellExecution,
     state_model: StateModelKind,
     value_shape: arkret_wire::EventCellValueShape,
-    bottom_policy: Option<CausalRegisterBottomPolicy>,
     domain_transition: Option<DomainTransitionRule>,
 }
 
@@ -1468,16 +1466,10 @@ impl MemoryCellStateRegistry {
         execution: arkret_wire::EventCellExecution,
         state_model: StateModelKind,
         value_shape: arkret_wire::EventCellValueShape,
-        bottom_policy: Option<CausalRegisterBottomPolicy>,
     ) {
         debug_assert_eq!(
             execution == arkret_wire::EventCellExecution::Security,
             state_model == StateModelKind::SequencedState,
-        );
-        assert_eq!(
-            bottom_policy.is_some(),
-            state_model == StateModelKind::CausalRegister,
-            "only causal_register may declare a Bottom policy",
         );
         self.bindings.insert(
             cell_family.into(),
@@ -1485,7 +1477,6 @@ impl MemoryCellStateRegistry {
                 execution,
                 state_model,
                 value_shape,
-                bottom_policy,
                 domain_transition: None,
             },
         );
@@ -1551,7 +1542,6 @@ impl CellStateRegistry for MemoryCellStateRegistry {
                         "execution": descriptor.execution,
                         "state_model": descriptor.state_model.as_wire_str(),
                         "value_shape": descriptor.value_shape,
-                        "bottom_policy": descriptor.bottom_policy,
                         "domain_transition": descriptor.domain_transition.is_some(),
                     }),
                 )
@@ -1589,7 +1579,6 @@ impl CellStateRegistry for MemoryCellStateRegistry {
             state_model: descriptor.state_model,
             execution: descriptor.execution,
             value_shape: descriptor.value_shape,
-            bottom_policy: descriptor.bottom_policy,
             domain_transition: descriptor.domain_transition.clone(),
         })
     }
@@ -1816,6 +1805,8 @@ mod signing_reservation_tests {
             predecessor_ref: None,
             delta: Vec::new(),
             control_event_set_root: digest.clone(),
+            data_delta: Vec::new(),
+            data_event_set_root: digest.clone(),
             state_root: digest.clone(),
             notary_seq: 0,
             availability_receipt_digests: Vec::new(),
@@ -1829,6 +1820,8 @@ mod signing_reservation_tests {
             configuration_ref: EventId::from_event_digest(&digest).unwrap(),
             command_results: Vec::new(),
             authorization_closures: Vec::new(),
+            data_closure_announcements: Vec::new(),
+            data_closures: Vec::new(),
             existence_anchors: Vec::new(),
         }
     }

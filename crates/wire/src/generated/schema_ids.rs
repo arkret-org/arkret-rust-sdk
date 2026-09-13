@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-12.16;
-//! sha256=f33ba4dbd9cb473483751e408ad51ce0c0529f6afe396c1717a075e6fa961e5f Entries: schema_ids=227,
+//! Input: registry/schema-registry.json; version=2026-09-13.1;
+//! sha256=eab720cb4d621e99a20510b2d9b9bbb294e83e3e5bb97fb363b83d33d4563ce5 Entries: schema_ids=227,
 //! active=227
 
 use serde::{Deserialize, Serialize};
@@ -703,8 +703,8 @@ impl SchemaId {
         Self::WebsocketWelcomeFrameV1,
     ];
 
-    /// Server-trusted typed current cell results, complete causal heads, versioned removal and
-    /// exact baseline coverage.
+    /// Server-trusted typed current cell results, deterministic causal-register sources, versioned
+    /// removal and exact baseline coverage.
     pub const ACCOUNT_CURRENT_RESULT_V1: &'static str = "ak.schema.account_current_result.v1";
     /// Closed XChaCha20-Poly1305 envelope for principal-private encrypted Account Data values.
     pub const ACCOUNT_DATA_ENCRYPTED_VALUE_V1: &'static str =

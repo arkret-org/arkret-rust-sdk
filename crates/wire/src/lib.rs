@@ -115,7 +115,7 @@ pub use cell::{
     null_subject_cell, string_set_digest_component, subject_cell, uri_cell_subject,
 };
 pub use cell_state::{
-    CanonicalCausalHead, CanonicalCausalState, CanonicalCellState, CanonicalCounterEntry,
+    CanonicalCausalState, CanonicalCausalWinner, CanonicalCellState, CanonicalCounterEntry,
     CanonicalCounterState, CanonicalLogEntry, CanonicalOrSetState, CanonicalOrSetValue,
     CanonicalOrderedLogState, CanonicalSequencedState, CanonicalSetEntry,
     registered_cell_state_model,
@@ -221,8 +221,10 @@ pub use resource_selector::{
     ObjectRef, ResourceMatchScope, ResourceSelectorKind, WireResourceSelector,
 };
 pub use seal::{
-    AuthorizationClosure, CommandOutcome, CommandResultEffect, ExistenceAnchor, PayloadSignature,
-    Seal, SealCommandOutcome, SealSignature, UnsignedSeal, compute_seal_id, seal_canonical_bytes,
+    AuthorizationClosure, CommandOutcome, CommandResultEffect, DataClosure,
+    DataClosureAnnouncement, DataSetCommitment, ExistenceAnchor, PayloadSignature, Seal,
+    SealCommandOutcome, SealSignature, UnsignedSeal, compute_seal_id, empty_data_event_set_root,
+    seal_canonical_bytes,
 };
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,

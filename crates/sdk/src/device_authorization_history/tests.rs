@@ -317,6 +317,9 @@ impl Fixture {
                 DigestSuite::Sha256,
             )
             .unwrap(),
+            data_delta: vec![],
+            data_event_set_root: arkret_wire::empty_data_event_set_root(DigestSuite::Sha256)
+                .unwrap(),
             state_root: arkret_state::compute_state_root(
                 arkret_state::GovernanceView::new(&batch.post_state),
                 DigestSuite::Sha256,
@@ -336,6 +339,8 @@ impl Fixture {
                 .unwrap_or_else(|| events[0].event_id.clone()),
             command_results: batch.command_results,
             authorization_closures: vec![],
+            data_closure_announcements: vec![],
+            data_closures: vec![],
             existence_anchors: vec![],
         };
         let signer = arkret_signatures::Ed25519PayloadSigner::from_did_key_seed(

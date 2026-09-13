@@ -41,8 +41,8 @@ fn typed_registry_declares_no_family_the_spec_bindings_do_not_know() {
 fn every_typed_adapter_matches_its_generated_state_model_binding() {
     let generated: BTreeMap<_, _> = state_model_bindings_for_sdk_registry()
         .into_iter()
-        .map(|(family, execution, state_model, value_shape, bottom)| {
-            (family, (execution, state_model, value_shape, bottom))
+        .map(|(family, execution, state_model, value_shape)| {
+            (family, (execution, state_model, value_shape))
         })
         .collect();
     let typed = default_cell_family_registry();
@@ -51,10 +51,9 @@ fn every_typed_adapter_matches_its_generated_state_model_binding() {
         let adapter = typed
             .lookup(family)
             .expect("enumerated adapter must remain registered");
-        let (expected_execution, expected_state_model, expected_value_shape, expected_bottom) =
-            generated
-                .get(family)
-                .unwrap_or_else(|| panic!("typed adapter {family} has no generated binding"));
+        let (expected_execution, expected_state_model, expected_value_shape) = generated
+            .get(family)
+            .unwrap_or_else(|| panic!("typed adapter {family} has no generated binding"));
         assert_eq!(
             adapter.state_model(),
             *expected_state_model,
@@ -69,11 +68,6 @@ fn every_typed_adapter_matches_its_generated_state_model_binding() {
             adapter.value_shape(),
             *expected_value_shape,
             "typed adapter {family} drifted from the generated value shape"
-        );
-        assert_eq!(
-            adapter.bottom_policy(),
-            *expected_bottom,
-            "typed adapter {family} drifted from the generated bottom policy"
         );
     }
 }

@@ -178,32 +178,37 @@ impl CurrentValue {
         let raw = serde_json::json!({"selector":selector,"target":target,"revision":0,
             "result":{"status":"value","value":value}});
         match CurrentResultEntry::try_from_json(raw)?.result {
-            CurrentOutcome::Value { value } => Ok(value),
+            CurrentOutcome::Value { value, .. } => Ok(value),
             _ => Err(error("Current value requires a scalar result")),
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct CurrentHead {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CurrentValueSource {
     pub event_id: EventId,
-    pub value: CurrentValue,
+    pub depth: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CurrentUnavailableReason {
-    Bottom,
+    DependencyMissing,
     LimitExceeded,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum CurrentOutcome {
-    Value { value: CurrentValue },
-    Heads { heads: Vec<CurrentHead> },
+    Value {
+        value: CurrentValue,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        source: Option<CurrentValueSource>,
+    },
     Removed,
-    Unavailable { reason: CurrentUnavailableReason },
+    Unavailable {
+        reason: CurrentUnavailableReason,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -226,17 +231,15 @@ struct EntryWire {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
 enum ResultWire {
-    Value { value: Value },
-    Heads { heads: Vec<HeadWire> },
+    Value {
+        value: Value,
+        #[serde(default)]
+        source: Option<CurrentValueSource>,
+    },
     Removed,
-    Unavailable { reason: CurrentUnavailableReason },
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct HeadWire {
-    event_id: EventId,
-    value: Value,
+    Unavailable {
+        reason: CurrentUnavailableReason,
+    },
 }
 
 impl<'de> Deserialize<'de> for CurrentResultEntry {
@@ -294,35 +297,24 @@ impl CurrentResultEntry {
         let family = raw.selector.family()?;
         validate_target_binding(&raw.selector, &raw.target, &family, &raw.result)?;
         let result = match raw.result {
-            ResultWire::Value { value } => CurrentOutcome::Value {
-                value: CurrentValue { family, value },
-            },
-            ResultWire::Heads { heads } => {
-                let mut previous: Option<Vec<u8>> = None;
-                let mut result = Vec::with_capacity(heads.len());
-                for head in heads {
-                    let key = arkret_canonical::base64url_decode(
-                        head.event_id
-                            .as_str()
-                            .rsplit(':')
-                            .next()
-                            .unwrap_or_default(),
-                    )?;
-                    if previous.as_ref().is_some_and(|p| p >= &key) {
-                        return Err(error(
-                            "Current MV heads must be unique and sorted by decoded EventId",
-                        ));
-                    }
-                    previous = Some(key);
-                    result.push(CurrentHead {
-                        event_id: head.event_id,
-                        value: CurrentValue {
-                            family: family.clone(),
-                            value: head.value,
-                        },
-                    });
+            ResultWire::Value { value, source } => {
+                let causal = current_family_descriptor(&family)?
+                    .is_some_and(|descriptor| descriptor.state_model == "causal_register");
+                if causal != source.is_some() {
+                    return Err(error(
+                        "causal-register current values require one source and other models forbid it",
+                    ));
                 }
-                CurrentOutcome::Heads { heads: result }
+                if source
+                    .as_ref()
+                    .is_some_and(|source| source.depth > MAX_SAFE_INTEGER)
+                {
+                    return Err(error("Current source depth exceeds the safe integer range"));
+                }
+                CurrentOutcome::Value {
+                    value: CurrentValue { family, value },
+                    source,
+                }
             }
             ResultWire::Removed => CurrentOutcome::Removed,
             ResultWire::Unavailable { reason } => CurrentOutcome::Unavailable { reason },
@@ -430,7 +422,7 @@ fn validate_target_binding(
     result: &ResultWire,
 ) -> Result<()> {
     if family == "ak.component.mls.epoch.v1" {
-        if let ResultWire::Value { value } = result {
+        if let ResultWire::Value { value, .. } = result {
             if !value.is_null() {
                 let head: arkret_models_crypto::MlsEpochHead =
                     serde_json::from_value(value.clone())?;
@@ -447,7 +439,6 @@ fn validate_target_binding(
         family,
         "ak.component.strand.object.v1"
             | "ak.component.strand.lifecycle.v1"
-            | "ak.component.strand.position.v1"
             | "ak.component.strand.stage.v1"
     ) {
         if !matches!(target, CurrentTarget::Strand { strand_id } if strand_id.as_str() == cell.subject())
@@ -457,26 +448,37 @@ fn validate_target_binding(
             ));
         }
     }
+    if family == "ak.component.strand.position.v1" {
+        let matches_position_subject = match target {
+            CurrentTarget::Strand { strand_id } => cell
+                .strand_position_target()
+                .is_ok_and(|subject_strand| subject_strand == *strand_id),
+            _ => false,
+        };
+        if !matches_position_subject {
+            return Err(error(
+                "Current Strand target does not match the position cell subject",
+            ));
+        }
+    }
     if family == "ak.component.strand.object.v1" {
-        if let ResultWire::Heads { heads } = result {
-            for head in heads {
-                let CurrentTarget::Strand { strand_id } = target else {
-                    return Err(error("Strand head target mismatch"));
-                };
-                if head.value["id"].as_str() != Some(strand_id.as_str()) {
-                    return Err(error("Strand head id differs from target"));
-                }
-                match &selector.scope_ref {
-                    ScopeRef::Realm { realm_id }
-                        if head.value["realm_id"].as_str() == Some(realm_id.as_str())
-                            && head.value.get("scope_circle_id").is_none() => {}
-                    ScopeRef::Circle {
-                        realm_id,
-                        circle_id,
-                    } if head.value["realm_id"].as_str() == Some(realm_id.as_str())
-                        && head.value["scope_circle_id"].as_str() == Some(circle_id.as_str()) => {}
-                    _ => return Err(error("Strand head scope differs from selector")),
-                }
+        if let ResultWire::Value { value, .. } = result {
+            let CurrentTarget::Strand { strand_id } = target else {
+                return Err(error("Strand value target mismatch"));
+            };
+            if value["id"].as_str() != Some(strand_id.as_str()) {
+                return Err(error("Strand value id differs from target"));
+            }
+            match &selector.scope_ref {
+                ScopeRef::Realm { realm_id }
+                    if value["realm_id"].as_str() == Some(realm_id.as_str())
+                        && value.get("scope_circle_id").is_none() => {}
+                ScopeRef::Circle {
+                    realm_id,
+                    circle_id,
+                } if value["realm_id"].as_str() == Some(realm_id.as_str())
+                    && value["scope_circle_id"].as_str() == Some(circle_id.as_str()) => {}
+                _ => return Err(error("Strand value scope differs from selector")),
             }
         }
     }
@@ -488,7 +490,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    const STRAND_ENTRY: &str = r####"{"selector":{"scope_ref":{"kind":"realm","realm_id":"ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD"},"cell_id":"ak:cell:ak.component.strand.object.v1:ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS"},"target":{"kind":"strand","strand_id":"ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS"},"revision":8,"result":{"status":"heads","heads":[{"event_id":"ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml","value":{"id":"ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS","schema":"ak.schema.strand.v1","realm_id":"ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD","schema_refs":["ak.schema.calendar_event.v1"],"metadata":{"title":"Weekly sync","fields":{"calendar":{"start":"2026-06-22T09:00:00","end":"2026-06-22T10:00:00","timezone":"America/Los_Angeles","tzdb_version":"2025a","all_day":false,"status":"confirmed"}}},"tracks":{"synthesis":{"enabled":true,"is_primary":true}},"created_by":{"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixturestationexample"}},"created_at":"2026-06-01T00:00:00.000Z"}}]}}"####;
+    const STRAND_ENTRY: &str = r####"{"selector":{"scope_ref":{"kind":"realm","realm_id":"ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD"},"cell_id":"ak:cell:ak.component.strand.object.v1:ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS"},"target":{"kind":"strand","strand_id":"ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS"},"revision":8,"result":{"status":"value","value":{"id":"ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS","schema":"ak.schema.strand.v1","realm_id":"ak:realm:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD","schema_refs":["ak.schema.calendar_event.v1"],"metadata":{"title":"Weekly sync","fields":{"calendar":{"start":"2026-06-22T09:00:00","end":"2026-06-22T10:00:00","timezone":"America/Los_Angeles","tzdb_version":"2025a","all_day":false,"status":"confirmed"}}},"tracks":{"synthesis":{"enabled":true,"is_primary":true}},"created_by":{"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixturestationexample"}},"created_at":"2026-06-01T00:00:00.000Z"},"source":{"event_id":"ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml","depth":4}}}"####;
 
     #[test]
     fn atomic_entry_budget_is_checked_before_family_schema_validation() {
@@ -517,28 +519,50 @@ mod tests {
     }
 
     #[test]
-    fn materialized_heads_validate_target_scope_and_complete_value() {
+    fn materialized_causal_value_validates_source_target_scope_and_complete_value() {
         let wire: Value = serde_json::from_str(STRAND_ENTRY).unwrap();
         let entry = CurrentResultEntry::try_from_json(wire.clone()).unwrap();
-        let CurrentOutcome::Heads { heads } = entry.result() else {
-            panic!("expected heads");
+        let CurrentOutcome::Value { value, source } = entry.result() else {
+            panic!("expected value");
         };
-        assert!(heads[0].value.as_strand().unwrap().id.is_some());
-        assert!(heads[0].value.as_realm_genesis().is_err());
+        assert_eq!(source.as_ref().unwrap().depth, 4);
+        assert!(value.as_strand().unwrap().id.is_some());
+        assert!(value.as_realm_genesis().is_err());
         let mut patch = wire.clone();
-        patch["result"]["heads"][0]["value"] = json!({"patch":{}});
+        patch["result"]["value"] = json!({"patch":{}});
         assert!(CurrentResultEntry::try_from_json(patch).is_err());
-        let mut duplicate = wire.clone();
-        duplicate["result"]["heads"]
-            .as_array_mut()
+        let mut missing_source = wire.clone();
+        missing_source["result"]
+            .as_object_mut()
             .unwrap()
-            .push(wire["result"]["heads"][0].clone());
-        assert!(CurrentResultEntry::try_from_json(duplicate).is_err());
+            .remove("source");
+        assert!(CurrentResultEntry::try_from_json(missing_source).is_err());
         let mut wrong = wire;
         wrong["selector"]["cell_id"] = json!(
             "ak:cell:ak.component.strand.object.v1:ak:strand:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml"
         );
         assert!(CurrentResultEntry::try_from_json(wrong).is_err());
+    }
+
+    #[test]
+    fn strand_position_target_binds_to_composite_board_strand_subject() {
+        let strand_id = "ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS";
+        let mut wire = scalar(
+            json!({"list_space_id":"ak:space:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS","rank":"U"}),
+        );
+        wire["selector"]["cell_id"] = json!(format!(
+            "ak:cell:ak.component.strand.position.v1:ak:space:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI:{strand_id}"
+        ));
+        wire["target"] = json!({"kind":"strand","strand_id":strand_id});
+        wire["result"]["source"] = json!({
+            "event_id":"ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml",
+            "depth":2
+        });
+        assert!(CurrentResultEntry::try_from_json(wire.clone()).is_ok());
+
+        wire["target"]["strand_id"] =
+            json!("ak:strand:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml");
+        assert!(CurrentResultEntry::try_from_json(wire).is_err());
     }
 
     #[test]

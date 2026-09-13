@@ -332,6 +332,7 @@ mod tests {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             payload: serde_json::from_value(json!({
                 "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",

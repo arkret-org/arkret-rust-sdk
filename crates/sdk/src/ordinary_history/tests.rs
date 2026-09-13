@@ -112,6 +112,8 @@ impl Fixture {
                 .then(|| SealId::new(format!("ak:seal:{}", hash("previous"))).unwrap()),
             delta: vec![digest.clone()],
             control_event_set_root: hash("event-root"),
+            data_delta: Vec::new(),
+            data_event_set_root: hash("data-root"),
             state_root: hash("state-root"),
             notary_seq: u64::from(!genesis),
             availability_receipt_digests: vec![],
@@ -123,6 +125,8 @@ impl Fixture {
             configuration_ref: configuration_ref.clone(),
             command_results: vec![command.clone()],
             authorization_closures: vec![],
+            data_closure_announcements: vec![],
+            data_closures: vec![],
             existence_anchors: vec![],
         };
         let body_bytes = canonical_json_bytes(&body).unwrap();

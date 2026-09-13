@@ -316,7 +316,6 @@ mod tests {
             arkret_wire::EventCellExecution::Security,
             crate::StateModelKind::SequencedState,
             arkret_wire::EventCellValueShape::Register,
-            None,
         );
         registry
             .register_domain_transition(

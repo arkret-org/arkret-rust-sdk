@@ -11,7 +11,6 @@ use arkret::{
 use arkret_wire::{ActorId, Did, EventId, Hash, Hlc, RealmId, StrandId, project_did_to_core_id};
 
 const BASIS_A: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-const BASIS_B: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 fn calendar() -> CalendarEventFields {
     CalendarEventFields {
@@ -43,20 +42,15 @@ fn authoring(basis: Vec<Hash>) -> RsvpAuthoring {
     }
 }
 
-fn schedule(basis: Vec<Hash>) -> arkret::CalendarScheduleProjection {
-    arkret::CalendarScheduleProjection::from_heads(
-        &basis
-            .into_iter()
-            .map(|digest| (digest, Some(b"schedule".to_vec())))
-            .collect::<Vec<_>>(),
-    )
+fn schedule(basis: Hash) -> arkret::CalendarScheduleProjection {
+    arkret::CalendarScheduleProjection::from_winner(basis, Some(b"schedule".to_vec()))
 }
 
 fn build(
     basis: Vec<Hash>,
     causal_refs: Vec<Hash>,
 ) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
-    let projection = schedule(basis.clone());
+    let projection = schedule(basis[0].clone());
     build_rsvp_set_intent(
         authoring(basis),
         &calendar(),
@@ -114,22 +108,19 @@ fn authored_rsvp_projects_onto_the_registered_cell() {
 }
 
 #[test]
-fn basis_is_canonicalized_and_must_be_carried_by_causal_refs() {
+fn basis_is_single_and_must_be_carried_by_causal_refs() {
     let a = Hash::new(BASIS_A).unwrap();
-    let b = Hash::new(BASIS_B).unwrap();
 
-    // Descending input is sorted into canonical ascending byte order rather
-    // than signed as given.
-    let event = build(vec![b.clone(), a.clone()], vec![a.clone(), b.clone()]).unwrap();
+    let event = build(vec![a.clone()], vec![a.clone()]).unwrap();
     let refs = event.payload["entry"]["schedule_basis_refs"]
         .as_array()
         .unwrap();
     assert_eq!(refs[0], BASIS_A);
-    assert_eq!(refs[1], BASIS_B);
+    assert_eq!(refs.len(), 1);
 
     // A basis the envelope does not causally carry is refused at authoring
     // time, matching the receiver's rsvp_basis_not_causal shape admission.
-    assert!(build(vec![b], vec![a]).is_err());
+    assert!(build(vec![a], Vec::new()).is_err());
 }
 
 #[test]
@@ -137,14 +128,14 @@ fn non_recurring_event_only_accepts_a_series_rsvp() {
     let basis = Hash::new(BASIS_A).unwrap();
     let mut authoring = authoring(vec![basis]);
     authoring.occurrence = Some("2026-06-22T09:00:00[America/Los_Angeles]".to_owned());
-    let projection = schedule(vec![Hash::new(BASIS_A).unwrap()]);
+    let projection = schedule(Hash::new(BASIS_A).unwrap());
     assert!(authoring.into_payload(&calendar(), &projection).is_err());
 }
 
 #[test]
-fn cancelled_or_unsettled_schedule_cannot_author_an_rsvp() {
+fn cancelled_or_unavailable_schedule_cannot_author_an_rsvp() {
     let basis = Hash::new(BASIS_A).unwrap();
-    let projection = schedule(vec![basis.clone()]);
+    let projection = schedule(basis.clone());
     let mut cancelled = calendar();
     cancelled.status = CalendarStatus::Cancelled;
     assert!(
@@ -153,13 +144,10 @@ fn cancelled_or_unsettled_schedule_cannot_author_an_rsvp() {
             .is_err()
     );
 
-    let conflicted = arkret::CalendarScheduleProjection::from_heads(&[
-        (basis.clone(), Some(b"one".to_vec())),
-        (Hash::new(BASIS_B).unwrap(), Some(b"two".to_vec())),
-    ]);
+    let unavailable = arkret::CalendarScheduleProjection::from_winner(basis.clone(), None);
     assert!(
         authoring(vec![basis])
-            .into_payload(&calendar(), &conflicted)
+            .into_payload(&calendar(), &unavailable)
             .is_err()
     );
 }

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-12.16;
-//! sha256=1f174adb0295cdf8fd72d9d07d1998a6a731fe32cb7f1e1a098e7c4eca69fda3
-//! Entries: reason_codes=421
+//! Input: registry/error-code-registry.json; version=2026-09-13.17;
+//! sha256=0d53b8d59d71cb8bcadc0cd6f1d2e9770666350956fb9341042ff101835bab89
+//! Entries: reason_codes=420
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -67,7 +67,7 @@ pub enum ReasonCode {
     BlobRedacted,
     CalendarActivationMismatch,
     CalendarEventCancelled,
-    CalendarScheduleUnsettled,
+    CalendarScheduleUnavailable,
     CalendarTzdbMismatch,
     CallModerationUnauthorised,
     CallParticipantRemoved,
@@ -342,7 +342,6 @@ pub enum ReasonCode {
     RsvpBasisNotCausal,
     RsvpOccurrenceNotCanonical,
     RuntimeKeyMissing,
-    ScheduleFrontierTooLarge,
     ScopeIncomparable,
     ScopeRebindForbidden,
     ScopeRefMismatch,
@@ -515,7 +514,7 @@ impl ReasonCode {
     pub const BLOB_REDACTED: &'static str = "blob_redacted";
     pub const CALENDAR_ACTIVATION_MISMATCH: &'static str = "calendar_activation_mismatch";
     pub const CALENDAR_EVENT_CANCELLED: &'static str = "calendar_event_cancelled";
-    pub const CALENDAR_SCHEDULE_UNSETTLED: &'static str = "calendar_schedule_unsettled";
+    pub const CALENDAR_SCHEDULE_UNAVAILABLE: &'static str = "calendar_schedule_unavailable";
     pub const CALENDAR_TZDB_MISMATCH: &'static str = "calendar_tzdb_mismatch";
     pub const CALL_MODERATION_UNAUTHORISED: &'static str = "call_moderation_unauthorised";
     pub const CALL_PARTICIPANT_REMOVED: &'static str = "call_participant_removed";
@@ -848,7 +847,6 @@ impl ReasonCode {
     pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
     pub const RUNTIME_KEY_MISSING: &'static str = "runtime_key_missing";
-    pub const SCHEDULE_FRONTIER_TOO_LARGE: &'static str = "schedule_frontier_too_large";
     pub const SCOPE_INCOMPARABLE: &'static str = "scope_incomparable";
     pub const SCOPE_REBIND_FORBIDDEN: &'static str = "scope_rebind_forbidden";
     pub const SCOPE_REF_MISMATCH: &'static str = "scope_ref_mismatch";
@@ -1022,7 +1020,7 @@ impl ReasonCode {
             Self::BlobRedacted => Self::BLOB_REDACTED,
             Self::CalendarActivationMismatch => Self::CALENDAR_ACTIVATION_MISMATCH,
             Self::CalendarEventCancelled => Self::CALENDAR_EVENT_CANCELLED,
-            Self::CalendarScheduleUnsettled => Self::CALENDAR_SCHEDULE_UNSETTLED,
+            Self::CalendarScheduleUnavailable => Self::CALENDAR_SCHEDULE_UNAVAILABLE,
             Self::CalendarTzdbMismatch => Self::CALENDAR_TZDB_MISMATCH,
             Self::CallModerationUnauthorised => Self::CALL_MODERATION_UNAUTHORISED,
             Self::CallParticipantRemoved => Self::CALL_PARTICIPANT_REMOVED,
@@ -1341,7 +1339,6 @@ impl ReasonCode {
             Self::RsvpBasisNotCausal => Self::RSVP_BASIS_NOT_CAUSAL,
             Self::RsvpOccurrenceNotCanonical => Self::RSVP_OCCURRENCE_NOT_CANONICAL,
             Self::RuntimeKeyMissing => Self::RUNTIME_KEY_MISSING,
-            Self::ScheduleFrontierTooLarge => Self::SCHEDULE_FRONTIER_TOO_LARGE,
             Self::ScopeIncomparable => Self::SCOPE_INCOMPARABLE,
             Self::ScopeRebindForbidden => Self::SCOPE_REBIND_FORBIDDEN,
             Self::ScopeRefMismatch => Self::SCOPE_REF_MISMATCH,
@@ -1521,7 +1518,7 @@ impl ReasonCode {
             Self::BLOB_REDACTED => Self::BlobRedacted,
             Self::CALENDAR_ACTIVATION_MISMATCH => Self::CalendarActivationMismatch,
             Self::CALENDAR_EVENT_CANCELLED => Self::CalendarEventCancelled,
-            Self::CALENDAR_SCHEDULE_UNSETTLED => Self::CalendarScheduleUnsettled,
+            Self::CALENDAR_SCHEDULE_UNAVAILABLE => Self::CalendarScheduleUnavailable,
             Self::CALENDAR_TZDB_MISMATCH => Self::CalendarTzdbMismatch,
             Self::CALL_MODERATION_UNAUTHORISED => Self::CallModerationUnauthorised,
             Self::CALL_PARTICIPANT_REMOVED => Self::CallParticipantRemoved,
@@ -1840,7 +1837,6 @@ impl ReasonCode {
             Self::RSVP_BASIS_NOT_CAUSAL => Self::RsvpBasisNotCausal,
             Self::RSVP_OCCURRENCE_NOT_CANONICAL => Self::RsvpOccurrenceNotCanonical,
             Self::RUNTIME_KEY_MISSING => Self::RuntimeKeyMissing,
-            Self::SCHEDULE_FRONTIER_TOO_LARGE => Self::ScheduleFrontierTooLarge,
             Self::SCOPE_INCOMPARABLE => Self::ScopeIncomparable,
             Self::SCOPE_REBIND_FORBIDDEN => Self::ScopeRebindForbidden,
             Self::SCOPE_REF_MISMATCH => Self::ScopeRefMismatch,
@@ -2303,12 +2299,12 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CALENDAR_EVENT_CANCELLED,
         applies_to: &["event_envelope", "auth_decision"],
-        description: "A new RSVP targets a Calendar Strand whose schedule status is cancelled. Historical RSVP projection is retained; new responses are refused. The generic Strand stage axis MUST NOT be reinterpreted as calendar status. See zh/models/calendar-event.md. This is an authoring-side and projection-side code for the same reason as calendar_schedule_unsettled: the cancelled status lives in the Calendar subtree plaintext.",
+        description: "A new RSVP targets a Calendar Strand whose schedule status is cancelled. Historical RSVP projection is retained; new responses are refused. The generic Strand stage axis MUST NOT be reinterpreted as calendar status. See zh/models/calendar-event.md. This is an authoring-side and projection-side code for the same reason as calendar_schedule_unavailable: the cancelled status lives in the Calendar subtree plaintext.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::CALENDAR_SCHEDULE_UNSETTLED,
+        code: ReasonCode::CALENDAR_SCHEDULE_UNAVAILABLE,
         applies_to: &["event_envelope", "state_resolution"],
-        description: "An RSVP or occurrence expansion was attempted while the Calendar schedule projection is conflict or encrypted_unresolved rather than settled. Concurrent schedule heads MUST be resolved by a schedule resolution Event first; no HLC, arrival order, or private last-writer rule may pick a winner. See zh/models/calendar-event.md. This is an authoring-side and projection-side code, never a server admission gate: deciding settledness requires the Calendar subtree plaintext, so gating admission on it would fork the accepted set between e2ee and plaintext Realms.",
+        description: "An RSVP or occurrence expansion was attempted while the deterministic Calendar schedule winner is encrypted_unresolved rather than available. See zh/models/calendar-event.md. This is an authoring-side and projection-side code, never a server admission gate: deciding readability requires the Calendar subtree plaintext, so gating admission on it would fork the accepted set between e2ee and plaintext Realms.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CALENDAR_TZDB_MISMATCH,
@@ -2358,7 +2354,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::CELL_IN_BOTTOM_STATE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "An ordinary projection needed one domain value but retains unresolved eligible causal heads. This diagnostic grants no authority and creates no safety state; only an authorized causal successor may resolve the ordinary conflict.",
+        description: "An explicitly registered cross-Cell domain invariant cannot produce a valid combined projection from the deterministic winner of each involved ordinary Cell. This diagnostic grants no authority, creates no safety state, and MUST NOT be emitted for ordinary causal_register concurrency by itself.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::CHALLENGE_EXPIRED,
@@ -3696,11 +3692,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RUNTIME_KEY_MISSING,
         applies_to: &["agent_readiness"],
         description: "Closed generic Agent readiness blocker: no active accepted runtime key exists. It is durable subject-level readiness state and MUST NOT be inferred from a missing session or target-Realm grant.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::SCHEDULE_FRONTIER_TOO_LARGE,
-        applies_to: &["event_envelope", "schema_validation"],
-        description: "The observed Calendar schedule revision frontier exceeds the 128-entry bound shared with causal_refs, so entry.schedule_basis_refs cannot express it. The producer MUST converge the schedule before responding and MUST NOT truncate the basis. See zh/conformance/scalability-constraints.md. It is raised by the authoring client when the observed frontier itself exceeds the bound; a wire Event that actually carries more than 128 refs is instead rejected by schema maxItems as schema_violation.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::SCOPE_INCOMPARABLE,

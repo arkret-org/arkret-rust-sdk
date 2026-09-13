@@ -78,6 +78,7 @@ mod mimi_consent_tests {
                     causal_refs: Vec::new(),
                     preconditions: Vec::new(),
                     auth_context: None,
+                    data_basis: None,
                     seal_basis: None,
                     payload: [
                         (
@@ -306,6 +307,7 @@ mod mimi_reporter_authority_tests {
                 refs: Vec::new(),
                 preconditions: Vec::new(),
                 auth_context: None,
+                data_basis: None,
                 seal_basis: None,
                 requirements: EventRequirements::default(),
                 payload: serde_json::from_value(serde_json::json!({
@@ -518,6 +520,7 @@ mod device_pairing_tests {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: Some(SealBasis {
                 leaves: vec![SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()],
             }),

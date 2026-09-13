@@ -208,7 +208,6 @@ mod tests {
             arkret_wire::EventCellExecution::Security,
             arkret_state::StateModelKind::SequencedState,
             arkret_wire::EventCellValueShape::Register,
-            None,
         );
         registry
     }

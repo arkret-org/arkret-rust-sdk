@@ -60,6 +60,7 @@ fn event(kind: EventKind, seq: u64, content: Value) -> Event {
         refs: vec![],
         preconditions: vec![],
         auth_context: None,
+        data_basis: None,
         seal_basis: None,
         requirements: EventRequirements::default(),
         payload: serde_json::from_value(content).unwrap(),

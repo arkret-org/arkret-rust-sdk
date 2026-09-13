@@ -327,6 +327,8 @@ pub struct Event {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_basis: Option<SealId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
     /// Reducer/client-local extension data that is not part of the signed
@@ -356,6 +358,7 @@ pub struct ProjectedEventInput {
     pub payload: BTreeMap<String, Value>,
     pub refs: Vec<EventRef>,
     pub preconditions: Vec<Precondition>,
+    pub data_basis: Option<SealId>,
     pub seal_basis: Option<SealBasis>,
 }
 
@@ -372,6 +375,7 @@ impl From<&Event> for ProjectedEventInput {
             payload: event.payload.clone(),
             refs: event.refs.clone(),
             preconditions: event.preconditions.clone(),
+            data_basis: event.data_basis.clone(),
             seal_basis: event.seal_basis.clone(),
         }
     }
@@ -701,6 +705,8 @@ struct EventSer<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     auth_context: &'a Option<AuthContext>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    data_basis: &'a Option<SealId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     seal_basis: &'a Option<SealBasis>,
     payload: &'a BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
@@ -730,6 +736,7 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             causal_refs: &event.causal_refs,
             preconditions: &event.preconditions,
             auth_context: &event.auth_context,
+            data_basis: &event.data_basis,
             seal_basis: &event.seal_basis,
             payload: &event.payload,
             unsigned: &event.unsigned,
@@ -780,6 +787,8 @@ struct EventWire {
     pub preconditions: Vec<Precondition>,
     #[serde(default)]
     pub auth_context: Option<AuthContext>,
+    #[serde(default)]
+    pub data_basis: Option<SealId>,
     #[serde(default)]
     pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
@@ -845,6 +854,7 @@ impl TryFrom<EventWire> for Event {
             causal_refs,
             preconditions: wire.preconditions,
             auth_context: wire.auth_context,
+            data_basis: wire.data_basis,
             seal_basis: wire.seal_basis,
             payload: wire.payload,
             unsigned: wire.unsigned,
@@ -1691,6 +1701,7 @@ impl Event {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
             payload: payload.into_iter().collect(),
@@ -1748,6 +1759,7 @@ mod event_wire_surface_tests {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
             payload: serde_json::from_value(json!({

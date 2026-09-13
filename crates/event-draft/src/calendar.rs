@@ -16,11 +16,11 @@ use arkret_models_collaboration::objects::productivity::{
 };
 use arkret_wire::{Hash, Result, StrandId, WireError};
 
-/// Schedule revision frontier the responder observed, plus the response itself.
+/// Schedule revision winner the responder observed, plus the response itself.
 ///
-/// `schedule_basis_refs` is canonicalized here (deduplicated and sorted in
-/// ascending byte order) so the producer cannot sign an unsorted basis, which
-/// the receiver would reject with `rsvp_basis_not_causal`.
+/// The wire field remains an array, but it MUST contain exactly the one
+/// deterministic schedule winner and that winner MUST also be causally carried
+/// by the Event envelope.
 #[derive(Clone, Debug)]
 pub struct RsvpAuthoring {
     pub event_ref: StrandId,
@@ -59,20 +59,9 @@ impl RsvpAuthoring {
                     .to_owned(),
             ));
         }
-        if !schedule.is_settled() {
+        if !schedule.is_available() {
             return Err(WireError::Protocol(
-                "calendar_schedule_unsettled: cannot author an RSVP against conflicting or unreadable schedule heads"
-                    .to_owned(),
-            ));
-        }
-        if schedule.schedule_revision_heads.is_empty() {
-            return Err(WireError::Protocol(
-                "calendar_schedule_unsettled: the observed schedule frontier is empty".to_owned(),
-            ));
-        }
-        if schedule.schedule_revision_heads.len() > 128 {
-            return Err(WireError::Protocol(
-                "schedule_frontier_too_large: resolve the schedule frontier before responding"
+                "calendar_schedule_unavailable: cannot author an RSVP against an unreadable schedule winner"
                     .to_owned(),
             ));
         }
@@ -83,12 +72,10 @@ impl RsvpAuthoring {
                     .to_owned(),
             ));
         }
-        let mut schedule_basis_refs = self.schedule_basis_refs;
-        schedule_basis_refs.sort_by(|left, right| left.as_str().cmp(right.as_str()));
-        schedule_basis_refs.dedup_by(|left, right| left.as_str() == right.as_str());
-        if schedule_basis_refs != schedule.schedule_revision_heads {
+        let schedule_basis_refs = self.schedule_basis_refs;
+        if schedule_basis_refs.as_slice() != [schedule.schedule_revision_source.clone()] {
             return Err(WireError::Protocol(
-                "rsvp schedule_basis_refs must equal the complete observed schedule frontier"
+                "rsvp schedule_basis_refs must contain exactly the deterministic schedule winner"
                     .to_owned(),
             ));
         }

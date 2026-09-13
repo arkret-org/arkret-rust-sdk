@@ -26,7 +26,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::{CellRef, Result, WireError, canonical};
+use crate::{CellRef, Result, SpaceId, StrandId, WireError, canonical};
 
 const CELL_PREFIX: &str = "ak:cell:";
 
@@ -173,6 +173,22 @@ impl CellId {
     /// The subject portion (may be empty for singleton cells).
     pub fn subject(&self) -> &str {
         &self.subject
+    }
+
+    /// Resolve the Strand target from the registered Board-position composite
+    /// subject `<board_space_id>:<strand_id>`.
+    pub fn strand_position_target(&self) -> Result<StrandId> {
+        if self.component != "ak.component.strand.position.v1" {
+            return Err(WireError::Protocol(
+                "cell is not a Strand position family".to_owned(),
+            ));
+        }
+        let marker = ":ak:strand:";
+        let (board, strand_token) = self.subject.split_once(marker).ok_or_else(|| {
+            WireError::Protocol("Strand position subject is not Board+Strand".to_owned())
+        })?;
+        SpaceId::new(board)?;
+        Ok(StrandId::new(format!("ak:strand:{strand_token}"))?)
     }
 
     /// Re-emit the cell id as a wire string.

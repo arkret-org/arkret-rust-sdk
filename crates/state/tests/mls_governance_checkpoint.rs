@@ -98,7 +98,6 @@ fn registry() -> MemoryCellStateRegistry {
             EventCellExecution::Security,
             StateModelKind::SequencedState,
             EventCellValueShape::Register,
-            None,
         );
     }
     registry
@@ -173,6 +172,8 @@ fn seal(
         predecessor_ref: predecessor.map(|seal| seal.id.clone()),
         delta: vec![event_digest.clone()],
         control_event_set_root: arkret_state::control_event_set_root(&covered, SUITE).unwrap(),
+        data_delta: Vec::new(),
+        data_event_set_root: arkret_wire::empty_data_event_set_root(SUITE).unwrap(),
         state_root: compute_state_root(GovernanceView::new(state), SUITE).unwrap(),
         notary_seq: u64::from(predecessor.is_some()),
         availability_receipt_digests: Vec::new(),
@@ -192,6 +193,8 @@ fn seal(
                 .unwrap(),
         ],
         authorization_closures: Vec::new(),
+        data_closure_announcements: Vec::new(),
+        data_closures: Vec::new(),
         existence_anchors: Vec::new(),
     };
     let body = seal.canonical_bytes_for_id().unwrap();

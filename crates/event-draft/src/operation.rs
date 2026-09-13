@@ -8,7 +8,7 @@ use arkret_wire::{
     ActorId, AuthContext, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId,
     DeviceMessageId, Did, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef,
     GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef,
-    RealmId, ScopeRef, SealBasis, canonical, project_did_to_core_id,
+    RealmId, ScopeRef, SealBasis, SealId, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,8 @@ pub struct ProjectionContext {
     pub canonical_event_digest: Hash,
     pub envelope_causal_refs: Vec<Hash>,
     pub seal_basis: Option<SealBasis>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data_basis: Option<SealId>,
     pub hlc: Option<Hlc>,
     pub executed_by: Option<ActorId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -105,6 +107,7 @@ impl ProjectedEventOperation {
                 )?,
                 envelope_causal_refs: event.causal_refs.clone(),
                 seal_basis: event.seal_basis.clone(),
+                data_basis: event.data_basis.clone(),
                 hlc: event.hlc.clone(),
                 executed_by: event.executed_by.clone(),
                 auth_context: event.auth_context.clone(),
@@ -148,6 +151,7 @@ impl ProjectedEventOperation {
             refs: self.refs.clone(),
             preconditions: self.context.preconditions.clone(),
             seal_basis: self.context.seal_basis.clone(),
+            data_basis: self.context.data_basis.clone(),
         })
     }
 

@@ -18,9 +18,6 @@ STATE_MODEL_VARIANTS = {
     "sequenced_state": "SequencedState",
 }
 
-BOTTOM_VARIANTS = {"expose": "Expose"}
-
-
 def cell_family_constant(family: str) -> str:
     body = family.removeprefix("ak.component.")
     return re.sub(r"[^A-Za-z0-9]+", "_", body).upper()
@@ -28,12 +25,12 @@ def cell_family_constant(family: str) -> str:
 
 def collect_bindings(
     registry: dict,
-) -> dict[str, tuple[str, str, str, str | None]]:
+) -> dict[str, tuple[str, str, str]]:
     event_kinds = registry.get("event_kinds")
     if not isinstance(event_kinds, list):
         raise ValueError("event-kind registry must contain an event_kinds array")
 
-    bindings: dict[str, tuple[str, str, str, str | None]] = {}
+    bindings: dict[str, tuple[str, str, str]] = {}
     for event in event_kinds:
         if not isinstance(event, dict):
             raise ValueError("event-kind registry entries must be objects")
@@ -71,15 +68,15 @@ def collect_bindings(
             if execution == "data" and state_model == "sequenced_state":
                 raise ValueError(f"{family} data write cannot use sequenced_state")
             if state_model == "causal_register":
-                if execution != "data" or bottom != "expose":
+                if execution != "data" or bottom is not None:
                     raise ValueError(
-                        f"{family} causal_register must be ordinary data with bottom=expose"
+                        f"{family} causal_register must be ordinary data without a bottom policy"
                     )
             elif bottom is not None:
                 raise ValueError(
                     f"{family} {state_model} write must not declare bottom"
                 )
-            binding = (execution, state_model, value_shape, bottom)
+            binding = (execution, state_model, value_shape)
             previous = bindings.setdefault(family, binding)
             if previous != binding:
                 raise ValueError(
@@ -92,18 +89,13 @@ def render(source_path: Path, registry: dict) -> str:
     source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
     bindings = collect_bindings(registry)
     rows = []
-    for family, (execution, state_model, value_shape, bottom) in sorted(bindings.items()):
+    for family, (execution, state_model, value_shape) in sorted(bindings.items()):
         try:
             state_model_variant = STATE_MODEL_VARIANTS[state_model]
         except KeyError as error:
             raise ValueError(f"unsupported registry value: {error.args[0]}") from error
         execution_variant = execution.title()
         value_shape_variant = value_shape.title()
-        bottom_value = (
-            f"Some(CausalRegisterBottomPolicy::{BOTTOM_VARIANTS[bottom]})"
-            if bottom is not None
-            else "None"
-        )
         family_constant = cell_family_constant(family)
         rows.extend(
             [
@@ -112,7 +104,6 @@ def render(source_path: Path, registry: dict) -> str:
                 f"        EventCellExecution::{execution_variant},",
                 f"        StateModelKind::{state_model_variant},",
                 f"        EventCellValueShape::{value_shape_variant},",
-                f"        {bottom_value},",
                 "    ),",
             ]
         )
@@ -122,9 +113,9 @@ def render(source_path: Path, registry: dict) -> str:
             f"// Source sha256: {source_digest}",
             "",
             "use arkret_state::state_model::StateModelKind;",
-            "use arkret_wire::{CellFamilyId, CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};",
+            "use arkret_wire::{CellFamilyId, EventCellExecution, EventCellValueShape};",
             "",
-            "pub(crate) const SPEC_STATE_MODEL_BINDINGS: &[(&str, EventCellExecution, StateModelKind, EventCellValueShape, Option<CausalRegisterBottomPolicy>)] = &[",
+            "pub(crate) const SPEC_STATE_MODEL_BINDINGS: &[(&str, EventCellExecution, StateModelKind, EventCellValueShape)] = &[",
             *rows,
             "];",
             "",

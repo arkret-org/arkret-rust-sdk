@@ -59,9 +59,6 @@ macro_rules! singleton_cell {
             fn state_model(&self) -> StateModelKind {
                 generated_state_model(Self::CELL_FAMILY)
             }
-            fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-                generated_bottom_policy(Self::CELL_FAMILY)
-            }
             fn execution(&self) -> EventCellExecution {
                 generated_execution(self.cell_family())
             }
@@ -99,9 +96,6 @@ macro_rules! per_subject_cell {
             }
             fn state_model(&self) -> StateModelKind {
                 generated_state_model(Self::CELL_FAMILY)
-            }
-            fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-                generated_bottom_policy(Self::CELL_FAMILY)
             }
             fn execution(&self) -> EventCellExecution {
                 generated_execution(self.cell_family())
@@ -179,10 +173,6 @@ impl CellFamilyAdapter for CapabilityGrant {
         generated_state_model(Self::CELL_FAMILY)
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(Self::CELL_FAMILY)
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -252,10 +242,6 @@ impl CellFamilyAdapter for DeviceAuthorized {
         generated_state_model(Self::CELL_FAMILY)
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(Self::CELL_FAMILY)
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -314,9 +300,6 @@ impl CellFamilyAdapter for AgentKey {
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -370,9 +353,6 @@ impl CellFamilyAdapter for KeyBackupActiveSeries {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
@@ -459,9 +439,6 @@ impl CellFamilyAdapter for StrandWatch {
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -513,10 +490,6 @@ impl CellFamilyAdapter for IdentityAccountability {
 
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
 
     fn execution(&self) -> EventCellExecution {
@@ -632,10 +605,6 @@ impl CellFamilyAdapter for CallRecording {
         generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -669,10 +638,6 @@ impl CellFamilyAdapter for CallTranscript {
 
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
 
     fn execution(&self) -> EventCellExecution {
@@ -710,10 +675,6 @@ impl CellFamilyAdapter for CallRecordingResult {
         generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -749,10 +710,6 @@ impl CellFamilyAdapter for CallTranscriptResult {
         generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -786,10 +743,6 @@ impl CellFamilyAdapter for CallMuteOverride {
 
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
 
     fn execution(&self) -> EventCellExecution {
@@ -860,9 +813,6 @@ impl CellFamilyAdapter for MemberState {
     fn state_model(&self) -> StateModelKind {
         generated_state_model(Self::CELL_FAMILY)
     }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(Self::CELL_FAMILY)
-    }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -899,10 +849,6 @@ impl CellFamilyAdapter for InviteLifecycle {
 
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
 
     fn execution(&self) -> EventCellExecution {
@@ -989,10 +935,6 @@ impl CellFamilyAdapter for RealmLink {
         generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -1043,9 +985,6 @@ impl CellFamilyAdapter for CircleMember {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
@@ -1129,9 +1068,6 @@ impl CellFamilyAdapter for MemberIdentity {
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
     }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -1181,9 +1117,6 @@ impl CellFamilyAdapter for ContactFactLog {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
@@ -1252,10 +1185,6 @@ impl CellFamilyAdapter for AgentSelectorClaim {
         generated_state_model(self.cell_family())
     }
 
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
-    }
-
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
     }
@@ -1309,9 +1238,6 @@ impl CellFamilyAdapter for View {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(Self::CELL_FAMILY)
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
@@ -1383,9 +1309,6 @@ impl CellFamilyAdapter for MimiRoomBinding {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(Self::CELL_FAMILY)
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
@@ -1483,9 +1406,6 @@ impl CellFamilyAdapter for RealmOrganization {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(self.cell_family())
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(self.cell_family())
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())
@@ -1636,9 +1556,6 @@ impl CellFamilyAdapter for StrandObject {
     }
     fn state_model(&self) -> StateModelKind {
         generated_state_model(Self::CELL_FAMILY)
-    }
-    fn bottom_policy(&self) -> Option<CausalRegisterBottomPolicy> {
-        generated_bottom_policy(Self::CELL_FAMILY)
     }
     fn execution(&self) -> EventCellExecution {
         generated_execution(self.cell_family())

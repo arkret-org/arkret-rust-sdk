@@ -453,6 +453,7 @@ mod tests {
             refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
             payload: serde_json::from_value(json!({

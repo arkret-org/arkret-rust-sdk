@@ -5,7 +5,7 @@ use arkret_models_crypto::EncryptedEnvelope;
 use arkret_wire::{
     AccountId, ActorId, AuthContext, AuthoredEvent, AuthorizationRef, Base64UrlString,
     EncryptedPayloadScheme, Event, EventId, EventKind, EventRef, Hash, Hlc, RealmId, RequestId,
-    Result, ScopeRef, StrandId, WireError,
+    Result, ScopeRef, SealId, StrandId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -192,6 +192,7 @@ impl MessagePrepareOutcome {
         auth_context: AuthContext,
         authorization_ref: Option<AuthorizationRef>,
         direct_binding: Option<EventId>,
+        data_basis: SealId,
         suite: DigestSuite,
         now: DateTime<Utc>,
     ) -> Result<Self> {
@@ -209,6 +210,7 @@ impl MessagePrepareOutcome {
             hlc: request.hlc.clone(),
             prev_refs: frontier.frontier_event_ids.clone(),
             auth_context: Some(auth_context),
+            data_basis: Some(data_basis),
             authorization_ref,
             executed_by: None,
             applet_id: None,
@@ -428,6 +430,7 @@ mod tests {
             auth(),
             None,
             None,
+            SealId::new(format!("ak:seal:sha256:{}", "6".repeat(64))).unwrap(),
             DigestSuite::Sha256,
             request.created_at,
         )
@@ -461,6 +464,7 @@ mod tests {
                     .unwrap(),
                 ),
                 id,
+                SealId::new(format!("ak:seal:sha256:{}", "6".repeat(64))).unwrap(),
                 DigestSuite::Sha256,
                 request.created_at,
             )

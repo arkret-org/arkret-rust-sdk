@@ -3,7 +3,9 @@ use chrono::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{merkle, *};
-use crate::{CausalHead, CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId};
+use crate::{
+    CausalHead, CausalWinner, CellRef, DidCoreId, EventId, Hash, Hlc, RealmId, RealmStateSnapshotId,
+};
 
 fn actor() -> DidCoreId {
     DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()
@@ -248,11 +250,23 @@ fn causal_cell_item(
     cell: CellRef,
     heads: &[CausalHead],
 ) -> crate::Result<RealmStateSnapshotMaterializedItem> {
+    let winner = heads
+        .iter()
+        .max_by(|left, right| {
+            left.event_id
+                .token_bytes()
+                .cmp(&right.event_id.token_bytes())
+        })
+        .ok_or_else(|| crate::WireError::Protocol("causal register needs a winner".to_owned()))?;
     RealmStateSnapshotMaterializedItem::from_resolved(
         cell,
         &crate::state_model::ResolvedCellState::Causal(crate::state_model::CausalRegisterState {
             covered_event_ids: heads.iter().map(|head| head.event_id.clone()).collect(),
-            heads: heads.to_vec(),
+            winner: CausalWinner {
+                event_id: winner.event_id.clone(),
+                depth: 0,
+                value: winner.value.clone(),
+            },
         }),
     )
 }
@@ -1071,26 +1085,18 @@ fn restore_materializes_values_and_causal_heads() {
         ))
     );
 
-    // A causal-register cell comes back as its complete head set, `null` head included:
-    // §6.2.1 makes the head set the state, so dropping the released slot would
-    // silently turn two active writes into one.
+    // A causal-register cell restores complete coverage and one deterministic winner.
     let invite = CellRef::new(REALM_PROFILE_CELL.to_owned()).unwrap();
     let Some(arkret_wire::CanonicalCellState::CausalRegister(causal)) = restored.cell(&invite)
     else {
         panic!("invite cell restored as a value");
     };
-    let heads = &causal.heads;
-    assert_eq!(heads.len(), 2);
-    assert!(heads.iter().any(|head| head.value.is_null()));
-    assert!(
-        heads
-            .iter()
-            .any(|head| head.value == serde_json::json!("ak:account:slot-b"))
-    );
+    assert_eq!(causal.winner.value, serde_json::json!("ak:account:slot-b"));
+    assert_eq!(causal.winner.depth, 0);
     assert_eq!(
         Some(causal.covered_event_ids.len()),
         Some(2),
-        "the restored head set is the joined-view shape, not a settled value"
+        "the restored state retains full evidence coverage"
     );
 }
 

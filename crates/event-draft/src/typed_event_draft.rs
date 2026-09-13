@@ -7,7 +7,7 @@ use arkret_canonical::DigestSuite;
 use arkret_wire::{
     ActorId, AppletId, AuthContext, AuthoredEvent, AuthorizationRef, EventId, EventKind, EventRef,
     EventRequirements, ExtensionManifest, Hash, Hlc, Precondition, ProfileRef, RegistryContentRef,
-    ScopeRef, SealBasis,
+    ScopeRef, SealBasis, SealId,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -38,6 +38,7 @@ pub struct TypedEventDraft<K: EventSpec> {
     causal_refs: Vec<Hash>,
     preconditions: Vec<Precondition>,
     auth_context: Option<AuthContext>,
+    data_basis: Option<SealId>,
     seal_basis: Option<SealBasis>,
     requirements: EventRequirements,
     executed_by: Option<ActorId>,
@@ -61,6 +62,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
             executed_by: None,
@@ -103,6 +105,11 @@ impl<K: EventSpec> TypedEventDraft<K> {
 
     pub fn with_seal_basis(mut self, seal_basis: SealBasis) -> Self {
         self.seal_basis = Some(seal_basis);
+        self
+    }
+
+    pub fn with_data_basis(mut self, data_basis: SealId) -> Self {
+        self.data_basis = Some(data_basis);
         self
     }
 
@@ -163,6 +170,7 @@ impl<K: EventSpec> TypedEventDraft<K> {
         .with_preconditions(self.preconditions)
         .with_requirements(self.requirements)
         .with_optional_auth_context(self.auth_context)
+        .with_optional_data_basis(self.data_basis)
         .with_optional_seal_basis(self.seal_basis)
         .with_optional_executed_by(self.executed_by)
         .with_optional_authorization_ref(self.authorization_ref)

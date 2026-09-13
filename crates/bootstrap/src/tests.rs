@@ -1040,6 +1040,8 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 predecessor_ref: Some(request.predecessor_ref.clone()),
                 delta: request.event_digests.clone(),
                 control_event_set_root,
+                data_delta: Vec::new(),
+                data_event_set_root: arkret_wire::empty_data_event_set_root(digest_suite).unwrap(),
                 state_root: material.state_root,
                 notary_seq: 1,
                 availability_receipt_digests: vec![
@@ -1057,6 +1059,8 @@ fn agent_pcr_authorize_successor_follows_the_genesis_declared_digest_suite() {
                 configuration_ref: create.event_id.clone(),
                 command_results: vec![material.command_results[1].clone()],
                 authorization_closures: Vec::new(),
+                data_closure_announcements: Vec::new(),
+                data_closures: Vec::new(),
                 existence_anchors: Vec::new(),
             },
         };

@@ -12,7 +12,7 @@
 use std::hint::black_box;
 
 use arkret_identifiers::{CellRef, Hash};
-use arkret_state::state_model::causal_register::causal_heads;
+use arkret_state::state_model::causal_register::causal_register_state;
 use arkret_state::state_model::{CausalRegister, StateModel, StateWrite};
 use arkret_wire::{LatticeOp, LatticeOpType};
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
@@ -70,24 +70,27 @@ fn wide_fan(len: usize) -> Vec<StateWrite> {
         .collect()
 }
 
-fn bench_causal_heads(criterion: &mut Criterion) {
+fn bench_causal_register_state(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("causal_heads");
     for len in SCALES {
         group.throughput(Throughput::Elements(len as u64));
         let chain = linear_chain(len);
         group.bench_with_input(BenchmarkId::new("linear_chain", len), &chain, |b, ops| {
-            b.iter(|| black_box(causal_heads(black_box(ops)).expect("a linear chain resolves")));
+            b.iter(|| {
+                black_box(causal_register_state(black_box(ops)).expect("a linear chain resolves"))
+            });
         });
         let fan = wide_fan(len);
         group.bench_with_input(BenchmarkId::new("wide_fan", len), &fan, |b, ops| {
-            b.iter(|| black_box(causal_heads(black_box(ops)).expect("a wide fan resolves")));
+            b.iter(|| {
+                black_box(causal_register_state(black_box(ops)).expect("a wide fan resolves"))
+            });
         });
     }
     group.finish();
 }
 
-/// The same histories through `StateModel::join`, which is what a read path calls:
-/// it collapses the heads to one value, or to `⊥` when they disagree.
+/// The same histories through `StateModel::resolve`, which is what a read path calls.
 fn bench_join(criterion: &mut Criterion) {
     let cell = cell();
     let mut group = criterion.benchmark_group("causal_register_resolve");
@@ -101,5 +104,5 @@ fn bench_join(criterion: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_causal_heads, bench_join);
+criterion_group!(benches, bench_causal_register_state, bench_join);
 criterion_main!(benches);

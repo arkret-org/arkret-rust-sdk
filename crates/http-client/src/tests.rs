@@ -436,6 +436,7 @@ mod events_submit_tests {
             refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: None,
             requirements: EventRequirements::default(),
             payload: BTreeMap::from([("body".to_owned(), json!(content_body))]),

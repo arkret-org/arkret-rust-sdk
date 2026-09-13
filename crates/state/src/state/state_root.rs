@@ -4,11 +4,8 @@ use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
 
-use crate::state_model::{CausalHead, ResolvedCellState, SequencedStateValue};
+use crate::state_model::{ResolvedCellState, SequencedStateValue};
 use crate::{CellRef, Hash, canonical};
-
-/// Active heads used by ordinary-data snapshots and projections.
-pub type CausalHeadsByCell = BTreeMap<CellRef, Vec<CausalHead>>;
 
 /// The complete Seal-confirmed security state used to compute `state_root`.
 #[derive(Clone, Copy, Debug)]

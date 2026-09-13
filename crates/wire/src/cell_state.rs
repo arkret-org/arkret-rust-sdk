@@ -29,8 +29,9 @@ impl salvo_oapi::ToSchema for EventCellStateModel {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CanonicalCausalHead {
+pub struct CanonicalCausalWinner {
     pub event_id: EventId,
+    pub depth: u64,
     pub value: Value,
 }
 
@@ -38,7 +39,7 @@ pub struct CanonicalCausalHead {
 #[serde(deny_unknown_fields)]
 pub struct CanonicalCausalState {
     pub covered_event_ids: Vec<EventId>,
-    pub heads: Vec<CanonicalCausalHead>,
+    pub winner: CanonicalCausalWinner,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -158,27 +159,19 @@ impl CanonicalCellState {
         match self {
             Self::CausalRegister(state) => {
                 if state.covered_event_ids.is_empty()
-                    || state.heads.is_empty()
                     || !state
                         .covered_event_ids
                         .windows(2)
                         .all(|p| p[0].token_bytes() < p[1].token_bytes())
-                    || !state
-                        .heads
-                        .windows(2)
-                        .all(|p| p[0].event_id.token_bytes() < p[1].event_id.token_bytes())
+                    || state.winner.depth > 9_007_199_254_740_991
                 {
                     return Err(invalid(
-                        "causal state requires nonempty, sorted, unique coverage and heads",
+                        "causal state requires nonempty sorted unique coverage and a JSON-safe winner depth",
                     ));
                 }
                 let covered: BTreeSet<_> = state.covered_event_ids.iter().collect();
-                if state
-                    .heads
-                    .iter()
-                    .any(|head| !covered.contains(&head.event_id))
-                {
-                    return Err(invalid("causal head is absent from the Cell coverage"));
+                if !covered.contains(&state.winner.event_id) {
+                    return Err(invalid("causal winner is absent from the Cell coverage"));
                 }
             }
             Self::SequencedState(_) => {}

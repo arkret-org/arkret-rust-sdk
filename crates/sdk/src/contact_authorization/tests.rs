@@ -396,6 +396,7 @@ impl CarrierFixture {
             causal_refs: Vec::new(),
             preconditions: Vec::new(),
             auth_context: None,
+            data_basis: None,
             seal_basis: Some(arkret_wire::SealBasis {
                 leaves: vec![
                     arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "5".repeat(64))).unwrap(),

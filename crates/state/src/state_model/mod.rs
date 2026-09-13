@@ -19,7 +19,9 @@ pub mod sequenced_state;
 mod traits;
 
 pub use arkret_wire::CausalHead;
-pub use causal_register::{CausalRegister, CausalRegisterState, causal_heads};
+pub use causal_register::{
+    CausalRegister, CausalRegisterState, CausalWinner, causal_register_state,
+};
 pub use counter::Counter;
 pub use domain_transition::{
     DomainTransitionRule, MEMBERSHIP_INITIAL_STATE, membership_transition_heads_into,
@@ -34,8 +36,10 @@ pub use traits::{OpError, StateModel, StateModelKind};
 pub struct StateWrite {
     pub event_id: EventId,
     pub op: LatticeOp,
-    /// Exact causal-register heads observed by this signed write.
+    /// Exact same-Cell causal-register predecessors observed by this signed write.
     pub supersedes: Vec<EventId>,
+    /// Receiver-derived immutable depth cache. Producers never supply this.
+    pub fixed_depth: Option<u64>,
 }
 
 pub trait IntoStateEventId {
@@ -60,6 +64,7 @@ impl StateWrite {
             event_id: event_id.into_state_event_id(),
             op,
             supersedes: Vec::new(),
+            fixed_depth: None,
         }
     }
 
@@ -76,6 +81,7 @@ impl StateWrite {
                 .into_iter()
                 .map(IntoStateEventId::into_state_event_id)
                 .collect(),
+            fixed_depth: None,
         }
     }
 
@@ -94,6 +100,11 @@ impl StateWrite {
             .collect();
         self
     }
+
+    pub fn with_fixed_depth(mut self, depth: u64) -> Self {
+        self.fixed_depth = Some(depth);
+        self
+    }
 }
 
 /// Materialized safety state. A written `null` remains distinct from absence.
@@ -110,13 +121,13 @@ pub struct SequencedStateValue {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ResolvedCellState {
-    /// Full causal coverage and active heads for a causal register.
+    /// Full causal coverage and deterministic current winner for a causal register.
     Causal(CausalRegisterState),
     /// Last successful write in the confirmed safety order.
     Sequenced(SequencedStateValue),
     /// Joined value for OR-set, counter, and ordered-log state.
     Value(Value),
-    /// Unresolved ordinary causal-register heads.
+    /// A registered cross-cell domain invariant has no usable projection.
     Bottom(Bottom),
 }
 
@@ -126,14 +137,7 @@ impl ResolvedCellState {
         match self {
             Self::Sequenced(state) => Some(&state.value),
             Self::Value(value) => Some(value),
-            Self::Causal(state) => {
-                let first = state.heads.first()?;
-                state
-                    .heads
-                    .iter()
-                    .all(|head| head.value == first.value)
-                    .then_some(&first.value)
-            }
+            Self::Causal(state) => Some(&state.winner.value),
             Self::Bottom(_) => None,
         }
     }
@@ -142,14 +146,7 @@ impl ResolvedCellState {
         match self {
             Self::Sequenced(state) => Some(state.value),
             Self::Value(value) => Some(value),
-            Self::Causal(state) => {
-                let first = state.heads.first()?.value.clone();
-                state
-                    .heads
-                    .iter()
-                    .all(|head| head.value == first)
-                    .then_some(first)
-            }
+            Self::Causal(state) => Some(state.winner.value),
             Self::Bottom(_) => None,
         }
     }
@@ -165,7 +162,7 @@ pub fn canonical_cell_state(
     model: StateModelKind,
     state: &ResolvedCellState,
 ) -> Result<arkret_wire::CanonicalCellState, crate::WireError> {
-    use arkret_wire::{CanonicalCausalHead, CanonicalCausalState, CanonicalCellState};
+    use arkret_wire::{CanonicalCausalState, CanonicalCausalWinner, CanonicalCellState};
 
     let canonical = match (model, state) {
         (StateModelKind::CausalRegister, ResolvedCellState::Causal(state)) => {
@@ -173,14 +170,11 @@ pub fn canonical_cell_state(
             covered_event_ids.sort_by(|left, right| left.token_bytes().cmp(&right.token_bytes()));
             CanonicalCellState::CausalRegister(CanonicalCausalState {
                 covered_event_ids,
-                heads: state
-                    .heads
-                    .iter()
-                    .map(|head| CanonicalCausalHead {
-                        event_id: head.event_id.clone(),
-                        value: head.value.clone(),
-                    })
-                    .collect(),
+                winner: CanonicalCausalWinner {
+                    event_id: state.winner.event_id.clone(),
+                    depth: state.winner.depth,
+                    value: state.winner.value.clone(),
+                },
             })
         }
         (StateModelKind::SequencedState, ResolvedCellState::Sequenced(state)) => {
@@ -198,7 +192,7 @@ pub fn canonical_cell_state(
         )?,
         (_, ResolvedCellState::Bottom(_)) => {
             return Err(crate::WireError::Protocol(
-                "a Bottom state has no canonical committed Cell state".to_owned(),
+                "a domain Bottom has no canonical committed Cell state".to_owned(),
             ));
         }
         _ => {

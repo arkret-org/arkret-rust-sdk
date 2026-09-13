@@ -15,11 +15,11 @@
 pub mod memory;
 
 use arkret_wire::event_envelope::Event;
-pub use arkret_wire::{CausalRegisterBottomPolicy, EventCellExecution, EventCellValueShape};
 use arkret_wire::{
     CommandOutcome, ControlProposalAck, ControlProposalDecision, ControlProposalDecisionPolicy,
     ReasonCode,
 };
+pub use arkret_wire::{EventCellExecution, EventCellValueShape};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -604,7 +604,6 @@ pub struct CellStateModelBinding {
     pub state_model: StateModelKind,
     pub execution: EventCellExecution,
     pub value_shape: EventCellValueShape,
-    pub bottom_policy: Option<CausalRegisterBottomPolicy>,
     pub domain_transition: Option<DomainTransitionRule>,
 }
 
@@ -614,7 +613,6 @@ impl std::fmt::Debug for CellStateModelBinding {
             .field("state_model", &self.state_model)
             .field("execution", &self.execution)
             .field("value_shape", &self.value_shape)
-            .field("bottom_policy", &self.bottom_policy)
             .field("has_domain_transition", &self.domain_transition.is_some())
             .finish()
     }

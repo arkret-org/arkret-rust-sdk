@@ -44,20 +44,15 @@ mod tests {
         let bindings = state_model_bindings_for_sdk_registry();
         let by_family: BTreeMap<_, _> = bindings
             .iter()
-            .map(|(family, execution, state_model, value_shape, bottom)| {
-                (*family, (*execution, *state_model, *value_shape, *bottom))
+            .map(|(family, execution, state_model, value_shape)| {
+                (*family, (*execution, *state_model, *value_shape))
             })
             .collect();
         assert_eq!(by_family.len(), bindings.len());
-        assert!(
-            bindings
-                .iter()
-                .all(|(_, execution, state_model, _, bottom)| {
-                    (*execution == EventCellExecution::Security)
-                        == (*state_model == StateModelKind::SequencedState)
-                        && bottom.is_some() == (*state_model == StateModelKind::CausalRegister)
-                })
-        );
+        assert!(bindings.iter().all(|(_, execution, state_model, _)| {
+            (*execution == EventCellExecution::Security)
+                == (*state_model == StateModelKind::SequencedState)
+        }));
 
         let runtime = build_sdk_state_registry();
         for family in by_family.keys() {
@@ -67,7 +62,7 @@ mod tests {
     }
 
     #[test]
-    fn causal_register_preserves_distinct_same_value_heads() {
+    fn causal_register_selects_a_deterministic_same_value_identity() {
         let registry = build_sdk_state_registry();
         let cell = CellRef::new(format!(
             "ak:cell:{}:fixture",
@@ -97,12 +92,12 @@ mod tests {
             .model
             .resolve(&cell, &[write(event(1)), write(event(2))])
             .unwrap();
-        let ResolvedCellState::Bottom(bottom) = resolved else {
-            panic!("expected exposed causal conflict")
+        let ResolvedCellState::Causal(state) = resolved else {
+            panic!("expected deterministic causal value")
         };
-        assert_eq!(bottom.heads.len(), 2);
-        assert_eq!(bottom.heads[0].value, bottom.heads[1].value);
-        assert_ne!(bottom.heads[0].event_id, bottom.heads[1].event_id);
+        assert_eq!(state.covered_event_ids.len(), 2);
+        assert_eq!(state.winner.event_id, event(2));
+        assert_eq!(state.winner.value, json!({"name": "Arkret"}));
     }
 
     #[test]

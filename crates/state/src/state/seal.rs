@@ -1957,15 +1957,15 @@ pub fn join_cell(
     model.resolve(cell, &writes)
 }
 
-/// Derive ordinary causal-register heads from authenticated write batches.
-pub fn causal_heads_for_batches(batches: &[Vec<IssuedOp>]) -> Vec<crate::CausalHead> {
+/// Derive the ordinary causal-register winner from authenticated write batches.
+pub fn causal_winner_for_batches(batches: &[Vec<IssuedOp>]) -> Option<crate::CausalWinner> {
     let writes: Vec<StateWrite> = batches
         .iter()
         .flat_map(|batch| batch.iter().map(|issued| issued.op.clone()))
         .collect();
-    crate::state_model::causal_register::causal_heads(&writes)
-        .map(|state| state.heads)
-        .unwrap_or_default()
+    crate::state_model::causal_register::causal_register_state(&writes)
+        .map(|state| state.winner)
+        .ok()
 }
 
 /// Resolve the unique confirmed order of one security cell.
@@ -1996,8 +1996,8 @@ pub fn join_cell_seal_batches(
 #[cfg(test)]
 mod ordered_command_tests {
     use arkret_wire::{
-        CausalRegisterBottomPolicy, DidCoreId, EventCellExecution, EventCellValueShape, Hlc,
-        LatticeOp, LatticeOpType, ProjectionEffect, ReasonCode, ScopeRef,
+        DidCoreId, EventCellExecution, EventCellValueShape, Hlc, LatticeOp, LatticeOpType,
+        ProjectionEffect, ReasonCode, ScopeRef,
     };
     use serde_json::json;
 
@@ -2052,7 +2052,6 @@ mod ordered_command_tests {
             EventCellExecution::Security,
             StateModelKind::SequencedState,
             EventCellValueShape::Register,
-            None,
         );
         registry
     }
@@ -2078,7 +2077,6 @@ mod ordered_command_tests {
             EventCellExecution::Data,
             StateModelKind::CausalRegister,
             EventCellValueShape::Register,
-            Some(CausalRegisterBottomPolicy::Expose),
         );
         let data_cell = CellRef::new("ak:cell:ak.component.test.data.v1:slot").unwrap();
         let initial = initial_state();
@@ -2222,7 +2220,6 @@ mod ordered_command_tests {
             EventCellExecution::Security,
             StateModelKind::SequencedState,
             EventCellValueShape::Set,
-            None,
         );
         let grant = CellRef::new(arkret_wire::subject_cell(
             arkret_wire::CellFamilyId::CAPABILITY_GRANT_V1,

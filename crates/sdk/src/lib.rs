@@ -659,6 +659,7 @@ fn pre_authoring_projection_input(
         refs: intent.refs().to_vec(),
         preconditions: intent.preconditions().to_vec(),
         seal_basis: intent.seal_basis().cloned(),
+        data_basis: intent.data_basis().cloned(),
     }
 }
 

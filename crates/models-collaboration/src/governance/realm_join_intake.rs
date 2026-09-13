@@ -402,6 +402,7 @@ impl RealmJoinUnsignedEvent {
             causal_refs: Vec::new(),
             preconditions: self.preconditions.clone(),
             auth_context: None,
+            data_basis: None,
             seal_basis: Some(self.seal_basis.clone()),
             payload: serde_json::from_value(serde_json::to_value(&self.payload)?)?,
             unsigned: Default::default(),
@@ -1021,6 +1022,8 @@ mod tests {
             predecessor_ref: None,
             delta: vec![hash(delta_byte)],
             control_event_set_root: hash('2'),
+            data_delta: Vec::new(),
+            data_event_set_root: hash('6'),
             state_root: hash('3'),
             notary_seq: 0,
             availability_receipt_digests: Vec::new(),
@@ -1043,6 +1046,8 @@ mod tests {
                 unit_event_digests: vec![hash(delta_byte)],
             }],
             authorization_closures: Vec::new(),
+            data_closure_announcements: Vec::new(),
+            data_closures: Vec::new(),
             existence_anchors: Vec::new(),
         };
         seal.id = seal

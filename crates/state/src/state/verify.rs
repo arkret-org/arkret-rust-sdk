@@ -33,7 +33,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use thiserror::Error;
 
-use super::store::{CausalRegisterBottomPolicy, CellStateRegistry, StoreError};
+use super::store::{CellStateRegistry, StoreError};
 use crate::state_model::ResolvedCellState;
 use crate::{
     BottomKind, CellRef, LatticeOp, LatticeOpType, ObservedRemoveMatch, Predicate, PredicateOp,
@@ -453,17 +453,12 @@ where
             .get(&pre.cell_id)
             .cloned()
             .unwrap_or(ResolvedCellState::Value(Value::Null));
-        // bottom=reject cells fail closed.
+        // A Bottom value is never a legal business pre-state.
         if let ResolvedCellState::Bottom(b) = &cell_state {
-            let binding = registry
-                .resolve(realm_id, &pre.cell_id)
-                .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_policy != Some(CausalRegisterBottomPolicy::Expose) {
-                return Err(ControlMoveReject::FailedBottom {
-                    cell: pre.cell_id.as_str().to_owned(),
-                    kind: b.kind,
-                });
-            }
+            return Err(ControlMoveReject::FailedBottom {
+                cell: pre.cell_id.as_str().to_owned(),
+                kind: b.kind,
+            });
         }
         evaluate_predicate(&pre.cell_id, &pre.predicate, &cell_state)?;
     }
@@ -766,28 +761,19 @@ pub fn resolve_projected_write(
 /// does: there is no defined value to derive the write from.
 fn frozen_cell_value(
     cell: &CellRef,
-    realm_id: &RealmId,
+    _realm_id: &RealmId,
     pre_state: &BTreeMap<CellRef, ResolvedCellState>,
-    registry: &dyn CellStateRegistry,
+    _registry: &dyn CellStateRegistry,
 ) -> Result<Value, ControlMoveReject> {
     match pre_state.get(cell) {
         None => Ok(Value::Null),
         Some(state) if state.settled_value().is_some() => {
             Ok(state.settled_value().expect("checked").clone())
         }
-        Some(ResolvedCellState::Bottom(bottom)) => {
-            let binding = registry
-                .resolve(realm_id, cell)
-                .map_err(|e| ControlMoveReject::Registry(e.to_string()))?;
-            if binding.bottom_policy == Some(CausalRegisterBottomPolicy::Expose) {
-                Ok(Value::Null)
-            } else {
-                Err(ControlMoveReject::FailedBottom {
-                    cell: cell.as_str().to_owned(),
-                    kind: bottom.kind,
-                })
-            }
-        }
+        Some(ResolvedCellState::Bottom(bottom)) => Err(ControlMoveReject::FailedBottom {
+            cell: cell.as_str().to_owned(),
+            kind: bottom.kind,
+        }),
         Some(_) => Err(ControlMoveReject::FailedPrecondition {
             cell: cell.as_str().to_owned(),
             reason: "cell has no settled domain value".to_owned(),
