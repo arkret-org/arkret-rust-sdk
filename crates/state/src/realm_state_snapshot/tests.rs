@@ -652,9 +652,9 @@ fn profile_cell() -> CellRef {
     CellRef::new("ak:cell:ak.component.realm.profile.v1:null".to_owned()).unwrap()
 }
 
-/// `realm-state-snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`,
-/// a causal-register cell's `state` is its head set, and its identity is the `ak:event:`
-/// spelling recovered from the op log's `event_digest`.
+/// `realm-state-snapshot-schema.md` §3: the one item branch is `{kind:"cell", id, state}`.
+/// A causal-register cell commits the complete covered Event set and the one deterministic
+/// winner needed to continue the register after restore.
 #[test]
 fn a_causal_cell_item_serializes_to_the_closed_branch() {
     let item = causal_cell_item(profile_cell(), &[causal_head(0x11, Value::Null)]).unwrap();
@@ -665,11 +665,13 @@ fn a_causal_cell_item_serializes_to_the_closed_branch() {
     assert!(wire.get("object").is_none());
     assert!(wire.get("source_event_id").is_none());
     assert!(wire["state"].get("value").is_none());
-    let heads = wire["state"]["heads"].as_array().unwrap();
-    assert_eq!(heads.len(), 1);
-    assert_eq!(heads[0]["value"], Value::Null);
+    let covered = wire["state"]["covered_event_ids"].as_array().unwrap();
+    assert_eq!(covered.len(), 1);
     let expected_id = causal_head(0x11, serde_json::json!(null)).event_id;
-    assert_eq!(heads[0]["event_id"], expected_id.as_str());
+    assert_eq!(covered[0], expected_id.as_str());
+    assert_eq!(wire["state"]["winner"]["event_id"], expected_id.as_str());
+    assert_eq!(wire["state"]["winner"]["depth"], 0);
+    assert_eq!(wire["state"]["winner"]["value"], Value::Null);
 
     assert_eq!(
         serde_json::from_value::<RealmStateSnapshotMaterializedItem>(wire).unwrap(),
@@ -714,9 +716,8 @@ fn a_released_slot_is_a_member_and_an_unwritten_one_is_not() {
     assert!(causal_cell_item(profile_cell(), &[]).is_err());
 }
 
-/// Two heads that agree on a value still have two identities, and the leaf must
-/// reflect that: a snapshot that collapsed them would let a receiver drop a
-/// branch it never observed.
+/// Two covered writes that agree on a value still have two identities, and the leaf must
+/// reflect that: a snapshot that collapsed coverage could accept the same stale write again.
 #[test]
 fn same_value_heads_keep_both_identities_in_the_leaf() {
     let one =
@@ -823,21 +824,25 @@ fn items_outside_the_cell_branch_are_rejected() {
     );
 }
 
-/// §6.2.1 orders heads by the decoded token, and a snapshot must not accept a
-/// head set in any other order: the order is part of the leaf bytes.
+/// §6.2.1 orders covered Event ids by the decoded token, and a snapshot must not accept
+/// another order: coverage ordering is part of the leaf bytes.
 #[test]
-fn unsorted_heads_are_rejected() {
+fn unsorted_covered_event_ids_are_rejected() {
     let mut ordered = [
         causal_head(0x66, Value::Null),
         causal_head(0x77, Value::Null),
     ];
     let item = causal_cell_item(profile_cell(), &ordered).unwrap();
     let mut wire = serde_json::to_value(&item).unwrap();
-    wire["state"]["heads"].as_array_mut().unwrap().reverse();
+    wire["state"]["covered_event_ids"]
+        .as_array_mut()
+        .unwrap()
+        .reverse();
     assert!(serde_json::from_value::<RealmStateSnapshotMaterializedItem>(wire).is_err());
 
     ordered.reverse();
-    assert!(causal_cell_item(profile_cell(), &ordered).is_err());
+    let canonicalized = causal_cell_item(profile_cell(), &ordered).unwrap();
+    assert_eq!(canonicalized, item);
 }
 
 /// The auxiliary rows are closed objects too: an unknown member on a
@@ -1059,8 +1064,8 @@ fn restore_fixture() -> (
 }
 
 #[test]
-fn restore_materializes_values_and_causal_heads() {
-    let (manifest, chunk_bytes, _) = restore_fixture();
+fn restore_materializes_values_and_causal_winners() {
+    let (manifest, chunk_bytes, items) = restore_fixture();
     let transcript = manifest.unsigned_canonical_bytes().unwrap();
     let restored = restore_realm_state_snapshot(
         &manifest,
@@ -1091,7 +1096,10 @@ fn restore_materializes_values_and_causal_heads() {
     else {
         panic!("invite cell restored as a value");
     };
-    assert_eq!(causal.winner.value, serde_json::json!("ak:account:slot-b"));
+    let arkret_wire::CanonicalCellState::CausalRegister(expected) = items[0].state() else {
+        panic!("fixture profile cell is not causal");
+    };
+    assert_eq!(causal.winner, expected.winner);
     assert_eq!(causal.winner.depth, 0);
     assert_eq!(
         Some(causal.covered_event_ids.len()),

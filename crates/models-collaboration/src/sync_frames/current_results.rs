@@ -577,13 +577,9 @@ mod tests {
             serde_json::from_value(wire["result"]["source"].clone()).unwrap();
 
         assert!(CurrentValue::try_new(&selector, &target, value.clone()).is_err());
-        let current = CurrentValue::try_new_with_source(
-            &selector,
-            &target,
-            value,
-            Some(source.clone()),
-        )
-        .unwrap();
+        let current =
+            CurrentValue::try_new_with_source(&selector, &target, value, Some(source.clone()))
+                .unwrap();
         assert_eq!(current.family(), "ak.component.strand.object.v1");
 
         let roundtrip = serde_json::json!({

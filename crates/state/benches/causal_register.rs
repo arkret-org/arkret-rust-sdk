@@ -1,10 +1,10 @@
 //! Scale measurements for the causal-register recompute path.
 //!
-//! review/spec-open/2026-09-05-1655-cas-causal-context-final-design-and-protocol-closure.md
+//! review/spec-done/2026-09-05-1655-cas-causal-context-final-design-and-protocol-closure.md
 //!
 //! §10 asks for 10³ / 10⁴
 //! / 10⁵ numbers on the register, because the whole design rests on recomputing a
-//! cell's active head set from its op log on every view. If that recompute is
+//! cell's winner from its covered op log. If that recompute is
 //! superlinear, the design is only correct on paper.
 //!
 //! Run on demand with `cargo bench -p arkret-state`; never run in CI.
@@ -31,8 +31,8 @@ fn cell() -> CellRef {
     .expect("a registered policy cell reference")
 }
 
-/// A linear history: every write supersedes exactly its predecessor, so one
-/// head survives. This is the shape a long-lived governance cell actually has.
+/// A linear history: every write supersedes exactly its predecessor. This is
+/// the shape a long-lived ordinary register normally has.
 fn linear_chain(len: usize) -> Vec<StateWrite> {
     (0..len)
         .map(|index| {
@@ -50,9 +50,8 @@ fn linear_chain(len: usize) -> Vec<StateWrite> {
         .collect()
 }
 
-/// A wide history: every write supersedes the same first write, so the whole
-/// tail stays a head. This is the worst case for the head set's own size, and
-/// the shape a cell in `⊥` is stuck in until a recovery lands.
+/// A wide history: every write supersedes the same first write. This stresses
+/// a large same-depth candidate set while the register still returns one winner.
 fn wide_fan(len: usize) -> Vec<StateWrite> {
     (0..len)
         .map(|index| {
@@ -71,7 +70,7 @@ fn wide_fan(len: usize) -> Vec<StateWrite> {
 }
 
 fn bench_causal_register_state(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("causal_heads");
+    let mut group = criterion.benchmark_group("causal_register_state");
     for len in SCALES {
         group.throughput(Throughput::Elements(len as u64));
         let chain = linear_chain(len);

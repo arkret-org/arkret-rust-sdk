@@ -194,11 +194,11 @@ trait CellStore: Send + Sync {
 
 ```rust
 trait CellRegistry: Send + Sync {
-    /// 给定 cell，返回该 cell 的五种正式 state model 之一；只有普通
-    /// causal_register 可以携带冲突 Bottom policy。
+    /// 给定 cell，返回该 cell 的五种正式 state model 之一。
     ///
-    /// 实现典型从 spec event-kind-registry 的 cell_family / lattice / bottom
-    /// 字段加载。内建 family 不允许由 Space 或 Realm 覆盖；
+    /// 实现典型从 spec event-kind-registry 的 cell_family / lattice 字段加载。
+    /// ordinary causal_register 总是产生唯一确定性 winner；Bottom 只可能由
+    /// 另行注册的跨 Cell 领域不变量产生。内建 family 不允许由 Space 或 Realm 覆盖；
     /// Realm-specific extension family 按其显式登记解析。
     fn resolve(
         &self,
@@ -209,13 +209,12 @@ trait CellRegistry: Send + Sync {
 
 struct CellStateModelBinding {
     pub model: Box<dyn StateModel>,
-    pub bottom_policy: Option<arkret_wire::CausalRegisterBottomPolicy>,
 }
 
 ```
 
 实现注意：`CellRegistry::resolve` 调用频次很高（每条 Move precondition 都会
-打），实现可缓存 `(realm_id, cell_family) → CellStateModelBinding`；内建 family 的 lattice/bottom 来自规范生成表，
+打），实现可缓存 `(realm_id, cell_family) → CellStateModelBinding`；内建 family 的 lattice 来自规范生成表，
 Realm extension 的缓存须绑定其实际登记状态，不能用 Space schema 覆盖内建规则。
 
 ## 4. Move Verifier 流水线
@@ -248,7 +247,7 @@ verify_move(M, pre_state, registry) -> Result<(), MoveReject>:
     for (cell, predicate) in M.preconditions:
       binding = registry.resolve(M.space_id, cell)
       cell_state = pre_state[cell]   // CellState::Value or Bottom
-      if cell_state.is_bottom() and binding.bottom_policy.is_none():
+      if cell_state.is_bottom():
         return Err(failed_bottom { cell, move_id: M.id })
       evaluate_predicate(predicate, cell_state)?
 
@@ -463,7 +462,6 @@ state-bearing kind 在
   "cell_subject": { "form": "did", "field": "actor_id" },
   "lattice": {
     "state_model": "sequenced_state",
-    "bottom": "reject",
     "allowed_transitions": [
       ["invited", "join"],
       ["join", "leave"],
@@ -504,7 +502,7 @@ fn resolve(&self, space_id, cell) -> Result<CellStateModelBinding> {
 1. **store traits + 内存实现**（`arkret_state::state::store::memory`）：让 SDK
    测试不依赖 Pg。
 2. **CellRegistry + spec registry 加载器**：消费 event-kind-registry.json 的
-   `cell_family` / `lattice` / `bottom` 字段。
+   `cell_family` / `lattice` 字段。
 3. **Move verifier**：四步流水线，单元测试使用现有
    [`seal-submit-fixture.json`](../../arkret-spec/spec/v1/artifacts/fixtures/seal-submit-fixture.json)
    的 schema 与 semantic admission cases 固定期望。
