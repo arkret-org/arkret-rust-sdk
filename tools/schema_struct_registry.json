@@ -46,16 +46,16 @@
       "schema": "agent-operations.schema.json#/$defs/key_state"
     },
     {
-      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactLineage",
-      "schema": "contact-operations.schema.json#/$defs/contact_lineage"
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactDelegatedProducerSigner",
+      "schema": "contact-operations.schema.json#/$defs/contact_delegated_producer_signer"
     },
     {
       "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactDirectProducerSigner",
       "schema": "contact-operations.schema.json#/$defs/contact_direct_producer_signer"
     },
     {
-      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactDelegatedProducerSigner",
-      "schema": "contact-operations.schema.json#/$defs/contact_delegated_producer_signer"
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactLineage",
+      "schema": "contact-operations.schema.json#/$defs/contact_lineage"
     },
     {
       "rust_type": "crates/models-collaboration/src/contact_operations.rs::NormalResponseAcceptanceReceipt",
@@ -876,8 +876,24 @@
       "schema": "keys-operations.schema.json#/$defs/device_projection_attestation_core"
     },
     {
+      "rust_type": "crates/models-crypto/src/keys.rs::PeerQueryAccountDeviceEntry",
+      "schema": "keys-operations.schema.json#/$defs/peer_query_account_device_entries/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::PeerQueryDeviceRecord",
+      "schema": "keys-operations.schema.json#/$defs/peer_query_device_record"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::QueryAccountDeviceEntry",
+      "schema": "keys-operations.schema.json#/$defs/query_account_device_entries/items"
+    },
+    {
       "rust_type": "crates/models-crypto/src/keys.rs::QueryDeviceRecord",
       "schema": "keys-operations.schema.json#/$defs/query_device_record"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/keys.rs::VerifiedDeviceProjection",
+      "schema": "keys-operations.schema.json#/$defs/verified_device_projection"
     },
     {
       "rust_type": "crates/models-crypto/src/mls_payloads.rs::MlsCommitPayload",

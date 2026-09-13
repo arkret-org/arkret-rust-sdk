@@ -242,18 +242,17 @@ pub fn resolve_controller_backup_trust_anchor(
         .and_then(|devices| devices.get(device_id))
         .ok_or(ControllerBackupTrustAnchorError::DeviceUnknown)?;
     let generation_state = outcome.generation_for(account_id);
+    // The row is already positioned by `account_id` and the `device_id` map key
+    // its own Station matched against the verified origin attestation, so the
+    // self projection carries no identity of its own to re-check.
     record
-        .validate_attestation_binding(account_id, device_id)
+        .validate_projection()
         .map_err(|_| ControllerBackupTrustAnchorError::DeviceNotCurrent)?;
     if !record.is_usable_in_generation(generation_state) {
         return Err(ControllerBackupTrustAnchorError::DeviceNotCurrent);
     }
     Ok(ControllerBackupTrustAnchor {
-        authorize_event_id: record
-            .device_projection_attestation
-            .attestation
-            .device_authorize_event_id
-            .clone(),
+        authorize_event_id: record.device_projection.device_authorize_event_id.clone(),
         generation_ref: generation_state
             .expect("usable record has generation state")
             .current_device_generation_ref,

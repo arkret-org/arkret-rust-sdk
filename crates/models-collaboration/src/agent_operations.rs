@@ -402,17 +402,6 @@ pub struct AgentRuntimeApprovalControllerProjection {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub struct AgentRuntimeVerifierMaterial {
-    #[serde(with = "canonical_timestamp")]
-    pub proof_verified_at: DateTime<Utc>,
-    pub approval_request_id: OpaqueLocalId,
-    pub candidate: AgentRuntimeApprovalControllerProjection,
-    pub proof_of_possession: AgentRuntimeKeyPossessionProof,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AgentRuntimeApprovalOutcome {
     pub approval_request_id: OpaqueLocalId,
     pub status: AgentLifecycleState,
@@ -2170,8 +2159,6 @@ pub struct KeyState {
     pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_signer_evidence: Option<CurrentSignerEvidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runtime_verifier_material: Option<AgentRuntimeVerifierMaterial>,
 }
 
 impl KeyState {

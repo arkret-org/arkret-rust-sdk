@@ -377,6 +377,7 @@ mod account_device_tests {
                     "hpke_key":"hpke-1",
                     "device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
                     "authorized_generation_ref":7, "device_status":"active",
+                    "authorization_window":{"not_before":"2026-09-01T00:00:00.000Z", "expires_at":null},
                     "attested_at":"2026-09-08T00:00:00.000Z", "expires_at":"2026-09-08T00:05:00.000Z"
                 },
                 "proof":{"verification_method":"did:webvh:z6mkfixtureps:station.example#signing-1", "created_at":"2026-09-08T00:00:00.000Z", "jws":"AA"}

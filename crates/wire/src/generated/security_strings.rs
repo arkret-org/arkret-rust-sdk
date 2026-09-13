@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-12.8;
-//! sha256=60172662cfded47141ea14adffd32c609806f01f5446dd23bfc1bf12d4a1137f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-13.1;
+//! sha256=e0cf1d5b6c36e2006aa64a9a1224bfb3767c83663cfcf93a57caf0e793c6e493 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
 //! digest-suite-registry.json; version=2026-09-12.9;
@@ -16,7 +16,7 @@
 //! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=71, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=70, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -44,7 +44,6 @@ pub enum ProofContextId {
     DeviceAuthorizePossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
     DeviceProjectionAttestationProofV1,
-    DeviceRevocationGateDecisionProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
     DirectorySourceRefAccessProofV1,
@@ -119,7 +118,6 @@ impl ProofContextId {
         Self::DeviceAuthorizePossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
         Self::DeviceProjectionAttestationProofV1,
-        Self::DeviceRevocationGateDecisionProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
         Self::DirectorySourceRefAccessProofV1,
@@ -206,8 +204,6 @@ impl ProofContextId {
         "ak.device_authorize_recovery_possession_proof.v1";
     pub const DEVICE_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.device_projection_attestation_proof.v1";
-    pub const DEVICE_REVOCATION_GATE_DECISION_PROOF_V1: &'static str =
-        "ak.device_revocation_gate_decision_proof.v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
         "ak.did_webvh_witness_receipt_proof.v1";
     pub const DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1: &'static str =
@@ -325,9 +321,6 @@ impl ProofContextId {
             }
             Self::DeviceProjectionAttestationProofV1 => {
                 Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1
-            }
-            Self::DeviceRevocationGateDecisionProofV1 => {
-                Self::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1
             }
             Self::DidWebvhWitnessReceiptProofV1 => Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1,
             Self::DirectoryGovernanceRequestProofV1 => Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1,
@@ -455,9 +448,6 @@ impl ProofContextId {
             }
             Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1 => {
                 Some(Self::DeviceProjectionAttestationProofV1)
-            }
-            Self::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1 => {
-                Some(Self::DeviceRevocationGateDecisionProofV1)
             }
             Self::DID_WEBVH_WITNESS_RECEIPT_PROOF_V1 => Some(Self::DidWebvhWitnessReceiptProofV1),
             Self::DIRECTORY_GOVERNANCE_REQUEST_PROOF_V1 => {
@@ -1387,14 +1377,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/keys-operations.schema.json#/$defs/device_projection_attestation",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::DeviceRevocationGateDecisionProofV1,
-        context: "ak.device_revocation_gate_decision_proof.v1",
-        object_family: "device_revocation_gate_decision_receipt",
-        consumer_operation: None,
-        binding_fields: &["payload_digest", "verification_method", "created_at"],
-        schema_ref: "schemas/device-revocation-state.schema.json#/$defs/device_revocation_gate_decision_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::DidWebvhWitnessReceiptProofV1,

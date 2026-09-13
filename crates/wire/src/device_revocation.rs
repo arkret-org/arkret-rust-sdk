@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AcceptedDevicePossessionProof, AccountId, ControlProposalAck, ControlProposalDecision,
-    DeviceId, Did, DidUrl, EventId, Hash, PayloadProof, ProofContextId, Result, SealId,
-    UnsignedPayloadProof, WireError, canonical, project_did_to_core_id,
+    DeviceId, EventId, Hash, Result, SealId, WireError,
 };
 
 pub const MAX_DEVICE_REVOCATION_GATE_RECORDS: usize = 128;
@@ -421,6 +420,14 @@ pub enum DeviceRevocationGateDecision {
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/device-revocation-state.schema.json#/$defs/
 /// device_revocation_gate_decision_receipt`.
+///
+/// The outcome travels only on the registered deployment-internal
+/// authenticated channel between the account's bound Account Authority and
+/// this exact origin Station, so that channel — not a detached signature —
+/// supplies authenticity and integrity. The shape is closed in both
+/// directions: `deny_unknown_fields` makes a receipt carrying `proof` or
+/// `verification_method` fail to deserialize at all, and a consumer MUST NOT
+/// accept a receipt that did not arrive over that authenticated channel.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -448,37 +455,6 @@ pub struct DeviceRevocationGateDecisionReceipt {
     pub blocking_proposal_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub covering_seal_id: Option<SealId>,
-    pub verification_method: DidUrl,
-    pub proof: PayloadProof,
-}
-
-/// Public authoring state for a gate receipt before its detached JWS exists.
-///
-/// This prevents signers from manufacturing an invalid placeholder proof just
-/// to compute the proof-less receipt digest.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct UnsignedDeviceRevocationGateDecisionReceipt {
-    pub account_id: AccountId,
-    pub device_id: DeviceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_device_authorize_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_device_generation_ref: Option<u64>,
-    pub action_class: DeviceRevocationGateActionClass,
-    pub intent_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub accepted_device_possession_proof_digest: Option<Hash>,
-    pub decision: DeviceRevocationGateDecision,
-    pub linearization_seq: u64,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub linearized_at: DateTime<Utc>,
-    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
-    pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub blocking_proposal_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub covering_seal_id: Option<SealId>,
-    pub verification_method: DidUrl,
 }
 
 /// Only `allow` discloses the origin-derived binding; withholding it from
@@ -528,7 +504,11 @@ fn validate_gate_decision_witness(
     Ok(())
 }
 
-impl UnsignedDeviceRevocationGateDecisionReceipt {
+impl DeviceRevocationGateDecisionReceipt {
+    /// Every wire invariant the receipt owns on its own, independent of the
+    /// request it answered. Authenticity and integrity come from the
+    /// deployment-internal authenticated channel, so there is nothing
+    /// cryptographic left for this type to check.
     pub fn validate(&self) -> Result<()> {
         self.account_id.validate()?;
         validate_possession_verification_presence(
@@ -553,155 +533,6 @@ impl UnsignedDeviceRevocationGateDecisionReceipt {
         )
     }
 
-    pub fn payload_digest(&self) -> Result<Hash> {
-        self.validate()?;
-        Ok(Hash::new(canonical::canonical_sha256(self)?)?)
-    }
-
-    pub fn proof_metadata(&self) -> Result<UnsignedPayloadProof> {
-        Ok(UnsignedPayloadProof {
-            kind: crate::proof_kind::DETACHED_JWS.to_owned(),
-            verification_method: self.verification_method.clone(),
-            payload_digest: self.payload_digest()?,
-            created_at: self.linearized_at,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-        })
-    }
-
-    pub fn proof_signing_bytes(&self, proof: &UnsignedPayloadProof) -> Result<Vec<u8>> {
-        proof.validate_production()?;
-        let payload_digest = self.payload_digest()?;
-        if proof.payload_digest != payload_digest
-            || proof.verification_method != self.verification_method
-            || proof.created_at != self.linearized_at
-        {
-            return Err(WireError::Protocol(
-                "device revocation gate proof binding fields do not match the receipt".to_owned(),
-            ));
-        }
-        let controller = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(controller, _)| controller)
-            .ok_or_else(|| {
-                WireError::Protocol("verification method has no controller".to_owned())
-            })?;
-        let controller = project_did_to_core_id(&Did::new(controller)?)?;
-        if controller != self.account_id.station_id {
-            return Err(WireError::Protocol(
-                "device revocation gate proof controller is not the origin Station".to_owned(),
-            ));
-        }
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": ProofContextId::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1,
-            "payload_digest": payload_digest,
-            "verification_method": self.verification_method,
-            "created_at": canonical::format_timestamp_canonical(proof.created_at),
-        }))
-        .map_err(Into::into)
-    }
-
-    pub fn attach_proof(self, proof: PayloadProof) -> Result<DeviceRevocationGateDecisionReceipt> {
-        self.proof_signing_bytes(&proof.unsigned())?;
-        Ok(DeviceRevocationGateDecisionReceipt {
-            account_id: self.account_id,
-            device_id: self.device_id,
-            target_device_authorize_event_id: self.target_device_authorize_event_id,
-            target_device_generation_ref: self.target_device_generation_ref,
-            action_class: self.action_class,
-            intent_digest: self.intent_digest,
-            accepted_device_possession_proof_digest: self.accepted_device_possession_proof_digest,
-            decision: self.decision,
-            linearization_seq: self.linearization_seq,
-            linearized_at: self.linearized_at,
-            expires_at: self.expires_at,
-            blocking_proposal_digest: self.blocking_proposal_digest,
-            covering_seal_id: self.covering_seal_id,
-            verification_method: self.verification_method,
-            proof,
-        })
-    }
-}
-
-impl DeviceRevocationGateDecisionReceipt {
-    pub fn unsigned(&self) -> UnsignedDeviceRevocationGateDecisionReceipt {
-        UnsignedDeviceRevocationGateDecisionReceipt {
-            account_id: self.account_id.clone(),
-            device_id: self.device_id.clone(),
-            target_device_authorize_event_id: self.target_device_authorize_event_id.clone(),
-            target_device_generation_ref: self.target_device_generation_ref,
-            action_class: self.action_class,
-            intent_digest: self.intent_digest.clone(),
-            accepted_device_possession_proof_digest: self
-                .accepted_device_possession_proof_digest
-                .clone(),
-            decision: self.decision,
-            linearization_seq: self.linearization_seq,
-            linearized_at: self.linearized_at,
-            expires_at: self.expires_at,
-            blocking_proposal_digest: self.blocking_proposal_digest.clone(),
-            covering_seal_id: self.covering_seal_id.clone(),
-            verification_method: self.verification_method.clone(),
-        }
-    }
-
-    pub fn payload_digest(&self) -> Result<Hash> {
-        validate_possession_verification_presence(
-            self.action_class,
-            self.accepted_device_possession_proof_digest.as_ref(),
-        )?;
-        let value = canonical::unsigned_value(self, &["proof"])?;
-        Ok(Hash::new(canonical::canonical_sha256(&value)?)?)
-    }
-
-    pub fn proof_binding_bytes(&self) -> Result<Vec<u8>> {
-        self.proof.validate_production()?;
-        let payload_digest = self.payload_digest()?;
-        if self.proof.payload_digest != payload_digest
-            || self.proof.verification_method != self.verification_method
-            || self.proof.created_at != self.linearized_at
-        {
-            return Err(WireError::Protocol(
-                "device revocation gate proof binding fields do not match the receipt".to_owned(),
-            ));
-        }
-        let controller = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(controller, _)| controller)
-            .ok_or_else(|| {
-                WireError::Protocol("verification method has no controller".to_owned())
-            })?;
-        let controller = project_did_to_core_id(&Did::new(controller)?)?;
-        if controller != self.account_id.station_id {
-            return Err(WireError::Protocol(
-                "device revocation gate proof controller is not the origin Station".to_owned(),
-            ));
-        }
-        canonical::canonical_json_bytes(&serde_json::json!({
-            "context": ProofContextId::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1,
-            "payload_digest": payload_digest,
-            "verification_method": self.verification_method,
-            "created_at": canonical::format_timestamp_canonical(self.proof.created_at),
-        }))
-        .map_err(Into::into)
-    }
-
-    /// Verify the family-specific canonical binding with caller-resolved key
-    /// material. The callback owns cryptographic algorithm and DID method-state
-    /// verification; this type owns every wire and transcript invariant.
-    pub fn verify_proof_with<F>(&self, verify: F) -> Result<()>
-    where
-        F: FnOnce(&PayloadProof, &[u8]) -> Result<()>,
-    {
-        let binding = self.proof_binding_bytes()?;
-        verify(&self.proof, &binding)
-    }
-
     /// The origin-derived binding an `allow` admits. Every other decision
     /// carries no binding by construction.
     pub fn allowed_binding(&self) -> Option<(&EventId, u64)> {
@@ -724,6 +555,7 @@ impl DeviceRevocationGateDecisionReceipt {
         request: &DeviceRevocationGateCheckRequestBody,
     ) -> Result<()> {
         request.validate()?;
+        self.validate()?;
         if self.account_id != request.account_id
             || self.device_id != request.device_id
             || self.action_class != request.action_class
@@ -744,21 +576,6 @@ impl DeviceRevocationGateDecisionReceipt {
                     .to_owned(),
             ));
         }
-        if self.linearization_seq == 0
-            || self.expires_at <= self.linearized_at
-            || self.expires_at - self.linearized_at > MAX_DEVICE_REVOCATION_RECEIPT_LIFETIME
-        {
-            return Err(WireError::Protocol(
-                "device revocation gate receipt has invalid linearization lifetime".to_owned(),
-            ));
-        }
-        validate_gate_decision_witness(
-            self.decision,
-            self.target_device_authorize_event_id.as_ref(),
-            self.target_device_generation_ref,
-            self.blocking_proposal_digest.as_ref(),
-            self.covering_seal_id.as_ref(),
-        )?;
         // An allow answering an expected binding MUST be that same binding: a
         // difference is generation_mismatch, never a silently upgraded allow.
         if self.decision == DeviceRevocationGateDecision::Allow
@@ -771,7 +588,7 @@ impl DeviceRevocationGateDecisionReceipt {
                     .to_owned(),
             ));
         }
-        self.proof_binding_bytes().map(|_| ())
+        Ok(())
     }
 }
 
@@ -889,7 +706,7 @@ mod tests {
     use super::*;
     use crate::{
         AcceptedDeviceIssuePossessionProof, AcceptedDeviceIssuePossessionPurpose,
-        AcceptedDevicePossessionProofContext, Base64UrlString, DidCoreId, RequestId,
+        AcceptedDevicePossessionProofContext, Base64UrlString, DidCoreId, DidUrl, RequestId,
     };
 
     fn at(seconds: i64) -> DateTime<Utc> {
@@ -922,7 +739,7 @@ mod tests {
 
     fn receipt() -> DeviceRevocationGateDecisionReceipt {
         let request = request();
-        let unsigned = UnsignedDeviceRevocationGateDecisionReceipt {
+        DeviceRevocationGateDecisionReceipt {
             account_id: request.account_id,
             device_id: request.device_id,
             target_device_authorize_event_id: Some(authorize_event()),
@@ -936,14 +753,7 @@ mod tests {
             expires_at: at(31),
             blocking_proposal_digest: None,
             covering_seal_id: None,
-            verification_method: DidUrl::new("did:web:ps.example#assertion-1").unwrap(),
-        };
-        let proof = unsigned
-            .proof_metadata()
-            .unwrap()
-            .finalize("e30..c2ln")
-            .unwrap();
-        unsigned.attach_proof(proof).unwrap()
+        }
     }
 
     fn issue_possession_proof(intent_digest: Hash) -> AcceptedDevicePossessionProof {
@@ -971,44 +781,63 @@ mod tests {
     }
 
     #[test]
-    fn gate_receipt_binds_exact_request_and_canonical_proof_transcript() {
+    fn gate_receipt_binds_exact_request() {
         let request = request();
         let receipt = receipt();
+        receipt.validate().unwrap();
         receipt.validate_for_request(&request).unwrap();
-        assert_eq!(
-            receipt.unsigned().payload_digest().unwrap(),
-            receipt.payload_digest().unwrap()
-        );
-        assert_eq!(
-            receipt.proof.payload_digest,
-            receipt.payload_digest().unwrap()
-        );
-        let binding: serde_json::Value =
-            serde_json::from_slice(&receipt.proof_binding_bytes().unwrap()).unwrap();
-        assert_eq!(
-            binding["context"],
-            ProofContextId::DEVICE_REVOCATION_GATE_DECISION_PROOF_V1
-        );
+    }
+
+    /// The deployment-internal authenticated channel supplies authenticity, so
+    /// the receipt shape is closed in both directions: either signature member
+    /// makes the whole receipt undeserializable rather than merely ignored.
+    #[test]
+    fn gate_receipt_rejects_any_carried_proof_member() {
+        let base = serde_json::to_value(receipt()).unwrap();
+        assert!(base.get("proof").is_none());
+        assert!(base.get("verification_method").is_none());
+
+        for (member, value) in [
+            (
+                "verification_method",
+                serde_json::json!("did:web:ps.example#assertion-1"),
+            ),
+            (
+                "proof",
+                serde_json::json!({
+                    "kind": "detached_jws",
+                    "verification_method": "did:web:ps.example#assertion-1",
+                    "payload_digest": format!("sha256:{}", "a".repeat(64)),
+                    "created_at": "2026-04-12T00:00:01.000Z",
+                    "jws": "e30..c2ln"
+                }),
+            ),
+        ] {
+            let mut carried = base.clone();
+            carried[member] = value;
+            assert!(
+                serde_json::from_value::<DeviceRevocationGateDecisionReceipt>(carried).is_err(),
+                "a receipt carrying {member} must be rejected outright"
+            );
+        }
     }
 
     #[test]
-    fn gate_receipt_rejects_open_branch_or_proof_shapes() {
+    fn gate_receipt_rejects_open_branch_or_stale_window() {
         let request = request();
         let mut invalid = receipt();
         invalid.blocking_proposal_digest = Some(hash('b'));
-        invalid.proof.payload_digest = invalid.payload_digest().unwrap();
+        assert!(invalid.validate().is_err());
         assert!(invalid.validate_for_request(&request).is_err());
 
         let mut expired = receipt();
         expired.expires_at = expired.linearized_at;
-        expired.proof.payload_digest = expired.payload_digest().unwrap();
+        assert!(expired.validate().is_err());
         assert!(expired.validate_for_request(&request).is_err());
 
-        let mut wrong_controller = receipt();
-        wrong_controller.verification_method = DidUrl::new("did:web:other.example#key").unwrap();
-        wrong_controller.proof.verification_method = wrong_controller.verification_method.clone();
-        wrong_controller.proof.payload_digest = wrong_controller.payload_digest().unwrap();
-        assert!(wrong_controller.validate_for_request(&request).is_err());
+        let mut overlong = receipt();
+        overlong.expires_at = overlong.linearized_at + Duration::seconds(31);
+        assert!(overlong.validate().is_err());
     }
 
     #[test]
@@ -1073,7 +902,6 @@ mod tests {
 
         let mut mismatch = receipt();
         mismatch.decision = DeviceRevocationGateDecision::GenerationMismatch;
-        mismatch.proof.payload_digest = mismatch.payload_digest().unwrap();
         assert!(
             mismatch.validate_for_request(&request).is_err(),
             "a mismatch that still discloses the derived binding is rejected"
@@ -1081,15 +909,12 @@ mod tests {
 
         mismatch.target_device_authorize_event_id = None;
         mismatch.target_device_generation_ref = None;
-        mismatch.proof.payload_digest = mismatch.payload_digest().unwrap();
         mismatch.validate_for_request(&request).unwrap();
         assert!(mismatch.allowed_binding().is_none());
 
         let mut allow_without_binding = receipt();
         allow_without_binding.target_device_authorize_event_id = None;
         allow_without_binding.target_device_generation_ref = None;
-        allow_without_binding.proof.payload_digest =
-            allow_without_binding.payload_digest().unwrap();
         assert!(
             allow_without_binding
                 .validate_for_request(&request)
@@ -1106,7 +931,6 @@ mod tests {
 
         let mut upgraded = receipt();
         upgraded.action_class = DeviceRevocationGateActionClass::EventWrite;
-        upgraded.proof.payload_digest = upgraded.payload_digest().unwrap();
         assert!(
             upgraded.validate_for_request(&refresh).is_err(),
             "an allow may not answer generation 6 with generation 7"
@@ -1150,7 +974,6 @@ mod tests {
                 }
                 _ => {}
             }
-            blocked.proof.payload_digest = blocked.payload_digest().unwrap();
             let outcome = DeviceRevocationGateCheckOutcome {
                 decision_receipt: blocked,
             };
@@ -1169,7 +992,6 @@ mod tests {
         fresh.decision = DeviceRevocationGateDecision::AuthorityMismatch;
         fresh.target_device_authorize_event_id = None;
         fresh.target_device_generation_ref = None;
-        fresh.proof.payload_digest = fresh.payload_digest().unwrap();
         let outcome = DeviceRevocationGateCheckOutcome {
             decision_receipt: fresh,
         };
