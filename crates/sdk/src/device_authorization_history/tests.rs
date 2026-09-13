@@ -587,3 +587,60 @@ fn device_history_new_authorization_does_not_revive_the_revoked_instance() {
     );
     assert_ne!(first_id, replacement_id);
 }
+
+#[test]
+fn device_history_materializes_portable_control_evidence_for_initial_and_recovery_devices() {
+    let mut fixture = Fixture::new();
+    let founding_authorization = fixture.events[1].event_id.clone();
+    let initial = fixture
+        .verify()
+        .unwrap()
+        .control_signer_evidence(&founding_authorization)
+        .unwrap();
+    let arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+        account_id,
+        device_id,
+        authorization_event_ref,
+        generation_event_ref,
+        confirmation_seal_ref,
+        history_event_refs,
+        history_seal_refs,
+        ..
+    } = initial
+    else {
+        panic!("expected account-device Control evidence")
+    };
+    assert_eq!(account_id, fixture.account);
+    assert_eq!(device_id, device(1));
+    assert_eq!(authorization_event_ref, founding_authorization);
+    assert_eq!(generation_event_ref, fixture.events[0].event_id);
+    assert_eq!(confirmation_seal_ref, fixture.seals[0].id);
+    assert_eq!(history_event_refs.len(), 2);
+    assert_eq!(history_seal_refs, vec![fixture.seals[0].id.clone()]);
+
+    let recovery = fixture.reanchor(false);
+    let recovery_generation = recovery[0].event_id.clone();
+    let recovery_authorization = recovery[1].event_id.clone();
+    fixture.append(recovery);
+    let recovered = fixture
+        .verify()
+        .unwrap()
+        .control_signer_evidence(&recovery_authorization)
+        .unwrap();
+    let arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+        authorized_generation_ref,
+        generation_event_ref,
+        confirmation_seal_ref,
+        history_event_refs,
+        history_seal_refs,
+        ..
+    } = recovered
+    else {
+        panic!("expected recovered account-device Control evidence")
+    };
+    assert_eq!(authorized_generation_ref, 2);
+    assert_eq!(generation_event_ref, recovery_generation);
+    assert_eq!(confirmation_seal_ref, fixture.seals[1].id);
+    assert_eq!(history_event_refs.len(), 4);
+    assert_eq!(history_seal_refs.len(), 2);
+}

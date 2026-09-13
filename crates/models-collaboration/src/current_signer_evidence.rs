@@ -429,7 +429,8 @@ fn referenced_digests(
 ) -> arkret_wire::Result<Vec<Hash>> {
     Ok(match evidence {
         AuthenticatedSignerResolutionEvidence::Service { .. } => Vec::new(),
-        AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+        AuthenticatedSignerResolutionEvidence::AccountDevice { .. }
+        | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
             return Err(WireError::Protocol(
                 "device history evidence is not an Agent authority dependency".to_owned(),
             ));

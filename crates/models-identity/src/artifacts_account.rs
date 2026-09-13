@@ -5,7 +5,7 @@
 
 use arkret_wire::{
     DeviceId, DeviceRevocationGateRecord, EventId, MAX_DEVICE_REVOCATION_GATE_RECORDS, Result,
-    WireError,
+    SignerEvidenceRef, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,8 @@ pub struct DeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub authorized_at: Option<DateTime<Utc>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -58,7 +60,17 @@ pub struct DeviceSummary {
 
 impl DeviceSummary {
     pub fn validate(&self) -> Result<()> {
-        validate_device_summary_state(self.status, self.revocation_states.as_deref())
+        validate_device_summary_state(self.status, self.revocation_states.as_deref())?;
+        if self.verification_state == DeviceSummaryVerificationState::Verified
+            && (self.authorized_event_ref.is_none()
+                || self.signer_resolution_evidence_ref.is_none())
+        {
+            return Err(WireError::Protocol(
+                "verified device summary requires authorization and Control signer evidence refs"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
     }
 }
 

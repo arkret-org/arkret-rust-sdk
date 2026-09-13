@@ -297,7 +297,8 @@ where
         let item = std::borrow::Borrow::borrow(item);
         item.validate_attester_binding()?;
         match item {
-            AuthenticatedSignerResolutionEvidence::Service { .. } => {}
+            AuthenticatedSignerResolutionEvidence::Service { .. }
+            | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {}
             AuthenticatedSignerResolutionEvidence::Principal {
                 attester_signer_evidence_ref,
                 ..
@@ -503,7 +504,8 @@ fn validate_authenticated_evidence_reachability(
             WireError::Protocol("source signer dependency closure is incomplete".to_owned())
         })?;
         match evidence {
-            AuthenticatedSignerResolutionEvidence::Service { .. } => {}
+            AuthenticatedSignerResolutionEvidence::Service { .. }
+            | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {}
             AuthenticatedSignerResolutionEvidence::Principal {
                 attester_signer_evidence_ref,
                 ..
@@ -647,7 +649,8 @@ pub fn history_source_signer_dependency_closure(
                     ..
                 } => pending.push(attester_signer_evidence_ref.content_digest()?),
                 AuthenticatedSignerResolutionEvidence::Agent { .. }
-                | AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+                | AuthenticatedSignerResolutionEvidence::AccountDevice { .. }
+                | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
                     return Err(WireError::Protocol(
                         "minimal-metadata IdentityLink signer closure contains Agent evidence"
                             .to_owned(),
@@ -676,7 +679,8 @@ pub fn history_source_signer_dependency_closure(
                 unreachable!("authenticated dependency map contains only authenticated evidence")
             };
             match evidence.as_ref() {
-                AuthenticatedSignerResolutionEvidence::Service { .. } => {}
+                AuthenticatedSignerResolutionEvidence::Service { .. }
+                | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {}
                 AuthenticatedSignerResolutionEvidence::Principal {
                     attester_signer_evidence_ref,
                     ..

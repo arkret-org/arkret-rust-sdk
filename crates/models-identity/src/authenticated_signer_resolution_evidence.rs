@@ -1,8 +1,8 @@
 //! Content-addressed historical signer-resolution evidence.
 
 use arkret_wire::{
-    ActorId, DidCoreId, DidUrl, Hash, NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor,
-    Result, SignerEvidenceRef, WireError,
+    AccountId, ActorId, DeviceId, DidCoreId, DidUrl, EventId, Hash, NotaryJoseAlgorithm,
+    NotaryKeyKind, NotarySignerDescriptor, Result, SealId, SignerEvidenceRef, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,22 @@ pub enum AuthenticatedSignerResolutionEvidence {
         verification_method: DidUrl,
         device_projection_attestation: arkret_models_crypto::DeviceProjectionAttestation,
         attester_signer_evidence_ref: SignerEvidenceRef,
+    },
+    /// Portable ordinary-human generic Control authority derived from the
+    /// original signed device authorization and its confirmed PCR prefix.
+    AccountDeviceControl {
+        signer_id: DidCoreId,
+        account_id: AccountId,
+        device_id: DeviceId,
+        verification_method: DidUrl,
+        authorization_event_ref: EventId,
+        authorized_generation_ref: u64,
+        generation_event_ref: EventId,
+        confirmation_seal_ref: SealId,
+        pcr_genesis_event_ref: EventId,
+        principal_inception: Box<crate::DidOperationSubmitRequestBody>,
+        history_event_refs: Vec<EventId>,
+        history_seal_refs: Vec<SealId>,
     },
     Agent {
         signer_id: DidCoreId,
@@ -81,6 +97,12 @@ pub fn ed25519_verification_key_from_evidence(
                 WireError::Protocol("device signer evidence key is not did:key".to_owned())
             })?;
             decode_ed25519_material(multibase)?
+        }
+        AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
+            return Err(WireError::Protocol(
+                "account-device Control evidence requires its complete PCR history verifier"
+                    .to_owned(),
+            ));
         }
         AuthenticatedSignerResolutionEvidence::Agent {
             agent_signer_evidence,
@@ -142,6 +164,7 @@ impl AuthenticatedSignerResolutionEvidence {
             Self::Service { signer_id, .. }
             | Self::Principal { signer_id, .. }
             | Self::AccountDevice { signer_id, .. }
+            | Self::AccountDeviceControl { signer_id, .. }
             | Self::Agent { signer_id, .. } => signer_id,
         }
     }
@@ -157,6 +180,10 @@ impl AuthenticatedSignerResolutionEvidence {
                 ..
             }
             | Self::AccountDevice {
+                verification_method,
+                ..
+            }
+            | Self::AccountDeviceControl {
                 verification_method,
                 ..
             }
@@ -245,6 +272,53 @@ impl AuthenticatedSignerResolutionEvidence {
                     ));
                 }
             }
+            Self::AccountDeviceControl {
+                signer_id,
+                account_id,
+                device_id,
+                verification_method,
+                authorization_event_ref,
+                authorized_generation_ref,
+                generation_event_ref,
+                confirmation_seal_ref,
+                pcr_genesis_event_ref,
+                principal_inception,
+                history_event_refs,
+                history_seal_refs,
+            } => {
+                let (controller, fragment) = verification_method
+                    .as_str()
+                    .split_once('#')
+                    .ok_or_else(|| {
+                        WireError::Protocol(
+                            "account device Control evidence requires an exact device method"
+                                .to_owned(),
+                        )
+                    })?;
+                let controller = arkret_wire::Did::new(controller)?;
+                if &account_id.principal_id != signer_id
+                    || principal_inception.did != controller
+                    || arkret_wire::project_did_to_core_id(&controller)? != *signer_id
+                    || fragment != device_id.as_str()
+                    || *authorized_generation_ref == 0
+                    || principal_inception.seq != Some(1)
+                    || principal_inception.prev_event_digest.is_some()
+                    || !history_event_refs.contains(authorization_event_ref)
+                    || !history_event_refs.contains(generation_event_ref)
+                    || !history_event_refs.contains(pcr_genesis_event_ref)
+                    || !history_seal_refs.contains(confirmation_seal_ref)
+                    || history_event_refs.len() < 2
+                    || history_event_refs.len() > 4096
+                    || history_seal_refs.is_empty()
+                    || history_seal_refs.len() > 4096
+                    || history_event_refs.windows(2).any(|pair| pair[0] >= pair[1])
+                    || history_seal_refs.windows(2).any(|pair| pair[0] >= pair[1])
+                {
+                    return Err(WireError::Protocol(
+                        "account device Control signer evidence binding is invalid".to_owned(),
+                    ));
+                }
+            }
             Self::Agent {
                 signer_id,
                 verification_method,
@@ -282,6 +356,7 @@ impl AuthenticatedSignerResolutionEvidence {
                 attester_signer_evidence_ref,
                 ..
             } => vec![attester_signer_evidence_ref],
+            Self::AccountDeviceControl { .. } => Vec::new(),
             Self::Agent {
                 attester_signer_evidence_ref,
                 account_authority_signer_evidence_ref,
@@ -318,7 +393,8 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
             ..
         } => normalized_did_document,
         AuthenticatedSignerResolutionEvidence::Agent { .. }
-        | AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+        | AuthenticatedSignerResolutionEvidence::AccountDevice { .. }
+        | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
             return Err(WireError::Protocol(
                 "this signer evidence kind cannot authorize Realm notary bootstrap".to_owned(),
             ));
@@ -344,7 +420,8 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
             public_resolution, ..
         } => ActorId::account(public_resolution.authority()),
         AuthenticatedSignerResolutionEvidence::Agent { .. }
-        | AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+        | AuthenticatedSignerResolutionEvidence::AccountDevice { .. }
+        | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
             unreachable!("non-document signer evidence returned before descriptor construction")
         }
     };

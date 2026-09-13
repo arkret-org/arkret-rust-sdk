@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "total": 195,
+  "total": 194,
   "counts": {
-    "internal": 56,
+    "internal": 55,
     "optional_has_default": 135,
     "required": 3,
     "schema_field_unknown": 1
@@ -1822,19 +1822,7 @@
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 952,
-      "struct_name": "DirectoryPushRegisterRequestBody",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-discovery/src/directory.rs",
-      "line": 1134,
+      "line": 1088,
       "struct_name": "DirectoryWithdrawRequestBody",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1846,7 +1834,7 @@
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 1243,
+      "line": 1197,
       "struct_name": "DirectoryHandleResolutionOutcome",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1966,7 +1954,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 253,
+      "line": 256,
       "struct_name": "AccountDeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1978,7 +1966,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 256,
+      "line": 259,
       "struct_name": "AccountDeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1990,7 +1978,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 259,
+      "line": 262,
       "struct_name": "AccountDeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2002,7 +1990,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 944,
+      "line": 957,
       "struct_name": "AccountRequestErasureOutcome",
       "field_name": "withdrawal_window_ends_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2050,7 +2038,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 48,
+      "line": 50,
       "struct_name": "DeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2062,7 +2050,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 51,
+      "line": 53,
       "struct_name": "DeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2074,7 +2062,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 54,
+      "line": 56,
       "struct_name": "DeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",

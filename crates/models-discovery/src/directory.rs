@@ -916,52 +916,6 @@ fn directory_proof_binding_bytes(
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryPushResourceKind {
-    Realm,
-    Organization,
-    Actor,
-    Applet,
-    Handle,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryPushRegisterResourceFilter {
-    pub resource_kinds: Vec<DirectoryPushResourceKind>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub resource_ids: Vec<String>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryPushRegisterRequestBody {
-    pub subscriber_id: DidCoreId,
-    pub resource_filter: DirectoryPushRegisterResourceFilter,
-    pub webhook_url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub secret: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(
-        default,
-        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
-    )]
-    pub expires_at: Option<DateTime<Utc>>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DirectoryPushRegisterOutcome {
-    pub subscription_id: crate::SubscriptionId,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub effective_at: DateTime<Utc>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DirectoryAnnounceRequestBody {

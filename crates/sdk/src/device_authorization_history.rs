@@ -107,7 +107,11 @@ impl DeviceAuthorizationInterval {
 pub struct DeviceAuthorizationHistory {
     account_id: AccountId,
     realm_id: RealmId,
+    genesis_event_id: EventId,
     confirmed_head: SealId,
+    principal_inception: arkret_models_identity::DidOperationSubmitRequestBody,
+    seals: Vec<Seal>,
+    events: Vec<Event>,
     generations: Vec<DeviceGenerationInterval>,
     authorizations: Vec<DeviceAuthorizationInterval>,
 }
@@ -120,6 +124,72 @@ impl DeviceAuthorizationHistory {
     }
     pub fn confirmed_head(&self) -> &SealId {
         &self.confirmed_head
+    }
+    pub fn control_signer_evidence(
+        &self,
+        authorization_event_id: &EventId,
+    ) -> Result<arkret_models_identity::AuthenticatedSignerResolutionEvidence> {
+        let authorization = self
+            .authorization(authorization_event_id)
+            .ok_or_else(|| missing("device authorization is not in the authenticated history"))?;
+        let confirmation_index = self
+            .seals
+            .iter()
+            .position(|seal| seal.id == authorization.confirmed_seal)
+            .ok_or_else(|| missing("device authorization confirmation Seal is missing"))?;
+        let prefix = &self.seals[..=confirmation_index];
+        let mut included = BTreeSet::new();
+        for seal in prefix {
+            for result in &seal.command_results {
+                if result.outcome == CommandOutcome::Committed {
+                    for digest in &result.unit_event_digests {
+                        included.insert(EventId::from_event_digest(digest).map_err(invalid)?);
+                    }
+                }
+            }
+        }
+        let mut history_event_refs = self
+            .events
+            .iter()
+            .filter(|event| included.contains(&event.event_id))
+            .map(|event| event.event_id.clone())
+            .collect::<Vec<_>>();
+        history_event_refs.sort();
+        history_event_refs.dedup();
+        if history_event_refs.len() != included.len() {
+            return Err(missing(
+                "device authorization evidence prefix omits a committed Event",
+            ));
+        }
+        let mut history_seal_refs = prefix
+            .iter()
+            .map(|seal| seal.id.clone())
+            .collect::<Vec<_>>();
+        history_seal_refs.sort();
+        history_seal_refs.dedup();
+        let verification_method = arkret_wire::DidUrl::new(format!(
+            "{}#{}",
+            self.principal_inception.did,
+            authorization.device_id()
+        ))
+        .map_err(invalid)?;
+        let evidence =
+            arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+                signer_id: self.account_id.principal_id.clone(),
+                account_id: self.account_id.clone(),
+                device_id: authorization.device_id().clone(),
+                verification_method,
+                authorization_event_ref: authorization.authorization_event_id().clone(),
+                authorized_generation_ref: authorization.authorized_generation_ref(),
+                generation_event_ref: authorization.generation_event_id().clone(),
+                confirmation_seal_ref: authorization.confirmed_seal().clone(),
+                pcr_genesis_event_ref: self.genesis_event_id.clone(),
+                principal_inception: Box::new(self.principal_inception.clone()),
+                history_event_refs,
+                history_seal_refs,
+            };
+        evidence.validate_attester_binding().map_err(invalid)?;
+        Ok(evidence)
     }
     pub fn generations(&self) -> &[DeviceGenerationInterval] {
         &self.generations
@@ -289,7 +359,11 @@ impl DeviceAuthorizationHistory {
         let mut history = Self {
             account_id: account_id.clone(),
             realm_id: realm_id.clone(),
+            genesis_event_id: genesis_event_id.clone(),
             confirmed_head: expected_head.clone(),
+            principal_inception: inception.clone(),
+            seals: seals.to_vec(),
+            events: events.to_vec(),
             generations: vec![DeviceGenerationInterval {
                 number: 1,
                 authorization_event_id: genesis_event_id.clone(),
