@@ -119,14 +119,9 @@ fn attach_proof(event: &mut Event, descriptor: &NotarySignerDescriptor) {
         kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
         verification_method: descriptor.verification_method.clone(),
         event_digest: digest(event),
-        signer_resolution_evidence_ref: if event.kind == EventKind::RealmCreate {
-            None
-        } else {
-            Some(
-                arkret_wire::SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence}"))
-                    .unwrap(),
-            )
-        },
+        signer_resolution_evidence_ref: Some(
+            arkret_wire::SignerEvidenceRef::new(format!("ak:signer_evidence:{evidence}")).unwrap(),
+        ),
         created_at: event.created_at,
         domain: None,
         audience: None,

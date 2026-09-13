@@ -1148,15 +1148,25 @@ mod scope_mls_group_id_tests {
 
 /// CBS context a structural submit check runs under.
 ///
-/// `Standard` is the fail-closed default: every reducer-input Event must be a
-/// ordinary Event or a Control Move. `AnchorUnit` additionally admits the two closed
-/// `seal_basis`-exempt units of `event-auth-state-resolution.md` §5 and MUST NOT
-/// be used for anything else.
+/// `Standard` is the fail-closed default: every reducer-input Event must be an
+/// ordinary Event or a Control Move. `RealmBootstrap` admits the closed,
+/// basis-free ordinary Realm bootstrap while retaining the normal portable
+/// signer-evidence requirement. `AnchorUnit` is reserved for the two native
+/// signer-material units whose proofs deliberately omit that evidence.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum EventSubmitContext {
     #[default]
     Standard,
+    RealmBootstrap,
     AnchorUnit,
+}
+
+impl EventSubmitContext {
+    /// Whether this context admits reducer Events without `auth_context` or
+    /// `seal_basis` after the caller has validated the complete closed unit.
+    pub const fn is_basis_free_unit(self) -> bool {
+        !matches!(self, Self::Standard)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -1338,18 +1348,20 @@ impl Event {
             unreachable!("producer proof set was validated above")
         };
         match context {
-            EventSubmitContext::Standard => producer.validate_direct_signer_resolution_evidence(),
+            EventSubmitContext::Standard | EventSubmitContext::RealmBootstrap => {
+                producer.validate_direct_signer_resolution_evidence()
+            }
             EventSubmitContext::AnchorUnit => Ok(()),
         }
     }
 
     /// [`Event::validate_for_submit_structural`] under an explicit CBS context.
     ///
-    /// Use [`EventSubmitContext::AnchorUnit`] only for the two closed
-    /// `seal_basis`-exempt anchor units of `event-auth-state-resolution.md` §5:
-    /// the `ak.realm.create` bootstrap with its closed follow-up whitelist, and
-    /// the B-model `ak.device.reanchor` + replacement-authorize unit, which
-    /// fixes its frontier in the payload's `pre_fence_seal_frontier` instead.
+    /// Use [`EventSubmitContext::RealmBootstrap`] only after validating the
+    /// complete ordinary `ak.realm.create` bootstrap and its closed follow-up
+    /// whitelist. Use [`EventSubmitContext::AnchorUnit`] only for the two
+    /// native signer-material units: human PCR genesis and the B-model
+    /// `ak.device.reanchor` + replacement-authorize recovery unit.
     ///
     /// Deciding whether an Event *is* one of those needs the closed kind
     /// whitelist, which lives in the registry; this crate does not hold it by
@@ -1401,7 +1413,9 @@ impl Event {
 
     fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
         let source = match context {
-            EventSubmitContext::Standard => SignerMaterialSource::Referenced,
+            EventSubmitContext::Standard | EventSubmitContext::RealmBootstrap => {
+                SignerMaterialSource::Referenced
+            }
             EventSubmitContext::AnchorUnit => SignerMaterialSource::NativeUnit,
         };
         self.validate_structural_with_signer_material(context, source)
@@ -1491,7 +1505,7 @@ impl Event {
             // may still carry a precondition, which is evaluated against the
             // unit's empty frozen predecessor state; only the three mutually
             // exclusive CBS basis fields participate in this shape test.
-            let is_anchor_unit = context == EventSubmitContext::AnchorUnit
+            let is_anchor_unit = context.is_basis_free_unit()
                 && self.auth_context.is_none()
                 && self.seal_basis.is_none();
             // This leaf layer validates only the mutually exclusive envelope
@@ -2130,7 +2144,7 @@ mod event_wire_surface_tests {
     }
 
     #[test]
-    fn anchor_unit_allows_preconditions_without_any_cbs_basis_field() {
+    fn realm_bootstrap_allows_basis_free_preconditions_but_requires_signer_evidence() {
         let mut event = base_event();
         event.kind = EventKind::RealmCreate;
         // A Realm genesis carries the closed `realm_genesis` scope and no
@@ -2146,21 +2160,48 @@ mod event_wire_surface_tests {
                 predicate_id: None,
             },
         });
+        event.proofs.push(producer_proof());
+
+        event
+            .validate_for_submit_structural_in_context(EventSubmitContext::RealmBootstrap)
+            .expect("Realm bootstrap precondition is evaluated against the frozen predecessor");
+        event
+            .validate_for_direct_history_structural_in_context(EventSubmitContext::RealmBootstrap)
+            .expect("retained Realm bootstrap keeps its portable producer evidence");
+
+        event.proofs[0].signer_resolution_evidence_ref = None;
+        assert!(
+            event
+                .validate_for_submit_structural_in_context(EventSubmitContext::RealmBootstrap)
+                .is_err(),
+            "ordinary Realm bootstrap cannot select native unit-local signer material"
+        );
+        assert!(
+            event
+                .validate_for_submit_structural_in_context(EventSubmitContext::Standard)
+                .is_err(),
+            "the same basis-less Event is not a non-anchor Control Move"
+        );
+    }
+
+    #[test]
+    fn native_reanchor_unit_requires_unit_local_signer_material() {
+        let mut event = base_event();
+        event.kind = EventKind::DeviceReanchor;
+        event.auth_context = None;
+        event.seal_basis = None;
         let mut proof = producer_proof();
         proof.signer_resolution_evidence_ref = None;
         event.proofs.push(proof);
 
         event
             .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)
-            .expect("anchor-unit precondition is evaluated against the frozen predecessor");
-        event
-            .validate_for_direct_history_structural_in_context(EventSubmitContext::AnchorUnit)
-            .expect("retained anchor units keep their unit-local producer proof");
+            .expect("native re-anchor accepts its unit-local producer proof");
         assert!(
             event
-                .validate_for_submit_structural_in_context(EventSubmitContext::Standard)
+                .validate_for_submit_structural_in_context(EventSubmitContext::RealmBootstrap)
                 .is_err(),
-            "the same basis-less Event is not a non-anchor Control Move"
+            "ordinary Realm bootstrap context cannot admit native proof shape"
         );
     }
 

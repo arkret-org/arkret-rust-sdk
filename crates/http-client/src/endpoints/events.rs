@@ -266,7 +266,7 @@ impl Client {
             ));
         }
         let submit_context = initial_submission_context(events)?;
-        if submit_context == EventSubmitContext::AnchorUnit {
+        if submit_context.is_basis_free_unit() {
             // Realm genesis has no accepted authority from which a caller can
             // pre-collect a Control Proposal Ack. The admitting Station
             // mints those receipts atomically after it has pre-admitted the
@@ -306,7 +306,7 @@ impl Client {
         collect_anchor_receipts: bool,
     ) -> Result<Vec<EventInitialSubmission>> {
         let submit_context = initial_submission_context(events)?;
-        let anchor_unit = submit_context == EventSubmitContext::AnchorUnit;
+        let anchor_unit = submit_context.is_basis_free_unit();
         let request = AuthorizationLeaseIssueRequestBody {
             submissions: events
                 .iter()

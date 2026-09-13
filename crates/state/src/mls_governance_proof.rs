@@ -2172,6 +2172,7 @@ where
         + Copy,
 {
     let digest_suites = digest_suites_for_replay_seal(seal, all_events, live_suites).await?;
+    let mut first_seal_events = Vec::new();
     for digest in seal
         .command_results
         .iter()
@@ -2194,6 +2195,9 @@ where
             return frontier_rejected(
                 "replay Seal command member does not match its verified historical suite",
             );
+        }
+        if seal.predecessor_ref.is_none() {
+            first_seal_events.push(event);
         }
     }
     let (notary, predecessor_state) =
@@ -2237,6 +2241,30 @@ where
         .register_verified_replay_units(seal)
         .map_err(replay_store_error)?;
 
+    // The first Seal can cover either an ordinary Realm bootstrap (portable
+    // signer evidence) or the dedicated two-slot human PCR genesis (native
+    // unit-local signer material). Keep those proof regimes distinct even
+    // though both are basis-free reducer units.
+    let submit_context = if seal.predecessor_ref.is_some() {
+        EventSubmitContext::Standard
+    } else {
+        let native_pcr = first_seal_events.len() == 2
+            && arkret_wire::PcrGenesisUnit::new(
+                first_seal_events[0].clone(),
+                first_seal_events[1].clone(),
+            )
+            .is_ok()
+            && serde_json::to_value(&first_seal_events[0].payload)
+                .ok()
+                .and_then(|value| serde_json::from_value::<RealmCreatePayload>(value).ok())
+                .is_some_and(|payload| payload.object.purpose == RealmPurpose::PrincipalControl);
+        if native_pcr {
+            EventSubmitContext::AnchorUnit
+        } else {
+            EventSubmitContext::RealmBootstrap
+        }
+    };
+
     apply_replayed_seal_in_context(
         seal,
         &crate::MemorySealCommitStore::new(event_store, seal_store, cell_store),
@@ -2244,11 +2272,7 @@ where
         digest_suites,
         |_, _| Ok(()),
         project_writes,
-        if seal.predecessor_ref.is_none() {
-            EventSubmitContext::AnchorUnit
-        } else {
-            EventSubmitContext::Standard
-        },
+        submit_context,
     )
     .await
     .map_err(replay_reject_error)?;
@@ -2609,7 +2633,7 @@ async fn add_pcr_holder_from_verified_create_anchor(
     let submit_context = if payload.object.purpose == RealmPurpose::PrincipalControl {
         EventSubmitContext::AnchorUnit
     } else {
-        EventSubmitContext::Standard
+        EventSubmitContext::RealmBootstrap
     };
     create
         .validate_for_federation_structural_in_context(submit_context, DigestSuite::Sha256)

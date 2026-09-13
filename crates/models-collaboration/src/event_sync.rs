@@ -992,7 +992,7 @@ impl EventsSubmitFederationBatchRequestBody {
         }
         let submit_context =
             arkret_wire::classify_federated_event_submit_context(&events, digest_suites)?;
-        if submit_context == arkret_wire::EventSubmitContext::AnchorUnit {
+        if submit_context.is_basis_free_unit() {
             let leases = self
                 .events
                 .iter()

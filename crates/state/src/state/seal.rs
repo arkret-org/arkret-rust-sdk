@@ -532,10 +532,10 @@ impl From<super::store::StoreError> for SealReject {
 
 /// Apply a Seal under an explicit CBS envelope context.
 ///
-/// `AnchorUnit` is only valid for a first Seal after the caller has validated
-/// the complete closed anchor unit. This layer cannot own that registry-backed
-/// whitelist, but it still requires an empty predecessor view and applies all
-/// other Seal and reducer checks.
+/// A basis-free unit context is only valid for a first Seal after the caller
+/// has validated the complete closed unit. This layer cannot own that
+/// registry-backed whitelist, but it still requires an empty predecessor view
+/// and applies all other Seal and reducer checks.
 // The aggregate store owns the atomic write boundary; verification remains pure.
 #[allow(clippy::too_many_arguments)]
 pub async fn apply_seal_in_context<VerifyProofs, ProjectWrites>(
@@ -762,7 +762,7 @@ where
         ) -> Result<ControlProjection, String>
         + Copy,
 {
-    if context == EventSubmitContext::AnchorUnit && seal.predecessor_ref.is_some() {
+    if context.is_basis_free_unit() && seal.predecessor_ref.is_some() {
         return Err(SealReject::Structural(
             "anchor-unit context is only valid for the first Seal".to_owned(),
         ));
@@ -981,7 +981,7 @@ where
     }
     for (digest, event) in &command_events {
         let event_digest_suite = event_digest_suite_for_seal(&event, seal, digest_suites);
-        if event.seal_basis.is_some() || context == EventSubmitContext::Standard {
+        if event.seal_basis.is_some() || !context.is_basis_free_unit() {
             verify_seal_basis(
                 &digest,
                 &event,
@@ -1097,7 +1097,7 @@ where
         registry,
         &units,
         digest_suites.seal_digest_suite,
-        context == EventSubmitContext::AnchorUnit,
+        context.is_basis_free_unit(),
         |member, staged_state, unit_entry_state| {
             verify_proofs(&member.event, member.digest_suite)
                 .map_err(OrderedControlBatchAbort::Structural)?;

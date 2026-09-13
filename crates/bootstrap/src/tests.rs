@@ -392,6 +392,18 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
     )
     .unwrap();
     assert_eq!(unit.events.len(), 2);
+    assert!(
+        unit.events
+            .iter()
+            .all(|event| event.proofs[0].signer_resolution_evidence_ref.is_none()),
+        "the dedicated PCR wrapper retains the two native proof slots"
+    );
+    assert!(
+        arkret_wire::classify_event_submit_context(&unit.events).is_err(),
+        "generic Realm bootstrap classification must not reinterpret PCR native proofs as ordinary portable proofs"
+    );
+    unit.validate_ordered_envelopes()
+        .expect("the dedicated PCR wrapper validates native proofs explicitly");
 
     let mut missing = authorize.clone();
     missing.prev_refs.clear();

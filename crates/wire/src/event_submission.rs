@@ -77,16 +77,16 @@ fn classify_event_submit_context_shape(events: &[Event]) -> Result<EventSubmitCo
             .first()
             .map(|event| event.kind.as_str())
             .unwrap_or_default();
-        if !matches!(
-            first_kind,
-            crate::event_kind_str::REALM_CREATE | crate::event_kind_str::DEVICE_REANCHOR
-        ) {
-            return Err(WireError::Protocol(
-                "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
-                    .to_owned(),
-            ));
+        match first_kind {
+            crate::event_kind_str::REALM_CREATE => EventSubmitContext::RealmBootstrap,
+            crate::event_kind_str::DEVICE_REANCHOR => EventSubmitContext::AnchorUnit,
+            _ => {
+                return Err(WireError::Protocol(
+                    "basis-free publication unit must be a registered Realm bootstrap or device re-anchor unit"
+                        .to_owned(),
+                ));
+            }
         }
-        EventSubmitContext::AnchorUnit
     } else {
         EventSubmitContext::Standard
     };
@@ -142,6 +142,9 @@ impl PcrGenesisUnit {
             return Err(WireError::Protocol(
                 "PCR genesis unit must be the exact ordered create/authorize pair".to_owned(),
             ));
+        }
+        for event in &self.events {
+            event.validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)?;
         }
         Ok(())
     }
@@ -624,7 +627,7 @@ fn validate_control_proposal_ack(
         // therefore may (and at durable ingress must) carry their receipts.
         // Outside that explicit context, absence of `seal_basis` continues to
         // identify an ordinary Event and must fail closed.
-        if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
+        if !context.is_basis_free_unit() && event.seal_basis.is_none() {
             return Err(WireError::Protocol(
                 "ordinary Event submissions forbid a Control Proposal Ack".to_owned(),
             ));
@@ -1013,8 +1016,47 @@ mod tests {
         event
     }
 
+    fn realm_bootstrap_event() -> Event {
+        let mut event = online_event();
+        event.kind = crate::EventKind::RealmCreate;
+        event.scope_ref = ScopeRef::RealmGenesis;
+        event.auth_context = None;
+        event.seal_basis = None;
+        event
+    }
+
     fn federated_event() -> Event {
         online_event()
+    }
+
+    #[test]
+    fn ordinary_realm_bootstrap_is_basis_free_but_keeps_referenced_signer_material() {
+        let event = realm_bootstrap_event();
+        assert_eq!(
+            classify_event_submit_context(std::slice::from_ref(&event)).unwrap(),
+            EventSubmitContext::RealmBootstrap
+        );
+
+        let mut missing_evidence = event;
+        missing_evidence.proofs[0].signer_resolution_evidence_ref = None;
+        assert!(
+            classify_event_submit_context(std::slice::from_ref(&missing_evidence)).is_err(),
+            "ordinary Realm bootstrap must not inherit the native-unit signer exception"
+        );
+    }
+
+    #[test]
+    fn device_reanchor_keeps_native_unit_signer_material() {
+        let mut event = online_event();
+        event.kind = crate::EventKind::DeviceReanchor;
+        event.auth_context = None;
+        event.seal_basis = None;
+        event.proofs[0].signer_resolution_evidence_ref = None;
+
+        assert_eq!(
+            classify_event_submit_context(std::slice::from_ref(&event)).unwrap(),
+            EventSubmitContext::AnchorUnit
+        );
     }
 
     #[test]
@@ -1361,7 +1403,7 @@ mod tests {
         validate_control_proposal_ack(
             &event,
             Some(&receipt),
-            EventSubmitContext::AnchorUnit,
+            EventSubmitContext::RealmBootstrap,
             arkret_canonical::DigestSuite::Sha256,
         )
         .expect("caller-proven closed anchors remain Control Moves");

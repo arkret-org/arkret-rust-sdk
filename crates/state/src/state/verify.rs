@@ -360,7 +360,7 @@ where
             event.realm_id
         )));
     }
-    if context == EventSubmitContext::Standard && event.seal_basis.is_none() {
+    if !context.is_basis_free_unit() && event.seal_basis.is_none() {
         return Err(ControlMoveReject::SchemaViolation(
             "Control Move must carry seal_basis".to_owned(),
         ));
@@ -424,7 +424,7 @@ where
     // security-only state. Until a verified signed causal data context is
     // available, keep the complete command pending instead of manufacturing
     // a deterministic rejection from an absent or unrelated data value.
-    if context != EventSubmitContext::AnchorUnit {
+    if !context.is_basis_free_unit() {
         for cell in projected
             .iter()
             .map(|write| &write.cell_id)
@@ -480,7 +480,7 @@ where
                 )));
             }
             if binding.execution == arkret_wire::EventCellExecution::Data
-                && context != EventSubmitContext::AnchorUnit
+                && !context.is_basis_free_unit()
             {
                 return Err(ControlMoveReject::MissingDataContext {
                     cell: effect.cell_id.as_str().to_owned(),
