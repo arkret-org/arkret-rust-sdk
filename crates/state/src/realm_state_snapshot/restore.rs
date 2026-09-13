@@ -384,10 +384,10 @@ where
             {
                 if arkret_wire::registered_cell_state_model(cell_ref)
                     .map_err(|error| schema_violation(error.to_string()))?
-                    != arkret_wire::EventCellStateModel::CausalRegister
+                    == arkret_wire::EventCellStateModel::CausalRegister
                 {
                     return Err(schema_violation(
-                        "Bottom diagnostics are restricted to ordinary causal registers",
+                        "ordinary causal registers always have a deterministic winner and cannot be Bottom",
                     ));
                 }
                 bottom_cells.insert(cell_ref.clone());

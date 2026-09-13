@@ -173,7 +173,7 @@ pub struct Predicate {
 pub enum PredicateOp {
     /// Cell value / head must equal `value`.
     HeadEq,
-    /// Cell value / exposed heads must be in `values`.
+    /// Cell value must be in `values`.
     HeadIn,
     /// Cell value must satisfy a schema-registered predicate identified by `predicate_id`.
     Satisfies,
@@ -227,7 +227,8 @@ pub enum ProjectedOp {
         /// The reducer MUST reject the whole Event when this is present and
         /// does not byte-equal the frozen pre-state's canonical digest. It is
         /// an optimistic guard layered on top of the lattice, not a substitute
-        /// for it: a causal register still retains concurrent heads.
+        /// for it: a causal register retains every source identity as evidence
+        /// while exposing the deterministic `(depth, EventId)` winner.
         expected_prestate: Option<Value>,
     },
     /// `or_set` observed-remove of every surviving add dot on the target cell

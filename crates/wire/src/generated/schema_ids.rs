@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-13.1;
-//! sha256=eab720cb4d621e99a20510b2d9b9bbb294e83e3e5bb97fb363b83d33d4563ce5 Entries: schema_ids=227,
+//! Input: registry/schema-registry.json; version=2026-09-13.2;
+//! sha256=65aac4f53fa7134cafe47b38c036763a2d0cd3c66610b881dce72c7080fdbbca Entries: schema_ids=227,
 //! active=227
 
 use serde::{Deserialize, Serialize};
@@ -850,8 +850,8 @@ impl SchemaId {
     /// Closed request/response DTO bundle for Blob service operations.
     pub const BLOB_OPERATIONS_V1: &'static str = "ak.schema.blob_operations.v1";
     /// Structured Bottom (⊥) diagnostic surfaced on /account/subscribe, /events, and state query
-    /// responses for an unresolved ordinary projection; it is not an authoritative safety Cell
-    /// value
+    /// responses for an explicitly registered cross-Cell domain inconsistency; ordinary
+    /// causal_register Cells always select one deterministic winner and never produce Bottom
     pub const BOTTOM_V1: &'static str = "ak.schema.bottom.v1";
     /// Profile fields for calendar-event Strands.
     pub const CALENDAR_EVENT_V1: &'static str = "ak.schema.calendar_event.v1";

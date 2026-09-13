@@ -1,4 +1,4 @@
-//! Typed diagnostic for an unresolved ordinary causal register.
+//! Typed diagnostic for an explicitly registered cross-Cell inconsistency.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -6,8 +6,8 @@ use serde_json::Value;
 
 use crate::{CellRef, EventId, SchemaId};
 
-/// One identity-preserving candidate head. Equal values written by distinct
-/// Events remain distinct candidates.
+/// One identity-preserving diagnostic candidate. Equal values written by
+/// distinct Events remain distinct candidates.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16,7 +16,7 @@ pub struct CausalHead {
     pub value: Value,
 }
 
-/// The only Cell-state bottom: unresolved concurrent causal-register heads.
+/// The only registered cross-Cell domain diagnostic kind.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

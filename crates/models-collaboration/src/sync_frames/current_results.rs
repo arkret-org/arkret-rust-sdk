@@ -169,14 +169,37 @@ impl CurrentValue {
         self.decode("ak.component.realm.genesis.v1")
     }
 
-    /// Validate a value using the same entry boundary as a received result.
+    /// Validate a non-causal value using the same entry boundary as a received result.
+    /// Causal-register families must use [`Self::try_new_with_source`].
     pub fn try_new(
         selector: &CurrentSelector,
         target: &CurrentTarget,
         value: Value,
     ) -> Result<Self> {
+        Self::try_new_with_source(selector, target, value, None)
+    }
+
+    /// Validate a value and its optional causal-register winner source using
+    /// the same entry boundary as a received result.
+    pub fn try_new_with_source(
+        selector: &CurrentSelector,
+        target: &CurrentTarget,
+        value: Value,
+        source: Option<CurrentValueSource>,
+    ) -> Result<Self> {
+        let mut result = serde_json::json!({"status":"value","value":value});
+        if let Some(source) = source {
+            result
+                .as_object_mut()
+                .expect("Current result literal is an object")
+                .insert(
+                    "source".to_owned(),
+                    serde_json::to_value(source)
+                        .map_err(|serde_error| error(serde_error.to_string()))?,
+                );
+        }
         let raw = serde_json::json!({"selector":selector,"target":target,"revision":0,
-            "result":{"status":"value","value":value}});
+            "result":result});
         match CurrentResultEntry::try_from_json(raw)?.result {
             CurrentOutcome::Value { value, .. } => Ok(value),
             _ => Err(error("Current value requires a scalar result")),
@@ -233,7 +256,7 @@ struct EntryWire {
 enum ResultWire {
     Value {
         value: Value,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         source: Option<CurrentValueSource>,
     },
     Removed,
@@ -545,6 +568,34 @@ mod tests {
     }
 
     #[test]
+    fn causal_current_value_constructor_requires_and_preserves_winner_source() {
+        let wire: Value = serde_json::from_str(STRAND_ENTRY).unwrap();
+        let selector: CurrentSelector = serde_json::from_value(wire["selector"].clone()).unwrap();
+        let target: CurrentTarget = serde_json::from_value(wire["target"].clone()).unwrap();
+        let value = wire["result"]["value"].clone();
+        let source: CurrentValueSource =
+            serde_json::from_value(wire["result"]["source"].clone()).unwrap();
+
+        assert!(CurrentValue::try_new(&selector, &target, value.clone()).is_err());
+        let current = CurrentValue::try_new_with_source(
+            &selector,
+            &target,
+            value,
+            Some(source.clone()),
+        )
+        .unwrap();
+        assert_eq!(current.family(), "ak.component.strand.object.v1");
+
+        let roundtrip = serde_json::json!({
+            "selector": selector,
+            "target": target,
+            "revision": 0,
+            "result": {"status":"value","value":current,"source":source}
+        });
+        assert!(CurrentResultEntry::try_from_json(roundtrip).is_ok());
+    }
+
+    #[test]
     fn strand_position_target_binds_to_composite_board_strand_subject() {
         let strand_id = "ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS";
         let mut wire = scalar(
@@ -591,7 +642,7 @@ mod tests {
         let mut wire = scalar(json!(false));
         wire["result"] = json!({"status":"unavailable","reason":"temporarily_unavailable"});
         assert!(CurrentResultEntry::try_from_json(wire.clone()).is_err());
-        wire["result"] = json!({"status":"unavailable","reason":"bottom"});
+        wire["result"] = json!({"status":"unavailable","reason":"dependency_missing"});
         assert!(CurrentResultEntry::try_from_json(wire).is_ok());
         let mut notifications = scalar(json!([]));
         notifications["selector"]["cell_id"] =

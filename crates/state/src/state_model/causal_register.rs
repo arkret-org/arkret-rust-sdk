@@ -237,4 +237,117 @@ mod tests {
             Err(OpError::InvalidValue { .. })
         ));
     }
+
+    #[test]
+    fn raw_evidence_join_is_commutative_associative_and_idempotent() {
+        let first = StateWrite::new(event(1), set(json!("A")));
+        let honest = StateWrite::superseding(event(2), set(json!("B")), vec![event(1)]);
+        let sibling = StateWrite::new(event(3), set(json!("X")));
+        let expected =
+            causal_register_state(&[first.clone(), honest.clone(), sibling.clone()]).unwrap();
+        for writes in [
+            vec![sibling.clone(), first.clone(), honest.clone()],
+            vec![honest.clone(), sibling.clone(), first.clone()],
+            vec![
+                first.clone(),
+                honest.clone(),
+                sibling.clone(),
+                honest.clone(),
+            ],
+        ] {
+            assert_eq!(causal_register_state(&writes).unwrap(), expected);
+        }
+
+        let left = vec![first, sibling];
+        let right = vec![honest];
+        let mut left_then_right = left.clone();
+        left_then_right.extend(right.clone());
+        let mut right_then_left = right;
+        right_then_left.extend(left);
+        assert_eq!(
+            causal_register_state(&left_then_right).unwrap(),
+            causal_register_state(&right_then_left).unwrap()
+        );
+    }
+
+    #[test]
+    fn stale_sibling_and_long_branch_follow_depth_then_identity() {
+        let root = StateWrite::new(event(1), set(json!("A")));
+        let honest_one = StateWrite::superseding(event(2), set(json!("B")), vec![event(1)]);
+        let honest_two = StateWrite::superseding(event(3), set(json!("C")), vec![event(2)]);
+        let high_id_stale = StateWrite::superseding(event(255), set(json!("X")), vec![event(1)]);
+        let state = causal_register_state(&[
+            high_id_stale.clone(),
+            honest_two.clone(),
+            root.clone(),
+            honest_one.clone(),
+        ])
+        .unwrap();
+        assert_eq!(state.winner.event_id, event(3));
+        assert_eq!(state.winner.depth, 2);
+
+        let attacker_continuation =
+            StateWrite::superseding(event(254), set(json!("Y")), vec![event(255)]);
+        let tied = causal_register_state(&[
+            root.clone(),
+            honest_one.clone(),
+            honest_two.clone(),
+            high_id_stale.clone(),
+            attacker_continuation.clone(),
+        ])
+        .unwrap();
+        assert_eq!(tied.winner.event_id, event(254));
+        assert_eq!(tied.winner.depth, 2);
+
+        let next_edit = StateWrite::superseding(event(4), set(json!("D")), vec![event(3)]);
+        let recovered = causal_register_state(&[
+            root,
+            honest_one,
+            honest_two,
+            high_id_stale,
+            attacker_continuation,
+            next_edit,
+        ])
+        .unwrap();
+        assert_eq!(recovered.winner.event_id, event(4));
+        assert_eq!(recovered.winner.depth, 3);
+    }
+
+    #[test]
+    fn null_same_value_and_aba_keep_distinct_signed_identities() {
+        let first = StateWrite::new(event(1), set(json!("A")));
+        let null = StateWrite::superseding(event(2), set(Value::Null), vec![event(1)]);
+        let aba = StateWrite::superseding(event(3), set(json!("A")), vec![event(2)]);
+        let state = causal_register_state(&[aba, first, null]).unwrap();
+        assert_eq!(state.winner.event_id, event(3));
+        assert_eq!(state.winner.depth, 2);
+        assert_eq!(state.winner.value, json!("A"));
+        assert_eq!(state.covered_event_ids.len(), 3);
+    }
+
+    #[test]
+    fn frozen_depth_survives_later_eligibility_changes_and_overflow_fails_closed() {
+        let retained = StateWrite::new(event(2), set(json!("retained"))).with_fixed_depth(7);
+        let state = causal_register_state(&[retained]).unwrap();
+        assert_eq!(state.winner.depth, 7);
+
+        let overflow = StateWrite::new(event(3), set(json!("invalid")))
+            .with_fixed_depth(9_007_199_254_740_992);
+        assert!(matches!(
+            causal_register_state(&[overflow]),
+            Err(OpError::Unrepresentable { .. })
+        ));
+    }
+
+    #[test]
+    fn one_identity_cannot_change_value_or_causal_predecessors() {
+        let same_id_different_value = [
+            StateWrite::new(event(1), set(json!("A"))),
+            StateWrite::new(event(1), set(json!("B"))),
+        ];
+        assert!(matches!(
+            causal_register_state(&same_id_different_value),
+            Err(OpError::InvalidValue { .. })
+        ));
+    }
 }

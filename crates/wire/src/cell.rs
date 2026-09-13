@@ -514,6 +514,22 @@ mod tests {
         let id = CellId::from_ref(&cref).unwrap();
         assert_eq!(id.component(), crate::CellFamilyId::CONSENT_GRANT_V1);
     }
+
+    #[test]
+    fn strand_position_target_parses_the_registered_board_strand_subject() {
+        let strand = "ak:strand:AR0yYaLgfEhMOjzAp9eFpdYOf2dma-COBObvEGjj8NN0";
+        let cell = CellId::parse(&format!(
+            "ak:cell:ak.component.strand.position.v1:ak:space:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo:{strand}"
+        ))
+        .unwrap();
+        assert_eq!(cell.strand_position_target().unwrap().as_str(), strand);
+        assert!(
+            CellId::parse("ak:cell:ak.component.strand.position.v1:ak:strand:AR0yYaLgfEhMOjzAp9eFpdYOf2dma-COBObvEGjj8NN0")
+                .unwrap()
+                .strand_position_target()
+                .is_err()
+        );
+    }
 }
 
 #[cfg(test)]

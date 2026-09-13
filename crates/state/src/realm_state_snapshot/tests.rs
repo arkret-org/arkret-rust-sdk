@@ -1482,15 +1482,16 @@ fn covered_set_refuses_per_entry_proofs_under_the_ordered_algorithm() {
     assert!(restored.covered_events.is_complete());
 }
 
-/// §3: `⊥` cells and erased cells have no leaf, and a receiver that dropped
-/// them would read them as never written. Both survive the restore.
+/// Cross-Cell domain `⊥` diagnostics and erased cells have no leaf, and a
+/// receiver that dropped them would read them as never written. Both survive
+/// the restore; ordinary causal registers are covered by the rejection test.
 #[test]
 fn restore_carries_bottom_cells_and_erasure_stubs() {
     let items = vec![cell_item(
         REALM_REDUCER_PROFILE_CELL,
         serde_json::json!("active"),
     )];
-    let bottom = CellRef::new("ak:cell:ak.component.strand.lifecycle.v1:ak:strand:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19".to_owned()).unwrap();
+    let bottom = CellRef::new("ak:cell:ak.component.realm.freeze.v1:null".to_owned()).unwrap();
     let erased = CellRef::new(REALM_PROFILE_CELL.to_owned()).unwrap();
     let built = build_realm_state_snapshot_chunks_with_auxiliary_lists(
         &snapshot_v1_id(),

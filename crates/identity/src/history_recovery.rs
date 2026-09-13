@@ -435,11 +435,10 @@ mod tests {
         );
 
         // A rotate that superseded nothing is concurrent with the register
-        // write, not a replacement of it, so the cell is in conflict. This is
-        // where "stale" lives now: dropping the signed `head_eq` no longer
-        // changes the projected op at all — §9.3.1.3 item 3 rejects the write at
-        // acceptance by comparing head identities, and the resolution below is the
-        // defensive backstop for an op that somehow reached the log anyway.
+        // write, not a replacement of it. Dropping the signed `head_eq` still
+        // fails at acceptance (§9.3.1.3 item 3). If malformed historical input
+        // nevertheless reaches the generic reducer, causal-register resolution
+        // remains deterministic rather than reviving the retired Bottom state.
         let mut stale_event = rotate_event;
         stale_event.preconditions.clear();
         let stale_write = arkret_schema::project_registered_cell_writes(
@@ -454,17 +453,26 @@ mod tests {
             panic!("RHRK mutation must remain a direct causal-register set");
         };
         assert!(stale_op.from.is_none());
-        assert!(matches!(
-            CausalRegister
-                .resolve(
-                    &register_write.cell_id,
-                    &[
-                        StateWrite::new(register_move_id, register_op),
-                        StateWrite::new(rotate_move_id, stale_op),
-                    ],
-                )
-                .unwrap(),
-            ResolvedCellState::Bottom(_)
-        ));
+        let register_event_id = arkret_wire::EventId::from_event_digest(&register_move_id).unwrap();
+        let rotate_event_id = arkret_wire::EventId::from_event_digest(&rotate_move_id).unwrap();
+        let expected = if register_event_id.token_bytes() > rotate_event_id.token_bytes() {
+            register_event_id
+        } else {
+            rotate_event_id
+        };
+        let ResolvedCellState::Causal(resolved) = CausalRegister
+            .resolve(
+                &register_write.cell_id,
+                &[
+                    StateWrite::new(register_move_id, register_op),
+                    StateWrite::new(rotate_move_id, stale_op),
+                ],
+            )
+            .unwrap()
+        else {
+            panic!("causal register must resolve to one deterministic winner");
+        };
+        assert_eq!(resolved.winner.event_id, expected);
+        assert_eq!(resolved.winner.depth, 0);
     }
 }

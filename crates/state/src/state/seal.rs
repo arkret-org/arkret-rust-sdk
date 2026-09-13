@@ -805,6 +805,27 @@ where
         });
     }
 
+    let pred_data = data_events_for_seal_basis(seal_predecessor_basis(seal), seals).await?;
+    if seal
+        .data_delta
+        .iter()
+        .any(|digest| pred_data.contains(digest))
+    {
+        return Err(SealReject::Structural(
+            "Seal.data_delta contains an Event already published by a predecessor".to_owned(),
+        ));
+    }
+    let mut published_data = pred_data;
+    published_data.extend(seal.data_delta.iter().cloned());
+    let recomputed_data_root =
+        event_digest_set_root(&published_data, digest_suites.seal_digest_suite)?;
+    if recomputed_data_root != seal.data_event_set_root {
+        return Err(SealReject::Structural(format!(
+            "declared data_event_set_root {} does not match recomputed {}",
+            seal.data_event_set_root, recomputed_data_root
+        )));
+    }
+
     // The predecessor view seeds ordered command execution. Each committed
     // registered unit advances the staged state seen by the next command;
     // a rejected unit contributes no writes. Closed anchor units may stage
@@ -814,6 +835,70 @@ where
         effective_joined_view_for_covered_events(&pred_covered, &seal.realm_id, cells, registry)
             .await?;
     let pred_closure = predecessor_seal_closure(seal.predecessor_ref.as_ref(), seals).await?;
+    let mut prior_announcements = BTreeMap::new();
+    let mut prior_closures = BTreeSet::new();
+    for ancestor_id in &pred_closure {
+        let ancestor = seals
+            .get(ancestor_id)
+            .await?
+            .ok_or_else(|| SealReject::Store(format!("predecessor {ancestor_id} not in store")))?;
+        for announcement in ancestor.data_closure_announcements {
+            if prior_announcements
+                .insert(
+                    announcement.data_basis,
+                    (ancestor.id.clone(), announcement.not_before),
+                )
+                .is_some()
+            {
+                return Err(SealReject::Structural(
+                    "data basis has more than one closure announcement".to_owned(),
+                ));
+            }
+        }
+        prior_closures.extend(
+            ancestor
+                .data_closures
+                .into_iter()
+                .map(|closure| closure.data_basis),
+        );
+    }
+    let minimum_grace = chrono::Duration::milliseconds(
+        i64::try_from(arkret_wire::seal::DATA_CLOSURE_GRACE_PERIOD_MS)
+            .expect("data closure grace fits i64"),
+    );
+    for announcement in &seal.data_closure_announcements {
+        if !pred_closure.contains(&announcement.data_basis)
+            || prior_announcements.contains_key(&announcement.data_basis)
+            || prior_closures.contains(&announcement.data_basis)
+            || announcement.not_before < seal.sealed_at + minimum_grace
+        {
+            return Err(SealReject::Structural(
+                "data closure announcement must name an unannounced predecessor basis and preserve the full grace period"
+                    .to_owned(),
+            ));
+        }
+    }
+    for closure in &seal.data_closures {
+        let Some((announcement_ref, not_before)) = prior_announcements.get(&closure.data_basis)
+        else {
+            return Err(SealReject::Structural(
+                "data closure has no confirmed predecessor announcement".to_owned(),
+            ));
+        };
+        if prior_closures.contains(&closure.data_basis)
+            || closure.announcement_ref != *announcement_ref
+            || !pred_closure.contains(&closure.data_basis)
+            || !pred_closure.contains(&closure.announcement_ref)
+            || seal.sealed_at < *not_before
+            || closure.allowed_event_set.member_count
+                > u64::try_from(published_data.len()).unwrap_or(u64::MAX)
+        {
+            return Err(SealReject::Structural(
+                "data closure does not match its confirmed announcement, grace, or published set"
+                    .to_owned(),
+            ));
+        }
+    }
 
     let mut units = Vec::with_capacity(seal.command_results.len());
     let mut command_events = Vec::new();
@@ -1521,6 +1606,28 @@ pub async fn covered_events_for_seal_basis(
     let mut out = BTreeSet::new();
     for predecessor in basis_leaves {
         collect_covered_events(predecessor, seals, &mut out).await?;
+    }
+    Ok(out)
+}
+
+/// Cumulative ordinary-data identities published by the supplied Seal basis.
+pub async fn data_events_for_seal_basis(
+    basis_leaves: &[SealId],
+    seals: &dyn SealStore,
+) -> Result<BTreeSet<Hash>, SealReject> {
+    let mut out = BTreeSet::new();
+    let mut pending = basis_leaves.to_vec();
+    let mut seen = BTreeSet::new();
+    while let Some(seal_id) = pending.pop() {
+        if !seen.insert(seal_id.clone()) {
+            continue;
+        }
+        let seal = seals
+            .get(&seal_id)
+            .await?
+            .ok_or_else(|| SealReject::Store(format!("predecessor {seal_id} not in store")))?;
+        out.extend(seal.data_delta);
+        pending.extend(seal.predecessor_ref);
     }
     Ok(out)
 }
