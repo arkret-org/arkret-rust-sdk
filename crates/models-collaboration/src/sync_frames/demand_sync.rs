@@ -266,6 +266,50 @@ pub struct RealmDetailBaseline {
     pub complete: bool,
 }
 
+/// Completion declaration for one Realm's frozen timeline window
+/// (`client-sync.md` 2.3). It is the only carrier for that fact: it never
+/// counts toward the account `baseline.completed_channels`, and it never
+/// substitutes for `RealmDetailBaseline::complete` or `catchup_complete`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmTimelineBaseline {
+    /// Identifies and binds the frozen window generation. Repeated identically
+    /// in every segment of that window; never used as the account `after`
+    /// parameter and never compared as an ordered token.
+    pub snapshot_cursor: Cursor,
+    /// Cumulative item ceiling of the window after merging the request
+    /// targets, not the count emitted in one frame. Constant within a window.
+    pub window_limit: u32,
+    /// Every segment of this frozen window has been delivered. Proves delivery
+    /// only: not per-event authentication, decryption, display dependencies,
+    /// full history or any read/write permission.
+    pub complete: bool,
+}
+
+/// Per-Realm timeline window ceiling: `filter.timeline_limit` default and
+/// maximum from `client-sync.md` 2 and 2.3.
+pub const TIMELINE_WINDOW_LIMIT_DEFAULT: u32 = 20;
+pub const TIMELINE_WINDOW_LIMIT_MAX: u32 = 100;
+
+impl RealmTimelineBaseline {
+    pub fn validate(&self) -> Result<()> {
+        validate_demand_cursor(self.snapshot_cursor.as_str())?;
+        if self.window_limit > TIMELINE_WINDOW_LIMIT_MAX {
+            return Err(demand_error(
+                "Timeline window limit exceeds the per-Realm maximum",
+            ));
+        }
+        Ok(())
+    }
+
+    /// The window-level fields a later segment of the same generation must
+    /// repeat unchanged. A producer that lowers `window_limit` to fit a frame
+    /// budget is dropping owed items, not completing the window.
+    pub fn same_generation_as(&self, other: &Self) -> bool {
+        self.snapshot_cursor == other.snapshot_cursor
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmInvalidation {

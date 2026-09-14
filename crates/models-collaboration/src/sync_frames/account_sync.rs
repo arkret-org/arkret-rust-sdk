@@ -970,6 +970,12 @@ pub struct RealmSyncEntry {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
     )]
+    pub timeline_baseline: Option<super::demand_sync::RealmTimelineBaseline>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
     pub state_at_window_start: Option<StateAtWindowStart>,
     #[serde(
         default,
@@ -1049,8 +1055,21 @@ impl RealmSyncEntry {
                 }
             }
         }
+        if let Some(timeline_baseline) = &self.timeline_baseline {
+            timeline_baseline.validate()?;
+            // A frozen window segment is only readable together with the
+            // container it fragments: without `timeline` a client cannot tell a
+            // zero-item window from an undelivered one, which is the gap this
+            // carrier exists to close.
+            if self.timeline.is_none() {
+                return Err(demand_error(
+                    "Timeline baseline requires its timeline container",
+                ));
+            }
+        }
         if self.unavailable.is_some()
             && (self.timeline.is_some()
+                || self.timeline_baseline.is_some()
                 || self.state_at_window_start.is_some()
                 || self.current.is_some()
                 || self.account_data.is_some()
