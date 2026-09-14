@@ -143,20 +143,20 @@ pub type AgentHistoricalTrustFuture<'a> =
 pub type AgentHistoricalTrustFuture<'a> = Pin<Box<dyn Future<Output = Result<(), WireError>> + 'a>>;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub type VerifyAgentHistoryKeyFuture<'a> =
+pub type VerifyHistoricalGovernanceKeyFuture<'a> =
     Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + Send + 'a>>;
 #[cfg(target_arch = "wasm32")]
-pub type VerifyAgentHistoryKeyFuture<'a> =
+pub type VerifyHistoricalGovernanceKeyFuture<'a> =
     Pin<Box<dyn Future<Output = Result<PublicKeyMaterial, WireError>> + 'a>>;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub trait VerifyAgentHistoryKeySend: Send {}
+pub trait VerifyHistoricalGovernanceKeySend: Send {}
 #[cfg(not(target_arch = "wasm32"))]
-impl<T: Send> VerifyAgentHistoryKeySend for T {}
+impl<T: Send> VerifyHistoricalGovernanceKeySend for T {}
 #[cfg(target_arch = "wasm32")]
-pub trait VerifyAgentHistoryKeySend {}
+pub trait VerifyHistoricalGovernanceKeySend {}
 #[cfg(target_arch = "wasm32")]
-impl<T> VerifyAgentHistoryKeySend for T {}
+impl<T> VerifyHistoricalGovernanceKeySend for T {}
 
 /// Return the single Event digest claim carried by its proof set. This is a
 /// content-addressing coordinate only; it does not authenticate the Event or
@@ -1137,24 +1137,23 @@ where
     }
 }
 
-/// Verify one retained governance Event against its exact persisted signer dependencies.
-/// This is a server/auditor operation; clients consume their own Station result.
-pub async fn verify_retained_governance_event_proofs<VerifyAgentHistoryKey>(
+/// Verify the Event-kind-specific proofs that remain after the sole producer
+/// proof has been authenticated. The caller supplies only keys obtained from
+/// that same authenticated historical producer authority.
+pub fn verify_retained_governance_event_auxiliary_proofs<ResolveMethodKey>(
     event: &Event,
     event_digest_suite: arkret_canonical::DigestSuite,
     dependencies: &[GovernanceDependency],
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    producer_signer_id: &arkret_wire::DidCoreId,
+    producer_verification_method: &arkret_wire::DidUrl,
+    producer_key: &PublicKeyMaterial,
+    mut resolve_method_key: ResolveMethodKey,
 ) -> Result<(), WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
-            &'a Event,
-            arkret_canonical::DigestSuite,
-            &'a AuthenticatedSignerResolutionEvidence,
-            &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
-        + Clone
-        + VerifyAgentHistoryKeySend
-        + 'static,
+    ResolveMethodKey: FnMut(
+        &arkret_wire::DidUrl,
+        chrono::DateTime<chrono::Utc>,
+    ) -> Result<PublicKeyMaterial, WireError>,
 {
     if event.kind == arkret_wire::EventKind::AgentSelectorClaim {
         let claim: arkret_models_identity::AgentSelectorClaim =
@@ -1165,29 +1164,13 @@ where
                 "selector Event actor must be its controller".into(),
             ));
         }
-        let producer = event
-            .proofs
-            .first()
-            .ok_or_else(|| WireError::Protocol("selector producer proof missing".into()))?;
-        let evidence_ref = producer
-            .signer_resolution_evidence_ref
-            .as_ref()
-            .ok_or_else(|| {
-                WireError::Protocol("portable selector Event omits signer evidence".into())
-            })?;
-        let evidence = evidence_by_digest(dependencies, &evidence_ref.content_digest()?)?;
-        if evidence.signer_id() != &claim.controller_subject_id {
+        if producer_signer_id != &claim.controller_subject_id {
             return Err(WireError::Protocol(
                 "selector evidence names another controller".into(),
             ));
         }
         for proof in &claim.proofs {
-            let key = authenticated_document_method_key(
-                evidence,
-                dependencies,
-                &proof.verification_method,
-                proof.created_at,
-            )?;
+            let key = resolve_method_key(&proof.verification_method, proof.created_at)?;
             arkret_signatures::verify_ed25519_detached_jws_payload_proof(
                 proof,
                 &claim.canonical_proof_binding_bytes(proof)?,
@@ -1196,6 +1179,48 @@ where
             .map_err(|error| WireError::Protocol(error.to_string()))?;
         }
     }
+    arkret_models_collaboration::governance_dependencies::validate_fork_resolution_collision_dependencies(
+        event,
+        dependencies,
+        event_digest_suite,
+        |record, binding_bytes| {
+            if record.proof.verification_method != *producer_verification_method {
+                return Err(WireError::Protocol(
+                    "direct collision record proof must use the verified resolution signer method"
+                        .to_owned(),
+                ));
+            }
+            arkret_signatures::verify_ed25519_detached_jws_payload_proof(
+                &record.proof,
+                binding_bytes,
+                producer_key,
+            )
+            .map_err(|error| WireError::Protocol(error.to_string()))
+        },
+    )
+}
+
+/// Verify one retained governance Event against its exact persisted signer dependencies.
+/// This is a server/auditor operation; clients consume their own Station result.
+/// Historical Agent and human-Control keys must be resolved by replaying their
+/// complete authority closure through `verify_historical_governance_key`.
+pub async fn verify_retained_governance_event_proofs<VerifyHistoricalGovernanceKey>(
+    event: &Event,
+    event_digest_suite: arkret_canonical::DigestSuite,
+    dependencies: &[GovernanceDependency],
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
+) -> Result<(), WireError>
+where
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
+            &'a Event,
+            arkret_canonical::DigestSuite,
+            &'a AuthenticatedSignerResolutionEvidence,
+            &'a [GovernanceDependency],
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
+        + Clone
+        + VerifyHistoricalGovernanceKeySend
+        + 'static,
+{
     let envelope_bytes = arkret_signatures::EventProofBuilder::new()
         .envelope_bytes(event)
         .map_err(|error| WireError::Protocol(error.to_string()))?;
@@ -1222,9 +1247,15 @@ where
                 ));
             }
             let key = match evidence {
-                AuthenticatedSignerResolutionEvidence::Agent { .. } => {
-                    verify_agent_history_key(event, event_digest_suite, evidence, dependencies)
-                        .await?
+                AuthenticatedSignerResolutionEvidence::Agent { .. }
+                | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
+                    verify_historical_governance_key(
+                        event,
+                        event_digest_suite,
+                        evidence,
+                        dependencies,
+                    )
+                    .await?
                 }
                 _ => authenticated_document_key(evidence, dependencies, producer.created_at)?,
             };
@@ -1236,24 +1267,14 @@ where
                 event_digest_suite,
             )
             .map_err(|error| WireError::Protocol(error.to_string()))?;
-            arkret_models_collaboration::governance_dependencies::validate_fork_resolution_collision_dependencies(
+            verify_retained_governance_event_auxiliary_proofs(
                 event,
-                dependencies,
                 event_digest_suite,
-                |record, binding_bytes| {
-                    if record.proof.verification_method != producer.verification_method {
-                        return Err(WireError::Protocol(
-                            "direct collision record proof must use the verified resolution signer method"
-                                .to_owned(),
-                        ));
-                    }
-                    arkret_signatures::verify_ed25519_detached_jws_payload_proof(
-                        &record.proof,
-                        binding_bytes,
-                        &key,
-                    )
-                    .map_err(|error| WireError::Protocol(error.to_string()))
-                },
+                dependencies,
+                evidence.signer_id(),
+                &producer.verification_method,
+                &key,
+                |method, at| authenticated_document_method_key(evidence, dependencies, method, at),
             )
         }
         _ => Err(WireError::Protocol(
@@ -1456,19 +1477,19 @@ fn verify_genesis_availability_commitment(
 /// Retained Events use the sole producer proof regime. The SDK owns
 /// frozen-notary selection, dependency verification, availability policy,
 /// reducer projection, recovery, and final state-root/basis checks.
-pub async fn verify_mls_governance_checkpoint<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_checkpoint<VerifyHistoricalGovernanceKey>(
     candidate: &MlsGovernanceVerificationCheckpoint,
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_state_registry().map_err(|error| {
@@ -1490,7 +1511,7 @@ where
                 event,
                 digest_suite,
                 dependencies,
-                verify_agent_history_key.clone(),
+                verify_historical_governance_key.clone(),
             ))
         },
         |seal, _, replay_context, dependencies| {
@@ -1511,23 +1532,23 @@ where
 /// replay. This is the bootstrap entry point for callers that do not yet have
 /// a durable verified checkpoint.
 #[allow(clippy::too_many_arguments)]
-pub async fn verify_mls_governance_closure<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_closure<VerifyHistoricalGovernanceKey>(
     realm_id: &RealmId,
     basis: &SealBasis,
     seals: &[Seal],
     events: &[Event],
     dependencies: &[GovernanceDependency],
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<VerifiedMlsGovernanceClosure, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_state_registry().map_err(|error| {
@@ -1553,7 +1574,7 @@ where
                     event,
                     digest_suite,
                     dependencies,
-                    verify_agent_history_key.clone(),
+                    verify_historical_governance_key.clone(),
                 ))
             },
             |seal, _, replay_context, dependencies| {
@@ -1577,20 +1598,20 @@ where
 /// complete verified checkpoint. Seal and Event closure selection, recursive
 /// signer-evidence discovery, and reducer replay remain SDK-owned; callers do
 /// not trim the checkpoint themselves.
-pub async fn derive_verified_mls_governance_checkpoint_at_basis<VerifyAgentHistoryKey>(
+pub async fn derive_verified_mls_governance_checkpoint_at_basis<VerifyHistoricalGovernanceKey>(
     existing_checkpoint: &MlsGovernanceVerificationCheckpoint,
     requested_basis: &SealBasis,
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     requested_basis.validate_protocol_bounds()?;
@@ -1615,7 +1636,7 @@ where
                     event,
                     digest_suite,
                     dependencies,
-                    verify_agent_history_key.clone(),
+                    verify_historical_governance_key.clone(),
                 ))
             },
             |seal, _, replay_context, dependencies| {
@@ -1693,7 +1714,7 @@ where
             accepted_events: selected_events,
             governance_dependencies: selected_dependencies,
         },
-        verify_agent_history_key,
+        verify_historical_governance_key,
     )
     .await
 }
@@ -1766,27 +1787,28 @@ fn replay_dependency_closure(
 /// complete base checkpoint, then replays every-and-only cut Seal and Event
 /// objects against that state. A caller that has only a `SealBasis` cannot use
 /// this entry point.
-pub async fn verify_mls_governance_cut<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_cut<VerifyHistoricalGovernanceKey>(
     base_checkpoint: &MlsGovernanceVerificationCheckpoint,
     target_basis: &SealBasis,
     cut_seals: &[Seal],
     cut_events: &[Event],
     cut_dependencies: &[GovernanceDependency],
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     let verified_base =
-        verify_mls_governance_checkpoint(base_checkpoint, verify_agent_history_key.clone()).await?;
+        verify_mls_governance_checkpoint(base_checkpoint, verify_historical_governance_key.clone())
+            .await?;
     let registry = arkret_lattice_registry::try_build_sdk_state_registry().map_err(|error| {
         WireError::Protocol(format!(
             "MLS governance registry construction failed: {error}"
@@ -1811,7 +1833,7 @@ where
                 event,
                 digest_suite,
                 dependencies,
-                verify_agent_history_key.clone(),
+                verify_historical_governance_key.clone(),
             ))
         },
         |seal, _, replay_context, dependencies| {
@@ -1834,7 +1856,7 @@ where
 /// holder roles, retention, and quorum are derived from each Seal's verified
 /// predecessor state and checked entirely inside the SDK.
 #[allow(clippy::too_many_arguments)]
-pub async fn verify_mls_governance_frontier<VerifyAgentHistoryKey>(
+pub async fn verify_mls_governance_frontier<VerifyHistoricalGovernanceKey>(
     request: &MlsGovernanceProofRequestBody,
     bundle: &MlsGovernanceProofBundle,
     base_checkpoint: &MlsGovernanceVerificationCheckpoint,
@@ -1844,17 +1866,17 @@ pub async fn verify_mls_governance_frontier<VerifyAgentHistoryKey>(
     resolved_dependencies: &[GovernanceDependency],
     group_genesis_binding: &MlsGroupGenesisBinding,
     local_mls_leaves: &[MlsSecurityFrontierLeaf],
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<VerifiedMlsGovernanceFrontier, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_state_registry().map_err(|error| {
@@ -1885,7 +1907,7 @@ where
                 event,
                 digest_suite,
                 dependencies,
-                verify_agent_history_key.clone(),
+                verify_historical_governance_key.clone(),
             ))
         },
         |seal, _, replay_context, dependencies| {
@@ -1905,22 +1927,22 @@ where
 /// target checkpoint. The SDK first verifies the whole checkpoint, then
 /// materializes per-target-Seal branches from isolated reducer stores.
 #[allow(clippy::too_many_arguments)]
-pub async fn materialize_mls_governance_frontier<VerifyAgentHistoryKey>(
+pub async fn materialize_mls_governance_frontier<VerifyHistoricalGovernanceKey>(
     request: &MlsGovernanceProofRequestBody,
     target_checkpoint: &MlsGovernanceVerificationCheckpoint,
     group_genesis_binding: &MlsGroupGenesisBinding,
     local_mls_leaves: &[MlsSecurityFrontierLeaf],
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<MlsGovernanceProofBundle, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     let registry = arkret_lattice_registry::try_build_sdk_state_registry().map_err(|error| {
@@ -1929,7 +1951,8 @@ where
         ))
     })?;
     let verified =
-        verify_mls_governance_checkpoint(target_checkpoint, verify_agent_history_key).await?;
+        verify_mls_governance_checkpoint(target_checkpoint, verify_historical_governance_key)
+            .await?;
     arkret_state::mls_governance_proof::materialize_mls_governance_frontier_from_verified_checkpoint(
         request,
         &verified,
@@ -1946,22 +1969,22 @@ where
 /// create Event and the complete anchor unit; all ordinary reducer and frozen
 /// notary checks are then replayed before the checkpoint is returned.
 #[allow(clippy::too_many_arguments)]
-pub async fn verify_event_derived_genesis_checkpoint<VerifyAgentHistoryKey>(
+pub async fn verify_event_derived_genesis_checkpoint<VerifyHistoricalGovernanceKey>(
     realm_id: &RealmId,
     genesis_seal: &Seal,
     accepted_events: &[Event],
     governance_dependencies: &[GovernanceDependency],
-    verify_agent_history_key: VerifyAgentHistoryKey,
+    verify_historical_governance_key: VerifyHistoricalGovernanceKey,
 ) -> Result<MlsGovernanceVerificationCheckpoint, WireError>
 where
-    VerifyAgentHistoryKey: for<'a> Fn(
+    VerifyHistoricalGovernanceKey: for<'a> Fn(
             &'a Event,
             arkret_canonical::DigestSuite,
             &'a AuthenticatedSignerResolutionEvidence,
             &'a [GovernanceDependency],
-        ) -> VerifyAgentHistoryKeyFuture<'a>
+        ) -> VerifyHistoricalGovernanceKeyFuture<'a>
         + Clone
-        + VerifyAgentHistoryKeySend
+        + VerifyHistoricalGovernanceKeySend
         + 'static,
 {
     let create = accepted_events
@@ -2002,7 +2025,7 @@ where
                 event,
                 digest_suite,
                 dependencies,
-                verify_agent_history_key.clone(),
+                verify_historical_governance_key.clone(),
             ))
         },
         |seal, _, replay_context, dependencies| {

@@ -439,8 +439,9 @@ pub use managed_actor_authoring::{
 };
 pub use mls_governance::{
     AgentHistoricalTrustFuture, AgentHistoricalTrustRequest, VerifiedAgentCurrentContext,
-    VerifiedMlsGovernanceClosure, VerifyAgentHistoryKeyFuture, VerifyAgentHistoryKeySend,
-    authenticated_document_key, authenticated_document_method_key, build_agent_signer_evidence,
+    VerifiedMlsGovernanceClosure, VerifyHistoricalGovernanceKeyFuture,
+    VerifyHistoricalGovernanceKeySend, authenticated_document_key,
+    authenticated_document_method_key, build_agent_signer_evidence,
     current_authorization_incarnation_from_verified_checkpoint, declared_genesis_live_digest_suite,
     derive_verified_mls_governance_checkpoint_at_basis,
     history_join_epoch_from_verified_checkpoint, materialize_mls_governance_frontier,
@@ -450,8 +451,8 @@ pub use mls_governance::{
     verify_agent_historical_event_signer, verify_agent_history_source_key,
     verify_agent_portable_trust, verify_event_derived_genesis_checkpoint,
     verify_mls_governance_checkpoint, verify_mls_governance_closure, verify_mls_governance_cut,
-    verify_mls_governance_frontier, verify_retained_governance_event_proofs,
-    verify_seal_availability_dependencies_default,
+    verify_mls_governance_frontier, verify_retained_governance_event_auxiliary_proofs,
+    verify_retained_governance_event_proofs, verify_seal_availability_dependencies_default,
 };
 pub use sdk_error::{Error, Result};
 pub use sidecar_recovery::{AgentSidecarContextLocator, recover_agent_sidecar_context_locators};
