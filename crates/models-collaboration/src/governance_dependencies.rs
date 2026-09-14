@@ -1261,8 +1261,10 @@ impl PcrPendingControlOutcome {
 /// it is a second request that the fence will refuse. On a 409
 /// `seal_signer_slot_fenced`, the recovery is to re-send the *original*
 /// request and take back the original body, never to vary the request until one
-/// is accepted. [`Self::canonical_request_hash`] is that identity; hold the
-/// request value itself and reuse it.
+/// is accepted. If that durable local journal is lost, the only recovery
+/// carrier is `ak.self.seals.read.prepare_fence_result.v1`; the prepare 409
+/// itself never carries frozen material. [`Self::canonical_request_hash`] is
+/// the request identity; hold the request value itself and reuse it.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1426,6 +1428,39 @@ impl SealPrepareOutcome {
         self.validate_for_request(request)?;
         let digest_suite = request.digest_suite()?;
         Seal::sign_with_signer(self.seal_body.clone(), digest_suite, signer)
+    }
+}
+
+/// Non-enumerating lookup for a durable prepare fence at the current signer slot.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealPrepareFenceResultRequestBody {
+    pub realm_id: RealmId,
+    pub predecessor_ref: SealId,
+}
+
+/// Verified frozen material recovered after a client lost its local journal.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SealPrepareFenceResultOutcome {
+    pub frozen_request: SealPrepareRequestBody,
+    pub frozen_outcome: SealPrepareOutcome,
+}
+
+impl SealPrepareFenceResultOutcome {
+    /// Re-run the normal prepare binding checks before recovered material can be signed.
+    pub fn validate_for_request(&self, request: &SealPrepareFenceResultRequestBody) -> Result<()> {
+        if self.frozen_request.realm_id != request.realm_id
+            || self.frozen_request.predecessor_ref != request.predecessor_ref
+        {
+            return Err(WireError::Protocol(
+                "recovered prepare fence does not match the requested signing position".to_owned(),
+            ));
+        }
+        self.frozen_outcome
+            .validate_for_request(&self.frozen_request)
     }
 }
 

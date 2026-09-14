@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-14.4;
-//! sha256=fe166e6aef597ca3f263ca2ee87088b25bd8412937b984493357dafa19957bd7 Entries: registered=253
+//! Input: registry/operation-registry.json; version=2026-09-15.6;
+//! sha256=15c1a62101a3935e5b4cbf5f862caaf36cb9bcd73a632bcaa4296b0f873b6c3b Entries: registered=254
 
 use serde::{Deserialize, Serialize};
 
@@ -250,6 +250,7 @@ pub enum ServiceOperationId {
     SelfSealsReadMlsMembershipRemovalV1,
     SelfSealsReadMlsWelcomeRefsV1,
     SelfSealsReadPendingControlV1,
+    SelfSealsReadPrepareFenceResultV1,
     SelfSealsReadResolveV1,
     SelfSecurityTransactionCommandContinueV1,
     SelfSecurityTransactionCommandCreateV1,
@@ -506,6 +507,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_SEALS_READ_MLS_MEMBERSHIP_REMOVAL_V1,
     ServiceOperationId::SELF_SEALS_READ_MLS_WELCOME_REFS_V1,
     ServiceOperationId::SELF_SEALS_READ_PENDING_CONTROL_V1,
+    ServiceOperationId::SELF_SEALS_READ_PREPARE_FENCE_RESULT_V1,
     ServiceOperationId::SELF_SEALS_READ_RESOLVE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
     ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
@@ -804,6 +806,7 @@ impl ServiceOperationId {
         Self::SelfSealsReadMlsMembershipRemovalV1,
         Self::SelfSealsReadMlsWelcomeRefsV1,
         Self::SelfSealsReadPendingControlV1,
+        Self::SelfSealsReadPrepareFenceResultV1,
         Self::SelfSealsReadResolveV1,
         Self::SelfSecurityTransactionCommandContinueV1,
         Self::SelfSecurityTransactionCommandCreateV1,
@@ -1228,6 +1231,8 @@ impl ServiceOperationId {
         "ak.self.seals.read.mls_welcome_refs.v1";
     pub const SELF_SEALS_READ_PENDING_CONTROL_V1: &'static str =
         "ak.self.seals.read.pending_control.v1";
+    pub const SELF_SEALS_READ_PREPARE_FENCE_RESULT_V1: &'static str =
+        "ak.self.seals.read.prepare_fence_result.v1";
     pub const SELF_SEALS_READ_RESOLVE_V1: &'static str = "ak.self.seals.read.resolve.v1";
     pub const SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1: &'static str =
         "ak.self.security_transaction.command.continue.v1";
@@ -1649,6 +1654,9 @@ impl ServiceOperationId {
             }
             Self::SelfSealsReadMlsWelcomeRefsV1 => Self::SELF_SEALS_READ_MLS_WELCOME_REFS_V1,
             Self::SelfSealsReadPendingControlV1 => Self::SELF_SEALS_READ_PENDING_CONTROL_V1,
+            Self::SelfSealsReadPrepareFenceResultV1 => {
+                Self::SELF_SEALS_READ_PREPARE_FENCE_RESULT_V1
+            }
             Self::SelfSealsReadResolveV1 => Self::SELF_SEALS_READ_RESOLVE_V1,
             Self::SelfSecurityTransactionCommandContinueV1 => {
                 Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1
@@ -2163,6 +2171,9 @@ impl ServiceOperationId {
             }
             Self::SELF_SEALS_READ_MLS_WELCOME_REFS_V1 => Some(Self::SelfSealsReadMlsWelcomeRefsV1),
             Self::SELF_SEALS_READ_PENDING_CONTROL_V1 => Some(Self::SelfSealsReadPendingControlV1),
+            Self::SELF_SEALS_READ_PREPARE_FENCE_RESULT_V1 => {
+                Some(Self::SelfSealsReadPrepareFenceResultV1)
+            }
             Self::SELF_SEALS_READ_RESOLVE_V1 => Some(Self::SelfSealsReadResolveV1),
             Self::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1 => {
                 Some(Self::SelfSecurityTransactionCommandContinueV1)
@@ -7691,6 +7702,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfSealsReadPrepareFenceResultV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/seals/prepare-fence-result",
+        grpc: Some("SelfSeals/PrepareFenceResult"),
+        mq: Some("self.seals.read.prepare_fence_result"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "schema_resource",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareFenceResultRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/SealPrepareFenceResultOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "reads_and_verifies_an_existing_durable_prepare_fence_without_mutating_it",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfSealsReadResolveV1,

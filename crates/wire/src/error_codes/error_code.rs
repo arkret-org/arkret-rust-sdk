@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-13.17;
-//! sha256=0d53b8d59d71cb8bcadc0cd6f1d2e9770666350956fb9341042ff101835bab89 Entries: error_codes=280
+//! Input: registry/error-code-registry.json; version=2026-09-14.18;
+//! sha256=0b469427beebe83c5889f97b364261865139e446878c0998d09b278076ed36e0 Entries: error_codes=280
 
 use serde::{Deserialize, Serialize};
 
@@ -3857,7 +3857,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A Seal preparation request differs from the canonical request already frozen for its (realm_id, signer slot, predecessor basis) signing-slot fence, so exactly one signable body ever leaves that signing position. The exact frozen request keeps replaying its byte-identical body instead. The fence is durable protocol state: internal timeouts, lease release or expiry, cache eviction, failover and restart MUST NOT release it, because the device may already have signed the frozen body offline. Only an actually advanced predecessor basis, a formal notary rotation, an advanced signer device generation or an accepted equivocation fault opens a new signing position. See zh/authz/event-auth-state-resolution.md section 7.1.1.",
+        description: "A Seal preparation request differs from the canonical request already frozen for its (realm_id, signer slot, predecessor basis) signing-slot fence, so exactly one signable body ever leaves that signing position. The exact frozen request keeps replaying its byte-identical body instead. The fence is durable protocol state: internal timeouts, lease release or expiry, cache eviction, failover and restart MUST NOT release it, because the device may already have signed the frozen body offline. Only an actually advanced predecessor basis, a formal notary rotation, an advanced signer device generation or an accepted equivocation fault opens a new signing position. A current signer that lost its local journal uses the registered prepare-fence-result read; the prepare 409 never carries frozen material. See zh/authz/event-auth-state-resolution.md section 8, zh/authz/cbs-profiles.md section 3, and zh/sync/service-http-binding.md.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::SealSignerUnauthorized,

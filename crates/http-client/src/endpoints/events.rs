@@ -18,7 +18,8 @@ use arkret_models_collaboration::governance::authorization::{
 };
 use arkret_models_collaboration::governance::realm_governance::RealmOrganizationRelationshipList;
 use arkret_models_collaboration::governance_dependencies::{
-    GovernanceDependencyResolveOutcome, SealPrepareOutcome, SealPrepareRequestBody,
+    GovernanceDependencyResolveOutcome, SealPrepareFenceResultOutcome,
+    SealPrepareFenceResultRequestBody, SealPrepareOutcome, SealPrepareRequestBody,
     SelfGovernanceDependencyResolveRequestBody,
 };
 use arkret_models_collaboration::http_bodies::{
@@ -808,14 +809,32 @@ impl Client {
     /// [`arkret_wire::ErrorCode::SealSignerSlotFenced`] (409) refuses it so
     /// that the position cannot yield a second signable body while a device may
     /// already have signed the first one offline. On that error, re-send the
-    /// original request to take back the original body, or discover pending
-    /// Control Moves again once the predecessor basis has actually advanced.
+    /// original request to take back the original body. If the local durable
+    /// request journal is missing, use [`Self::seals_prepare_fence_result`]
+    /// before discovering or constructing a replacement request.
     pub async fn seals_prepare(
         &self,
         request: &SealPrepareRequestBody,
     ) -> Result<SealPrepareOutcome> {
         request.validate()?;
         let outcome: SealPrepareOutcome = self.post("/_arkret/self/seals/prepare", request).await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Recover the exact verified request/outcome already frozen for this
+    /// session-derived current signer slot.
+    ///
+    /// This read is used only after the local durable prepare journal is lost
+    /// or prepare reports `seal_signer_slot_fenced`. A successful response is
+    /// still subject to the caller's signer-intent check before signing.
+    pub async fn seals_prepare_fence_result(
+        &self,
+        request: &SealPrepareFenceResultRequestBody,
+    ) -> Result<SealPrepareFenceResultOutcome> {
+        let outcome: SealPrepareFenceResultOutcome = self
+            .post("/_arkret/self/seals/prepare-fence-result", request)
+            .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }
