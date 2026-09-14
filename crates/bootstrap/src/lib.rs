@@ -25,7 +25,8 @@ pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_int
 pub use projection::{CellWriteProjector, expected_realm_create_cells};
 pub use self_principal::{
     SelfPrincipalPcrCreateInput, build_self_principal_pcr_create,
-    build_self_principal_pcr_genesis_unit, validate_self_principal_pcr_genesis_unit,
+    build_self_principal_pcr_genesis_unit, validate_pcr_native_unit_authoring_checkpoint,
+    validate_self_principal_pcr_genesis_unit,
 };
 pub use self_principal_seal::build_self_principal_bootstrap_seal;
 

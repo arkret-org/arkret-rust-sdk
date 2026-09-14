@@ -420,6 +420,17 @@ fn bootstrap_authorize_must_continue_the_genesis_actor_chain_exactly() {
 }
 
 #[test]
+fn bootstrap_native_unit_requires_one_frozen_authoring_checkpoint() {
+    let (create, mut authorize) = bootstrap_unit();
+    authorize.proofs[0].created_at += chrono::Duration::milliseconds(1);
+
+    assert!(
+        validate_self_principal_pcr_genesis_unit(&create, &authorize, &registry_projection)
+            .is_err()
+    );
+}
+
+#[test]
 fn accepted_bootstrap_history_remains_valid_for_successor_seal_replay() {
     let (create, authorize) = bootstrap_unit();
 

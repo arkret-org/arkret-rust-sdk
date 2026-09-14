@@ -693,6 +693,15 @@ impl DeviceAuthorizationHistory {
                             })
                         })
                         .collect::<Result<Vec<_>>>()?;
+                if members.len() == 2
+                    && members[0].kind == EventKind::DeviceReanchor
+                    && members[1].kind == EventKind::DeviceAuthorize
+                {
+                    arkret_bootstrap::validate_pcr_native_unit_authoring_checkpoint(
+                        members[0], members[1],
+                    )
+                    .map_err(invalid)?;
+                }
                 let registered_unit = OrderedControlUnit {
                     events: members
                         .iter()
@@ -818,10 +827,8 @@ fn verify_event_producer(
         return Err(invalid("PCR Event must have exactly one producer proof"));
     };
     proof.validate_production().map_err(invalid)?;
-    if proof.verification_method != *method || proof.created_at != event.created_at {
-        return Err(invalid(
-            "PCR producer method or signed creation time does not match",
-        ));
+    if proof.verification_method != *method {
+        return Err(invalid("PCR producer method does not match"));
     }
     let bytes = arkret_canonical::canonical_json_bytes(&event.digest_payload().map_err(invalid)?)
         .map_err(invalid)?;

@@ -157,6 +157,7 @@ pub fn validate_self_principal_pcr_genesis_unit(
                 .to_owned(),
         ));
     }
+    validate_pcr_native_unit_authoring_checkpoint(create, authorize)?;
     let authorize_proof = validate_event_proof_digests(authorize)?;
     let payload: DeviceAuthorizePayload =
         authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
@@ -231,6 +232,36 @@ pub fn validate_self_principal_pcr_genesis_unit(
     if authorize_effects.len() != 1 || authorize_effects[0].cell_id != device_cell {
         return Err(WireError::Protocol(
             "bootstrap device authorize does not derive its single device authorization cell"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate the single frozen authoring checkpoint shared by one of the two
+/// closed human PCR native units. Callers must still validate the unit's exact
+/// kind, order, payload binding and producer keys.
+pub fn validate_pcr_native_unit_authoring_checkpoint(
+    first: &Event,
+    authorize: &Event,
+) -> Result<()> {
+    let recognized = matches!(
+        first.kind,
+        EventKind::RealmCreate | EventKind::DeviceReanchor
+    ) && authorize.kind == EventKind::DeviceAuthorize;
+    if !recognized {
+        return Err(WireError::Protocol(
+            "PCR native authoring checkpoint requires a genesis or recovery unit".to_owned(),
+        ));
+    }
+    let first_proof = validate_event_proof_digests(first)?;
+    let authorize_proof = validate_event_proof_digests(authorize)?;
+    if first.created_at != authorize.created_at
+        || first_proof.created_at != first.created_at
+        || authorize_proof.created_at != first.created_at
+    {
+        return Err(WireError::Protocol(
+            "PCR native unit Events and producer proofs must share one authoring checkpoint"
                 .to_owned(),
         ));
     }

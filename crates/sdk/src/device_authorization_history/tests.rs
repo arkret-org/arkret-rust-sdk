@@ -70,10 +70,26 @@ fn sign_event(event: Event, method: DidUrl, seed: [u8; 32]) -> Event {
     sign_event_with_evidence(event, method, seed, None)
 }
 fn sign_event_with_evidence(
+    event: Event,
+    method: DidUrl,
+    seed: [u8; 32],
+    signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+) -> Event {
+    let created_at = event.created_at;
+    sign_event_with_evidence_at(
+        event,
+        method,
+        seed,
+        signer_resolution_evidence_ref,
+        created_at,
+    )
+}
+fn sign_event_with_evidence_at(
     mut event: Event,
     method: DidUrl,
     seed: [u8; 32],
     signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    proof_created_at: DateTime<Utc>,
 ) -> Event {
     event.proofs.clear();
     event
@@ -84,7 +100,7 @@ fn sign_event_with_evidence(
         verification_method: method,
         event_digest: event.event_id.event_digest(),
         signer_resolution_evidence_ref,
-        created_at: event.created_at,
+        created_at: proof_created_at,
         domain: None,
         audience: None,
         proof_purpose: None,
@@ -448,6 +464,49 @@ fn device_history_authenticates_genesis_and_exact_authorize_revoke_instances() {
     assert_eq!(source.revoked_by(), Some(&revoke_id));
     assert!(!verified.is_currently_active(source));
     assert!(verified.is_currently_active(&verified.authorizations()[0]));
+}
+
+#[test]
+fn device_history_accepts_a_later_proof_time_for_an_ordinary_pcr_event() {
+    let mut f = Fixture::new();
+    let mut event = f.raw_event(
+        EventKind::DeviceAuthorize,
+        serde_json::to_value(possession(
+            &f.account,
+            2,
+            DeviceAuthorizationBindingKind::AcceptedDevice,
+        ))
+        .unwrap(),
+        &f.events[0].realm_id,
+        f.events.len() as u64,
+    );
+    event.prev_refs = vec![f.events.last().unwrap().event_id.clone()];
+    let event = sign_event_with_evidence_at(
+        event,
+        f.configuration.signer.verification_method.clone(),
+        [81; 32],
+        None,
+        at() + chrono::Duration::milliseconds(1),
+    );
+    f.append(vec![event]);
+
+    f.verify().unwrap();
+}
+
+#[test]
+fn device_history_rejects_a_recovery_unit_with_split_authoring_times() {
+    let mut f = Fixture::new();
+    let mut events = f.reanchor(false);
+    events[1] = sign_event_with_evidence_at(
+        events[1].clone(),
+        DidUrl::new(format!("{}#{}", f.did, device(3))).unwrap(),
+        [83; 32],
+        None,
+        at() + chrono::Duration::milliseconds(1),
+    );
+    f.append(events);
+
+    assert!(matches!(f.verify(), Err(HistoryEvidenceError::Invalid(_))));
 }
 
 #[test]
