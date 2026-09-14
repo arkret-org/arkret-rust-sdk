@@ -12,7 +12,7 @@ use crate::artifacts_account::{
     validate_device_summary_state,
 };
 use crate::handle::Handle;
-use crate::identity::DidOperationSubmitRequestBody;
+use crate::principal_registration_anchor::PrincipalRegistrationAnchor;
 use crate::session_credential::CanonicalSessionPublicJwk;
 
 fn is_false(value: &bool) -> bool {
@@ -517,21 +517,21 @@ pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 6
 pub struct ReservedIdentityCreation {
     pub principal_id: DidCoreId,
     pub did: Did,
-    pub operation_digest: Hash,
-    pub did_operation: DidOperationSubmitRequestBody,
+    pub registration_anchor_digest: Hash,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
 }
 
 impl ReservedIdentityCreation {
-    pub fn from_operation(did_operation: DidOperationSubmitRequestBody) -> Result<Self> {
-        did_operation.validate()?;
-        let did = did_operation.did.clone();
+    pub fn from_anchor(principal_registration_anchor: PrincipalRegistrationAnchor) -> Result<Self> {
+        principal_registration_anchor.validate()?;
+        let did = principal_registration_anchor.did().clone();
         let principal_id = project_did_to_core_id(&did)?;
-        let operation_digest = Hash::new(canonical::canonical_sha256(&did_operation)?)?;
+        let registration_anchor_digest = principal_registration_anchor.canonical_digest()?;
         Ok(Self {
             principal_id,
             did,
-            operation_digest,
-            did_operation,
+            registration_anchor_digest,
+            principal_registration_anchor,
         })
     }
 }
@@ -975,7 +975,7 @@ pub struct IdentityBindingChallengeRequestBody {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub did: Did,
-    pub did_operation: DidOperationSubmitRequestBody,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub pcr_realm_id: RealmId,
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
@@ -984,12 +984,10 @@ pub struct IdentityBindingChallengeRequestBody {
 
 impl IdentityBindingChallengeRequestBody {
     pub fn canonical_request_digest(&self) -> Result<Hash> {
-        if self.did != self.did_operation.did
-            || project_did_to_core_id(&self.did)?
-                != project_did_to_core_id(&self.did_operation.did)?
-        {
+        self.principal_registration_anchor.validate()?;
+        if &self.did != self.principal_registration_anchor.did() {
             return Err(WireError::Protocol(
-                "identity creation did does not project to did_operation core id".to_owned(),
+                "identity creation did is not the registration anchor did".to_owned(),
             ));
         }
         Hash::new(canonical::canonical_sha256(self)?).map_err(Into::into)
@@ -1250,6 +1248,19 @@ pub struct IdentityBindingChallengeOutcome {
 #[serde(rename_all = "snake_case")]
 pub enum IdentityCreationControlProofKind {
     DidWebvhInceptionUpdateKey,
+    DidKeyExpansionRootKey,
+}
+
+impl IdentityCreationControlProofKind {
+    /// The registered `registration_anchor_kind` this derivation pairs with.
+    /// A proof whose kind disagrees with its anchor fails closed rather than
+    /// letting a caller choose which root-key derivation is checked.
+    pub const fn registration_anchor_kind(self) -> &'static str {
+        match self {
+            Self::DidWebvhInceptionUpdateKey => crate::WEBVH_REGISTRATION_ANCHOR_KIND,
+            Self::DidKeyExpansionRootKey => crate::DID_KEY_REGISTRATION_ANCHOR_KIND,
+        }
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1263,7 +1274,7 @@ pub struct IdentityCreationControlProof {
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did: Did,
-    pub operation_digest: Hash,
+    pub registration_anchor_digest: Hash,
     pub did_version_id: String,
     pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
@@ -1299,13 +1310,14 @@ impl IdentityCreationControlProof {
 
     fn unsigned_body(&self) -> UnsignedIdentityCreationControlProofBody {
         UnsignedIdentityCreationControlProofBody {
+            proof_kind: self.proof_kind,
             challenge_id: self.challenge_id.clone(),
             challenge: self.challenge.clone(),
             purpose: self.purpose,
             account_subject: self.account_subject.clone(),
             principal_id: self.principal_id.clone(),
             did: self.did.clone(),
-            operation_digest: self.operation_digest.clone(),
+            registration_anchor_digest: self.registration_anchor_digest.clone(),
             did_version_id: self.did_version_id.clone(),
             control_key_digest: self.control_key_digest.clone(),
             pcr_realm_id: self.pcr_realm_id.clone(),
@@ -1329,13 +1341,14 @@ impl IdentityCreationControlProof {
 /// Identity-creation control members before the cold-root signature exists.
 #[derive(Clone, Debug)]
 pub struct UnsignedIdentityCreationControlProofBody {
+    pub proof_kind: IdentityCreationControlProofKind,
     pub challenge_id: String,
     pub challenge: String,
     pub purpose: IdentityBindingPurpose,
     pub account_subject: Hash,
     pub principal_id: DidCoreId,
     pub did: Did,
-    pub operation_digest: Hash,
+    pub registration_anchor_digest: Hash,
     pub did_version_id: String,
     pub control_key_digest: Hash,
     pub pcr_realm_id: RealmId,
@@ -1376,14 +1389,14 @@ impl UnsignedIdentityCreationControlProof {
     ) -> Result<IdentityCreationControlProof> {
         let body = self.body;
         let proof = IdentityCreationControlProof {
-            proof_kind: IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+            proof_kind: body.proof_kind,
             challenge_id: body.challenge_id,
             challenge: body.challenge,
             purpose: body.purpose,
             account_subject: body.account_subject,
             principal_id: body.principal_id,
             did: body.did,
-            operation_digest: body.operation_digest,
+            registration_anchor_digest: body.registration_anchor_digest,
             did_version_id: body.did_version_id,
             control_key_digest: body.control_key_digest,
             pcr_realm_id: body.pcr_realm_id,
@@ -1429,14 +1442,14 @@ fn identity_creation_control_proof_signing_bytes(
 ) -> Result<Vec<u8>> {
     validate_identity_creation_control_proof_body(body)?;
     let value = serde_json::json!({
-        "proof_kind": IdentityCreationControlProofKind::DidWebvhInceptionUpdateKey,
+        "proof_kind": body.proof_kind,
         "challenge_id": &body.challenge_id,
         "challenge": &body.challenge,
         "purpose": body.purpose,
         "account_subject": &body.account_subject,
         "principal_id": &body.principal_id,
         "did": &body.did,
-        "operation_digest": &body.operation_digest,
+        "registration_anchor_digest": &body.registration_anchor_digest,
         "did_version_id": &body.did_version_id,
         "control_key_digest": &body.control_key_digest,
         "pcr_realm_id": &body.pcr_realm_id,
@@ -1466,7 +1479,7 @@ pub struct IdentityCreationRegistration {
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub did: Did,
-    pub did_operation: DidOperationSubmitRequestBody,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
     pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
@@ -1476,6 +1489,7 @@ pub struct IdentityCreationRegistration {
 impl IdentityCreationRegistration {
     pub fn validate(&self) -> Result<()> {
         self.control_proof.validate_shape()?;
+        self.principal_registration_anchor.validate()?;
         self.registration_did_evidence_draft.validate_shape()?;
         self.pcr_genesis_unit.validate_ordered_envelopes()?;
         self.initial_session.validate()?;
@@ -1488,19 +1502,24 @@ impl IdentityCreationRegistration {
                 != self.control_proof.dpop_jkt
             || self.identity_creation_lease_id != self.control_proof.identity_creation_lease_id
             || self.lease_fence != self.control_proof.lease_fence
-            || self.did != self.did_operation.did
+            || &self.did != self.principal_registration_anchor.did()
+            || self.control_proof.proof_kind.registration_anchor_kind()
+                != self.principal_registration_anchor.anchor_kind()
             || self.did != self.control_proof.did
             || self.registration_did_evidence_draft.principal_id != self.control_proof.principal_id
             || self.registration_did_evidence_draft.did != self.did
             || self.registration_did_evidence_draft.version_id != self.control_proof.did_version_id
             || self.registration_did_evidence_draft.method_history_head
-                != canonical::canonical_sha256(&self.did_operation.operation)?
+                != self
+                    .principal_registration_anchor
+                    .declared_method_history_head()?
+                    .as_str()
             || self.registration_did_evidence_draft.control_key_digest
                 != self.control_proof.control_key_digest
             || project_did_to_core_id(&self.did)?.as_str()
                 != self.control_proof.principal_id.as_str()
-            || Hash::new(canonical::canonical_sha256(&self.did_operation)?)?
-                != self.control_proof.operation_digest
+            || self.principal_registration_anchor.canonical_digest()?
+                != self.control_proof.registration_anchor_digest
             || self
                 .pcr_genesis_unit
                 .create()
@@ -1578,7 +1597,7 @@ pub struct AccountBindingReceipt {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lease_fence: Option<u64>,
     pub operation_status: IdentityCreationOperationStatus,
-    pub operation_digest: Hash,
+    pub registration_anchor_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub proof: PayloadProof,
@@ -1599,7 +1618,7 @@ struct AccountBindingReceiptPayload<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     lease_fence: Option<u64>,
     operation_status: IdentityCreationOperationStatus,
-    operation_digest: &'a Hash,
+    registration_anchor_digest: &'a Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
 }
@@ -1632,7 +1651,7 @@ impl AccountBindingReceipt {
             identity_creation_lease_id: self.identity_creation_lease_id.as_deref(),
             lease_fence: self.lease_fence,
             operation_status: self.operation_status,
-            operation_digest: &self.operation_digest,
+            registration_anchor_digest: &self.registration_anchor_digest,
             issued_at: self.issued_at,
         };
         Hash::new(canonical::canonical_sha256(&payload)?).map_err(Into::into)
@@ -1821,7 +1840,7 @@ mod account_handoff_tests {
             identity_creation_lease_id: Some("lease-fixture".to_owned()),
             lease_fence: Some(1),
             operation_status: IdentityCreationOperationStatus::Accepted,
-            operation_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
+            registration_anchor_digest: Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap(),
             issued_at: now,
             proof: PayloadProof {
                 kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),

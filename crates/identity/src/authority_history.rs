@@ -232,7 +232,7 @@ mod tests {
             identity_creation_lease_id: Some("identity-creation-lease-fixture".to_owned()),
             lease_fence: Some(1),
             operation_status: IdentityCreationOperationStatus::Accepted,
-            operation_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
+            registration_anchor_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
             issued_at,
             proof: PayloadProof {
                 kind: "detached_jws".to_owned(),

@@ -32,6 +32,7 @@ pub mod organization_registration;
 /// §3.8.2 mention/subject rendering. wasm-safe, dependency-free helpers
 /// shared by inkson / sodmin / soland / cotest (SOD-05-001 / SPEC-CR-019).
 pub mod primary_handle;
+pub mod principal_registration_anchor;
 pub mod proof;
 pub mod service_binding_results;
 pub mod service_identity;
@@ -58,6 +59,7 @@ pub use identity::*;
 pub use identity_resolution::*;
 pub use member_identity::*;
 pub use organization_registration::*;
+pub use principal_registration_anchor::*;
 pub use proof::*;
 pub use service_binding_results::*;
 pub use session_credential::*;

@@ -1302,9 +1302,9 @@ impl AccountRegisterOutcome {
                     binding_receipt.principal_id == request.principal_id,
                 ),
                 (
-                    "binding receipt operation_digest",
-                    binding_receipt.operation_digest
-                        == identity_creation.control_proof.operation_digest,
+                    "binding receipt registration_anchor_digest",
+                    binding_receipt.registration_anchor_digest
+                        == identity_creation.control_proof.registration_anchor_digest,
                 ),
                 (
                     "binding receipt lease",

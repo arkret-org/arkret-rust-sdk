@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-13.7;
-//! sha256=64dd63c7f3fc3606b12f4b9d39241489423a179de355864901aa7e0147578692 Entries: registered=252
+//! Input: registry/operation-registry.json; version=2026-09-14.4;
+//! sha256=fe166e6aef597ca3f263ca2ee87088b25bd8412937b984493357dafa19957bd7 Entries: registered=253
 
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +17,7 @@ pub enum ServiceOperationId {
     EdgeAppletRealmReadResolveV1,
     EdgeAppletThirdPartyLocationsReadListV1,
     EdgeAppletThirdPartyUsersReadListV1,
+    EdgePushCommandApplyRegistrationV1,
     EdgePushCommandNotifyV1,
     EdgePushCommandRegisterDeviceV1,
     EdgePushCommandUnregisterDeviceV1,
@@ -272,6 +273,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::EDGE_APPLET_REALM_READ_RESOLVE_V1,
     ServiceOperationId::EDGE_APPLET_THIRD_PARTY_LOCATIONS_READ_LIST_V1,
     ServiceOperationId::EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST_V1,
+    ServiceOperationId::EDGE_PUSH_COMMAND_APPLY_REGISTRATION_V1,
     ServiceOperationId::EDGE_PUSH_COMMAND_NOTIFY_V1,
     ServiceOperationId::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
     ServiceOperationId::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
@@ -569,6 +571,7 @@ impl ServiceOperationId {
         Self::EdgeAppletRealmReadResolveV1,
         Self::EdgeAppletThirdPartyLocationsReadListV1,
         Self::EdgeAppletThirdPartyUsersReadListV1,
+        Self::EdgePushCommandApplyRegistrationV1,
         Self::EdgePushCommandNotifyV1,
         Self::EdgePushCommandRegisterDeviceV1,
         Self::EdgePushCommandUnregisterDeviceV1,
@@ -830,6 +833,8 @@ impl ServiceOperationId {
         "ak.edge.applet.third_party_locations.read.list.v1";
     pub const EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST_V1: &'static str =
         "ak.edge.applet.third_party_users.read.list.v1";
+    pub const EDGE_PUSH_COMMAND_APPLY_REGISTRATION_V1: &'static str =
+        "ak.edge.push.command.apply_registration.v1";
     pub const EDGE_PUSH_COMMAND_NOTIFY_V1: &'static str = "ak.edge.push.command.notify.v1";
     pub const EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1: &'static str =
         "ak.edge.push.command.register_device.v1";
@@ -1257,6 +1262,9 @@ impl ServiceOperationId {
             Self::EdgeAppletThirdPartyUsersReadListV1 => {
                 Self::EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST_V1
             }
+            Self::EdgePushCommandApplyRegistrationV1 => {
+                Self::EDGE_PUSH_COMMAND_APPLY_REGISTRATION_V1
+            }
             Self::EdgePushCommandNotifyV1 => Self::EDGE_PUSH_COMMAND_NOTIFY_V1,
             Self::EdgePushCommandRegisterDeviceV1 => Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1,
             Self::EdgePushCommandUnregisterDeviceV1 => Self::EDGE_PUSH_COMMAND_UNREGISTER_DEVICE_V1,
@@ -1681,6 +1689,9 @@ impl ServiceOperationId {
             }
             Self::EDGE_APPLET_THIRD_PARTY_USERS_READ_LIST_V1 => {
                 Some(Self::EdgeAppletThirdPartyUsersReadListV1)
+            }
+            Self::EDGE_PUSH_COMMAND_APPLY_REGISTRATION_V1 => {
+                Some(Self::EdgePushCommandApplyRegistrationV1)
             }
             Self::EDGE_PUSH_COMMAND_NOTIFY_V1 => Some(Self::EdgePushCommandNotifyV1),
             Self::EDGE_PUSH_COMMAND_REGISTER_DEVICE_V1 => {
@@ -2320,7 +2331,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "The operation admits no Arkret Event; independently, the Applet service atomically persists the subject/request-digest ledger, exact request and bundle, actor key custody, method history, and provision state before returning",
+                "The operation admits no Arkret Event; independently, the Applet service atomically persists the subject/request-digest ledger, exact request and bundle, Applet Service signer root, actor key custody, method history, and provision state before returning",
             ),
             branch_contract_json: None,
         }),
@@ -2430,6 +2441,35 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         ),
         uncertain_outcome: None,
         durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::EdgePushCommandApplyRegistrationV1,
+        http_method: "POST",
+        http_path: "/_arkret/edge/push/registrations:apply",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/push-operations.schema.json#/$defs/push_registration_handoff_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/push-operations.schema.json#/$defs/push_registration_handoff_outcome",
+        ),
+        uncertain_outcome: Some(
+            "{\"operation_id\":\"ak.edge.push.command.apply_registration.v1\",\"requires_same_request_identity_and_canonical_intent\":true,\"strategy\":\"replay_same_operation\"}",
+        ),
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_only_gateway_local_provider_route_tenant_tombstone_and_signed_installation_receipt",
+            ),
+            branch_contract_json: None,
+        }),
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::EdgePushCommandNotifyV1,

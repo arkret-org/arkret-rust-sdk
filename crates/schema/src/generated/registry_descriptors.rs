@@ -4,11 +4,11 @@
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886 Input: registry/
 //! capability-action-registry.json; version=2026-09-12.5;
 //! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Input: registry/
-//! schema-registry.json; version=2026-09-13.2;
-//! sha256=65aac4f53fa7134cafe47b38c036763a2d0cd3c66610b881dce72c7080fdbbca Input: registry/
+//! schema-registry.json; version=2026-09-14.2;
+//! sha256=4b708005fbbeef055804b1d5da86e1649d5857c7c403e7c98180398a9c4cee09 Input: registry/
 //! account-data-key-registry.json; version=2026-09-12.6;
 //! sha256=75b0317727cd9bd4d8605c90c3710629a3c1120faec9877d6a12598c488bafbb Entries: id_kinds=58,
-//! special_forms=14, actions=162, schemas=227, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=228, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3630,6 +3630,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::PRINCIPAL_OPERATIONS_V1,
         file: "schemas/principal-operations.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::PRINCIPAL_REGISTRATION_ANCHOR_V1,
+        file: "schemas/principal-registration-anchor.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PUBLIC_KEY_V1,

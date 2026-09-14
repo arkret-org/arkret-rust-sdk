@@ -832,6 +832,44 @@ pub fn normalized_did_document(document: &DidDocument) -> Result<Value> {
     }
 }
 
+/// Serde adapter for a wire member that carries the canonical normalized DID
+/// Document projection. Both directions go through
+/// [`normalized_did_document`], so a producer cannot ship a raw resolver
+/// document and a consumer cannot accept one that is not already normalized.
+pub mod normalized_document_wire {
+    use serde::{Deserialize, Serialize};
+
+    use super::{DidDocument, normalized_did_document};
+
+    pub fn serialize<S: serde::Serializer>(
+        document: &DidDocument,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        normalized_did_document(document)
+            .map_err(serde::ser::Error::custom)?
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<DidDocument, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.get("did").is_none() {
+            return Err(serde::de::Error::custom(
+                "this member requires the canonical normalized DID projection",
+            ));
+        }
+        let document: DidDocument =
+            serde_json::from_value(value.clone()).map_err(serde::de::Error::custom)?;
+        if normalized_did_document(&document).map_err(serde::de::Error::custom)? != value {
+            return Err(serde::de::Error::custom(
+                "DID projection member is not normalized",
+            ));
+        }
+        Ok(document)
+    }
+}
+
 /// Compute the only Arkret v1 `document_digest`: SHA-256 over RFC 8785 JCS of
 /// [`normalized_did_document`]. Raw resolver bytes, when retained as internal
 /// evidence, use the separately named `raw_document_digest` contract.

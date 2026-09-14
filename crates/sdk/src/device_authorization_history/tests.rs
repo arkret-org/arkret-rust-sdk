@@ -102,7 +102,7 @@ struct Fixture {
     account: AccountId,
     did: Did,
     configuration: NotaryValue,
-    inception: arkret_models_identity::DidOperationSubmitRequestBody,
+    registration_anchor: arkret_models_identity::PrincipalRegistrationAnchor,
     events: Vec<Event>,
     seals: Vec<Seal>,
     state: BTreeMap<CellRef, ResolvedCellState>,
@@ -128,9 +128,18 @@ impl Fixture {
             },
         )
         .unwrap();
+        let registration_anchor =
+            arkret_models_identity::PrincipalRegistrationAnchor::WebvhRegistration {
+                registration_did_operation: Box::new(prepared.submit_body.clone()),
+                log_entries: vec![serde_json::from_value(prepared.log_entry.clone()).unwrap()],
+                witness_records: Vec::new(),
+                normalized_did_document: serde_json::from_value(
+                    prepared.log_entry["state"].clone(),
+                )
+                .unwrap(),
+            };
         let verified_root =
-            arkret_signatures::webvh::validate_principal_inception_operation(&prepared.submit_body)
-                .unwrap();
+            arkret_identity::validate_principal_registration_anchor(&registration_anchor).unwrap();
         let did = Did::new(prepared.did.clone()).unwrap();
         let account = AccountId::new(
             project_did_to_core_id(&did).unwrap(),
@@ -175,7 +184,7 @@ impl Fixture {
                 did_inception_ref: inception,
                 initial_resolution: ResolutionCommitment {
                     did: did.clone(),
-                    method_history_head: verified_root.log_head_digest.to_string(),
+                    method_history_head: verified_root.method_history_head.to_string(),
                     version_id: verified_root.did_version_id.clone(),
                 },
                 founding_device_descriptor: FoundingDeviceDescriptor {
@@ -209,7 +218,7 @@ impl Fixture {
             account,
             did,
             configuration,
-            inception: prepared.submit_body,
+            registration_anchor,
             events: Vec::new(),
             seals: Vec::new(),
             state: BTreeMap::new(),
@@ -366,7 +375,7 @@ impl Fixture {
             &self.account,
             &self.events[0].event_id,
             &self.configuration,
-            &self.inception,
+            &self.registration_anchor,
             &self.seals.last().unwrap().id,
             &self.seals,
             &self.events,
@@ -381,7 +390,7 @@ impl Fixture {
         history
             .account_device_control_evidence(
                 &authorization_event_ref,
-                &self.inception,
+                &self.registration_anchor,
                 &self.seals,
                 &self.events,
                 DigestSuite::Sha256,
@@ -493,7 +502,7 @@ fn device_history_rejects_missing_member_foreign_account_and_tampered_source_or_
             &foreign,
             &f.events[0].event_id,
             &f.configuration,
-            &f.inception,
+            &f.registration_anchor,
             &f.seals[0].id,
             &f.seals,
             &f.events,

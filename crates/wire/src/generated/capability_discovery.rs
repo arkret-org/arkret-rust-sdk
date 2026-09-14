@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-13.12;
-//! sha256=ee2619e668e507fc333447b65115a895bea39574fb8e4d37a97341f70307e3e8
-//! Entries: operation_bundles=36 features=19
+//! Input: registry/contract-registry.json; version=2026-09-14.6;
+//! sha256=c888fc3ec8eab88b6d001d253004afddf330ad78946dc42265194d0cf565c29b
+//! Entries: operation_bundles=37 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -292,6 +292,14 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::PushGateway,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::EdgePushCommandNotifyV1,
+            binding_kind: BindingKind::HttpJson,
+        }],
+    },
+    OperationBundleDescriptor {
+        operation_bundle_id: "ak.operation_bundle.push_gateway.registration_handoff.v1",
+        service_kind: ServiceKind::PushGateway,
+        members: &[OperationBindingPair {
+            operation_id: ServiceOperationId::EdgePushCommandApplyRegistrationV1,
             binding_kind: BindingKind::HttpJson,
         }],
     },

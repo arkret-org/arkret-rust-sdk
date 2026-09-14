@@ -21,6 +21,7 @@ pub(crate) mod helpers;
 pub mod history_recovery;
 pub mod jws;
 mod records;
+pub mod registration_anchor;
 mod resolvers;
 pub mod service_identity;
 pub mod service_resolution_evidence;
@@ -72,6 +73,7 @@ pub use error::{IdentityError, Result};
 /// re-implementing address tables (STA-05-001).
 pub use helpers::{DidWebvhUrlError, did_webvh_parts, host_is_safe_for_outbound, ip_is_public};
 pub use records::*;
+pub use registration_anchor::validate_principal_registration_anchor;
 pub use resolvers::*;
 pub(crate) use serde::{Deserialize, Serialize};
 pub(crate) use serde_json::Value;
