@@ -18,6 +18,64 @@ use arkret_wire::{
 use serde_json::Value;
 use thiserror::Error;
 
+/// Active registered grammar capabilities implemented by this evaluator.
+///
+/// The spec artifact lint independently derives the same sets from every
+/// active `cell_writes` row. The SDK conformance test compares these constants
+/// to that published inventory, so registry growth cannot stop at generated
+/// AST support while leaving the executable evaluator incomplete.
+pub const ACTIVE_CELL_SUBJECT_KINDS: &[&str] = &[
+    "coalesce",
+    "composite",
+    "did",
+    "id:*",
+    "string",
+    "tuple",
+    "typed_id",
+    "typed_pair",
+    "uri",
+];
+pub const ACTIVE_CELL_SUBJECT_COMPONENT_KINDS: &[&str] = &[
+    "canonical_json",
+    "did",
+    "field",
+    "id:*",
+    "select",
+    "string",
+    "string_set_digest",
+];
+pub const ACTIVE_CELL_WRITE_CONDITION_KINDS: &[&str] =
+    &["field_absent", "field_equals", "field_present"];
+pub const ACTIVE_EFFECT_PROJECTION_OPERATORS: &[&str] = &[
+    "append",
+    "apply_patch",
+    "or_set_add",
+    "or_set_delta",
+    "or_set_remove_dots",
+    "or_set_remove_observed",
+    "set",
+    "transition",
+    "transition_to",
+];
+pub const ACTIVE_EFFECT_SOURCES: &[&str] = &[
+    "agent_authorization_dot",
+    "const",
+    "dot",
+    "envelope_field",
+    "field",
+    "object_without_fields",
+    "projected_value",
+];
+pub const ACTIVE_VALUE_PROJECTION_OPERATORS: &[&str] = &["object"];
+pub const ACTIVE_VALUE_PROJECTION_SOURCES: &[&str] = &[
+    "derivation",
+    "envelope_field",
+    "field",
+    "literal",
+    "normalized_string_set",
+];
+pub const ACTIVE_CELL_RULE_TRANSFORMS: &[&str] = &["base64url_utf8"];
+
 /// Envelope context used while validating the registry-declared CBS plane.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum EventCellContractContext {
@@ -67,6 +125,8 @@ pub enum EventCellContractError {
     PayloadMismatch { kind: String },
     #[error("event kind {kind} has an invalid registered effect set: {message}")]
     EffectSetMismatch { kind: String, message: String },
+    #[error("event kind {kind} registered projection cannot be evaluated: {message}")]
+    RegisteredProjectionFailure { kind: String, message: String },
     #[error("event kind {kind} cell subject cannot be derived: {message}")]
     SubjectDerivation { kind: String, message: String },
     #[error(
@@ -96,6 +156,7 @@ impl EventCellContractError {
             }
             Self::PreStateRequirement { .. } => "reducer_projection_failed",
             Self::CapabilityAuthorityProjection { .. } => "reducer_projection_failed",
+            Self::RegisteredProjectionFailure { .. } => "reducer_projection_failed",
             Self::CapabilityAuthorityDependency { .. } => "temporarily_unavailable",
             _ => "effects_payload_mismatch",
         }
@@ -1557,11 +1618,11 @@ fn effect_source_value(
         return Ok(value.to_json_value());
     }
     if let Some(rule) = source.field(EventCellRuleKey::ObjectWithoutFields) {
-        let rule_fields = rule
-            .as_object()
-            .ok_or_else(|| effect_set_error(kind, "object_without_fields must be an object"))?;
+        let rule_fields = rule.as_object().ok_or_else(|| {
+            registered_projection_error(kind, "object_without_fields must be an object")
+        })?;
         if rule_fields.len() != 2 {
-            return Err(effect_set_error(
+            return Err(registered_projection_error(
                 kind,
                 "object_without_fields must contain exactly field and exclude",
             ));
@@ -1570,16 +1631,24 @@ fn effect_source_value(
         let path = rule
             .field(EventCellRuleKey::Field)
             .and_then(EventCellRule::as_str)
-            .ok_or_else(|| effect_set_error(kind, "object_without_fields omits field"))?;
+            .ok_or_else(|| {
+                registered_projection_error(kind, "object_without_fields omits field")
+            })?;
         let excludes = rule
             .field(EventCellRuleKey::Exclude)
             .and_then(EventCellRule::as_array)
-            .ok_or_else(|| effect_set_error(kind, "object_without_fields omits exclude"))?;
-        let mut value = field_value(event, path)
-            .cloned()
-            .ok_or_else(|| effect_set_error(kind, &format!("effect source {path} is missing")))?;
+            .filter(|values| !values.is_empty())
+            .ok_or_else(|| {
+                registered_projection_error(
+                    kind,
+                    "object_without_fields requires a non-empty exclude array",
+                )
+            })?;
+        let mut value = field_value(event, path).cloned().ok_or_else(|| {
+            registered_projection_error(kind, &format!("effect source {path} is missing"))
+        })?;
         let object = value.as_object_mut().ok_or_else(|| {
-            effect_set_error(
+            registered_projection_error(
                 kind,
                 "object_without_fields source must resolve to an object",
             )
@@ -1587,19 +1656,19 @@ fn effect_source_value(
         let mut seen = BTreeSet::new();
         for excluded in excludes {
             let excluded = excluded.as_str().ok_or_else(|| {
-                effect_set_error(
+                registered_projection_error(
                     kind,
                     "object_without_fields exclude entries must be strings",
                 )
             })?;
             if excluded.is_empty() || excluded.contains('.') {
-                return Err(effect_set_error(
+                return Err(registered_projection_error(
                     kind,
                     "object_without_fields excludes only non-empty top-level field names",
                 ));
             }
             if !seen.insert(excluded) {
-                return Err(effect_set_error(
+                return Err(registered_projection_error(
                     kind,
                     "object_without_fields exclude entries must be unique",
                 ));
@@ -1608,7 +1677,7 @@ fn effect_source_value(
         }
         return Ok(value);
     }
-    Err(effect_set_error(
+    Err(registered_projection_error(
         kind,
         "effect source must declare field, envelope_field, const, projected_value, object_without_fields, or dot",
     ))
@@ -1809,6 +1878,13 @@ fn condition_matches(
 
 fn effect_set_error(kind: &str, message: &str) -> EventCellContractError {
     EventCellContractError::EffectSetMismatch {
+        kind: kind.to_owned(),
+        message: message.to_owned(),
+    }
+}
+
+fn registered_projection_error(kind: &str, message: &str) -> EventCellContractError {
+    EventCellContractError::RegisteredProjectionFailure {
         kind: kind.to_owned(),
         message: message.to_owned(),
     }
@@ -2131,6 +2207,16 @@ fn derive_subject_value(
                 .ok_or_else(|| subject_error(&kind, "tuple components are missing"))?;
             derive_composite(event, components, &kind)
         }
+        EventCellRuleOperator::TypedPair => {
+            let components = rule
+                .field(EventCellRuleKey::Components)
+                .and_then(EventCellRule::as_array)
+                .filter(|components| components.len() == 2)
+                .ok_or_else(|| {
+                    subject_error(&kind, "typed_pair requires exactly two components")
+                })?;
+            derive_typed_pair(event, components, &kind)
+        }
         EventCellRuleOperator::Coalesce => {
             let fields = rule
                 .field(EventCellRuleKey::Fields)
@@ -2304,6 +2390,53 @@ fn derive_composite(
         .collect::<Result<Vec<_>, _>>()?;
     arkret_wire::cell::composite_subject(&parts)
         .map_err(|error| subject_error(kind, &error.to_string()))
+}
+
+fn derive_typed_pair(
+    event: CellSubjectSource<'_>,
+    components: &[EventCellRule],
+    kind: &str,
+) -> Result<String, EventCellContractError> {
+    let mut values = Vec::with_capacity(2);
+    for component in components {
+        let fields = component
+            .as_object()
+            .ok_or_else(|| subject_error(kind, "typed_pair component must be an object"))?;
+        if !(2..=3).contains(&fields.len())
+            || fields.iter().any(|field| {
+                !matches!(
+                    field.key,
+                    EventCellRuleKey::Kind | EventCellRuleKey::Field | EventCellRuleKey::Name
+                )
+            })
+        {
+            return Err(subject_error(
+                kind,
+                "typed_pair component must contain kind, field, and optional name",
+            ));
+        }
+        let id_kind = component
+            .operator()
+            .map(EventCellRuleOperator::as_str)
+            .and_then(|value| value.strip_prefix("id:"))
+            .ok_or_else(|| subject_error(kind, "typed_pair component kind must be id:<kind>"))?;
+        let path = component
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
+            .ok_or_else(|| subject_error(kind, "typed_pair component field is missing"))?;
+        let value = subject_field_value(event, path)
+            .and_then(|value| value.as_ref().as_str().map(str::to_owned))
+            .ok_or_else(|| subject_error(kind, &format!("{path} must be a typed ID string")))?;
+        let prefix = format!("ak:{id_kind}:");
+        if !value.starts_with(&prefix) {
+            return Err(subject_error(
+                kind,
+                &format!("{path} does not match registered {prefix} typed ID kind"),
+            ));
+        }
+        values.push(value);
+    }
+    Ok(format!("{}:{}", values[0], values[1]))
 }
 
 /// Resolve one composite component: either a plain field path or a
@@ -4152,6 +4285,163 @@ mod tests {
                 "created_at": "2026-07-26T00:00:00.000Z"
             }))
         );
+    }
+
+    #[test]
+    fn malformed_and_unknown_effect_sources_fail_as_registered_projection_errors() {
+        const EMPTY: &[EventCellRule] = &[];
+        const DUPLICATE: &[EventCellRule] = &[
+            EventCellRule::String("child_scope_policy"),
+            EventCellRule::String("child_scope_policy"),
+        ];
+        const NON_TOP_LEVEL: &[EventCellRule] = &[EventCellRule::String("nested.field")];
+        const NON_STRING: &[EventCellRule] = &[EventCellRule::Bool(true)];
+        const ONE_FIELD: &[EventCellRule] = &[EventCellRule::String("child_scope_policy")];
+        const NON_OBJECT_RULE: EventCellRule = EventCellRule::Object(&[EventCellRuleField {
+            key: EventCellRuleKey::ObjectWithoutFields,
+            value: EventCellRule::String("payload.object"),
+        }]);
+        const EMPTY_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[EventCellRuleField {
+            key: EventCellRuleKey::ObjectWithoutFields,
+            value: EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.object"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Exclude,
+                    value: EventCellRule::Array(EMPTY),
+                },
+            ]),
+        }]);
+        const DUPLICATE_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::ObjectWithoutFields,
+                value: EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Exclude,
+                        value: EventCellRule::Array(DUPLICATE),
+                    },
+                ]),
+            },
+        ]);
+        const NON_TOP_LEVEL_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::ObjectWithoutFields,
+                value: EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Exclude,
+                        value: EventCellRule::Array(NON_TOP_LEVEL),
+                    },
+                ]),
+            },
+        ]);
+        const NON_STRING_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::ObjectWithoutFields,
+                value: EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Exclude,
+                        value: EventCellRule::Array(NON_STRING),
+                    },
+                ]),
+            },
+        ]);
+        const MISSING_SOURCE_RULE: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::ObjectWithoutFields,
+                value: EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.missing"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Exclude,
+                        value: EventCellRule::Array(ONE_FIELD),
+                    },
+                ]),
+            },
+        ]);
+        const VALID_OBJECT_RULE: EventCellRule = EventCellRule::Object(&[
+            EventCellRuleField {
+                key: EventCellRuleKey::ObjectWithoutFields,
+                value: EventCellRule::Object(&[
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Field,
+                        value: EventCellRule::String("payload.object"),
+                    },
+                    EventCellRuleField {
+                        key: EventCellRuleKey::Exclude,
+                        value: EventCellRule::Array(ONE_FIELD),
+                    },
+                ]),
+            },
+        ]);
+        const MALFORMED_SOURCES: &[EventCellRule] = &[
+            NON_OBJECT_RULE,
+            EMPTY_EXCLUDE_RULE,
+            DUPLICATE_EXCLUDE_RULE,
+            NON_TOP_LEVEL_EXCLUDE_RULE,
+            NON_STRING_EXCLUDE_RULE,
+            MISSING_SOURCE_RULE,
+        ];
+        const UNKNOWN: EventCellRule = EventCellRule::Object(&[EventCellRuleField {
+            key: EventCellRuleKey::Transform,
+            value: EventCellRule::String("unknown"),
+        }]);
+
+        let event = subject_event(
+            "ak.space.create",
+            json!({"object": {"schema": "ak.schema.space.v1"}}),
+        );
+        let projected = ProjectedEventInput::from(&event);
+        let write = event.kind.descriptor().unwrap().cell_writes[0];
+        for source in MALFORMED_SOURCES.iter().copied().chain([UNKNOWN]) {
+            let error = effect_source_value(
+                &projected,
+                &write,
+                source,
+                event.kind.as_str(),
+                "ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe:0",
+                arkret_canonical::DigestSuite::Sha256,
+                None,
+            )
+            .expect_err("malformed source must fail closed");
+            assert!(matches!(
+                error,
+                EventCellContractError::RegisteredProjectionFailure { .. }
+            ));
+            assert_eq!(error.reason_code(), "reducer_projection_failed");
+        }
+
+        let non_object_event = subject_event("ak.space.create", json!({"object": "not-an-object"}));
+        let error = effect_source_value(
+            &ProjectedEventInput::from(&non_object_event),
+            &write,
+            VALID_OBJECT_RULE,
+            non_object_event.kind.as_str(),
+            "ak:event:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe:0",
+            arkret_canonical::DigestSuite::Sha256,
+            None,
+        )
+        .expect_err("non-object source must fail closed");
+        assert!(matches!(
+            error,
+            EventCellContractError::RegisteredProjectionFailure { .. }
+        ));
+        assert_eq!(error.reason_code(), "reducer_projection_failed");
     }
 
     fn realm_create_event(refs: Value) -> Event {

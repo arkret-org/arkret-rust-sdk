@@ -175,9 +175,8 @@ impl CellId {
         &self.subject
     }
 
-    /// Resolve the Strand target from the registered Board-position composite
-    /// subject `<board_space_id>:<strand_id>`.
-    pub fn strand_position_target(&self) -> Result<StrandId> {
+    /// Parse the registered reversible Strand-position `typed_pair` subject.
+    pub fn strand_position_subject(&self) -> Result<(SpaceId, StrandId)> {
         if self.component != "ak.component.strand.position.v1" {
             return Err(WireError::Protocol(
                 "cell is not a Strand position family".to_owned(),
@@ -187,8 +186,15 @@ impl CellId {
         let (board, strand_token) = self.subject.split_once(marker).ok_or_else(|| {
             WireError::Protocol("Strand position subject is not Board+Strand".to_owned())
         })?;
-        SpaceId::new(board)?;
-        Ok(StrandId::new(format!("ak:strand:{strand_token}"))?)
+        Ok((
+            SpaceId::new(board)?,
+            StrandId::new(format!("ak:strand:{strand_token}"))?,
+        ))
+    }
+
+    /// Resolve the Strand target from the registered position subject.
+    pub fn strand_position_target(&self) -> Result<StrandId> {
+        self.strand_position_subject().map(|(_, strand)| strand)
     }
 
     /// Re-emit the cell id as a wire string.
@@ -522,6 +528,12 @@ mod tests {
             "ak:cell:ak.component.strand.position.v1:ak:space:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo:{strand}"
         ))
         .unwrap();
+        let (board, parsed_strand) = cell.strand_position_subject().unwrap();
+        assert_eq!(
+            board.as_str(),
+            "ak:space:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo"
+        );
+        assert_eq!(parsed_strand.as_str(), strand);
         assert_eq!(cell.strand_position_target().unwrap().as_str(), strand);
         assert!(
             CellId::parse("ak:cell:ak.component.strand.position.v1:ak:strand:AR0yYaLgfEhMOjzAp9eFpdYOf2dma-COBObvEGjj8NN0")

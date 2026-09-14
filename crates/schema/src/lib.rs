@@ -16,9 +16,12 @@ pub use arkret_wire::events;
 pub use criticality::Criticality;
 pub use error::{Result, SchemaError, SchemaValidationIssue, SchemaValidationReason};
 pub use event_cell_contract::{
-    CapabilityAuthorityAudit, CapabilityAuthorityAuditIndex, CapabilityAuthorityProjectionError,
-    EventCellContractContext, EventCellContractError, FrozenPreState, InviteLiveTargetSlot,
-    batch_add_tag, classify_event_execution, classify_registered_operation_execution,
+    ACTIVE_CELL_RULE_TRANSFORMS, ACTIVE_CELL_SUBJECT_COMPONENT_KINDS, ACTIVE_CELL_SUBJECT_KINDS,
+    ACTIVE_CELL_WRITE_CONDITION_KINDS, ACTIVE_EFFECT_PROJECTION_OPERATORS, ACTIVE_EFFECT_SOURCES,
+    ACTIVE_VALUE_PROJECTION_OPERATORS, ACTIVE_VALUE_PROJECTION_SOURCES, CapabilityAuthorityAudit,
+    CapabilityAuthorityAuditIndex, CapabilityAuthorityProjectionError, EventCellContractContext,
+    EventCellContractError, FrozenPreState, InviteLiveTargetSlot, batch_add_tag,
+    classify_event_execution, classify_registered_operation_execution,
     derive_capability_authority_audit, derived_object_id, derived_object_id_for_kind,
     derived_object_ids, derived_object_ids_for_kind, event_derived_id_kinds_for_kind,
     invite_live_target_cell, invite_live_target_free_value, or_set_dot,

@@ -592,7 +592,7 @@ mod tests {
     }
 
     #[test]
-    fn strand_position_target_binds_to_composite_board_strand_subject() {
+    fn strand_position_target_binds_to_typed_board_strand_pair() {
         let strand_id = "ak:strand:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS";
         let mut wire = scalar(
             json!({"list_space_id":"ak:space:AT0qp3NTTWtVZNVOgsvsAncs9xRV-c5HXCz7uzXd7NQS","rank":"U"}),
@@ -609,6 +609,12 @@ mod tests {
 
         wire["target"]["strand_id"] =
             json!("ak:strand:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml");
+        assert!(CurrentResultEntry::try_from_json(wire.clone()).is_err());
+
+        wire["target"]["strand_id"] = json!(strand_id);
+        wire["selector"]["cell_id"] = json!(format!(
+            "ak:cell:ak.component.strand.position.v1:ak:space:bad:{strand_id}"
+        ));
         assert!(CurrentResultEntry::try_from_json(wire).is_err());
     }
 

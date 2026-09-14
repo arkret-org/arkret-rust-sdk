@@ -5,17 +5,17 @@
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
 //! digest-suite-registry.json; version=2026-09-12.9;
-//! sha256=1f37a0b2a1bdc907435e8fca7fa6da400200fdbc369ae7ca9b04f5c3c6badc6c Input: registry/
+//! sha256=058dd9899654b807480d27c8df92e0b5e113a1cdd771f6736eb558aaf11cf966 Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
+//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
 //! hpke-suite-registry.json; version=2026-09-08.3;
-//! sha256=27bffd654557d827a4adc82768624f2927e0301909f42201eb82ac1535a49bf8 Input: registry/
+//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
+//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
 //! mls-extension-registry.json; version=2026-09-10;
-//! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
+//! sha256=ea13071db2a81e0ef386b16b31d094af845b5f60d8a83f32ff437835e80f9481 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
 //! Entries: proof_contexts=71, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=39, aead_profiles=2
 

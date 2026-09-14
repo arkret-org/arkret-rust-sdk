@@ -1095,6 +1095,44 @@ fn encoding_fixture_vectors_execute_against_sdk() {
                     assert_eq!(case["expected_error"], "schema_violation");
                 }
             }
+            "registered_cell_writes" => {
+                let event: arkret_wire::Event =
+                    serde_json::from_value(vector["input_event"].clone()).unwrap_or_else(|error| {
+                        panic!("{vector_id}: Event decode failed: {error}")
+                    });
+                let writes = arkret_schema::project_registered_cell_writes(
+                    &event,
+                    arkret_canonical::DigestSuite::Sha256,
+                )
+                .unwrap_or_else(|error| panic!("{vector_id}: projection failed: {error}"));
+                let actual = writes
+                    .iter()
+                    .map(|write| {
+                        let direct = write
+                            .as_direct()
+                            .unwrap_or_else(|| panic!("{vector_id}: vector requires direct ops"));
+                        json!({"cell_id": write.cell_id, "op": direct.op})
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    Value::Array(actual),
+                    vector["expected_writes"],
+                    "{vector_id}: registered write set drifted"
+                );
+                if let Some(subjects) = vector.get("negative_subjects").and_then(Value::as_array) {
+                    for subject in subjects {
+                        let cell = arkret_wire::CellId::parse(&format!(
+                            "ak:cell:ak.component.strand.position.v1:{}",
+                            subject.as_str().unwrap()
+                        ))
+                        .expect("negative subject remains a syntactic CellRef");
+                        assert!(
+                            cell.strand_position_subject().is_err(),
+                            "{vector_id}: malformed or legacy subject was accepted"
+                        );
+                    }
+                }
+            }
             other => {
                 panic!("encoding vector {vector_id} has unknown kind {other}; extend this driver")
             }
@@ -1125,4 +1163,52 @@ fn encoding_fixture_vectors_execute_against_sdk() {
         .map(|entry| entry.as_str().unwrap())
         .collect::<Vec<_>>();
     assert_eq!(actual, expected, "rank_order drifted");
+}
+
+#[test]
+fn active_registered_effect_capabilities_match_the_spec_inventory() {
+    let inventory = spec_json_artifact("registry/registered-effect-capability-registry.json")
+        .expect("registered effect capability inventory");
+    let capabilities = inventory["capabilities"]
+        .as_object()
+        .expect("capabilities object");
+    for (name, implemented) in [
+        (
+            "cell_subject_kinds",
+            arkret_schema::ACTIVE_CELL_SUBJECT_KINDS,
+        ),
+        (
+            "cell_subject_component_kinds",
+            arkret_schema::ACTIVE_CELL_SUBJECT_COMPONENT_KINDS,
+        ),
+        (
+            "condition_kinds",
+            arkret_schema::ACTIVE_CELL_WRITE_CONDITION_KINDS,
+        ),
+        (
+            "effect_projection_operators",
+            arkret_schema::ACTIVE_EFFECT_PROJECTION_OPERATORS,
+        ),
+        ("effect_sources", arkret_schema::ACTIVE_EFFECT_SOURCES),
+        (
+            "value_projection_operators",
+            arkret_schema::ACTIVE_VALUE_PROJECTION_OPERATORS,
+        ),
+        (
+            "value_projection_sources",
+            arkret_schema::ACTIVE_VALUE_PROJECTION_SOURCES,
+        ),
+        ("transforms", arkret_schema::ACTIVE_CELL_RULE_TRANSFORMS),
+    ] {
+        let declared = capabilities[name]
+            .as_array()
+            .unwrap_or_else(|| panic!("{name} must be an array"))
+            .iter()
+            .map(|value| value.as_str().expect("capability string"))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            declared, implemented,
+            "active evaluator capability drift: {name}"
+        );
+    }
 }
