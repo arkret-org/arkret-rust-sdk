@@ -115,6 +115,39 @@ pub struct DeviceAuthorizationHistory {
     generations: Vec<DeviceGenerationInterval>,
     authorizations: Vec<DeviceAuthorizationInterval>,
 }
+
+/// A portable human-Control signer root after its complete referenced PCR
+/// prefix has been authenticated. Construction is intentionally coupled to
+/// [`DeviceAuthorizationHistory::verify`]; callers cannot install a bare key,
+/// a Station projection, or a caller-authored `verified` flag.
+#[derive(Clone, Debug)]
+pub struct VerifiedAccountDeviceControlEvidence {
+    history: DeviceAuthorizationHistory,
+    authorization_event_id: EventId,
+    verification_method: arkret_wire::DidUrl,
+    public_key: [u8; 32],
+    not_before: DateTime<Utc>,
+    expires_at: Option<DateTime<Utc>>,
+}
+
+impl VerifiedAccountDeviceControlEvidence {
+    pub fn history(&self) -> &DeviceAuthorizationHistory {
+        &self.history
+    }
+    pub fn authorization_event_id(&self) -> &EventId {
+        &self.authorization_event_id
+    }
+    pub fn verification_method(&self) -> &arkret_wire::DidUrl {
+        &self.verification_method
+    }
+    pub fn public_key(&self) -> &[u8; 32] {
+        &self.public_key
+    }
+    pub fn authorization_contains(&self, at: DateTime<Utc>) -> bool {
+        self.not_before <= at && self.expires_at.is_none_or(|expiry| at < expiry)
+    }
+}
+
 impl DeviceAuthorizationHistory {
     pub fn account_id(&self) -> &AccountId {
         &self.account_id
@@ -214,6 +247,212 @@ impl DeviceAuthorizationHistory {
             .is_some_and(|owned| {
                 owned.generation == self.current_generation().number && owned.revoked_by.is_none()
             })
+    }
+
+    /// Materialize the canonical portable Control root for one authorization
+    /// from this already-verified history. The emitted closure stops at the
+    /// authorization's first successful confirmation Seal and contains exactly
+    /// the Events committed by that predecessor-complete Seal prefix.
+    pub fn account_device_control_evidence(
+        &self,
+        authorization_event_id: &EventId,
+        principal_inception: &arkret_models_identity::DidOperationSubmitRequestBody,
+        seals: &[Seal],
+        events: &[Event],
+        suite: DigestSuite,
+    ) -> Result<arkret_models_identity::AuthenticatedSignerResolutionEvidence> {
+        let authorization = self.authorization(authorization_event_id).ok_or_else(|| {
+            missing("account device Control authorization is absent from verified history")
+        })?;
+        let pcr_genesis_event_ref = self
+            .generations
+            .first()
+            .map(|generation| generation.generation_event_id.clone())
+            .ok_or_else(|| invalid("verified device history has no genesis generation"))?;
+
+        let mut ordered_seals = seals.iter().collect::<Vec<_>>();
+        ordered_seals.sort_by_key(|seal| seal.notary_seq);
+        let confirmation_index = ordered_seals
+            .iter()
+            .position(|seal| &seal.id == authorization.confirmed_seal())
+            .ok_or_else(|| missing("authorization confirmation Seal is unavailable"))?;
+        let prefix_seals = &ordered_seals[..=confirmation_index];
+
+        let mut events_by_id = BTreeMap::new();
+        for event in events {
+            if events_by_id.insert(event.event_id.clone(), event).is_some() {
+                return Err(invalid(
+                    "duplicate Event input cannot materialize a canonical Control root",
+                ));
+            }
+        }
+        let mut prefix_events = Vec::new();
+        let mut seen_event_refs = BTreeSet::new();
+        for seal in prefix_seals {
+            for unit in &seal.command_results {
+                if unit.outcome != CommandOutcome::Committed {
+                    continue;
+                }
+                for digest in &unit.unit_event_digests {
+                    let event_id = EventId::from_event_digest(digest).map_err(invalid)?;
+                    if !seen_event_refs.insert(event_id.clone()) {
+                        return Err(invalid("confirmed prefix commits an Event more than once"));
+                    }
+                    prefix_events.push(
+                        (*events_by_id.get(&event_id).ok_or_else(|| {
+                            missing("confirmed prefix committed Event is unavailable")
+                        })?)
+                        .clone(),
+                    );
+                }
+            }
+        }
+
+        let mut history_event_refs = prefix_events
+            .iter()
+            .map(|event| event.event_id.clone())
+            .collect::<Vec<_>>();
+        history_event_refs
+            .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+        let mut history_seal_refs = prefix_seals
+            .iter()
+            .map(|seal| seal.id.clone())
+            .collect::<Vec<_>>();
+        history_seal_refs
+            .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+        let verification_method = arkret_wire::DidUrl::new(format!(
+            "{}#{}",
+            principal_inception.did,
+            authorization.device_id()
+        ))
+        .map_err(invalid)?;
+        let evidence =
+            arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+                signer_id: self.account_id.principal_id.clone(),
+                account_id: self.account_id.clone(),
+                device_id: authorization.device_id().clone(),
+                verification_method,
+                authorization_event_ref: authorization.authorization_event_id().clone(),
+                authorized_generation_ref: authorization.authorized_generation_ref(),
+                generation_event_ref: authorization.generation_event_id().clone(),
+                confirmation_seal_ref: authorization.confirmed_seal().clone(),
+                pcr_genesis_event_ref,
+                principal_inception: Box::new(principal_inception.clone()),
+                history_event_refs,
+                history_seal_refs,
+            };
+
+        // Keep construction coupled to verification: no caller can receive a
+        // canonical-looking root whose frozen prefix fails replay.
+        Self::verify_account_device_control(
+            &evidence,
+            &prefix_seals
+                .iter()
+                .map(|seal| (*seal).clone())
+                .collect::<Vec<_>>(),
+            &prefix_events,
+            suite,
+        )?;
+        Ok(evidence)
+    }
+
+    /// Authenticate an `account_device_control` root against every exact Event
+    /// and Seal it references, then derive the frozen device key and original
+    /// authorization window from the replayed PCR rather than from duplicated
+    /// claims in the root.
+    pub fn verify_account_device_control(
+        evidence: &arkret_models_identity::AuthenticatedSignerResolutionEvidence,
+        seals: &[Seal],
+        events: &[Event],
+        suite: DigestSuite,
+    ) -> Result<VerifiedAccountDeviceControlEvidence> {
+        evidence.validate_attester_binding().map_err(invalid)?;
+        let arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+            account_id,
+            device_id,
+            verification_method,
+            authorization_event_ref,
+            authorized_generation_ref,
+            generation_event_ref,
+            confirmation_seal_ref,
+            pcr_genesis_event_ref,
+            principal_inception,
+            history_event_refs,
+            history_seal_refs,
+            ..
+        } = evidence
+        else {
+            return Err(invalid(
+                "portable Control history verifier requires account_device_control evidence",
+            ));
+        };
+
+        let mut supplied_event_refs = events
+            .iter()
+            .map(|event| event.event_id.clone())
+            .collect::<Vec<_>>();
+        supplied_event_refs
+            .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+        if supplied_event_refs != *history_event_refs {
+            return Err(missing(
+                "account device Control Event closure differs from its exact reference list",
+            ));
+        }
+        let mut supplied_seal_refs = seals.iter().map(|seal| seal.id.clone()).collect::<Vec<_>>();
+        supplied_seal_refs
+            .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
+        if supplied_seal_refs != *history_seal_refs {
+            return Err(missing(
+                "account device Control Seal closure differs from its exact reference list",
+            ));
+        }
+
+        let create = events
+            .iter()
+            .find(|event| &event.event_id == pcr_genesis_event_ref)
+            .ok_or_else(|| missing("account device Control PCR genesis Event is missing"))?;
+        let create_payload: crate::RealmCreatePayload = create
+            .typed_payload::<arkret_wire::event_spec::RealmCreate>()
+            .map_err(invalid)?;
+        let mut ordered_seals = seals.iter().cloned().collect::<Vec<_>>();
+        ordered_seals.sort_by_key(|seal| seal.notary_seq);
+        let history = Self::verify(
+            account_id,
+            pcr_genesis_event_ref,
+            &create_payload.object.notary,
+            principal_inception,
+            confirmation_seal_ref,
+            &ordered_seals,
+            events,
+            suite,
+        )?;
+        let authorization = history
+            .authorization(authorization_event_ref)
+            .ok_or_else(|| missing("account device Control authorization Event is unavailable"))?;
+        let expected_method =
+            arkret_wire::DidUrl::new(format!("{}#{}", principal_inception.did, device_id))
+                .map_err(invalid)?;
+        if authorization.device_id() != device_id
+            || authorization.authorized_generation_ref() != *authorized_generation_ref
+            || authorization.generation_event_id() != generation_event_ref
+            || authorization.confirmed_seal() != confirmation_seal_ref
+            || verification_method != &expected_method
+        {
+            return Err(invalid(
+                "account device Control root differs from its replayed authorization",
+            ));
+        }
+        let public_key = *authorization.public_key();
+        let not_before = authorization.payload().not_before;
+        let expires_at = authorization.payload().expires_at.flatten();
+        Ok(VerifiedAccountDeviceControlEvidence {
+            history,
+            authorization_event_id: authorization_event_ref.clone(),
+            verification_method: verification_method.clone(),
+            public_key,
+            not_before,
+            expires_at,
+        })
     }
 
     /// Authenticate the ordinary PCR chain and derive all device intervals.

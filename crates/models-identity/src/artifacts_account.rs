@@ -61,17 +61,31 @@ pub struct DeviceSummary {
 impl DeviceSummary {
     pub fn validate(&self) -> Result<()> {
         validate_device_summary_state(self.status, self.revocation_states.as_deref())?;
-        if self.verification_state == DeviceSummaryVerificationState::Verified
-            && (self.authorized_event_ref.is_none()
-                || self.signer_resolution_evidence_ref.is_none())
-        {
+        validate_device_summary_evidence(
+            self.verification_state,
+            self.authorized_event_ref.as_ref(),
+            self.signer_resolution_evidence_ref.as_ref(),
+        )
+    }
+}
+
+pub fn validate_device_summary_evidence(
+    verification_state: DeviceSummaryVerificationState,
+    authorized_event_ref: Option<&EventId>,
+    signer_resolution_evidence_ref: Option<&SignerEvidenceRef>,
+) -> Result<()> {
+    if verification_state == DeviceSummaryVerificationState::Verified {
+        if authorized_event_ref.is_none() || signer_resolution_evidence_ref.is_none() {
             return Err(WireError::Protocol(
-                "verified device summary requires authorization and Control signer evidence refs"
+                "verified device summary requires authorization and signer evidence references"
                     .to_owned(),
             ));
         }
-        Ok(())
+        signer_resolution_evidence_ref
+            .expect("verified reference presence checked")
+            .content_digest()?;
     }
+    Ok(())
 }
 
 pub fn validate_device_summary_state(

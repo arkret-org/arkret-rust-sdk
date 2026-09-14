@@ -652,7 +652,7 @@ pub fn history_source_signer_dependency_closure(
                 | AuthenticatedSignerResolutionEvidence::AccountDevice { .. }
                 | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
                     return Err(WireError::Protocol(
-                        "minimal-metadata IdentityLink signer closure contains Agent evidence"
+                        "minimal-metadata IdentityLink signer closure contains non-Principal evidence"
                             .to_owned(),
                     ));
                 }

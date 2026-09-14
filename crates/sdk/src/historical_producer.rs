@@ -6,7 +6,7 @@
 //! for every use. Neither result grants current or ordinary business admission.
 
 use arkret_canonical::DigestSuite;
-use arkret_event_draft::EventPayloadExt as _;
+use arkret_event_draft::EventPayloadExt;
 use arkret_models_identity::{AuthenticatedSignerResolutionEvidence as Evidence, DidDocument};
 use arkret_signatures::PublicKeyMaterial;
 use arkret_wire::{ActorId, DidUrl, Event, EventId, SignerEvidenceRef, WireError};
@@ -18,9 +18,8 @@ type Result<T> = std::result::Result<T, WireError>;
 pub struct AuthenticatedHistoricalProducerSource {
     evidence: Evidence,
     signer: ActorId,
-    control_device_key: Option<[u8; 32]>,
-    control_not_before: Option<DateTime<Utc>>,
-    control_expires_at: Option<DateTime<Utc>>,
+    account_device_control:
+        Option<crate::device_authorization_history::VerifiedAccountDeviceControlEvidence>,
 }
 
 #[derive(Clone, Debug)]
@@ -66,6 +65,12 @@ impl VerifiedHistoricalEventProducer {
             } => Some(&device_projection_attestation.attestation),
             _ => None,
         }
+    }
+
+    pub fn account_device_control_authorization(
+        &self,
+    ) -> Option<&crate::device_authorization_history::VerifiedAccountDeviceControlEvidence> {
+        self.source.account_device_control.as_ref()
     }
 }
 
@@ -189,7 +194,7 @@ impl AuthenticatedHistoricalProducerSource {
             }
             Evidence::AccountDeviceControl { .. } => {
                 return invalid(
-                    "account-device Control evidence requires the complete PCR source verifier",
+                    "account device Control evidence requires its complete PCR Event/Seal closure",
                 );
             }
             Evidence::Agent { .. } => {
@@ -199,109 +204,50 @@ impl AuthenticatedHistoricalProducerSource {
         Ok(Self {
             evidence: evidence.clone(),
             signer: signer.clone(),
-            control_device_key: None,
-            control_not_before: None,
-            control_expires_at: None,
+            account_device_control: None,
         })
     }
 
-    /// Authenticate a portable ordinary-human Control source from the exact
-    /// referenced PCR prefix. The caller must resolve every Event and Seal
-    /// named by the root before invoking this constructor.
+    /// Authenticate a portable ordinary-human Control source by replaying the
+    /// complete exact PCR prefix named by the evidence. This is deliberately a
+    /// separate constructor from projection/document authentication so callers
+    /// cannot accidentally treat the root as a bare key assertion.
     pub fn authenticate_account_device_control(
         root_ref: &SignerEvidenceRef,
         signer: &ActorId,
         evidence: &Evidence,
-        events: &[Event],
         seals: &[arkret_wire::Seal],
-        publication_time: DateTime<Utc>,
+        events: &[Event],
+        digest_suite: DigestSuite,
     ) -> Result<Self> {
-        if &evidence.evidence_ref()? != root_ref {
-            return invalid("account-device Control evidence ref does not match its bytes");
-        }
-        evidence.validate_attester_binding()?;
-        let Evidence::AccountDeviceControl {
-            account_id,
-            device_id,
-            authorization_event_ref,
-            authorized_generation_ref,
-            generation_event_ref,
-            confirmation_seal_ref,
-            pcr_genesis_event_ref,
-            principal_inception,
-            history_event_refs,
-            history_seal_refs,
-            ..
-        } = evidence
-        else {
-            return invalid("portable Control verifier requires account_device_control evidence");
-        };
-        if signer.as_account_id() != Some(account_id) {
-            return invalid("account-device Control evidence belongs to another complete Account");
-        }
-        let mut actual_event_refs = events
-            .iter()
-            .map(|event| event.event_id.clone())
-            .collect::<Vec<_>>();
-        actual_event_refs.sort();
-        if actual_event_refs != *history_event_refs {
-            return invalid("account-device Control Event closure is missing or has surplus bytes");
-        }
-        let mut actual_seal_refs = seals.iter().map(|seal| seal.id.clone()).collect::<Vec<_>>();
-        actual_seal_refs.sort();
-        if actual_seal_refs != *history_seal_refs {
-            return invalid("account-device Control Seal closure is missing or has surplus bytes");
-        }
-        let genesis = events
-            .iter()
-            .find(|event| &event.event_id == pcr_genesis_event_ref)
-            .ok_or_else(|| error("account-device Control PCR genesis is missing"))?;
-        let create: crate::RealmCreatePayload = genesis
-            .typed_payload::<arkret_wire::event_spec::RealmCreate>()
-            .map_err(wire)?;
-        let mut ordered_seals = seals.to_vec();
-        ordered_seals.sort_by_key(|seal| seal.notary_seq);
-        if ordered_seals.last().map(|seal| &seal.id) != Some(confirmation_seal_ref) {
-            return invalid("account-device Control closure does not end at its confirmation Seal");
-        }
-        let history = crate::DeviceAuthorizationHistory::verify(
-            account_id,
-            pcr_genesis_event_ref,
-            &create.object.notary,
-            principal_inception,
-            confirmation_seal_ref,
-            &ordered_seals,
-            events,
-            create.object.digest_algorithm,
-        )
-        .map_err(wire)?;
-        let authorization = history
-            .authorization(authorization_event_ref)
-            .ok_or_else(|| error("account-device Control authorization is not confirmed"))?;
-        if authorization.device_id() != device_id
-            || authorization.authorized_generation_ref() != *authorized_generation_ref
-            || authorization.generation_event_id() != generation_event_ref
-            || authorization.confirmed_seal() != confirmation_seal_ref
-        {
-            return invalid("account-device Control root differs from the verified authorization");
-        }
-        let authorization_payload = authorization.payload();
-        if publication_time < authorization_payload.not_before
-            || authorization_payload
-                .expires_at
-                .flatten()
-                .is_some_and(|expires_at| publication_time >= expires_at)
+        if &evidence.evidence_ref()? != root_ref
+            || evidence.signer_id() != signer.signing_principal_id()
         {
             return invalid(
-                "Control publication is outside the original device authorization window",
+                "historical Control producer source does not bind its exact reference and signer",
             );
         }
+        let Evidence::AccountDeviceControl { account_id, .. } = evidence else {
+            return invalid(
+                "historical human Control source requires account_device_control evidence",
+            );
+        };
+        if signer.as_account_id() != Some(account_id) {
+            return invalid(
+                "account device Control source belongs to a different complete Account",
+            );
+        }
+        let verified = crate::DeviceAuthorizationHistory::verify_account_device_control(
+            evidence,
+            seals,
+            events,
+            digest_suite,
+        )
+        .map_err(wire)?;
         Ok(Self {
             evidence: evidence.clone(),
             signer: signer.clone(),
-            control_device_key: Some(*authorization.public_key()),
-            control_not_before: Some(authorization_payload.not_before),
-            control_expires_at: authorization_payload.expires_at.flatten(),
+            account_device_control: Some(verified),
         })
     }
 
@@ -342,6 +288,11 @@ impl AuthenticatedHistoricalProducerSource {
                 normalized_did_document,
                 ..
             } => {
+                validate_principal_event_scope(
+                    &self.signer,
+                    self.evidence.verification_method(),
+                    event,
+                )?;
                 let document = match &public_resolution.method_history_evidence {
                     arkret_models_identity::ResolutionMethodHistoryEvidence::WebvhLog {
                         log_entries,
@@ -370,11 +321,12 @@ impl AuthenticatedHistoricalProducerSource {
                 device_projection_attestation,
                 ..
             } => {
-                if arkret_schema::classify_event_execution(event).map_err(wire)?
-                    != Some(arkret_wire::CbsEffectPlane::Data)
+                let execution = arkret_schema::classify_event_execution(event).map_err(wire)?;
+                if execution != Some(arkret_wire::CbsEffectPlane::Data)
+                    && event.kind.wire_scope() != arkret_wire::EventWireScope::ActorPrivateEvent
                 {
                     return invalid(
-                        "account-device projection does not authorize generic Control Events",
+                        "account-device projection authorizes only Data or actor-private Events",
                     );
                 }
                 let core = &device_projection_attestation.attestation;
@@ -398,29 +350,28 @@ impl AuthenticatedHistoricalProducerSource {
                 }
             }
             Evidence::AccountDeviceControl { .. } => {
+                if is_account_device_control_prohibited_event(event)? {
+                    return invalid(
+                        "account device Control evidence cannot authorize a native unit or DID authority action",
+                    );
+                }
                 if arkret_schema::classify_event_execution(event).map_err(wire)?
                     != Some(arkret_wire::CbsEffectPlane::Control)
                 {
                     return invalid(
-                        "account-device Control evidence authorizes generic Control Events only",
+                        "account device Control evidence does not authorize non-Control Events",
                     );
                 }
-                if self
-                    .control_not_before
-                    .is_none_or(|not_before| at < not_before)
-                    || self
-                        .control_expires_at
-                        .is_some_and(|expires_at| at >= expires_at)
-                {
+                let source = self.account_device_control.as_ref().ok_or_else(|| {
+                    error("account device Control source has no authenticated PCR history")
+                })?;
+                if !source.authorization_contains(at) {
                     return invalid(
                         "Control publication is outside the original device authorization window",
                     );
                 }
                 PublicKeyMaterial::Ed25519Raw {
-                    bytes: self
-                        .control_device_key
-                        .ok_or_else(|| error("verified Control device key is unavailable"))?
-                        .to_vec(),
+                    bytes: source.public_key().to_vec(),
                 }
             }
             Evidence::Agent { .. } => {
@@ -445,6 +396,50 @@ impl AuthenticatedHistoricalProducerSource {
             key: material.ed25519_bytes().map_err(wire)?,
         })
     }
+}
+
+fn is_account_device_control_prohibited_event(event: &Event) -> Result<bool> {
+    match event.kind {
+        arkret_wire::EventKind::RealmCreate => {
+            let payload: crate::RealmCreatePayload = event
+                .typed_payload::<arkret_wire::event_spec::RealmCreate>()
+                .map_err(wire)?;
+            Ok(payload.object.purpose == crate::RealmPurpose::PrincipalControl)
+        }
+        arkret_wire::EventKind::DeviceReanchor
+        | arkret_wire::EventKind::IdentityResolutionUpdate => Ok(true),
+        arkret_wire::EventKind::DeviceAuthorize => {
+            let payload: arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload = event
+                .typed_payload::<arkret_wire::event_spec::DeviceAuthorize>()
+                .map_err(wire)?;
+            Ok(matches!(
+                payload.authorization_binding_kind,
+                arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizationBindingKind::RegistrationAnchor
+                    | arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizationBindingKind::PcrRecovery
+            ))
+        }
+        _ => Ok(false),
+    }
+}
+
+fn signer_uses_device_method(signer: &ActorId, method: &DidUrl) -> bool {
+    signer.as_account_id().is_some()
+        && method
+            .as_str()
+            .split_once('#')
+            .is_some_and(|(_, fragment)| arkret_wire::DeviceId::new(fragment).is_ok())
+}
+
+fn validate_principal_event_scope(signer: &ActorId, method: &DidUrl, event: &Event) -> Result<()> {
+    if signer_uses_device_method(signer, method)
+        && arkret_schema::classify_event_execution(event).map_err(wire)?
+            == Some(arkret_wire::CbsEffectPlane::Control)
+    {
+        return invalid(
+            "principal evidence does not authorize ordinary human generic Control Events",
+        );
+    }
+    Ok(())
 }
 
 fn service_attester<'a>(

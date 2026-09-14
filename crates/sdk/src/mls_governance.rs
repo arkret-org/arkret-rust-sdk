@@ -328,7 +328,8 @@ pub fn authenticated_document_method_key(
                 }
             }
         }
-        AuthenticatedSignerResolutionEvidence::AccountDevice { .. } => {
+        AuthenticatedSignerResolutionEvidence::AccountDevice { .. }
+        | AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
             return Err(WireError::Protocol("account device history evidence cannot authorize a document or Control Event signature".to_owned()));
         }
         AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {

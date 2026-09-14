@@ -1,5 +1,5 @@
 use arkret_models_collaboration::events_payloads::*;
-use arkret_models_identity::ResolutionCommitment;
+use arkret_models_identity::{AuthenticatedSignerResolutionEvidence, ResolutionCommitment};
 use arkret_wire::*;
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json::json;
@@ -66,7 +66,15 @@ fn possession(
         )
         .unwrap()
 }
-fn sign_event(mut event: Event, method: DidUrl, seed: [u8; 32]) -> Event {
+fn sign_event(event: Event, method: DidUrl, seed: [u8; 32]) -> Event {
+    sign_event_with_evidence(event, method, seed, None)
+}
+fn sign_event_with_evidence(
+    mut event: Event,
+    method: DidUrl,
+    seed: [u8; 32],
+    signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+) -> Event {
     event.proofs.clear();
     event
         .refresh_content_bound_identity_with_digest_suite(DigestSuite::Sha256)
@@ -75,7 +83,7 @@ fn sign_event(mut event: Event, method: DidUrl, seed: [u8; 32]) -> Event {
         kind: proof_kind::DETACHED_JWS.into(),
         verification_method: method,
         event_digest: event.event_id.event_digest(),
-        signer_resolution_evidence_ref: None,
+        signer_resolution_evidence_ref,
         created_at: event.created_at,
         domain: None,
         audience: None,
@@ -365,6 +373,21 @@ impl Fixture {
             DigestSuite::Sha256,
         )
     }
+    fn control_evidence(
+        &self,
+        authorization_event_ref: EventId,
+    ) -> AuthenticatedSignerResolutionEvidence {
+        let history = self.verify().unwrap();
+        history
+            .account_device_control_evidence(
+                &authorization_event_ref,
+                &self.inception,
+                &self.seals,
+                &self.events,
+                DigestSuite::Sha256,
+            )
+            .unwrap()
+    }
     fn reanchor(&self, null_basis: bool) -> Vec<Event> {
         let payload = possession(
             &self.account,
@@ -589,6 +612,189 @@ fn device_history_new_authorization_does_not_revive_the_revoked_instance() {
 }
 
 #[test]
+fn account_device_control_replays_exact_prefix_and_authorizes_only_control() {
+    let f = Fixture::new();
+    let evidence = f.control_evidence(f.events[1].event_id.clone());
+    let verified = DeviceAuthorizationHistory::verify_account_device_control(
+        &evidence,
+        &f.seals,
+        &f.events,
+        DigestSuite::Sha256,
+    )
+    .unwrap();
+    assert_eq!(verified.authorization_event_id(), &f.events[1].event_id);
+    assert_eq!(
+        verified.public_key(),
+        &SigningKey::from_bytes(&[81; 32]).verifying_key().to_bytes()
+    );
+    assert!(verified.authorization_contains(at()));
+
+    let source = crate::historical_producer::AuthenticatedHistoricalProducerSource::authenticate_account_device_control(
+        &evidence.evidence_ref().unwrap(),
+        &ActorId::account(f.account.clone()),
+        &evidence,
+        &f.seals,
+        &f.events,
+        DigestSuite::Sha256,
+    )
+    .unwrap();
+    let candidate = f.event(
+        EventKind::DeviceRevoke,
+        json!({
+            "device_id": device(1),
+            "revoked_by": device(1),
+            "revoked_at": "2026-09-12T00:00:00.000Z",
+            "reason": "user_requested"
+        }),
+    );
+    let candidate = sign_event_with_evidence(
+        candidate,
+        evidence.verification_method().clone(),
+        [81; 32],
+        Some(evidence.evidence_ref().unwrap()),
+    );
+    source
+        .verify_event(&candidate, DigestSuite::Sha256)
+        .unwrap();
+
+    let data = f.raw_event(
+        EventKind::MessageCreate,
+        json!({"message_id":"m1","content":{"type":"text","body":"hello"}}),
+        &f.events[0].realm_id,
+        99,
+    );
+    let data = sign_event_with_evidence(
+        data,
+        evidence.verification_method().clone(),
+        [81; 32],
+        Some(evidence.evidence_ref().unwrap()),
+    );
+    assert!(source.verify_event(&data, DigestSuite::Sha256).is_err());
+
+    assert!(
+        arkret_models_identity::ed25519_notary_signer_descriptor_from_evidence(&evidence).is_err()
+    );
+    let method = evidence.verification_method().clone();
+    let reference = evidence.evidence_ref().unwrap();
+    let mut native = vec![f.events[0].clone(), f.events[1].clone()];
+    native.push(f.reanchor(false).remove(0));
+    let mut did_update = f.events[0].clone();
+    did_update.kind = EventKind::IdentityResolutionUpdate;
+    native.push(did_update);
+    for event in native {
+        let event =
+            sign_event_with_evidence(event, method.clone(), [81; 32], Some(reference.clone()));
+        assert!(source.verify_event(&event, DigestSuite::Sha256).is_err());
+    }
+}
+
+#[test]
+fn account_device_control_materialization_freezes_first_confirmation_prefix() {
+    let mut f = Fixture::new();
+    let authorize = f.event(
+        EventKind::DeviceAuthorize,
+        serde_json::to_value(possession(
+            &f.account,
+            2,
+            DeviceAuthorizationBindingKind::AcceptedDevice,
+        ))
+        .unwrap(),
+    );
+    let authorization_event_id = authorize.event_id.clone();
+    f.append(vec![authorize]);
+    let first_confirmation = f.seals.last().unwrap().id.clone();
+    let revoke = f.event(
+        EventKind::DeviceRevoke,
+        json!({
+            "device_id": device(2),
+            "revoked_by": device(1),
+            "revoked_at": "2026-09-12T00:00:00.000Z",
+            "reason": "user_requested"
+        }),
+    );
+    f.append(vec![revoke]);
+
+    let evidence = f.control_evidence(authorization_event_id);
+    let AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+        confirmation_seal_ref,
+        history_event_refs,
+        history_seal_refs,
+        ..
+    } = &evidence
+    else {
+        unreachable!()
+    };
+    assert_eq!(confirmation_seal_ref, &first_confirmation);
+    assert_eq!(history_seal_refs.len(), 2);
+    assert_eq!(history_event_refs.len(), 3);
+    assert!(!history_seal_refs.contains(&f.seals[2].id));
+    assert!(!history_event_refs.contains(&f.events[3].event_id));
+
+    let prefix_seals = f.seals[..2].to_vec();
+    let prefix_events = f.events[..3].to_vec();
+    DeviceAuthorizationHistory::verify_account_device_control(
+        &evidence,
+        &prefix_seals,
+        &prefix_events,
+        DigestSuite::Sha256,
+    )
+    .unwrap();
+    assert!(matches!(
+        DeviceAuthorizationHistory::verify_account_device_control(
+            &evidence,
+            &f.seals,
+            &f.events,
+            DigestSuite::Sha256,
+        ),
+        Err(HistoryEvidenceError::Unavailable(_))
+    ));
+}
+
+#[test]
+fn account_device_control_rejects_mismatched_root_and_incomplete_closure() {
+    let f = Fixture::new();
+    let evidence = f.control_evidence(f.events[1].event_id.clone());
+    assert!(matches!(
+        DeviceAuthorizationHistory::verify_account_device_control(
+            &evidence,
+            &f.seals,
+            &f.events[..1],
+            DigestSuite::Sha256,
+        ),
+        Err(HistoryEvidenceError::Unavailable(_))
+    ));
+
+    let mut wrong_generation = evidence.clone();
+    let AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+        authorized_generation_ref,
+        ..
+    } = &mut wrong_generation
+    else {
+        unreachable!()
+    };
+    *authorized_generation_ref += 1;
+    assert!(matches!(
+        DeviceAuthorizationHistory::verify_account_device_control(
+            &wrong_generation,
+            &f.seals,
+            &f.events,
+            DigestSuite::Sha256,
+        ),
+        Err(HistoryEvidenceError::Invalid(_))
+    ));
+
+    let mut unsorted = evidence;
+    let AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+        history_event_refs, ..
+    } = &mut unsorted
+    else {
+        unreachable!()
+    };
+    history_event_refs.reverse();
+    assert!(unsorted.validate_attester_binding().is_err());
+}
+
+#[test]
 fn device_history_materializes_portable_control_evidence_for_initial_and_recovery_devices() {
     let mut fixture = Fixture::new();
     let founding_authorization = fixture.events[1].event_id.clone();
@@ -597,7 +803,7 @@ fn device_history_materializes_portable_control_evidence_for_initial_and_recover
         .unwrap()
         .control_signer_evidence(&founding_authorization)
         .unwrap();
-    let arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+    let AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
         account_id,
         device_id,
         authorization_event_ref,
@@ -627,7 +833,7 @@ fn device_history_materializes_portable_control_evidence_for_initial_and_recover
         .unwrap()
         .control_signer_evidence(&recovery_authorization)
         .unwrap();
-    let arkret_models_identity::AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
+    let AuthenticatedSignerResolutionEvidence::AccountDeviceControl {
         authorized_generation_ref,
         generation_event_ref,
         confirmation_seal_ref,

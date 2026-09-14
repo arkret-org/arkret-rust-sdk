@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::artifacts_account::{
-    DeviceSummaryStatus, DeviceSummaryVerificationState, validate_device_summary_state,
+    DeviceSummaryStatus, DeviceSummaryVerificationState, validate_device_summary_evidence,
+    validate_device_summary_state,
 };
 use crate::handle::Handle;
 use crate::identity::DidOperationSubmitRequestBody;
@@ -267,16 +268,11 @@ pub struct AccountDeviceSummary {
 impl AccountDeviceSummary {
     pub fn validate(&self) -> Result<()> {
         validate_device_summary_state(self.status, self.revocation_states.as_deref())?;
-        if self.verification_state == DeviceSummaryVerificationState::Verified
-            && (self.authorized_event_ref.is_none()
-                || self.signer_resolution_evidence_ref.is_none())
-        {
-            return Err(WireError::Protocol(
-                "verified device summary requires authorization and Control signer evidence refs"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
+        validate_device_summary_evidence(
+            self.verification_state,
+            self.authorized_event_ref.as_ref(),
+            self.signer_resolution_evidence_ref.as_ref(),
+        )
     }
 }
 
@@ -1776,6 +1772,27 @@ mod account_data_tests {
             }))
             .is_err()
         );
+    }
+
+    #[test]
+    fn verified_device_summary_requires_both_historical_references() {
+        let mut value = json!({
+            "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
+            "status": "active",
+            "verification_state": "verified"
+        });
+        let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
+        assert!(summary.validate().is_err());
+
+        value["authorized_event_ref"] =
+            json!("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e");
+        let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
+        assert!(summary.validate().is_err());
+
+        value["signer_resolution_evidence_ref"] =
+            json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
+        let summary: AccountDeviceSummary = serde_json::from_value(value).unwrap();
+        summary.validate().unwrap();
     }
 }
 

@@ -422,6 +422,7 @@ pub use control_projection::{
 };
 pub use device_authorization_history::{
     DeviceAuthorizationHistory, DeviceAuthorizationInterval, DeviceGenerationInterval,
+    VerifiedAccountDeviceControlEvidence,
 };
 pub use history_response::{
     HistorySourceProofExternalVerificationRequest, HistorySourceProofVerificationFuture,

@@ -115,8 +115,16 @@ impl Fixture {
         .unwrap()
     }
     fn event(&self, at: DateTime<Utc>) -> Event {
-        let mut event = arkret_wire::test_support::raw_event_for_actor_at(
+        self.event_with_kind(
+            at,
             "ak.message.create",
+            serde_json::json!({"message_id":"m1","content":{"type":"text","body":"hello"}}),
+        )
+    }
+
+    fn event_with_kind(&self, at: DateTime<Utc>, kind: &str, payload: serde_json::Value) -> Event {
+        let mut event = arkret_wire::test_support::raw_event_for_actor_at(
+            kind,
             ScopeRef::Realm {
                 realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")
                     .unwrap(),
@@ -124,7 +132,7 @@ impl Fixture {
             self.actor.clone(),
             0,
             Hlc::new("01970e589d21-0001-a13f9c2e").unwrap(),
-            serde_json::json!({"message_id":"m1","content":{"type":"text","body":"hello"}}),
+            payload,
             at,
         )
         .unwrap();
@@ -195,6 +203,24 @@ fn verified_source_survives_cache_expiry_but_not_original_grant_expiry() {
             .unwrap()
             .key()
     );
+}
+
+#[test]
+fn account_device_source_authorizes_holder_signed_actor_private_event() {
+    let fixture = Fixture::new();
+    let event = fixture.event_with_kind(
+        fixture.at,
+        arkret_wire::EventKind::AccountDataSet.as_str(),
+        serde_json::json!({
+            "key": "ak.account.blocklist",
+            "expected_revision": 0,
+            "encrypted_payload": {"ciphertext_b64u": "AA"}
+        }),
+    );
+    fixture
+        .source()
+        .verify_event(&event, DigestSuite::Sha256)
+        .unwrap();
 }
 
 #[test]
@@ -298,4 +324,34 @@ fn exact_attester_ref_and_native_history_are_mandatory() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn principal_device_fragment_is_fail_closed_for_generic_control() {
+    let fixture = Fixture::new();
+    let device = DeviceId::new("ak:device:0196419b-0000-7000-8000-000000000001").unwrap();
+    let event = arkret_wire::test_support::raw_event_for_actor_at(
+        arkret_wire::EventKind::DeviceRevoke.as_str(),
+        ScopeRef::Realm {
+            realm_id: RealmId::new("ak:realm:ARQRpvtCGBgQfVQzTK4_Hgbg0D0HSnc3gPCvXOQUICir")
+                .unwrap(),
+        },
+        fixture.actor.clone(),
+        1,
+        Hlc::new("01970e589d21-0002-a13f9c2e").unwrap(),
+        serde_json::json!({
+            "device_id": device,
+            "revoked_by": device,
+            "revoked_at": "2026-09-12T00:00:00.000Z",
+            "reason": "user_requested"
+        }),
+        fixture.at,
+    )
+    .unwrap();
+    let device_method =
+        DidUrl::new(format!("did:webvh:zdeviceholder:holder.example#{device}")).unwrap();
+    assert!(validate_principal_event_scope(&fixture.actor, &device_method, &event).is_err());
+
+    let root_method = DidUrl::new("did:webvh:zdeviceholder:holder.example#root-1").unwrap();
+    validate_principal_event_scope(&fixture.actor, &root_method, &event).unwrap();
 }

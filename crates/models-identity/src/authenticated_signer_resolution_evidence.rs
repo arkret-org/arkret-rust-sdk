@@ -42,8 +42,10 @@ pub enum AuthenticatedSignerResolutionEvidence {
         device_projection_attestation: arkret_models_crypto::DeviceProjectionAttestation,
         attester_signer_evidence_ref: SignerEvidenceRef,
     },
-    /// Portable ordinary-human generic Control authority derived from the
-    /// original signed device authorization and its confirmed PCR prefix.
+    /// Immutable, portable authorization root for an ordinary human device
+    /// producing generic Control Events. Unlike `AccountDevice`, this branch
+    /// has no Station-attested key shortcut: consumers must fetch and replay
+    /// the exact PCR Event/Seal prefix before resolving the device key.
     AccountDeviceControl {
         signer_id: DidCoreId,
         account_id: AccountId,
@@ -100,7 +102,7 @@ pub fn ed25519_verification_key_from_evidence(
         }
         AuthenticatedSignerResolutionEvidence::AccountDeviceControl { .. } => {
             return Err(WireError::Protocol(
-                "account-device Control evidence requires its complete PCR history verifier"
+                "account device Control evidence requires complete PCR history verification"
                     .to_owned(),
             ));
         }
@@ -286,6 +288,8 @@ impl AuthenticatedSignerResolutionEvidence {
                 history_event_refs,
                 history_seal_refs,
             } => {
+                account_id.validate()?;
+                principal_inception.validate()?;
                 let (controller, fragment) = verification_method
                     .as_str()
                     .split_once('#')
@@ -297,22 +301,21 @@ impl AuthenticatedSignerResolutionEvidence {
                     })?;
                 let controller = arkret_wire::Did::new(controller)?;
                 if &account_id.principal_id != signer_id
-                    || principal_inception.did != controller
                     || arkret_wire::project_did_to_core_id(&controller)? != *signer_id
+                    || controller != principal_inception.did
                     || fragment != device_id.as_str()
                     || *authorized_generation_ref == 0
                     || principal_inception.seq != Some(1)
                     || principal_inception.prev_event_digest.is_some()
+                    || authorization_event_ref == pcr_genesis_event_ref
+                    || !strictly_utf8_sorted(history_event_refs)
+                    || !strictly_utf8_sorted(history_seal_refs)
+                    || !(2..=4096).contains(&history_event_refs.len())
+                    || !(1..=4096).contains(&history_seal_refs.len())
                     || !history_event_refs.contains(authorization_event_ref)
                     || !history_event_refs.contains(generation_event_ref)
                     || !history_event_refs.contains(pcr_genesis_event_ref)
                     || !history_seal_refs.contains(confirmation_seal_ref)
-                    || history_event_refs.len() < 2
-                    || history_event_refs.len() > 4096
-                    || history_seal_refs.is_empty()
-                    || history_seal_refs.len() > 4096
-                    || history_event_refs.windows(2).any(|pair| pair[0] >= pair[1])
-                    || history_seal_refs.windows(2).any(|pair| pair[0] >= pair[1])
                 {
                     return Err(WireError::Protocol(
                         "account device Control signer evidence binding is invalid".to_owned(),
@@ -434,6 +437,12 @@ pub fn ed25519_notary_signer_descriptor_from_evidence(
     };
     descriptor.validate()?;
     Ok(descriptor)
+}
+
+fn strictly_utf8_sorted<T: ToString>(values: &[T]) -> bool {
+    values
+        .windows(2)
+        .all(|pair| pair[0].to_string().as_bytes() < pair[1].to_string().as_bytes())
 }
 
 #[cfg(test)]
