@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/reducer-profile-registry.json; version=2026-09-12.6;
 //! sha256=47c52cb7e71715820789b14d2fbeeff50bba5d42caed2b4014dfbe3a5289bafd Input: registry/
-//! contract-registry.json; version=2026-09-14.6;
-//! sha256=c888fc3ec8eab88b6d001d253004afddf330ad78946dc42265194d0cf565c29b
+//! contract-registry.json; version=2026-09-14.7;
+//! sha256=a97b953f73a4b4d45a8078652deecd6bbe30c020db825f1cd068d97e96818612
 //! Entries: reducer_profiles=1, upgrade_edges=0
 
 /// Active Realm reducer profiles. A Realm selects exactly one through
@@ -40,7 +40,7 @@ impl ReducerProfileId {
 
 /// SHA-256 of the JCS encoding of the complete canonical contract registry.
 pub const CANONICAL_REDUCER_CONTRACT_DIGEST: &str =
-    "sha256:d1df3010ac6eb689eb8e245a46d64da65c4704c0baa34285bf6767f4f072da86";
+    "sha256:a8be5fe97f0fdb134d4e0ad4f910202bbe22002cc42f0ac3cb984e087cadecea";
 
 /// Directed reducer-profile upgrades registered by the source profile.
 pub const REDUCER_PROFILE_UPGRADE_EDGES: &[(ReducerProfileId, ReducerProfileId)] = &[];

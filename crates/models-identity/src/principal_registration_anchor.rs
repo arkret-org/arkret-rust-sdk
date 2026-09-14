@@ -2,11 +2,9 @@
 //!
 //! This is the single primary method-native material that human registration,
 //! PCR genesis and the portable `account_device_control` root all consume. One
-//! branch exists per active `human_principal_anchor` adapter and the branch is
-//! selected only by the registered `registration_anchor_kind`. `did:web` has no
-//! branch: ordinary WebPKI authenticates a TLS endpoint rather than the served
-//! DID document body, so a `did:web` registration produces no portable,
-//! offline-verifiable publication proof.
+//! v1 supports exactly one active `human_principal_anchor` adapter:
+//! `did:webvh:1.0`, selected by the registered `registration_anchor_kind`.
+//! Every other DID method is rejected before method-specific parsing.
 //!
 //! The shape checks here are the closed-form ones a wire model can own. The
 //! authoritative derivation - SCID, entry-hash chain, controller proofs,
@@ -26,12 +24,9 @@ use crate::{DidDocument, DidOperationSubmitRequestBody};
 
 /// Registered `registration_anchor_kind` of the `did:webvh` adapter.
 pub const WEBVH_REGISTRATION_ANCHOR_KIND: &str = "webvh_registration";
-/// Registered `registration_anchor_kind` of the `did:key` adapter.
-pub const DID_KEY_REGISTRATION_ANCHOR_KIND: &str = "did_key_registration";
-
 /// Closed registration anchor union. Unknown discriminators fail closed at
 /// deserialization, which is where an ineligible human anchor method - every
-/// `did:web` shape included - is rejected before any method parser runs.
+/// non-`did:webvh` shape included - is rejected before any method parser runs.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "anchor_kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -47,12 +42,6 @@ pub enum PrincipalRegistrationAnchor {
         #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
         normalized_did_document: DidDocument,
     },
-    /// `did:key` anchor: the canonical DID and nothing else. A caller-supplied
-    /// document, an empty or synthesized operation and every other selectable
-    /// mirror member are forbidden here rather than optional, because a
-    /// selectable mirror lets the caller choose which reconstruction the
-    /// verifier compares against.
-    DidKeyRegistration { did: Did },
 }
 
 impl PrincipalRegistrationAnchor {
@@ -60,7 +49,6 @@ impl PrincipalRegistrationAnchor {
     pub const fn anchor_kind(&self) -> &'static str {
         match self {
             Self::WebvhRegistration { .. } => WEBVH_REGISTRATION_ANCHOR_KIND,
-            Self::DidKeyRegistration { .. } => DID_KEY_REGISTRATION_ANCHOR_KIND,
         }
     }
 
@@ -72,7 +60,6 @@ impl PrincipalRegistrationAnchor {
                 registration_did_operation,
                 ..
             } => &registration_did_operation.did,
-            Self::DidKeyRegistration { did } => did,
         }
     }
 
@@ -100,10 +87,6 @@ impl PrincipalRegistrationAnchor {
                 })?;
                 Ok(Hash::new(canonical::canonical_sha256(terminal)?)?)
             }
-            Self::DidKeyRegistration { did } => Ok(Hash::new(format!(
-                "sha256:{}",
-                arkret_canonical::sha256_hex(did.as_str().as_bytes())
-            ))?),
         }
     }
 
@@ -111,7 +94,6 @@ impl PrincipalRegistrationAnchor {
     pub fn webvh_terminal_entry(&self) -> Option<&BTreeMap<String, Value>> {
         match self {
             Self::WebvhRegistration { log_entries, .. } => log_entries.last(),
-            Self::DidKeyRegistration { .. } => None,
         }
     }
 
@@ -201,14 +183,6 @@ impl PrincipalRegistrationAnchor {
                 if normalized_did_document.id != registration_did_operation.did {
                     return Err(WireError::Protocol(
                         "registration anchor document is not the anchored DID".to_owned(),
-                    ));
-                }
-                Ok(())
-            }
-            Self::DidKeyRegistration { did } => {
-                if did.method() != "key" {
-                    return Err(WireError::Protocol(
-                        "did:key registration anchor requires a did:key DID".to_owned(),
                     ));
                 }
                 Ok(())
@@ -319,10 +293,7 @@ mod tests {
             log_entries,
             witness_records,
             normalized_did_document,
-        } = webvh_anchor()
-        else {
-            unreachable!()
-        };
+        } = webvh_anchor();
         registration_did_operation.operation =
             entry("1-QmcLQFWBGJzDb3yvVEanEBiit18J4aiWCZSZ6xiX8cHhTa");
         PrincipalRegistrationAnchor::WebvhRegistration {
@@ -342,10 +313,7 @@ mod tests {
             witness_records,
             normalized_did_document,
             ..
-        } = webvh_anchor()
-        else {
-            unreachable!()
-        };
+        } = webvh_anchor();
         let terminal = entry("2-QmcLQFWBGJzDb3yvVEanEBiit18J4aiWCZSZ6xiX8cHhTa");
         registration_did_operation.operation = terminal.clone();
         registration_did_operation.seq = Some(2);
@@ -366,10 +334,7 @@ mod tests {
             log_entries,
             normalized_did_document,
             ..
-        } = webvh_anchor()
-        else {
-            unreachable!()
-        };
+        } = webvh_anchor();
         PrincipalRegistrationAnchor::WebvhRegistration {
             registration_did_operation,
             log_entries,
@@ -387,23 +352,10 @@ mod tests {
     }
 
     #[test]
-    fn did_key_anchor_is_exactly_the_canonical_did() {
-        let json = serde_json::json!({
-            "anchor_kind": "did_key_registration",
-            "did": "did:key:z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
-        });
-        let anchor: PrincipalRegistrationAnchor = serde_json::from_value(json.clone()).unwrap();
-        anchor.validate().unwrap();
-        assert_eq!(anchor.anchor_kind(), DID_KEY_REGISTRATION_ANCHOR_KIND);
-        assert_eq!(serde_json::to_value(&anchor).unwrap(), json);
-    }
-
-    #[test]
-    fn did_key_anchor_rejects_a_selectable_document_mirror() {
+    fn did_key_is_not_a_registered_registration_anchor_branch() {
         serde_json::from_value::<PrincipalRegistrationAnchor>(serde_json::json!({
             "anchor_kind": "did_key_registration",
-            "did": "did:key:z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG",
-            "normalized_did_document": {"did": "did:key:z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"}
+            "did": "did:key:z6MkjchhfUsD6mmvni8mCdXHw216Xrm9bQe2mBH1P5RDjVJG"
         }))
         .unwrap_err();
     }

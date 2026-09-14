@@ -291,6 +291,7 @@ pub use arkret_models_identity::http_bodies::*;
 pub use arkret_models_identity::identity::*;
 pub use arkret_models_identity::identity_resolution::*;
 pub use arkret_models_identity::member_identity::*;
+pub use arkret_models_identity::principal_registration_anchor::*;
 pub use arkret_models_identity::service_binding_results::*;
 pub use arkret_models_identity::service_identity::*;
 pub use arkret_models_identity::session_credential::*;

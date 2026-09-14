@@ -1248,7 +1248,6 @@ pub struct IdentityBindingChallengeOutcome {
 #[serde(rename_all = "snake_case")]
 pub enum IdentityCreationControlProofKind {
     DidWebvhInceptionUpdateKey,
-    DidKeyExpansionRootKey,
 }
 
 impl IdentityCreationControlProofKind {
@@ -1258,7 +1257,6 @@ impl IdentityCreationControlProofKind {
     pub const fn registration_anchor_kind(self) -> &'static str {
         match self {
             Self::DidWebvhInceptionUpdateKey => crate::WEBVH_REGISTRATION_ANCHOR_KIND,
-            Self::DidKeyExpansionRootKey => crate::DID_KEY_REGISTRATION_ANCHOR_KIND,
         }
     }
 }

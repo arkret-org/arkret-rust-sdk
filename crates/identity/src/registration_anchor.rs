@@ -15,8 +15,7 @@
 use arkret_canonical::canonical;
 use arkret_canonical::multibase::decode_ed25519_multibase;
 use arkret_models_identity::{
-    DID_KEY_REGISTRATION_ANCHOR_KIND, PrincipalRegistrationAnchor, ValidatedRegistrationAnchor,
-    WEBVH_REGISTRATION_ANCHOR_KIND,
+    PrincipalRegistrationAnchor, ValidatedRegistrationAnchor, WEBVH_REGISTRATION_ANCHOR_KIND,
 };
 use arkret_wire::{DidUrl, Hash, project_did_to_core_id};
 use serde_json::Value;
@@ -128,31 +127,6 @@ pub fn validate_principal_registration_anchor(
                 next_root_key_hash: Some(next_root_key_hash),
             })
         }
-        PrincipalRegistrationAnchor::DidKeyRegistration { .. } => {
-            let suffix = did
-                .as_str()
-                .strip_prefix("did:key:")
-                .ok_or_else(|| protocol("did:key anchor is not a did:key DID"))?
-                .to_owned();
-            decode_ed25519_multibase(&suffix).map_err(|error| protocol(error.to_string()))?;
-            // did:key has no native history: the registered adapter rules make
-            // both coordinates a pure function of the canonical DID bytes.
-            let digest = arkret_canonical::sha256_hex(did.as_str().as_bytes());
-            Ok(ValidatedRegistrationAnchor {
-                anchor_kind: DID_KEY_REGISTRATION_ANCHOR_KIND,
-                principal_id,
-                registration_anchor_digest,
-                did_version_id: format!("synthetic-did-sha256:{digest}"),
-                method_history_head: Hash::new(format!("sha256:{digest}"))?,
-                did_version_time: None,
-                control_key_digest: control_key_digest(&suffix)?,
-                root_verification_method: DidUrl::new(format!("{did}#{suffix}"))
-                    .map_err(protocol)?,
-                root_public_key_multibase: suffix,
-                next_root_key_hash: None,
-                did,
-            })
-        }
     }
 }
 
@@ -169,7 +143,6 @@ fn control_key_digest(root_public_key_multibase: &str) -> Result<Hash> {
 mod tests {
     use arkret_models_identity::{DidDocument, DidOperationSubmitRequestBody};
     use arkret_signatures::webvh::{PrincipalInceptionInput, prepare_principal_inception};
-    use arkret_wire::Did;
     use chrono::{TimeZone, Utc};
     use ed25519_dalek::{SECRET_KEY_LENGTH, SigningKey};
     use url::Url;
@@ -260,10 +233,7 @@ mod tests {
         let PrincipalRegistrationAnchor::WebvhRegistration {
             normalized_did_document,
             ..
-        } = anchor
-        else {
-            unreachable!()
-        };
+        } = anchor;
         let mut tampered = log_entry;
         tampered["versionTime"] = Value::String("2026-08-12T02:00:00Z".to_owned());
         let mut operation = submit_body;
@@ -285,10 +255,7 @@ mod tests {
             log_entries,
             witness_records,
             ..
-        } = anchor
-        else {
-            unreachable!()
-        };
+        } = anchor;
         let mut state = log_entry["state"].clone();
         state["alsoKnownAs"] = serde_json::json!(["acct:substituted@example"]);
         validate_principal_registration_anchor(&PrincipalRegistrationAnchor::WebvhRegistration {
@@ -296,46 +263,6 @@ mod tests {
             log_entries,
             witness_records,
             normalized_did_document: serde_json::from_value(state).unwrap(),
-        })
-        .unwrap_err();
-    }
-
-    #[test]
-    fn did_key_anchor_rebuilds_its_synthetic_coordinates_from_the_did_alone() {
-        let suffix = arkret_canonical::multibase::ed25519_pubkey_to_did_key_multibase(
-            &SigningKey::from_bytes(&[0x61; SECRET_KEY_LENGTH])
-                .verifying_key()
-                .to_bytes(),
-        );
-        let did = Did::new(format!("did:key:{suffix}")).unwrap();
-        let anchor = PrincipalRegistrationAnchor::DidKeyRegistration { did: did.clone() };
-        let validated = validate_principal_registration_anchor(&anchor).unwrap();
-
-        let digest = arkret_canonical::sha256_hex(did.as_str().as_bytes());
-        assert_eq!(validated.anchor_kind, DID_KEY_REGISTRATION_ANCHOR_KIND);
-        assert_eq!(validated.did, did);
-        assert_eq!(
-            validated.did_version_id,
-            format!("synthetic-did-sha256:{digest}")
-        );
-        assert_eq!(
-            validated.method_history_head.as_str(),
-            format!("sha256:{digest}")
-        );
-        assert_eq!(
-            validated.root_verification_method.as_str(),
-            format!("{did}#{suffix}")
-        );
-        assert_eq!(validated.root_public_key_multibase, suffix);
-        // did:key has no publication time and no rotation rail to commit to.
-        assert_eq!(validated.did_version_time, None);
-        assert_eq!(validated.next_root_key_hash, None);
-    }
-
-    #[test]
-    fn did_key_anchor_rejects_a_did_that_is_not_decodable_key_material() {
-        validate_principal_registration_anchor(&PrincipalRegistrationAnchor::DidKeyRegistration {
-            did: Did::new("did:key:znotrealkeymaterial".to_owned()).unwrap(),
         })
         .unwrap_err();
     }

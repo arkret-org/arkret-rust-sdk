@@ -585,7 +585,8 @@ fn validate_registration_did_evidence_fields(
             WireError::Protocol("registration control proof has no fragment".to_owned())
         })?;
     let mut witness_ids = BTreeSet::new();
-    if adapter_version.trim().is_empty()
+    if did.method() != "webvh"
+        || adapter_version != "did:webvh:1.0"
         || method_history_head.trim().is_empty()
         || version_id.trim().is_empty()
         || project_did_to_core_id(did)? != *principal_id
@@ -607,16 +608,12 @@ fn validate_registration_did_evidence_fields(
             "registration DID evidence shape or identity binding mismatch".to_owned(),
         ));
     }
-    match did.method() {
-        "webvh"
-            if method_evidence.method_proofs.len() == 1
-                && method_evidence.method_proofs[0].history_head == method_history_head => {}
-        "web" | "key" if method_evidence.method_proofs.is_empty() => {}
-        _ => {
-            return Err(WireError::Protocol(
-                "registration DID evidence method proof mismatch".to_owned(),
-            ));
-        }
+    if method_evidence.method_proofs.len() != 1
+        || method_evidence.method_proofs[0].history_head != method_history_head
+    {
+        return Err(WireError::Protocol(
+            "registration DID evidence requires the exact WebVH method proof".to_owned(),
+        ));
     }
     Ok(())
 }
