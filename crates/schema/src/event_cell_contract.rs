@@ -1469,11 +1469,12 @@ pub fn batch_add_tag(
 /// Evaluate one closed projection source.
 ///
 /// The grammar admits exactly one of `field`, `envelope_field`, `const`,
-/// `projected_value` or `dot`. `projected_value` is legal only when the same
-/// cell write declares a closed `value_projection`; `dot` is legal only in an
-/// `or_set` tag position, which [`or_set_tag`] is the only caller of. Anything
-/// else means the registry and the Event cannot be evaluated together, which
-/// fails closed.
+/// `projected_value`, `object_without_fields` or `dot`. `projected_value` is
+/// legal only when the same cell write declares a closed `value_projection`;
+/// `object_without_fields` removes only registry-declared top-level members
+/// from one existing object; `dot` is legal only in an `or_set` tag position,
+/// which [`or_set_tag`] is the only caller of. Anything else means the registry
+/// and the Event cannot be evaluated together, which fails closed.
 /// Whether a projection kind removes from an `or_set` rather than adding to it.
 fn is_or_set_remove(projection_kind: EventCellRuleOperator) -> bool {
     matches!(
@@ -1555,9 +1556,61 @@ fn effect_source_value(
     if let Some(value) = source.field(EventCellRuleKey::Const) {
         return Ok(value.to_json_value());
     }
+    if let Some(rule) = source.field(EventCellRuleKey::ObjectWithoutFields) {
+        let rule_fields = rule
+            .as_object()
+            .ok_or_else(|| effect_set_error(kind, "object_without_fields must be an object"))?;
+        if rule_fields.len() != 2 {
+            return Err(effect_set_error(
+                kind,
+                "object_without_fields must contain exactly field and exclude",
+            ));
+        }
+        let rule = EventCellRule::Object(rule_fields);
+        let path = rule
+            .field(EventCellRuleKey::Field)
+            .and_then(EventCellRule::as_str)
+            .ok_or_else(|| effect_set_error(kind, "object_without_fields omits field"))?;
+        let excludes = rule
+            .field(EventCellRuleKey::Exclude)
+            .and_then(EventCellRule::as_array)
+            .ok_or_else(|| effect_set_error(kind, "object_without_fields omits exclude"))?;
+        let mut value = field_value(event, path)
+            .cloned()
+            .ok_or_else(|| effect_set_error(kind, &format!("effect source {path} is missing")))?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            effect_set_error(
+                kind,
+                "object_without_fields source must resolve to an object",
+            )
+        })?;
+        let mut seen = BTreeSet::new();
+        for excluded in excludes {
+            let excluded = excluded.as_str().ok_or_else(|| {
+                effect_set_error(
+                    kind,
+                    "object_without_fields exclude entries must be strings",
+                )
+            })?;
+            if excluded.is_empty() || excluded.contains('.') {
+                return Err(effect_set_error(
+                    kind,
+                    "object_without_fields excludes only non-empty top-level field names",
+                ));
+            }
+            if !seen.insert(excluded) {
+                return Err(effect_set_error(
+                    kind,
+                    "object_without_fields exclude entries must be unique",
+                ));
+            }
+            object.remove(excluded);
+        }
+        return Ok(value);
+    }
     Err(effect_set_error(
         kind,
-        "effect source must declare field, envelope_field, const, projected_value, or dot",
+        "effect source must declare field, envelope_field, const, projected_value, object_without_fields, or dot",
     ))
 }
 
@@ -1856,6 +1909,38 @@ fn member_derivation(
             let bytes = arkret_canonical::base64url_decode(encoded)
                 .map_err(|error| projection_error(kind, &error.to_string()))?;
             Ok(Some(Value::String(arkret_canonical::sha256_digest(bytes))))
+        }
+        "mls_group_id_from_effective_scope" => {
+            let effective_scope = field_value(event, "payload.governance_binding.effective_scope")
+                .and_then(Value::as_object)
+                .ok_or_else(|| {
+                    projection_error(
+                        kind,
+                        "payload.governance_binding.effective_scope is missing or is not an object",
+                    )
+                })?;
+            let scope_kind = effective_scope
+                .get("kind")
+                .and_then(Value::as_str)
+                .ok_or_else(|| projection_error(kind, "effective_scope.kind is missing"))?;
+            let id_field = match scope_kind {
+                "realm" => "realm_id",
+                "circle" => "circle_id",
+                "sidecar" => "sidecar_id",
+                _ => {
+                    return Err(projection_error(
+                        kind,
+                        "effective_scope.kind has no registered MLS group-id branch",
+                    ));
+                }
+            };
+            let scope_id = effective_scope
+                .get(id_field)
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    projection_error(kind, &format!("effective_scope.{id_field} is missing"))
+                })?;
+            Ok(Some(base64url_utf8_value(scope_id)))
         }
         _ => Err(projection_error(
             kind,
@@ -2262,7 +2347,25 @@ fn component_value(
     let path = select_field_path(event, *component, kind)?;
     let value = subject_field_value(event, &path)
         .ok_or_else(|| subject_error(kind, &format!("{path} is missing")))?;
-    composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message))
+    match component
+        .field(EventCellRuleKey::Transform)
+        .and_then(EventCellRule::as_str)
+    {
+        None => composite_scalar(value.as_ref()).map_err(|message| subject_error(kind, &message)),
+        Some("base64url_utf8") => value
+            .as_ref()
+            .as_str()
+            .map(base64url_utf8_value)
+            .ok_or_else(|| subject_error(kind, &format!("{path} is not a string"))),
+        Some(transform) => Err(subject_error(
+            kind,
+            &format!("select component has unsupported transform {transform}"),
+        )),
+    }
+}
+
+fn base64url_utf8_value(value: &str) -> Value {
+    Value::String(arkret_canonical::base64url_encode(value.as_bytes()))
 }
 
 fn string_set_digest_component_value(
@@ -2785,6 +2888,57 @@ mod tests {
         );
         derive_subject(&event, descriptor.cell_writes[0].cell_subject_rule)
             .unwrap_or_else(|error| panic!("{kind} subject derivation failed: {error}"))
+    }
+
+    #[test]
+    fn mls_scope_selection_and_group_id_derivation_share_base64url_utf8_encoding() {
+        for (scope, selected_id) in [
+            (
+                json!({
+                    "kind": "realm",
+                    "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n"
+                }),
+                "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
+            ),
+            (
+                json!({
+                    "kind": "circle",
+                    "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
+                    "circle_id": "ak:circle:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe"
+                }),
+                "ak:circle:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe",
+            ),
+            (
+                json!({
+                    "kind": "sidecar",
+                    "realm_id": "ak:realm:AQOJcuEsMahV_eXZxrvKxOc_1fBMQCLgofI2jenpts5n",
+                    "sidecar_id": "ak:sidecar:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe"
+                }),
+                "ak:sidecar:AUf4Nwr-Lqj1RlqDi4awPbskicm37buT2CswWBfZbgLe",
+            ),
+        ] {
+            let event = subject_event(
+                "ak.mls.genesis",
+                json!({"governance_binding": {"effective_scope": scope}}),
+            );
+            let encoded = arkret_canonical::base64url_encode(selected_id.as_bytes());
+            let descriptor = event.kind.descriptor().unwrap();
+            assert_eq!(
+                derive_subject(&event, descriptor.cell_writes[0].cell_subject_rule).unwrap(),
+                arkret_wire::composite_subject(&[selected_id, encoded.as_str()]).unwrap(),
+            );
+
+            let projected = ProjectedEventInput::from(&event);
+            assert_eq!(
+                member_derivation(
+                    &projected,
+                    "mls_group_id_from_effective_scope",
+                    "ak.mls.genesis",
+                )
+                .unwrap(),
+                Some(json!(encoded)),
+            );
+        }
     }
 
     /// The invitee account every live-target fixture below addresses.
@@ -3942,6 +4096,62 @@ mod tests {
             "got {error}"
         );
         assert_eq!(error.reason_code(), "effects_payload_mismatch");
+    }
+
+    #[test]
+    fn space_create_projects_metadata_without_the_registered_split_fields() {
+        let actor = json!({"kind": "account", "account_id": {
+            "principal_id": "ak:did_core:webvh:z6mkfixture",
+            "station_id": "ak:did_core:web:principal.example"
+        }});
+        let realm_id = "ak:realm:AVqz6eQZLqR_ZRLY8DW-ewi2BPdIfeJyWu9HXB2dz2Wy";
+        let parent_id = "ak:space:AWX8BSZeeRJJ_ipjlL7Ll7EGSQkGrOPbmXFP_UmHb16G";
+        let event: Event = serde_json::from_value(json!({
+            "event_id": "ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "kind": EventKind::SpaceCreate,
+            "realm_id": realm_id,
+            "scope_ref": {"kind": "realm", "realm_id": realm_id},
+            "actor_id": actor,
+            "actor_seq": 8,
+            "created_at": "2026-07-26T00:00:00.000Z",
+            "hlc": "019f90000000-0000-aabbccdd",
+            "prev_refs": [],
+            "seal_basis": {
+                "leaves": ["ak:seal:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+            },
+            "payload": {"object": {
+                "schema": "ak.schema.space.v1",
+                "realm_id": realm_id,
+                "kind": "list",
+                "title": "Todo",
+                "child_scope_policy": {"kind": "require_e2ee"},
+                "parent_space_id": parent_id,
+                "created_by": actor,
+                "created_at": "2026-07-26T00:00:00.000Z"
+            }},
+            "proofs": []
+        }))
+        .unwrap();
+
+        let writes = project(&event);
+        let metadata = writes
+            .iter()
+            .find(|write| {
+                write.cell_id.as_str()
+                    == "ak:cell:ak.component.space.metadata.v1:ak:space:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+            })
+            .expect("space metadata write");
+        assert_eq!(
+            metadata.op,
+            set_op(json!({
+                "schema": "ak.schema.space.v1",
+                "realm_id": realm_id,
+                "kind": "list",
+                "title": "Todo",
+                "created_by": actor,
+                "created_at": "2026-07-26T00:00:00.000Z"
+            }))
+        );
     }
 
     fn realm_create_event(refs: Value) -> Event {
