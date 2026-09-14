@@ -586,9 +586,10 @@ pub fn verify_registration_receipt_provider_proof(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::collections::BTreeMap;
+    use std::sync::{Arc, Mutex};
 
-    use arkret_keystore::InMemoryKeyStore;
+    use arkret_keystore::{KeyBytes, KeyStore, KeyStoreError};
     use arkret_models_identity::service_identity::{
         CanonicalServiceUrl, ServiceDidEndpoint, ServiceRegistrationEnsureRequestBody,
         ServiceRegistrationKey, ServiceRegistrationOutcome, ServiceRegistrationReceipt,
@@ -605,6 +606,42 @@ mod tests {
         DidCoreIdentityState, IdentityBundleBackend, KeyStoreIdentityBundleBackend,
         LocalDidCoreIdentity, StoredDidCoreIdentity,
     };
+
+    #[derive(Default)]
+    struct TestKeyStore {
+        keys: Mutex<BTreeMap<String, Vec<u8>>>,
+    }
+
+    impl KeyStore for TestKeyStore {
+        fn load(&self, id: &str) -> Result<KeyBytes, KeyStoreError> {
+            self.keys
+                .lock()
+                .unwrap()
+                .get(id)
+                .cloned()
+                .map(KeyBytes::new)
+                .ok_or_else(|| KeyStoreError::not_found(id))
+        }
+
+        fn store(&self, id: &str, key: &[u8]) -> Result<(), KeyStoreError> {
+            arkret_keystore::validate_id(id)?;
+            self.keys
+                .lock()
+                .unwrap()
+                .insert(id.to_owned(), key.to_vec());
+            Ok(())
+        }
+
+        fn list(&self) -> Result<Vec<String>, KeyStoreError> {
+            Ok(self.keys.lock().unwrap().keys().cloned().collect())
+        }
+
+        fn delete(&self, id: &str) -> Result<(), KeyStoreError> {
+            arkret_keystore::validate_id(id)?;
+            self.keys.lock().unwrap().remove(id);
+            Ok(())
+        }
+    }
 
     fn registration_key() -> ServiceRegistrationKey {
         ServiceRegistrationKey::new(
@@ -879,7 +916,7 @@ mod tests {
             exported_at: "2026-07-15T00:00:02.000Z".parse().unwrap(),
         };
         let backend = KeyStoreIdentityBundleBackend::new(
-            Arc::new(InMemoryKeyStore::new()),
+            Arc::new(TestKeyStore::default()),
             "arkret:identity-bundle",
         )
         .unwrap();

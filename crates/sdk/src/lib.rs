@@ -118,9 +118,8 @@ pub use arkret_identity::service_identity::{
     LocalDidCoreIdentity, ResolvedService, StoredDidCoreIdentity,
 };
 pub use arkret_keystore::{
-    BackendKind, InMemoryKeyStore, KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore,
-    MacOsKeychainKeyStore, WindowsCredentialKeyStore, durable_platform_keystore,
-    platform_default_keystore_with_kind,
+    KeyBytes, KeyStore, KeyStoreError, LinuxSecretServiceKeyStore, MacOsKeychainKeyStore,
+    WindowsCredentialKeyStore, durable_platform_keystore,
 };
 pub use arkret_models_collaboration::account_lifecycle::*;
 pub use arkret_models_collaboration::agent_operations::*;
