@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-13.2;
-//! sha256=65aac4f53fa7134cafe47b38c036763a2d0cd3c66610b881dce72c7080fdbbca Entries: schema_ids=227,
-//! active=227
+//! Input: registry/schema-registry.json; version=2026-09-14.2;
+//! sha256=4b708005fbbeef055804b1d5da86e1649d5857c7c403e7c98180398a9c4cee09 Entries: schema_ids=228,
+//! active=228
 
 use serde::{Deserialize, Serialize};
 
@@ -159,6 +159,7 @@ pub enum SchemaId {
     PresenceVisibilityV1,
     PrincipalLocatorV1,
     PrincipalOperationsV1,
+    PrincipalRegistrationAnchorV1,
     PublicKeyV1,
     PushOperationsV1,
     QueryV1,
@@ -390,6 +391,7 @@ impl SchemaId {
         Self::PresenceVisibilityV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
+        Self::PrincipalRegistrationAnchorV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -621,6 +623,7 @@ impl SchemaId {
         Self::PresenceVisibilityV1,
         Self::PrincipalLocatorV1,
         Self::PrincipalOperationsV1,
+        Self::PrincipalRegistrationAnchorV1,
         Self::PublicKeyV1,
         Self::PushOperationsV1,
         Self::QueryV1,
@@ -953,7 +956,7 @@ impl SchemaId {
     pub const DIRECT_CONVERSATION_OPERATIONS_V1: &'static str =
         "ak.schema.direct_conversation_operations.v1";
     /// Closed request/response DTO bundle for Directory discovery search, resolve, private contact
-    /// discovery, handle lookup, agent selector lookup, and push webhook registration operations.
+    /// discovery, handle lookup, and agent selector lookup operations.
     pub const DIRECTORY_OPERATIONS_V1: &'static str = "ak.schema.directory_operations.v1";
     /// Closed decrypted plaintext shape and canonical recurring-time semantics for ak.dnd_schedule.
     pub const DND_SCHEDULE_V1: &'static str = "ak.schema.dnd_schedule.v1";
@@ -1123,6 +1126,10 @@ impl SchemaId {
     /// Closed wire carriers scoped to a single principal: PCR genesis, participation replacement,
     /// history ingress contracts, Sidecar staging and shared primitives.
     pub const PRINCIPAL_OPERATIONS_V1: &'static str = "ak.schema.principal_operations.v1";
+    /// Closed adapter-discriminated registration anchor consumed identically by human registration,
+    /// PCR genesis and the portable account_device_control root.
+    pub const PRINCIPAL_REGISTRATION_ANCHOR_V1: &'static str =
+        "ak.schema.principal_registration_anchor.v1";
     /// Defs-only canonical PublicKey DTO (kty/kid/algorithm/key, optional key_digest). Owned by its
     /// own document so device, agent, account and to-device surfaces reference one shared
     /// definition instead of reverse-referencing each other's bundles. The {kid, alg, public_key}
@@ -1527,6 +1534,7 @@ impl SchemaId {
             Self::PresenceVisibilityV1 => Self::PRESENCE_VISIBILITY_V1,
             Self::PrincipalLocatorV1 => Self::PRINCIPAL_LOCATOR_V1,
             Self::PrincipalOperationsV1 => Self::PRINCIPAL_OPERATIONS_V1,
+            Self::PrincipalRegistrationAnchorV1 => Self::PRINCIPAL_REGISTRATION_ANCHOR_V1,
             Self::PublicKeyV1 => Self::PUBLIC_KEY_V1,
             Self::PushOperationsV1 => Self::PUSH_OPERATIONS_V1,
             Self::QueryV1 => Self::QUERY_V1,
@@ -1807,6 +1815,9 @@ impl SchemaId {
             Self::PresenceVisibilityV1 => "schemas/presence-visibility.schema.json",
             Self::PrincipalLocatorV1 => "schemas/principal-locator.schema.json",
             Self::PrincipalOperationsV1 => "schemas/principal-operations.schema.json",
+            Self::PrincipalRegistrationAnchorV1 => {
+                "schemas/principal-registration-anchor.schema.json"
+            }
             Self::PublicKeyV1 => "schemas/public-key.schema.json",
             Self::PushOperationsV1 => "schemas/push-operations.schema.json",
             Self::QueryV1 => "schemas/query.schema.json",
@@ -2083,6 +2094,7 @@ impl SchemaId {
             Self::PRESENCE_VISIBILITY_V1 => Some(Self::PresenceVisibilityV1),
             Self::PRINCIPAL_LOCATOR_V1 => Some(Self::PrincipalLocatorV1),
             Self::PRINCIPAL_OPERATIONS_V1 => Some(Self::PrincipalOperationsV1),
+            Self::PRINCIPAL_REGISTRATION_ANCHOR_V1 => Some(Self::PrincipalRegistrationAnchorV1),
             Self::PUBLIC_KEY_V1 => Some(Self::PublicKeyV1),
             Self::PUSH_OPERATIONS_V1 => Some(Self::PushOperationsV1),
             Self::QUERY_V1 => Some(Self::QueryV1),

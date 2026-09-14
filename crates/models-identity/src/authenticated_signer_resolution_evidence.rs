@@ -56,7 +56,7 @@ pub enum AuthenticatedSignerResolutionEvidence {
         generation_event_ref: EventId,
         confirmation_seal_ref: SealId,
         pcr_genesis_event_ref: EventId,
-        principal_inception: Box<crate::DidOperationSubmitRequestBody>,
+        principal_registration_anchor: Box<crate::PrincipalRegistrationAnchor>,
         history_event_refs: Vec<EventId>,
         history_seal_refs: Vec<SealId>,
     },
@@ -284,12 +284,12 @@ impl AuthenticatedSignerResolutionEvidence {
                 generation_event_ref,
                 confirmation_seal_ref,
                 pcr_genesis_event_ref,
-                principal_inception,
+                principal_registration_anchor,
                 history_event_refs,
                 history_seal_refs,
             } => {
                 account_id.validate()?;
-                principal_inception.validate()?;
+                principal_registration_anchor.validate()?;
                 let (controller, fragment) = verification_method
                     .as_str()
                     .split_once('#')
@@ -302,11 +302,9 @@ impl AuthenticatedSignerResolutionEvidence {
                 let controller = arkret_wire::Did::new(controller)?;
                 if &account_id.principal_id != signer_id
                     || arkret_wire::project_did_to_core_id(&controller)? != *signer_id
-                    || controller != principal_inception.did
+                    || &controller != principal_registration_anchor.did()
                     || fragment != device_id.as_str()
                     || *authorized_generation_ref == 0
-                    || principal_inception.seq != Some(1)
-                    || principal_inception.prev_event_digest.is_some()
                     || authorization_event_ref == pcr_genesis_event_ref
                     || !strictly_utf8_sorted(history_event_refs)
                     || !strictly_utf8_sorted(history_seal_refs)

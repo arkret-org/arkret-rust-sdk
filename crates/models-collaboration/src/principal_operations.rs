@@ -1,5 +1,5 @@
 use arkret_models_identity::{
-    DidOperationSubmitRequestBody, IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS,
+    IdentityCreationControlProof, PCR_GENESIS_UNIT_KINDS, PrincipalRegistrationAnchor,
 };
 use arkret_wire::{
     DeviceId, Did, DidCoreId, EventBatchReceipt, Hash, IdempotencyKey, PcrGenesisUnit, RealmId,
@@ -26,7 +26,7 @@ pub struct PcrGenesisSubmitRequestBody {
     pub registration_request_digest: Hash,
     pub did_version_id: String,
     pub control_key_digest: Hash,
-    pub registration_did_operation: DidOperationSubmitRequestBody,
+    pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub registration_did_evidence: RegistrationDidEvidence,
     pub identity_creation_control_proof: IdentityCreationControlProof,
     pub genesis_unit: PcrGenesisUnit,
@@ -35,7 +35,7 @@ pub struct PcrGenesisSubmitRequestBody {
 impl PcrGenesisSubmitRequestBody {
     pub fn validate(&self) -> Result<()> {
         self.identity_creation_control_proof.validate_shape()?;
-        self.registration_did_operation.validate()?;
+        self.principal_registration_anchor.validate()?;
         self.registration_did_evidence.validate_shape()?;
         self.genesis_unit.validate_ordered_envelopes()?;
 
@@ -50,15 +50,19 @@ impl PcrGenesisSubmitRequestBody {
             || self.pcr_realm_id != proof.pcr_realm_id
             || self.did_version_id != proof.did_version_id
             || self.control_key_digest != proof.control_key_digest
-            || self.registration_did_operation.did != self.did
-            || Hash::new(canonical::canonical_sha256(
-                &self.registration_did_operation,
-            )?)? != proof.operation_digest
+            || self.principal_registration_anchor.did() != &self.did
+            || proof.proof_kind.registration_anchor_kind()
+                != self.principal_registration_anchor.anchor_kind()
+            || self.principal_registration_anchor.canonical_digest()?
+                != proof.registration_anchor_digest
             || self.registration_did_evidence.principal_id != self.principal_id
             || self.registration_did_evidence.did != self.did
             || self.registration_did_evidence.version_id != self.did_version_id
             || self.registration_did_evidence.method_history_head
-                != canonical::canonical_sha256(&self.registration_did_operation.operation)?
+                != self
+                    .principal_registration_anchor
+                    .declared_method_history_head()?
+                    .as_str()
             || self.registration_did_evidence.control_key_digest != self.control_key_digest
             || proof.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
             || create.actor_id.signing_principal_id() != &self.principal_id

@@ -109,7 +109,7 @@ pub struct DeviceAuthorizationHistory {
     realm_id: RealmId,
     genesis_event_id: EventId,
     confirmed_head: SealId,
-    principal_inception: arkret_models_identity::DidOperationSubmitRequestBody,
+    principal_registration_anchor: arkret_models_identity::PrincipalRegistrationAnchor,
     seals: Vec<Seal>,
     events: Vec<Event>,
     generations: Vec<DeviceGenerationInterval>,
@@ -202,7 +202,7 @@ impl DeviceAuthorizationHistory {
         history_seal_refs.dedup();
         let verification_method = arkret_wire::DidUrl::new(format!(
             "{}#{}",
-            self.principal_inception.did,
+            self.principal_registration_anchor.did(),
             authorization.device_id()
         ))
         .map_err(invalid)?;
@@ -217,7 +217,7 @@ impl DeviceAuthorizationHistory {
                 generation_event_ref: authorization.generation_event_id().clone(),
                 confirmation_seal_ref: authorization.confirmed_seal().clone(),
                 pcr_genesis_event_ref: self.genesis_event_id.clone(),
-                principal_inception: Box::new(self.principal_inception.clone()),
+                principal_registration_anchor: Box::new(self.principal_registration_anchor.clone()),
                 history_event_refs,
                 history_seal_refs,
             };
@@ -256,7 +256,7 @@ impl DeviceAuthorizationHistory {
     pub fn account_device_control_evidence(
         &self,
         authorization_event_id: &EventId,
-        principal_inception: &arkret_models_identity::DidOperationSubmitRequestBody,
+        principal_registration_anchor: &arkret_models_identity::PrincipalRegistrationAnchor,
         seals: &[Seal],
         events: &[Event],
         suite: DigestSuite,
@@ -322,7 +322,7 @@ impl DeviceAuthorizationHistory {
             .sort_by(|left, right| left.as_str().as_bytes().cmp(right.as_str().as_bytes()));
         let verification_method = arkret_wire::DidUrl::new(format!(
             "{}#{}",
-            principal_inception.did,
+            principal_registration_anchor.did(),
             authorization.device_id()
         ))
         .map_err(invalid)?;
@@ -337,7 +337,7 @@ impl DeviceAuthorizationHistory {
                 generation_event_ref: authorization.generation_event_id().clone(),
                 confirmation_seal_ref: authorization.confirmed_seal().clone(),
                 pcr_genesis_event_ref,
-                principal_inception: Box::new(principal_inception.clone()),
+                principal_registration_anchor: Box::new(principal_registration_anchor.clone()),
                 history_event_refs,
                 history_seal_refs,
             };
@@ -376,7 +376,7 @@ impl DeviceAuthorizationHistory {
             generation_event_ref,
             confirmation_seal_ref,
             pcr_genesis_event_ref,
-            principal_inception,
+            principal_registration_anchor,
             history_event_refs,
             history_seal_refs,
             ..
@@ -420,7 +420,7 @@ impl DeviceAuthorizationHistory {
             account_id,
             pcr_genesis_event_ref,
             &create_payload.object.notary,
-            principal_inception,
+            principal_registration_anchor,
             confirmation_seal_ref,
             &ordered_seals,
             events,
@@ -429,9 +429,12 @@ impl DeviceAuthorizationHistory {
         let authorization = history
             .authorization(authorization_event_ref)
             .ok_or_else(|| missing("account device Control authorization Event is unavailable"))?;
-        let expected_method =
-            arkret_wire::DidUrl::new(format!("{}#{}", principal_inception.did, device_id))
-                .map_err(invalid)?;
+        let expected_method = arkret_wire::DidUrl::new(format!(
+            "{}#{}",
+            principal_registration_anchor.did(),
+            device_id
+        ))
+        .map_err(invalid)?;
         if authorization.device_id() != device_id
             || authorization.authorized_generation_ref() != *authorized_generation_ref
             || authorization.generation_event_id() != generation_event_ref
@@ -478,18 +481,20 @@ impl DeviceAuthorizationHistory {
         account_id: &AccountId,
         genesis_event_id: &EventId,
         trusted_configuration: &NotaryValue,
-        inception: &arkret_models_identity::DidOperationSubmitRequestBody,
+        anchor: &arkret_models_identity::PrincipalRegistrationAnchor,
         expected_head: &SealId,
         seals: &[Seal],
         events: &[Event],
         suite: DigestSuite,
     ) -> Result<Self> {
         account_id.validate().map_err(invalid)?;
-        let root = arkret_signatures::webvh::validate_principal_inception_operation(inception)
-            .map_err(invalid)?;
+        // One adapter dispatch owns every human anchor method: nothing here
+        // may reach for a webvh-specific verifier or a current resolver.
+        let root =
+            arkret_identity::validate_principal_registration_anchor(anchor).map_err(invalid)?;
         if root.principal_id != account_id.principal_id {
             return Err(invalid(
-                "inception does not authenticate the expected Account principal",
+                "registration anchor does not authenticate the expected Account principal",
             ));
         }
         let realm_id = RealmId::from_event_id(genesis_event_id);
@@ -560,14 +565,16 @@ impl DeviceAuthorizationHistory {
             .initial_resolution
             .as_ref()
             .ok_or_else(|| missing("PCR genesis initial resolution is missing"))?;
-        if resolution.did != inception.did
+        if resolution.did != root.did
             || resolution.version_id != root.did_version_id
-            || resolution.method_history_head != root.log_head_digest.as_str()
+            || resolution.method_history_head != root.method_history_head.as_str()
             || create.refs[0].id != root.did_version_id
-            || create.created_at < root.did_version_time
+            || root
+                .did_version_time
+                .is_some_and(|published_at| create.created_at < published_at)
         {
             return Err(invalid(
-                "PCR genesis does not bind the authenticated inception operation",
+                "PCR genesis does not bind the authenticated registration anchor",
             ));
         }
         let founding_payload: DeviceAuthorizePayload = founding
@@ -600,7 +607,7 @@ impl DeviceAuthorizationHistory {
             realm_id: realm_id.clone(),
             genesis_event_id: genesis_event_id.clone(),
             confirmed_head: expected_head.clone(),
-            principal_inception: inception.clone(),
+            principal_registration_anchor: anchor.clone(),
             seals: seals.to_vec(),
             events: events.to_vec(),
             generations: vec![DeviceGenerationInterval {
@@ -725,11 +732,7 @@ impl DeviceAuthorizationHistory {
                             let event = &member.event;
                             if event.event_id != *genesis_event_id {
                                 verify_device_producer(
-                                    &history,
-                                    event,
-                                    &members,
-                                    &inception.did,
-                                    suite,
+                                    &history, event, &members, &root.did, suite,
                                 )?;
                             }
                             let projection =

@@ -551,7 +551,7 @@ pub struct AuthenticatedServiceResolution {
     pub service_id: DidCoreId,
     pub service_kind: String,
     pub method_history_evidence: ResolutionMethodHistoryEvidence,
-    #[serde(with = "service_document_wire")]
+    #[serde(with = "crate::did_document::normalized_document_wire")]
     pub normalized_did_document: DidDocument,
 }
 /// Derived route projection of one verified service DID state.
@@ -856,38 +856,6 @@ impl RouteAssistance {
             ));
         }
         Ok(())
-    }
-}
-
-mod service_document_wire {
-    use super::*;
-    pub fn serialize<S: serde::Serializer>(
-        document: &DidDocument,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
-        crate::normalized_did_document(document)
-            .map_err(serde::ser::Error::custom)?
-            .serialize(serializer)
-    }
-    pub fn deserialize<'de, D: serde::Deserializer<'de>>(
-        deserializer: D,
-    ) -> Result<DidDocument, D::Error> {
-        let value = serde_json::Value::deserialize(deserializer)?;
-        if value.get("did").is_none() {
-            return Err(serde::de::Error::custom(
-                "service evidence requires the canonical normalized DID projection",
-            ));
-        }
-        let document: DidDocument =
-            serde_json::from_value(value.clone()).map_err(serde::de::Error::custom)?;
-        let normalized =
-            crate::normalized_did_document(&document).map_err(serde::de::Error::custom)?;
-        if normalized != value {
-            return Err(serde::de::Error::custom(
-                "service evidence DID projection is not normalized",
-            ));
-        }
-        Ok(document)
     }
 }
 

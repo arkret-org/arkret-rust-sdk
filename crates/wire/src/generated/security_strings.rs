@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-13.1;
-//! sha256=e0cf1d5b6c36e2006aa64a9a1224bfb3767c83663cfcf93a57caf0e793c6e493 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-14.2;
+//! sha256=afd1542ac9c62e659bc2aaddff8881e0a8f587930ae7d9ee38507592a0b7330f Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
 //! digest-suite-registry.json; version=2026-09-12.9;
@@ -16,7 +16,7 @@
 //! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=70, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! Entries: proof_contexts=71, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -81,6 +81,7 @@ pub enum ProofContextId {
     PeerSealFrontierProofV1,
     PrincipalLocatorProofV1,
     PrincipalResolutionProjectionAttestationProofV1,
+    PushRegistrationInstallationReceiptProofV1,
     RealmJoinCandidateProofV1,
     RealmStateSnapshotProofV1,
     RealmStateSnapshotWitnessAttestationProofV1,
@@ -155,6 +156,7 @@ impl ProofContextId {
         Self::PeerSealFrontierProofV1,
         Self::PrincipalLocatorProofV1,
         Self::PrincipalResolutionProjectionAttestationProofV1,
+        Self::PushRegistrationInstallationReceiptProofV1,
         Self::RealmJoinCandidateProofV1,
         Self::RealmStateSnapshotProofV1,
         Self::RealmStateSnapshotWitnessAttestationProofV1,
@@ -265,6 +267,8 @@ impl ProofContextId {
     pub const PRINCIPAL_LOCATOR_PROOF_V1: &'static str = "ak.principal_locator_proof.v1";
     pub const PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.principal_resolution_projection_attestation_proof.v1";
+    pub const PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1: &'static str =
+        "ak.push_registration_installation_receipt_proof.v1";
     pub const REALM_JOIN_CANDIDATE_PROOF_V1: &'static str = "ak.realm_join_candidate_proof.v1";
     pub const REALM_STATE_SNAPSHOT_PROOF_V1: &'static str = "ak.realm_state_snapshot_proof.v1";
     pub const REALM_STATE_SNAPSHOT_WITNESS_ATTESTATION_PROOF_V1: &'static str =
@@ -378,6 +382,9 @@ impl ProofContextId {
             Self::PrincipalLocatorProofV1 => Self::PRINCIPAL_LOCATOR_PROOF_V1,
             Self::PrincipalResolutionProjectionAttestationProofV1 => {
                 Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1
+            }
+            Self::PushRegistrationInstallationReceiptProofV1 => {
+                Self::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1
             }
             Self::RealmJoinCandidateProofV1 => Self::REALM_JOIN_CANDIDATE_PROOF_V1,
             Self::RealmStateSnapshotProofV1 => Self::REALM_STATE_SNAPSHOT_PROOF_V1,
@@ -523,6 +530,9 @@ impl ProofContextId {
             Self::PRINCIPAL_LOCATOR_PROOF_V1 => Some(Self::PrincipalLocatorProofV1),
             Self::PRINCIPAL_RESOLUTION_PROJECTION_ATTESTATION_PROOF_V1 => {
                 Some(Self::PrincipalResolutionProjectionAttestationProofV1)
+            }
+            Self::PUSH_REGISTRATION_INSTALLATION_RECEIPT_PROOF_V1 => {
+                Some(Self::PushRegistrationInstallationReceiptProofV1)
             }
             Self::REALM_JOIN_CANDIDATE_PROOF_V1 => Some(Self::RealmJoinCandidateProofV1),
             Self::REALM_STATE_SNAPSHOT_PROOF_V1 => Some(Self::RealmStateSnapshotProofV1),
@@ -1713,7 +1723,7 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "challenge",
             "purpose",
             "principal_id",
-            "operation_digest",
+            "registration_anchor_digest",
             "pcr_realm_id",
             "realm_create_payload_digest",
             "founding_authorize_payload_digest",
@@ -2043,6 +2053,26 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "created_at",
         ],
         schema_ref: "schemas/identity-resolution.schema.json#/$defs/principal_resolution_projection_attestation",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::PushRegistrationInstallationReceiptProofV1,
+        context: "ak.push_registration_installation_receipt_proof.v1",
+        object_family: "push_registration_installation_receipt",
+        consumer_operation: None,
+        binding_fields: &[
+            "payload_digest",
+            "registration_id",
+            "push_target_id",
+            "device_id",
+            "state",
+            "request_digest",
+            "source_station_id",
+            "destination_gateway_id",
+            "verification_method",
+            "created_at",
+            "audience",
+        ],
+        schema_ref: "schemas/push-operations.schema.json#/$defs/push_registration_installation_receipt",
     },
     ProofContextDescriptor {
         id: ProofContextId::RealmJoinCandidateProofV1,

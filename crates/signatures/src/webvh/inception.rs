@@ -37,7 +37,7 @@ use arkret_models_identity::service_identity::{
 };
 use arkret_models_identity::{
     DidDocument, IdentityCreationControlProof, UnsignedIdentityCreationControlProof,
-    normalized_did_document_digest,
+    ValidatedRegistrationAnchor, normalized_did_document_digest,
 };
 use arkret_wire::{
     Base64UrlString, Did, DidBindingEvidenceKind, DidBindingEvidenceReceipt, DidBindingMethodProof,
@@ -456,29 +456,34 @@ pub fn validate_principal_inception_operation(
     })
 }
 
-/// Verify the account-binding control proof with the inception operation's
-/// method-native identity root.
+/// Verify the account-binding control proof against an already authenticated
+/// registration anchor.
+///
+/// The caller derives the anchor once through the single adapter dispatch and
+/// passes the result here, so this verifier never re-parses method-native
+/// material and never selects a root key of its own. `proof_kind` must name the
+/// derivation the anchor's branch actually used.
 pub fn verify_identity_creation_control_proof(
-    request: &DidOperationSubmitRequestBody,
+    anchor: &ValidatedRegistrationAnchor,
     proof: &IdentityCreationControlProof,
-) -> Result<ValidatedPrincipalInception, WebvhInceptionError> {
-    let validated = validate_principal_inception_operation(request)?;
-    if proof.principal_id != validated.principal_id
-        || proof.operation_digest != validated.operation_digest
-        || proof.did_version_id != validated.did_version_id
-        || proof.control_key_digest != validated.control_key_digest
-        || proof.verification_key_multibase != validated.root_public_key_multibase
+) -> Result<(), WebvhInceptionError> {
+    if proof.proof_kind.registration_anchor_kind() != anchor.anchor_kind
+        || proof.principal_id != anchor.principal_id
+        || proof.did != anchor.did
+        || proof.registration_anchor_digest != anchor.registration_anchor_digest
+        || proof.did_version_id != anchor.did_version_id
+        || proof.control_key_digest != anchor.control_key_digest
+        || proof.verification_key_multibase != anchor.root_public_key_multibase
     {
         return Err(WebvhInceptionError::InvalidProof(
-            "identity-creation proof does not match the reserved inception root or operation"
-                .to_owned(),
+            "identity-creation proof does not match the reserved registration anchor".to_owned(),
         ));
     }
     let signing_bytes = proof
         .canonical_signing_bytes()
         .map_err(|error| WebvhInceptionError::Canonical(error.to_string()))?;
     let public_key = crate::proof::PublicKeyMaterial::Ed25519Multibase {
-        value: validated.root_public_key_multibase.clone(),
+        value: anchor.root_public_key_multibase.clone(),
     };
     if !crate::proof::verify_detached_ed25519_signature(
         &public_key,
@@ -489,7 +494,7 @@ pub fn verify_identity_creation_control_proof(
             "identity-creation control signature is invalid".to_owned(),
         ));
     }
-    Ok(validated)
+    Ok(())
 }
 
 /// Verify the dedicated frozen registration-evidence proof against the exact
