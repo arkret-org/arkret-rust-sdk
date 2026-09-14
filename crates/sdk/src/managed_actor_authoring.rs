@@ -24,9 +24,9 @@ use arkret_models_integration::{
 };
 use arkret_signatures::{SignEventOptions, sign_event};
 use arkret_wire::{
-    ActorId, ActorKind, EncryptionProfile, Event, EventRef, GenesisSalt, Hash, NotaryValue,
-    PayloadProof, PayloadSigner, ProfileId, SchemaId, ScopeRef, SealBasis, SecurityClass,
-    SignerEvidenceRef, event_spec, proof_kind,
+    ActorId, ActorKind, AuthContext, EncryptionProfile, Event, EventRef, GenesisSalt, Hash,
+    NotaryValue, PayloadProof, PayloadSigner, ProfileId, SchemaId, ScopeRef, SealBasis, SealId,
+    SecurityClass, SignerEvidenceRef, event_spec, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde_json::Value;
@@ -49,6 +49,10 @@ pub struct AppletManagedActorBundleAuthoringInput {
     /// Frozen signer evidence retained by the offline Applet runtime.
     pub signer_resolution_evidence_ref: SignerEvidenceRef,
     pub seal_basis: SealBasis,
+    /// Open data interval selected from the same accepted Realm frontier as
+    /// `seal_basis`. The receiver still verifies that it remains unclosed at
+    /// commit time.
+    pub data_basis: SealId,
     pub digest_suite: DigestSuite,
     pub trust_domain: TrustDomainId,
     pub security_class: SecurityClass,
@@ -79,6 +83,8 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
 ) -> Result<AppletManagedActorAuthoringBundle> {
     request.validate_bindings()?;
     let branch = branch(request, &input)?;
+    let profile_auth_context =
+        managed_actor_profile_auth_context(&input.seal_basis, &input.data_basis)?;
     let created_at = request.issued_at;
     let verification_method = signer.verification_method_id().clone();
 
@@ -226,7 +232,8 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
         accountability_grant_event.event_id.as_str(),
         "accountability",
     )])
-    .with_seal_basis(input.seal_basis)
+    .with_auth_context(profile_auth_context)
+    .with_data_basis(input.data_basis)
     .into_intent(created_at)?;
     let profile_event = author_and_sign(
         profile_intent,
@@ -258,6 +265,24 @@ pub fn author_applet_managed_actor_bundle<S: PayloadSigner + ?Sized>(
     bundle.proof.jws = signer.sign_payload(&bundle.proof_binding_bytes()?)?.jws;
     bundle.validate_bindings(request)?;
     Ok(bundle)
+}
+
+fn managed_actor_profile_auth_context(
+    seal_basis: &SealBasis,
+    data_basis: &SealId,
+) -> Result<AuthContext> {
+    seal_basis.validate_protocol_bounds()?;
+    if seal_basis.leaves.binary_search(data_basis).is_err() {
+        return Err(Error::Protocol(
+            "managed actor Profile data_basis must be one of the accepted Realm frontier leaves"
+                .to_owned(),
+        ));
+    }
+    let auth_context = AuthContext {
+        authority_refs: seal_basis.leaves.clone(),
+    };
+    auth_context.validate()?;
+    Ok(auth_context)
 }
 
 fn branch(
@@ -391,4 +416,37 @@ fn authoring_hlc(created_at: DateTime<Utc>, label: &str) -> Result<Hlc> {
 
 fn zero_hash() -> Result<Hash> {
     Hash::new(format!("sha256:{}", "00".repeat(32))).map_err(Into::into)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn seal(byte: u8) -> SealId {
+        SealId::new(format!(
+            "ak:seal:sha256:{}",
+            format!("{byte:02x}").repeat(32)
+        ))
+        .unwrap()
+    }
+
+    #[test]
+    fn managed_actor_profile_basis_is_bound_to_the_accepted_frontier() {
+        let first = seal(0x11);
+        let second = seal(0x22);
+        let basis = SealBasis {
+            leaves: vec![first.clone(), second.clone()],
+        };
+
+        let context = managed_actor_profile_auth_context(&basis, &second).unwrap();
+        assert_eq!(context.authority_refs, basis.leaves);
+
+        let outside = seal(0x33);
+        let error = managed_actor_profile_auth_context(&basis, &outside).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("must be one of the accepted Realm frontier leaves")
+        );
+    }
 }
