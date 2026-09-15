@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{MlsGovernanceBindingPayload, MlsSecurityFrontierLeaf, ProposedMlsGroupGenesisBinding};
 
+/// Canonical request budget of `ak.self.seals.read.mls_membership_removal.v1`.
+/// The query only carries the leaf-set digest, so it never needs a large body.
+pub const MLS_MEMBERSHIP_REMOVAL_MAX_REQUEST_BYTES: usize = 65_536;
+
 /// Exact local MLS intent evaluated by the serving Account Station.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -307,24 +311,54 @@ impl MlsAcceptedArtifactOutcome {
 pub struct MlsMembershipRemovalRequestBody {
     pub effective_scope: ScopeRef,
     pub mls_group_id: Base64UrlString,
-    pub local_mls_leaves: Vec<MlsSecurityFrontierLeaf>,
     pub seal_basis: SealBasis,
     pub base_group_state_ref: EventId,
     pub epoch: u64,
+    pub mls_leaf_set_digest: Hash,
 }
 
 impl MlsMembershipRemovalRequestBody {
+    /// Build the query from the exact local occupied leaves. Only their
+    /// canonical digest travels; the Station rebuilds its own from the
+    /// accepted ledger at `base_group_state_ref`.
+    pub fn from_local_leaves(
+        effective_scope: ScopeRef,
+        mls_group_id: Base64UrlString,
+        seal_basis: SealBasis,
+        base_group_state_ref: EventId,
+        epoch: u64,
+        local_mls_leaves: &[MlsSecurityFrontierLeaf],
+    ) -> Result<Self> {
+        let body = Self {
+            effective_scope,
+            mls_group_id,
+            seal_basis,
+            base_group_state_ref,
+            epoch,
+            mls_leaf_set_digest: arkret_wire::mls_transition::mls_leaf_set_digest(
+                local_mls_leaves,
+            )?,
+        };
+        body.validate()?;
+        Ok(body)
+    }
+
     pub fn validate(&self) -> Result<()> {
         if arkret_canonical::canonical_json_bytes(self)?.len()
-            > crate::MLS_GOVERNANCE_PROOF_MAX_REQUEST_BYTES
+            > MLS_MEMBERSHIP_REMOVAL_MAX_REQUEST_BYTES
         {
             return Err(WireError::ProtocolCode {
                 code: arkret_wire::ErrorCode::PayloadTooLarge,
-                message: "MLS membership removal request exceeds 8 MiB (payload_too_large)"
+                message: "MLS membership removal request exceeds 64 KiB (payload_too_large)"
                     .to_owned(),
             });
         }
         self.seal_basis.validate_protocol_bounds()?;
+        if self.seal_basis.leaves.len() != 1 {
+            return mismatch(
+                "MLS membership removal query must carry exactly one confirmed Realm head",
+            );
+        }
         if !matches!(
             self.effective_scope,
             ScopeRef::Realm { .. } | ScopeRef::Circle { .. }
@@ -332,8 +366,20 @@ impl MlsMembershipRemovalRequestBody {
         {
             return mismatch("MLS membership removal query has an inconsistent scope or group");
         }
-        arkret_wire::mls_transition::validate_mls_frontier_leaves(&self.local_mls_leaves)?;
+        if !self.mls_leaf_set_digest.as_str().starts_with("sha256:") {
+            return mismatch("MLS membership removal leaf-set digest is not a SHA-256 digest");
+        }
 
+        Ok(())
+    }
+
+    /// Confirm the query still describes this exact local leaf set.
+    pub fn matches_local_leaves(&self, local_mls_leaves: &[MlsSecurityFrontierLeaf]) -> Result<()> {
+        if arkret_wire::mls_transition::mls_leaf_set_digest(local_mls_leaves)?
+            != self.mls_leaf_set_digest
+        {
+            return mismatch("MLS membership removal query does not describe these local leaves");
+        }
         Ok(())
     }
 
@@ -357,31 +403,41 @@ pub struct MlsMembershipRemovalOutcome {
     pub account_id: arkret_wire::AccountId,
     pub query_digest: Hash,
     pub remove_leaf_indices: Vec<u32>,
+    pub seal_basis: SealBasis,
+    pub base_group_state_ref: EventId,
+    pub epoch: u64,
 }
 
 impl MlsMembershipRemovalOutcome {
+    /// Bind the result to the authenticated account and to the exact snapshot
+    /// the Station says it evaluated. The indices are checked against the
+    /// caller's own occupied leaves, which no longer travel on the wire.
     pub fn validate_for_request(
         &self,
         request: &MlsMembershipRemovalRequestBody,
         expected_account_id: &arkret_wire::AccountId,
+        local_mls_leaves: &[MlsSecurityFrontierLeaf],
     ) -> Result<()> {
         request.validate()?;
+        request.matches_local_leaves(local_mls_leaves)?;
         if &self.account_id != expected_account_id
             || self.query_digest != request.query_digest()?
+            || self.seal_basis != request.seal_basis
+            || self.base_group_state_ref != request.base_group_state_ref
+            || self.epoch != request.epoch
             || self.remove_leaf_indices.len() > arkret_wire::mls_transition::MLS_FRONTIER_MAX_LEAVES
             || self
                 .remove_leaf_indices
                 .windows(2)
                 .any(|pair| pair[0] >= pair[1])
             || self.remove_leaf_indices.iter().any(|index| {
-                request
-                    .local_mls_leaves
+                local_mls_leaves
                     .binary_search_by_key(index, |leaf| leaf.leaf_index)
                     .is_err()
             })
         {
             return mismatch(
-                "MLS membership removal result differs from the authenticated account, query, base or occupied leaves",
+                "MLS membership removal result differs from the authenticated account, query, evaluated snapshot or occupied leaves",
             );
         }
         if arkret_canonical::canonical_json_bytes(self)?.len()
@@ -438,19 +494,26 @@ mod tests {
         }
     }
 
-    fn removal_fixture() -> (MlsMembershipRemovalRequestBody, MlsMembershipRemovalOutcome) {
+    fn removal_fixture() -> (
+        MlsMembershipRemovalRequestBody,
+        Vec<MlsSecurityFrontierLeaf>,
+        MlsMembershipRemovalOutcome,
+    ) {
         let source = request();
         let digest =
             Hash::new("sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
                 .unwrap();
-        let query = MlsMembershipRemovalRequestBody {
-            effective_scope: source.effective_scope,
-            mls_group_id: source.mls_group_id,
-            local_mls_leaves: source.local_mls_leaves,
-            seal_basis: source.seal_basis,
-            base_group_state_ref: EventId::from_event_digest(&digest).unwrap(),
-            epoch: 0,
-        };
+        let leaves = source.local_mls_leaves.clone();
+        let base_group_state_ref = EventId::from_event_digest(&digest).unwrap();
+        let query = MlsMembershipRemovalRequestBody::from_local_leaves(
+            source.effective_scope,
+            source.mls_group_id,
+            source.seal_basis,
+            base_group_state_ref.clone(),
+            0,
+            &leaves,
+        )
+        .unwrap();
         let result = MlsMembershipRemovalOutcome {
             account_id: AccountId::new(
                 DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
@@ -458,75 +521,159 @@ mod tests {
             ),
             query_digest: query.query_digest().unwrap(),
             remove_leaf_indices: vec![0],
+            seal_basis: query.seal_basis.clone(),
+            base_group_state_ref,
+            epoch: 0,
         };
-        (query, result)
+        (query, leaves, result)
     }
 
     #[test]
-    fn membership_removal_binds_account_base_and_exact_leaf_subset() {
-        let (query, result) = removal_fixture();
+    fn membership_removal_binds_account_snapshot_and_exact_leaf_subset() {
+        let (query, leaves, result) = removal_fixture();
         result
-            .validate_for_request(&query, &result.account_id)
+            .validate_for_request(&query, &result.account_id, &leaves)
             .unwrap();
         let other_account = AccountId::new(
             DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
             DidCoreId::new("ak:did_core:web:other.example").unwrap(),
         );
-        assert!(result.validate_for_request(&query, &other_account).is_err());
+        assert!(
+            result
+                .validate_for_request(&query, &other_account, &leaves)
+                .is_err()
+        );
         for indices in [vec![1], vec![0, 0], vec![1, 0]] {
             let mut invalid = result.clone();
             invalid.remove_leaf_indices = indices;
             assert!(
                 invalid
-                    .validate_for_request(&query, &result.account_id)
+                    .validate_for_request(&query, &result.account_id, &leaves)
                     .is_err()
             );
         }
         let mut empty = result.clone();
         empty.remove_leaf_indices.clear();
         empty
-            .validate_for_request(&query, &result.account_id)
+            .validate_for_request(&query, &result.account_id, &leaves)
             .unwrap();
         let mut changed = query.clone();
         changed.epoch = 1;
         assert!(
             result
-                .validate_for_request(&changed, &result.account_id)
+                .validate_for_request(&changed, &result.account_id, &leaves)
                 .is_err()
         );
         let mut changed = result.clone();
         changed.query_digest = Hash::new(format!("sha256:{}", "c".repeat(64))).unwrap();
         assert!(
             changed
-                .validate_for_request(&query, &result.account_id)
-                .is_err()
-        );
-        let mut changed = query.clone();
-        changed.local_mls_leaves[0].credential_ref = NonEmptyString::new("another-leaf").unwrap();
-        assert!(
-            result
-                .validate_for_request(&changed, &result.account_id)
+                .validate_for_request(&query, &result.account_id, &leaves)
                 .is_err()
         );
     }
 
     #[test]
+    fn membership_removal_rejects_a_snapshot_the_station_did_not_evaluate() {
+        let (query, leaves, result) = removal_fixture();
+        let mut stale_epoch = result.clone();
+        stale_epoch.epoch = 1;
+        assert!(
+            stale_epoch
+                .validate_for_request(&query, &result.account_id, &leaves)
+                .is_err()
+        );
+        let mut other_base = result.clone();
+        other_base.base_group_state_ref = EventId::from_event_digest(
+            &Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            other_base
+                .validate_for_request(&query, &result.account_id, &leaves)
+                .is_err()
+        );
+        let mut other_basis = result.clone();
+        other_basis.seal_basis = SealBasis {
+            leaves: vec![
+                SealId::new(
+                    "ak:seal:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                )
+                .unwrap(),
+            ],
+        };
+        assert!(
+            other_basis
+                .validate_for_request(&query, &result.account_id, &leaves)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn membership_removal_digest_pins_the_exact_local_leaf_set() {
+        let (query, leaves, result) = removal_fixture();
+        query.matches_local_leaves(&leaves).unwrap();
+        let mut renamed = leaves.clone();
+        renamed[0].credential_ref = NonEmptyString::new("another-leaf").unwrap();
+        assert!(query.matches_local_leaves(&renamed).is_err());
+        assert!(
+            result
+                .validate_for_request(&query, &result.account_id, &renamed)
+                .is_err()
+        );
+        let mut grown = leaves.clone();
+        grown.push(MlsSecurityFrontierLeaf {
+            leaf_index: 1,
+            actor_id: leaves[0].actor_id.clone(),
+            credential_ref: NonEmptyString::new("device-2").unwrap(),
+        });
+        assert!(query.matches_local_leaves(&grown).is_err());
+        // The digest never travels as the leaves themselves.
+        let wire = serde_json::to_value(&query).unwrap();
+        assert!(wire.get("local_mls_leaves").is_none());
+        assert_eq!(
+            wire["mls_leaf_set_digest"],
+            serde_json::Value::String(query.mls_leaf_set_digest.to_string())
+        );
+    }
+
+    #[test]
     fn membership_removal_rejects_missing_base_and_legacy_proof_fields() {
-        let (query, result) = removal_fixture();
+        let (query, _leaves, result) = removal_fixture();
         let mut missing = serde_json::to_value(&query).unwrap();
         missing
             .as_object_mut()
             .unwrap()
             .remove("base_group_state_ref");
         assert!(serde_json::from_value::<MlsMembershipRemovalRequestBody>(missing).is_err());
+        let mut legacy = serde_json::to_value(&query).unwrap();
+        legacy["local_mls_leaves"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<MlsMembershipRemovalRequestBody>(legacy).is_err());
         let mut extra = serde_json::to_value(&result).unwrap();
         extra["checkpoint"] = serde_json::Value::Null;
         assert!(serde_json::from_value::<MlsMembershipRemovalOutcome>(extra).is_err());
-        let mut invalid = query.clone();
-        invalid
-            .local_mls_leaves
-            .push(invalid.local_mls_leaves[0].clone());
-        assert!(invalid.validate().is_err());
+        let mut unsorted = vec![
+            MlsSecurityFrontierLeaf {
+                leaf_index: 1,
+                actor_id: query_leaf_actor(),
+                credential_ref: NonEmptyString::new("device-2").unwrap(),
+            },
+            MlsSecurityFrontierLeaf {
+                leaf_index: 0,
+                actor_id: query_leaf_actor(),
+                credential_ref: NonEmptyString::new("device-1").unwrap(),
+            },
+        ];
+        assert!(arkret_wire::mls_transition::mls_leaf_set_digest(&unsorted).is_err());
+        unsorted.swap(0, 1);
+        arkret_wire::mls_transition::mls_leaf_set_digest(&unsorted).unwrap();
+    }
+
+    fn query_leaf_actor() -> ActorId {
+        ActorId::account(AccountId::new(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
+        ))
     }
 
     fn outcome(request: &MlsGovernanceFrontierRequestBody) -> MlsGovernanceFrontierOutcome {

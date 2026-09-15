@@ -716,16 +716,20 @@ impl Client {
     }
 
     /// Reconcile exact occupied leaves with the authenticated Account Station.
+    /// Only the canonical leaf-set digest travels; `local_mls_leaves` stays
+    /// local and bounds the indices the Station is allowed to return.
     pub async fn mls_membership_removal(
         &self,
         request: &arkret_models_crypto::MlsMembershipRemovalRequestBody,
         expected_account_id: &AccountId,
+        local_mls_leaves: &[arkret_wire::mls_transition::MlsSecurityFrontierLeaf],
     ) -> Result<arkret_models_crypto::MlsMembershipRemovalOutcome> {
         request.validate()?;
+        request.matches_local_leaves(local_mls_leaves)?;
         let outcome: arkret_models_crypto::MlsMembershipRemovalOutcome = self
             .post("/_arkret/self/seals/mls-membership-removal", request)
             .await?;
-        outcome.validate_for_request(request, expected_account_id)?;
+        outcome.validate_for_request(request, expected_account_id, local_mls_leaves)?;
         Ok(outcome)
     }
 

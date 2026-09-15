@@ -36,6 +36,14 @@ pub fn validate_mls_frontier_leaves(leaves: &[MlsSecurityFrontierLeaf]) -> Resul
     Ok(())
 }
 
+/// Canonical public leaf-set digest of one exact accepted post-transition
+/// tree. Both the querying client and the serving Station compute it from
+/// their own complete leaf set; the leaves themselves are never uploaded.
+pub fn mls_leaf_set_digest(leaves: &[MlsSecurityFrontierLeaf]) -> Result<Hash> {
+    validate_mls_frontier_leaves(leaves)?;
+    Hash::new(arkret_canonical::canonical::canonical_sha256(&leaves)?).map_err(Into::into)
+}
+
 /// Compute the registered Arkret v1 MLS Genesis transition digest.
 pub fn mls_genesis_transition_digest(payload: &Value) -> Result<Hash> {
     let Value::Object(mut core) = payload.clone() else {
