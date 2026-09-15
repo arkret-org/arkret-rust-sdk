@@ -280,8 +280,13 @@ impl Client {
         &self,
         request: &DevicePairingStatusRequestBody,
     ) -> Result<DevicePairingStatusOutcome> {
-        self.post("/_arkret/open/device-pairing/requests/status", request)
-            .await
+        let outcome: DevicePairingStatusOutcome = self
+            .post("/_arkret/open/device-pairing/requests/status", request)
+            .await?;
+        // The conditional members are the §5.4.1 pre-assembly entry point, so a
+        // shape the schema rejects must not reach the caller as a usable state.
+        outcome.validate()?;
+        Ok(outcome)
     }
 
     fn account_subscribe_request(

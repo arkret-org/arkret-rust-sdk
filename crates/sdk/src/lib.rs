@@ -402,7 +402,7 @@ pub use arkret_wire::receive_policy::{
 };
 pub use arkret_wire::seal::{
     AuthorizationClosure, CommandOutcome, CommandResultEffect, ExistenceAnchor, Seal,
-    SealCommandOutcome, SealSignature, compute_seal_id, seal_canonical_bytes,
+    SealCommandOutcome, SealSignature, UnsignedSeal, compute_seal_id, seal_canonical_bytes,
 };
 pub use arkret_wire::seal_conclusion::*;
 pub use arkret_wire::self_contact_paths::*;

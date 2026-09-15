@@ -1393,11 +1393,7 @@ fn validate_first_generation_seal_body(
                 .to_owned(),
         ));
     }
-    let digest_suite = reserved_id
-        .as_str()
-        .strip_prefix("ak:seal:")
-        .ok_or_else(|| WireError::Protocol("reserved recovery Seal id is malformed".to_owned()))
-        .and_then(|digest| Ok(Hash::new(digest)?.digest_suite()?))?;
+    let digest_suite = reserved_id.digest_suite()?;
     let derived = Seal::id_from_canonical_bytes(
         &arkret_canonical::canonical::canonical_json_bytes(body)?,
         digest_suite,

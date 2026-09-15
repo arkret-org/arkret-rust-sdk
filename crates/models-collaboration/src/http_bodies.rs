@@ -3496,6 +3496,35 @@ pub struct DevicePairingStatusOutcome {
     pub authorized_event_ref: Option<EventId>,
 }
 
+impl DevicePairingStatusOutcome {
+    /// Enforce the `device_pairing_status_outcome` `allOf`: `authorized`
+    /// carries both the device id and the accepted authorize Event ref, and
+    /// every other state carries neither.
+    ///
+    /// The two members are the entry point for the §5.4.1 pre-assembly check,
+    /// so a half-populated `authorized` outcome would hand the target device a
+    /// dangling reference, and a populated non-`authorized` outcome would let
+    /// it assemble before a sibling ever approved.
+    pub fn validate(&self) -> Result<()> {
+        let authorized = self.state == DevicePairingState::Authorized;
+        let carries_authorization = self.device_id.is_some() && self.authorized_event_ref.is_some();
+        let carries_nothing = self.device_id.is_none() && self.authorized_event_ref.is_none();
+        if authorized && !carries_authorization {
+            return Err(WireError::Protocol(
+                "authorized device pairing status must carry device_id and authorized_event_ref"
+                    .to_owned(),
+            ));
+        }
+        if !authorized && !carries_nothing {
+            return Err(WireError::Protocol(
+                "unauthorized device pairing status must carry neither device_id nor authorized_event_ref"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]

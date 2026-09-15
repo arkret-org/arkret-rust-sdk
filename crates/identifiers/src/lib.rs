@@ -1319,6 +1319,23 @@ impl Hash {
     }
 }
 
+impl SealId {
+    /// Digest suite this content-addressed Seal identity was minted under.
+    ///
+    /// A `SealId` is `ak:seal:` plus a bare `<algo>:<hex>` digest, so the suite
+    /// is carried by the identifier itself and re-deriving the body id needs no
+    /// second input. Without this accessor every verifier has to re-implement
+    /// the same prefix strip, which is a signature-verification failure when it
+    /// drifts, not a cosmetic one.
+    pub fn digest_suite(&self) -> Result<arkret_canonical::DigestSuite> {
+        let digest = self
+            .as_str()
+            .strip_prefix("ak:seal:")
+            .ok_or_else(|| IdentifierError::InvalidId(self.as_str().to_owned()))?;
+        Hash::new(digest)?.digest_suite()
+    }
+}
+
 impl EventIdentityKey {
     pub fn from_event_digest(value: &Hash) -> Result<Self> {
         let (suite, hex) = value
