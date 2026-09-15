@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::artifacts_account::{
-    DeviceSummaryStatus, DeviceSummaryVerificationState, validate_device_summary_evidence,
-    validate_device_summary_state,
+    DeviceSummaryStatus, DeviceSummaryVerificationSource, DeviceSummaryVerificationState,
+    validate_device_summary_evidence, validate_device_summary_state,
 };
 use crate::handle::Handle;
 use crate::principal_registration_anchor::PrincipalRegistrationAnchor;
@@ -247,6 +247,8 @@ pub struct AccountDeviceSummary {
     pub status: DeviceSummaryStatus,
     pub verification_state: DeviceSummaryVerificationState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_source: Option<DeviceSummaryVerificationSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
@@ -270,6 +272,7 @@ impl AccountDeviceSummary {
         validate_device_summary_state(self.status, self.revocation_states.as_deref())?;
         validate_device_summary_evidence(
             self.verification_state,
+            self.verification_source,
             self.authorized_event_ref.as_ref(),
             self.signer_resolution_evidence_ref.as_ref(),
         )

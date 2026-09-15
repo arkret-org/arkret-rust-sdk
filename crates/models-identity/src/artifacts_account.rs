@@ -31,6 +31,22 @@ pub enum DeviceSummaryVerificationState {
     Stale,
 }
 
+/// Closed provenance of the verification checkpoint behind
+/// [`DeviceSummaryVerificationState`], per `crypto-media/device-lifecycle.md`
+/// §10.1. Login factors, SSO sessions, ordinary session grants and bare server
+/// projections never mint a checkpoint, so they have no spelling here.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DeviceSummaryVerificationSource {
+    /// PCR genesis first device.
+    Genesis,
+    /// Accepted-device pairing or re-verification ceremony.
+    PairingCode,
+    /// Replacement device of an accepted recovery unit.
+    Recovery,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/account-operations.schema.json#/$defs/device_summary`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,6 +57,8 @@ pub struct DeviceSummary {
     pub display_name: Option<String>,
     pub status: DeviceSummaryStatus,
     pub verification_state: DeviceSummaryVerificationState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_source: Option<DeviceSummaryVerificationSource>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorized_event_ref: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -63,6 +81,7 @@ impl DeviceSummary {
         validate_device_summary_state(self.status, self.revocation_states.as_deref())?;
         validate_device_summary_evidence(
             self.verification_state,
+            self.verification_source,
             self.authorized_event_ref.as_ref(),
             self.signer_resolution_evidence_ref.as_ref(),
         )
@@ -71,9 +90,26 @@ impl DeviceSummary {
 
 pub fn validate_device_summary_evidence(
     verification_state: DeviceSummaryVerificationState,
+    verification_source: Option<DeviceSummaryVerificationSource>,
     authorized_event_ref: Option<&EventId>,
     signer_resolution_evidence_ref: Option<&SignerEvidenceRef>,
 ) -> Result<()> {
+    // `device-lifecycle.md` §10.1: the provenance is present exactly when a
+    // checkpoint exists. `stale` keeps the source of the checkpoint it used to
+    // hold, `unresolved` never had one.
+    match verification_state {
+        DeviceSummaryVerificationState::Verified if verification_source.is_none() => {
+            return Err(WireError::Protocol(
+                "verified device summary requires a verification_source".to_owned(),
+            ));
+        }
+        DeviceSummaryVerificationState::Unresolved if verification_source.is_some() => {
+            return Err(WireError::Protocol(
+                "unresolved device summary must not carry a verification_source".to_owned(),
+            ));
+        }
+        _ => {}
+    }
     if verification_state == DeviceSummaryVerificationState::Verified {
         if authorized_event_ref.is_none() || signer_resolution_evidence_ref.is_none() {
             return Err(WireError::Protocol(
