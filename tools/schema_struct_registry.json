@@ -936,6 +936,10 @@
       "schema": "security-transaction.schema.json#/$defs/recovery_terminal_commit"
     },
     {
+      "rust_type": "crates/models-crypto/src/security_transaction.rs::SecurityRotationLocalCommit",
+      "schema": "security-transaction.schema.json#/$defs/security_rotation_local_commit"
+    },
+    {
       "rust_type": "crates/models-discovery/src/directory.rs::DirectoryWithdrawRequestBody",
       "schema": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody"
     },
@@ -1178,6 +1182,10 @@
     {
       "rust_type": "crates/wire/src/seal_conclusion.rs::SealConclusionCellState",
       "schema": "seal-conclusion.schema.json#/$defs/cell_state"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::ClientStepAttestation",
+      "schema": "security-transaction.schema.json#/$defs/client_step_attestation"
     },
     {
       "rust_type": "crates/wire/src/security_transaction.rs::PcrPolicyRecoveryBinding",

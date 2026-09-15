@@ -719,12 +719,21 @@ pub struct ClientStepAttestation<A = Value> {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
-    pub attestation_digest: Hash,
     pub artifact: A,
     pub auth_data: ClientStepAttestationAuthData,
 }
 
 impl<A: Serialize> ClientStepAttestation<A> {
+    /// `SHA-256(RFC8785_JCS(artifact))`.
+    ///
+    /// The signed projection commits to this value, but it is not a wire
+    /// field: signer and verifier each recompute it from the typed artifact
+    /// this object already carries, so the artifact is authenticated
+    /// transitively and never duplicated on the wire.
+    pub fn attestation_digest(&self) -> Result<Hash> {
+        client_step_attestation_artifact_digest(&self.artifact)
+    }
+
     pub fn validate_structural(&self) -> Result<()> {
         if self.auth_data.signature_algorithm != "Ed25519"
             || self.auth_data.verification_method.is_empty()
@@ -735,11 +744,7 @@ impl<A: Serialize> ClientStepAttestation<A> {
             ));
         }
         validate_step_output_ref("client_attestation.output_ref", &self.output_ref)?;
-        let artifact_bytes = arkret_canonical::canonical::canonical_json_bytes(&self.artifact)?;
-        arkret_canonical::canonical::verify_digest(
-            &artifact_bytes,
-            self.attestation_digest.as_str(),
-        )?;
+        self.attestation_digest()?;
         Ok(())
     }
 
@@ -750,7 +755,7 @@ impl<A: Serialize> ClientStepAttestation<A> {
             &self.transaction_id,
             &self.transaction_request_digest,
             &self.prepared_plan_digest,
-            &self.attestation_digest,
+            &self.attestation_digest()?,
         )
     }
 }
@@ -764,36 +769,36 @@ pub struct UnsignedClientStepAttestation<A> {
     transaction_id: TransactionId,
     transaction_request_digest: Hash,
     prepared_plan_digest: Hash,
-    attestation_digest: Hash,
     artifact: A,
     verification_method: DidUrl,
 }
 
 impl<A: Serialize> UnsignedClientStepAttestation<A> {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         step: SecurityTransactionStep,
         output_ref: String,
         transaction_id: TransactionId,
         transaction_request_digest: Hash,
         prepared_plan_digest: Hash,
-        attestation_digest: Hash,
         artifact: A,
         verification_method: DidUrl,
     ) -> Result<Self> {
         validate_step_output_ref("client_attestation.output_ref", &output_ref)?;
-        let artifact_bytes = arkret_canonical::canonical::canonical_json_bytes(&artifact)?;
-        arkret_canonical::canonical::verify_digest(&artifact_bytes, attestation_digest.as_str())?;
+        client_step_attestation_artifact_digest(&artifact)?;
         Ok(Self {
             step,
             output_ref,
             transaction_id,
             transaction_request_digest,
             prepared_plan_digest,
-            attestation_digest,
             artifact,
             verification_method,
         })
+    }
+
+    /// `SHA-256(RFC8785_JCS(artifact))`, recomputed rather than carried.
+    pub fn attestation_digest(&self) -> Result<Hash> {
+        client_step_attestation_artifact_digest(&self.artifact)
     }
 
     pub fn signing_bytes(&self) -> Result<Vec<u8>> {
@@ -803,7 +808,7 @@ impl<A: Serialize> UnsignedClientStepAttestation<A> {
             &self.transaction_id,
             &self.transaction_request_digest,
             &self.prepared_plan_digest,
-            &self.attestation_digest,
+            &self.attestation_digest()?,
         )
     }
 
@@ -817,7 +822,6 @@ impl<A: Serialize> UnsignedClientStepAttestation<A> {
             transaction_id: self.transaction_id,
             transaction_request_digest: self.transaction_request_digest,
             prepared_plan_digest: self.prepared_plan_digest,
-            attestation_digest: self.attestation_digest,
             artifact: self.artifact,
             auth_data: ClientStepAttestationAuthData {
                 verification_method: self.verification_method,
@@ -828,6 +832,12 @@ impl<A: Serialize> UnsignedClientStepAttestation<A> {
         attestation.validate_structural()?;
         Ok(attestation)
     }
+}
+
+fn client_step_attestation_artifact_digest<A: Serialize>(artifact: &A) -> Result<Hash> {
+    Ok(Hash::new(arkret_canonical::canonical::canonical_sha256(
+        artifact,
+    )?)?)
 }
 
 fn client_step_attestation_signing_bytes(
