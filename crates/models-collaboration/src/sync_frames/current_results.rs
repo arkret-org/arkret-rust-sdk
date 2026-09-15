@@ -4,7 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use arkret_schema::ProtocolSchemaRegistry;
-pub use arkret_schema::generated::current_result_schemas::MAX_ATOMIC_CURRENT_ENTRY_CANONICAL_BYTES;
+pub use arkret_schema::generated::current_result_schemas::{
+    DETAIL_FRAME_ENVELOPE_RESERVATION, MAX_ATOMIC_CURRENT_ENTRY_CANONICAL_BYTES,
+};
 use arkret_wire::{
     ActorId, CellId, CellRef, EventId, RealmId, Result, ScopeRef, StrandId, WireError,
 };
