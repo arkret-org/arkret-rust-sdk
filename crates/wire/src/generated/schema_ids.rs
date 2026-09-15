@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-15.2;
-//! sha256=97b6d7eb80954ac2dce37dedd8d80d9bcb69264b7b08845d75bfb60545425276 Entries: schema_ids=229,
-//! active=229
+//! Input: registry/schema-registry.json; version=2026-09-15.3;
+//! sha256=56e5212dd9818fa6fe0ae858cf7cbafc8ba324115ea0c0770125ccdae1cfbe4f Entries: schema_ids=228,
+//! active=228
 
 use serde::{Deserialize, Serialize};
 
@@ -201,7 +201,6 @@ pub enum SchemaId {
     SdkConformanceClaimV1,
     SealV1,
     SealConclusionV1,
-    SealTransparencyV1,
     SearchServiceV1,
     SecurityRotationLocalCommitV1,
     SecurityTransactionV1,
@@ -434,7 +433,6 @@ impl SchemaId {
         Self::SdkConformanceClaimV1,
         Self::SealV1,
         Self::SealConclusionV1,
-        Self::SealTransparencyV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
         Self::SecurityTransactionV1,
@@ -667,7 +665,6 @@ impl SchemaId {
         Self::SdkConformanceClaimV1,
         Self::SealV1,
         Self::SealConclusionV1,
-        Self::SealTransparencyV1,
         Self::SearchServiceV1,
         Self::SecurityRotationLocalCommitV1,
         Self::SecurityTransactionV1,
@@ -1268,8 +1265,6 @@ impl SchemaId {
     /// Scope-authorized single-authority governance conclusions and frozen configuration handoffs
     /// for governance-result receivers.
     pub const SEAL_CONCLUSION_V1: &'static str = "ak.schema.seal_conclusion.v1";
-    /// Seal transparency append-only log entry and independent auditor attestation wire schema
-    pub const SEAL_TRANSPARENCY_V1: &'static str = "ak.schema.seal_transparency.v1";
     /// Privacy-preserving search index manifest, blind index query, and policy shapes.
     pub const SEARCH_SERVICE_V1: &'static str = "ak.schema.search_service.v1";
     /// Typed local-device commit artifact for the terminal SecurityRotationTransaction step.
@@ -1591,7 +1586,6 @@ impl SchemaId {
             Self::SdkConformanceClaimV1 => Self::SDK_CONFORMANCE_CLAIM_V1,
             Self::SealV1 => Self::SEAL_V1,
             Self::SealConclusionV1 => Self::SEAL_CONCLUSION_V1,
-            Self::SealTransparencyV1 => Self::SEAL_TRANSPARENCY_V1,
             Self::SearchServiceV1 => Self::SEARCH_SERVICE_V1,
             Self::SecurityRotationLocalCommitV1 => Self::SECURITY_ROTATION_LOCAL_COMMIT_V1,
             Self::SecurityTransactionV1 => Self::SECURITY_TRANSACTION_V1,
@@ -1877,7 +1871,6 @@ impl SchemaId {
             Self::SdkConformanceClaimV1 => "schemas/sdk-conformance-claim.schema.json",
             Self::SealV1 => "schemas/seal.schema.json",
             Self::SealConclusionV1 => "schemas/seal-conclusion.schema.json",
-            Self::SealTransparencyV1 => "schemas/seal-transparency.schema.json",
             Self::SearchServiceV1 => "schemas/search-service.schema.json",
             Self::SecurityRotationLocalCommitV1 => "schemas/security-transaction.schema.json",
             Self::SecurityTransactionV1 => "schemas/security-transaction.schema.json",
@@ -2153,7 +2146,6 @@ impl SchemaId {
             Self::SDK_CONFORMANCE_CLAIM_V1 => Some(Self::SdkConformanceClaimV1),
             Self::SEAL_V1 => Some(Self::SealV1),
             Self::SEAL_CONCLUSION_V1 => Some(Self::SealConclusionV1),
-            Self::SEAL_TRANSPARENCY_V1 => Some(Self::SealTransparencyV1),
             Self::SEARCH_SERVICE_V1 => Some(Self::SearchServiceV1),
             Self::SECURITY_ROTATION_LOCAL_COMMIT_V1 => Some(Self::SecurityRotationLocalCommitV1),
             Self::SECURITY_TRANSACTION_V1 => Some(Self::SecurityTransactionV1),

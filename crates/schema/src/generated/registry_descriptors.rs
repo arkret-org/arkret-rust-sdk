@@ -4,11 +4,11 @@
 //! sha256=5f1ee8b848d7e3154faf9bf40ed84a621cda8325c1d8e1a8d9b6b65a5fafefc9 Input: registry/
 //! capability-action-registry.json; version=2026-09-12.5;
 //! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Input: registry/
-//! schema-registry.json; version=2026-09-15.2;
-//! sha256=97b6d7eb80954ac2dce37dedd8d80d9bcb69264b7b08845d75bfb60545425276 Input: registry/
+//! schema-registry.json; version=2026-09-15.3;
+//! sha256=56e5212dd9818fa6fe0ae858cf7cbafc8ba324115ea0c0770125ccdae1cfbe4f Input: registry/
 //! account-data-key-registry.json; version=2026-09-12.6;
 //! sha256=ef2efd5f8dfd5f154d085382ccf70d7b63faf386d6665c9d231446d4d6fa33bf Entries: id_kinds=57,
-//! special_forms=14, actions=162, schemas=229, account_data_patterns=24
+//! special_forms=14, actions=162, schemas=228, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -3793,10 +3793,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::SEAL_CONCLUSION_V1,
         file: "schemas/seal-conclusion.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SEAL_TRANSPARENCY_V1,
-        file: "schemas/seal-transparency.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SEARCH_SERVICE_V1,

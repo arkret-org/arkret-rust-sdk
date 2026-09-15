@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-15.15;
-//! sha256=53012defad052c8d411d7592390d14010c87ab6c7638dea207a67ae9157bbfae Entries: profile_ids=88
+//! Input: profiles/conformance-profiles.json; version=2026-09-15.16;
+//! sha256=0d239c3bdd55694868881959123558a2bd1c8449517fc5297b0a5e7396bf4eea Entries: profile_ids=86
 
 use serde::{Deserialize, Serialize};
 
@@ -43,7 +43,6 @@ pub enum ProfileId {
     E2eeClientV1,
     E2eeRelaxedV1,
     EncodingCborV1,
-    EncodingMultihashV1,
     EnterpriseClientV1,
     EphemeralPairwisePrincipalV1,
     FederationHighAssuranceV1,
@@ -96,7 +95,6 @@ pub enum ProfileId {
     StationV1,
     StationEventsApiV1,
     TrafficMetadataHardenedV1,
-    UcanInteropV1,
     WebrtcMediaV1,
 }
 
@@ -173,7 +171,6 @@ impl ProfileId {
         Self::E2eeClientV1,
         Self::E2eeRelaxedV1,
         Self::EncodingCborV1,
-        Self::EncodingMultihashV1,
         Self::EnterpriseClientV1,
         Self::EphemeralPairwisePrincipalV1,
         Self::FederationHighAssuranceV1,
@@ -226,7 +223,6 @@ impl ProfileId {
         Self::StationV1,
         Self::StationEventsApiV1,
         Self::TrafficMetadataHardenedV1,
-        Self::UcanInteropV1,
         Self::WebrtcMediaV1,
     ];
 
@@ -271,7 +267,6 @@ impl ProfileId {
     pub const E2EE_CLIENT_V1: &'static str = "ak.profile.e2ee_client.v1";
     pub const E2EE_RELAXED_V1: &'static str = "ak.profile.e2ee_relaxed.v1";
     pub const ENCODING_CBOR_V1: &'static str = "ak.profile.encoding.cbor.v1";
-    pub const ENCODING_MULTIHASH_V1: &'static str = "ak.profile.encoding.multihash.v1";
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
     pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str =
         "ak.profile.ephemeral_pairwise_principal.v1";
@@ -339,7 +334,6 @@ impl ProfileId {
     pub const STATION_EVENTS_API_V1: &'static str = "ak.profile.station_events_api.v1";
     pub const TRAFFIC_METADATA_HARDENED_V1: &'static str =
         "ak.profile.traffic_metadata_hardened.v1";
-    pub const UCAN_INTEROP_V1: &'static str = "ak.profile.ucan_interop.v1";
     pub const WEBRTC_MEDIA_V1: &'static str = "ak.profile.webrtc_media.v1";
 
     pub const fn as_str(self) -> &'static str {
@@ -377,7 +371,6 @@ impl ProfileId {
             Self::E2eeClientV1 => Self::E2EE_CLIENT_V1,
             Self::E2eeRelaxedV1 => Self::E2EE_RELAXED_V1,
             Self::EncodingCborV1 => Self::ENCODING_CBOR_V1,
-            Self::EncodingMultihashV1 => Self::ENCODING_MULTIHASH_V1,
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
             Self::EphemeralPairwisePrincipalV1 => Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1,
             Self::FederationHighAssuranceV1 => Self::FEDERATION_HIGH_ASSURANCE_V1,
@@ -432,7 +425,6 @@ impl ProfileId {
             Self::StationV1 => Self::STATION_V1,
             Self::StationEventsApiV1 => Self::STATION_EVENTS_API_V1,
             Self::TrafficMetadataHardenedV1 => Self::TRAFFIC_METADATA_HARDENED_V1,
-            Self::UcanInteropV1 => Self::UCAN_INTEROP_V1,
             Self::WebrtcMediaV1 => Self::WEBRTC_MEDIA_V1,
         }
     }
@@ -472,7 +464,6 @@ impl ProfileId {
             Self::E2eeClientV1 => ProfileRole::Client,
             Self::E2eeRelaxedV1 => ProfileRole::Client,
             Self::EncodingCborV1 => ProfileRole::Interop,
-            Self::EncodingMultihashV1 => ProfileRole::Interop,
             Self::EnterpriseClientV1 => ProfileRole::Client,
             Self::EphemeralPairwisePrincipalV1 => ProfileRole::Admin,
             Self::FederationHighAssuranceV1 => ProfileRole::Server,
@@ -525,7 +516,6 @@ impl ProfileId {
             Self::StationV1 => ProfileRole::Server,
             Self::StationEventsApiV1 => ProfileRole::Server,
             Self::TrafficMetadataHardenedV1 => ProfileRole::Admin,
-            Self::UcanInteropV1 => ProfileRole::Interop,
             Self::WebrtcMediaV1 => ProfileRole::Gateway,
         }
     }
@@ -574,7 +564,6 @@ impl ProfileId {
             Self::E2EE_CLIENT_V1 => Some(Self::E2eeClientV1),
             Self::E2EE_RELAXED_V1 => Some(Self::E2eeRelaxedV1),
             Self::ENCODING_CBOR_V1 => Some(Self::EncodingCborV1),
-            Self::ENCODING_MULTIHASH_V1 => Some(Self::EncodingMultihashV1),
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
             Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1 => Some(Self::EphemeralPairwisePrincipalV1),
             Self::FEDERATION_HIGH_ASSURANCE_V1 => Some(Self::FederationHighAssuranceV1),
@@ -635,7 +624,6 @@ impl ProfileId {
             Self::STATION_V1 => Some(Self::StationV1),
             Self::STATION_EVENTS_API_V1 => Some(Self::StationEventsApiV1),
             Self::TRAFFIC_METADATA_HARDENED_V1 => Some(Self::TrafficMetadataHardenedV1),
-            Self::UCAN_INTEROP_V1 => Some(Self::UcanInteropV1),
             Self::WEBRTC_MEDIA_V1 => Some(Self::WebrtcMediaV1),
             _ => None,
         }

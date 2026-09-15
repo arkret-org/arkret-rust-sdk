@@ -188,8 +188,6 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability_policy: Option<RealmAvailabilityPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audit_policy: Option<RealmAuditPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_intake_sla_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proposal_decision_window_ms: Option<u64>,
@@ -231,7 +229,6 @@ impl RealmPolicyBundlePayload {
             agent_participation: None,
             account_deactivation: None,
             availability_policy: None,
-            audit_policy: None,
             proposal_intake_sla_ms: None,
             proposal_decision_window_ms: None,
             proposal_absolute_deadline_ms: None,

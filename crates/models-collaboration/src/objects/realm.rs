@@ -103,8 +103,6 @@ pub struct Realm {
     pub federation_policy: Option<FederationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub availability_policy: Option<RealmAvailabilityPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audit_policy: Option<RealmAuditPolicy>,
     #[serde(default)]
     pub digest_algorithm: canonical::DigestSuite,
     /// Initial notary cell value (data-structures.md §4). Reducers seed the
@@ -194,21 +192,6 @@ impl RealmAvailabilityPolicy {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SealTransparencyAuditorIndependence {
-    DistinctDid,
-    DistinctControllingOrganization,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmAuditPolicy {
-    pub seal_transparency_auditor_ids: Vec<DidCoreId>,
-    pub seal_transparency_min_attestations: u8,
-    pub seal_transparency_auditor_independence: SealTransparencyAuditorIndependence,
-}
-
 fn default_max_delegation_lifetime_ms() -> u64 {
     86_400_000
 }
@@ -258,7 +241,6 @@ impl Realm {
             durability_policy: None,
             federation_policy: None,
             availability_policy: None,
-            audit_policy: None,
             digest_algorithm: canonical::DigestSuite::Sha256,
             notary,
             proposal_intake_sla_ms: None,
@@ -328,24 +310,6 @@ impl Realm {
         }
         if let Some(policy) = &self.availability_policy {
             policy.validate()?;
-        }
-        if let Some(policy) = &self.audit_policy {
-            let auditor_count = policy.seal_transparency_auditor_ids.len();
-            if !(1..=64).contains(&auditor_count)
-                || !(1..=16).contains(&policy.seal_transparency_min_attestations)
-                || usize::from(policy.seal_transparency_min_attestations) > auditor_count
-                || policy
-                    .seal_transparency_auditor_ids
-                    .iter()
-                    .collect::<std::collections::BTreeSet<_>>()
-                    .len()
-                    != auditor_count
-            {
-                return Err(WireError::Protocol(
-                    "Realm audit_policy violates its bounded seal-transparency auditor contract"
-                        .to_owned(),
-                ));
-            }
         }
         Ok(())
     }

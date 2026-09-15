@@ -222,11 +222,6 @@ fn realm_policy_bundle_payload_matches_its_schema_definition() {
                 "min_holders": 1,
                 "applies_to": ["seal_include"]
             },
-            "audit_policy": {
-                "seal_transparency_auditor_ids": ["ak:did_core:web:witness.example"],
-                "seal_transparency_min_attestations": 1,
-                "seal_transparency_auditor_independence": "distinct_did"
-            },
             "proposal_intake_sla_ms": 60000,
             "proposal_decision_window_ms": 30000,
             "proposal_absolute_deadline_ms": 90000,

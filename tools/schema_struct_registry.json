@@ -728,10 +728,6 @@
       "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
     },
     {
-      "rust_type": "crates/models-collaboration/src/seal_transparency.rs::SealTransparency",
-      "schema": "seal-transparency.schema.json"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/signal_plaintext.rs::PresencePlaintext",
       "schema": "signal-presence.schema.json"
     },
