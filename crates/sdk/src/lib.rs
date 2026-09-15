@@ -122,6 +122,7 @@ pub use arkret_keystore::{
     WindowsCredentialKeyStore, durable_platform_keystore,
 };
 pub use arkret_models_collaboration::account_lifecycle::*;
+pub use arkret_models_collaboration::actor_profile_resolution::*;
 pub use arkret_models_collaboration::agent_operations::*;
 pub use arkret_models_collaboration::call_signal::{
     CallAckSignalData, CallAnswerSignalData, CallCandidateSignalData, CallEndSignalData,
@@ -274,6 +275,7 @@ pub use arkret_models_discovery::service_requirements::{
 pub use arkret_models_discovery::station_connection::*;
 pub use arkret_models_identity::account::*;
 pub use arkret_models_identity::actor_profile::*;
+pub use arkret_models_identity::actor_profile_operations::*;
 pub use arkret_models_identity::admin_grant::{
     SessionGrantAdminIntrospectionStatus, SessionGrantIntrospection, admin_scopes,
 };

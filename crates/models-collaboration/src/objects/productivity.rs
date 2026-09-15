@@ -1465,8 +1465,10 @@ impl ContactRemark {
     }
 
     /// Initializes the identity-confirmation baseline without inventing a
-    /// holder-authored petname. The caller must already have verified the
-    /// exact signed PCR profile Event and its accepted Seal.
+    /// holder-authored petname. The caller must already have validated the
+    /// exact signed PCR profile Event behind the display value, through
+    /// [`crate::actor_profile_resolution::validate_resolved_actor_profile`];
+    /// ordinary profile state carries no Seal to wait for.
     pub fn new_with_confirmed_display_name(
         principal_id: DidCoreId,
         confirmed_display_name: impl Into<String>,

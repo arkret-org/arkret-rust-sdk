@@ -1,5 +1,6 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
+use arkret_models_collaboration::actor_profile_resolution::validate_actor_profile_resolve_outcome;
 use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
     DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
@@ -11,6 +12,9 @@ use arkret_models_discovery::{
     DirectorySearchOrganizationsRequestBody, DirectorySearchRealmsRequestBody,
     DirectorySubjectHandleList, DirectoryTargetResolutionOutcome, ServiceDescribe,
     ServiceRequirements,
+};
+use arkret_models_identity::actor_profile_operations::{
+    ActorProfileResolveOutcome, ActorProfileResolveRequest,
 };
 use arkret_models_identity::service_identity::{
     SERVICE_REGISTRATION_ENSURE_PATH, SERVICE_REGISTRATION_GET_PATH,
@@ -94,6 +98,29 @@ impl Client {
             .await?;
         evidence.validate_history_continuation()?;
         Ok(evidence)
+    }
+
+    /// Resolve co-member global Actor Profiles through the only outward
+    /// carrier for PCR-resident profile state.
+    ///
+    /// `realm_id` is the authorization basis: the caller and every returned
+    /// actor must be current effective joined members of it, and it must not be
+    /// a Principal Control Realm. Every requested actor comes back exactly once
+    /// across `profiles` and `failures`, and every per-actor failure is the
+    /// single `profile_unavailable` value, so the response cannot be used to
+    /// probe membership or account existence. Rows are checked against their
+    /// own signed Event before they are returned; ordinary profile state has no
+    /// covering Seal, so nothing here waits for one.
+    pub async fn actor_profile_resolve(
+        &self,
+        request: &ActorProfileResolveRequest,
+    ) -> Result<ActorProfileResolveOutcome> {
+        request.validate()?;
+        let outcome: ActorProfileResolveOutcome = self
+            .post("/_arkret/self/actor-profiles/query", request)
+            .await?;
+        validate_actor_profile_resolve_outcome(&outcome, &request.actor_ids)?;
+        Ok(outcome)
     }
 
     /// Fetch the current public principal resolution projection without

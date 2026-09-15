@@ -9,6 +9,7 @@
 //! plus the first event-payload faces migrated from the `arkret` umbrella.
 
 pub mod account_lifecycle;
+pub mod actor_profile_resolution;
 pub mod agent_operations;
 pub mod applet_installation_authority;
 pub use arkret_models_identity::agent_signer_evidence;
