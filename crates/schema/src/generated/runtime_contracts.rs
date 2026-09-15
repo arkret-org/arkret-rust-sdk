@@ -2,14 +2,14 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
 //! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-15.12;
-//! sha256=aeecf44f005ab45837ddae4b81957cdeef633a616f5f57d544835189fb16b8ab Input: registry/
-//! operation-registry.json; version=2026-09-15.7;
-//! sha256=446b85ef6668fb3262286dec454dbc52879860c1ab00d51481dde9e171c0f25d Input: registry/
+//! contract-registry.json; version=2026-09-15.15;
+//! sha256=8218f3529eda55ef988ec0711d4a30ac6d055e044c0b7b4bb51cadad1bf1477e Input: registry/
+//! operation-registry.json; version=2026-09-15.10;
+//! sha256=f4ccf57d4df4bab1f3657ff59f46be6498d0ef56e6297940ef3bdabb6df0bb2e Input: registry/
 //! event-kind-registry.json; version=2026-09-14.1;
 //! sha256=e7fb4737b5deb6f57624cc120225f0e65f951f3def6c7c40d9c59f53c78b737b Input: registry/
-//! schema-registry.json; version=2026-09-15.1;
-//! sha256=ab15644cf74609369614ef0936e154e8019f6249f01ad1cc1a3a4f840bc8cd73 Input: registry/
+//! schema-registry.json; version=2026-09-15.2;
+//! sha256=97b6d7eb80954ac2dce37dedd8d80d9bcb69264b7b08845d75bfb60545425276 Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -769,7 +769,9 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
             ServiceOperationId::GateAccountCommandAbandonIdentityCreationV1,
             ServiceOperationId::GateAccountCommandRegisterV1,
+            ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
             ServiceOperationId::GateAccountCommandPairDeviceV1,
+            ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
             ServiceOperationId::GateAccountCommandIssueSessionGrantV1,
             ServiceOperationId::GateAccountCommandRefreshSessionGrantV1,
             ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrantV1,
@@ -809,7 +811,7 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = 
 ];
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-14.1";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-15.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-15.7";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-15.2";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-15.10";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-08.4";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-15.12;
-//! sha256=aeecf44f005ab45837ddae4b81957cdeef633a616f5f57d544835189fb16b8ab
+//! Input: registry/contract-registry.json; version=2026-09-15.15;
+//! sha256=8218f3529eda55ef988ec0711d4a30ac6d055e044c0b7b4bb51cadad1bf1477e
 //! Entries: operation_bundles=37 features=19
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -644,6 +644,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
         service_kind: ServiceKind::Station,
         members: &[
             OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandLogoutV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -653,6 +657,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
             },
             OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountCommandRevokeSessionV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {

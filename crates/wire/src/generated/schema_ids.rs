@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-15.1;
-//! sha256=ab15644cf74609369614ef0936e154e8019f6249f01ad1cc1a3a4f840bc8cd73 Entries: schema_ids=229,
+//! Input: registry/schema-registry.json; version=2026-09-15.2;
+//! sha256=97b6d7eb80954ac2dce37dedd8d80d9bcb69264b7b08845d75bfb60545425276 Entries: schema_ids=229,
 //! active=229
 
 use serde::{Deserialize, Serialize};
@@ -931,7 +931,7 @@ impl SchemaId {
     /// bundle that ak.schema.device_pairing_operations.v1 maps to.
     pub const DEVICE_PAIRING_BOOTSTRAP_V1: &'static str = "ak.schema.device_pairing_bootstrap.v1";
     /// Closed request/response DTO bundle for the server-mediated device-pairing short-link handoff
-    /// (stage / resolve / status). See device-lifecycle.md §2.1.1.
+    /// (stage / finalize / resolve / code claim / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
     /// Closed PCR-policy recovery payload binding one account-local lineage, accepted
     /// policy/session, monotonic PCR generation CAS, complete pre-fence Seal frontier and

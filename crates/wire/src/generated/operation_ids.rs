@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-15.7;
-//! sha256=446b85ef6668fb3262286dec454dbc52879860c1ab00d51481dde9e171c0f25d Entries: registered=254
+//! Input: registry/operation-registry.json; version=2026-09-15.10;
+//! sha256=f4ccf57d4df4bab1f3657ff59f46be6498d0ef56e6297940ef3bdabb6df0bb2e Entries: registered=256
 
 use serde::{Deserialize, Serialize};
 
@@ -36,6 +36,7 @@ pub enum ServiceOperationId {
     FindDirectoryReadSearchRealmsV1,
     FindDirectoryReadSearchUsersV1,
     GateAccountCommandAbandonIdentityCreationV1,
+    GateAccountCommandFinalizeDevicePairingV1,
     GateAccountCommandIntrospectSessionGrantV1,
     GateAccountCommandIssueControllerGateAttestationV1,
     GateAccountCommandIssueDidBindingChallengeV1,
@@ -51,6 +52,7 @@ pub enum ServiceOperationId {
     GateAccountCommandRequestErasureV1,
     GateAccountCommandRevokeSessionV1,
     GateAccountExchangeCreateHandoffV1,
+    GateAccountReadClaimDevicePairingCodeV1,
     GateAccountReadOnboardingV1,
     OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
     OpenAgentPairingReadResolveV1,
@@ -293,6 +295,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_REALMS_V1,
     ServiceOperationId::FIND_DIRECTORY_READ_SEARCH_USERS_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1,
@@ -308,6 +311,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1,
+    ServiceOperationId::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_ONBOARDING_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RESOLVE_V1,
@@ -592,6 +596,7 @@ impl ServiceOperationId {
         Self::FindDirectoryReadSearchRealmsV1,
         Self::FindDirectoryReadSearchUsersV1,
         Self::GateAccountCommandAbandonIdentityCreationV1,
+        Self::GateAccountCommandFinalizeDevicePairingV1,
         Self::GateAccountCommandIntrospectSessionGrantV1,
         Self::GateAccountCommandIssueControllerGateAttestationV1,
         Self::GateAccountCommandIssueDidBindingChallengeV1,
@@ -607,6 +612,7 @@ impl ServiceOperationId {
         Self::GateAccountCommandRequestErasureV1,
         Self::GateAccountCommandRevokeSessionV1,
         Self::GateAccountExchangeCreateHandoffV1,
+        Self::GateAccountReadClaimDevicePairingCodeV1,
         Self::GateAccountReadOnboardingV1,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
         Self::OpenAgentPairingReadResolveV1,
@@ -872,6 +878,8 @@ impl ServiceOperationId {
         "ak.find.directory.read.search_users.v1";
     pub const GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1: &'static str =
         "ak.gate.account.command.abandon_identity_creation.v1";
+    pub const GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1: &'static str =
+        "ak.gate.account.command.finalize_device_pairing.v1";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1: &'static str =
         "ak.gate.account.command.introspect_session_grant.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1: &'static str =
@@ -901,6 +909,8 @@ impl ServiceOperationId {
         "ak.gate.account.command.revoke_session.v1";
     pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1: &'static str =
         "ak.gate.account.exchange.create_handoff.v1";
+    pub const GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1: &'static str =
+        "ak.gate.account.read.claim_device_pairing_code.v1";
     pub const GATE_ACCOUNT_READ_ONBOARDING_V1: &'static str = "ak.gate.account.read.onboarding.v1";
     pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1: &'static str =
         "ak.open.agent_pairing.command.submit_runtime_key_request.v1";
@@ -1300,6 +1310,9 @@ impl ServiceOperationId {
             Self::GateAccountCommandAbandonIdentityCreationV1 => {
                 Self::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1
             }
+            Self::GateAccountCommandFinalizeDevicePairingV1 => {
+                Self::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1
+            }
             Self::GateAccountCommandIntrospectSessionGrantV1 => {
                 Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1
             }
@@ -1334,6 +1347,9 @@ impl ServiceOperationId {
             Self::GateAccountCommandRevokeSessionV1 => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
             Self::GateAccountExchangeCreateHandoffV1 => {
                 Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1
+            }
+            Self::GateAccountReadClaimDevicePairingCodeV1 => {
+                Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1
             }
             Self::GateAccountReadOnboardingV1 => Self::GATE_ACCOUNT_READ_ONBOARDING_V1,
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1 => {
@@ -1745,6 +1761,9 @@ impl ServiceOperationId {
             Self::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1 => {
                 Some(Self::GateAccountCommandAbandonIdentityCreationV1)
             }
+            Self::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1 => {
+                Some(Self::GateAccountCommandFinalizeDevicePairingV1)
+            }
             Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1 => {
                 Some(Self::GateAccountCommandIntrospectSessionGrantV1)
             }
@@ -1783,6 +1802,9 @@ impl ServiceOperationId {
             }
             Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1 => {
                 Some(Self::GateAccountExchangeCreateHandoffV1)
+            }
+            Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1 => {
+                Some(Self::GateAccountReadClaimDevicePairingCodeV1)
             }
             Self::GATE_ACCOUNT_READ_ONBOARDING_V1 => Some(Self::GateAccountReadOnboardingV1),
             Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1 => {
@@ -2867,6 +2889,31 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/device-pairing/finalizations",
+        grpc: Some("GateAccount/FinalizeDevicePairing"),
+        mq: Some("gate.account.command.finalize_device_pairing"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("canonical_hash"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_finalize_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_finalize_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIntrospectSessionGrantV1,
         http_method: "POST",
         http_path: "/_arkret/gate/account/session-grants/introspect",
@@ -3263,6 +3310,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             ),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/device-pairing/code-claims",
+        grpc: Some("GateAccount/ClaimDevicePairingCode"),
+        mq: Some("gate.account.query.claim_device_pairing_code"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_code_claim_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_code_claim_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountReadOnboardingV1,
