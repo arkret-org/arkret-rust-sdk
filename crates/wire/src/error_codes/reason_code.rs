@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-14.18;
-//! sha256=0b469427beebe83c5889f97b364261865139e446878c0998d09b278076ed36e0
-//! Entries: reason_codes=420
+//! Input: registry/error-code-registry.json; version=2026-09-15.1;
+//! sha256=5ff7d0abb53338e81e1487657bfbfb4728399968201bd8f2b1f0081e045a4b60
+//! Entries: reason_codes=421
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -322,6 +322,7 @@ pub enum ReasonCode {
     RecoveryPolicyVersionNotMonotonic,
     RecoveryPrincipalIsolation,
     RecoveryProofKindUnknown,
+    RecoveryReceiptCompletedAtAfterCommit,
     RecoveryRequired,
     RecoverySessionChallengeMismatch,
     ReducerProjectionFailed,
@@ -822,6 +823,8 @@ impl ReasonCode {
         "recovery_policy_version_not_monotonic";
     pub const RECOVERY_PRINCIPAL_ISOLATION: &'static str = "recovery_principal_isolation";
     pub const RECOVERY_PROOF_KIND_UNKNOWN: &'static str = "recovery_proof_kind_unknown";
+    pub const RECOVERY_RECEIPT_COMPLETED_AT_AFTER_COMMIT: &'static str =
+        "recovery_receipt_completed_at_after_commit";
     pub const RECOVERY_REQUIRED: &'static str = "recovery_required";
     pub const RECOVERY_SESSION_CHALLENGE_MISMATCH: &'static str =
         "recovery_session_challenge_mismatch";
@@ -1317,6 +1320,9 @@ impl ReasonCode {
             Self::RecoveryPolicyVersionNotMonotonic => Self::RECOVERY_POLICY_VERSION_NOT_MONOTONIC,
             Self::RecoveryPrincipalIsolation => Self::RECOVERY_PRINCIPAL_ISOLATION,
             Self::RecoveryProofKindUnknown => Self::RECOVERY_PROOF_KIND_UNKNOWN,
+            Self::RecoveryReceiptCompletedAtAfterCommit => {
+                Self::RECOVERY_RECEIPT_COMPLETED_AT_AFTER_COMMIT
+            }
             Self::RecoveryRequired => Self::RECOVERY_REQUIRED,
             Self::RecoverySessionChallengeMismatch => Self::RECOVERY_SESSION_CHALLENGE_MISMATCH,
             Self::ReducerProjectionFailed => Self::REDUCER_PROJECTION_FAILED,
@@ -1815,6 +1821,9 @@ impl ReasonCode {
             Self::RECOVERY_POLICY_VERSION_NOT_MONOTONIC => Self::RecoveryPolicyVersionNotMonotonic,
             Self::RECOVERY_PRINCIPAL_ISOLATION => Self::RecoveryPrincipalIsolation,
             Self::RECOVERY_PROOF_KIND_UNKNOWN => Self::RecoveryProofKindUnknown,
+            Self::RECOVERY_RECEIPT_COMPLETED_AT_AFTER_COMMIT => {
+                Self::RecoveryReceiptCompletedAtAfterCommit
+            }
             Self::RECOVERY_REQUIRED => Self::RecoveryRequired,
             Self::RECOVERY_SESSION_CHALLENGE_MISMATCH => Self::RecoverySessionChallengeMismatch,
             Self::REDUCER_PROJECTION_FAILED => Self::ReducerProjectionFailed,
@@ -3588,6 +3597,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RECOVERY_PROOF_KIND_UNKNOWN,
         applies_to: &["schema_validation", "device_recovery"],
         description: "A recovery policy, receipt, or proof names a proof kind outside the ak.schema.recovery_policy.v1 methods kind union. Producers MUST use one of did_root, recovery_unlock, device_quorum, or trusted_recovery_service.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::RECOVERY_RECEIPT_COMPLETED_AT_AFTER_COMMIT,
+        applies_to: &["recovery_transaction"],
+        description: "A RecoveryTerminalCommit carries a recovery_receipt whose completed_at is later than the Station's own linearized commit time for commit_recovery_unit. The receipt's completed_at is the replacement device's authoring time for \"completed if every check passes\", so it can never be later than the commit that would make it true. The Station MUST reject the whole submission with this deterministic reason and perform zero authoritative writes: no accepted step, no terminal result, no accepted Event, no committed Seal, no generation advance, no activated device and no consumed recovery session. v1 defines no skew allowance, the Station MUST NOT sign a future-dated completion attestation and MUST NOT block waiting for the client clock. The rejected request was never accepted, so a corrected submission MUST use a new receipt; bytes already frozen as a step outcome still return duplicate_conflict. See zh/identity/security-transactions.md section 2.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RECOVERY_REQUIRED,

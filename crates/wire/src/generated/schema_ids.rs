@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-14.2;
-//! sha256=4b708005fbbeef055804b1d5da86e1649d5857c7c403e7c98180398a9c4cee09 Entries: schema_ids=228,
-//! active=228
+//! Input: registry/schema-registry.json; version=2026-09-15.1;
+//! sha256=ab15644cf74609369614ef0936e154e8019f6249f01ad1cc1a3a4f840bc8cd73 Entries: schema_ids=229,
+//! active=229
 
 use serde::{Deserialize, Serialize};
 
@@ -192,6 +192,7 @@ pub enum SchemaId {
     RecoveryPolicyV1,
     RecoveryReceiptV1,
     RecoverySessionV1,
+    RecoveryTerminalCommitV1,
     RegistrationDidEvidenceV1,
     RelationV1,
     ResourceDiscoveryStateV1,
@@ -424,6 +425,7 @@ impl SchemaId {
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
         Self::RecoverySessionV1,
+        Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceDiscoveryStateV1,
@@ -656,6 +658,7 @@ impl SchemaId {
         Self::RecoveryPolicyV1,
         Self::RecoveryReceiptV1,
         Self::RecoverySessionV1,
+        Self::RecoveryTerminalCommitV1,
         Self::RegistrationDidEvidenceV1,
         Self::RelationV1,
         Self::ResourceDiscoveryStateV1,
@@ -1245,6 +1248,10 @@ impl SchemaId {
     /// exclusively by the bound RecoveryTransaction terminal commit. See
     /// identity/security-transactions.md §2 and crypto-media/device-lifecycle.md §14.
     pub const RECOVERY_SESSION_V1: &'static str = "ak.schema.recovery_session.v1";
+    /// Closed terminal artifact of a RecoveryTransaction: the replacement-device-signed first
+    /// new-generation Seal together with its recovery receipt. It is the sole wire carrier that
+    /// brings that Seal into the single atomic commit_recovery_unit commit.
+    pub const RECOVERY_TERMINAL_COMMIT_V1: &'static str = "ak.schema.recovery_terminal_commit.v1";
     /// Account-local registration DID evidence retained for onboarding and recovery audit.
     pub const REGISTRATION_DID_EVIDENCE_V1: &'static str = "ak.schema.registration_did_evidence.v1";
     pub const RELATION_V1: &'static str = "ak.schema.relation.v1";
@@ -1575,6 +1582,7 @@ impl SchemaId {
             Self::RecoveryPolicyV1 => Self::RECOVERY_POLICY_V1,
             Self::RecoveryReceiptV1 => Self::RECOVERY_RECEIPT_V1,
             Self::RecoverySessionV1 => Self::RECOVERY_SESSION_V1,
+            Self::RecoveryTerminalCommitV1 => Self::RECOVERY_TERMINAL_COMMIT_V1,
             Self::RegistrationDidEvidenceV1 => Self::REGISTRATION_DID_EVIDENCE_V1,
             Self::RelationV1 => Self::RELATION_V1,
             Self::ResourceDiscoveryStateV1 => Self::RESOURCE_DISCOVERY_STATE_V1,
@@ -1860,6 +1868,7 @@ impl SchemaId {
             Self::RecoveryPolicyV1 => "schemas/recovery-policy.schema.json",
             Self::RecoveryReceiptV1 => "schemas/recovery-receipt.schema.json",
             Self::RecoverySessionV1 => "schemas/recovery-session.schema.json",
+            Self::RecoveryTerminalCommitV1 => "schemas/security-transaction.schema.json",
             Self::RegistrationDidEvidenceV1 => "schemas/registration-did-evidence.schema.json",
             Self::RelationV1 => "schemas/relation.schema.json",
             Self::ResourceDiscoveryStateV1 => "schemas/event-payload.schema.json",
@@ -2135,6 +2144,7 @@ impl SchemaId {
             Self::RECOVERY_POLICY_V1 => Some(Self::RecoveryPolicyV1),
             Self::RECOVERY_RECEIPT_V1 => Some(Self::RecoveryReceiptV1),
             Self::RECOVERY_SESSION_V1 => Some(Self::RecoverySessionV1),
+            Self::RECOVERY_TERMINAL_COMMIT_V1 => Some(Self::RecoveryTerminalCommitV1),
             Self::REGISTRATION_DID_EVIDENCE_V1 => Some(Self::RegistrationDidEvidenceV1),
             Self::RELATION_V1 => Some(Self::RelationV1),
             Self::RESOURCE_DISCOVERY_STATE_V1 => Some(Self::ResourceDiscoveryStateV1),
