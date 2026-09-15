@@ -20,8 +20,6 @@ pub mod blob_aead;
 pub mod file_transfer_aead;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
-#[cfg(feature = "key-verification")]
-pub mod key_verification;
 #[cfg(feature = "aead")]
 pub mod mls_exporter;
 #[cfg(feature = "secret-share")]

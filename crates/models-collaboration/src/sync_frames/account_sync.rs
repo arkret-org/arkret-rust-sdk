@@ -6,7 +6,6 @@
 //! carried by account-subscribe frames.
 
 use arkret_models_crypto::secret_share::{SecretShareRequestContent, SecretShareSendContent};
-use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
 use arkret_wire::{AccountId, ActorId, ActorPrivateUpdateKind, DidCoreId};
 use serde::Serializer;
 
@@ -16,14 +15,6 @@ use crate::objects::read_receipts::{NotificationIdentity, OrdinaryProjectionCont
 /// Standard non-Event device-message kinds shared by wire validation and the
 /// client drafting layer.
 pub mod device_message_kind {
-    pub const KEY_VERIFICATION_REQUEST: &str = "ak.key.verification.request";
-    pub const KEY_VERIFICATION_READY: &str = "ak.key.verification.ready";
-    pub const KEY_VERIFICATION_START: &str = "ak.key.verification.start";
-    pub const KEY_VERIFICATION_ACCEPT: &str = "ak.key.verification.accept";
-    pub const KEY_VERIFICATION_KEY: &str = "ak.key.verification.key";
-    pub const KEY_VERIFICATION_MAC: &str = "ak.key.verification.mac";
-    pub const KEY_VERIFICATION_DONE: &str = "ak.key.verification.done";
-    pub const KEY_VERIFICATION_CANCEL: &str = "ak.key.verification.cancel";
     pub const MLS_WELCOME_V1: &str = arkret_wire::event_kind_str::MLS_WELCOME;
 }
 
@@ -632,7 +623,6 @@ pub struct DeviceMessageEnvelope {
 #[derive(Clone, Debug, Serialize)]
 #[serde(untagged)]
 pub enum DeviceMessageContent {
-    KeyVerification(Box<KeyVerificationContent>),
     SecretRequest(SecretShareRequestContent),
     SecretSend(SecretShareSendContent),
     AccountDataUpdate(ActorPrivateAccountDataUpdate),
@@ -738,37 +728,9 @@ pub fn decode_device_message_content(
         "ak.account_data.update" => DeviceMessageContent::AccountDataUpdate(decode(content)?),
         "ak.account.blocklist.update" => DeviceMessageContent::BlocklistUpdate(decode(content)?),
         "ak.read_cursor.update" => DeviceMessageContent::ReadCursorUpdate(decode(content)?),
-        kind if kind.starts_with("ak.key.verification.") => {
-            let value: KeyVerificationContent = decode(content)?;
-            validate_key_verification_content(kind, &value)?;
-            DeviceMessageContent::KeyVerification(Box::new(value))
-        }
         _ => DeviceMessageContent::Extension(decode(content)?),
     };
     Ok(value)
-}
-
-fn validate_key_verification_content(kind: &str, value: &KeyVerificationContent) -> Result<()> {
-    let present = match kind {
-        "ak.key.verification.request" => {
-            value.methods.is_some() && value.timestamp.is_some() && value.expires_at.is_some()
-        }
-        "ak.key.verification.ready" => value.methods.is_some(),
-        "ak.key.verification.start" => value.method.is_some(),
-        "ak.key.verification.accept" => value.commitment.is_some(),
-        "ak.key.verification.key" => value.key.is_some(),
-        "ak.key.verification.mac" => value.mac.is_some() && value.keys.is_some(),
-        "ak.key.verification.done" => true,
-        "ak.key.verification.cancel" => value.code.is_some(),
-        _ => false,
-    };
-    if present {
-        Ok(())
-    } else {
-        Err(WireError::Protocol(format!(
-            "{kind} content is missing required fields"
-        )))
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1491,26 +1453,24 @@ mod device_message_dto_tests {
     fn device_message_target_rejects_non_object_content_and_invalid_kind() {
         let valid = json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
-            "kind": "ak.key.verification.request",
+            "kind": "ak.secret.request",
             "content": {
-                "transaction_id": "txn",
+                "request_id": "txn",
+                "secret_id": "example_mls_account_secret",
                 "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-                "methods": ["ak.key.verification.sas_v1"],
-                "timestamp": "2026-07-15T00:00:00.000Z",
-                "expires_at": "2026-07-15T00:10:00.000Z"
+                "recipient_hpke_public_key": "9CKz3Ai9iQz0kHhZcH0H2jqvS-LcQ0YjvKq3aH9mQ0U"
             },
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
         assert!(serde_json::from_value::<DeviceMessageTarget>(valid).is_ok());
 
         let missing_device_message_id = json!({
-            "kind": "ak.key.verification.request",
+            "kind": "ak.secret.request",
             "content": {
-                "transaction_id": "txn",
+                "request_id": "txn",
+                "secret_id": "example_mls_account_secret",
                 "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-                "methods": ["ak.key.verification.sas_v1"],
-                "timestamp": "2026-07-15T00:00:00.000Z",
-                "expires_at": "2026-07-15T00:10:00.000Z"
+                "recipient_hpke_public_key": "9CKz3Ai9iQz0kHhZcH0H2jqvS-LcQ0YjvKq3aH9mQ0U"
             },
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
@@ -1518,7 +1478,7 @@ mod device_message_dto_tests {
 
         let invalid_kind = json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
-            "kind": "key.verification.request",
+            "kind": "secret.request",
             "content": {},
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
@@ -1526,7 +1486,7 @@ mod device_message_dto_tests {
 
         let scalar_content = json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
-            "kind": "ak.key.verification.request",
+            "kind": "ak.secret.request",
             "content": "not an object",
             "expires_at": "2026-07-15T01:00:00.000Z"
         });
@@ -1543,7 +1503,7 @@ mod device_message_tests {
     fn envelope_value() -> Value {
         json!({
             "device_message_id": "ak:device_message:01904100-0000-7000-8000-000000000001",
-            "kind": "ak.key.verification.request",
+            "kind": "ak.secret.request",
             "sender_account_id": {
                 "principal_id": "ak:did_core:webvh:z6mkfixture",
                 "station_id": "ak:did_core:webvh:z6mkfixtureservice"
@@ -1557,11 +1517,10 @@ mod device_message_tests {
             "sent_at": "2026-07-15T00:00:00.000Z",
             "expires_at": "2026-07-15T00:10:00.000Z",
             "content": {
-                "transaction_id": "txn",
+                "request_id": "txn",
+                "secret_id": "example_mls_account_secret",
                 "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001",
-                "methods": ["ak.key.verification.sas_v1"],
-                "timestamp": "2026-07-15T00:00:00.000Z",
-                "expires_at": "2026-07-15T00:10:00.000Z"
+                "recipient_hpke_public_key": "9CKz3Ai9iQz0kHhZcH0H2jqvS-LcQ0YjvKq3aH9mQ0U"
             },
             "unsigned": {"retry_after_ms": 1000}
         })
@@ -1792,7 +1751,7 @@ mod device_message_tests {
 
         let mut incomplete_known_content = envelope_value();
         incomplete_known_content["content"] = json!({
-            "transaction_id": "txn",
+            "request_id": "txn",
             "from_device_id": "ak:device:01904100-0000-7000-8000-000000000001"
         });
         assert!(serde_json::from_value::<DeviceMessageEnvelope>(incomplete_known_content).is_err());

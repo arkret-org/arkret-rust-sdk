@@ -11,7 +11,6 @@ use arkret_models_collaboration::sync_frames::account_sync::{
     DeviceMessageTarget, DeviceMessagesSendRequestBody,
 };
 use arkret_models_crypto::MlsWelcomeEnvelope;
-use arkret_models_identity::artifacts_device_identity::KeyVerificationContent;
 use arkret_wire::ProtocolKind;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -39,23 +38,6 @@ pub mod device_message_spec {
     #[derive(Clone, Copy, Debug)]
     pub struct MlsWelcome;
     #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationRequest;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationReady;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationStart;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationAccept;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationKey;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationMac;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationDone;
-    #[derive(Clone, Copy, Debug)]
-    pub struct KeyVerificationCancel;
-
-    #[derive(Clone, Copy, Debug)]
     pub struct SecretRequest;
     #[derive(Clone, Copy, Debug)]
     pub struct SecretSend;
@@ -70,14 +52,6 @@ macro_rules! seal_specs {
 seal_specs!(
     device_message_spec::FileTransferKey,
     device_message_spec::MlsWelcome,
-    device_message_spec::KeyVerificationRequest,
-    device_message_spec::KeyVerificationReady,
-    device_message_spec::KeyVerificationStart,
-    device_message_spec::KeyVerificationAccept,
-    device_message_spec::KeyVerificationKey,
-    device_message_spec::KeyVerificationMac,
-    device_message_spec::KeyVerificationDone,
-    device_message_spec::KeyVerificationCancel,
 );
 
 seal_specs!(
@@ -135,62 +109,6 @@ fn require<T>(value: &Option<T>, field: &str) -> Result<()> {
     }
     Ok(())
 }
-
-macro_rules! key_verification_spec {
-    ($spec:ty, $kind:expr, [$($field:ident),* $(,)?]) => {
-        impl DeviceMessageSpec for $spec {
-            type Content = KeyVerificationContent;
-            const KIND: &'static str = $kind;
-
-            fn validate(content: &Self::Content) -> Result<()> {
-                let _ = content;
-                $(require(&content.$field, stringify!($field))?;)*
-                Ok(())
-            }
-        }
-    };
-}
-
-key_verification_spec!(
-    device_message_spec::KeyVerificationRequest,
-    device_message_kind::KEY_VERIFICATION_REQUEST,
-    [methods, timestamp, expires_at]
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationReady,
-    device_message_kind::KEY_VERIFICATION_READY,
-    [methods]
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationStart,
-    device_message_kind::KEY_VERIFICATION_START,
-    [method]
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationAccept,
-    device_message_kind::KEY_VERIFICATION_ACCEPT,
-    [commitment]
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationKey,
-    device_message_kind::KEY_VERIFICATION_KEY,
-    [key]
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationMac,
-    device_message_kind::KEY_VERIFICATION_MAC,
-    [mac, keys]
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationDone,
-    device_message_kind::KEY_VERIFICATION_DONE,
-    []
-);
-key_verification_spec!(
-    device_message_spec::KeyVerificationCancel,
-    device_message_kind::KEY_VERIFICATION_CANCEL,
-    [code]
-);
 
 /// Typed builder for one standard device-message target.
 #[derive(Clone, Debug)]

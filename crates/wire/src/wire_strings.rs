@@ -1212,7 +1212,7 @@ mod tests {
         assert!(DidKey::new("did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuVkhY7g94pVQyG98x").is_ok());
         assert!(DidKey::new("did:web:example.test#device").is_err());
         assert!(serde_json::from_str::<NonEmptyJsonObject>("{}").is_err());
-        assert!(ProtocolKind::new("ak.key.verification.request").is_ok());
+        assert!(ProtocolKind::new("ak.secret.request").is_ok());
         assert!(ProtocolKind::new("ak.key..request").is_err());
         assert!(ProtocolKind::new("ak.Key.request").is_err());
         assert!(ProtocolKind::new("vendor.key.request").is_err());

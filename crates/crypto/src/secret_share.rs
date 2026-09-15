@@ -1,9 +1,9 @@
-//! Typed to-device secret-share content per `crypto-media/device-lifecycle.md` §10.7.
+//! Typed to-device secret-share content per `crypto-media/device-lifecycle.md` §10.2.
 //!
 //! Two `ak.secret.*` to-device kinds let a newly authorized device pull an
 //! account-scope secret (e.g. the MLS account secret) from an existing
-//! authorized device over HPKE, after the two devices completed SAS
-//! verification (§10.3). This module provides the strongly-typed `content`
+//! authorized device over HPKE, once the requesting device holds a current
+//! verification checkpoint (§10.1). This module provides the strongly-typed `content`
 //! bodies that ride inside the `DeviceMessageEnvelope.content` field, mirroring
 //! `artifacts/schemas/device-message.schema.json#/$defs/secret_request_content`
 //! and `secret_send_content`.
@@ -44,7 +44,7 @@ pub const SECRET_SEND_KIND: &str = arkret_wire::SECRET_SEND_KIND;
 
 /// Canonical HPKE AAD for an `ak.secret.send` to-device envelope.
 ///
-/// `crypto-media/device-lifecycle.md` §10.7 fixes the AAD as the RFC 8785
+/// `crypto-media/device-lifecycle.md` §10.2 fixes the AAD as the RFC 8785
 /// canonical JSON of exactly nine members: the envelope's `device_message_id`,
 /// `kind`, `sender_account_id`, `sender_device_id`, `recipient_account_id`,
 /// `recipient_device_id` and `expires_at`, plus the content's `request_id` and
@@ -441,7 +441,7 @@ mod secret_share_send_aad_tests {
     }
 
     /// Byte-level KAT: the AAD is the RFC 8785 canonical JSON of exactly the
-    /// nine members `device-lifecycle.md` §10.7 lists, keys in JCS order.
+    /// nine members `device-lifecycle.md` §10.2 lists, keys in JCS order.
     #[test]
     fn send_aad_is_the_nine_member_canonical_json() {
         let expected = concat!(

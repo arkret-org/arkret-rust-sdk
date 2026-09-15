@@ -27,7 +27,7 @@
 //! * `directory`— directory / identity-registry surfaces.
 //! * `admin` — deployment / hardening / constraint posture profiles that describe operator stance
 //!   rather than wire conformance.
-//! * `interop` — explicit cross-role bridge surfaces (mimi_interop, matrix_compat,
+//! * `interop` — explicit cross-role bridge surfaces (mimi_interop,
 //!   push_gateway.matrix_passthrough, encoding / hash interop, conformance vector packs).
 //!
 //! A [`ServiceKind`] declares which roles it can legitimately claim; profiles
@@ -252,7 +252,7 @@ impl std::error::Error for ProfileClaimError {}
 ///
 /// Role allow-set is derived from `ServiceKind` once, then reused for every
 /// claim. `interop` is added to every allow-set because the spec defines that
-/// role specifically as the cross-role bridge namespace (matrix_compat,
+/// role specifically as the cross-role bridge namespace (mimi_interop,
 /// push_gateway.matrix_passthrough, encoding / hash interop vectors).
 #[derive(Clone, Debug)]
 pub struct ProfileValidator {
@@ -418,7 +418,7 @@ mod tests {
                 // Admin profiles (deployment posture) are allowed on the
                 // client because clients ship with a deployment stance.
                 ProfileClaim::self_claimed("ak.profile.personal_node.v1"),
-                ProfileClaim::conformance_verified("ak.profile.matrix_compat.v1"),
+                ProfileClaim::conformance_verified("ak.profile.mimi_interop.v1"),
             ])
             .expect("client + client_profile + admin + interop must validate");
     }

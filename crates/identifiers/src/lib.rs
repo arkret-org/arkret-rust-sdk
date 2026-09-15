@@ -1259,7 +1259,7 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.strip_prefix(prefix).is_some_and(is_hash)
 }
 
-/// `device-message.schema.json#/$defs/key_verification_content.transaction_id`:
+/// `device-message.schema.json` to-device correlation coordinate:
 /// `^[A-Za-z0-9._~=-]{1,128}$`.
 ///
 /// This is a **different namespace** from [`TransactionId`], which is
@@ -1267,7 +1267,7 @@ fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
 /// family. The two share a word, not a value space: `:` is outside the charset
 /// above, so *every* `TransactionId` value violates this pattern. Typing the
 /// device-message field as `TransactionId` would therefore make it impossible
-/// to author conformant `ak.key.verification.*` content.
+/// to author conformant to-device content.
 fn is_device_message_transaction_id(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
@@ -1894,7 +1894,7 @@ mod tests {
     /// `DeviceMessageTransactionId` and `TransactionId` are disjoint value
     /// spaces, not two spellings of one id.
     ///
-    /// The regression this pins: `KeyVerificationContent.transaction_id` used to
+    /// The regression this pins: a to-device correlation id used to
     /// be a `TransactionId`, and *every* value of that type violates the
     /// device-message pattern, so the field could not be given a conformant
     /// value at all.

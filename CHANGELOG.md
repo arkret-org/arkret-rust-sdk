@@ -9,6 +9,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Wire-breaking, no compatibility shim
 
+- Removed the device-level SAS verification surface. `arkret-crypto`'s
+  `key_verification` module and its `key-verification` feature, the
+  `KeyVerificationContent` wire type with its purpose / cancellation enums,
+  the eight `ak.key.verification.*` kind constants, the
+  `DeviceMessageContent::KeyVerification` branch and the eight typed
+  `device_message_spec` markers are gone. `arkret-spec` retired the message
+  family with `device-lifecycle.md` §10; device trust now comes from the
+  closed verification checkpoint (§10.1) and secret sharing requires a
+  current checkpoint bound to the exact device and key.
+- Removed `ak.profile.matrix_compat.v1` from the generated profile surfaces.
+  `ProfileId` and the baked requirement table now carry 89 profiles;
+  `ak.profile.push_gateway.matrix_passthrough.v1` no longer depends on it.
 - Removed the reducer-stamped `Event.actor_kind` wire field. Authoritative
   attribution now comes from the signed `actor_id`, optional `executed_by`, and
   immutable historical provenance; Actor Profile `actor_kind` remains display

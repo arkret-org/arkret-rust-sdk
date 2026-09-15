@@ -1,11 +1,8 @@
 {
   "version": 2,
-  "total": 194,
+  "total": 192,
   "counts": {
-    "internal": 55,
-    "optional_has_default": 135,
-    "required": 3,
-    "schema_field_unknown": 1
+    "internal": 192
   },
   "sites": [
     {
@@ -76,9 +73,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "consent-operations.schema.json#/$defs/consent_cell_view",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/account_lifecycle.rs",
@@ -88,9 +85,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "consent-operations.schema.json#/$defs/consent_cell_view",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/account_lifecycle.rs",
@@ -112,9 +109,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "account-operations.schema.json#/$defs/account_status_record",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -124,9 +121,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-operations.schema.json#/$defs/agent_projection",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -136,9 +133,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-operations.schema.json#/$defs/agent_projection",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -148,9 +145,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-sidecar.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -160,9 +157,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-sidecar.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -172,9 +169,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-operations.schema.json#/$defs/key_state",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
@@ -184,9 +181,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-operations.schema.json#/$defs/key_state",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/account_data.rs",
@@ -196,9 +193,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/account_data_set_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/account_data.rs",
@@ -220,9 +217,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/agent_key_authorize_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/audit.rs",
@@ -232,9 +229,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/audit_applet_binding_create_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/audit.rs",
@@ -244,9 +241,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/audit_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/audit.rs",
@@ -256,9 +253,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/audit_session_contract",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
@@ -268,9 +265,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/call_participant",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
@@ -304,9 +301,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "call-recording-artifact.schema.json#/$defs/call_recording_deletion_audit",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/circle.rs",
@@ -316,9 +313,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/circle_member_state_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/consent.rs",
@@ -328,9 +325,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/consent_grant_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/consent.rs",
@@ -340,9 +337,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/consent_grant_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
@@ -352,9 +349,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/device_list_update_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
@@ -376,9 +373,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "message.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/event_wire.rs",
@@ -388,9 +385,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "message.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/event_wire.rs",
@@ -400,9 +397,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "message.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/mention.rs",
@@ -436,9 +433,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/mimi_room_binding_payload",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
@@ -448,9 +445,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/moderation_decision_lift_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
@@ -460,9 +457,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/moderation_decision_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
@@ -472,9 +469,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/realm_organization_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
@@ -484,9 +481,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/realm_organization_payload",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
@@ -532,9 +529,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/organization_moderation_policy_rule",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
@@ -544,9 +541,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/organization_moderation_policy_rule",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
@@ -556,9 +553,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/organization_moderation_policy_document",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
@@ -568,9 +565,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/organization_moderation_policy_document",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/view.rs",
@@ -580,9 +577,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/view.rs",
@@ -592,9 +589,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/accountability.rs",
@@ -616,9 +613,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-operations.schema.json#/$defs/grant_snapshot",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/agent_artifacts.rs",
@@ -628,9 +625,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-operations.schema.json#/$defs/agent_key_authorization_state",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/agent_membership_cascade.rs",
@@ -640,9 +637,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-membership-cascade.schema.json#/$defs/agent_cleanup_record",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/audit.rs",
@@ -700,9 +697,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
@@ -712,9 +709,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "circle.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
@@ -724,9 +721,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "circle.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
@@ -736,9 +733,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "circle-operations.schema.json#/$defs/circle_view",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/erasure.rs",
@@ -748,9 +745,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "erasure-receipt.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "schema_field_unknown"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/erasure.rs",
@@ -760,9 +757,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "erasure-receipt.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
@@ -772,9 +769,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "grant-constraint.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
@@ -784,9 +781,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "grant-constraint.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
@@ -796,9 +793,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "capability-grant.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
@@ -808,9 +805,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "capability-grant.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/invite_addressing.rs",
@@ -832,9 +829,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/moderation_queue.rs",
@@ -856,9 +853,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "moderation-queue-item.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -868,9 +865,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "policy.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -880,9 +877,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "policy.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -892,9 +889,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "policy.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -904,9 +901,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "invite.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/peer_contact.rs",
@@ -940,9 +937,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_row",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
@@ -952,9 +949,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_row",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
@@ -964,9 +961,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_row",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance/third_party_invite.rs",
@@ -976,9 +973,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "invite.schema.json#/$defs/third_party_invite_provisioning_status_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/governance_payloads.rs",
@@ -988,9 +985,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/consent_revoke_payload",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1000,9 +997,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/SignalSubmitOutcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1012,9 +1009,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1024,9 +1021,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1036,9 +1033,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1048,9 +1045,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1060,9 +1057,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1072,9 +1069,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1084,9 +1081,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1096,9 +1093,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1108,9 +1105,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1120,9 +1117,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1132,9 +1129,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1144,9 +1141,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "mimi-operations.schema.json#/$defs/mimi_request_consent_request_body",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1156,9 +1153,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "mimi-operations.schema.json#/$defs/mimi_update_consent_request_body",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1168,9 +1165,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/http_bodies.rs",
@@ -1180,9 +1177,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/RedactedEventView",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/object_lifecycle.rs",
@@ -1192,9 +1189,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/space_state_transition_payload",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/object_lifecycle.rs",
@@ -1204,9 +1201,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/space_object_tombstone_payload",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/blob.rs",
@@ -1216,9 +1213,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "blob.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/calendar_recurrence.rs",
@@ -1276,9 +1273,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "contact-remark.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
@@ -1288,9 +1285,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "event-payload.schema.json#/$defs/account_blocklist_payload",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
@@ -1312,9 +1309,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "morph.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
@@ -1324,9 +1321,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "morph.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
@@ -1336,9 +1333,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "morph.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
@@ -1348,9 +1345,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "identity-link.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
@@ -1360,9 +1357,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
@@ -1372,9 +1369,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/query_projection.rs",
@@ -1384,9 +1381,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/query_projection.rs",
@@ -1396,9 +1393,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/query_projection.rs",
@@ -1408,9 +1405,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
@@ -1420,9 +1417,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "notification.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
@@ -1444,9 +1441,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "notification.schema.json#/$defs/ordinary_projection_content",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/realm.rs",
@@ -1456,9 +1453,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "realm.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/relation.rs",
@@ -1468,9 +1465,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "relation.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/relation.rs",
@@ -1480,9 +1477,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "relation.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/space.rs",
@@ -1492,9 +1489,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "space.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/space.rs",
@@ -1504,9 +1501,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "space.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
@@ -1516,9 +1513,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "strand.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
@@ -1528,9 +1525,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "strand.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
@@ -1540,9 +1537,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "strand.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/session_grant_bodies.rs",
@@ -1552,9 +1549,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/session_grant_bodies.rs",
@@ -1564,9 +1561,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectGrant",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-collaboration/src/session_grant_bodies.rs",
@@ -1588,9 +1585,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "keys-operations.schema.json#/$defs/key_record",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
@@ -1600,9 +1597,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "keys-operations.schema.json#/$defs/key_record",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/http_bodies.rs",
@@ -1660,9 +1657,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "key-backup.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1672,9 +1669,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "key-backup.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1696,9 +1693,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1708,9 +1705,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1720,9 +1717,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_policy_summary",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1744,9 +1741,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1756,9 +1753,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_key_entry",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
@@ -1768,9 +1765,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_key_agreement_entry",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/keys.rs",
@@ -1780,9 +1777,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
       "has_skip": false,
-      "schema_pointer": "keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/authorization_window",
-      "schema_source": "doc-pointer",
-      "classification": "required"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-crypto/src/mls_records.rs",
@@ -1804,9 +1801,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_agent_selector_resolution_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
@@ -1816,9 +1813,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
@@ -1828,9 +1825,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
@@ -1840,9 +1837,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_handle_resolution_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/http_bodies.rs",
@@ -1852,9 +1849,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/invite_consent_handoff_stub",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/presence.rs",
@@ -1864,9 +1861,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "presence-preference.schema.json",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
@@ -1876,9 +1873,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-describe.schema.json#/properties/verified_profiles/items",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
@@ -1888,9 +1885,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-describe.schema.json#/properties/rate_limit_policy",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
@@ -1900,9 +1897,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "service-describe.schema.json#/properties/rate_limit_policy",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
@@ -1954,7 +1951,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 256,
+      "line": 257,
       "struct_name": "AccountDeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1966,7 +1963,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 259,
+      "line": 260,
       "struct_name": "AccountDeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1978,7 +1975,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 262,
+      "line": 263,
       "struct_name": "AccountDeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1990,15 +1987,15 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 957,
+      "line": 953,
       "struct_name": "AccountRequestErasureOutcome",
       "field_name": "withdrawal_window_ends_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "account-operations.schema.json#/$defs/account_request_erasure_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/actor_profile.rs",
@@ -2008,9 +2005,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "actor-profile.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/admin_grant.rs",
@@ -2044,9 +2041,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "account-operations.schema.json#/$defs/device_summary",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
@@ -2056,9 +2053,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "account-operations.schema.json#/$defs/device_summary",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
@@ -2068,33 +2065,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "account-operations.schema.json#/$defs/device_summary",
-      "schema_source": "doc-pointer",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 529,
-      "struct_name": "KeyVerificationContent",
-      "field_name": "timestamp",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "device-message.schema.json#/$defs/key_verification_content",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
-    },
-    {
-      "file": "crates/models-identity/src/artifacts_device_identity.rs",
-      "line": 532,
-      "struct_name": "KeyVerificationContent",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": "device-message.schema.json#/$defs/key_verification_content",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2104,9 +2077,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2116,9 +2089,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2128,9 +2101,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2140,9 +2113,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "directory-operations.schema.json#/$defs/directory_restricted_claim_presentation",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2152,9 +2125,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-selector-claim.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2164,9 +2137,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "agent-selector-claim.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/device_push_route.rs",
@@ -2212,9 +2185,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
       "has_skip": false,
-      "schema_pointer": "handle-claim.schema.json#/$defs/handle_claim_core",
-      "schema_source": "def-index",
-      "classification": "required"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/handle_claim.rs",
@@ -2236,9 +2209,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
       "has_skip": false,
-      "schema_pointer": "handle-claim.schema.json",
-      "schema_source": "def-index",
-      "classification": "required"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-identity/src/handle_claim.rs",
@@ -2260,9 +2233,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "member-identity.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/models-integration/src/applet/registration.rs",
@@ -2284,9 +2257,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "push-operations.schema.json#/$defs/push_register_device_outcome",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/policy/src/authz/authority.rs",
@@ -2296,9 +2269,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "grant-constraint.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     },
     {
       "file": "crates/state/src/consent.rs",
@@ -2332,9 +2305,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": "bottom.schema.json",
-      "schema_source": "def-index",
-      "classification": "optional_has_default"
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
     }
   ]
 }

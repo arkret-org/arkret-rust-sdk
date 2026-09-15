@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-14.4;
-//! sha256=a99a74c9770ef2e98a18e80c16fb39ae602a3fe5e6bc5240edad5c4e71e75a3d Entries: profile_ids=90
+//! Input: profiles/conformance-profiles.json; version=2026-09-15.11;
+//! sha256=ae94baaf7fd7ec86804ec932e006b4bb096c88f939480c9f95af344eabc1f333 Entries: profile_ids=89
 
 use serde::{Deserialize, Serialize};
 
@@ -62,7 +62,6 @@ pub enum ProfileId {
     KemHybridXwingV1,
     KeyBackupMemoryHardV1,
     KeyTransparencyV1,
-    MatrixCompatV1,
     MediaServiceBindingArkretNativeV1,
     MediaServiceBindingLivekitV1,
     MediaServiceBindingV1,
@@ -194,7 +193,6 @@ impl ProfileId {
         Self::KemHybridXwingV1,
         Self::KeyBackupMemoryHardV1,
         Self::KeyTransparencyV1,
-        Self::MatrixCompatV1,
         Self::MediaServiceBindingArkretNativeV1,
         Self::MediaServiceBindingLivekitV1,
         Self::MediaServiceBindingV1,
@@ -298,7 +296,6 @@ impl ProfileId {
     pub const KEM_HYBRID_XWING_V1: &'static str = "ak.profile.kem.hybrid_xwing.v1";
     pub const KEY_BACKUP_MEMORY_HARD_V1: &'static str = "ak.profile.key_backup.memory_hard.v1";
     pub const KEY_TRANSPARENCY_V1: &'static str = "ak.profile.key_transparency.v1";
-    pub const MATRIX_COMPAT_V1: &'static str = "ak.profile.matrix_compat.v1";
     pub const MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1: &'static str =
         "ak.profile.media_service_binding.arkret_native.v1";
     pub const MEDIA_SERVICE_BINDING_LIVEKIT_V1: &'static str =
@@ -402,7 +399,6 @@ impl ProfileId {
             Self::KemHybridXwingV1 => Self::KEM_HYBRID_XWING_V1,
             Self::KeyBackupMemoryHardV1 => Self::KEY_BACKUP_MEMORY_HARD_V1,
             Self::KeyTransparencyV1 => Self::KEY_TRANSPARENCY_V1,
-            Self::MatrixCompatV1 => Self::MATRIX_COMPAT_V1,
             Self::MediaServiceBindingArkretNativeV1 => Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1,
             Self::MediaServiceBindingLivekitV1 => Self::MEDIA_SERVICE_BINDING_LIVEKIT_V1,
             Self::MediaServiceBindingV1 => Self::MEDIA_SERVICE_BINDING_V1,
@@ -499,7 +495,6 @@ impl ProfileId {
             Self::KemHybridXwingV1 => ProfileRole::Admin,
             Self::KeyBackupMemoryHardV1 => ProfileRole::Admin,
             Self::KeyTransparencyV1 => ProfileRole::Directory,
-            Self::MatrixCompatV1 => ProfileRole::Interop,
             Self::MediaServiceBindingArkretNativeV1 => ProfileRole::Server,
             Self::MediaServiceBindingLivekitV1 => ProfileRole::Server,
             Self::MediaServiceBindingV1 => ProfileRole::Server,
@@ -603,7 +598,6 @@ impl ProfileId {
             Self::KEM_HYBRID_XWING_V1 => Some(Self::KemHybridXwingV1),
             Self::KEY_BACKUP_MEMORY_HARD_V1 => Some(Self::KeyBackupMemoryHardV1),
             Self::KEY_TRANSPARENCY_V1 => Some(Self::KeyTransparencyV1),
-            Self::MATRIX_COMPAT_V1 => Some(Self::MatrixCompatV1),
             Self::MEDIA_SERVICE_BINDING_ARKRET_NATIVE_V1 => {
                 Some(Self::MediaServiceBindingArkretNativeV1)
             }

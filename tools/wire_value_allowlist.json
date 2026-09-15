@@ -341,6 +341,28 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
+      "finding": "coauth/crates/data/src/journey.rs::JourneySession.context",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Value",
+      "owner_repository": "coauth",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "coauth/crates/data/src/journey.rs::JourneyStageBinding.policy_expression",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "Option<Value>",
+      "owner_repository": "coauth",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
       "finding": "coauth/crates/data/src/notification.rs::NotificationEventLog.audit_context",
       "classification": "independent",
       "lifecycle": "retained_boundary",
@@ -491,29 +513,6 @@
       "lifecycle": "retained_boundary",
       "decision": "raw",
       "authority": "serde_json::Value",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
-    },
-    {
-      "finding": "coauth/crates/data/src/strand.rs::StrandSession.context",
-      "classification": "independent",
-      "lifecycle": "retained_boundary",
-      "decision": "independent",
-      "authority": "Coauth strand stage registry",
-      "owner_repository": "coauth",
-      "action": "Retain this exact named boundary with its documented owner; do not dispatch it by the adjacent lifecycle field.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The current stage binding owns accumulated context; session status is lifecycle only.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "coauth/crates/data/src/strand.rs::StrandStageBinding.policy_expression",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "Option<Value>",
       "owner_repository": "coauth",
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
@@ -1913,30 +1912,6 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.extra",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "device-message.schema.json#/$defs/key_verification_content/additionalProperties",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/additionalProperties"
-    },
-    {
-      "finding": "crates/models-identity/src/artifacts_device_identity.rs::KeyVerificationContent.signatures",
-      "classification": "open_json",
-      "lifecycle": "retained_boundary",
-      "decision": "open",
-      "authority": "device-message.schema.json#/$defs/key_verification_content/properties/signatures",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only at the exact schema-declared open JSON boundary.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
-      "spec_pointer": "device-message.schema.json#/$defs/key_verification_content/properties/signatures"
-    },
-    {
       "finding": "crates/models-identity/src/claim_presentation.rs::AgentSelectorClaim.claim_scope",
       "classification": "open_json",
       "lifecycle": "retained_boundary",
@@ -2446,6 +2421,18 @@
       "adjudication": "manual"
     },
     {
+      "finding": "crates/state/src/state_model/causal_register.rs::CausalWinner.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "realm-state-snapshot-chunk.schema.json#/$defs/causal_winner/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "realm-state-snapshot-chunk.schema.json#/$defs/causal_winner/properties/value"
+    },
+    {
       "finding": "crates/state/src/state_model/mod.rs::SequencedStateValue.value",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -2536,17 +2523,15 @@
       "spec_pointer": "event-envelope.schema.json#/$defs/predicate/properties/values"
     },
     {
-      "finding": "crates/wire/src/cell_state.rs::CanonicalCausalHead.value",
+      "finding": "crates/wire/src/cell_state.rs::CanonicalCausalWinner.value",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
-      "authority": "realm-state-snapshot-chunk.schema.json#/$defs/effect_head/properties/value",
+      "authority": "Value",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Select the canonical state model from the registered Cell family, then validate this complete business value against that family contract before use.",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "This value is a registered Cell-family business-value boundary inside a closed canonical state shape; the family registry fixes its schema and callers cannot select an arbitrary interpretation.",
-      "adjudication": "manual",
-      "spec_pointer": "realm-state-snapshot-chunk.schema.json#/$defs/effect_head/properties/value"
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
       "finding": "crates/wire/src/cell_state.rs::CanonicalLogEntry.value",
@@ -2863,7 +2848,18 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "inkson/src/state/projection_views.rs::RsvpHeadProjectionView.entry",
+      "finding": "inkson/src/state/projection_views.rs::RsvpRetainedWrite.entry",
+      "classification": "polymorphic_boundary",
+      "lifecycle": "retained_boundary",
+      "decision": "raw",
+      "authority": "serde_json::Value",
+      "owner_repository": "inkson",
+      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "inkson/src/state/projection_views.rs::RsvpWinnerProjectionView.entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -2962,18 +2958,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "json_authoring:coauth/crates/backend/src/handlers/account/agents/accountability.rs::post_accountability_grant:d1d11961789ab7eb",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "external provider/identity protocol owned by this adapter",
-      "owner_repository": "coauth",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact JSON construction is an external provider/identity adapter payload, not an Arkret closed union; it remains confined to the named adapter boundary."
-    },
-    {
-      "finding": "json_authoring:coauth/crates/backend/src/handlers/account/agents/key_pair.rs::post_agent_key_pair:5f16b453b8f15433",
+      "finding": "json_authoring:coauth/crates/backend/src/handlers/account/agents/key_pair.rs::post_agent_key_pair:9da5b7214d215a99",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -3061,16 +3046,15 @@
       "reason": "This exact production symbol hand-authors a protocol-shaped JSON object; it must serialize an authoritative SDK type or stay behind a named validated raw boundary."
     },
     {
-      "finding": "json_authoring:crates/models-collaboration/src/sync_frames/current_results.rs::try_new:6da3f04dbb250d39",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "SDK CurrentResultEntry validated registry projection",
+      "finding": "json_authoring:crates/models-collaboration/src/sync_frames/current_results.rs::try_new_with_source:8bc0433497eb4418",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by status",
       "owner_repository": "arkret-rust-sdk",
-      "action": "Preserve this exact reviewed boundary and its mandatory validation; new or changed symbols require separate adjudication.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "SDK CurrentValue::try_new immediately delegates to CurrentResultEntry::try_from_json; closed EntryWire/ResultWire decoding, registry value validation, target binding and canonical byte limits run before the private verified value exists.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "json_authoring:crates/models-discovery/src/http_bodies.rs::maximal_match_success_unpadded_bytes:c9e65edcbbb16430",
@@ -3243,28 +3227,15 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:inkson/src/views/kanban/card_detail.rs::dispatch_calendar_rsvp:80c6b2e6b68a68ef",
-      "classification": "internal_or_fixture",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "inkson/src/state/to_device_raw.rs::{append_raw_operation,upsert_raw_operation}; typed SDK Event submission preceding the cache write",
+      "finding": "json_authoring:inkson/src/views/kanban/card_detail.rs::dispatch_calendar_rsvp:93c684d74a757ee7",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by kind",
       "owner_repository": "inkson",
-      "action": "Accepted typed RSVP receipt plus local idempotency and observed-schedule metadata. This exact JSON is written to the bounded local raw-operation cache after submission succeeds; it is not a POST body and must not be mistaken for an authoritative wire DTO.",
-      "test": "cargo test -p inkson --lib state::to_device_raw",
-      "reason": "Accepted typed RSVP receipt plus local idempotency and observed-schedule metadata. This exact JSON is written to the bounded local raw-operation cache after submission succeeds; it is not a POST body and must not be mistaken for an authoritative wire DTO.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::build_card_version_selection:2afaf6f174faa9bc",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret_sdk::StrandPatchPayload; selected.value.as_strand()",
-      "owner_repository": "inkson",
-      "action": "A selected, typed current Strand value is projected to the closed identity patch and immediately deserialized into the SDK StrandPatchPayload before TypedOperationBuilder signs it. This is not an independent wire DTO.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "A selected, typed current Strand value is projected to the closed identity patch and immediately deserialized into the SDK StrandPatchPayload before TypedOperationBuilder signs it. This is not an independent wire DTO.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "json_authoring:inkson/src/views/kanban/mls_encrypt.rs::dispatch_card_detail_update:6c78ef1661ad1c6f",
@@ -3962,28 +3933,26 @@
       "adjudication": "manual"
     },
     {
-      "finding": "json_authoring:soland/crates/storage-postgres/src/current_data/publication.rs::materialized_heads:b50fccb9ffb5cf5a",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
+      "finding": "json_authoring:soland/crates/storage-postgres/src/current_data/publication.rs::materialized_current:db0d71fa7feb832f",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
       "authority": "arkret-spec closed union selected by status",
       "owner_repository": "soland",
-      "action": "Preserve this exact reviewed boundary and its mandatory validation; new or changed symbols require separate adjudication.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Accepted Event heads are projected through the registry and immediately decoded by SDK CurrentResultEntry::try_from_json; invalid shape or canonical size never becomes a published current result.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
-      "finding": "json_authoring:soland/crates/storage-postgres/src/current_data/publication.rs::materialized_heads:fbc00443ba9d6823",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning value",
+      "finding": "json_authoring:soland/crates/storage-postgres/src/current_data/publication.rs::removed_current:dc85645da292d072",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by status",
       "owner_repository": "soland",
-      "action": "Preserve this exact reviewed boundary and its mandatory validation; new or changed symbols require separate adjudication.",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
       "test": "python tools/wire_value_audit.py --check",
-      "reason": "Accepted Event heads are projected through the registry and immediately decoded by SDK CurrentResultEntry::try_from_json; invalid shape or canonical size never becomes a published current result.",
-      "adjudication": "manual"
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "json_authoring:soland/crates/storage-postgres/src/principal_resolution/genesis.rs::initialize:dafc127ee2ce1f62",
@@ -3995,18 +3964,6 @@
       "action": "Preserve this exact reviewed boundary and its mandatory validation; new or changed symbols require separate adjudication.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "The principal projection first passes validate_principal_resolution_record and then SDK CurrentResultEntry::try_from_json; publish_entries receives only the verified SDK entry.",
-      "adjudication": "manual"
-    },
-    {
-      "finding": "json_authoring:soland/crates/storage-postgres/src/state_resolution/current_results.rs::publish:270e463e2b79517a",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "SDK CurrentResultEntry validated registry projection",
-      "owner_repository": "soland",
-      "action": "Preserve this exact reviewed boundary and its mandatory validation; new or changed symbols require separate adjudication.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "Registry-owned accepted-state projection boundary. Agent values derive from typed AgentKeyAuthorizePayload and closed inactive reasons. publish always calls SDK CurrentResultEntry::try_from_json for the family/selector/target; failure clears readiness and excludes the entry. No raw projection is published.",
       "adjudication": "manual"
     },
     {
@@ -4056,6 +4013,17 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "Registry-owned accepted-state projection boundary. Agent values derive from typed AgentKeyAuthorizePayload and closed inactive reasons. publish always calls SDK CurrentResultEntry::try_from_json for the family/selector/target; failure clears readiness and excludes the entry. No raw projection is published.",
       "adjudication": "manual"
+    },
+    {
+      "finding": "json_authoring:soland/crates/storage-postgres/src/state_resolution/current_results.rs::publish:f88485869a85b55f",
+      "classification": "closed_discriminated",
+      "lifecycle": "pending_migration",
+      "decision": "closed",
+      "authority": "arkret-spec closed union selected by status",
+      "owner_repository": "soland",
+      "action": "Migrate this production boundary to the authoritative SDK discriminated type and delete the raw pairing.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The discriminator and raw data remain independently representable at this exact production symbol; the authoritative SDK discriminated type must replace the pairing."
     },
     {
       "finding": "json_authoring:soland/crates/storage-postgres/src/state_resolution/current_results/agent_keys.rs::fold:8bc0433497eb4418",
@@ -4548,17 +4516,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:inkson/src/event_builders.rs::build_sas_key_verification_content:2d2c92bbdc92d92a",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning signature",
-      "owner_repository": "inkson",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:inkson/src/signal_receive_engine.rs::live_body_value:7dbb70ad444e5a38",
       "classification": "internal_or_fixture",
       "lifecycle": "retained_boundary",
@@ -4726,17 +4683,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/events/event_log/submit/identity_anchor.rs::identity_anchor_device_projection:eab6719548f36dc4",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning device_id",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/http/src/routing/events/event_log/submit/value.rs::membership_compensation_signature_bytes:4028b123feb233f4",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4869,17 +4815,6 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/http/src/routing/identity/keys.rs::keys_upload:16aa5f318ab66ee2",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "arkret-spec protocol schema owning device_id",
-      "owner_repository": "soland",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
-    },
-    {
       "finding": "json_path_mutation:soland/crates/http/src/routing/interop/mimi/payload.rs::map_mimi_message_content:8d8e86b29e3d9e50",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
@@ -4924,7 +4859,7 @@
       "reason": "This exact production symbol mutates a protocol field by string path outside the authoritative SDK serializer and is tracked until migrated."
     },
     {
-      "finding": "json_path_mutation:soland/crates/storage-postgres/src/current_data/publication.rs::materialized_heads:d4de387be7b47e6f",
+      "finding": "json_path_mutation:soland/crates/storage-postgres/src/current_data/publication.rs::materialized_current:d4de387be7b47e6f",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -5033,9 +4968,9 @@
       "decision": "raw",
       "authority": "arkret_models_collaboration::sync_frames::account_sync::DeviceMessageContent",
       "owner_repository": "arkret-rust-sdk",
-      "action": "The raw envelope decoder dispatches to the closed DeviceMessageContent variants and validates secret/key-verification content. It must receive raw kind/content to reject mismatches; it is not a weakly typed business model.",
+      "action": "The raw envelope decoder dispatches to the closed DeviceMessageContent variants and validates secret-share content. It must receive raw kind/content to reject mismatches; it is not a weakly typed business model.",
       "test": "cargo test -p arkret-models-collaboration --lib sync_frames::account_sync",
-      "reason": "The raw envelope decoder dispatches to the closed DeviceMessageContent variants and validates secret/key-verification content. It must receive raw kind/content to reject mismatches; it is not a weakly typed business model.",
+      "reason": "The raw envelope decoder dispatches to the closed DeviceMessageContent variants and validates secret-share content. It must receive raw kind/content to reject mismatches; it is not a weakly typed business model.",
       "adjudication": "manual"
     },
     {
@@ -5587,7 +5522,7 @@
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
     },
     {
-      "finding": "soland/crates/domain/src/reducer/projections.rs::RsvpHead.entry",
+      "finding": "soland/crates/domain/src/reducer/projections.rs::RsvpWrite.entry",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",
       "decision": "raw",
@@ -7101,6 +7036,222 @@
       "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic."
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::AccountAuthority.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/$defs/account_authority/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/$defs/account_authority/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::AuthGrantExchange.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/$defs/auth_grant_exchange/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/$defs/auth_grant_exchange/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::AuthMetadata.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/auth_metadata/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/auth_metadata/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::AuthMethod.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/$defs/auth_method/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/$defs/auth_method/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::DirectoryOrganizationResolutionOutcome.endorsements",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "directory-operations.schema.json#/$defs/directory_organization_resolution_outcome/properties/endorsements",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_organization_resolution_outcome/properties/endorsements"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::DirectoryResolveHandleRequestBodyClaimPresentationsClaim.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::DirectoryResolveRealmRequestBodyClaimPresentationsClaim.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::DirectoryResolveTargetRequestBodyClaimPresentationsClaim.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::DirectorySearchOrganizationsRequestBody.claims",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "directory-operations.schema.json#/$defs/directory_search_organizations_request_body/properties/claims",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_search_organizations_request_body/properties/claims"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::DirectorySearchRealmsRequestBodyClaimPresentationsClaim.value",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim/properties/value"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::PlaintextVisibility.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/plaintext_visibility/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/plaintext_visibility/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::RateLimitEntry.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/rate_limit_policy/properties/entries/items/additionalProperties",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/rate_limit_policy/properties/entries/items/additionalProperties"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::RateLimitPolicy.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/rate_limit_policy/additionalProperties",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/rate_limit_policy/additionalProperties"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::ServiceDescribe.accept_policy_ref",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/accept_policy_ref",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/accept_policy_ref"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::ServiceDescribe.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/patternProperties/^x_[a-z][a-z0-9_]{0,63}$",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/patternProperties/^x_[a-z][a-z0-9_]{0,63}$"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::ServiceDescribe.rate_limits",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/rate_limits",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/rate_limits"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::ServiceDescribeLimits.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/limits/additionalProperties",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/limits/additionalProperties"
+    },
+    {
+      "finding": "tools/spec-struct-proto/out/generated.rs::VerifiedProfileEntry.extra",
+      "classification": "open_json",
+      "lifecycle": "retained_boundary",
+      "decision": "open",
+      "authority": "service-describe.schema.json#/properties/verified_profiles/items/additionalProperties",
+      "owner_repository": "arkret-rust-sdk",
+      "action": "Retain only at the exact schema-declared open JSON boundary.",
+      "test": "python tools/wire_value_audit.py --check",
+      "reason": "The resolved Spec field explicitly permits unconstrained JSON at this exact boundary; a sibling discriminator does not select its shape.",
+      "spec_pointer": "service-describe.schema.json#/properties/verified_profiles/items/additionalProperties"
     }
   ]
 }

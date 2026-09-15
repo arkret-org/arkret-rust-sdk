@@ -174,7 +174,6 @@ voprf = { version = "0.6.0-pre.1", default-features = false, features = ["ristre
 web-time = "1.1.0"
 # Windows KeyStore backend, enabled only by the keystore crate target cfg.
 windows = { version = "0.62.2", default-features = false }
-x25519-dalek = { version = "3.0.0", default-features = false, features = ["static_secrets", "getrandom"] }
 zeroize = { version = "1.9.0", default-features = false, features = ["derive"] }
 
 [workspace.lints.rust]

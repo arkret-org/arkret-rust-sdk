@@ -30,9 +30,6 @@ blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collabo
 # Only needs zeroize for the returned key material; the MLS exporter impl lives
 # in `arkret-mls`.
 sframe = ["dep:zeroize"]
-# Stateless key-verification crypto (`key_verification` module): X25519 SAS key
-# agreement, HKDF/HMAC SAS derivation, and the `accept.commitment` hash.
-key-verification = ["dep:getrandom", "dep:hkdf", "dep:hmac", "dep:x25519-dalek", "dep:zeroize"]
 # HPKE base-mode secret-share sealing (`secret_share` module): RFC 9180
 # single-shot seal/open + the typed `ak.secret.*` to-device content bodies.
 # Pulls in the `hpke` stack (`hpke`, `getrandom`) only when enabled.
@@ -84,7 +81,6 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 subtle = { workspace = true, optional = true }
 thiserror = { workspace = true }
-x25519-dalek = { workspace = true, optional = true }
 zeroize = { workspace = true, optional = true }
 
 [dev-dependencies]
