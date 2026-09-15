@@ -1,22 +1,22 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-14.2;
-//! sha256=afd1542ac9c62e659bc2aaddff8881e0a8f587930ae7d9ee38507592a0b7330f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-15.1;
+//! sha256=9b51f469aab41635e0bf80580385818de3da911d2a13f003b6cdeef016e86cb4 Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
 //! digest-suite-registry.json; version=2026-09-12.9;
-//! sha256=058dd9899654b807480d27c8df92e0b5e113a1cdd771f6736eb558aaf11cf966 Input: registry/
+//! sha256=1f37a0b2a1bdc907435e8fca7fa6da400200fdbc369ae7ca9b04f5c3c6badc6c Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
-//! sha256=87d9838de9d1155cb6d2466b0f189b2d7006573847d9087cb99169e5716cfb80 Input: registry/
+//! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-09-08.3;
-//! sha256=b5395c8e30fcc650e128567631d3c2a4d46fa6b5d80cf29ab83c0e4b3477b4d1 Input: registry/
+//! sha256=27bffd654557d827a4adc82768624f2927e0301909f42201eb82ac1535a49bf8 Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
-//! sha256=26d8e76c166e7295bc8327a232314d48638a7f4ca7b2fd3da9e53e46da4145b4 Input: registry/
+//! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-09-10;
-//! sha256=ea13071db2a81e0ef386b16b31d094af845b5f60d8a83f32ff437835e80f9481 Input: registry/
+//! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
-//! sha256=b8bba95405eeb37909c1037f64e933cbb8e237753e7cae88bbc27020bcc39a71
-//! Entries: proof_contexts=71, exporter_labels=9, digest_suites=3, signature_algorithms=4,
+//! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
+//! Entries: proof_contexts=72, exporter_labels=9, digest_suites=3, signature_algorithms=4,
 //! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=39, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,6 +41,7 @@ pub enum ProofContextId {
     ControlProposalAuthorityAckProofV1,
     ControlProposalDecisionProofV1,
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
+    DeviceAuthorizeAppletManagedPossessionProofV1,
     DeviceAuthorizePossessionProofV1,
     DeviceAuthorizeRecoveryPossessionProofV1,
     DeviceProjectionAttestationProofV1,
@@ -116,6 +117,7 @@ impl ProofContextId {
         Self::ControlProposalAuthorityAckProofV1,
         Self::ControlProposalDecisionProofV1,
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
+        Self::DeviceAuthorizeAppletManagedPossessionProofV1,
         Self::DeviceAuthorizePossessionProofV1,
         Self::DeviceAuthorizeRecoveryPossessionProofV1,
         Self::DeviceProjectionAttestationProofV1,
@@ -200,6 +202,8 @@ impl ProofContextId {
         "ak.control_proposal_decision_proof.v1";
     pub const DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_accepted_device_possession_proof.v1";
+    pub const DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1: &'static str =
+        "ak.device_authorize_applet_managed_possession_proof.v1";
     pub const DEVICE_AUTHORIZE_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_possession_proof.v1";
     pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
@@ -318,6 +322,9 @@ impl ProofContextId {
             Self::ControlProposalDecisionProofV1 => Self::CONTROL_PROPOSAL_DECISION_PROOF_V1,
             Self::DeviceAuthorizeAcceptedDevicePossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
+            }
+            Self::DeviceAuthorizeAppletManagedPossessionProofV1 => {
+                Self::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1
             }
             Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
             Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
@@ -446,6 +453,9 @@ impl ProofContextId {
             Self::CONTROL_PROPOSAL_DECISION_PROOF_V1 => Some(Self::ControlProposalDecisionProofV1),
             Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeAcceptedDevicePossessionProofV1)
+            }
+            Self::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizeAppletManagedPossessionProofV1)
             }
             Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizePossessionProofV1)
@@ -1324,6 +1334,28 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "pairing_challenge_transcript_digest",
         ],
         schema_ref: "schemas/device-pairing.schema.json#/$defs/device_pairing_target_proof",
+    },
+    ProofContextDescriptor {
+        id: ProofContextId::DeviceAuthorizeAppletManagedPossessionProofV1,
+        context: "ak.device_authorize_applet_managed_possession_proof.v1",
+        object_family: "device_authorize_applet_managed_possession",
+        consumer_operation: None,
+        binding_fields: &[
+            "account_id",
+            "device_id",
+            "device_public_key_did",
+            "hpke_key",
+            "algorithms",
+            "device_key_algorithm",
+            "authorized_by",
+            "not_before",
+            "expires_at",
+            "scopes",
+            "recovery_session_id",
+            "authorization_binding_kind",
+            "applet_id",
+        ],
+        schema_ref: "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
     },
     ProofContextDescriptor {
         id: ProofContextId::DeviceAuthorizePossessionProofV1,

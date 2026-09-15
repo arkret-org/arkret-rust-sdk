@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/reducer-managed-path-registry.json; version=2026-09-12.6;
-//! sha256=ef3c5d173ec1ff9f31693d6355990f10303e9819c6f2263c02ed94d96a7b4632
+//! sha256=236e3bbf8b48fa718e2282a9f9500ef36d33d9fa593d1c2a208ea9f07bbc4ac4
 //! Entries: universal_paths=9, object_kinds=7, any_object_paths=20
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
