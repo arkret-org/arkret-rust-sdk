@@ -2,14 +2,6 @@
   "version": 1,
   "mappings": [
     {
-      "rust_type": "crates/models-crypto/src/mls_governance_result.rs::MlsAcceptedLeafAuthorization",
-      "schema": "mls-governance-proof-bundle.schema.json#/$defs/accepted_leaf_authorization"
-    },
-    {
-      "rust_type": "crates/models-crypto/src/mls_governance_result.rs::MlsAcceptedArtifactOutcome",
-      "schema": "mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_outcome"
-    },
-    {
       "rust_type": "crates/identity/src/binding.rs::FreshnessProfile",
       "schema": "did-binding-contracts.schema.json#/$defs/freshness_profile"
     },
@@ -904,12 +896,24 @@
       "schema": "keys-operations.schema.json#/$defs/verified_device_projection"
     },
     {
+      "rust_type": "crates/models-crypto/src/mls_governance_result.rs::MlsAcceptedArtifactOutcome",
+      "schema": "mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_outcome"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_governance_result.rs::MlsAcceptedLeafAuthorization",
+      "schema": "mls-governance-proof-bundle.schema.json#/$defs/accepted_leaf_authorization"
+    },
+    {
       "rust_type": "crates/models-crypto/src/mls_payloads.rs::MlsCommitPayload",
       "schema": "event-payload.schema.json#/$defs/mls_commit_payload"
     },
     {
       "rust_type": "crates/models-crypto/src/mls_payloads.rs::MlsGovernanceBindingPayload",
       "schema": "event-payload.schema.json#/$defs/mls_governance_binding"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/security_transaction.rs::RecoveryTerminalCommit",
+      "schema": "security-transaction.schema.json#/$defs/recovery_terminal_commit"
     },
     {
       "rust_type": "crates/models-discovery/src/directory.rs::DirectoryWithdrawRequestBody",
@@ -1148,8 +1152,36 @@
       "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof"
     },
     {
+      "rust_type": "crates/wire/src/recovery_authority.rs::RecoveryCompletionAttestation",
+      "schema": "recovery-authority.schema.json#/$defs/recovery_completion_attestation"
+    },
+    {
       "rust_type": "crates/wire/src/seal_conclusion.rs::SealConclusionCellState",
       "schema": "seal-conclusion.schema.json#/$defs/cell_state"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::PcrPolicyRecoveryBinding",
+      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_binding"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::PcrPolicyRecoveryIntent",
+      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_intent"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::PcrPolicyRecoveryPlan",
+      "schema": "security-transaction.schema.json#/$defs/pcr_policy_recovery_plan"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::RecoverySealIntent",
+      "schema": "security-transaction.schema.json#/$defs/recovery_seal_intent"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::RecoveryTransactionCreateRequest",
+      "schema": "security-transaction.schema.json#/$defs/recovery_create_request"
+    },
+    {
+      "rust_type": "crates/wire/src/security_transaction.rs::SecurityTransaction",
+      "schema": "security-transaction.schema.json"
     }
   ],
   "exemptions": [

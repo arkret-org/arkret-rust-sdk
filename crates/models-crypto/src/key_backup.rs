@@ -12,8 +12,8 @@ use arkret_wire::{
     DidCoreId, DidUrl, EpochRange, Event, EventId, EventInitialSubmission, EventKind,
     HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, HistoryEffectiveScope, LeaseBasisRef,
     NonEmptyString, PayloadProof, PolicyId, ProofContextId, RECOVERY_POLICY_SIGNATURE_TYPE,
-    RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, ServiceOperationId,
-    TransactionId, TrustDomainId, WireError, XExtensionMap,
+    RealmId, ReasonCode, ReceiptId, RecoverySessionId, Result, SchemaId, SealId,
+    ServiceOperationId, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -2716,8 +2716,9 @@ impl RecoveryProofKind {
 /// Required surface: `schema`, `receipt_id`, `transaction_id`,
 /// `transaction_request_digest`, `account_id`,
 /// `recovery_session_id`, `policy_id`, `policy_version`, `trust_domain`,
-/// `new_device_id`, `proof_summary`, `unlocked_backups`,
-/// `welcome_count`, `outcome`, `started_at`, `completed_at`, `auth_data`.
+/// `new_device_id`, `reanchor_batch_receipt_id`, `first_generation_seal_id`,
+/// `proof_summary`, `unlocked_backups`, `welcome_count`, `outcome`,
+/// `started_at`, `completed_at`, `auth_data`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RecoveryReceipt {
@@ -2744,6 +2745,10 @@ pub struct RecoveryReceipt {
     pub reanchor_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
+    /// Identity of the first new-generation Seal committed by this recovery.
+    /// It equals `prepared_plan.binding.first_generation_seal_id` and the id of
+    /// the Seal carried beside this receipt in the same `RecoveryTerminalCommit`.
+    pub first_generation_seal_id: SealId,
     pub proof_summary: RecoveryProofSummary,
     pub unlocked_backups: Vec<RecoveryBackupClassUnlocked>,
     /// MLS Welcomes successfully replayed for the recovering device.
@@ -2841,6 +2846,7 @@ pub struct UnsignedRecoveryReceiptBody {
     pub authorization_event_id: EventId,
     pub reanchor_event_id: Option<EventId>,
     pub reanchor_batch_receipt_id: Option<ReceiptId>,
+    pub first_generation_seal_id: SealId,
     pub proof_summary: RecoveryProofSummary,
     pub unlocked_backups: Vec<RecoveryBackupClassUnlocked>,
     pub welcome_count: u64,
@@ -2905,6 +2911,7 @@ impl UnsignedRecoveryReceipt {
             authorization_event_id: body.authorization_event_id,
             reanchor_event_id: body.reanchor_event_id,
             reanchor_batch_receipt_id: body.reanchor_batch_receipt_id,
+            first_generation_seal_id: body.first_generation_seal_id,
             proof_summary: body.proof_summary,
             unlocked_backups: body.unlocked_backups,
             welcome_count: body.welcome_count,
@@ -2996,6 +3003,7 @@ fn recovery_receipt_unsigned_value(body: &UnsignedRecoveryReceiptBody) -> Value 
         "authorization_event_id": &body.authorization_event_id,
         "reanchor_event_id": &body.reanchor_event_id,
         "reanchor_batch_receipt_id": &body.reanchor_batch_receipt_id,
+        "first_generation_seal_id": &body.first_generation_seal_id,
         "proof_summary": &body.proof_summary,
         "unlocked_backups": &body.unlocked_backups,
         "welcome_count": body.welcome_count,

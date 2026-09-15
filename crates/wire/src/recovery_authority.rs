@@ -12,8 +12,7 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::{
-    AccountId, DeviceId, DidCoreId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId,
-    TransactionId,
+    AccountId, DeviceId, DidUrl, EventId, Hash, ReceiptId, RecoverySessionId, SealId, TransactionId,
 };
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -83,13 +82,20 @@ pub struct RecoveryCompletionAttestation {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
+    /// The exact recovered account. Its `station_id` is the coordinator; no
+    /// separate coordinator field exists on wire or in the signed projection.
     pub account_id: AccountId,
-    pub coordinator_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
+    /// `SHA-256(RFC8785_JCS(RecoveryTerminalCommit))`. It equals the
+    /// `attestation_digest` the replacement device signed in the outer client
+    /// step attestation, so this attestation commits to the first
+    /// new-generation Seal signature and the receipt as one artifact.
+    pub terminal_commit_digest: Hash,
     pub replacement_device_id: DeviceId,
     pub device_authorization_event_id: EventId,
+    pub first_generation_seal_id: SealId,
     pub result_model_generation_ref: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
@@ -117,11 +123,6 @@ impl RecoveryCompletionAttestation {
                 "recovery completion generation must be positive".to_owned(),
             ));
         }
-        if self.account_id.station_id != self.coordinator_id {
-            return Err(WireError::Protocol(
-                "recovery completion coordinator must equal account_id.station_id".to_owned(),
-            ));
-        }
         Ok(())
     }
 
@@ -133,12 +134,13 @@ impl RecoveryCompletionAttestation {
             transaction_request_digest: self.transaction_request_digest.clone(),
             prepared_plan_digest: self.prepared_plan_digest.clone(),
             account_id: self.account_id.clone(),
-            coordinator_id: self.coordinator_id.clone(),
             recovery_session_id: self.recovery_session_id.clone(),
             terminal_receipt_id: self.terminal_receipt_id.clone(),
             terminal_receipt_digest: self.terminal_receipt_digest.clone(),
+            terminal_commit_digest: self.terminal_commit_digest.clone(),
             replacement_device_id: self.replacement_device_id.clone(),
             device_authorization_event_id: self.device_authorization_event_id.clone(),
+            first_generation_seal_id: self.first_generation_seal_id.clone(),
             result_model_generation_ref: self.result_model_generation_ref,
             completed_at: self.completed_at,
         })
@@ -152,12 +154,13 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub transaction_request_digest: Hash,
     pub prepared_plan_digest: Hash,
     pub account_id: AccountId,
-    pub coordinator_id: DidCoreId,
     pub recovery_session_id: RecoverySessionId,
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
+    pub terminal_commit_digest: Hash,
     pub replacement_device_id: DeviceId,
     pub device_authorization_event_id: EventId,
+    pub first_generation_seal_id: SealId,
     pub result_model_generation_ref: u64,
     pub completed_at: DateTime<Utc>,
 }
@@ -196,12 +199,13 @@ impl UnsignedRecoveryCompletionAttestation {
             transaction_request_digest: body.transaction_request_digest,
             prepared_plan_digest: body.prepared_plan_digest,
             account_id: body.account_id,
-            coordinator_id: body.coordinator_id,
             recovery_session_id: body.recovery_session_id,
             terminal_receipt_id: body.terminal_receipt_id,
             terminal_receipt_digest: body.terminal_receipt_digest,
+            terminal_commit_digest: body.terminal_commit_digest,
             replacement_device_id: body.replacement_device_id,
             device_authorization_event_id: body.device_authorization_event_id,
+            first_generation_seal_id: body.first_generation_seal_id,
             result_model_generation_ref: body.result_model_generation_ref,
             completed_at: body.completed_at,
             auth_data: RecoveryCompletionAttestationAuthData {
@@ -223,11 +227,6 @@ fn validate_recovery_completion_attestation_body(
             "recovery completion generation must be positive".to_owned(),
         ));
     }
-    if body.account_id.station_id != body.coordinator_id {
-        return Err(WireError::Protocol(
-            "recovery completion coordinator must equal account_id.station_id".to_owned(),
-        ));
-    }
     Ok(())
 }
 
@@ -241,12 +240,13 @@ fn recovery_completion_attestation_signing_bytes(
         "transaction_request_digest": &body.transaction_request_digest,
         "prepared_plan_digest": &body.prepared_plan_digest,
         "account_id": &body.account_id,
-        "coordinator_id": &body.coordinator_id,
         "recovery_session_id": &body.recovery_session_id,
         "terminal_receipt_id": &body.terminal_receipt_id,
         "terminal_receipt_digest": &body.terminal_receipt_digest,
+        "terminal_commit_digest": &body.terminal_commit_digest,
         "replacement_device_id": &body.replacement_device_id,
         "device_authorization_event_id": &body.device_authorization_event_id,
+        "first_generation_seal_id": &body.first_generation_seal_id,
         "result_model_generation_ref": &body.result_model_generation_ref,
         "completed_at": crate::canonical::format_timestamp_canonical(body.completed_at),
     });
@@ -298,6 +298,22 @@ impl IssueRecoveryCompletionGrantRequest {
         {
             return Err(WireError::Protocol(
                 "recovery completion grant request and attestation binding disagree".to_owned(),
+            ));
+        }
+        // Receipt and attestation are independent signatures over the same
+        // committed Seal. A pair that names two Seals is a recovery whose Seal
+        // was never committed, so the grant boundary refuses it here.
+        if self.terminal_receipt.get("first_generation_seal_id")
+            != Some(&Value::String(
+                self.completion_attestation
+                    .first_generation_seal_id
+                    .as_str()
+                    .to_owned(),
+            ))
+        {
+            return Err(WireError::Protocol(
+                "terminal receipt and completion attestation name different first-generation Seals"
+                    .to_owned(),
             ));
         }
         if self.expected_canonical_request_digest()? != self.canonical_request_digest {

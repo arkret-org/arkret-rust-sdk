@@ -229,8 +229,9 @@ pub use seal::{
 pub use security_transaction::{
     AcceptedStep, BackupObjectRef, BackupRotationBinding, BackupRotationKind, BackupRotationPlan,
     ClientStepAttestation, ClientStepAttestationAuthData, PCR_POLICY_RECOVERY_STEP_ORDER,
-    PcrPolicyRecoveryBinding, PcrPolicyRecoveryPlan, PreparedEventUnit, RecoveryIdentityModel,
-    RecoveryPreparedPlan, RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER,
+    PcrPolicyRecoveryBinding, PcrPolicyRecoveryIntent, PcrPolicyRecoveryPlan, PreparedEventUnit,
+    RECOVERY_UNIT_EVENT_DIGEST_COUNT, RecoveryIdentityModel, RecoveryPreparedPlan,
+    RecoverySealIntent, RecoveryTransactionCreateRequest, SECURITY_ROTATION_STEP_ORDER,
     SecurityRotationPlan, SecurityRotationTransactionCreateRequest, SecurityTransaction,
     SecurityTransactionAcceptor, SecurityTransactionCreateRequest, SecurityTransactionKind,
     SecurityTransactionPreparedPlan, SecurityTransactionResultKind, SecurityTransactionStep,

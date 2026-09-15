@@ -12,17 +12,23 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::recovery_authority::{CanonicalPublicMaterial, RecoveryCompletionAttestation};
+use crate::seal::{Seal, UnsignedSeal};
 use crate::{
     AccountId, ActorId, BackupId, BackupSeriesId, DeviceId, DidCoreId, DidUrl, EventId,
-    EventsSubmitBatchRequestBody, Hash, ReceiptId, RecoverySessionId, TransactionId,
+    EventsSubmitBatchRequestBody, Hash, Hlc, RealmId, ReceiptId, RecoverySessionId, SealId,
+    TransactionId,
 };
 
 pub const MAX_SECURITY_TRANSACTION_TTL: Duration = Duration::hours(24);
 pub const MAX_OPAQUE_REF_CHARS: usize = 2048;
-pub const PCR_POLICY_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 2] = [
-    SecurityTransactionStep::SubmitReanchorUnit,
-    SecurityTransactionStep::IssueTerminalReceipt,
-];
+/// A PCR recovery unit is exactly the re-anchor Event followed by the
+/// replacement authorize Event.
+pub const RECOVERY_UNIT_EVENT_DIGEST_COUNT: usize = 2;
+/// PCR-policy recovery has a single client-attested step at index 0. The
+/// Station prepare transaction that freezes the plan belongs to `create`, so
+/// no coordinator-owned prefix precedes the terminal commit.
+pub const PCR_POLICY_RECOVERY_STEP_ORDER: [SecurityTransactionStep; 1] =
+    [SecurityTransactionStep::CommitRecoveryUnit];
 
 pub const SECURITY_ROTATION_STEP_ORDER: [SecurityTransactionStep; 5] = [
     SecurityTransactionStep::Revoke,
@@ -68,8 +74,7 @@ pub enum BackupRotationKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SecurityTransactionStep {
-    SubmitReanchorUnit,
-    IssueTerminalReceipt,
+    CommitRecoveryUnit,
     Revoke,
     UploadNewMaterial,
     SwitchAuthoritativePointer,
@@ -106,6 +111,13 @@ pub struct PcrPolicyRecoveryBinding {
     pub replacement_device_id: DeviceId,
     pub reanchor_event_id: EventId,
     pub authorize_event_id: EventId,
+    /// Reserved `EventBatchReceipt` id for the `device_reanchor_unit` scope.
+    /// The replacement device signs it inside the recovery receipt before the
+    /// two Events are accepted, so it is reserved at create time.
+    pub reanchor_batch_receipt_id: ReceiptId,
+    /// Content-derived id of `PcrPolicyRecoveryPlan::first_generation_seal_body`
+    /// under the Realm digest algorithm.
+    pub first_generation_seal_id: SealId,
     pub terminal_receipt_id: ReceiptId,
 }
 
@@ -193,6 +205,82 @@ impl PreparedDidPublication {
     }
 }
 
+/// Closed seal coordinates the Station replays into the exact first
+/// new-generation `UnsignedSeal`.
+///
+/// This is the recovery-private counterpart of `SealPrepareRequestBody` and
+/// MUST NOT be replaced by it: `unit_event_digests` is the execution order of
+/// the closed recovery unit, not a canonically sorted pending-command set, and
+/// `ak.self.seals.command.prepare.v1` is never reachable from a recovery
+/// SessionGrant.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecoverySealIntent {
+    pub realm_id: RealmId,
+    /// The exact current accepted Seal of the Principal Control Realm. The
+    /// first new-generation Seal is always a successor, so a genesis-null
+    /// basis is never accepted here.
+    pub predecessor_ref: SealId,
+    /// Exactly `[reanchor_digest, authorize_digest]` in recovery unit
+    /// execution order.
+    pub unit_event_digests: Vec<Hash>,
+    pub hlc: Hlc,
+}
+
+impl RecoverySealIntent {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.unit_event_digests.len() != RECOVERY_UNIT_EVENT_DIGEST_COUNT
+            || self.unit_event_digests[0] == self.unit_event_digests[1]
+            || self.unit_event_digests.iter().any(|digest| {
+                !matches!(
+                    digest.digest_suite(),
+                    Ok(arkret_canonical::DigestSuite::Sha256)
+                )
+            })
+        {
+            return Err(WireError::Protocol(
+                "recovery seal intent requires the distinct SHA-256 [reanchor, authorize] execution pair"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Caller-authored recovery intent for one RecoveryTransaction.
+///
+/// It carries no Station-derived material: the snapshots, the reserved
+/// re-anchor batch receipt id, the derived Seal id and the exact unsigned Seal
+/// body are produced by the Station prepare transaction and exist only in the
+/// prepared plan.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PcrPolicyRecoveryIntent {
+    pub recovery_session_id: RecoverySessionId,
+    pub replacement_device_id: DeviceId,
+    pub previous_model_generation_ref: u64,
+    pub result_model_generation_ref: u64,
+    pub terminal_receipt_id: ReceiptId,
+    pub reanchor_unit: PreparedEventUnit,
+    pub first_generation_seal_intent: RecoverySealIntent,
+}
+
+impl PcrPolicyRecoveryIntent {
+    pub fn validate_structural(&self) -> Result<()> {
+        if self.previous_model_generation_ref == 0
+            || self.result_model_generation_ref <= self.previous_model_generation_ref
+        {
+            return Err(WireError::Protocol(
+                "recovery intent requires a positive advancing PCR generation pair".to_owned(),
+            ));
+        }
+        self.reanchor_unit.validate_structural()?;
+        self.first_generation_seal_intent.validate_structural()
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -203,6 +291,13 @@ pub struct PcrPolicyRecoveryPlan {
     pub previous_model_generation_ref: u64,
     pub result_model_generation_ref: u64,
     pub reanchor_unit: PreparedEventUnit,
+    /// Byte-identical echo of the create request
+    /// `recovery_intent.first_generation_seal_intent`.
+    pub first_generation_seal_intent: RecoverySealIntent,
+    /// The sole signable body for this transaction. Once it is visible to the
+    /// client the `(realm_id, replacement signer slot, predecessor_ref)`
+    /// signing-slot fence never releases a second body for the same slot.
+    pub first_generation_seal_body: UnsignedSeal,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -294,7 +389,6 @@ pub struct SecurityTransaction {
     pub transaction_id: TransactionId,
     pub kind: SecurityTransactionKind,
     pub account_id: AccountId,
-    pub coordinator_id: DidCoreId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -316,7 +410,10 @@ pub struct RecoveryTransactionCreateRequest {
     pub account_id: AccountId,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub prepared_plan: RecoveryPreparedPlan,
+    /// Closed typed caller intent. A finished `prepared_plan` is never a
+    /// create input: the Station derives it in its own durable prepare
+    /// transaction, which produces no recovery effect.
+    pub recovery_intent: PcrPolicyRecoveryIntent,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -347,15 +444,15 @@ impl RecoveryTransactionCreateRequest {
         transaction_id: TransactionId,
         account_id: AccountId,
         expires_at: DateTime<Utc>,
-        prepared_plan: RecoveryPreparedPlan,
+        recovery_intent: PcrPolicyRecoveryIntent,
     ) -> Result<Self> {
-        prepared_plan.validate_discriminator()?;
+        recovery_intent.validate_structural()?;
         Ok(Self {
             transaction_id,
             kind: SecurityTransactionKind::Recovery,
             account_id,
             expires_at,
-            prepared_plan,
+            recovery_intent,
         })
     }
 }
@@ -506,30 +603,56 @@ impl SecurityTransactionCreateRequest {
     /// Converts the exact canonical create request into its durable initial
     /// resource. Coordinators persist both returned values atomically before
     /// executing the first external side effect.
+    ///
+    /// `prepared_plan` is the closed typed plan the coordinator froze in the
+    /// same durable transaction. A security rotation MUST pass back the
+    /// caller-stated plan unchanged; recovery passes the plan its own prepare
+    /// transaction derived from the caller intent, because a recovery create
+    /// request never carries a finished plan.
     pub fn into_initial_resource(
         self,
-        coordinator_id: DidCoreId,
+        prepared_plan: SecurityTransactionPreparedPlan,
         created_at: DateTime<Utc>,
     ) -> Result<(SecurityTransaction, Vec<u8>)> {
         let canonical_request = arkret_canonical::canonical::canonical_json_bytes(&self)?;
         let request_digest = Hash::new(arkret_canonical::canonical::sha256_digest(
             &canonical_request,
         ))?;
-        let (transaction_id, kind, account_id, expires_at, prepared_plan) = match self {
-            Self::Recovery(request) => (
-                request.transaction_id,
-                request.kind,
-                request.account_id,
-                request.expires_at,
-                SecurityTransactionPreparedPlan::Recovery(request.prepared_plan),
-            ),
-            Self::SecurityRotation(request) => (
-                request.transaction_id,
-                request.kind,
-                request.account_id,
-                request.expires_at,
-                SecurityTransactionPreparedPlan::SecurityRotation(request.prepared_plan),
-            ),
+        let (transaction_id, kind, account_id, expires_at) = match (&self, &prepared_plan) {
+            (Self::Recovery(request), SecurityTransactionPreparedPlan::Recovery(plan)) => {
+                validate_prepared_plan_matches_intent(&request.recovery_intent, plan)?;
+                (
+                    request.transaction_id.clone(),
+                    request.kind,
+                    request.account_id.clone(),
+                    request.expires_at,
+                )
+            }
+            (
+                Self::SecurityRotation(request),
+                SecurityTransactionPreparedPlan::SecurityRotation(plan),
+            ) => {
+                if arkret_canonical::canonical::canonical_json_bytes(&request.prepared_plan)?
+                    != arkret_canonical::canonical::canonical_json_bytes(plan)?
+                {
+                    return Err(WireError::Protocol(
+                        "security rotation initial resource must retain the exact caller plan"
+                            .to_owned(),
+                    ));
+                }
+                (
+                    request.transaction_id.clone(),
+                    request.kind,
+                    request.account_id.clone(),
+                    request.expires_at,
+                )
+            }
+            _ => {
+                return Err(WireError::Protocol(
+                    "security transaction create request and prepared plan discriminators disagree"
+                        .to_owned(),
+                ));
+            }
         };
         let prepared_plan_digest = Hash::new(arkret_canonical::canonical::canonical_sha256(
             &prepared_plan,
@@ -538,7 +661,6 @@ impl SecurityTransactionCreateRequest {
             transaction_id,
             kind,
             account_id,
-            coordinator_id,
             expires_at,
             created_at,
             request_digest,
@@ -550,6 +672,33 @@ impl SecurityTransactionCreateRequest {
         resource.validate_structural()?;
         Ok((resource, canonical_request))
     }
+}
+
+/// The Station prepare transaction may only add derived material: every member
+/// the caller stated MUST survive byte for byte.
+fn validate_prepared_plan_matches_intent(
+    intent: &PcrPolicyRecoveryIntent,
+    plan: &RecoveryPreparedPlan,
+) -> Result<()> {
+    intent.validate_structural()?;
+    let RecoveryPreparedPlan::PcrPolicy(plan) = plan;
+    let binding = &plan.binding;
+    let same_reanchor_unit =
+        arkret_canonical::canonical::canonical_json_bytes(&intent.reanchor_unit)?
+            == arkret_canonical::canonical::canonical_json_bytes(&plan.reanchor_unit)?;
+    if binding.recovery_session_id != intent.recovery_session_id
+        || binding.replacement_device_id != intent.replacement_device_id
+        || binding.terminal_receipt_id != intent.terminal_receipt_id
+        || plan.previous_model_generation_ref != intent.previous_model_generation_ref
+        || plan.result_model_generation_ref != intent.result_model_generation_ref
+        || !same_reanchor_unit
+        || plan.first_generation_seal_intent != intent.first_generation_seal_intent
+    {
+        return Err(WireError::Protocol(
+            "recovery prepared plan does not reproduce the caller recovery intent".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -829,12 +978,6 @@ impl SecurityTransaction {
 
     pub fn validate_structural(&self) -> Result<()> {
         self.account_id.validate()?;
-        if self.account_id.station_id != self.coordinator_id {
-            return Err(WireError::Protocol(
-                "security transaction coordinator must be the exact account Station service"
-                    .to_owned(),
-            ));
-        }
         if self.expires_at <= self.created_at {
             return Err(WireError::Protocol(
                 "security transaction expires_at must be after created_at".to_owned(),
@@ -926,23 +1069,25 @@ impl SecurityTransaction {
                     let binding = &plan.binding;
                     let replacement_device_id = &binding.replacement_device_id;
                     let authorize_event_id = &binding.authorize_event_id;
+                    let first_generation_seal_id = &binding.first_generation_seal_id;
                     let result_generation = plan.result_model_generation_ref;
                     let receipt_step = self.accepted_steps.last().ok_or_else(|| {
                         WireError::Protocol(
-                            "completed recovery transaction is missing its receipt step".to_owned(),
+                            "completed recovery transaction is missing its terminal commit step"
+                                .to_owned(),
                         )
                     })?;
                     if attestation.transaction_id != self.transaction_id
                         || attestation.transaction_request_digest != self.request_digest
                         || attestation.prepared_plan_digest != self.prepared_plan_digest
                         || attestation.account_id != self.account_id
-                        || attestation.coordinator_id != self.coordinator_id
                         || attestation.recovery_session_id != binding.recovery_session_id
                         || attestation.terminal_receipt_id != binding.terminal_receipt_id
                         || receipt_step.output_ref != attestation.terminal_receipt_id.as_str()
                         || receipt_step.output_digest != attestation.terminal_receipt_digest
                         || &attestation.replacement_device_id != replacement_device_id
                         || &attestation.device_authorization_event_id != authorize_event_id
+                        || &attestation.first_generation_seal_id != first_generation_seal_id
                         || attestation.result_model_generation_ref != result_generation
                         || attestation.completed_at != outcome.completed_at
                     {
@@ -1008,7 +1153,11 @@ impl SecurityTransaction {
                 "PCR-policy prepared plan binding and reanchor unit disagree".to_owned(),
             ));
         }
-        Ok(())
+        validate_first_generation_seal_body(
+            &plan.first_generation_seal_intent,
+            &plan.first_generation_seal_body,
+            &binding.first_generation_seal_id,
+        )
     }
 
     fn validate_security_rotation_plan(&self, plan: &SecurityRotationPlan) -> Result<()> {
@@ -1138,7 +1287,7 @@ impl SecurityTransaction {
     pub fn step_requires_client_attestation(step: SecurityTransactionStep) -> bool {
         matches!(
             step,
-            SecurityTransactionStep::IssueTerminalReceipt | SecurityTransactionStep::LocalCommit
+            SecurityTransactionStep::CommitRecoveryUnit | SecurityTransactionStep::LocalCommit
         )
     }
 
@@ -1201,6 +1350,57 @@ impl SecurityTransaction {
     }
 }
 
+/// The frozen unsigned Seal is the sole signable body of a RecoveryTransaction.
+/// It MUST replay the caller-stated coordinates and its content-derived id MUST
+/// equal the reserved `first_generation_seal_id`.
+fn validate_first_generation_seal_body(
+    intent: &RecoverySealIntent,
+    body: &UnsignedSeal,
+    reserved_id: &SealId,
+) -> Result<()> {
+    intent.validate_structural()?;
+    if body.realm_id != intent.realm_id
+        || body.predecessor_ref.as_ref() != Some(&intent.predecessor_ref)
+        || body.hlc != intent.hlc
+    {
+        return Err(WireError::Protocol(
+            "frozen recovery Seal body does not replay its closed seal intent".to_owned(),
+        ));
+    }
+    let mut committed = body
+        .command_results
+        .iter()
+        .filter(|result| result.outcome == crate::seal::CommandOutcome::Committed);
+    let committed = committed.next().filter(|_| committed.next().is_none());
+    let Some(committed) = committed else {
+        return Err(WireError::Protocol(
+            "frozen recovery Seal body must carry exactly one committed command result".to_owned(),
+        ));
+    };
+    if committed.unit_event_digests != intent.unit_event_digests {
+        return Err(WireError::Protocol(
+            "frozen recovery Seal committed result must carry the exact [reanchor, authorize] unit digests"
+                .to_owned(),
+        ));
+    }
+    let digest_suite = reserved_id
+        .as_str()
+        .strip_prefix("ak:seal:")
+        .ok_or_else(|| WireError::Protocol("reserved recovery Seal id is malformed".to_owned()))
+        .and_then(|digest| Ok(Hash::new(digest)?.digest_suite()?))?;
+    let derived = Seal::id_from_canonical_bytes(
+        &arkret_canonical::canonical::canonical_json_bytes(body)?,
+        digest_suite,
+    )?;
+    if &derived != reserved_id {
+        return Err(WireError::Protocol(
+            "reserved first_generation_seal_id does not equal the frozen Seal body identity"
+                .to_owned(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod untagged_contract_tests {
     use super::*;
@@ -1237,12 +1437,12 @@ mod untagged_contract_tests {
     }
 
     #[test]
-    fn recovery_step_order_is_the_closed_pcr_policy_pair() {
+    fn recovery_step_order_is_the_single_client_attested_terminal_commit() {
         let steps = serde_json::to_value(PCR_POLICY_RECOVERY_STEP_ORDER).unwrap();
-        assert_eq!(
-            steps,
-            serde_json::json!(["submit_reanchor_unit", "issue_terminal_receipt"])
-        );
+        assert_eq!(steps, serde_json::json!(["commit_recovery_unit"]));
+        assert!(SecurityTransaction::step_requires_client_attestation(
+            PCR_POLICY_RECOVERY_STEP_ORDER[0]
+        ));
     }
 
     #[test]

@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    BackupRotationBinding, PCR_POLICY_RECOVERY_STEP_ORDER, Result, SECURITY_ROTATION_STEP_ORDER,
-    SecurityTransactionStep, WireError,
+    BackupRotationBinding, ErrorCode, PCR_POLICY_RECOVERY_STEP_ORDER, ReasonCode, Result,
+    SECURITY_ROTATION_STEP_ORDER, SecurityTransactionStep, WireError,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -87,7 +87,7 @@ fn step_name(step: SecurityTransactionStep) -> Result<String> {
 
 fn transaction_steps(kind: &str) -> Result<Vec<String>> {
     let steps: &[SecurityTransactionStep] = match kind {
-        "recovery_pcr_policy" => &PCR_POLICY_RECOVERY_STEP_ORDER,
+        "recovery" => &PCR_POLICY_RECOVERY_STEP_ORDER,
         "security_rotation" => &SECURITY_ROTATION_STEP_ORDER,
         _ => {
             return Err(WireError::Protocol(format!(
@@ -100,7 +100,7 @@ fn transaction_steps(kind: &str) -> Result<Vec<String>> {
 
 fn transaction_id(kind: &str) -> Result<String> {
     let suffix = match kind {
-        "recovery_pcr_policy" => "000000000001",
+        "recovery" => "000000000001",
         "security_rotation" => "000000000003",
         _ => {
             return Err(WireError::Protocol(format!(
@@ -286,6 +286,11 @@ fn validate_fixture_contract(fixture: &Value) -> Result<()> {
         "exact_replay_returns_the_stored_outcome",
         "conflicting_replay_returns_duplicate_conflict",
         "device_attestation_readiness_is_derived_from_canonical_next_step",
+        "recovery_create_freezes_one_unsigned_seal_body_with_no_recovery_effect",
+        "recovery_authoritative_results_are_all_invisible_before_the_commit_and_all_visible_after",
+        "recovery_first_generation_seal_enters_only_through_commit_recovery_unit",
+        "recovery_stored_outcome_is_checked_before_consumed_session_refusal",
+        "only_the_atomic_generation_cas_winner_commits_a_first_generation_seal",
         "pointer_switch_precedes_every_old_series_erase",
         "erased_series_never_becomes_active_again",
         "public_store_log_telemetry_and_crash_artifact_contain_no_secret_material",
@@ -370,6 +375,147 @@ fn run_rotation_cases(fixture: &Value) -> Result<Vec<SecurityTransactionResilien
     Ok(vec![complete, rejected])
 }
 
+/// The atomic boundary the terminal commit has to hold: every authoritative
+/// result of a RecoveryTransaction is invisible before the single commit and
+/// visible after it.
+const RECOVERY_AUTHORITATIVE_RESULTS: [&str; 7] = [
+    "accepted_reanchor_event",
+    "accepted_authorize_event",
+    "committed_first_generation_seal",
+    "advanced_device_generation",
+    "active_verified_replacement_device",
+    "consumed_recovery_session",
+    "completed_terminal_result",
+];
+
+fn case_string<'a>(case: &'a Value, name: &str, key: &str) -> Result<&'a str> {
+    case.get(key).and_then(Value::as_str).ok_or_else(|| {
+        WireError::Protocol(format!(
+            "recovery terminal commit case {name} must carry a string {key}"
+        ))
+    })
+}
+
+fn case_members<'a>(case: &'a Value, key: &str) -> Vec<&'a str> {
+    case.get(key)
+        .and_then(Value::as_array)
+        .map(|values| values.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default()
+}
+
+/// The declared outcome of one recovery terminal-commit case. A registered
+/// refusal label is the outcome whenever the fixture names one, so the
+/// canonical projection cannot drift from the error-code registry. A recovery
+/// refusal is spelled either as an operation-specific reason code or as a
+/// top-level error code, and both halves of that registry are accepted here.
+fn recovery_case_outcome(case: &Value, name: &str, expected: &str) -> Result<String> {
+    for key in ["reason_code", "expected_reason_code"] {
+        let Some(code) = case.get(key).and_then(Value::as_str) else {
+            continue;
+        };
+        if !ReasonCode::is_registered(code) && !ErrorCode::is_registered(code) {
+            return Err(WireError::Protocol(format!(
+                "recovery terminal commit case {name} names unregistered refusal code {code}"
+            )));
+        }
+        return Ok(code.to_owned());
+    }
+    Ok(expected.to_owned())
+}
+
+fn validate_recovery_terminal_commit_case(case: &Value, name: &str, phase: &str) -> Result<()> {
+    match name {
+        "create_freezes_the_only_signable_seal_body" => {
+            if !case_members(case, "observable_recovery_effects").is_empty()
+                || case_members(case, "committed_command_result_unit_event_digests")
+                    != ["reanchor_digest", "authorize_digest"]
+                || !case_members(case, "frozen_plan_members")
+                    .contains(&"first_generation_seal_body")
+            {
+                return Err(WireError::Protocol(
+                    "recovery create must freeze one unsigned Seal body over the exact [reanchor, authorize] unit and produce no recovery effect"
+                        .to_owned(),
+                ));
+            }
+        }
+        "terminal_commit_is_one_atomic_commit" => {
+            let invisible = case_members(case, "invisible_before_commit");
+            let visible = case_members(case, "visible_after_commit");
+            if RECOVERY_AUTHORITATIVE_RESULTS
+                .iter()
+                .any(|result| !invisible.contains(result) || !visible.contains(result))
+                || !visible.contains(&"accepted_terminal_step")
+            {
+                return Err(WireError::Protocol(
+                    "recovery terminal commit must hide every authoritative result before the commit and show all of them after"
+                        .to_owned(),
+                ));
+            }
+        }
+        "receipt_completed_at_later_than_the_linearized_commit_time" => {
+            let zero = case_members(case, "zero_effects");
+            if RECOVERY_AUTHORITATIVE_RESULTS
+                .iter()
+                .any(|result| !zero.contains(result))
+                || !zero.contains(&"accepted_terminal_step")
+                || case.get("retry_with_a_new_receipt").and_then(Value::as_str) != Some("accepted")
+            {
+                return Err(WireError::Protocol(
+                    "an authoring time later than the linearized commit must reject with zero authoritative writes and stay retryable with a new receipt"
+                        .to_owned(),
+                ));
+            }
+        }
+        _ => {}
+    }
+    if !matches!(phase, "create" | "commit_recovery_unit" | "post_commit") {
+        return Err(WireError::Protocol(format!(
+            "recovery terminal commit case {name} declares unknown phase {phase}"
+        )));
+    }
+    Ok(())
+}
+
+fn run_recovery_terminal_commit_cases(
+    fixture: &Value,
+) -> Result<Vec<SecurityTransactionResilienceProjection>> {
+    let cases = fixture
+        .get("recovery_terminal_commit_cases")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            WireError::Protocol("recovery_terminal_commit_cases must be an array".to_owned())
+        })?;
+    let terminal_step = transaction_steps("recovery")?;
+    let mut projections = Vec::with_capacity(cases.len());
+    for case in cases {
+        let name = case_string(case, "<unnamed>", "name")?;
+        let phase = case_string(case, name, "phase")?;
+        let expected = case_string(case, name, "expected")?;
+        validate_recovery_terminal_commit_case(case, name, phase)?;
+        // The accepted prefix is one step or none: recovery has no
+        // coordinator-owned prefix, so only a case that actually accepted the
+        // terminal commit may show a non-empty ledger.
+        let accepted_terminal = phase != "create"
+            && (case_members(case, "visible_after_commit").contains(&"accepted_terminal_step")
+                || matches!(
+                    expected,
+                    "replay_stored_outcome" | "single_atomic_cas_winner"
+                ));
+        let accepted_steps = if accepted_terminal {
+            terminal_step.clone()
+        } else {
+            Vec::new()
+        };
+        projections.push(fixed_projection(
+            format!("recovery_terminal_commit/{phase}/{name}"),
+            "recovery",
+            accepted_steps,
+            &recovery_case_outcome(case, name, expected)?,
+        )?);
+    }
+    Ok(projections)
+}
+
 pub fn run_security_transaction_resilience_fixture(
     fixture: &Value,
 ) -> Result<Vec<SecurityTransactionResilienceProjection>> {
@@ -377,7 +523,7 @@ pub fn run_security_transaction_resilience_fixture(
     let kinds = required_string_array(fixture, "/fault_matrix/transaction_kinds")?;
     let positions = required_string_array(fixture, "/fault_matrix/fault_positions")?;
     let faults = required_string_array(fixture, "/fault_matrix/faults")?;
-    if kinds != ["security_rotation"] || positions.len() != 3 || faults.len() != 7 {
+    if kinds != ["recovery", "security_rotation"] || positions.len() != 3 || faults.len() != 7 {
         return Err(WireError::Protocol(
             "security transaction resilience fault matrix cardinality changed".to_owned(),
         ));
@@ -392,6 +538,7 @@ pub fn run_security_transaction_resilience_fixture(
         }
     }
     projections.extend(run_rotation_cases(fixture)?);
+    projections.extend(run_recovery_terminal_commit_cases(fixture)?);
     Ok(projections)
 }
 
@@ -406,7 +553,7 @@ mod tests {
         )
         .unwrap();
         let projections = run_security_transaction_resilience_fixture(&fixture).unwrap();
-        assert_eq!(projections.len(), 23);
+        assert_eq!(projections.len(), 56);
         assert_eq!(
             projections
                 .iter()
