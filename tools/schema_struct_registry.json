@@ -2,6 +2,14 @@
   "version": 1,
   "mappings": [
     {
+      "rust_type": "crates/models-crypto/src/mls_governance_result.rs::MlsAcceptedLeafAuthorization",
+      "schema": "mls-governance-proof-bundle.schema.json#/$defs/accepted_leaf_authorization"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/mls_governance_result.rs::MlsAcceptedArtifactOutcome",
+      "schema": "mls-governance-proof-bundle.schema.json#/$defs/accepted_artifact_outcome"
+    },
+    {
       "rust_type": "crates/identity/src/binding.rs::FreshnessProfile",
       "schema": "did-binding-contracts.schema.json#/$defs/freshness_profile"
     },

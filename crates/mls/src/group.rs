@@ -489,7 +489,11 @@ impl ArkretMlsGroup {
         &mut self,
         bindings: Vec<MlsVerifiedLeafBinding>,
     ) -> Result<()> {
-        let members = self.group.members().collect::<Vec<_>>();
+        let members = self
+            .group
+            .members()
+            .map(|member| (member.index.u32(), member))
+            .collect::<BTreeMap<_, _>>();
         if bindings.len() != members.len() {
             return Err(Error::Protocol(
                 "verified MLS leaf bindings do not cover every occupied leaf".to_owned(),
@@ -497,12 +501,9 @@ impl ArkretMlsGroup {
         }
         let mut installed = BTreeMap::new();
         for binding in bindings {
-            let member = members
-                .iter()
-                .find(|member| member.index.u32() == binding.leaf_index)
-                .ok_or_else(|| {
-                    Error::Protocol("verified MLS binding names an empty leaf".to_owned())
-                })?;
+            let member = members.get(&binding.leaf_index).ok_or_else(|| {
+                Error::Protocol("verified MLS binding names an empty leaf".to_owned())
+            })?;
             if installed.contains_key(&binding.leaf_index) {
                 return Err(Error::Protocol(
                     "duplicate verified MLS leaf binding".to_owned(),
@@ -545,6 +546,74 @@ impl ArkretMlsGroup {
         }
         self.leaf_bindings = installed;
         Ok(())
+    }
+
+    /// Install historical authority from one authenticated accepted artifact.
+    /// Never inherit by tuple equality: a Remove+Add can reuse every public field.
+    pub fn install_accepted_leaf_bindings(
+        &mut self,
+        outcome: &arkret_models_crypto::MlsAcceptedArtifactOutcome,
+    ) -> Result<()> {
+        outcome.transition_head.validate()?;
+        arkret_models_crypto::validate_mls_leaf_authorizations(
+            &outcome.mls_frontier_leaves,
+            &outcome.mls_leaf_authorizations,
+        )?;
+        if outcome.governance_binding.mls_group_id() != self.group_id()
+            || outcome.governance_binding.next_epoch() != self.epoch()
+            || self.current_governance_binding()?.as_ref() != Some(&outcome.governance_binding)
+        {
+            return Err(Error::Protocol(
+                "accepted authority belongs to another MLS transition".into(),
+            ));
+        }
+        let members = self
+            .group
+            .members()
+            .map(|member| (member.index.u32(), member))
+            .collect::<BTreeMap<_, _>>();
+        let mut bindings = Vec::with_capacity(outcome.mls_frontier_leaves.len());
+        for (leaf, authorization) in outcome
+            .mls_frontier_leaves
+            .iter()
+            .zip(&outcome.mls_leaf_authorizations)
+        {
+            let member = members
+                .get(&leaf.leaf_index)
+                .ok_or_else(|| Error::Protocol("accepted authority names an empty leaf".into()))?;
+            let endpoint = authorization.endpoint_for_leaf(leaf)?;
+            if let MlsEndpointIdentity::MinimalMetadataPairwise {
+                verification_method,
+                ..
+            } = &endpoint
+            {
+                let multibase = verification_method
+                    .as_str()
+                    .strip_prefix("did:key:")
+                    .and_then(|method| method.split_once('#'))
+                    .map(|(key, _)| key)
+                    .ok_or_else(|| Error::Protocol("invalid pairwise leaf method".into()))?;
+                let key = arkret_canonical::decode_ed25519_multibase(multibase)
+                    .map_err(|error| Error::Protocol(error.to_string()))?;
+                if key.as_slice() != member.signature_key.as_slice() {
+                    return Err(Error::Protocol(
+                        "pairwise identity differs from actual leaf key".into(),
+                    ));
+                }
+            }
+            bindings.push(MlsVerifiedLeafBinding {
+                leaf_index: leaf.leaf_index,
+                actor_id: leaf.actor_id.clone(),
+                endpoint,
+                credential_ref: leaf.credential_ref.clone(),
+                signature_key: arkret_wire::Base64UrlString::new(base64url_encode(
+                    &member.signature_key,
+                ))
+                .map_err(|error| Error::Protocol(error.to_owned()))?,
+                device_authorize_event_id: authorization.device_authorize_event_id.clone(),
+            });
+        }
+        self.install_verified_leaf_bindings(bindings)
     }
 
     pub fn install_local_creator_binding(

@@ -247,6 +247,93 @@ mod tests {
     }
 
     #[test]
+    fn accepted_leaf_authority_installs_cold_welcome_and_survives_reload_without_directory() {
+        use arkret_models_crypto::{
+            MlsAcceptedArtifactOutcome, MlsAcceptedLeafAuthorization, MlsAcceptedTransition,
+        };
+        use arkret_wire::mls_transition::MlsSecurityFrontierLeaf;
+        let bytes = b"ak:realm:AVt_pqbVmjfz315Eu_iVxMgAW_1Ak0GBjeQMPPoJ-Q7U";
+        let group_id = base64url_encode(bytes);
+        let first = governance_binding(&group_id, 0, 0, governance_hash('1'));
+        let next = governance_binding(&group_id, 0, 1, governance_hash('2'));
+        let alice = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c1").unwrap(),
+        )
+        .unwrap();
+        let bob = ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:bob.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-00000000f1c2").unwrap(),
+        )
+        .unwrap();
+        let mut group = alice
+            .create_group_with_governance_binding(bytes, &first)
+            .unwrap();
+        let add = group
+            .add_member_with_governance_binding(&bob.key_package_record().unwrap(), &next)
+            .unwrap();
+        let mut cold = ArkretMlsGroup::join_from_welcome(bob, &add.welcome).unwrap();
+        let original =
+            EventId::new("ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap();
+        let replaced =
+            EventId::new("ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
+        let bindings = group.verified_leaf_bindings().unwrap();
+        let mut outcome = MlsAcceptedArtifactOutcome {
+            query_digest: governance_hash('3'),
+            transition_head: MlsAcceptedTransition {
+                transition_ref: original.clone(),
+                transition_event_digest: original.event_digest(),
+                mls_transition_digest: governance_hash('4'),
+            },
+            governance_binding: next,
+            mls_frontier_leaves: bindings
+                .iter()
+                .map(|leaf| MlsSecurityFrontierLeaf {
+                    leaf_index: leaf.leaf_index,
+                    actor_id: leaf.actor_id.clone(),
+                    credential_ref: leaf.credential_ref.clone(),
+                })
+                .collect(),
+            mls_leaf_authorizations: bindings
+                .iter()
+                .map(|leaf| MlsAcceptedLeafAuthorization {
+                    leaf_index: leaf.leaf_index,
+                    device_authorize_event_id: Some(original.clone()),
+                    agent_verification_method: None,
+                    agent_key_authorize_event_id: None,
+                })
+                .collect(),
+        };
+        cold.install_accepted_leaf_bindings(&outcome).unwrap();
+        let record = cold.export_state_record().unwrap();
+        let mut restored = ArkretMlsGroup::restore_from_state_record(&record).unwrap();
+        assert!(
+            restored
+                .verified_leaf_bindings()
+                .unwrap()
+                .iter()
+                .all(|leaf| leaf.device_authorize_event_id.as_ref() == Some(&original))
+        );
+        // Equal public tuples are not a license to retain a different authority.
+        outcome.mls_leaf_authorizations[0].device_authorize_event_id = Some(replaced.clone());
+        restored.install_accepted_leaf_bindings(&outcome).unwrap();
+        assert_eq!(
+            restored.verified_leaf_bindings().unwrap()[0]
+                .device_authorize_event_id
+                .as_ref(),
+            Some(&replaced)
+        );
+        outcome.mls_leaf_authorizations.pop();
+        assert!(restored.install_accepted_leaf_bindings(&outcome).is_err());
+        assert_eq!(
+            restored.verified_leaf_bindings().unwrap()[0]
+                .device_authorize_event_id
+                .as_ref(),
+            Some(&replaced)
+        );
+    }
+
+    #[test]
     fn minimal_metadata_epoch_overdue_after_one_hour() {
         let started: chrono::DateTime<Utc> = "2026-06-04T00:00:00.000Z".parse().unwrap();
         // 59m59s in — still within the cap.

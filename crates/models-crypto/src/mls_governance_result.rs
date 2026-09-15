@@ -264,6 +264,101 @@ impl From<&MlsEpochHead> for MlsAcceptedTransition {
     }
 }
 
+/// Missing historical authority only; identity and keys remain in the existing
+/// frontier leaf and the authenticated RFC tree, respectively.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MlsAcceptedLeafAuthorization {
+    pub leaf_index: u32,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub device_authorize_event_id: Option<EventId>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub agent_verification_method: Option<arkret_wire::DidUrl>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
+    )]
+    pub agent_key_authorize_event_id: Option<EventId>,
+}
+
+impl MlsAcceptedLeafAuthorization {
+    pub fn endpoint_for_leaf(
+        &self,
+        leaf: &MlsSecurityFrontierLeaf,
+    ) -> Result<crate::MlsEndpointIdentity> {
+        if self.leaf_index != leaf.leaf_index {
+            return mismatch("MLS authorization names a different leaf index");
+        }
+        leaf.actor_id.validate()?;
+        let principal = leaf.actor_id.signing_principal_id();
+        if let Ok(device_id) = arkret_wire::DeviceId::new(leaf.credential_ref.as_str()) {
+            if leaf.actor_id.as_account_id().is_none()
+                || self.device_authorize_event_id.is_none()
+                || self.agent_verification_method.is_some()
+                || self.agent_key_authorize_event_id.is_some()
+            {
+                return mismatch("ordinary MLS leaf requires only its exact device authorization");
+            }
+            return Ok(crate::MlsEndpointIdentity::human_device(
+                principal.clone(),
+                device_id,
+            ));
+        }
+        if leaf.credential_ref.as_str() != principal.as_str()
+            || self.device_authorize_event_id.is_some()
+        {
+            return mismatch("MLS actor credential or authorization branch differs");
+        }
+        if let Some(multibase) = principal.as_str().strip_prefix("ak:did_core:key:") {
+            if leaf.actor_id.as_account_id().is_some()
+                || self.agent_verification_method.is_some()
+                || self.agent_key_authorize_event_id.is_some()
+            {
+                return mismatch("pairwise MLS leaf must not expose account authorization");
+            }
+            return crate::MlsEndpointIdentity::minimal_metadata_pairwise(
+                principal.clone(),
+                arkret_wire::DidUrl::new(format!("did:key:{multibase}#{multibase}"))
+                    .map_err(|error| WireError::Protocol(error.to_owned()))?,
+            );
+        }
+        let (Some(method), Some(event)) = (
+            &self.agent_verification_method,
+            &self.agent_key_authorize_event_id,
+        ) else {
+            return mismatch("Agent MLS leaf requires its exact method and authorization");
+        };
+        if leaf.actor_id.as_account_id().is_none() {
+            return mismatch("ordinary Agent MLS leaf requires a complete Account");
+        }
+        crate::MlsEndpointIdentity::agent_runtime(principal.clone(), method.clone(), event.clone())
+    }
+}
+
+pub fn validate_mls_leaf_authorizations(
+    leaves: &[MlsSecurityFrontierLeaf],
+    authorizations: &[MlsAcceptedLeafAuthorization],
+) -> Result<()> {
+    arkret_wire::mls_transition::validate_mls_frontier_leaves(leaves)?;
+    if leaves.len() != authorizations.len() {
+        return mismatch("MLS historical authorizations do not cover the exact leaf set");
+    }
+    for (leaf, authorization) in leaves.iter().zip(authorizations) {
+        authorization.endpoint_for_leaf(leaf)?;
+    }
+    Ok(())
+}
+
 /// Authenticated acceptance facts, without a client governance checkpoint.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -273,6 +368,7 @@ pub struct MlsAcceptedArtifactOutcome {
     pub transition_head: MlsAcceptedTransition,
     pub governance_binding: MlsGovernanceBindingPayload,
     pub mls_frontier_leaves: Vec<MlsSecurityFrontierLeaf>,
+    pub mls_leaf_authorizations: Vec<MlsAcceptedLeafAuthorization>,
 }
 
 impl MlsAcceptedArtifactOutcome {
@@ -280,7 +376,7 @@ impl MlsAcceptedArtifactOutcome {
         request.validate()?;
         self.transition_head.validate()?;
         self.governance_binding.validate()?;
-        arkret_wire::mls_transition::validate_mls_frontier_leaves(&self.mls_frontier_leaves)?;
+        validate_mls_leaf_authorizations(&self.mls_frontier_leaves, &self.mls_leaf_authorizations)?;
         let binding = &self.governance_binding;
         if self.query_digest != request.query_digest()?
             || binding.effective_scope() != &request.effective_scope
@@ -584,10 +680,9 @@ mod tests {
                 .is_err()
         );
         let mut other_base = result.clone();
-        other_base.base_group_state_ref = EventId::from_event_digest(
-            &Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap(),
-        )
-        .unwrap();
+        other_base.base_group_state_ref =
+            EventId::from_event_digest(&Hash::new(format!("sha256:{}", "d".repeat(64))).unwrap())
+                .unwrap();
         assert!(
             other_base
                 .validate_for_request(&query, &result.account_id, &leaves)
@@ -829,7 +924,9 @@ mod tests {
     }
     #[test]
     fn accepted_artifact_result_binds_query_group_epoch_and_exact_leaf_input() {
-        let intent = request();
+        let mut intent = request();
+        intent.local_mls_leaves[0].credential_ref =
+            NonEmptyString::new("ak:device:01904100-0000-7000-8000-00000000abcd").unwrap();
         let binding = outcome(&intent).governance_binding;
         let event = EventId::new("ak:event:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml").unwrap();
         let query = MlsAcceptedArtifactRequestBody {
@@ -851,9 +948,54 @@ mod tests {
             query_digest: query.query_digest().unwrap(),
             transition_head: MlsAcceptedTransition::from(&head),
             governance_binding: binding,
+            mls_leaf_authorizations: intent
+                .local_mls_leaves
+                .iter()
+                .map(|leaf| MlsAcceptedLeafAuthorization {
+                    leaf_index: leaf.leaf_index,
+                    device_authorize_event_id: Some(event.clone()),
+                    agent_verification_method: None,
+                    agent_key_authorize_event_id: None,
+                })
+                .collect(),
             mls_frontier_leaves: intent.local_mls_leaves,
         };
         accepted.validate_for_request(&query).unwrap();
+        let mut missing = accepted.clone();
+        missing.mls_leaf_authorizations.clear();
+        assert!(missing.validate_for_request(&query).is_err());
+        let mut duplicate = accepted.clone();
+        duplicate
+            .mls_leaf_authorizations
+            .push(duplicate.mls_leaf_authorizations[0].clone());
+        assert!(duplicate.validate_for_request(&query).is_err());
+        let mut wrong_index = accepted.clone();
+        wrong_index.mls_leaf_authorizations[0].leaf_index += 1;
+        assert!(wrong_index.validate_for_request(&query).is_err());
+        let mut wrong_branch = accepted.clone();
+        wrong_branch.mls_leaf_authorizations[0].agent_key_authorize_event_id = Some(event.clone());
+        assert!(wrong_branch.validate_for_request(&query).is_err());
+        let digest =
+            arkret_wire::mls_transition::mls_leaf_set_digest(&accepted.mls_frontier_leaves)
+                .unwrap();
+        let mut replacement = accepted.clone();
+        replacement.mls_leaf_authorizations[0].device_authorize_event_id =
+            Some(EventId::new("ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap());
+        replacement.validate_for_request(&query).unwrap();
+        assert_eq!(
+            digest,
+            arkret_wire::mls_transition::mls_leaf_set_digest(&replacement.mls_frontier_leaves)
+                .unwrap()
+        );
+        for field in [
+            "device_authorize_event_id",
+            "agent_verification_method",
+            "agent_key_authorize_event_id",
+        ] {
+            let mut wire = serde_json::to_value(&accepted).unwrap();
+            wire["mls_leaf_authorizations"][0][field] = serde_json::Value::Null;
+            assert!(serde_json::from_value::<MlsAcceptedArtifactOutcome>(wire).is_err());
+        }
         let mut other_query = query.clone();
         other_query.artifact_ref =
             EventId::new("ak:event:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
