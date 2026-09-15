@@ -412,10 +412,16 @@ fn is_account_device_control_prohibited_event(event: &Event) -> Result<bool> {
             let payload: arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizePayload = event
                 .typed_payload::<arkret_wire::event_spec::DeviceAuthorize>()
                 .map_err(wire)?;
+            // `applet_managed_delegation` joins the two unit-bound bindings
+            // here because `device-lifecycle.md` §5.3 requires its
+            // `proof.verification_method` to be a DID Document verification
+            // method fragment and MUST NOT be `ak:device:<uuid>`: an account
+            // device signing key can never be its producer.
             Ok(matches!(
                 payload.authorization_binding_kind,
                 arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizationBindingKind::RegistrationAnchor
                     | arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizationBindingKind::PcrRecovery
+                    | arkret_models_collaboration::events_payloads::device_identity::DeviceAuthorizationBindingKind::AppletManagedDelegation
             ))
         }
         _ => Ok(false),

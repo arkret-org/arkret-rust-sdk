@@ -43,14 +43,20 @@ fn possession(
         } else {
             DeviceOrPrincipalRef::Principal(account.principal_id.clone())
         },
-        None,
+        // `applet_managed_delegation` is the one bounded branch: a non-null
+        // expiry and a non-empty scope set are part of its closed shape.
+        (binding == DeviceAuthorizationBindingKind::AppletManagedDelegation)
+            .then(|| vec![NonEmptyString::new("ak.self.events.read.scan.v1").unwrap()]),
         at(),
-        None,
+        (binding == DeviceAuthorizationBindingKind::AppletManagedDelegation)
+            .then(|| Some(at() + chrono::Duration::days(30))),
         binding,
         (binding == DeviceAuthorizationBindingKind::PcrRecovery).then(|| {
             RecoverySessionId::new("ak:recovery_session:01904100-0000-7000-8000-000000000002")
                 .unwrap()
         }),
+        (binding == DeviceAuthorizationBindingKind::AppletManagedDelegation)
+            .then(|| AppletId::new("ak:applet:019a6aa0-0000-7000-8000-000000000000").unwrap()),
     )
     .unwrap();
     if binding == DeviceAuthorizationBindingKind::AcceptedDevice {

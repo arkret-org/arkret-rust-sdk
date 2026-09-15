@@ -16,6 +16,38 @@ pub enum DeviceAuthorizationBindingKind {
     RegistrationAnchor,
     PcrRecovery,
     AcceptedDevice,
+    AppletManagedDelegation,
+}
+
+impl DeviceAuthorizationBindingKind {
+    /// Registered possession-proof domain for this binding kind.
+    ///
+    /// `device-lifecycle.md` §5.2 makes the domain a function of
+    /// `authorization_binding_kind`, so the mapping is total and the verifier
+    /// never tries a second domain. Every arm reads the generated
+    /// [`ProofContextId`] constant: the domain strings are registry values and
+    /// restating them as literals would create a second spelling nothing
+    /// checks.
+    pub const fn possession_proof_context(self) -> ProofContextId {
+        match self {
+            Self::RegistrationAnchor => ProofContextId::DeviceAuthorizePossessionProofV1,
+            Self::PcrRecovery => ProofContextId::DeviceAuthorizeRecoveryPossessionProofV1,
+            Self::AcceptedDevice => ProofContextId::DeviceAuthorizeAcceptedDevicePossessionProofV1,
+            Self::AppletManagedDelegation => {
+                ProofContextId::DeviceAuthorizeAppletManagedPossessionProofV1
+            }
+        }
+    }
+}
+
+/// Domain-separation prefix for a registered proof context: the context id
+/// followed by a single `\n`, per `device-lifecycle.md` §5.2.1.
+fn proof_context_prefix(context: ProofContextId) -> Vec<u8> {
+    let context = context.as_str();
+    let mut prefix = Vec::with_capacity(context.len() + 1);
+    prefix.extend_from_slice(context.as_bytes());
+    prefix.push(b'\n');
+    prefix
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -45,6 +77,12 @@ pub struct DeviceAuthorizePayload {
     pub recovery_session_id: Option<RecoverySessionId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pairing_challenge_transcript_digest: Option<Hash>,
+    /// Exact Applet install that created this managed principal. Required by
+    /// `applet_managed_delegation` and forbidden on every other branch
+    /// (`device-lifecycle.md` §5.2.3); it is the delegated device's revocation
+    /// fence, so the binding cannot outlive the install that justified it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub applet_id: Option<AppletId>,
 }
 
 #[derive(Deserialize)]
@@ -69,6 +107,8 @@ struct DeviceAuthorizePayloadWire {
     recovery_session_id: Option<RecoverySessionId>,
     #[serde(default)]
     pairing_challenge_transcript_digest: Option<Hash>,
+    #[serde(default)]
+    applet_id: Option<AppletId>,
 }
 
 impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
@@ -91,6 +131,7 @@ impl<'de> Deserialize<'de> for DeviceAuthorizePayload {
             device_signature: wire.device_signature,
             recovery_session_id: wire.recovery_session_id,
             pairing_challenge_transcript_digest: wire.pairing_challenge_transcript_digest,
+            applet_id: wire.applet_id,
         };
         payload
             .validate_wire_constraints()
@@ -148,9 +189,16 @@ pub struct UnsignedDeviceAuthorizePayload {
     authorization_binding_kind: DeviceAuthorizationBindingKind,
     recovery_session_id: Option<RecoverySessionId>,
     pairing_challenge_transcript_digest: Option<Hash>,
+    applet_id: Option<AppletId>,
 }
 
 impl UnsignedDeviceAuthorizePayload {
+    /// `applet_id` is a constructor parameter rather than a later builder step
+    /// because it is the structural twin of `recovery_session_id`: required by
+    /// exactly one branch, forbidden on the rest, and known before the
+    /// possession transcript is built. `pairing_challenge_transcript_digest`
+    /// stays a builder step only because the pairing handshake produces it
+    /// after the payload core exists.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         device_id: DeviceId,
@@ -164,6 +212,7 @@ impl UnsignedDeviceAuthorizePayload {
         expires_at: Option<Option<DateTime<Utc>>>,
         authorization_binding_kind: DeviceAuthorizationBindingKind,
         recovery_session_id: Option<RecoverySessionId>,
+        applet_id: Option<AppletId>,
     ) -> Result<Self> {
         let payload = Self {
             device_id,
@@ -178,6 +227,7 @@ impl UnsignedDeviceAuthorizePayload {
             authorization_binding_kind,
             recovery_session_id,
             pairing_challenge_transcript_digest: None,
+            applet_id,
         };
         payload
             .validate_wire_constraints()
@@ -206,6 +256,7 @@ impl UnsignedDeviceAuthorizePayload {
             pairing_challenge_transcript_digest: payload
                 .pairing_challenge_transcript_digest
                 .clone(),
+            applet_id: payload.applet_id.clone(),
         }
     }
 
@@ -234,7 +285,36 @@ impl UnsignedDeviceAuthorizePayload {
                 if self.recovery_session_id.is_some() => {}
             (DeviceAuthorizationBindingKind::AcceptedDevice, DeviceOrPrincipalRef::DeviceId(_))
                 if self.recovery_session_id.is_none() => {}
+            // The managed principal authorizes its own delegated device, so
+            // `authorized_by` is a principal ref; §5.2.3 additionally requires
+            // it to equal `Event.actor_id.account_id.principal_id`, which only
+            // an Event-aware caller can check.
+            (
+                DeviceAuthorizationBindingKind::AppletManagedDelegation,
+                DeviceOrPrincipalRef::Principal(_),
+            ) if self.recovery_session_id.is_none() => {}
             _ => return Err("device_authorize_authorization_binding_mismatch"),
+        }
+        // `applet_id` is present on exactly the delegation branch
+        // (`event-payload.schema.json` device_authorize_payload allOf, §5.2.3).
+        if (self.authorization_binding_kind
+            == DeviceAuthorizationBindingKind::AppletManagedDelegation)
+            != self.applet_id.is_some()
+        {
+            return Err("device_authorize_applet_binding_mismatch");
+        }
+        // Bounded delegation: the Applet runtime, not the principal, holds this
+        // private key, so an unbounded or unscoped delegated device has no
+        // representable form.
+        if self.authorization_binding_kind
+            == DeviceAuthorizationBindingKind::AppletManagedDelegation
+        {
+            if !matches!(self.expires_at, Some(Some(_))) {
+                return Err("device_authorize_applet_managed_delegation_requires_expires_at");
+            }
+            if self.scopes.is_none() {
+                return Err("device_authorize_applet_managed_delegation_requires_scopes");
+            }
         }
         if let Some(scopes) = &self.scopes
             && (scopes.is_empty() || scopes.iter().collect::<BTreeSet<_>>().len() != scopes.len())
@@ -262,6 +342,20 @@ impl UnsignedDeviceAuthorizePayload {
             DeviceOrPrincipalRef::DeviceId(device_id) => device_id.as_str(),
             DeviceOrPrincipalRef::Principal(principal_id) => principal_id.as_str(),
         };
+        // §5.2.3 self-anchor: the managed PCR authorizes its own delegated
+        // device, so `authorized_by` is that principal, never the Applet
+        // `service_id` or controller DID. The subject account id is the only
+        // place the Event's `actor_id.account_id.principal_id` reaches this
+        // transcript, so the check belongs here rather than in the
+        // Event-unaware wire validator.
+        if self.authorization_binding_kind
+            == DeviceAuthorizationBindingKind::AppletManagedDelegation
+            && authorized_by != subject_account_id.principal_id.as_str()
+        {
+            return Err(WireError::Protocol(
+                "device_authorize_applet_managed_delegation_requires_self_anchor".to_owned(),
+            ));
+        }
         let mut scopes = self.scopes.clone();
         if let Some(scopes) = &mut scopes {
             scopes.sort_unstable();
@@ -269,7 +363,7 @@ impl UnsignedDeviceAuthorizePayload {
         }
         let expires_at = self.expires_at.as_ref().and_then(|value| value.as_ref());
         let recovery_session_id = self.recovery_session_id.as_ref().map(|id| id.as_str());
-        let body = serde_json::json!({
+        let mut body = serde_json::json!({
             "account_id": subject_account_id,
             "device_id": self.device_id.as_str(),
             "device_public_key_did": self.device_public_key_did.as_str(),
@@ -283,12 +377,26 @@ impl UnsignedDeviceAuthorizePayload {
             "recovery_session_id": recovery_session_id,
             "authorization_binding_kind": self.authorization_binding_kind,
         });
+        // §5.2.3 extends the registration/recovery core by exactly one member;
+        // the other branches MUST NOT carry it, and `validate_wire_constraints`
+        // has already established that `applet_id` is present on exactly the
+        // delegation branch.
+        if let Some(applet_id) = &self.applet_id {
+            let Some(members) = body.as_object_mut() else {
+                return Err(WireError::Protocol(
+                    "device_authorize_possession_transcript_not_an_object".to_owned(),
+                ));
+            };
+            members.insert(
+                "applet_id".to_owned(),
+                Value::String(applet_id.as_str().to_owned()),
+            );
+        }
         let mut out = match self.authorization_binding_kind {
-            DeviceAuthorizationBindingKind::RegistrationAnchor => {
-                binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX.to_vec()
-            }
-            DeviceAuthorizationBindingKind::PcrRecovery => {
-                binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX.to_vec()
+            DeviceAuthorizationBindingKind::RegistrationAnchor
+            | DeviceAuthorizationBindingKind::PcrRecovery
+            | DeviceAuthorizationBindingKind::AppletManagedDelegation => {
+                proof_context_prefix(self.authorization_binding_kind.possession_proof_context())
             }
             DeviceAuthorizationBindingKind::AcceptedDevice => {
                 let digest = self
@@ -332,6 +440,7 @@ impl UnsignedDeviceAuthorizePayload {
             device_signature: SignatureMaterial::NonEmptyString(signature),
             recovery_session_id: self.recovery_session_id,
             pairing_challenge_transcript_digest: self.pairing_challenge_transcript_digest,
+            applet_id: self.applet_id,
         })
     }
 }
@@ -858,11 +967,9 @@ mod tests {
                 .unwrap(),
         )
         .unwrap();
-        assert!(
-            input
-                .as_bytes()
-                .starts_with(binding_contexts::DEVICE_AUTHORIZE_POSSESSION_PREFIX)
-        );
+        assert!(input.as_bytes().starts_with(&proof_context_prefix(
+            ProofContextId::DeviceAuthorizePossessionProofV1
+        )));
         assert!(input.contains("\"authorization_binding_kind\":\"registration_anchor\""));
 
         let mut recovery = device_authorize_value();
@@ -873,10 +980,104 @@ mod tests {
         let recovery_input = recovery
             .device_possession_signature_input(&subject_account_id())
             .unwrap();
-        assert!(
-            recovery_input
-                .starts_with(binding_contexts::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX)
+        assert!(recovery_input.starts_with(&proof_context_prefix(
+            ProofContextId::DeviceAuthorizeRecoveryPossessionProofV1
+        )));
+    }
+
+    fn applet_managed_authorize_value() -> Value {
+        let mut value = device_authorize_value();
+        value["authorization_binding_kind"] = json!("applet_managed_delegation");
+        value["authorized_by"] = json!("ak:did_core:webvh:z6mkfixture");
+        value["applet_id"] = json!("ak:applet:019a6aa0-0000-7000-8000-000000000000");
+        value["expires_at"] = json!("2026-12-15T00:00:00.000Z");
+        value["scopes"] = json!(["ak.self.events.read.scan.v1"]);
+        value
+    }
+
+    #[test]
+    fn applet_managed_delegation_requires_its_bounded_closed_shape() {
+        let payload: DeviceAuthorizePayload =
+            serde_json::from_value(applet_managed_authorize_value()).unwrap();
+        assert_eq!(
+            payload.applet_id.as_ref().map(AppletId::as_str),
+            Some("ak:applet:019a6aa0-0000-7000-8000-000000000000")
         );
+
+        // `applet_id` is present on exactly this branch.
+        let mut without_applet = applet_managed_authorize_value();
+        without_applet.as_object_mut().unwrap().remove("applet_id");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(without_applet).is_err());
+
+        let mut foreign_applet = device_authorize_value();
+        foreign_applet["applet_id"] = json!("ak:applet:019a6aa0-0000-7000-8000-000000000000");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(foreign_applet).is_err());
+
+        // Bounded delegation: non-null expiry and a non-empty scope set.
+        let mut unbounded = applet_managed_authorize_value();
+        unbounded["expires_at"] = json!(null);
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(unbounded).is_err());
+
+        let mut unscoped = applet_managed_authorize_value();
+        unscoped.as_object_mut().unwrap().remove("scopes");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(unscoped).is_err());
+
+        // The branch authorizes itself, so `authorized_by` is a principal and
+        // never a device, and it carries neither sibling branch's discriminant.
+        let mut device_authorizer = applet_managed_authorize_value();
+        device_authorizer["authorized_by"] =
+            json!("ak:device:01904100-0000-7000-8000-000000000002");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(device_authorizer).is_err());
+
+        let mut with_recovery = applet_managed_authorize_value();
+        with_recovery["recovery_session_id"] =
+            json!("ak:recovery_session:01904100-0000-7000-8000-000000000003");
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(with_recovery).is_err());
+
+        let mut with_pairing = applet_managed_authorize_value();
+        with_pairing["pairing_challenge_transcript_digest"] =
+            json!(format!("sha256:{}", "1".repeat(64)));
+        assert!(serde_json::from_value::<DeviceAuthorizePayload>(with_pairing).is_err());
+    }
+
+    #[test]
+    fn applet_managed_possession_transcript_self_anchors_and_adds_applet_id() {
+        let payload: DeviceAuthorizePayload =
+            serde_json::from_value(applet_managed_authorize_value()).unwrap();
+        let input = payload
+            .device_possession_signature_input(&subject_account_id())
+            .unwrap();
+        assert!(input.starts_with(&proof_context_prefix(
+            ProofContextId::DeviceAuthorizeAppletManagedPossessionProofV1
+        )));
+        let input = String::from_utf8(input).unwrap();
+        assert!(input.contains("\"applet_id\":\"ak:applet:019a6aa0-0000-7000-8000-000000000000\""));
+        assert!(input.contains("\"recovery_session_id\":null"));
+        assert!(input.contains("\"authorization_binding_kind\":\"applet_managed_delegation\""));
+
+        // Self-anchor: `authorized_by` is the subject principal itself, so a
+        // foreign principal cannot mint the transcript.
+        let mut foreign = applet_managed_authorize_value();
+        foreign["authorized_by"] = json!("ak:did_core:webvh:z6mkforeignprincipal");
+        let foreign: DeviceAuthorizePayload = serde_json::from_value(foreign).unwrap();
+        assert!(
+            foreign
+                .device_possession_signature_input(&subject_account_id())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn registration_and_recovery_transcripts_never_carry_applet_id() {
+        let payload: DeviceAuthorizePayload =
+            serde_json::from_value(device_authorize_value()).unwrap();
+        let input = String::from_utf8(
+            payload
+                .device_possession_signature_input(&subject_account_id())
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(!input.contains("applet_id"));
     }
 
     #[test]

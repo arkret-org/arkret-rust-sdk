@@ -1,6 +1,8 @@
 //! Canonical domain-separation prefixes for signed protocol transcripts.
 
-pub const DEVICE_AUTHORIZE_POSSESSION_PREFIX: &[u8] = b"ak.device_authorize_possession_proof.v1\n";
-pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PREFIX: &[u8] =
-    b"ak.device_authorize_recovery_possession_proof.v1\n";
+// Device-authorization possession domains are not restated here: they are
+// registered proof contexts, so their only source is the generated
+// `ProofContextId` surface in `arkret-wire`, which this crate sits below. A
+// hand-copied literal would be a second, unchecked spelling of a registry
+// value.
 pub const IDENTITY_LINK_PREFIX: &[u8] = b"ak.identity-link-v1\n";

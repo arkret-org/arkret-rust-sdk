@@ -1050,17 +1050,32 @@ fn derive_device_transition(
             let is_replacement = members.len() == 2
                 && members[0].kind == EventKind::DeviceReanchor
                 && members[1].event_id == event.event_id;
-            let expected_binding = if is_genesis {
-                DeviceAuthorizationBindingKind::RegistrationAnchor
-            } else if is_replacement {
-                DeviceAuthorizationBindingKind::PcrRecovery
+            if payload.authorization_binding_kind
+                == DeviceAuthorizationBindingKind::AppletManagedDelegation
+            {
+                // `device-lifecycle.md` §5.2.3: the delegated device arrives as
+                // an ordinary post-genesis successor Event and MUST NOT form an
+                // atomic native unit with another Event, so it is neither the
+                // genesis authorize nor a recovery replacement and never shares
+                // a unit.
+                if is_genesis || members.len() != 1 {
+                    return Err(invalid(
+                        "applet-managed delegation authorize must be a standalone successor Event",
+                    ));
+                }
             } else {
-                DeviceAuthorizationBindingKind::AcceptedDevice
-            };
-            if payload.authorization_binding_kind != expected_binding {
-                return Err(invalid(
-                    "device authorize uses a binding outside its exact unit context",
-                ));
+                let expected_binding = if is_genesis {
+                    DeviceAuthorizationBindingKind::RegistrationAnchor
+                } else if is_replacement {
+                    DeviceAuthorizationBindingKind::PcrRecovery
+                } else {
+                    DeviceAuthorizationBindingKind::AcceptedDevice
+                };
+                if payload.authorization_binding_kind != expected_binding {
+                    return Err(invalid(
+                        "device authorize uses a binding outside its exact unit context",
+                    ));
+                }
             }
             if is_replacement && event.prev_refs != vec![members[0].event_id.clone()] {
                 return Err(invalid(

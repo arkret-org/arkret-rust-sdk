@@ -496,6 +496,7 @@ mod device_pairing_tests {
             None,
             DeviceAuthorizationBindingKind::AcceptedDevice,
             None,
+            None,
         )
         .unwrap()
         .with_pairing_challenge_transcript_digest(transcript_digest.clone())

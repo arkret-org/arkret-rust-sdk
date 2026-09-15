@@ -266,6 +266,7 @@ fn founding_authorize_payload(
             NonEmptyString::new("signature").unwrap(),
         ),
         recovery_session_id: None,
+        applet_id: None,
     }
 }
 
