@@ -274,6 +274,21 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/wire/src/generated/mls_creator_bootstrap.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "enum+descriptor",
+      "artifacts": [
+        "registry/mls-creator-bootstrap-transaction-registry.json"
+      ],
+      "provides": [
+        "MlsCreatorBootstrapState",
+        "MlsCreatorBootstrapTransition"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/wire/src/generated/operation_ids.rs"
       ],
       "owner": "arkret-wire",

@@ -109,6 +109,7 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_redactable_fields(artifacts_dir)?,
         generate_reducer_managed_paths(artifacts_dir)?,
         generate_forbidden_wire_fields(artifacts_dir)?,
+        generate_mls_creator_bootstrap(artifacts_dir)?,
     ])
 }
 
@@ -1859,6 +1860,235 @@ fn generate_account_data_keys(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     })
 }
 
+/// Closed client-local state machine of the creator MLS Genesis bootstrap
+/// transaction. The state and transition identifiers are wire-neutral durable
+/// labels, so every consumer resolves them through this one generated enum
+/// instead of re-spelling the registry.
+fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let artifact = Artifact::load(
+        artifacts_dir,
+        "registry/mls-creator-bootstrap-transaction-registry.json",
+    )?;
+    let states = artifact.array("states")?;
+    let transitions = artifact.array("transitions")?;
+    validate_unique(&states, "state_id", &[])?;
+    validate_unique(&transitions, "transition_id", &[])?;
+    let state_ids = states
+        .iter()
+        .map(|row| string(row, "state_id"))
+        .collect::<Result<BTreeSet<_>>>()?;
+    for (index, row) in states.iter().enumerate() {
+        let ordinal = field(row, "ordinal")?
+            .as_u64()
+            .context("state ordinal is not an integer")?;
+        if ordinal != index as u64 + 1 {
+            bail!("creator bootstrap states must be listed in ordinal order");
+        }
+        for exit in strings(row, "allowed_exits")? {
+            if !state_ids.contains(exit.as_str()) {
+                bail!("creator bootstrap state names an unknown exit: {exit}");
+            }
+        }
+    }
+    let mut kinds = BTreeSet::new();
+    for row in &states {
+        kinds.insert(string(row, "kind")?);
+    }
+
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "states={}, transitions={}, state_kinds={}",
+            states.len(),
+            transitions.len(),
+            kinds.len()
+        ),
+    );
+    output.push_str(
+        "use serde::{Deserialize, Serialize};\n\n/// Lifecycle class of one creator MLS Genesis bootstrap state.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapStateKind {\n",
+    );
+    for kind in &kinds {
+        writeln!(output, "    {},", variant(kind, &[]))?;
+    }
+    output.push_str("}\n\nimpl MlsCreatorBootstrapStateKind {\n    pub const ALL: &'static [Self] = &[\n");
+    for kind in &kinds {
+        writeln!(output, "        Self::{},", variant(kind, &[]))?;
+    }
+    output.push_str("    ];\n\n    pub const fn as_str(self) -> &'static str {\n        match self {\n");
+    for kind in &kinds {
+        writeln!(
+            output,
+            "            Self::{} => {},",
+            variant(kind, &[]),
+            rust_string(kind)
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for kind in &kinds {
+        writeln!(
+            output,
+            "            {} => Some(Self::{}),",
+            rust_string(kind),
+            variant(kind, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n}\n\n");
+
+    output.push_str(
+        "/// Durable state of the single client-local creator MLS Genesis bootstrap\n/// transaction, keyed by `(owner_actor_id, effective_scope, operation)`.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapState {\n",
+    );
+    for row in &states {
+        writeln!(output, "    {},", variant(string(row, "state_id")?, &[]))?;
+    }
+    output.push_str("}\n\nimpl MlsCreatorBootstrapState {\n    /// Registry order, which is the ordinal order of the state machine.\n    pub const ALL: &'static [Self] = &[\n");
+    for row in &states {
+        writeln!(
+            output,
+            "        Self::{},",
+            variant(string(row, "state_id")?, &[])
+        )?;
+    }
+    output.push_str("    ];\n\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        writeln!(
+            output,
+            "    pub const {}: &'static str = {};",
+            associated_name(value, &[]),
+            rust_string(value)
+        )?;
+    }
+    output.push_str("\n    pub const fn as_str(self) -> &'static str {\n        match self {\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Self::{},",
+            variant(value, &[]),
+            associated_name(value, &[])
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Some(Self::{}),",
+            associated_name(value, &[]),
+            variant(value, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static MlsCreatorBootstrapStateDescriptor {\n        &MLS_CREATOR_BOOTSTRAP_STATES[self as usize]\n    }\n\n    pub fn ordinal(self) -> u32 {\n        self.descriptor().ordinal\n    }\n\n    pub fn kind(self) -> MlsCreatorBootstrapStateKind {\n        self.descriptor().kind\n    }\n\n    /// States a recoverer may move to from here. A terminal state has none.\n    pub fn allowed_exits(self) -> &'static [MlsCreatorBootstrapState] {\n        self.descriptor().allowed_exits\n    }\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsCreatorBootstrapStateDescriptor {\n    pub state: MlsCreatorBootstrapState,\n    pub ordinal: u32,\n    pub kind: MlsCreatorBootstrapStateKind,\n    pub allowed_exits: &'static [MlsCreatorBootstrapState],\n}\n\npub const MLS_CREATOR_BOOTSTRAP_STATES: &[MlsCreatorBootstrapStateDescriptor] = &[\n");
+    for row in &states {
+        let value = string(row, "state_id")?;
+        let exits = strings(row, "allowed_exits")?
+            .iter()
+            .map(|exit| format!("MlsCreatorBootstrapState::{}", variant(exit, &[])))
+            .collect::<Vec<_>>()
+            .join(", ");
+        writeln!(
+            output,
+            "    MlsCreatorBootstrapStateDescriptor {{ state: MlsCreatorBootstrapState::{}, ordinal: {}, kind: MlsCreatorBootstrapStateKind::{}, allowed_exits: &[{}] }},",
+            variant(value, &[]),
+            field(row, "ordinal")?
+                .as_u64()
+                .context("state ordinal is not an integer")?,
+            variant(string(row, "kind")?, &[]),
+            exits
+        )?;
+    }
+    output.push_str("];\n\n");
+
+    output.push_str(
+        "/// The single arrows a recoverer may execute. `from_state` is `None` for\n/// the one arrow that creates the record.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]\npub enum MlsCreatorBootstrapTransition {\n",
+    );
+    for row in &transitions {
+        writeln!(
+            output,
+            "    {},",
+            variant(string(row, "transition_id")?, &[])
+        )?;
+    }
+    output.push_str("}\n\nimpl MlsCreatorBootstrapTransition {\n    pub const ALL: &'static [Self] = &[\n");
+    for row in &transitions {
+        writeln!(
+            output,
+            "        Self::{},",
+            variant(string(row, "transition_id")?, &[])
+        )?;
+    }
+    output.push_str("    ];\n\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        writeln!(
+            output,
+            "    pub const {}: &'static str = {};",
+            associated_name(value, &[]),
+            rust_string(value)
+        )?;
+    }
+    output.push_str("\n    pub const fn as_str(self) -> &'static str {\n        match self {\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Self::{},",
+            variant(value, &[]),
+            associated_name(value, &[])
+        )?;
+    }
+    output.push_str("        }\n    }\n\n    pub fn from_wire(value: &str) -> Option<Self> {\n        match value {\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        writeln!(
+            output,
+            "            Self::{} => Some(Self::{}),",
+            associated_name(value, &[]),
+            variant(value, &[])
+        )?;
+    }
+    output.push_str("            _ => None,\n        }\n    }\n\n    pub fn descriptor(self) -> &'static MlsCreatorBootstrapTransitionDescriptor {\n        &MLS_CREATOR_BOOTSTRAP_TRANSITIONS[self as usize]\n    }\n\n    pub fn from_state(self) -> Option<MlsCreatorBootstrapState> {\n        self.descriptor().from_state\n    }\n\n    pub fn to_state(self) -> MlsCreatorBootstrapState {\n        self.descriptor().to_state\n    }\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct MlsCreatorBootstrapTransitionDescriptor {\n    pub transition: MlsCreatorBootstrapTransition,\n    pub from_state: Option<MlsCreatorBootstrapState>,\n    pub to_state: MlsCreatorBootstrapState,\n}\n\npub const MLS_CREATOR_BOOTSTRAP_TRANSITIONS: &[MlsCreatorBootstrapTransitionDescriptor] = &[\n");
+    for row in &transitions {
+        let value = string(row, "transition_id")?;
+        let from_state = match field(row, "from_state")? {
+            Value::Null => "None".to_owned(),
+            Value::String(state) => {
+                if !state_ids.contains(state.as_str()) {
+                    bail!("creator bootstrap transition names an unknown from_state: {state}");
+                }
+                format!("Some(MlsCreatorBootstrapState::{})", variant(state, &[]))
+            }
+            _ => bail!("creator bootstrap transition from_state must be a string or null"),
+        };
+        let to_state = string(row, "to_state")?;
+        if !state_ids.contains(to_state) {
+            bail!("creator bootstrap transition names an unknown to_state: {to_state}");
+        }
+        writeln!(
+            output,
+            "    MlsCreatorBootstrapTransitionDescriptor {{ transition: MlsCreatorBootstrapTransition::{}, from_state: {}, to_state: MlsCreatorBootstrapState::{} }},",
+            variant(value, &[]),
+            from_state,
+            variant(to_state, &[])
+        )?;
+    }
+    output.push_str("];\n\n");
+    for name in [
+        "MlsCreatorBootstrapStateKind",
+        "MlsCreatorBootstrapState",
+        "MlsCreatorBootstrapTransition",
+    ] {
+        writeln!(
+            output,
+            "impl std::fmt::Display for {name} {{ fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{ f.write_str(self.as_str()) }} }}\nimpl Serialize for {name} {{ fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {{ serializer.serialize_str(self.as_str()) }} }}\nimpl<'de> Deserialize<'de> for {name} {{ fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {{ let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown {name} value: {{raw}}\"))) }} }}"
+        )?;
+    }
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/mls_creator_bootstrap.rs".into(),
+        contents: output,
+    })
+}
+
 fn simple_string_enum(
     artifact: &Artifact,
     rows: &[&Map<String, Value>],
@@ -2320,8 +2550,9 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 24);
+        assert_eq!(outputs.len(), 25);
         for required in [
+            "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
             "crates/wire/src/generated/security_strings.rs",
             "crates/wire/src/error_codes/error_code.rs",
