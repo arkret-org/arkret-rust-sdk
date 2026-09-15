@@ -4314,8 +4314,8 @@ mod tests {
                 },
             ]),
         }]);
-        const DUPLICATE_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[
-            EventCellRuleField {
+        const DUPLICATE_EXCLUDE_RULE: EventCellRule =
+            EventCellRule::Object(&[EventCellRuleField {
                 key: EventCellRuleKey::ObjectWithoutFields,
                 value: EventCellRule::Object(&[
                     EventCellRuleField {
@@ -4327,10 +4327,9 @@ mod tests {
                         value: EventCellRule::Array(DUPLICATE),
                     },
                 ]),
-            },
-        ]);
-        const NON_TOP_LEVEL_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[
-            EventCellRuleField {
+            }]);
+        const NON_TOP_LEVEL_EXCLUDE_RULE: EventCellRule =
+            EventCellRule::Object(&[EventCellRuleField {
                 key: EventCellRuleKey::ObjectWithoutFields,
                 value: EventCellRule::Object(&[
                     EventCellRuleField {
@@ -4342,10 +4341,9 @@ mod tests {
                         value: EventCellRule::Array(NON_TOP_LEVEL),
                     },
                 ]),
-            },
-        ]);
-        const NON_STRING_EXCLUDE_RULE: EventCellRule = EventCellRule::Object(&[
-            EventCellRuleField {
+            }]);
+        const NON_STRING_EXCLUDE_RULE: EventCellRule =
+            EventCellRule::Object(&[EventCellRuleField {
                 key: EventCellRuleKey::ObjectWithoutFields,
                 value: EventCellRule::Object(&[
                     EventCellRuleField {
@@ -4357,38 +4355,33 @@ mod tests {
                         value: EventCellRule::Array(NON_STRING),
                     },
                 ]),
-            },
-        ]);
-        const MISSING_SOURCE_RULE: EventCellRule = EventCellRule::Object(&[
-            EventCellRuleField {
-                key: EventCellRuleKey::ObjectWithoutFields,
-                value: EventCellRule::Object(&[
-                    EventCellRuleField {
-                        key: EventCellRuleKey::Field,
-                        value: EventCellRule::String("payload.missing"),
-                    },
-                    EventCellRuleField {
-                        key: EventCellRuleKey::Exclude,
-                        value: EventCellRule::Array(ONE_FIELD),
-                    },
-                ]),
-            },
-        ]);
-        const VALID_OBJECT_RULE: EventCellRule = EventCellRule::Object(&[
-            EventCellRuleField {
-                key: EventCellRuleKey::ObjectWithoutFields,
-                value: EventCellRule::Object(&[
-                    EventCellRuleField {
-                        key: EventCellRuleKey::Field,
-                        value: EventCellRule::String("payload.object"),
-                    },
-                    EventCellRuleField {
-                        key: EventCellRuleKey::Exclude,
-                        value: EventCellRule::Array(ONE_FIELD),
-                    },
-                ]),
-            },
-        ]);
+            }]);
+        const MISSING_SOURCE_RULE: EventCellRule = EventCellRule::Object(&[EventCellRuleField {
+            key: EventCellRuleKey::ObjectWithoutFields,
+            value: EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.missing"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Exclude,
+                    value: EventCellRule::Array(ONE_FIELD),
+                },
+            ]),
+        }]);
+        const VALID_OBJECT_RULE: EventCellRule = EventCellRule::Object(&[EventCellRuleField {
+            key: EventCellRuleKey::ObjectWithoutFields,
+            value: EventCellRule::Object(&[
+                EventCellRuleField {
+                    key: EventCellRuleKey::Field,
+                    value: EventCellRule::String("payload.object"),
+                },
+                EventCellRuleField {
+                    key: EventCellRuleKey::Exclude,
+                    value: EventCellRule::Array(ONE_FIELD),
+                },
+            ]),
+        }]);
         const MALFORMED_SOURCES: &[EventCellRule] = &[
             NON_OBJECT_RULE,
             EMPTY_EXCLUDE_RULE,
