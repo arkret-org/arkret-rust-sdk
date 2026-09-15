@@ -497,6 +497,8 @@ pub enum AccountHandoffAllowedOperation {
     IssueIdentityBindingChallenge,
     #[serde(rename = "ak.gate.account.command.register.v1")]
     Register,
+    #[serde(rename = "ak.gate.account.command.finalize_device_pairing.v1")]
+    FinalizeDevicePairing,
     #[serde(rename = "ak.gate.account.command.issue_session_grant.v1")]
     IssueSessionGrant,
     #[serde(rename = "ak.gate.account.command.issue_recovery_completion_grant.v1")]
@@ -505,11 +507,12 @@ pub enum AccountHandoffAllowedOperation {
     AbandonIdentityCreation,
 }
 
-pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 6] = [
+pub const ACCOUNT_HANDOFF_ALLOWED_OPERATIONS: [AccountHandoffAllowedOperation; 7] = [
     AccountHandoffAllowedOperation::IssueIdentityBindingChallenge,
     AccountHandoffAllowedOperation::IssueDidBindingChallenge,
     AccountHandoffAllowedOperation::AbandonIdentityCreation,
     AccountHandoffAllowedOperation::Register,
+    AccountHandoffAllowedOperation::FinalizeDevicePairing,
     AccountHandoffAllowedOperation::IssueSessionGrant,
     AccountHandoffAllowedOperation::IssueRecoveryCompletionGrant,
 ];
@@ -790,7 +793,7 @@ pub struct AccountHandoffOutcome {
     pub account_handoff_grant: String,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    pub allowed_operations: [AccountHandoffAllowedOperation; 6],
+    pub allowed_operations: [AccountHandoffAllowedOperation; 7],
     pub binding: AccountHandoffBinding,
 }
 

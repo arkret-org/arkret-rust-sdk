@@ -14,8 +14,9 @@ use arkret_models_collaboration::direct_conversation_ops::{
 };
 use arkret_models_collaboration::http_bodies::{
     AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
-    DevicePairingResolveRequestBody, DevicePairingStageOutcome, DevicePairingStageRequestBody,
-    DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
+    DevicePairingCodeClaimOutcome, DevicePairingCodeClaimRequestBody, DevicePairingFinalizeOutcome,
+    DevicePairingFinalizeRequestBody, DevicePairingResolveRequestBody, DevicePairingStageOutcome,
+    DevicePairingStageRequestBody, DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 #[cfg(all(test, not(target_arch = "wasm32")))]
 use arkret_models_collaboration::session_grant_bodies::{
@@ -226,6 +227,37 @@ impl Client {
         request: &DevicePairingStageRequestBody,
     ) -> Result<DevicePairingStageOutcome> {
         self.post("/_arkret/open/device-pairing/requests", request)
+            .await
+    }
+
+    /// `POST /_arkret/gate/account/device-pairing/finalizations`
+    /// (`ak.gate.account.command.finalize_device_pairing.v1`). Authenticated
+    /// with `Authorization: DPoP <account_handoff_grant>` and a matching DPoP
+    /// proof: the staged candidate attaches its signed target proof and the
+    /// record moves one way from `staged` to `ready_for_claim`. This is the
+    /// only server-facing carrier of the target proof; the anonymous stage and
+    /// resolve surfaces MUST NOT receive it.
+    pub async fn auth_finalize_device_pairing(
+        &self,
+        request: &DevicePairingFinalizeRequestBody,
+    ) -> Result<DevicePairingFinalizeOutcome> {
+        self.post(
+            "/_arkret/gate/account/device-pairing/finalizations",
+            request,
+        )
+        .await
+    }
+
+    /// `POST /_arkret/gate/account/device-pairing/code-claims`
+    /// (`ak.gate.account.read.claim_device_pairing_code.v1`). Authenticated,
+    /// body-only: an accepted device of the account exchanges the eight-
+    /// character code for the same bootstrap and byte-equivalent target proof
+    /// the short-link resolve returns. Claiming authorizes nothing.
+    pub async fn device_pairing_claim_code(
+        &self,
+        request: &DevicePairingCodeClaimRequestBody,
+    ) -> Result<DevicePairingCodeClaimOutcome> {
+        self.post("/_arkret/gate/account/device-pairing/code-claims", request)
             .await
     }
 

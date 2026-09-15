@@ -300,6 +300,7 @@ impl UnsignedDeviceAuthorizePayload {
                         )
                     })?;
                 return crate::http_bodies::UnsignedDevicePairingTargetProof::new(
+                    subject_account_id.clone(),
                     self.device_id.clone(),
                     DidKey::new(self.device_public_key_did.as_str())
                         .map_err(|error| WireError::Protocol(error.to_string()))?,

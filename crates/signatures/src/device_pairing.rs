@@ -7,9 +7,9 @@ use arkret_models_collaboration::http_bodies::{
     DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingTargetProof,
     UnsignedDevicePairingTargetProof,
 };
+use arkret_wire::{AccountId, Hash, NonEmptyString};
 #[cfg(test)]
 use arkret_wire::{Base64UrlString, DeviceId};
-use arkret_wire::{Hash, NonEmptyString};
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use chrono::{DateTime, Utc};
@@ -81,6 +81,8 @@ pub enum DevicePairingProofError {
     SignatureInvalid,
     #[error("device pairing target attestation signature is not the closed Ed25519 string form")]
     InvalidTargetProofSignatureShape,
+    #[error("device pairing target attestation is bound to a different account")]
+    AccountMismatch,
     #[error("device pairing transcript could not be canonicalized: {0}")]
     Canonical(#[from] arkret_canonical::CanonicalError),
     #[error("device pairing wire value is invalid: {0}")]
@@ -168,15 +170,27 @@ pub fn server_device_pairing_transcript(
     Ok((bytes, digest))
 }
 
-/// Verify the sole target proof against independently reconstructed stage inputs.
+/// Verify the sole target proof against independently reconstructed stage
+/// inputs and the exact account this pairing is being bound to.
+///
+/// `expected_account_id` is not optional and is not part of the challenge
+/// transcript: staging is account-less, so the account binding lives only in
+/// the signed `account_id` member of the proof. The finalizing Account
+/// Authority passes the account the pending handoff is bound to, the gate and
+/// the approving device pass their own account, and the target device passes
+/// the account of the accepted Event.
 pub fn verify_server_device_pairing_target_proof(
     public_key: &PublicKey,
     challenge: &ServerDevicePairingChallenge,
+    expected_account_id: &AccountId,
     proof: &DevicePairingTargetProof,
     verification_time: DateTime<Utc>,
 ) -> Result<(), DevicePairingProofError> {
     if challenge.expires_at <= verification_time {
         return Err(DevicePairingProofError::Expired);
+    }
+    if &proof.account_id != expected_account_id {
+        return Err(DevicePairingProofError::AccountMismatch);
     }
     if proof.device_id.as_str() != public_key.kid.as_str() {
         return Err(DevicePairingProofError::VerificationMethodMismatch);
@@ -219,6 +233,13 @@ mod tests {
 
     use super::*;
 
+    fn account_fixture() -> AccountId {
+        AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:alice.example").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:station.example").unwrap(),
+        )
+    }
+
     fn fixture() -> (
         PublicKey,
         ServerDevicePairingChallenge,
@@ -258,6 +279,7 @@ mod tests {
         let (public_key, challenge, signing_key) = fixture();
         let (_, digest) = server_device_pairing_transcript(&public_key, &challenge).unwrap();
         let unsigned = UnsignedDevicePairingTargetProof::new(
+            account_fixture(),
             DeviceId::new(public_key.kid.as_str()).unwrap(),
             arkret_wire::DidKey::new(format!(
                 "did:key:{}",
@@ -276,6 +298,7 @@ mod tests {
         verify_server_device_pairing_target_proof(
             &public_key,
             &challenge,
+            &account_fixture(),
             &proof,
             verification_time,
         )
@@ -286,6 +309,7 @@ mod tests {
             verify_server_device_pairing_target_proof(
                 &public_key,
                 &tampered,
+                &account_fixture(),
                 &proof,
                 verification_time
             )
@@ -297,6 +321,7 @@ mod tests {
             verify_server_device_pairing_target_proof(
                 &public_key,
                 &tampered,
+                &account_fixture(),
                 &proof,
                 verification_time
             )
@@ -306,17 +331,33 @@ mod tests {
             verify_server_device_pairing_target_proof(
                 &public_key,
                 &challenge,
+                &account_fixture(),
                 &proof,
                 challenge.expires_at
             )
             .is_err()
         );
+        let other_account = AccountId::new(
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:mallory.example").unwrap(),
+            arkret_wire::DidCoreId::new("ak:did_core:webvh:z6mkfixture:station.example").unwrap(),
+        );
+        assert!(matches!(
+            verify_server_device_pairing_target_proof(
+                &public_key,
+                &challenge,
+                &other_account,
+                &proof,
+                verification_time
+            ),
+            Err(DevicePairingProofError::AccountMismatch)
+        ));
         let mut tampered = proof;
         tampered.hpke_key = NonEmptyString::new("wrong-hpke-key").unwrap();
         assert!(
             verify_server_device_pairing_target_proof(
                 &public_key,
                 &challenge,
+                &account_fixture(),
                 &tampered,
                 verification_time
             )
@@ -331,6 +372,7 @@ mod tests {
             signing_key.verifying_key().as_bytes(),
         );
         UnsignedDevicePairingTargetProof::new(
+            account_fixture(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000009").unwrap(),
             arkret_wire::DidKey::new(format!("did:key:{multibase}")).unwrap(),
             NonEmptyString::new("hpke-public-key-fixture").unwrap(),
@@ -354,7 +396,10 @@ mod tests {
             String::from_utf8(unsigned.signing_input().unwrap()).unwrap(),
             format!(
                 "ak.device_authorize_accepted_device_possession_proof.v1\n\
-                 {{\"algorithms\":[\"Ed25519\"],\"authorization_binding_kind\":\"accepted_device\",\
+                 {{\"account_id\":{{\
+                 \"principal_id\":\"ak:did_core:webvh:z6mkfixture:alice.example\",\
+                 \"station_id\":\"ak:did_core:webvh:z6mkfixture:station.example\"}},\
+                 \"algorithms\":[\"Ed25519\"],\"authorization_binding_kind\":\"accepted_device\",\
                  \"device_id\":\"ak:device:01904100-0000-7000-8000-000000000009\",\
                  \"device_key_algorithm\":\"Ed25519\",\"device_public_key_did\":\"{did_key}\",\
                  \"hpke_key\":\"hpke-public-key-fixture\",\
@@ -414,6 +459,7 @@ mod tests {
         ] {
             assert!(
                 UnsignedDevicePairingTargetProof::new(
+                    account_fixture(),
                     device_id.clone(),
                     did_key.clone(),
                     NonEmptyString::new("hpke-public-key-fixture").unwrap(),

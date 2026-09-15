@@ -473,7 +473,9 @@ mod device_pairing_tests {
         let transcript_digest = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
         let device_signature =
             SignatureMaterial::NonEmptyString(NonEmptyString::new("AA").unwrap());
+        let account_id = AccountId::new(principal_id.clone(), principal_id.clone());
         let attestation = UnsignedDevicePairingTargetProof::new(
+            account_id.clone(),
             target_device.clone(),
             did_key.clone(),
             hpke_key.clone(),
@@ -507,7 +509,7 @@ mod device_pairing_tests {
             kind: EventKind::DeviceAuthorize,
             realm_id: realm_id.clone(),
             scope_ref: ScopeRef::Realm { realm_id },
-            actor_id: ActorId::account(AccountId::new(principal_id.clone(), principal_id)),
+            actor_id: ActorId::account(account_id),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
@@ -605,6 +607,17 @@ mod device_pairing_tests {
                     &changed_request,
                     arkret_canonical::DigestSuite::Sha256,
                 )
+                .is_err()
+        );
+
+        let mut cross_account = attestation.clone();
+        cross_account.account_id = AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkfixtureattacker").unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice").unwrap(),
+        );
+        assert!(
+            cross_account
+                .validate_against_pair_request(&request, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
         );
 

@@ -602,6 +602,22 @@
       "schema": "device-pairing.schema.json#/$defs/device_pairing_bootstrap"
     },
     {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingCodeClaimOutcome",
+      "schema": "device-pairing.schema.json#/$defs/device_pairing_code_claim_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingCodeClaimRequestBody",
+      "schema": "device-pairing.schema.json#/$defs/device_pairing_code_claim_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingFinalizeOutcome",
+      "schema": "device-pairing.schema.json#/$defs/device_pairing_finalize_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingFinalizeRequestBody",
+      "schema": "device-pairing.schema.json#/$defs/device_pairing_finalize_request_body"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingResolveRequestBody",
       "schema": "device-pairing.schema.json#/$defs/device_pairing_resolve_request_body"
     },
@@ -620,6 +636,10 @@
     {
       "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingStatusRequestBody",
       "schema": "device-pairing.schema.json#/$defs/device_pairing_status_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/http_bodies.rs::DevicePairingTargetProof",
+      "schema": "device-pairing.schema.json#/$defs/device_pairing_target_proof"
     },
     {
       "rust_type": "crates/models-collaboration/src/http_bodies.rs::EventsSubmitOutcome",

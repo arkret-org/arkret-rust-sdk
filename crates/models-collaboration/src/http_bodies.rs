@@ -3023,6 +3023,7 @@ impl From<DevicePairingNonce> for String {
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct DevicePairingTargetProof {
+    pub account_id: AccountId,
     pub device_id: DeviceId,
     pub device_public_key_did: DidKey,
     pub hpke_key: NonEmptyString,
@@ -3045,6 +3046,7 @@ pub enum DevicePairingTargetKeyAlgorithm {
 /// accidentally leave the device.
 #[derive(Clone, Debug)]
 pub struct UnsignedDevicePairingTargetProof {
+    account_id: AccountId,
     device_id: DeviceId,
     device_public_key_did: DidKey,
     hpke_key: NonEmptyString,
@@ -3054,12 +3056,14 @@ pub struct UnsignedDevicePairingTargetProof {
 
 impl UnsignedDevicePairingTargetProof {
     pub fn new(
+        account_id: AccountId,
         device_id: DeviceId,
         device_public_key_did: DidKey,
         hpke_key: NonEmptyString,
         algorithms: Vec<NonEmptyString>,
         pairing_challenge_transcript_digest: Hash,
     ) -> Result<Self> {
+        account_id.validate()?;
         if algorithms.is_empty()
             || algorithms
                 .windows(2)
@@ -3070,6 +3074,7 @@ impl UnsignedDevicePairingTargetProof {
             ));
         }
         Ok(Self {
+            account_id,
             device_id,
             device_public_key_did,
             hpke_key,
@@ -3080,6 +3085,7 @@ impl UnsignedDevicePairingTargetProof {
 
     pub fn signing_input(&self) -> Result<Vec<u8>> {
         device_pairing_target_proof_signing_input(
+            &self.account_id,
             &self.algorithms,
             self.device_id.as_str(),
             self.device_public_key_did.as_str(),
@@ -3090,6 +3096,7 @@ impl UnsignedDevicePairingTargetProof {
 
     pub fn attach_signature(self, device_signature: SignatureMaterial) -> DevicePairingTargetProof {
         DevicePairingTargetProof {
+            account_id: self.account_id,
             device_id: self.device_id,
             device_public_key_did: self.device_public_key_did,
             hpke_key: self.hpke_key,
@@ -3110,6 +3117,7 @@ impl DevicePairingTargetProof {
             ));
         }
         UnsignedDevicePairingTargetProof::new(
+            self.account_id.clone(),
             self.device_id.clone(),
             self.device_public_key_did.clone(),
             self.hpke_key.clone(),
@@ -3129,6 +3137,15 @@ impl DevicePairingTargetProof {
         request.validate_authorize_event_binding(digest_suite)?;
         let payload: DeviceAuthorizePayload =
             decode_payload_after_kind_validation(&request.authorize_event.event)?;
+        // device-lifecycle.md 5.4.1 item 5: the signed account_id is the only
+        // authority for which account this pairing belongs to, so it has to be
+        // byte-equal to the accepted Event actor rather than merely present.
+        if request.authorize_event.event.actor_id.as_account_id() != Some(&self.account_id) {
+            return Err(WireError::Protocol(
+                "pairing target attestation account_id does not match the authorize Event actor"
+                    .to_owned(),
+            ));
+        }
         let public_key_bytes = arkret_canonical::base64url_decode(
             request.new_device_pubkey.key.as_str(),
         )
@@ -3165,6 +3182,7 @@ impl DevicePairingTargetProof {
 }
 
 fn device_pairing_target_proof_signing_input(
+    account_id: &AccountId,
     algorithms: &[NonEmptyString],
     device_id: &str,
     device_public_key_did: &str,
@@ -3173,6 +3191,7 @@ fn device_pairing_target_proof_signing_input(
 ) -> Result<Vec<u8>> {
     #[derive(Serialize)]
     struct SigningObject<'a> {
+        account_id: &'a AccountId,
         algorithms: &'a [NonEmptyString],
         authorization_binding_kind: DeviceAuthorizationBindingKind,
         device_id: &'a str,
@@ -3182,6 +3201,7 @@ fn device_pairing_target_proof_signing_input(
         pairing_challenge_transcript_digest: &'a str,
     }
     let object = SigningObject {
+        account_id,
         algorithms,
         authorization_binding_kind: DeviceAuthorizationBindingKind::AcceptedDevice,
         device_id,
@@ -3314,6 +3334,38 @@ pub struct DevicePairingStageOutcome {
     pub expires_at: DateTime<Utc>,
 }
 
+/// Body of the authenticated finalize call
+/// (`POST /_arkret/gate/account/device-pairing/finalizations`,
+/// `ak.gate.account.command.finalize_device_pairing.v1`). This is the sole
+/// server-facing carrier of the signed target proof: the candidate presents
+/// the staged request id and code it already holds, authenticates with the
+/// sender-constrained pending account handoff, and the service binds the
+/// account-less record to the exact `AccountId` that proof signs over. The
+/// anonymous stage and resolve surfaces MUST NOT accept this body.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_finalize_request_body`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingFinalizeRequestBody {
+    pub device_pairing_request_id: DevicePairingRequestId,
+    pub pairing_code: DevicePairingCode,
+    pub target_proof: DevicePairingTargetProof,
+}
+
+/// Outcome of attaching the target proof to a staged record.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_finalize_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingFinalizeOutcome {
+    pub device_pairing_request_id: DevicePairingRequestId,
+    pub state: DevicePairingReadyForClaimState,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+}
+
 /// Body of the unauthenticated resolve call
 /// (`POST /_arkret/open/device-pairing/resolve`,
 /// `ak.open.device_pairing.read.resolve.v1`). The token is the compact
@@ -3352,6 +3404,36 @@ pub struct DevicePairingBootstrap {
     pub expires_at: DateTime<Utc>,
 }
 
+/// Body of the authenticated code claim
+/// (`POST /_arkret/gate/account/device-pairing/code-claims`,
+/// `ak.gate.account.read.claim_device_pairing_code.v1`). The normalized
+/// eight-character code is the whole input; the caller's own accepted-device
+/// session supplies the account. Unknown, wrong, expired, cross-account, not
+/// yet finalized and already consumed codes all return the same `not_found`.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_code_claim_request_body`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DevicePairingCodeClaimRequestBody {
+    pub pairing_code: DevicePairingCode,
+}
+
+/// Material the approving device recovers by claiming a pairing code. It is
+/// the same bootstrap the short-link resolve returns plus the byte-equivalent
+/// target proof attached at finalize, so the code entry point never becomes a
+/// weaker code-only authorization branch. Claiming grants nothing.
+///
+/// Mirrors `device-pairing.schema.json#/$defs/device_pairing_code_claim_outcome`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DevicePairingCodeClaimOutcome {
+    pub device_pairing_request_id: DevicePairingRequestId,
+    pub bootstrap: DevicePairingBootstrap,
+    pub target_proof: DevicePairingTargetProof,
+}
+
 /// Lifecycle state of a staged device-pairing request.
 ///
 /// Mirrors `device-pairing.schema.json#/$defs/device_pairing_state`.
@@ -3359,13 +3441,31 @@ pub struct DevicePairingBootstrap {
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum DevicePairingState {
-    /// Staged and awaiting authorization by a verified sibling device.
-    PendingAuthorization,
+    /// Minted by the unauthenticated stage call and still account-less: it
+    /// carries no target proof and cannot be resolved or claimed.
+    Staged,
+    /// `ak.gate.account.command.finalize_device_pairing.v1` attached a valid
+    /// target proof for an exact `AccountId`. This transition is one way and
+    /// is the only entry to resolve, code claim and `pair_device`.
+    ReadyForClaim,
     /// A verified sibling authorized the pairing; the new device is now a
     /// verified device (`device_id` / `authorized_event_ref` populated).
     Authorized,
     /// The pairing window elapsed before authorization.
     Expired,
+}
+
+/// The one state `ak.gate.account.command.finalize_device_pairing.v1` can
+/// report. Finalize never observes a state it did not reach, so the outcome
+/// carries a constant rather than the open lifecycle enum.
+///
+/// Mirrors the `const` in
+/// `device-pairing.schema.json#/$defs/device_pairing_finalize_outcome`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DevicePairingReadyForClaimState {
+    ReadyForClaim,
 }
 
 /// Body of the unauthenticated status poll
