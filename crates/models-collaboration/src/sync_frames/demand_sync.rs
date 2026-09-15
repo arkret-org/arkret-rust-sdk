@@ -16,6 +16,7 @@ pub const ACCOUNT_SYNC_MAX_KIND_FILTERS: usize = 64;
 pub const ACCOUNT_SYNC_MAX_LIST_BYTES: usize = 1024 * 1024;
 pub const ACCOUNT_SYNC_DEFAULT_LIST_LIMIT: u32 = 20;
 pub const ACCOUNT_SYNC_DEFAULT_TIMELINE_LIMIT: u32 = 20;
+pub const ACCOUNT_SYNC_MAX_TIMELINE_LIMIT: u32 = 100;
 const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 pub(crate) fn demand_error(message: impl Into<String>) -> WireError {
@@ -286,27 +287,15 @@ pub struct RealmTimelineBaseline {
     pub complete: bool,
 }
 
-/// Per-Realm timeline window ceiling: `filter.timeline_limit` default and
-/// maximum from `client-sync.md` 2 and 2.3.
-pub const TIMELINE_WINDOW_LIMIT_DEFAULT: u32 = 20;
-pub const TIMELINE_WINDOW_LIMIT_MAX: u32 = 100;
-
 impl RealmTimelineBaseline {
     pub fn validate(&self) -> Result<()> {
         validate_demand_cursor(self.snapshot_cursor.as_str())?;
-        if self.window_limit > TIMELINE_WINDOW_LIMIT_MAX {
+        if self.window_limit > ACCOUNT_SYNC_MAX_TIMELINE_LIMIT {
             return Err(demand_error(
                 "Timeline window limit exceeds the per-Realm maximum",
             ));
         }
         Ok(())
-    }
-
-    /// The window-level fields a later segment of the same generation must
-    /// repeat unchanged. A producer that lowers `window_limit` to fit a frame
-    /// budget is dropping owed items, not completing the window.
-    pub fn same_generation_as(&self, other: &Self) -> bool {
-        self.snapshot_cursor == other.snapshot_cursor
     }
 }
 
