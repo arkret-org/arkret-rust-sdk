@@ -323,9 +323,15 @@ impl CurrentResultEntry {
             ResultWire::Value { value, source } => {
                 let causal = current_family_descriptor(&family)?
                     .is_some_and(|descriptor| descriptor.state_model == "causal_register");
-                if causal != source.is_some() {
+                // A confirmed empty value has no writing identity, so the
+                // register-shaped baseline singleton publishes a null value with
+                // no source. A written null still carries one, which is exactly
+                // what keeps "written null" and "never written" distinguishable
+                // on the wire.
+                let source_required = causal && !value.is_null();
+                if (source.is_some() && !causal) || (source.is_none() && source_required) {
                     return Err(error(
-                        "causal-register current values require one source and other models forbid it",
+                        "only a written causal-register current value carries a source, and no other state model may carry one",
                     ));
                 }
                 if source
