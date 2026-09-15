@@ -143,6 +143,7 @@ pub use arkret_models_collaboration::events_payloads::call::*;
 pub use arkret_models_collaboration::events_payloads::device_identity::*;
 pub use arkret_models_collaboration::events_payloads::event_wire::*;
 pub use arkret_models_collaboration::events_payloads::mention::*;
+pub use arkret_models_collaboration::events_payloads::message::MessageTrackName;
 pub use arkret_models_collaboration::events_payloads::*;
 pub use arkret_models_collaboration::governance::accountability::{
     ACCOUNTABILITY_SCOPE_SET_CONTEXT, AccountabilityGrantPayload, AccountabilityGrantStatus,
@@ -175,6 +176,10 @@ pub use arkret_models_collaboration::governance_dependencies::*;
 pub use arkret_models_collaboration::governance_payloads::*;
 pub use arkret_models_collaboration::history_key::*;
 pub use arkret_models_collaboration::http_bodies::*;
+pub use arkret_models_collaboration::message_authoring::{
+    MESSAGE_PREPARE_TTL_SECONDS, MessageAuthoringContent, MessageAuthoringIntent,
+    MessageEncryptionContext, MessagePrepareOutcome, MessagePrepareRequestBody,
+};
 pub use arkret_models_collaboration::mls_group_state_material::*;
 pub use arkret_models_collaboration::object_lifecycle::*;
 pub use arkret_models_collaboration::objects::account_status::{
