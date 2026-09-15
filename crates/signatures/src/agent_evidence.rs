@@ -1174,23 +1174,6 @@ pub fn agent_signing_public_key_digest(
         .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
 }
 
-/// Reconstruct the canonical runtime-request JWK digest from a public signing
-/// binding. This digest belongs only to the private pairing request domain; it
-/// is deliberately distinct from [`agent_signing_public_key_digest`], which
-/// hashes the 32-byte Ed25519 key used by the public authorization contract.
-pub fn agent_signing_public_key_runtime_request_digest(
-    verification_method: &DidUrl,
-    public_key: &AgentSigningPublicKey,
-) -> Result<Hash, AgentEvidenceRejectedReason> {
-    agent_runtime_public_key_digest(&serde_json::json!({
-        "kty": public_key.kty,
-        "kid": verification_method,
-        "algorithm": "Ed25519",
-        "key": public_key.key,
-    }))
-    .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
-}
-
 fn canonical_digest(value: &impl Serialize) -> Result<Hash, AgentEvidenceRejectedReason> {
     Hash::new(
         canonical::canonical_sha256(value)
@@ -1335,19 +1318,23 @@ mod digest_domain_tests {
                 accepted
             );
             assert_eq!(
-                agent_signing_public_key_runtime_request_digest(&verification_method, &public_key)
-                    .is_ok(),
+                arkret_signatures_agent_runtime_public_key_digest(
+                    &verification_method,
+                    &public_key
+                )
+                .is_ok(),
                 accepted
             );
         }
     }
 
     #[test]
-    fn both_runtime_key_projections_hash_the_same_raw_key() {
-        // v1 has one Agent runtime key digest domain: the raw 32-byte key. The request and
-        // authorization projections therefore agree by construction, and a digest taken over the
-        // runtime JWK is not that domain. Two domains used to exist, and comparing across them
-        // made every server answer look like a different runtime, so the equality is the guard.
+    fn the_only_runtime_key_digest_domain_is_the_raw_key() {
+        // v1 keeps one Agent runtime key digest domain: the decoded 32-byte
+        // key. Parsing the runtime JWK reaches the same value, and a digest
+        // taken over the DTO itself is not that domain. A second DTO domain
+        // used to exist, and comparing across the two made every server answer
+        // look like a different runtime, so these are the guards.
         let public_key = AgentSigningPublicKey {
             kty: NonEmptyString::new("OKP").unwrap(),
             algorithm: NonEmptyString::new("Ed25519").unwrap(),
@@ -1357,19 +1344,35 @@ mod digest_domain_tests {
         let verification_method = DidUrl::new("did:web:agent.example#runtime-key-1").unwrap();
 
         let authorization_digest = agent_signing_public_key_digest(&public_key).unwrap();
-        let runtime_request_digest =
-            agent_signing_public_key_runtime_request_digest(&verification_method, &public_key)
-                .unwrap();
 
         assert_eq!(
             authorization_digest.as_str(),
             "sha256:544e62cee8033709e389e5b2755343d0d0fa8c4850215cfb6331717e80d1aea3"
         );
-        assert_eq!(authorization_digest, runtime_request_digest);
+        assert_eq!(
+            authorization_digest,
+            arkret_signatures_agent_runtime_public_key_digest(&verification_method, &public_key)
+                .unwrap()
+        );
         assert_ne!(
             authorization_digest.as_str(),
             arkret_canonical::canonical_sha256(&public_key).unwrap()
         );
+    }
+
+    /// Route a public signing binding through the runtime-key parser, which is
+    /// the shape the pairing request carries.
+    fn arkret_signatures_agent_runtime_public_key_digest(
+        verification_method: &DidUrl,
+        public_key: &AgentSigningPublicKey,
+    ) -> Result<Hash, AgentEvidenceRejectedReason> {
+        agent_runtime_public_key_digest(&serde_json::json!({
+            "kty": public_key.kty,
+            "kid": verification_method,
+            "algorithm": "Ed25519",
+            "key": public_key.key,
+        }))
+        .map_err(|_| AgentEvidenceRejectedReason::SigningKeyMismatch)
     }
 
     #[test]

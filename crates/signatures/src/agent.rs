@@ -25,10 +25,10 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 
-/// A runtime-key request body together with the private request-domain digest
-/// of its generated PublicKey DTO. This digest MUST NOT be copied into the
-/// controller-side authorize event, which commits the raw-key authorization
-/// digest returned by [`ValidatedAgentRuntimePublicKey::authorization_digest`].
+/// A runtime-key request body together with the digest of the runtime key it
+/// carries. v1 has one Agent runtime key digest domain, the SHA-256 of the
+/// decoded 32-byte Ed25519 key, so this is the same value the controller-side
+/// authorize event commits.
 #[derive(Clone, Debug)]
 pub struct RuntimeKeyRequest<T> {
     pub body: T,
@@ -324,17 +324,21 @@ struct AgentRuntimeKeyBinding<'a> {
 }
 
 pub fn agent_runtime_public_key_digest(public_key: &impl Serialize) -> Result<Hash> {
-    parse_agent_runtime_public_key(public_key, None)
-        .map(|validated| validated.runtime_request_digest)
+    parse_agent_runtime_public_key(public_key, None).map(|validated| validated.public_key_digest)
 }
 
-/// A closed canonical Agent runtime key; both caller projections use the same raw-key digest.
+/// A closed canonical Agent runtime key.
+///
+/// `identity/key-management.md` §7.9 fixes one digest domain for this key: the
+/// SHA-256 of the decoded 32-byte Ed25519 bytes, with no second DTO digest
+/// retained. The pairing request and the authorization therefore name the same
+/// value through this one field; two same-valued fields only invited
+/// cross-domain comparisons that could never disagree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ValidatedAgentRuntimePublicKey {
     pub public_key: PublicKey,
     pub raw_public_key: [u8; 32],
-    pub runtime_request_digest: Hash,
-    pub authorization_digest: Hash,
+    pub public_key_digest: Hash,
 }
 
 /// Parse and validate the sole v1 Agent runtime key profile.
@@ -395,15 +399,12 @@ fn parse_agent_runtime_public_key(
     ed25519_dalek::VerifyingKey::from_bytes(&raw_public_key).map_err(|_| {
         Error::Protocol("agent runtime public_key.key must be an Ed25519 curve point".to_owned())
     })?;
-    let runtime_request_digest =
-        Hash::new(canonical::sha256_digest(raw_public_key)).map_err(Error::from)?;
-    let authorization_digest =
+    let public_key_digest =
         Hash::new(canonical::sha256_digest(raw_public_key)).map_err(Error::from)?;
     Ok(ValidatedAgentRuntimePublicKey {
         public_key: key,
         raw_public_key,
-        runtime_request_digest,
-        authorization_digest,
+        public_key_digest,
     })
 }
 
