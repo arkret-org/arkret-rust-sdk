@@ -943,7 +943,6 @@ declare_uuid_id_kinds! {
     FrameId, "ak:frame:", UUID_VERSION_PRODUCER_ALLOCATED;
     MessageStreamId, "ak:message_stream:", UUID_VERSION_PRODUCER_ALLOCATED;
     InviteLocatorId, "ak:invite_locator:", UUID_VERSION_PRODUCER_ALLOCATED;
-    KeyEventId, "ak:key_event:", UUID_VERSION_PRODUCER_ALLOCATED;
     AuthorizationLeaseId, "ak:authorization_lease:", UUID_VERSION_PRODUCER_ALLOCATED;
     DeviceId, "ak:device:", UUID_VERSION_PRODUCER_ALLOCATED;
     NotificationId, "ak:notification:", UUID_VERSION_PRODUCER_ALLOCATED;
@@ -1063,11 +1062,12 @@ impl SessionGrantId {
     }
 }
 
-/// Issuer-record identifiers whose wire payload is a complete registered
-/// suite byte plus a 32-byte digest, but whose authority is not an Event.
+/// Identifiers whose wire payload is a complete registered suite byte plus
+/// a 32-byte digest, with authority distinct from Event-derived identities.
 pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] = &[
     SessionGrantId::KIND_PREFIX,
     AccountStatusRecordId::KIND_PREFIX,
+    NotificationProjectionId::KIND_PREFIX,
 ];
 
 fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
@@ -1720,7 +1720,6 @@ mod tests {
         assert_id!(GrantId, "ak:grant:");
         assert_id!(SessionGrantId, "ak:session_grant:");
         assert_id!(InviteId, "ak:invite:");
-        assert_id!(KeyEventId, "ak:key_event:");
         assert_id!(MessageId, "ak:message:");
         assert_id!(MessageStreamId, "ak:message_stream:");
         assert_id!(ModerationQueueItemId, "ak:moderation_queue_item:");

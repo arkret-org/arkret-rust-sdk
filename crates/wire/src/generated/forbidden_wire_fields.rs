@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=8b65716780c1cb09622371887eaf17ea283269764042bf5f3795d539cdfca060
-//! Entries: forbidden_wire_fields=263
+//! sha256=c6798acc04d0421a4105d50db4f7ba981f04e645be4272e6c8881d4d428ed704
+//! Entries: forbidden_wire_fields=262
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -4524,20 +4524,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "prefix",
         match_values: &["ak:devmsg:"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "ak:keyevt:",
-        context: "typed_id_prefix",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "typed_id_value",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "prefix",
-        match_values: &["ak:keyevt:"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

@@ -1802,7 +1802,8 @@ mod account_data_tests {
         let mut value = json!({
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "status": "active",
-            "verification_state": "verified"
+            "verification_state": "verified",
+            "verification_source": "pairing_code"
         });
         let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
         assert!(summary.validate().is_err());

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-15.2;
-//! sha256=5bd207223df756bd48af74a89e11382ea53103dc21b9a84dfaa8a5e3a7c18295 Entries: error_codes=278
+//! Input: registry/error-code-registry.json; version=2026-09-15.3;
+//! sha256=9b02ed3a8d4258a13374001565602ef95b81c40c0e747e551b92b797be6dfa7d Entries: error_codes=279
 
 use serde::{Deserialize, Serialize};
 
@@ -54,6 +54,7 @@ pub enum ErrorCode {
     AppletInstallProjectionIncomplete,
     AppletInstallRequired,
     AppletNamespaceConflict,
+    AppletNamespacePatternInvalid,
     AppletPackageExpired,
     AppletRegistrationEpochEvidenceDeactivated,
     AppletRegistrationEpochEvidenceMismatch,
@@ -348,6 +349,7 @@ impl ErrorCode {
         Self::AppletInstallProjectionIncomplete,
         Self::AppletInstallRequired,
         Self::AppletNamespaceConflict,
+        Self::AppletNamespacePatternInvalid,
         Self::AppletPackageExpired,
         Self::AppletRegistrationEpochEvidenceDeactivated,
         Self::AppletRegistrationEpochEvidenceMismatch,
@@ -630,6 +632,7 @@ impl ErrorCode {
         "applet_install_projection_incomplete";
     pub const APPLET_INSTALL_REQUIRED: &'static str = "applet_install_required";
     pub const APPLET_NAMESPACE_CONFLICT: &'static str = "applet_namespace_conflict";
+    pub const APPLET_NAMESPACE_PATTERN_INVALID: &'static str = "applet_namespace_pattern_invalid";
     pub const APPLET_PACKAGE_EXPIRED: &'static str = "applet_package_expired";
     pub const APPLET_REGISTRATION_EPOCH_EVIDENCE_DEACTIVATED: &'static str =
         "applet_registration_epoch_evidence_deactivated";
@@ -944,6 +947,7 @@ impl ErrorCode {
             Self::AppletInstallProjectionIncomplete => "applet_install_projection_incomplete",
             Self::AppletInstallRequired => "applet_install_required",
             Self::AppletNamespaceConflict => "applet_namespace_conflict",
+            Self::AppletNamespacePatternInvalid => "applet_namespace_pattern_invalid",
             Self::AppletPackageExpired => "applet_package_expired",
             Self::AppletRegistrationEpochEvidenceDeactivated => {
                 "applet_registration_epoch_evidence_deactivated"
@@ -1251,6 +1255,7 @@ impl ErrorCode {
             "applet_install_projection_incomplete" => Some(Self::AppletInstallProjectionIncomplete),
             "applet_install_required" => Some(Self::AppletInstallRequired),
             "applet_namespace_conflict" => Some(Self::AppletNamespaceConflict),
+            "applet_namespace_pattern_invalid" => Some(Self::AppletNamespacePatternInvalid),
             "applet_package_expired" => Some(Self::AppletPackageExpired),
             "applet_registration_epoch_evidence_deactivated" => {
                 Some(Self::AppletRegistrationEpochEvidenceDeactivated)
@@ -1808,6 +1813,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The applet namespace conflicts with an existing registration.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::AppletNamespacePatternInvalid,
+        type_uri: "https://arkret.org/problems/applet_namespace_pattern_invalid",
+        title: "Applet namespace pattern invalid",
+        http_status: 400,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "A namespaces.actors pattern in the submitted Applet package or derived registration violates the actor namespace pattern shape: it is not a did:webvh pattern, its SCID segment is neither '*' nor a non-empty SCID, it pins the registration's own service SCID in the SCID segment so it can never match a compliant Ghost, its host segment is not a literal equal to the host of the bare did the service_id currently resolves to, or no segment follows that host. Install preview and install commit both fail closed. See zh/extensions/applet-schema.md 2 and zh/extensions/applet-integration.md 4.1.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AppletPackageExpired,
