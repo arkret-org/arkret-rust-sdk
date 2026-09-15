@@ -215,7 +215,8 @@ pub use arkret_models_collaboration::sync_frames::client_sync::{
     BackfillDirection, BackfillFrom, BackfillOutcome, BackfillRequestBody, LimitedTimelineState,
     MembershipBucket, RealmUpdate, SyncFilter, SyncGap, SyncGapReason, SyncMode, SyncRequestBody,
     SyncSemantics, SyncStreamPosition, SyncTokenBinding, SyncUpdates, TimelineOrderKey,
-    ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, normalized_sync_filter, sync_filter_digest,
+    TimelinePredecessors, ToDeviceAck, ToDeviceAckStatus, WaitForFrontier, normalized_sync_filter,
+    sync_filter_digest, timeline_predecessors,
 };
 pub use arkret_models_collaboration::sync_frames::current_results::*;
 pub use arkret_models_collaboration::sync_frames::demand_sync::*;

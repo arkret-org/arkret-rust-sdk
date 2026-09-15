@@ -6,9 +6,10 @@
 //! - Device message handling
 //! - Selective filters
 
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use arkret_wire::{ActorId, DidCoreId};
+use arkret_wire::{ActorId, DidCoreId, Event, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -229,7 +230,7 @@ pub struct BackfillOutcome {
 ///
 /// Events sort by causal depth, HLC, actor ID, actor sequence and event ID. The
 /// caller supplies causal depth because it depends on the known event graph.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimelineOrderKey {
     /// Transitive causal depth in the local event graph.
     pub causal_depth: u64,
@@ -241,6 +242,99 @@ pub struct TimelineOrderKey {
     pub actor_seq: u64,
     /// Event ID tie-breaker.
     pub event_id: EventId,
+}
+
+impl Ord for TimelineOrderKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        // `Option`'s derived order puts `None` first, but `conformance/
+        // encoding.md` 7.3 makes an absent HLC sort **last**: it is greater
+        // than any schema-valid HLC. Deriving `Ord` here would silently place
+        // HLC-less Events at the head of every timeline window.
+        fn hlc_rank(hlc: Option<&Hlc>) -> (u8, Option<&Hlc>) {
+            match hlc {
+                Some(hlc) => (0, Some(hlc)),
+                None => (1, None),
+            }
+        }
+        self.causal_depth
+            .cmp(&other.causal_depth)
+            .then_with(|| hlc_rank(self.hlc.as_ref()).cmp(&hlc_rank(other.hlc.as_ref())))
+            .then_with(|| self.actor_id.cmp(&other.actor_id))
+            .then_with(|| self.actor_seq.cmp(&other.actor_seq))
+            .then_with(|| self.event_id.cmp(&other.event_id))
+    }
+}
+
+impl PartialOrd for TimelineOrderKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+/// Canonical timeline predecessor edges of one Event.
+///
+/// `conformance/encoding.md` 7.3 defines timeline `causal_depth` as the longest
+/// path within the known causal closure along
+/// `prev_refs` + `refs[role="after"]` + `causal_refs` + the payload-materialized
+/// reply/reference edge. This is that edge set, and it is deliberately the only
+/// place it is enumerated: a receiver that computes depth over a narrower set
+/// produces a different order for the same Events.
+///
+/// `causal_refs` arrive as full wire digests. Any that name an active Event
+/// digest suite are projected back to their Event id; the rest stay in
+/// [`Self::unresolvable_digests`] and make the depth provisional, because an
+/// edge the receiver cannot even name is an edge it cannot have closed over.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TimelinePredecessors {
+    pub event_ids: BTreeSet<EventId>,
+    pub unresolvable_digests: BTreeSet<Hash>,
+}
+
+impl TimelinePredecessors {
+    pub fn is_empty(&self) -> bool {
+        self.event_ids.is_empty() && self.unresolvable_digests.is_empty()
+    }
+}
+
+/// Payload field carrying the materialized reply edge of a message Event.
+///
+/// `models/content-types.md` 2: `ak.message.create` may carry `reply_to_id` as
+/// an authoring convenience and the reducer projects it into a `replies_to`
+/// relation. It is a complete Event id, so it participates in timeline depth
+/// directly.
+const TIMELINE_REPLY_EDGE_FIELD: &str = "reply_to_id";
+
+pub fn timeline_predecessors(event: &Event) -> TimelinePredecessors {
+    let mut predecessors = TimelinePredecessors::default();
+    predecessors
+        .event_ids
+        .extend(event.prev_refs.iter().cloned());
+    for reference in &event.refs {
+        if reference.role == "after"
+            && let Ok(event_id) = EventId::new(&reference.id)
+        {
+            predecessors.event_ids.insert(event_id);
+        }
+    }
+    for digest in &event.causal_refs {
+        match EventId::from_event_digest(digest) {
+            Ok(event_id) => {
+                predecessors.event_ids.insert(event_id);
+            }
+            Err(_) => {
+                predecessors.unresolvable_digests.insert(digest.clone());
+            }
+        }
+    }
+    if let Some(reply_to) = event
+        .payload
+        .get(TIMELINE_REPLY_EDGE_FIELD)
+        .and_then(Value::as_str)
+        && let Ok(event_id) = EventId::new(reply_to)
+    {
+        predecessors.event_ids.insert(event_id);
+    }
+    predecessors
 }
 
 /// Stream position for one Realm at a sync boundary.
@@ -677,5 +771,97 @@ mod tests {
 
         assert_eq!(keys[0].event_id, newer_hlc.event_id);
         assert_eq!(keys[1].event_id, deeper.event_id);
+    }
+
+    #[test]
+    fn timeline_predecessors_collect_every_canonical_edge_kind() {
+        let realm_id =
+            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
+        let station = actor("did:webvh:z6mkfixture:principal.example");
+        let producer = actor("did:webvh:z6mkfixture:alice.example");
+        let reply_to = "ak:event:AXGvEEJkv6YPQvGdReHV-eLM-8ukvH7r9m8dCu3KWw36";
+        let mut event = test_support::raw_event(
+            "ak.message.create",
+            ScopeRef::Realm { realm_id },
+            producer,
+            station,
+            2,
+            Hlc::new("01970e589d22-0000-a13f9c2e").unwrap(),
+            serde_json::json!({"body": "reply", "reply_to_id": reply_to}),
+        )
+        .unwrap();
+        let prev = EventId::new("ak:event:AYnTVVCNBa4iXXbFlwzE8SaOYDUUHuMdVacBm9hSHVPf").unwrap();
+        let after = EventId::new("ak:event:Acdo-DTSzgoY0Kjf-hvT52yy55O541hSJT4HQ50Z-P0p").unwrap();
+        let causal = EventId::new("ak:event:ARoNVFTPC2MZwwVb9ic9nh5U7hzssLDzekdRvNaZQ-c7").unwrap();
+        event.prev_refs = vec![prev.clone()];
+        event.refs = vec![
+            arkret_wire::EventRef::new(after.as_str(), "after"),
+            // A non-`after` role is a semantic reference, not a timeline edge.
+            arkret_wire::EventRef::new(
+                "ak:event:AcZxEm5-56mhA6aajw4titG7O7lFxS6OUwHLDhdXvaEI",
+                "authorized_by",
+            ),
+        ];
+        event.causal_refs = vec![causal.event_digest()];
+
+        let predecessors = timeline_predecessors(&event);
+        assert_eq!(
+            predecessors.event_ids,
+            [prev, after, causal, EventId::new(reply_to).unwrap()]
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+        );
+        assert!(predecessors.unresolvable_digests.is_empty());
+    }
+
+    #[test]
+    fn a_genesis_event_has_no_timeline_predecessors() {
+        let realm_id =
+            RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap();
+        let station = actor("did:webvh:z6mkfixture:principal.example");
+        let producer = actor("did:webvh:z6mkfixture:alice.example");
+        let mut event = test_support::raw_event(
+            "ak.message.create",
+            ScopeRef::Realm { realm_id },
+            producer,
+            station,
+            1,
+            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
+            serde_json::json!({"body": "first"}),
+        )
+        .unwrap();
+        event.prev_refs = vec![];
+        assert!(timeline_predecessors(&event).is_empty());
+    }
+
+    #[test]
+    fn an_absent_hlc_sorts_after_every_schema_valid_hlc() {
+        let actor = ActorId::account(arkret_wire::AccountId::new(
+            "ak:did_core:webvh:z6mkfixturealice".parse().unwrap(),
+            "ak:did_core:webvh:z6mkfixturestation".parse().unwrap(),
+        ));
+        let key = |hlc: Option<&str>| TimelineOrderKey {
+            causal_depth: 0,
+            hlc: hlc.map(|hlc| Hlc::new(hlc).unwrap()),
+            actor_id: actor.clone(),
+            actor_seq: 1,
+            event_id: EventId::new("ak:event:AXGvEEJkv6YPQvGdReHV-eLM-8ukvH7r9m8dCu3KWw36")
+                .unwrap(),
+        };
+        // encoding.md 7.3 absent-last. The derived `Option` order would put the
+        // absent key first and silently head every timeline window with it.
+        let present = key(Some("01970e589d21-0000-a13f9c2e"));
+        let absent = key(None);
+        assert!(absent > present);
+        let mut keys = [absent.clone(), present.clone()];
+        keys.sort();
+        assert_eq!(keys[0], present);
+        assert_eq!(keys[1], absent);
+        // A deeper causal depth still outranks the absent-HLC rule.
+        let deeper = TimelineOrderKey {
+            causal_depth: 1,
+            ..key(Some("01970e589d21-0000-a13f9c2e"))
+        };
+        assert!(deeper > absent);
     }
 }
