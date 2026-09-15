@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-15.12;
-//! sha256=d13ac75b65f7672c8722a10d99b00ee09bc7dbb5707a89a20d3d52c795f2f065 Entries: profile_ids=89
+//! Input: profiles/conformance-profiles.json; version=2026-09-15.15;
+//! sha256=53012defad052c8d411d7592390d14010c87ab6c7638dea207a67ae9157bbfae Entries: profile_ids=88
 
 use serde::{Deserialize, Serialize};
 
@@ -35,7 +35,6 @@ pub enum ProfileId {
     ConstraintResourceLimitV1,
     ConstraintVisibilityControlV1,
     CoreEventStoreV1,
-    CrdtTextV1,
     DirectConversationRealmV1,
     DirectConversationRepairV1,
     DirectoryServiceV1,
@@ -166,7 +165,6 @@ impl ProfileId {
         Self::ConstraintResourceLimitV1,
         Self::ConstraintVisibilityControlV1,
         Self::CoreEventStoreV1,
-        Self::CrdtTextV1,
         Self::DirectConversationRealmV1,
         Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
@@ -263,7 +261,6 @@ impl ProfileId {
     pub const CONSTRAINT_VISIBILITY_CONTROL_V1: &'static str =
         "ak.profile.constraint.visibility_control.v1";
     pub const CORE_EVENT_STORE_V1: &'static str = "ak.profile.core_event_store.v1";
-    pub const CRDT_TEXT_V1: &'static str = "ak.profile.crdt.text.v1";
     pub const DIRECT_CONVERSATION_REALM_V1: &'static str =
         "ak.profile.direct_conversation_realm.v1";
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
@@ -372,7 +369,6 @@ impl ProfileId {
             Self::ConstraintResourceLimitV1 => Self::CONSTRAINT_RESOURCE_LIMIT_V1,
             Self::ConstraintVisibilityControlV1 => Self::CONSTRAINT_VISIBILITY_CONTROL_V1,
             Self::CoreEventStoreV1 => Self::CORE_EVENT_STORE_V1,
-            Self::CrdtTextV1 => Self::CRDT_TEXT_V1,
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
@@ -468,7 +464,6 @@ impl ProfileId {
             Self::ConstraintResourceLimitV1 => ProfileRole::Admin,
             Self::ConstraintVisibilityControlV1 => ProfileRole::Admin,
             Self::CoreEventStoreV1 => ProfileRole::Server,
-            Self::CrdtTextV1 => ProfileRole::Interop,
             Self::DirectConversationRealmV1 => ProfileRole::Admin,
             Self::DirectConversationRepairV1 => ProfileRole::Server,
             Self::DirectoryServiceV1 => ProfileRole::Directory,
@@ -571,7 +566,6 @@ impl ProfileId {
             Self::CONSTRAINT_RESOURCE_LIMIT_V1 => Some(Self::ConstraintResourceLimitV1),
             Self::CONSTRAINT_VISIBILITY_CONTROL_V1 => Some(Self::ConstraintVisibilityControlV1),
             Self::CORE_EVENT_STORE_V1 => Some(Self::CoreEventStoreV1),
-            Self::CRDT_TEXT_V1 => Some(Self::CrdtTextV1),
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),

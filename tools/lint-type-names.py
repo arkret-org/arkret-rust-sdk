@@ -18,8 +18,6 @@ REJECTED = ("Result", "Candidate", "Item", "ResponseBody", "Response",
 EXCEPTIONS = {
     ("wire/src/generated/event_kinds.rs", "ContainerMoveItem"):
         "Generated Event-kind marker for moving a domain item, not a wrapper.",
-    ("wire/src/generated/event_kinds.rs", "IdentityPresentationResponse"):
-        "Generated Event-kind marker for answering an identity presentation request.",
     ("wire/src/platform.rs", "WasmHttpResponseBody"):
         "Local browser transport carrier for an HTTP response, not an Arkret operation DTO.",
     ("models-discovery/src/directory.rs", "RealmJoinCandidate"):

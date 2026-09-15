@@ -702,7 +702,7 @@ mod tests {
             .is_err()
         );
         let registry = current_registry().unwrap();
-        assert_eq!(registry.families.len(), 108);
+        assert_eq!(registry.families.len(), 107);
         assert_eq!(
             current_family_descriptor("ak.component.device.list_update.v1")
                 .unwrap()

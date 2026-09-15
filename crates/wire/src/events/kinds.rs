@@ -173,12 +173,9 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::StrandUpdate
         | EventKind::StrandWatchSet => EventProductClass::Strand,
         EventKind::HandleDiscovery => EventProductClass::Handle,
-        EventKind::IdentityAccountabilityGrant
-        | EventKind::IdentityDisclosurePolicy
-        | EventKind::IdentityDisclosureReceipt
-        | EventKind::IdentityPresentationRequest
-        | EventKind::IdentityPresentationResponse
-        | EventKind::IdentityResolutionUpdate => EventProductClass::Identity,
+        EventKind::IdentityAccountabilityGrant | EventKind::IdentityResolutionUpdate => {
+            EventProductClass::Identity
+        }
         EventKind::InviteAccept
         | EventKind::InviteCancel
         | EventKind::InviteClaim

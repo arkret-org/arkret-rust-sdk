@@ -409,7 +409,6 @@ pub use arkret_wire::seal_conclusion::*;
 pub use arkret_wire::self_contact_paths::*;
 pub use arkret_wire::signer::PayloadSigner;
 pub use arkret_wire::string_profiles::*;
-pub use arkret_wire::tsp_vid::*;
 pub use arkret_wire::wire_strings::*;
 pub use arkret_wire::{
     AccountDataKey, BindingKind, CORE_REDUCER_PROFILE, CapabilityActionId, CbsEffectPlane,

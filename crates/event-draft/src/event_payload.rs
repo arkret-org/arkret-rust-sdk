@@ -252,10 +252,6 @@ event_payload_accessors! {
     event_spec::AppletDiscovery => (as_applet_discovery, ResourceDiscoveryStatePayload),
     event_spec::HandleDiscovery => (as_handle_discovery, ResourceDiscoveryStatePayload),
     event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload, OrganizationModerationPolicyStatePayload::validate),
-    event_spec::IdentityDisclosurePolicy => (as_identity_disclosure_policy, IdentityDisclosurePolicyStatePayload, IdentityDisclosurePolicyStatePayload::validate),
-    event_spec::IdentityDisclosureReceipt => (as_identity_disclosure_receipt, IdentityDisclosureReceiptStatePayload, IdentityDisclosureReceiptStatePayload::validate),
-    event_spec::IdentityPresentationRequest => (as_identity_presentation_request, IdentityPresentationRequestStatePayload),
-    event_spec::IdentityPresentationResponse => (as_identity_presentation_response, IdentityPresentationResponseStatePayload),
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
     event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload, SchemaDefineStatePayload::validate),
     event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
@@ -672,42 +668,6 @@ mod tests {
         }))
         .unwrap();
         assert!(event.as_organization_moderation_policy().is_ok());
-
-        event.kind = EventKind::IdentityDisclosurePolicy;
-        event.payload = serde_json::from_value(json!({
-            "policy_id": "ak:policy:a1cb0019-0000-7000-8000-000000000000",
-            "value": {
-                "holder_principal_id": "ak:did_core:webvh:z6mkfixtureholder",
-                "audience": {
-                    "represented_organization_id": "ak:did_core:webvh:z6mkfixtureorganization",
-                    "verifier_ids": ["ak:did_core:webvh:z6mkfixtureverifier"]
-                },
-                "allowed_claims": [],
-                "denied_fields": ["credential_id"],
-                "user_consent_required": true,
-                "expires_at": "2026-07-26T00:00:00.000Z"
-            }
-        }))
-        .unwrap();
-        assert!(event.as_identity_disclosure_policy().is_ok());
-
-        event.kind = EventKind::IdentityDisclosureReceipt;
-        event.payload = serde_json::from_value(json!({
-            "holder_principal_id": "ak:did_core:key:z6Mkgpairwise",
-            "value": {
-                "receipt_id": "ak:receipt:a1cb0019-0000-7000-8000-000000000000",
-                "request_id": "ak:request:d8764019-0000-7000-8000-000000000000",
-                "request_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-                "presentation_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "proof_profile": "vc_di_bbs_2023",
-                "transport": "tsp",
-                "disclosed_fields": ["credentialSubject.organization_id"],
-                "withheld_fields": ["credentialSubject.handle"],
-                "created_at": "2026-04-26T00:00:00.000Z"
-            }
-        }))
-        .unwrap();
-        event.as_identity_disclosure_receipt().unwrap();
 
         event.kind = EventKind::PolicyAction;
         event.payload = serde_json::from_value(json!({

@@ -87,7 +87,6 @@ pub mod string_profiles;
 #[doc(hidden)]
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
-pub mod tsp_vid;
 pub mod websocket_binding;
 pub mod webvh_parameters;
 pub mod wire_presence;
@@ -254,7 +253,6 @@ pub use signal::{
 pub use signer::PayloadSigner;
 pub use signer_evidence::SignerEvidenceRef;
 pub use string_profiles::*;
-pub use tsp_vid::*;
 pub use websocket_binding::{
     WEBSOCKET_AUTH_METHOD_TOKEN, WEBSOCKET_AUTH_REPLAY_CONTEXT, WEBSOCKET_AUTHENTICATION,
     WEBSOCKET_AUTHENTICATION_DEADLINE_MS, WEBSOCKET_HARD_MAX_FRAME_BYTES,

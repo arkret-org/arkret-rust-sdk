@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-15.1;
-//! sha256=5ff7d0abb53338e81e1487657bfbfb4728399968201bd8f2b1f0081e045a4b60 Entries: error_codes=280
+//! Input: registry/error-code-registry.json; version=2026-09-15.2;
+//! sha256=5bd207223df756bd48af74a89e11382ea53103dc21b9a84dfaa8a5e3a7c18295 Entries: error_codes=278
 
 use serde::{Deserialize, Serialize};
 
@@ -289,7 +289,6 @@ pub enum ErrorCode {
     Timeout,
     TooLarge,
     TrackDisabled,
-    TransportPrivacyRequired,
     TtlOutOfRange,
     TurnCredentialExpired,
     Unauthenticated,
@@ -302,7 +301,6 @@ pub enum ErrorCode {
     UnsupportedFeature,
     UnsupportedHpkeSuite,
     UnsupportedJoinRule,
-    UnsupportedLatticeType,
     UnsupportedMediaPolicy,
     UnsupportedOperationVersion,
     UnsupportedOrganizationRegistrationScope,
@@ -585,7 +583,6 @@ impl ErrorCode {
         Self::Timeout,
         Self::TooLarge,
         Self::TrackDisabled,
-        Self::TransportPrivacyRequired,
         Self::TtlOutOfRange,
         Self::TurnCredentialExpired,
         Self::Unauthenticated,
@@ -598,7 +595,6 @@ impl ErrorCode {
         Self::UnsupportedFeature,
         Self::UnsupportedHpkeSuite,
         Self::UnsupportedJoinRule,
-        Self::UnsupportedLatticeType,
         Self::UnsupportedMediaPolicy,
         Self::UnsupportedOperationVersion,
         Self::UnsupportedOrganizationRegistrationScope,
@@ -901,7 +897,6 @@ impl ErrorCode {
     pub const TIMEOUT: &'static str = "timeout";
     pub const TOO_LARGE: &'static str = "too_large";
     pub const TRACK_DISABLED: &'static str = "track_disabled";
-    pub const TRANSPORT_PRIVACY_REQUIRED: &'static str = "transport_privacy_required";
     pub const TTL_OUT_OF_RANGE: &'static str = "ttl_out_of_range";
     pub const TURN_CREDENTIAL_EXPIRED: &'static str = "turn_credential_expired";
     pub const UNAUTHENTICATED: &'static str = "unauthenticated";
@@ -914,7 +909,6 @@ impl ErrorCode {
     pub const UNSUPPORTED_FEATURE: &'static str = "unsupported_feature";
     pub const UNSUPPORTED_HPKE_SUITE: &'static str = "unsupported_hpke_suite";
     pub const UNSUPPORTED_JOIN_RULE: &'static str = "unsupported_join_rule";
-    pub const UNSUPPORTED_LATTICE_TYPE: &'static str = "unsupported_lattice_type";
     pub const UNSUPPORTED_MEDIA_POLICY: &'static str = "unsupported_media_policy";
     pub const UNSUPPORTED_OPERATION_VERSION: &'static str = "unsupported_operation_version";
     pub const UNSUPPORTED_ORGANIZATION_REGISTRATION_SCOPE: &'static str =
@@ -1207,7 +1201,6 @@ impl ErrorCode {
             Self::Timeout => "timeout",
             Self::TooLarge => "too_large",
             Self::TrackDisabled => "track_disabled",
-            Self::TransportPrivacyRequired => "transport_privacy_required",
             Self::TtlOutOfRange => "ttl_out_of_range",
             Self::TurnCredentialExpired => "turn_credential_expired",
             Self::Unauthenticated => "unauthenticated",
@@ -1220,7 +1213,6 @@ impl ErrorCode {
             Self::UnsupportedFeature => "unsupported_feature",
             Self::UnsupportedHpkeSuite => "unsupported_hpke_suite",
             Self::UnsupportedJoinRule => "unsupported_join_rule",
-            Self::UnsupportedLatticeType => "unsupported_lattice_type",
             Self::UnsupportedMediaPolicy => "unsupported_media_policy",
             Self::UnsupportedOperationVersion => "unsupported_operation_version",
             Self::UnsupportedOrganizationRegistrationScope => {
@@ -1536,7 +1528,6 @@ impl ErrorCode {
             "timeout" => Some(Self::Timeout),
             "too_large" => Some(Self::TooLarge),
             "track_disabled" => Some(Self::TrackDisabled),
-            "transport_privacy_required" => Some(Self::TransportPrivacyRequired),
             "ttl_out_of_range" => Some(Self::TtlOutOfRange),
             "turn_credential_expired" => Some(Self::TurnCredentialExpired),
             "unauthenticated" => Some(Self::Unauthenticated),
@@ -1549,7 +1540,6 @@ impl ErrorCode {
             "unsupported_feature" => Some(Self::UnsupportedFeature),
             "unsupported_hpke_suite" => Some(Self::UnsupportedHpkeSuite),
             "unsupported_join_rule" => Some(Self::UnsupportedJoinRule),
-            "unsupported_lattice_type" => Some(Self::UnsupportedLatticeType),
             "unsupported_media_policy" => Some(Self::UnsupportedMediaPolicy),
             "unsupported_operation_version" => Some(Self::UnsupportedOperationVersion),
             "unsupported_organization_registration_scope" => {
@@ -4170,16 +4160,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The target Strand track has enabled=false and does not accept new writes (synthesis edits or track-scoped patches). Generic freeze code for any track; discussion_track_disabled is the discussion-track-specific specialization for ak.message.* writes. See zh/models/strand-and-message.md Â§4.1 / Â§4.7.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::TransportPrivacyRequired,
-        type_uri: "https://arkret.org/problems/transport_privacy_required",
-        title: "Transport privacy required",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "Effective holder policy requires a privacy-preserving transport mode that is unavailable for this presentation exchange.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::TtlOutOfRange,
         type_uri: "https://arkret.org/problems/ttl_out_of_range",
         title: "Ttl out of range",
@@ -4298,16 +4278,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "A third-party (3PID) invite claim targeted a join-rule Realm whose continuation profile is outside v1 base conformance (e.g. knock_restricted) and the deployment has not declared the required candidate profile in ak.find.directory.read.describe.v1 / ak.account.describe. The verification service MUST reject the token claim instead of silently downgrading. See zh/sync/third-party-invites.md Â§4.3.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::UnsupportedLatticeType,
-        type_uri: "https://arkret.org/problems/unsupported_lattice_type",
-        title: "Unsupported lattice type",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The Realm schema or Event references a lattice type outside the active, fully specified v1 lattice set. Receivers fail closed; implementation-local CRDT support does not activate a wire lattice.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedMediaPolicy,

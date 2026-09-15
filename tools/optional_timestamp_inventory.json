@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "total": 192,
+  "total": 191,
   "counts": {
-    "internal": 192
+    "internal": 191
   },
   "sites": [
     {
@@ -511,19 +511,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 445,
-      "struct_name": "IdentityPresentationRequestDocument",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1204,
+      "line": 913,
       "struct_name": "OrganizationModerationPolicyRule",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -535,7 +523,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1210,
+      "line": 919,
       "struct_name": "OrganizationModerationPolicyRule",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -547,7 +535,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1224,
+      "line": 933,
       "struct_name": "OrganizationModerationPolicyDocument",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -559,7 +547,7 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 1230,
+      "line": 939,
       "struct_name": "OrganizationModerationPolicyDocument",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1279,7 +1267,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1629,
+      "line": 1631,
       "struct_name": "AccountBlocklistPayload",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1291,7 +1279,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1644,
+      "line": 1646,
       "struct_name": "AccountBlocklistPayloadEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1951,7 +1939,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 257,
+      "line": 259,
       "struct_name": "AccountDeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1963,7 +1951,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 260,
+      "line": 262,
       "struct_name": "AccountDeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1975,7 +1963,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 263,
+      "line": 265,
       "struct_name": "AccountDeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1987,7 +1975,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 953,
+      "line": 956,
       "struct_name": "AccountRequestErasureOutcome",
       "field_name": "withdrawal_window_ends_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2035,7 +2023,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 50,
+      "line": 68,
       "struct_name": "DeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2047,7 +2035,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 53,
+      "line": 71,
       "struct_name": "DeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2059,7 +2047,7 @@
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 56,
+      "line": 74,
       "struct_name": "DeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",

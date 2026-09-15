@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-14.1;
-//! sha256=e7fb4737b5deb6f57624cc120225f0e65f951f3def6c7c40d9c59f53c78b737b Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-15.1;
+//! sha256=dfd30e26b7320ff277a778f592092ed0ba2d79ed4755c50dffafb69c56e048fd Input: registry/
 //! id-kind-registry.json; version=2026-09-08.4;
 //! sha256=c5670a4aac6d12bb30ab214dcac0da63d291c804157286e52d6d743952bd6886
-//! Entries: active_events=171, pre_state_requirements=8
+//! Entries: active_events=167, pre_state_requirements=8
 
 use arkret_wire::{
     CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator,
@@ -606,34 +606,6 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::IDENTITY_DISCLOSURE_POLICY,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::IDENTITY_DISCLOSURE_RECEIPT,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::IDENTITY_PRESENTATION_REQUEST,
-        reducer_input: true,
-        id_source: None,
-        derived_id_kinds: &[],
-        pre_state_requirements: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::IDENTITY_PRESENTATION_RESPONSE,
         reducer_input: true,
         id_source: None,
         derived_id_kinds: &[],

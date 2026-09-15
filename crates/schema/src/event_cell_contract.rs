@@ -3221,26 +3221,6 @@ mod tests {
                 "@alice:example.org",
             ),
             (
-                "ak.identity.disclosure_policy",
-                json!({"policy_id": "ak:policy:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
-                "ak:policy:019f9e50-d787-74e0-8731-c9ad5eaa9182",
-            ),
-            (
-                "ak.identity.disclosure_receipt",
-                json!({"holder_principal_id": "ak:did_core:webvh:z6mkfixture"}),
-                "ak:did_core:webvh:z6mkfixture",
-            ),
-            (
-                "ak.identity.presentation_request",
-                json!({"request_id": "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
-                "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182",
-            ),
-            (
-                "ak.identity.presentation_response",
-                json!({"request_id": "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182"}),
-                "ak:request:019f9e50-d787-74e0-8731-c9ad5eaa9182",
-            ),
-            (
                 "ak.schema.define",
                 json!({"value": {"$id": "ak.schema.fixture.v1"}}),
                 "ak.schema.fixture.v1",
