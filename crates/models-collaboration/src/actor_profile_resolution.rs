@@ -87,8 +87,15 @@ pub fn validate_resolved_actor_profile(row: &ResolvedActorProfile) -> Result<Act
     Ok(profile_id)
 }
 
-/// Check the closed outcome: every requested actor accounted for exactly once,
-/// and every returned row internally consistent.
+/// The strict whole-outcome check: every requested actor accounted for exactly
+/// once, and every returned row internally consistent.
+///
+/// This is for a caller that wants one verdict over the batch and has no way to
+/// degrade a single actor — a conformance assertion about a service, say. A
+/// display surface wants the opposite: keep the rows that hold and mark the one
+/// that does not as unavailable, so it calls
+/// [`ActorProfileResolveOutcome::validate_covers`] plus
+/// [`validate_resolved_actor_profile`] per row instead.
 pub fn validate_actor_profile_resolve_outcome(
     outcome: &ActorProfileResolveOutcome,
     requested: &[ActorId],

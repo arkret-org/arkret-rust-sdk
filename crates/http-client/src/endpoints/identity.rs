@@ -1,6 +1,5 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
-use arkret_models_collaboration::actor_profile_resolution::validate_actor_profile_resolve_outcome;
 use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
     DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
@@ -108,9 +107,16 @@ impl Client {
     /// a Principal Control Realm. Every requested actor comes back exactly once
     /// across `profiles` and `failures`, and every per-actor failure is the
     /// single `profile_unavailable` value, so the response cannot be used to
-    /// probe membership or account existence. Rows are checked against their
-    /// own signed Event before they are returned; ordinary profile state has no
-    /// covering Seal, so nothing here waits for one.
+    /// probe membership or account existence.
+    ///
+    /// Only that batch-wide invariant is enforced here. Whether an individual
+    /// row's Event, projection and actor agree is a per-row fact, so it is left
+    /// to the consumer through
+    /// [`validate_resolved_actor_profile`](arkret_models_collaboration::actor_profile_resolution::validate_resolved_actor_profile):
+    /// a caller degrades that one actor to unavailable rather than losing the
+    /// rows that were fine, which is what the single-valued per-actor failure
+    /// vocabulary is for. Ordinary profile state has no covering Seal, so
+    /// nothing here waits for one.
     pub async fn actor_profile_resolve(
         &self,
         request: &ActorProfileResolveRequest,
@@ -119,7 +125,7 @@ impl Client {
         let outcome: ActorProfileResolveOutcome = self
             .post("/_arkret/self/actor-profiles/query", request)
             .await?;
-        validate_actor_profile_resolve_outcome(&outcome, &request.actor_ids)?;
+        outcome.validate_covers(&request.actor_ids)?;
         Ok(outcome)
     }
 
