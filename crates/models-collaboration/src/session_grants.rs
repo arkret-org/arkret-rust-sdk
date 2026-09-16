@@ -8,7 +8,7 @@ use arkret_models_identity::{
 };
 pub use arkret_wire::{AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof};
 use arkret_wire::{
-    AcceptedDevicePossessionProof, AccountId, AppletId, DeviceId, DidCoreId, DidUrl, Hash,
+    AcceptedDevicePossessionProof, AccountId, AppletId, DeviceId, DidCoreId, DidUrl, EventId, Hash,
     NonEmptyString, PairwiseEndpointPossessionProof, RealmId, RequestId, Result, ScopeRef,
     SessionGrantId, StrandId, WireError, canonical,
 };
@@ -201,7 +201,11 @@ pub struct AgentSessionGrantRequest {
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub requested_scope: Vec<String>,
-    pub agent_key_authorization_ref: String,
+    /// Event id of the accepted `ak.agent.key.authorize` that authorized the
+    /// runtime key. The Spec pins it to the `ak:event:` form, and
+    /// `SessionGrantHolderBinding::AgentRuntime` names the same id, so the two
+    /// surfaces meet without a boundary reparse.
+    pub agent_key_authorization_ref: EventId,
     pub agent_scope_request: SessionGrantAgentScopeRequest,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
@@ -222,11 +226,6 @@ impl AgentSessionGrantRequest {
         {
             return Err(WireError::Protocol(
                 "agent session grant requested_scope must be non-empty".into(),
-            ));
-        }
-        if self.agent_key_authorization_ref.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "agent session grant authorization ref must not be empty".into(),
             ));
         }
         if self.proof.request_canonical_digest != self.canonical_request_digest()? {
@@ -364,7 +363,11 @@ pub struct UnsignedAgentSessionGrantRequest {
     pub principal_id: DidCoreId,
     pub device_id: DeviceId,
     pub requested_scope: Vec<String>,
-    pub agent_key_authorization_ref: String,
+    /// Event id of the accepted `ak.agent.key.authorize` that authorized the
+    /// runtime key. The Spec pins it to the `ak:event:` form, and
+    /// `SessionGrantHolderBinding::AgentRuntime` names the same id, so the two
+    /// surfaces meet without a boundary reparse.
+    pub agent_key_authorization_ref: EventId,
     pub agent_scope_request: SessionGrantAgentScopeRequest,
     pub requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     pub dpop_binding_proof: SessionGrantDpopBindingProof,
@@ -378,7 +381,7 @@ impl UnsignedAgentSessionGrantRequest {
         principal_id: DidCoreId,
         device_id: DeviceId,
         requested_scope: Vec<String>,
-        agent_key_authorization_ref: String,
+        agent_key_authorization_ref: EventId,
         agent_scope_request: SessionGrantAgentScopeRequest,
         requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
         dpop_binding_proof: SessionGrantDpopBindingProof,
@@ -392,11 +395,6 @@ impl UnsignedAgentSessionGrantRequest {
         {
             return Err(WireError::Protocol(
                 "agent session grant requested_scope must be non-empty".into(),
-            ));
-        }
-        if agent_key_authorization_ref.trim().is_empty() {
-            return Err(WireError::Protocol(
-                "agent session grant authorization ref must not be empty".into(),
             ));
         }
         Ok(Self {
@@ -1244,7 +1242,7 @@ mod tests {
             DidCoreId::new(PRINCIPAL).unwrap(),
             DeviceId::new(DEVICE).unwrap(),
             vec!["ak.self.events.read.scan.v1".to_owned()],
-            AUTHORIZATION.to_owned(),
+            EventId::new(AUTHORIZATION).unwrap(),
             SessionGrantAgentScopeRequest {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
@@ -1278,6 +1276,30 @@ mod tests {
     }
 
     /// The signed body and the pre-signature builder must agree byte for byte:
+    /// The Spec pins `agent_key_authorization_ref` to the `ak:event:` form, and
+    /// `SessionGrantHolderBinding::AgentRuntime` names that same accepted
+    /// `ak.agent.key.authorize` Event. Typing it here is what lets an issuer
+    /// carry the ref across without reparsing a free-form string, and a value
+    /// outside that form is not representable at all.
+    #[test]
+    fn the_agent_key_authorization_ref_is_an_event_id() {
+        let request = unsigned_agent_request()
+            .attach_signature(NonEmptyString::new("c2ln".to_owned()).unwrap())
+            .unwrap();
+        let SessionGrantRequestBody::Agent(request) = request else {
+            panic!("the Agent branch is the one that was built");
+        };
+        request.validate().unwrap();
+
+        let mut encoded = serde_json::to_value(&request).unwrap();
+        assert_eq!(encoded["agent_key_authorization_ref"], json!(AUTHORIZATION));
+        encoded
+            .as_object_mut()
+            .unwrap()
+            .insert("agent_key_authorization_ref".to_owned(), json!("not-an-id"));
+        assert!(serde_json::from_value::<AgentSessionGrantRequest>(encoded).is_err());
+    }
+
     /// the verifier recomputes this digest from the request it received.
     #[test]
     fn agent_request_digest_matches_the_pre_signature_transcript() {

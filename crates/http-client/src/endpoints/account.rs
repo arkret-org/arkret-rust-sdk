@@ -624,8 +624,10 @@ mod tests {
             device_id: arkret_wire::DeviceId::new("ak:device:01964137-0000-7000-8000-000000000041")
                 .unwrap(),
             requested_scope: vec!["ak.message.create".to_owned()],
-            agent_key_authorization_ref: "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g"
-                .to_owned(),
+            agent_key_authorization_ref: arkret_wire::EventId::new(
+                "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            )
+            .unwrap(),
             agent_scope_request: SessionGrantAgentScopeRequest {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),

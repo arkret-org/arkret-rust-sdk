@@ -11,7 +11,8 @@ use arkret_models_collaboration::session_grants::{
     SessionGrantRequestBody, UnsignedAgentSessionGrantProof, UnsignedAgentSessionGrantRequest,
 };
 use arkret_wire::{
-    DeviceId, DidCoreId, DidUrl, NonEmptyString, PairwiseEndpointPossessionProof, RequestId,
+    DeviceId, DidCoreId, DidUrl, EventId, NonEmptyString, PairwiseEndpointPossessionProof,
+    RequestId,
 };
 use chrono::{DateTime, Utc};
 
@@ -78,7 +79,7 @@ pub fn agent_key_proof_session_grant_request(
     principal_id: DidCoreId,
     device_id: DeviceId,
     requested_scope: Vec<String>,
-    agent_key_authorization_ref: impl Into<String>,
+    agent_key_authorization_ref: EventId,
     agent_scope_request: SessionGrantAgentScopeRequest,
     requested_scope_disclosure: Option<AgentRequestedScopeDisclosure>,
     dpop_binding_proof: SessionGrantDpopBindingProof,
@@ -93,7 +94,7 @@ pub fn agent_key_proof_session_grant_request(
         principal_id,
         device_id,
         requested_scope,
-        agent_key_authorization_ref.into(),
+        agent_key_authorization_ref,
         agent_scope_request,
         requested_scope_disclosure,
         dpop_binding_proof,
@@ -121,7 +122,7 @@ mod tests {
             DidCoreId::new("ak:did_core:web:agent.example").unwrap(),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000001").unwrap(),
             Vec::new(),
-            "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
+            EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g").unwrap(),
             SessionGrantAgentScopeRequest {
                 realm_ids: Vec::new(),
                 strand_ids: Vec::new(),
