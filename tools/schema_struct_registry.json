@@ -864,6 +864,18 @@
     {
       "rust_type": "crates/models-collaboration/src/sidecar_operations.rs::SidecarStreamHead",
       "schema": "principal-operations.schema.json#/$defs/sidecar_stream_head"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::RealmDetailBaseline",
+      "schema": "account-subscribe-frame.schema.json#/$defs/realm_detail_baseline"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sync_frames/current_results.rs::AccountCurrentCoverage",
+      "schema": "account-current-result.schema.json#/$defs/coverage"
+    },
+    {
+      "rust_type": "crates/models-identity/src/authenticated_signer_resolution_evidence.rs::AuthenticatedSignerResolutionEvidence",
+      "schema": "authenticated-signer-resolution-evidence.schema.json#/$defs/base"
     }
   ],
   "exemptions": [

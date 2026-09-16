@@ -1,6 +1,6 @@
 {
   "summary": {
-    "total": 579,
+    "total": 578,
     "scope": {
       "repositories": [
         "arkret-rust-sdk",
@@ -3440,32 +3440,6 @@
       "test": "python tools/wire_value_audit.py --check",
       "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
       "evidence": "public Value field"
-    },
-    {
-      "finding": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::RealmSyncEntry.baseline",
-      "category": "public_value_field",
-      "rust_field": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::RealmSyncEntry.baseline",
-      "crate": "models-collaboration",
-      "file": "crates/models-collaboration/src/sync_frames/account_subscribe.rs",
-      "path": "crates/models-collaboration/src/sync_frames/account_subscribe.rs",
-      "line": 352,
-      "owner": "RealmSyncEntry",
-      "owner_repository": "arkret-rust-sdk",
-      "symbol": "RealmSyncEntry.baseline",
-      "field": "baseline",
-      "discriminator": null,
-      "data_field": "baseline",
-      "rust_type": "Option<Value>",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/realm_sync_entry/properties/baseline",
-      "schema_shape": "closed",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "account-subscribe-frame.schema.json#/$defs/realm_sync_entry/properties/baseline",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "evidence": "public Option<Value> field"
     },
     {
       "finding": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::RealmSyncEntry.current",

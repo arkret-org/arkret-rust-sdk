@@ -14,6 +14,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::sync_frames::current_results::AccountCurrentCoverage;
+
 pub const ACCOUNT_SUBSCRIBE_MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
 pub const ACCOUNT_SUBSCRIBE_MAX_WIRE_FRAME_BYTES: usize = 16 * 1024 * 1024;
 pub const ACCOUNT_SUBSCRIBE_MAX_ROUND_BYTES: usize = 16 * 1024 * 1024;
@@ -351,7 +353,7 @@ pub struct RealmSyncEntry {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unread_notifications: Option<Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub baseline: Option<Value>,
+    pub baseline: Option<RealmDetailBaseline>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unavailable: Option<Value>,
 }
@@ -360,6 +362,9 @@ impl RealmSyncEntry {
     fn validate(&self) -> Result<()> {
         if let Some(timeline) = &self.timeline {
             timeline.validate()?;
+        }
+        if let Some(baseline) = &self.baseline {
+            baseline.validate()?;
         }
         if self.unavailable.is_some()
             && (self.timeline.is_some()
@@ -372,6 +377,34 @@ impl RealmSyncEntry {
             ));
         }
         Ok(())
+    }
+}
+
+/// Per-Realm detail baseline carried by one [`RealmSyncEntry`].
+///
+/// `snapshot_cursor` identifies the frozen baseline generation and is repeated
+/// identically in every segment of it; it is opaque, never an ordered token,
+/// and never reused as the account `after` parameter. `cut_revision` is the
+/// committed revision the cut was taken at. `complete` reports delivery of this
+/// Realm's baseline only: it is independent of the account-level baseline and
+/// proves neither authentication, decryption, nor any read permission.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `account-subscribe-frame.schema.json#/$defs/realm_detail_baseline`.
+pub struct RealmDetailBaseline {
+    pub snapshot_cursor: String,
+    pub cut_revision: u64,
+    pub coverage: AccountCurrentCoverage,
+    pub complete: bool,
+}
+
+impl RealmDetailBaseline {
+    /// The baseline's own invariants: a well-formed opaque cursor and coverage
+    /// that answers each stream once.
+    pub fn validate(&self) -> Result<()> {
+        validate_cursor(&self.snapshot_cursor)?;
+        self.coverage.validate()
     }
 }
 

@@ -444,6 +444,7 @@ pub mod events {
 }
 
 pub mod sync {
+    pub use arkret_models_collaboration::sync_frames::account_subscribe::*;
     pub use arkret_models_collaboration::sync_frames::current_results::*;
     pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;
     pub use arkret_models_discovery::presence::{PresenceStatus, aggregate_presence_states};

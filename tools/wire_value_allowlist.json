@@ -1508,18 +1508,6 @@
       "spec_pointer": "account-subscribe-frame.schema.json#/$defs/notification_delta/properties/data"
     },
     {
-      "finding": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::RealmSyncEntry.baseline",
-      "classification": "polymorphic_boundary",
-      "lifecycle": "retained_boundary",
-      "decision": "raw",
-      "authority": "account-subscribe-frame.schema.json#/$defs/realm_sync_entry/properties/baseline",
-      "owner_repository": "arkret-rust-sdk",
-      "action": "Retain only as a named raw/validated boundary; decode to the authoritative SDK type before business use.",
-      "test": "python tools/wire_value_audit.py --check",
-      "reason": "This exact public Value field is a raw polymorphic boundary and must be decoded to its authoritative type before protocol business logic.",
-      "spec_pointer": "account-subscribe-frame.schema.json#/$defs/realm_sync_entry/properties/baseline"
-    },
-    {
       "finding": "crates/models-collaboration/src/sync_frames/account_subscribe.rs::RealmSyncEntry.current",
       "classification": "polymorphic_boundary",
       "lifecycle": "retained_boundary",

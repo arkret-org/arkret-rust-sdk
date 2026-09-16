@@ -270,8 +270,8 @@ count or a green minimal workspace.
 | `cargo check --workspace --all-features` | clean, zero warnings |
 | `cargo check --workspace --all-features --all-targets` | clean, zero warnings |
 | `cargo +nightly fmt` (repository-local; never the `--all` writing form, which reaches into sibling repositories) | applied, no residual diff |
-| `cargo test --workspace --all-features --no-fail-fast` | 1489 passed, 4 failed — all four in `-p arkret-hlc --test sync_fixture`, blocked upstream (see below) |
-| `python tools/schema_struct_gate.py` | pass (203 exact mappings, 23 exemptions) |
+| `cargo test --workspace --all-features --no-fail-fast` | 1501 passed, 0 failed |
+| `python tools/schema_struct_gate.py` | pass (206 exact mappings, 23 exemptions) |
 | `python tools/identity_type_audit.py` | pass |
 | `python tools/lint-optional-timestamp-defaults.py` | pass |
 | `python tools/lint-time-representations.py` | pass |
@@ -286,15 +286,7 @@ count or a green minimal workspace.
 neither the `---- ` lines nor a failure count when a test target fails to
 compile.
 
-### The two non-green gates
-
-**`arkret-hlc --test sync_fixture` (4 tests).** The executable consumer loads the
-spec artifact `fixtures/sync-fixture.json`, which arkret-spec has replaced with a
-differently-shaped `fixtures/client-sync-fixture.json` (different `suite`, no
-`profile`, different case keys). This is not a rename the SDK can follow
-mechanically — the `ak.vector_group.sync.v1` cursor vectors the consumer asserts
-on no longer exist in any fixture. The consumer has to be rewritten against the
-new artifact once the arkret-spec change settles.
+### The remaining non-green gate
 
 **`sync-spec.ps1 -Check`.** Drift is reported on exactly one file,
 `crates/identifiers/src/generated/digest_suite_codes.rs`, and the drift is
