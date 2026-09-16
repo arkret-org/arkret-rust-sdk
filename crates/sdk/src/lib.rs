@@ -285,6 +285,7 @@ pub use arkret_models_identity::admin_grant::{
 pub use arkret_models_identity::agent_signer_state::*;
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
+pub use arkret_models_identity::authenticated_signer_resolution_evidence::*;
 pub use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DIRECTORY_RESTRICTED_CLAIM_PRESENTATION_KIND, DirectoryPresentedClaim,
     DirectoryRestrictedClaimPresentation, validate_agent_slug,
