@@ -45,7 +45,7 @@ pub struct MimiRoomBindingPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_profile: Option<ContentProfileId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_root: Option<Hash>,
+    pub policy_revision: Option<u64>,
     pub status: MimiRoomBindingStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

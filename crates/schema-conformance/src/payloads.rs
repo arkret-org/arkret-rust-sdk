@@ -238,9 +238,7 @@ mod tests {
         let catalog = event_payload_validator_catalog_from_configured_spec_artifacts().unwrap();
         let payload = Arc::new(json!({
             "policy_revision": 1,
-            "federation_policy": "restricted",
-            "content_encryption_floor": "allow_plaintext",
-            "metadata_encryption_floor": "allow_plaintext"
+            "federation_policy": "restricted"
         }));
         let worker_count = 8;
         let barrier = Arc::new(Barrier::new(worker_count));

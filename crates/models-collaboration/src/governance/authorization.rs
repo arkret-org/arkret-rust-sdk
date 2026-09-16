@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, AuthzDecision, FreshnessState, Hash, NotaryStatus, ReasonCode, WireResourceSelector,
+    ActorId, AuthorityStatus, AuthzDecision, FreshnessState, Hash, ReasonCode, WireResourceSelector,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -20,8 +20,8 @@ pub struct AuthzCheckRequestBody {
     /// Optional resource selector (Realm / Strand / Space / Morph / etc.).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub resource: Option<WireResourceSelector>,
-    /// Optional decision context — claim presentations, frontier reference,
-    /// request metadata.
+    /// Optional decision context — claim presentations, commit checkpoint
+    /// reference, request metadata.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub context: Option<BTreeMap<String, Value>>,
 }
@@ -39,13 +39,13 @@ pub struct AuthzCheckOutcome {
     #[serde(default)]
     pub missing_proofs: Vec<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier: Option<BTreeMap<String, Value>>,
+    pub checkpoint: Option<BTreeMap<String, Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub freshness_state: Option<FreshnessState>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_known_frontier_age_ms: Option<u64>,
+    pub last_known_checkpoint_age_ms: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub notary_status: Option<NotaryStatus>,
+    pub authority_status: Option<AuthorityStatus>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

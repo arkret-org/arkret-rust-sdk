@@ -290,7 +290,6 @@ impl ProfileValidator {
             | ServiceKind::AppletService
             | ServiceKind::AgentRuntime
             | ServiceKind::ModerationService
-            | ServiceKind::Notary
             | ServiceKind::RecoveryService => {
                 vec![ProfileRole::Server]
             }

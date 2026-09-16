@@ -9,7 +9,7 @@ use crate::mls_envelopes::MlsCommitEnvelope;
 
 /// Authority-selected MLS group state coordinates carried in every transition.
 ///
-/// Superseded frontier, reducer, archive, and sidecar-proof carriers are
+/// Superseded reducer, archive, and sidecar-proof carriers are
 /// deliberately absent. The accepted
 /// `RealmCommit` is the ordering and governance authority.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

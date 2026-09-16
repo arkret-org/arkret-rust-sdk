@@ -1,9 +1,9 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-16.6;
-//! sha256=ffb7fd290ec47bb5a7e9b8f9b1a1e7227132a7c4c24e0c80ce51c7097b68d75f Input: registry/
-//! exporter-label-registry.json; version=2026-09-16.1;
-//! sha256=6e31ef9ad2a1a559e0f7f573017fb957319c9115b8af9f09f7b0324eac8b10fc Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-16.10;
+//! sha256=bb4417bc0c2660cdd6010237bc73853543490b6d896efcb39e232ba3ec41d00f Input: registry/
+//! exporter-label-registry.json; version=2026-09-16.10;
+//! sha256=676cbb1dbfa467f97c46247cb79818affc3e236100fb54ee70498a0736b8a939 Input: registry/
 //! digest-suite-registry.json; version=2026-09-16.7;
 //! sha256=ed95ff0b8d0ebb7f8a1c345ab5e4fefcad739f5812bec18f477b5d953faa2cbb Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -12,12 +12,12 @@
 //! sha256=6a6ce15fa926d380ab5ee8b3ebf4d1cdc19e864afe985e6a6b0d4d7dab3bc43f Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
-//! mls-extension-registry.json; version=2026-09-10;
-//! sha256=81e22df857af450c7544257a0e6b5256a245501b45de0748ba4e3649dda8238e Input: registry/
+//! mls-extension-registry.json; version=2026-09-16.10;
+//! sha256=e037e0aa33fc7d84790ff752c2e4afc8fd7aa330d6c52082613f7e0ad7e55d39 Input: registry/
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
-//! Entries: proof_contexts=48, exporter_labels=9, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=5, domain_separations=36, aead_profiles=2
+//! Entries: proof_contexts=46, exporter_labels=7, digest_suites=3, signature_algorithms=4,
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=36, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -33,8 +33,6 @@ pub enum ProofContextId {
     AgentSelectorClaimProofV1,
     AgentSessionRefreshProofV1,
     AppletPackageProofV1,
-    AuditReleaseAttestationProofV1,
-    AuditRywReceiptProofV1,
     DeviceProjectionAttestationProofV1,
     DidWebvhWitnessReceiptProofV1,
     DirectoryGovernanceRequestProofV1,
@@ -85,8 +83,6 @@ impl ProofContextId {
         Self::AgentSelectorClaimProofV1,
         Self::AgentSessionRefreshProofV1,
         Self::AppletPackageProofV1,
-        Self::AuditReleaseAttestationProofV1,
-        Self::AuditRywReceiptProofV1,
         Self::DeviceProjectionAttestationProofV1,
         Self::DidWebvhWitnessReceiptProofV1,
         Self::DirectoryGovernanceRequestProofV1,
@@ -141,9 +137,6 @@ impl ProofContextId {
     pub const AGENT_SELECTOR_CLAIM_PROOF_V1: &'static str = "ak.agent_selector_claim_proof.v1";
     pub const AGENT_SESSION_REFRESH_PROOF_V1: &'static str = "ak.agent_session_refresh_proof.v1";
     pub const APPLET_PACKAGE_PROOF_V1: &'static str = "ak.applet_package_proof.v1";
-    pub const AUDIT_RELEASE_ATTESTATION_PROOF_V1: &'static str =
-        "ak.audit_release_attestation_proof.v1";
-    pub const AUDIT_RYW_RECEIPT_PROOF_V1: &'static str = "ak.audit_ryw_receipt_proof.v1";
     pub const DEVICE_PROJECTION_ATTESTATION_PROOF_V1: &'static str =
         "ak.device_projection_attestation_proof.v1";
     pub const DID_WEBVH_WITNESS_RECEIPT_PROOF_V1: &'static str =
@@ -221,8 +214,6 @@ impl ProofContextId {
             Self::AgentSelectorClaimProofV1 => Self::AGENT_SELECTOR_CLAIM_PROOF_V1,
             Self::AgentSessionRefreshProofV1 => Self::AGENT_SESSION_REFRESH_PROOF_V1,
             Self::AppletPackageProofV1 => Self::APPLET_PACKAGE_PROOF_V1,
-            Self::AuditReleaseAttestationProofV1 => Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1,
-            Self::AuditRywReceiptProofV1 => Self::AUDIT_RYW_RECEIPT_PROOF_V1,
             Self::DeviceProjectionAttestationProofV1 => {
                 Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1
             }
@@ -304,8 +295,6 @@ impl ProofContextId {
             Self::AGENT_SELECTOR_CLAIM_PROOF_V1 => Some(Self::AgentSelectorClaimProofV1),
             Self::AGENT_SESSION_REFRESH_PROOF_V1 => Some(Self::AgentSessionRefreshProofV1),
             Self::APPLET_PACKAGE_PROOF_V1 => Some(Self::AppletPackageProofV1),
-            Self::AUDIT_RELEASE_ATTESTATION_PROOF_V1 => Some(Self::AuditReleaseAttestationProofV1),
-            Self::AUDIT_RYW_RECEIPT_PROOF_V1 => Some(Self::AuditRywReceiptProofV1),
             Self::DEVICE_PROJECTION_ATTESTATION_PROOF_V1 => {
                 Some(Self::DeviceProjectionAttestationProofV1)
             }
@@ -398,9 +387,9 @@ pub enum DomainSeparationId {
     DirectoryResolveHandleRequestProofV1,
     DirectoryResolveOrganizationRequestProofV1,
     DirectoryResolveTargetRequestProofV1,
-    EventsFrontierLeafV1,
-    EventsFrontierNodeV1,
-    EventsFrontierRootV1,
+    EventsCheckpointLeafV1,
+    EventsCheckpointNodeV1,
+    EventsCheckpointRootV1,
     FederationVerifyActorSignatureV1,
     FrankingProofSignatureV1,
     HttpMessageSignatureV1,
@@ -438,9 +427,9 @@ impl DomainSeparationId {
         Self::DirectoryResolveHandleRequestProofV1,
         Self::DirectoryResolveOrganizationRequestProofV1,
         Self::DirectoryResolveTargetRequestProofV1,
-        Self::EventsFrontierLeafV1,
-        Self::EventsFrontierNodeV1,
-        Self::EventsFrontierRootV1,
+        Self::EventsCheckpointLeafV1,
+        Self::EventsCheckpointNodeV1,
+        Self::EventsCheckpointRootV1,
         Self::FederationVerifyActorSignatureV1,
         Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
@@ -488,9 +477,9 @@ impl DomainSeparationId {
         "ak.directory_resolve_organization_request_proof.v1";
     pub const DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1: &'static str =
         "ak.directory_resolve_target_request_proof.v1";
-    pub const EVENTS_FRONTIER_LEAF_V1: &'static str = "ak.events.frontier.leaf.v1";
-    pub const EVENTS_FRONTIER_NODE_V1: &'static str = "ak.events.frontier.node.v1";
-    pub const EVENTS_FRONTIER_ROOT_V1: &'static str = "ak.events.frontier.root.v1";
+    pub const EVENTS_CHECKPOINT_LEAF_V1: &'static str = "ak.events.checkpoint.leaf.v1";
+    pub const EVENTS_CHECKPOINT_NODE_V1: &'static str = "ak.events.checkpoint.node.v1";
+    pub const EVENTS_CHECKPOINT_ROOT_V1: &'static str = "ak.events.checkpoint.root.v1";
     pub const FEDERATION_VERIFY_ACTOR_SIGNATURE_V1: &'static str =
         "ak.federation.verify_actor.signature.v1";
     pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
@@ -552,9 +541,9 @@ impl DomainSeparationId {
             Self::DirectoryResolveTargetRequestProofV1 => {
                 Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1
             }
-            Self::EventsFrontierLeafV1 => Self::EVENTS_FRONTIER_LEAF_V1,
-            Self::EventsFrontierNodeV1 => Self::EVENTS_FRONTIER_NODE_V1,
-            Self::EventsFrontierRootV1 => Self::EVENTS_FRONTIER_ROOT_V1,
+            Self::EventsCheckpointLeafV1 => Self::EVENTS_CHECKPOINT_LEAF_V1,
+            Self::EventsCheckpointNodeV1 => Self::EVENTS_CHECKPOINT_NODE_V1,
+            Self::EventsCheckpointRootV1 => Self::EVENTS_CHECKPOINT_ROOT_V1,
             Self::FederationVerifyActorSignatureV1 => Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
             Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
@@ -621,9 +610,9 @@ impl DomainSeparationId {
             Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryResolveTargetRequestProofV1)
             }
-            Self::EVENTS_FRONTIER_LEAF_V1 => Some(Self::EventsFrontierLeafV1),
-            Self::EVENTS_FRONTIER_NODE_V1 => Some(Self::EventsFrontierNodeV1),
-            Self::EVENTS_FRONTIER_ROOT_V1 => Some(Self::EventsFrontierRootV1),
+            Self::EVENTS_CHECKPOINT_LEAF_V1 => Some(Self::EventsCheckpointLeafV1),
+            Self::EVENTS_CHECKPOINT_NODE_V1 => Some(Self::EventsCheckpointNodeV1),
+            Self::EVENTS_CHECKPOINT_ROOT_V1 => Some(Self::EventsCheckpointRootV1),
             Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1 => {
                 Some(Self::FederationVerifyActorSignatureV1)
             }
@@ -737,8 +726,6 @@ impl HpkeSuiteId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
 pub enum ExporterLabelId {
-    ContentV1,
-    EpochContentRootV1,
     ReactionRoutingRootV1,
     ReactionRoutingV1,
     RtcFrameKeyV1,
@@ -750,8 +737,6 @@ pub enum ExporterLabelId {
 
 impl ExporterLabelId {
     pub const ALL: &'static [Self] = &[
-        Self::ContentV1,
-        Self::EpochContentRootV1,
         Self::ReactionRoutingRootV1,
         Self::ReactionRoutingV1,
         Self::RtcFrameKeyV1,
@@ -761,8 +746,6 @@ impl ExporterLabelId {
         Self::SignalV1,
     ];
 
-    pub const CONTENT_V1: &'static str = "ak.content-v1";
-    pub const EPOCH_CONTENT_ROOT_V1: &'static str = "ak.epoch-content-root-v1";
     pub const REACTION_ROUTING_ROOT_V1: &'static str = "ak.reaction-routing-root-v1";
     pub const REACTION_ROUTING_V1: &'static str = "ak.reaction-routing-v1";
     pub const RTC_FRAME_KEY_V1: &'static str = "ak.rtc-frame-key/v1";
@@ -773,8 +756,6 @@ impl ExporterLabelId {
 
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::ContentV1 => Self::CONTENT_V1,
-            Self::EpochContentRootV1 => Self::EPOCH_CONTENT_ROOT_V1,
             Self::ReactionRoutingRootV1 => Self::REACTION_ROUTING_ROOT_V1,
             Self::ReactionRoutingV1 => Self::REACTION_ROUTING_V1,
             Self::RtcFrameKeyV1 => Self::RTC_FRAME_KEY_V1,
@@ -787,8 +768,6 @@ impl ExporterLabelId {
 
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
-            Self::CONTENT_V1 => Some(Self::ContentV1),
-            Self::EPOCH_CONTENT_ROOT_V1 => Some(Self::EpochContentRootV1),
             Self::REACTION_ROUTING_ROOT_V1 => Some(Self::ReactionRoutingRootV1),
             Self::REACTION_ROUTING_V1 => Some(Self::ReactionRoutingV1),
             Self::RTC_FRAME_KEY_V1 => Some(Self::RtcFrameKeyV1),
@@ -1014,38 +993,6 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
             "audience?",
         ],
         schema_ref: "schemas/applet-package.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::AuditReleaseAttestationProofV1,
-        context: "ak.audit_release_attestation_proof.v1",
-        object_family: "attestation_evidence",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "operator_id",
-            "audit_actor_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/audit-release-attestation.schema.json",
-    },
-    ProofContextDescriptor {
-        id: ProofContextId::AuditRywReceiptProofV1,
-        context: "ak.audit_ryw_receipt_proof.v1",
-        object_family: "audit_ryw_receipt",
-        consumer_operation: None,
-        binding_fields: &[
-            "payload_digest",
-            "issuer_id",
-            "realm_id",
-            "verification_method",
-            "created_at",
-            "domain?",
-            "audience?",
-        ],
-        schema_ref: "schemas/audit-ryw-receipt.schema.json",
     },
     ProofContextDescriptor {
         id: ProofContextId::DeviceProjectionAttestationProofV1,
@@ -1665,31 +1612,13 @@ pub const PROOF_CONTEXTS: &[ProofContextDescriptor] = &[
 
 pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
     ExporterLabelDescriptor {
-        id: ExporterLabelId::ContentV1,
-        label: "ak.content-v1",
-        primitive: Some("ExpandWithLabel"),
-        context_fields: &["sender_domain"],
-        output_bytes: "AEAD.Nk",
-        empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.reaction-routing-v1", "ak.signal-v1"],
-    },
-    ExporterLabelDescriptor {
-        id: ExporterLabelId::EpochContentRootV1,
-        label: "ak.epoch-content-root-v1",
-        primitive: Some("MLS-Exporter"),
-        context_fields: &["effective_scope"],
-        output_bytes: "KDF.Nh",
-        empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.reaction-routing-root-v1", "ak.signal-root-v1"],
-    },
-    ExporterLabelDescriptor {
         id: ExporterLabelId::ReactionRoutingRootV1,
         label: "ak.reaction-routing-root-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["effective_scope"],
         output_bytes: "KDF.Nh",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.epoch-content-root-v1", "ak.signal-root-v1"],
+        forbid_reuse_with: &["ak.signal-root-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::ReactionRoutingV1,
@@ -1698,7 +1627,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &["effective_scope", "target_ref", "routing_window"],
         output_bytes: "32",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.content-v1", "ak.signal-v1"],
+        forbid_reuse_with: &["ak.signal-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::RtcFrameKeyV1,
@@ -1755,7 +1684,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &["effective_scope"],
         output_bytes: "KDF.Nh",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.epoch-content-root-v1", "ak.reaction-routing-root-v1"],
+        forbid_reuse_with: &["ak.reaction-routing-root-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::SignalV1,
@@ -1764,7 +1693,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &["sender_domain"],
         output_bytes: "AEAD.Nk",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.content-v1", "ak.reaction-routing-v1"],
+        forbid_reuse_with: &["ak.reaction-routing-v1"],
     },
 ];
 
@@ -1872,38 +1801,17 @@ pub const MLS_CIPHERSUITES: &[AlgorithmSuiteDescriptor] = &[
 
 pub const MLS_EXTENSIONS: &[MlsExtensionDescriptor] = &[
     MlsExtensionDescriptor {
-        name: "external_senders",
-        codepoint: "0x0004",
-        status: "unsupported",
-        profile_id: None,
-        rejection_error: Some("unsupported_feature"),
-    },
-    MlsExtensionDescriptor {
-        name: "keypackage_capabilities",
-        codepoint: "0xF1C1",
-        status: "active",
-        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
-        rejection_error: None,
-    },
-    MlsExtensionDescriptor {
         name: "mls_governance_binding",
         codepoint: "0xF1C0",
         status: "active",
-        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
+        profile_id: None,
         rejection_error: None,
     },
     MlsExtensionDescriptor {
         name: "required_capabilities",
         codepoint: "0x0003",
         status: "active",
-        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
-        rejection_error: None,
-    },
-    MlsExtensionDescriptor {
-        name: "required_keypackage_capabilities",
-        codepoint: "0xF1C2",
-        status: "active",
-        profile_id: Some("ak.profile.mls_governance_binding.full.v1"),
+        profile_id: None,
         rejection_error: None,
     },
 ];

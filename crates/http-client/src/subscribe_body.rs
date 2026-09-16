@@ -258,7 +258,7 @@ mod tests {
             let mut request = [0; 4096];
             connection.read(&mut request).unwrap();
             connection.write_all(
-                b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\n{\"kind\":\"frontier\"}\n{\"kind\":",
+                b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\n{\"kind\":\"checkpoint\"}\n{\"kind\":",
             ).unwrap();
         });
         let response = reqwest::Client::builder()
@@ -275,7 +275,7 @@ mod tests {
             .await;
         server.join().unwrap();
         assert_eq!(lines.len(), 2);
-        assert_eq!(lines[0].as_deref().unwrap(), "{\"kind\":\"frontier\"}");
+        assert_eq!(lines[0].as_deref().unwrap(), "{\"kind\":\"checkpoint\"}");
         assert!(matches!(&lines[1], Err(Error::Http(_))), "{lines:?}");
     }
 
@@ -330,9 +330,9 @@ mod tests {
 
     #[test]
     fn a_body_with_no_trailing_newline_still_yields_its_last_frame() {
-        let lines = lines_of(vec!["{\"kind\":\"frontier\"}"]);
+        let lines = lines_of(vec!["{\"kind\":\"checkpoint\"}"]);
         assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0].as_deref().unwrap(), "{\"kind\":\"frontier\"}");
+        assert_eq!(lines[0].as_deref().unwrap(), "{\"kind\":\"checkpoint\"}");
     }
 
     #[test]

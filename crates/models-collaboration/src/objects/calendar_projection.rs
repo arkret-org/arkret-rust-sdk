@@ -95,7 +95,7 @@ impl RsvpResponseClass {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CalendarRsvpWinner {
     pub source_event_digest: Hash,
-    /// Schedule revision frontier this responder signed into the entry.
+    /// Schedule revision checkpoint this responder signed into the entry.
     pub schedule_basis_refs: Vec<Hash>,
     /// Present only when the response axis resolved.
     #[serde(skip_serializing_if = "Option::is_none")]

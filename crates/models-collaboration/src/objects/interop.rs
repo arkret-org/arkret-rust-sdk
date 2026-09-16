@@ -112,7 +112,7 @@ pub struct RoomBindingPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_profile: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_root: Option<Hash>,
+    pub policy_revision: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]

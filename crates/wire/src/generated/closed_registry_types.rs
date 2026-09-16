@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/track-name-registry.json; version=2026-08-26.3;
-//! sha256=072eb59c45ee84bd25cc299c7bcd052d29732c59a568e7483273d529672a7a1b Input: registry/
+//! Input: registry/track-name-registry.json; version=2026-09-16.1;
+//! sha256=a2df653fb32e8b44cd84398a05d28cf3ddb871aab7349d4e8eaf480069f1fc42 Input: registry/
 //! binding-kind-registry.json; version=2026-08-27.6;
 //! sha256=84532b111d582cf916583e6d3ab0e5bc23baa1bcf766679e4ce31c12e41dcfbe Input: registry/
 //! authority-set-policy-registry.json; version=2026-09-16.6;

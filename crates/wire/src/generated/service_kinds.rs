@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/service-kind-registry.json; version=2026-09-16.4;
-//! sha256=1e0599ae9b2151024eb4f229277dccac4759d6375df1e79bf4da971675bcdaaa Entries: active=16
+//! Input: registry/service-kind-registry.json; version=2026-09-16.5;
+//! sha256=d6809ab296469ff1f8e41fbbf60c7e3118276e5665c9dc9935cb2236dac63b65 Entries: active=15
 
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +20,6 @@ pub enum ServiceKind {
     MediaService,
     MimiProviderFacade,
     ModerationService,
-    Notary,
     PushGateway,
     RecoveryService,
     SfuService,
@@ -47,7 +46,6 @@ impl ServiceKind {
         Self::MediaService,
         Self::MimiProviderFacade,
         Self::ModerationService,
-        Self::Notary,
         Self::PushGateway,
         Self::RecoveryService,
         Self::SfuService,
@@ -67,7 +65,6 @@ impl ServiceKind {
             Self::MediaService => "media_service",
             Self::MimiProviderFacade => "mimi_provider_facade",
             Self::ModerationService => "moderation_service",
-            Self::Notary => "notary",
             Self::PushGateway => "push_gateway",
             Self::RecoveryService => "recovery_service",
             Self::SfuService => "sfu_service",
@@ -135,11 +132,6 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
         service_kind: ServiceKind::ModerationService,
         valid_in: &["service_describe"],
         description: "Moderation surface.",
-    },
-    ServiceKindDescriptor {
-        service_kind: ServiceKind::Notary,
-        valid_in: &["service_describe"],
-        description: "Authority commit and current-state attestation surface.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::PushGateway,

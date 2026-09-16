@@ -1,7 +1,6 @@
-//! Closed v1 support matrix for durable `ak.mls.proposal` producers.
+//! Closed v1 support matrix for the Proposals carried inline by `ak.mls.commit`.
 //!
 //! This is the Rust form of
-//! `spec/v1/artifacts/registry/mls-proposal-admission-registry.json` and of
 //! `zh/crypto-media/encryption-and-audit.md` §5.2.1. It lives in the shared SDK
 //! on purpose: the matrix decides *which error code* a structurally valid but
 //! unsupported Proposal gets, and a Station, a client engine and a conformance
@@ -9,7 +8,7 @@
 //! before they disagreed about the shape.
 //!
 //! The evaluation order is part of the contract, not an implementation detail,
-//! which is why [`admit_durable_mls_proposal`] takes every fact at once instead
+//! which is why [`admit_inline_mls_proposal`] takes every fact at once instead
 //! of exposing per-step predicates callers could run in their own order. An
 //! implementation that compared the declared `proposal_type` token first would
 //! report ExternalInit and unregistered AppCustom as `schema_violation` — the
@@ -20,7 +19,7 @@ use arkret_wire::ErrorCode;
 
 use super::mls::MlsProposalType;
 
-/// RFC 9420 sender class of a durable Proposal, decoded from the PublicMessage
+/// RFC 9420 sender class of an inline Proposal, decoded from the PublicMessage
 /// framing rather than declared by the producer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MlsProposalSenderClass {
@@ -221,7 +220,7 @@ pub struct MlsProposalMemberBinding {
     pub leaf_binds_verified_producer: bool,
 }
 
-/// Why a durable Proposal is refused, with the exact registered code.
+/// Why an inline Proposal is refused, with the exact registered code.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MlsProposalRejection {
     pub error_code: ErrorCode,
@@ -234,8 +233,8 @@ impl std::fmt::Display for MlsProposalRejection {
     }
 }
 
-/// Run steps 4 through 7 of the fixed admission order for one durable
-/// `ak.mls.proposal` on a Realm or Circle effective scope.
+/// Run steps 4 through 7 of the fixed admission order for one Proposal carried
+/// inline by `ak.mls.commit` on a Realm, Circle or Sidecar effective scope.
 ///
 /// Steps 1 through 3 belong to the caller and must already have passed: payload
 /// schema; decode, digest, group id and base epoch equality; PublicMessage wire
@@ -246,7 +245,7 @@ impl std::fmt::Display for MlsProposalRejection {
 /// so a non-member sender can never be reported through a producer-binding
 /// code, and an unsupported Proposal type can never be reported through a
 /// declared-token mismatch.
-pub fn admit_durable_mls_proposal(
+pub fn admit_inline_mls_proposal(
     sender_class: MlsProposalSenderClass,
     decoded_proposal_type: MlsDecodedProposalType,
     declared_proposal_type: MlsProposalType,
@@ -256,7 +255,7 @@ pub fn admit_durable_mls_proposal(
     if let Some(error_code) = sender_class.descriptor().rejection_error {
         return Err(MlsProposalRejection {
             error_code,
-            reason: "v1 durable Proposals accept only a Member sender of the exact base group",
+            reason: "v1 inline Proposals accept only a Member sender of the exact base group",
         });
     }
 

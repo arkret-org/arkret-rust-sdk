@@ -764,14 +764,14 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     );
     assert_eq!(binding["audience_id"], json!(actor("station")));
     assert!(binding.get("audience").is_none());
-    let mut legacy_proof = value["managed_actor_bundle"]["proof"].clone();
-    let audience_id = legacy_proof
+    let mut rejected_proof = value["managed_actor_bundle"]["proof"].clone();
+    let audience_id = rejected_proof
         .as_object_mut()
         .unwrap()
         .remove("audience_id")
         .unwrap();
-    legacy_proof["audience"] = audience_id;
-    assert!(serde_json::from_value::<AppletManagedActorProof>(legacy_proof).is_err());
+    rejected_proof["audience"] = audience_id;
+    assert!(serde_json::from_value::<AppletManagedActorProof>(rejected_proof).is_err());
     assert_eq!(
         value["authoring_request"]["basis"]["registration_event"]["kind"],
         json!("ak.applet.registration")
@@ -1016,11 +1016,11 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     assert!(wire["proof"].get("audience").is_none());
     assert_eq!(wire["authoring_authority"]["authority_generation"], 1);
     assert!(binding.get("audience").is_none());
-    let mut legacy = wire;
-    let proof = legacy["proof"].as_object_mut().unwrap();
+    let mut rejected = wire;
+    let proof = rejected["proof"].as_object_mut().unwrap();
     let audience_id = proof.remove("audience_id").unwrap();
     proof.insert("audience".to_owned(), audience_id);
-    assert!(serde_json::from_value::<AppletManagedActorAuthoringRequest>(legacy).is_err());
+    assert!(serde_json::from_value::<AppletManagedActorAuthoringRequest>(rejected).is_err());
     let mut wrong_audience_id = first;
     wrong_audience_id.proof.audience_id = actor("station");
     assert!(wrong_audience_id.validate_bindings().is_err());

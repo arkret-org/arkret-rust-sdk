@@ -520,19 +520,19 @@ fn verify_checkpoint_identity(
         || checkpoint.contact_round_id != *round
         || checkpoint.complete_through == 0
         || !checkpoint
-            .accepted_frontier
+            .accepted_commit_event_ids
             .contains(&checkpoint.head_event_ref)
         || checkpoint.signature.created_at > observed_at
         || checkpoint.fresh_until <= checkpoint.signature.created_at
         || checkpoint
-            .accepted_frontier
+            .accepted_commit_event_ids
             .iter()
             .collect::<BTreeSet<_>>()
             .len()
-            != checkpoint.accepted_frontier.len()
+            != checkpoint.accepted_commit_event_ids.len()
     {
         return Err(invalid(
-            "current proof does not bind the exact direction and certified frontier",
+            "current proof does not bind the exact direction and certified commit checkpoint",
         ));
     }
     verify_source_signature(
@@ -1037,7 +1037,7 @@ pub fn verify_contact_round_origins(
                         != digests
                     || ![a, b]
                         .into_iter()
-                        .all(|e| attestation.observed_frontier.contains(&e.event_id))
+                        .all(|e| attestation.observed_commit_event_ids.contains(&e.event_id))
                     || attestation.observed_at > observed_at
                     || attestation.signature.created_at > observed_at
                 {
@@ -1308,7 +1308,7 @@ fn verify_transition_history(
     }
     if last.version != checkpoint.complete_through
         || !checkpoint
-            .accepted_frontier
+            .accepted_commit_event_ids
             .contains(&checkpoint.head_event_ref)
         || (last.event_ref != checkpoint.head_event_ref && terminal.is_none())
     {

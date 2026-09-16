@@ -167,7 +167,7 @@ pub enum MlsPublicHandshakeTransition {
         /// A `None` `sender_leaf` says only that there is no member leaf; it is
         /// neither an authorization nor a refusal. This field is the one that
         /// carries the admission decision, through
-        /// [`arkret_models_collaboration::events_payloads::mls_proposal_admission::admit_durable_mls_proposal`].
+        /// [`arkret_models_collaboration::events_payloads::mls_proposal_admission::admit_inline_mls_proposal`].
         sender_class: MlsProposalSenderClass,
         /// Member signer at the exact base. None denotes a non-member sender;
         /// applications must authorize that separate class explicitly.

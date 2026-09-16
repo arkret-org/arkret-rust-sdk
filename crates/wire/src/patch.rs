@@ -266,9 +266,9 @@ impl Patch {
     /// - `unset` — removes an **existing** leaf. Nothing is auto-created and an absent path fails
     ///   rather than becoming a silent no-op.
     /// - `add` / `remove` — the target MUST already exist and be a JSON array (the "collection"
-    ///   these ops are defined against; §4.3.1 step 3 maps them onto `or_set` add/remove, i.e. set
-    ///   semantics). `add` rejects a value already present, `remove` rejects a value that is absent
-    ///   or present more than once. None of the three degenerates into a no-op.
+    ///   these ops are defined against; §4.3.1 step 3 gives them set semantics). `add` rejects a
+    ///   value already present, `remove` rejects a value that is absent or present more than once.
+    ///   None of the three degenerates into a no-op.
     ///
     /// Selector segments (`field[key="value"]`) are refused; see
     /// `parse_object_path`.

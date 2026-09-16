@@ -521,7 +521,7 @@ impl SignalEnvelope {
     /// signature verification and the current-directory device authorization
     /// lookup, which need key material and accepted state. The two are separate
     /// state domains: `stream_head_ref` selects the Realm/scope basis only, never the
-    /// device frontier (`signal.md` §1).
+    /// device checkpoint (`signal.md` §1).
     ///
     /// Notably absent by design: any inspection of a product `signal_kind`,
     /// `call_id` or `strand_id`. Those do not exist on the outer envelope, and

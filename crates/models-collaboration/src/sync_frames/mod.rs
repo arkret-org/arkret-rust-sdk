@@ -5,3 +5,4 @@
 pub mod account_subscribe;
 pub mod current_results;
 pub mod realm_state_snapshot;
+pub mod websocket;

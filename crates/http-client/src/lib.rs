@@ -34,6 +34,7 @@ mod builder;
 mod client_internals;
 mod endpoints;
 mod error;
+mod key_backup_client;
 mod request;
 pub mod station_connection;
 mod subscribe_body;
@@ -64,6 +65,7 @@ pub use endpoints::{
     blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
+pub use key_backup_client::KeyBackupClient;
 #[cfg(not(target_arch = "wasm32"))]
 pub use service_resolution_fetcher::{MaterializedServiceResolution, ServiceResolutionFetcher};
 

@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-16.7;
-//! sha256=6ac8485ee15553cd6b7a1158927d474e2101a29f69da73b47512dfe7ca6ff55e Input: registry/
-//! id-kind-registry.json; version=2026-09-16.6;
-//! sha256=fd180fd34aaeccce51b21ee4720c5819901e15993f2ea7a5d9ae9e1292ddd629
-//! Entries: active_events=155
+//! Input: registry/event-kind-registry.json; version=2026-09-16.8;
+//! sha256=10480c08b1142cc3f6e6fecbd84d8e12c38af09182ba0577464e7f306a94f140 Input: registry/
+//! id-kind-registry.json; version=2026-09-16.10;
+//! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854
+//! Entries: active_events=147
 
 use arkret_wire::event_kind_str;
 
@@ -107,49 +107,9 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
         derived_id_kinds: &[],
     },
     EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_APPLET_BINDING_CREATE,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["audit_binding"],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_APPLET_BINDING_STATE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
         event_kind: event_kind_str::AUDIT_ERASURE_RECEIPT,
         id_source: None,
         derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_RELEASE,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["audit_release"],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_RYW_RECEIPT,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_SESSION_AUTHORIZE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_SESSION_CLOSE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_SESSION_NOTICE,
-        id_source: None,
-        derived_id_kinds: &[],
-    },
-    EventRuntimeContractDescriptor {
-        event_kind: event_kind_str::AUDIT_SESSION_REQUEST,
-        id_source: Some(EventIdSource::EventDerived),
-        derived_id_kinds: &["audit_session"],
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::CALL_CREATE,

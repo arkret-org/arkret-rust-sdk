@@ -567,9 +567,6 @@ impl TryFrom<u8> for RealmDerivationClass {
 /// minted, per the spec `id-kind-registry.json` `id_form` column.
 pub const EVENT_DERIVED_ID_KIND_PREFIXES: &[&str] = &[
     "ak:actor_profile:",
-    "ak:audit_binding:",
-    "ak:audit_release:",
-    "ak:audit_session:",
     "ak:call:",
     "ak:circle:",
     "ak:event:",
@@ -842,9 +839,6 @@ declare_uuid_id_kinds! {
     // AKP-0008/0009 (spec head 37ce729) — Agent auxiliary typed ids.
     // `agent_id` business references use the stable `DidCoreId`; full Agent
     // DIDs remain confined to registration and method-resolution evidence.
-    // Audit release-session + attestation typed ids (id-kind-registry kinds
-    // `attestation` / `audit_binding` / `audit_release` / `audit_session`).
-    AttestationId, "ak:attestation:", UUID_VERSION_PRODUCER_ALLOCATED;
     // RTC call participant id (id-kind-registry kind `rtc_participant`).
     RtcParticipantId, "ak:rtc_participant:", UUID_VERSION_PRODUCER_ALLOCATED;
     // Key-backup hardening (B-C) typed ids.
@@ -888,9 +882,6 @@ declare_uuid_id_kinds! {
 
 declare_event_token_id_kinds! {
     ActorProfileId, "ak:actor_profile:";
-    AuditBindingId, "ak:audit_binding:";
-    AuditReleaseId, "ak:audit_release:";
-    AuditSessionId, "ak:audit_session:";
     CallId, "ak:call:";
     CircleId, "ak:circle:";
     EventId, "ak:event:";
@@ -1640,11 +1631,7 @@ mod tests {
         }
 
         assert_id!(ActorProfileId, "ak:actor_profile:");
-        assert_id!(AttestationId, "ak:attestation:");
         assert_id!(CollisionVariantRecordId, "ak:collision_variant_record:");
-        assert_id!(AuditBindingId, "ak:audit_binding:");
-        assert_id!(AuditReleaseId, "ak:audit_release:");
-        assert_id!(AuditSessionId, "ak:audit_session:");
         assert_id!(RtcParticipantId, "ak:rtc_participant:");
         assert_id!(BackupSeriesId, "ak:backup_series:");
         assert_id!(RecoverySessionId, "ak:recovery_session:");

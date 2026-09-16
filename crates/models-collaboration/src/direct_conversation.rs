@@ -21,23 +21,102 @@ pub struct DirectConversationCoordinates {
     pub binding_ref: Option<CommittedEventRef>,
 }
 
+/// Authority-evaluated reasons why an otherwise materialized conversation
+/// cannot currently send. These values intentionally describe current state,
+/// not a peer-reconciliation protocol.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectConversationSendBlocker {
+    SessionMissing,
+    PresenceOffline,
+    KeypackageEmpty,
+    GrantMissing,
+    PolicyStale,
+    ContactRevisionStale,
+    MlsReconcileRequired,
+    AgentRuntimeUnavailable,
+    PeerNotJoinedMls,
+    PairMaterializationConflict,
+    RealmTerminalFault,
+    CurrentAuthorityUnavailable,
+}
+
+/// Holder-device-only blockers. This deliberately has no Serde surface.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DirectConversationClientLocalBlocker {
+    PersonalBlocked,
+    LocalSecretUnavailable,
+}
+
+impl DirectConversationClientLocalBlocker {
+    pub const ALL: [Self; 2] = [Self::PersonalBlocked, Self::LocalSecretUnavailable];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PersonalBlocked => "personal_blocked",
+            Self::LocalSecretUnavailable => "local_secret_unavailable",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
 pub enum DirectConversationResolveOutcome {
-    CreationRequired,
+    CreationRequired {
+        expected_contact_revision: u64,
+    },
+    CreationBlocked {
+        blockers: Vec<DirectConversationSendBlocker>,
+    },
+    AwaitingFounder {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        retry_after_ms: Option<u64>,
+    },
     AwaitingAuthority {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         retry_after_ms: Option<u64>,
     },
+    ProvisionallyCommitted {
+        coordinates: DirectConversationCoordinates,
+        creation_ref: CommittedEventRef,
+    },
     Found {
         coordinates: DirectConversationCoordinates,
+        group_state_ref: CommittedEventRef,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        send_blockers: Vec<DirectConversationSendBlocker>,
     },
     Suspended {
         coordinates: DirectConversationCoordinates,
-        reason_code: String,
+        blockers: Vec<DirectConversationSendBlocker>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        group_state_ref: Option<CommittedEventRef>,
     },
     TemporarilyUnavailable {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         retry_after_ms: Option<u64>,
     },
+}
+
+impl DirectConversationResolveOutcome {
+    #[must_use]
+    pub fn coordinates(&self) -> Option<&DirectConversationCoordinates> {
+        match self {
+            Self::ProvisionallyCommitted { coordinates, .. }
+            | Self::Found { coordinates, .. }
+            | Self::Suspended { coordinates, .. } => Some(coordinates),
+            _ => None,
+        }
+    }
+
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if let Self::Found { coordinates, .. } = self
+            && coordinates.binding_ref.is_none()
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "found conversation requires an authority-committed binding".into(),
+            ));
+        }
+        Ok(())
+    }
 }

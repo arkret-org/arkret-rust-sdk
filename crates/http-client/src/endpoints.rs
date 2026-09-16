@@ -8,6 +8,7 @@ mod circle;
 mod data;
 mod identity;
 mod invite;
+mod key_backup;
 mod media;
 mod message_authoring;
 mod mimi;
@@ -16,6 +17,7 @@ mod peer;
 mod push;
 mod realm_join;
 mod relation;
+mod security;
 mod signal;
 
 pub use account::AccountSubscribeFrameStream;

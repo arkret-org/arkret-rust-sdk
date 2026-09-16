@@ -70,7 +70,7 @@ impl<'de> Deserialize<'de> for RelationTombstonePayload {
     }
 }
 
-/// Closed outcome of one `ak.relation.resolve` Control Move.
+/// Closed outcome of one `ak.relation.resolve` Event.
 ///
 /// There is deliberately no free-form `resolved_value`, no new endpoint and no
 /// per-Relation patch: later content edits stay on `ak.relation.update` and

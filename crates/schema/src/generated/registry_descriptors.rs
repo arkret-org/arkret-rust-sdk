@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-16.6;
-//! sha256=fd180fd34aaeccce51b21ee4720c5819901e15993f2ea7a5d9ae9e1292ddd629 Input: registry/
-//! capability-action-registry.json; version=2026-09-16.6;
-//! sha256=13c96ab4d78bc99611786aea6e71606e64c88f57ad50ee8c0f94707409a6452a Input: registry/
-//! schema-registry.json; version=2026-09-16.8;
-//! sha256=8486d844f9abd84b4c39a0e6ab05617dcac2e4a0759f557229c7989eed603efa Input: registry/
+//! Input: registry/id-kind-registry.json; version=2026-09-16.10;
+//! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854 Input: registry/
+//! capability-action-registry.json; version=2026-09-16.10;
+//! sha256=36a98f202fc0109b8cfdfae6db12530c7f30ee7dde26a8affa6b29a11d2d57f9 Input: registry/
+//! schema-registry.json; version=2026-09-16.10;
+//! sha256=2ac78a68533abaf1590b9b85f7279ccafddea53736383bb8f4444b368438f0d2 Input: registry/
 //! account-data-key-registry.json; version=2026-09-16.6;
-//! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04 Entries: id_kinds=54,
-//! special_forms=15, actions=156, schemas=216, account_data_patterns=24
+//! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04 Entries: id_kinds=50,
+//! special_forms=15, actions=150, schemas=214, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -98,26 +98,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "applet",
         category: "extension",
         wire_form: "ak:applet:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "attestation",
-        category: "audit",
-        wire_form: "ak:attestation:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "audit_binding",
-        category: "audit",
-        wire_form: "ak:audit_binding:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "audit_release",
-        category: "audit",
-        wire_form: "ak:audit_release:<44-char-event-token>",
-    },
-    IdKindDescriptor {
-        kind: "audit_session",
-        category: "audit",
-        wire_form: "ak:audit_session:<44-char-event-token>",
     },
     IdKindDescriptor {
         kind: "authorization_lease",
@@ -617,22 +597,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditAppletBinding,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::AUDIT_APPLET_BINDING_CREATE,
-            event_kind_str::AUDIT_APPLET_BINDING_STATE,
-        ],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "scope_suffix_variant",
-    },
-    CapabilityActionDescriptor {
         action: CapabilityActionId::AuditExport,
         category: "service",
         risk_tier: CapabilityRiskTier::High,
@@ -657,71 +621,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         root_control_only: false,
         subject_only: false,
         event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditRelease,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_RELEASE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionAuthorize,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_AUTHORIZE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionClose,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_CLOSE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionNotice,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_NOTICE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::AuditSessionRequest,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::AUDIT_SESSION_REQUEST],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::CallJoin,
@@ -1857,13 +1756,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::AGENT_KEY_REVOKE,
             event_kind_str::APPLET_REGISTRATION,
             event_kind_str::AUDIT_ACCESSED,
-            event_kind_str::AUDIT_APPLET_BINDING_CREATE,
-            event_kind_str::AUDIT_APPLET_BINDING_STATE,
-            event_kind_str::AUDIT_RELEASE,
-            event_kind_str::AUDIT_SESSION_AUTHORIZE,
-            event_kind_str::AUDIT_SESSION_CLOSE,
-            event_kind_str::AUDIT_SESSION_NOTICE,
-            event_kind_str::AUDIT_SESSION_REQUEST,
             event_kind_str::CALL_CREATE,
             event_kind_str::CALL_RECORDING_START,
             event_kind_str::CALL_STATE,
@@ -1956,14 +1848,8 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.agent.key.revoke",
             "ak.approval.vote",
             "ak.audit.accessed",
-            "ak.audit.applet_binding",
             "ak.audit.export",
             "ak.audit.query",
-            "ak.audit.release",
-            "ak.audit.session.authorize",
-            "ak.audit.session.close",
-            "ak.audit.session.notice",
-            "ak.audit.session.request",
             "ak.call.join",
             "ak.call.moderate",
             "ak.call.record",
@@ -2901,14 +2787,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::APPLET_WIDGET_DECLARATION_V1,
         file: "schemas/applet-widget-declaration.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AUDIT_RELEASE_ATTESTATION_V1,
-        file: "schemas/audit-release-attestation.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AUDIT_RYW_RECEIPT_V1,
-        file: "schemas/audit-ryw-receipt.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1,

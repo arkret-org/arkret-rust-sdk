@@ -550,11 +550,7 @@ pub const SUPPORTED_SERVICE_OPERATIONS: &[&str] =
 /// Profile IDs that still appear as hand-written SDK constants or service
 /// requirement fixtures and are therefore hard-checked against the profile
 /// artifact.
-pub const SUPPORTED_PROFILE_IDS: &[&str] = &[
-    ProfileId::DIRECTORY_SERVICE_V1,
-    ProfileId::ATTESTED_AUDIT_E2EE_V1,
-    ProfileId::DISCLOSED_AUDIT_E2EE_V1,
-];
+pub const SUPPORTED_PROFILE_IDS: &[&str] = &[ProfileId::DIRECTORY_SERVICE_V1];
 
 /// Typed `ak:<kind>:<uuid>` id kinds the SDK ships a Rust type for.
 ///
@@ -569,10 +565,6 @@ pub const SUPPORTED_ID_KINDS: &[&str] = &[
     "actor_profile",
     "announce",
     "applet",
-    "attestation",
-    "audit_binding",
-    "audit_release",
-    "audit_session",
     "authorization_lease",
     "backup",
     "backup_series",

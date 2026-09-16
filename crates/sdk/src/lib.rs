@@ -84,16 +84,15 @@ pub use arkret_hlc::{
 pub use arkret_http_client as http_client;
 pub use arkret_identifiers as identifiers;
 pub use arkret_identifiers::{
-    ActorProfileId, AnnounceId, AppletId, AttestationId, AuditBindingId, AuditReleaseId,
-    AuditSessionId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef, BlockId, CallId,
-    CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId, DeviceMessageId,
-    DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId, GrantId, Hash, Hlc,
-    InviteId, InviteLocatorId, MessageId, MessageStreamId, ModerationQueueItemId, MorphId,
-    NotificationId, NotificationProjectionId, OperationId, PolicyId, PresentationId,
-    RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, ReceiptId, RecoverySessionId,
-    RelationId, ReportId, RequestId, RtcParticipantId, SidecarId, SpaceId, StrandId,
-    SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin, new_prefixed_uuid7,
-    project_did_to_core_id,
+    ActorProfileId, AnnounceId, AppletId, BackupId, BackupSeriesId, BatchId, BlobId, BlobRef,
+    BlockId, CallId, CapabilityId, ChunkId, CircleId, ClaimId, ConsentId, DeviceId,
+    DeviceMessageId, DeviceMessageTransactionId, Did, DidCoreId, EventId, FilterId, FrameId,
+    GrantId, Hash, Hlc, InviteId, InviteLocatorId, MessageId, MessageStreamId,
+    ModerationQueueItemId, MorphId, NotificationId, NotificationProjectionId, OperationId,
+    PolicyId, PresentationId, RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId,
+    ReceiptId, RecoverySessionId, RelationId, ReportId, RequestId, RtcParticipantId, SidecarId,
+    SpaceId, StrandId, SubscriptionId, TransactionId, TrustDomainId, ViewId, WebOrigin,
+    new_prefixed_uuid7, project_did_to_core_id,
 };
 pub use arkret_identity as identity;
 pub use arkret_identity::jws;
@@ -117,7 +116,7 @@ pub use arkret_models_collaboration::call_signal::{
     MuteChangedBy, RenegotiationReason, ScreenMediaState, SessionDescription,
     SessionDescriptionType,
 };
-pub use arkret_models_collaboration::contact_operations;
+pub use arkret_models_collaboration::direct_conversation::*;
 pub use arkret_models_collaboration::event_query::*;
 pub use arkret_models_collaboration::event_sync::*;
 pub use arkret_models_collaboration::events_payloads::agent::*;
@@ -133,10 +132,7 @@ pub use arkret_models_collaboration::governance::accountability::{
 };
 pub use arkret_models_collaboration::governance::agent_artifacts::*;
 pub use arkret_models_collaboration::governance::agent_participation::*;
-pub use arkret_models_collaboration::governance::audit::{
-    ABSOLUTE_HARD_CEILING_MS, AccessKind, AuditAssurance, AuditPolicyAccessPayload,
-    validate_relaxed_window_ms,
-};
+pub use arkret_models_collaboration::governance::audit::{AccessKind, AuditPolicyAccessPayload};
 pub use arkret_models_collaboration::governance::authorization::*;
 pub use arkret_models_collaboration::governance::circle::*;
 pub use arkret_models_collaboration::governance::erasure::*;
@@ -191,6 +187,8 @@ pub use arkret_models_collaboration::prepared_event_draft::PreparedEventDraft;
 pub use arkret_models_collaboration::signal_message_stream::*;
 pub use arkret_models_collaboration::signal_plaintext::*;
 pub use arkret_models_collaboration::sync_frames::current_results::*;
+pub use arkret_models_collaboration::sync_frames::websocket::*;
+pub use arkret_models_collaboration::{contact_operations, direct_conversation};
 pub use arkret_models_crypto::artifacts_keys::*;
 pub use arkret_models_crypto::encrypted_envelope::{
     EncryptedPayload, EventContentPreEncryptionHeader, EventContentRoutingContext,

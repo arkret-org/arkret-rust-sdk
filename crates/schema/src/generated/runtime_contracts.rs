@@ -2,16 +2,16 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1;
 //! sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264 Input: registry/
-//! contract-registry.json; version=2026-09-16.8;
-//! sha256=fb58d1554ec8fe46b144132e5df50c464af9709b04b9e6da967543b4408eba2a Input: registry/
-//! operation-registry.json; version=2026-09-16.7;
-//! sha256=1af67bf679d02735d31828b13b6bfa13ede161dd77bdcb8ec729938c50a5f2df Input: registry/
-//! event-kind-registry.json; version=2026-09-16.7;
-//! sha256=6ac8485ee15553cd6b7a1158927d474e2101a29f69da73b47512dfe7ca6ff55e Input: registry/
-//! schema-registry.json; version=2026-09-16.8;
-//! sha256=8486d844f9abd84b4c39a0e6ab05617dcac2e4a0759f557229c7989eed603efa Input: registry/
-//! id-kind-registry.json; version=2026-09-16.6;
-//! sha256=fd180fd34aaeccce51b21ee4720c5819901e15993f2ea7a5d9ae9e1292ddd629
+//! contract-registry.json; version=2026-09-16.10;
+//! sha256=97b98ea986449fc3c0a343b986ad028dbfbeb3cffe000d76f1613d3b181845d1 Input: registry/
+//! operation-registry.json; version=2026-09-16.8;
+//! sha256=9589f9f98bedb23d06bfd447a7c2e402420f7dbded651bef0a1a3febf9a15cc2 Input: registry/
+//! event-kind-registry.json; version=2026-09-16.8;
+//! sha256=10480c08b1142cc3f6e6fecbd84d8e12c38af09182ba0577464e7f306a94f140 Input: registry/
+//! schema-registry.json; version=2026-09-16.10;
+//! sha256=2ac78a68533abaf1590b9b85f7279ccafddea53736383bb8f4444b368438f0d2 Input: registry/
+//! id-kind-registry.json; version=2026-09-16.10;
+//! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
 //! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
@@ -137,7 +137,7 @@ pub enum RealmBootstrapCondition {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RealmBootstrapHeadEq {
+pub enum RealmBootstrapExpectedRevision {
     Null,
 }
 
@@ -147,7 +147,7 @@ pub struct RealmBootstrapSlotDescriptor {
     pub presence: RealmBootstrapPresence,
     pub id_source: Option<RealmBootstrapIdSource>,
     pub condition: Option<RealmBootstrapCondition>,
-    pub head_eq: Option<RealmBootstrapHeadEq>,
+    pub expected_revision: Option<RealmBootstrapExpectedRevision>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -165,63 +165,63 @@ const ORDINARY_COLLABORATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = 
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_PROFILE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_POLICY_BUNDLE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_JOIN_RULE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_HISTORY_ACCESS,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_DISCOVERY,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_ALIAS,
         presence: RealmBootstrapPresence::Optional,
         id_source: None,
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
         presence: RealmBootstrapPresence::Conditional,
         id_source: None,
         condition: Some(RealmBootstrapCondition::DeclaredPlaintextServiceVisibility),
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin),
-        head_eq: Some(RealmBootstrapHeadEq::Null),
+        expected_revision: Some(RealmBootstrapExpectedRevision::Null),
     },
 ];
 
@@ -231,28 +231,28 @@ const DIRECT_CONVERSATION_BOOTSTRAP_SLOTS: &[RealmBootstrapSlotDescriptor] = &[
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: None,
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsPeerParticipantAndMembershipIsJoin),
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::STRAND_CREATE,
         presence: RealmBootstrapPresence::Required,
         id_source: Some(RealmBootstrapIdSource::EventDerived),
         condition: Some(RealmBootstrapCondition::MainStrandAndScopeCircleIdIsNull),
-        head_eq: None,
+        expected_revision: None,
     },
     RealmBootstrapSlotDescriptor {
         event_kind: event_kind_str::MEMBER_STATE,
         presence: RealmBootstrapPresence::Required,
         id_source: None,
         condition: Some(RealmBootstrapCondition::SubjectIsGenesisActorAndMembershipIsJoin),
-        head_eq: Some(RealmBootstrapHeadEq::Null),
+        expected_revision: Some(RealmBootstrapExpectedRevision::Null),
     },
 ];
 
@@ -764,8 +764,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-16.7";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-16.8";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-16.7";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-16.6";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-16.8";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-16.10";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-16.8";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-16.10";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

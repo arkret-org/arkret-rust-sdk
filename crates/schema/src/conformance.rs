@@ -176,10 +176,10 @@ pub fn profile_conformance_suites() -> Vec<ConformanceSuite> {
         ),
         conformance_suite(
             ConformanceProfile::Capability,
-            "facet-aware-capability-frontier-validation",
-            "Capability checks run at the causal frontier and can fail closed on allowed facets.",
+            "facet-aware-capability-checkpoint-validation",
+            "Capability checks run at the accepted commit checkpoint and can fail closed on allowed facets.",
             Some(SchemaId::CAPABILITY_V1),
-            json!({"fail_closed": true, "frontier_bound": true, "allowed_facets": true}),
+            json!({"fail_closed": true, "checkpoint_bound": true, "allowed_facets": true}),
         ),
         conformance_suite(
             ConformanceProfile::Sync,

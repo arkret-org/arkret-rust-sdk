@@ -114,7 +114,7 @@ impl Fixture {
             peer: self.peer.clone(),
             terminal: last.terminal == Some(true),
             head_event_ref: last.event_ref.clone(),
-            accepted_frontier: vec![last.event_ref.clone()],
+            accepted_commit_event_ids: vec![last.event_ref.clone()],
             complete_through: last.version,
             fresh_until: self.signature.created_at + Duration::minutes(5),
             signature: self.signature.clone(),
@@ -839,7 +839,7 @@ impl CarrierFixture {
         let mut proof = self.source.checkpoint(&self.source.lineage(1, &[], false));
         proof.contact_round_id = round.clone();
         proof.head_event_ref = event.clone();
-        proof.accepted_frontier = vec![event.clone()];
+        proof.accepted_commit_event_ids = vec![event.clone()];
         proof.signature.jws = self.source.sign(&proof.canonical_signing_bytes().unwrap());
         proof
     }
@@ -1016,7 +1016,7 @@ fn carrier_glare_round_authenticates_both_requests_and_both_source_attestations(
                 ra.computed_receipt_digest().unwrap(),
                 rb.computed_receipt_digest().unwrap(),
             ],
-            observed_frontier: vec![ea.event_id.clone(), eb.event_id.clone()],
+            observed_commit_event_ids: vec![ea.event_id.clone(), eb.event_id.clone()],
             complete_through: 1,
             unconsumed_slot_checkpoint: f.source.round.clone(),
             observed_at: f.source.signature.created_at,

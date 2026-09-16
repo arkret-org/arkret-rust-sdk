@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-16.6;
-//! sha256=13c96ab4d78bc99611786aea6e71606e64c88f57ad50ee8c0f94707409a6452a Entries: registered=156
+//! Input: registry/capability-action-registry.json; version=2026-09-16.10;
+//! sha256=36a98f202fc0109b8cfdfae6db12530c7f30ee7dde26a8affa6b29a11d2d57f9 Entries: registered=150
 
 use serde::{Deserialize, Serialize};
 
@@ -22,14 +22,8 @@ pub enum CapabilityActionId {
     AppletGhostProvision,
     ApprovalVote,
     AuditAccessed,
-    AuditAppletBinding,
     AuditExport,
     AuditQuery,
-    AuditRelease,
-    AuditSessionAuthorize,
-    AuditSessionClose,
-    AuditSessionNotice,
-    AuditSessionRequest,
     CallJoin,
     CallModerate,
     CallRecord,
@@ -182,14 +176,8 @@ impl CapabilityActionId {
         Self::AppletGhostProvision,
         Self::ApprovalVote,
         Self::AuditAccessed,
-        Self::AuditAppletBinding,
         Self::AuditExport,
         Self::AuditQuery,
-        Self::AuditRelease,
-        Self::AuditSessionAuthorize,
-        Self::AuditSessionClose,
-        Self::AuditSessionNotice,
-        Self::AuditSessionRequest,
         Self::CallJoin,
         Self::CallModerate,
         Self::CallRecord,
@@ -340,14 +328,8 @@ impl CapabilityActionId {
     pub const APPLET_GHOST_PROVISION: &'static str = "ak.applet.ghost.provision";
     pub const APPROVAL_VOTE: &'static str = "ak.approval.vote";
     pub const AUDIT_ACCESSED: &'static str = "ak.audit.accessed";
-    pub const AUDIT_APPLET_BINDING: &'static str = "ak.audit.applet_binding";
     pub const AUDIT_EXPORT: &'static str = "ak.audit.export";
     pub const AUDIT_QUERY: &'static str = "ak.audit.query";
-    pub const AUDIT_RELEASE: &'static str = "ak.audit.release";
-    pub const AUDIT_SESSION_AUTHORIZE: &'static str = "ak.audit.session.authorize";
-    pub const AUDIT_SESSION_CLOSE: &'static str = "ak.audit.session.close";
-    pub const AUDIT_SESSION_NOTICE: &'static str = "ak.audit.session.notice";
-    pub const AUDIT_SESSION_REQUEST: &'static str = "ak.audit.session.request";
     pub const CALL_JOIN: &'static str = "ak.call.join";
     pub const CALL_MODERATE: &'static str = "ak.call.moderate";
     pub const CALL_RECORD: &'static str = "ak.call.record";
@@ -507,14 +489,8 @@ impl CapabilityActionId {
             Self::AppletGhostProvision => Self::APPLET_GHOST_PROVISION,
             Self::ApprovalVote => Self::APPROVAL_VOTE,
             Self::AuditAccessed => Self::AUDIT_ACCESSED,
-            Self::AuditAppletBinding => Self::AUDIT_APPLET_BINDING,
             Self::AuditExport => Self::AUDIT_EXPORT,
             Self::AuditQuery => Self::AUDIT_QUERY,
-            Self::AuditRelease => Self::AUDIT_RELEASE,
-            Self::AuditSessionAuthorize => Self::AUDIT_SESSION_AUTHORIZE,
-            Self::AuditSessionClose => Self::AUDIT_SESSION_CLOSE,
-            Self::AuditSessionNotice => Self::AUDIT_SESSION_NOTICE,
-            Self::AuditSessionRequest => Self::AUDIT_SESSION_REQUEST,
             Self::CallJoin => Self::CALL_JOIN,
             Self::CallModerate => Self::CALL_MODERATE,
             Self::CallRecord => Self::CALL_RECORD,
@@ -674,14 +650,8 @@ impl CapabilityActionId {
             Self::APPLET_GHOST_PROVISION => Some(Self::AppletGhostProvision),
             Self::APPROVAL_VOTE => Some(Self::ApprovalVote),
             Self::AUDIT_ACCESSED => Some(Self::AuditAccessed),
-            Self::AUDIT_APPLET_BINDING => Some(Self::AuditAppletBinding),
             Self::AUDIT_EXPORT => Some(Self::AuditExport),
             Self::AUDIT_QUERY => Some(Self::AuditQuery),
-            Self::AUDIT_RELEASE => Some(Self::AuditRelease),
-            Self::AUDIT_SESSION_AUTHORIZE => Some(Self::AuditSessionAuthorize),
-            Self::AUDIT_SESSION_CLOSE => Some(Self::AuditSessionClose),
-            Self::AUDIT_SESSION_NOTICE => Some(Self::AuditSessionNotice),
-            Self::AUDIT_SESSION_REQUEST => Some(Self::AuditSessionRequest),
             Self::CALL_JOIN => Some(Self::CallJoin),
             Self::CALL_MODERATE => Some(Self::CallModerate),
             Self::CALL_RECORD => Some(Self::CallRecord),

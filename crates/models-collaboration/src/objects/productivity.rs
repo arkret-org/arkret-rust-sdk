@@ -296,7 +296,7 @@ impl RsvpResponse {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RsvpEntry {
-    /// Non-empty schedule revision frontier the responder actually observed, as
+    /// Non-empty schedule revision checkpoint the responder actually observed, as
     /// committed Event references sorted in ascending canonical byte order.
     pub schedule_basis_refs: Vec<CommittedEventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]

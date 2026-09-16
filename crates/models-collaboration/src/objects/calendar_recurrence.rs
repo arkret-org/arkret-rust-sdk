@@ -38,8 +38,8 @@ pub struct CalendarExpansionRequest {
     pub range_end: String,
     /// Maximum occurrences returned by this page.
     pub limit: usize,
-    /// Current settled schedule revision frontier. Continuations are bound to
-    /// the complete frontier, including equal-valued concurrent heads.
+    /// Current settled schedule revision checkpoint. Continuations are bound to
+    /// the complete checkpoint, including equal-valued concurrent heads.
     pub schedule_revision_heads: Vec<Hash>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continuation: Option<String>,

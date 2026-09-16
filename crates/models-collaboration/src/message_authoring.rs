@@ -87,7 +87,7 @@ impl MessageAuthoringIntent {
 }
 
 /// A producer-authored Message Event submitted to the governance Station.
-/// The response is `AuthoritySubmitOutcome`; no actor frontier is returned or
+/// The response is `AuthoritySubmitOutcome`; no actor checkpoint is returned or
 /// signed because producer Events no longer form a causal predecessor graph.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

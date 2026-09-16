@@ -381,7 +381,7 @@ pub struct ContactCurrentProof {
     pub peer: ContactPeer,
     pub terminal: bool,
     pub head_event_ref: EventId,
-    pub accepted_frontier: Vec<EventId>,
+    pub accepted_commit_event_ids: Vec<EventId>,
     pub complete_through: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub fresh_until: DateTime<Utc>,
@@ -395,7 +395,7 @@ struct UnsignedContactCurrentProof {
     peer: ContactPeer,
     terminal: bool,
     head_event_ref: EventId,
-    accepted_frontier: Vec<EventId>,
+    accepted_commit_event_ids: Vec<EventId>,
     complete_through: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     fresh_until: DateTime<Utc>,
@@ -412,7 +412,7 @@ impl ContactCurrentProof {
         peer: ContactPeer,
         terminal: bool,
         head_event_ref: EventId,
-        accepted_frontier: Vec<EventId>,
+        accepted_commit_event_ids: Vec<EventId>,
         complete_through: u64,
         fresh_until: DateTime<Utc>,
         sign: impl FnOnce(&[u8]) -> arkret_wire::Result<ProtocolSignature>,
@@ -423,7 +423,7 @@ impl ContactCurrentProof {
             peer,
             terminal,
             head_event_ref,
-            accepted_frontier,
+            accepted_commit_event_ids,
             complete_through,
             fresh_until,
         };
@@ -434,7 +434,7 @@ impl ContactCurrentProof {
             peer: unsigned.peer,
             terminal: unsigned.terminal,
             head_event_ref: unsigned.head_event_ref,
-            accepted_frontier: unsigned.accepted_frontier,
+            accepted_commit_event_ids: unsigned.accepted_commit_event_ids,
             complete_through: unsigned.complete_through,
             fresh_until: unsigned.fresh_until,
             signature,
@@ -452,7 +452,7 @@ impl ContactCurrentProof {
             peer: self.peer.clone(),
             terminal: self.terminal,
             head_event_ref: self.head_event_ref.clone(),
-            accepted_frontier: self.accepted_frontier.clone(),
+            accepted_commit_event_ids: self.accepted_commit_event_ids.clone(),
             complete_through: self.complete_through,
             fresh_until: self.fresh_until,
         })
@@ -674,7 +674,7 @@ pub struct OutgoingSlotAbsenceTranscript {
     pub contact_round_id: Hash,
     pub slot_predecessor: Option<Hash>,
     pub cas_sequence: u64,
-    pub cas_frontier: Vec<EventId>,
+    pub cas_revision: Vec<EventId>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub observed_at: DateTime<Utc>,
     pub outgoing_request_state: OutgoingRequestState,
@@ -692,8 +692,8 @@ impl OutgoingSlotAbsenceTranscript {
                 .sorted_pair_member_ids
                 .contains(&self.request_slot_owner)
             || self.cas_sequence == 0
-            || self.cas_frontier.is_empty()
-            || !self.cas_frontier.windows(2).all(|pair| pair[0] < pair[1])
+            || self.cas_revision.is_empty()
+            || !self.cas_revision.windows(2).all(|pair| pair[0] < pair[1])
         {
             return Err(arkret_wire::WireError::Protocol(
                 "invalid Contact outgoing-slot-absence transcript".to_owned(),
@@ -1725,7 +1725,7 @@ pub struct GlareConcurrencyAttestation {
     pub issuer_id: DidCoreId,
     pub peer_id: ActorId,
     pub request_receipt_digests: [Hash; 2],
-    pub observed_frontier: Vec<EventId>,
+    pub observed_commit_event_ids: Vec<EventId>,
     pub complete_through: u64,
     pub unconsumed_slot_checkpoint: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]

@@ -132,12 +132,14 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                     slot.event_kind
                 );
             }
-            if slot.extra.keys().any(|key| key != "head_eq") {
+            if slot.extra.keys().any(|key| key != "expected_revision") {
                 bail!("realm_bootstrap_registry.{owner} contains an unsupported slot field");
             }
-            if let Some(head_eq) = slot.extra.get("head_eq") {
-                if !head_eq.is_null() {
-                    bail!("realm_bootstrap_registry.{owner} supports only head_eq=null");
+            if let Some(expected_revision) = slot.extra.get("expected_revision") {
+                if !expected_revision.is_null() {
+                    bail!(
+                        "realm_bootstrap_registry.{owner} supports only expected_revision=null"
+                    );
                 }
             }
             if let Some(condition) = &slot.condition
@@ -590,7 +592,7 @@ pub enum RealmBootstrapCondition {
         r#"}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RealmBootstrapHeadEq { Null }
+pub enum RealmBootstrapExpectedRevision { Null }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RealmBootstrapSlotDescriptor {
@@ -598,7 +600,7 @@ pub struct RealmBootstrapSlotDescriptor {
     pub presence: RealmBootstrapPresence,
     pub id_source: Option<RealmBootstrapIdSource>,
     pub condition: Option<RealmBootstrapCondition>,
-    pub head_eq: Option<RealmBootstrapHeadEq>,
+    pub expected_revision: Option<RealmBootstrapExpectedRevision>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -628,14 +630,14 @@ pub struct RealmBootstrapProfileDescriptor {
                 || "None".to_owned(),
                 |value| format!("Some(RealmBootstrapCondition::{})", variant(value, &[])),
             );
-            let head_eq = if slot.extra.contains_key("head_eq") {
-                "Some(RealmBootstrapHeadEq::Null)"
+            let expected_revision = if slot.extra.contains_key("expected_revision") {
+                "Some(RealmBootstrapExpectedRevision::Null)"
             } else {
                 "None"
             };
             writeln!(
                 output,
-                "    RealmBootstrapSlotDescriptor {{ event_kind: event_kind_str::{}, presence: RealmBootstrapPresence::{}, id_source: {id_source}, condition: {condition}, head_eq: {head_eq} }},",
+                "    RealmBootstrapSlotDescriptor {{ event_kind: event_kind_str::{}, presence: RealmBootstrapPresence::{}, id_source: {id_source}, condition: {condition}, expected_revision: {expected_revision} }},",
                 associated_name(&slot.event_kind, &["ak."]), variant(&slot.presence, &[])
             )
             .expect("write to String");

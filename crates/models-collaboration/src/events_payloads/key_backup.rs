@@ -24,7 +24,7 @@ struct UnsignedKeyBackupActiveSeriesAuthData {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupActiveSeriesFrontierRef {
+pub struct KeyBackupActiveSeriesSourceRef {
     pub commit_ref: CommittedEventRef,
     pub device_generation_ref: u64,
 }
@@ -37,7 +37,7 @@ pub struct KeyBackupActiveSeries {
     pub active_series_id: BackupSeriesId,
     pub series_pointer_version: u64,
     pub previous_series_ids: Vec<BackupSeriesId>,
-    pub frontier_ref: KeyBackupActiveSeriesFrontierRef,
+    pub source_ref: KeyBackupActiveSeriesSourceRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     pub auth_data: KeyBackupActiveSeriesAuthData,
@@ -58,7 +58,7 @@ pub struct UnsignedKeyBackupActiveSeries {
     active_series_id: BackupSeriesId,
     series_pointer_version: u64,
     previous_series_ids: Vec<BackupSeriesId>,
-    frontier_ref: KeyBackupActiveSeriesFrontierRef,
+    source_ref: KeyBackupActiveSeriesSourceRef,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     issued_at: DateTime<Utc>,
     auth_data: UnsignedKeyBackupActiveSeriesAuthData,
@@ -114,7 +114,7 @@ impl UnsignedKeyBackupActiveSeries {
             active_series_id,
             series_pointer_version,
             previous_series_ids,
-            frontier_ref: KeyBackupActiveSeriesFrontierRef {
+            source_ref: KeyBackupActiveSeriesSourceRef {
                 commit_ref,
                 device_generation_ref: trust_anchor.generation_ref,
             },
@@ -143,7 +143,7 @@ impl UnsignedKeyBackupActiveSeries {
             active_series_id: self.active_series_id,
             series_pointer_version: self.series_pointer_version,
             previous_series_ids: self.previous_series_ids,
-            frontier_ref: self.frontier_ref,
+            source_ref: self.source_ref,
             issued_at: self.issued_at,
             auth_data: KeyBackupActiveSeriesAuthData {
                 verification_method: self.auth_data.verification_method,
@@ -170,7 +170,7 @@ impl KeyBackupActiveSeries {
             active_series_id: self.active_series_id.clone(),
             series_pointer_version: self.series_pointer_version,
             previous_series_ids: self.previous_series_ids.clone(),
-            frontier_ref: self.frontier_ref.clone(),
+            source_ref: self.source_ref.clone(),
             issued_at: self.issued_at,
             auth_data: UnsignedKeyBackupActiveSeriesAuthData {
                 verification_method: self.auth_data.verification_method.clone(),
@@ -193,7 +193,7 @@ pub struct KeyBackupActiveSeriesHead {
     pub record_digest: String,
 }
 
-/// Current reducer-managed generation and accepted device authorization used
+/// Current authority-projected generation and accepted device authorization used
 /// to sign one active-series selection.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ControllerBackupTrustAnchor {
@@ -205,7 +205,7 @@ impl ControllerBackupTrustAnchor {
     pub fn from_record(record: &KeyBackupActiveSeries) -> Self {
         Self {
             authorize_event_id: record.auth_data.device_authorize_event_id.clone(),
-            generation_ref: record.frontier_ref.device_generation_ref,
+            generation_ref: record.source_ref.device_generation_ref,
         }
     }
 }
@@ -310,8 +310,7 @@ pub fn validate_key_backup_active_series_transition(
     Ok(next)
 }
 
-/// Validate one active-series record independently of its predecessor. This is
-/// shared by admission, authority, and reducer paths.
+/// Validate one active-series record independently of the prior projection.
 pub fn validate_key_backup_active_series_record(
     record: &KeyBackupActiveSeries,
 ) -> std::result::Result<(), KeyBackupActiveSeriesTransitionError> {

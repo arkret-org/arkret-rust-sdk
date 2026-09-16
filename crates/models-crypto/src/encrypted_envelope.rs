@@ -180,11 +180,10 @@ impl EventContentPreEncryptionHeader {
     }
 }
 
-/// Closed encryption-context branch selected solely by `counter` presence.
+/// Closed RFC 9420 application-message encryption context.
 ///
-/// The branch is cross-checked against the `content_scheme` frozen by the
-/// exact winning `group_state_ref`; no caller-supplied scheme selector exists
-/// on the wire.
+/// It is cross-checked against the exact winning `group_state_ref`; no
+/// caller-supplied scheme selector exists on the wire.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]

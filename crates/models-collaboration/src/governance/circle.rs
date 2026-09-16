@@ -3,9 +3,9 @@
 //! A `Circle` is an intra-Realm scoped event/message boundary. It hosts
 //! its own membership (which MUST be a strict subset of the parent
 //! Realm's membership), history access and delivery/query/projection
-//! boundary. A Circle may be plaintext delivery-only
-//! (`encryption_profile=none`) or MLS-backed (`mls_rfc9420`) depending on
-//! the parent Realm policy floor.
+//! boundary. A Circle is plaintext delivery-only until its own
+//! `ak.mls.genesis` is accepted, which irreversibly activates standard
+//! RFC 9420 for that Circle scope.
 //!
 //! Wire/serde shape mirrors spec
 //! `spec/v1/artifacts/schemas/circle.schema.json`. The struct is
@@ -20,10 +20,7 @@ use std::collections::BTreeSet;
 /// types from this module.
 pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
-use arkret_wire::{
-    ActorId, ContentScheme, EncryptionProfile, EventCommitSubmission, HistoryAccess, RealmId,
-    SchemaId,
-};
+use arkret_wire::{ActorId, EventCommitSubmission, HistoryAccess, RealmId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -59,22 +56,6 @@ pub enum CircleJoinRule {
     Knock,
     /// Any active parent-Realm member self-joins.
     Public,
-}
-
-/// Binary encryption floor, shared by `content_encryption_floor` and
-/// `metadata_encryption_floor` on both Realm and Circle (spec
-/// realm.schema.json / circle.schema.json). `allow_plaintext` lets the
-/// covered field stay wire-plaintext; `e2ee_required` forces it into
-/// E2EE — `encrypted_metadata` for the metadata floor, MLS-backed
-/// `effective_scope` for the content floor. Comparison order
-/// `allow_plaintext < e2ee_required`; the effective floor MAY only
-/// tighten, never widen, and is a one-way ratchet (reducer enforces).
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum EncryptionFloor {
-    AllowPlaintext,
-    E2eeRequired,
 }
 
 /// Color tokens accepted on `Circle.display.color_token` (spec
@@ -190,22 +171,14 @@ pub struct Circle {
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
     pub history_access: HistoryAccess,
-    /// Optional Circle-local content-encryption floor. `e2ee_required` is only
-    /// valid when `encryption_profile = mls_rfc9420`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<EncryptionFloor>,
-    /// Optional Circle-local metadata-encryption floor.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<EncryptionFloor>,
     /// Optional Agent participation ceiling. Omitted bits inherit
     /// the parent Realm ceiling independently.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_participation: Option<AgentParticipationPolicy>,
-    pub encryption_profile: EncryptionProfile,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_scheme: Option<ContentScheme>,
     /// Governance-committed binding of this Circle to its independent MLS
-    /// group. It is not actor-supplied on create.
+    /// group. It is set by the accepted `ak.mls.genesis` for this Circle scope
+    /// and is the single indicator that the scope has irreversibly activated
+    /// standard RFC 9420; it is never actor-supplied on create.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     pub state: CircleState,
@@ -237,13 +210,6 @@ pub struct CircleView {
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
     pub history_access: HistoryAccess,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<EncryptionFloor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<EncryptionFloor>,
-    pub encryption_profile: EncryptionProfile,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_scheme: Option<ContentScheme>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     pub state: CircleState,
@@ -538,96 +504,32 @@ pub fn validate_no_scope_rebind(
     }
 }
 
-/// Strictness rank for [`EncryptionFloor`]: stricter →
-/// larger rank.
-fn metadata_floor_rank(floor: EncryptionFloor) -> u8 {
-    match floor {
-        EncryptionFloor::AllowPlaintext => 0,
-        EncryptionFloor::E2eeRequired => 1,
+/// Reducer-pure validator: a content or metadata write into a scope whose
+/// `ak.mls.genesis` is already accepted MUST carry RFC 9420 application
+/// ciphertext. Wire reason
+/// [`arkret_wire::ReasonCode::MLS_ACTIVATION_REQUIRED`].
+pub fn validate_scope_mls_activation(
+    scope_mls_group_id: Option<&str>,
+    write_is_encrypted: bool,
+) -> Result<(), CircleScopeError> {
+    if scope_mls_group_id.is_some() && !write_is_encrypted {
+        return Err(CircleScopeError::MlsActivationRequired);
     }
+    Ok(())
 }
 
-/// Reducer-pure validator: a Circle MAY only tighten its parent Realm's
-/// `metadata_encryption_floor` floor, never loosen it
-/// (AKP-0007 §3.4.1). Returns `Ok(())` when
-/// `rank(circle_floor) >= rank(realm_floor)`; otherwise
-/// [`CircleScopeError::MetadataEncryptionFloorViolation`] (wire reason
-/// [`arkret_wire::ReasonCode::METADATA_ENCRYPTION_FLOOR_VIOLATION`]).
-pub fn validate_metadata_floor_tightens(
-    realm_floor: EncryptionFloor,
-    circle_floor: EncryptionFloor,
+/// Reducer-pure validator: an accepted MLS activation is irreversible. A second
+/// `ak.mls.genesis` for the same scope, or any transition that would clear the
+/// committed `mls_group_id`, is rejected with wire reason
+/// [`arkret_wire::ReasonCode::MLS_ACTIVATION_IRREVERSIBLE`].
+pub fn validate_mls_activation_is_irreversible(
+    previous_mls_group_id: Option<&str>,
+    next_mls_group_id: Option<&str>,
 ) -> Result<(), CircleScopeError> {
-    if metadata_floor_rank(circle_floor) >= metadata_floor_rank(realm_floor) {
-        Ok(())
-    } else {
-        Err(CircleScopeError::MetadataEncryptionFloorViolation {
-            realm_floor,
-            circle_floor,
-        })
-    }
-}
-
-/// Reducer-pure validator for the one-way content encryption floor ratchet.
-/// Tightening or preserving the floor is accepted; lowering it returns
-/// [`CircleScopeError::ContentEncryptionFloorDowngrade`].
-pub fn validate_content_encryption_floor_ratchet(
-    previous: EncryptionFloor,
-    next: EncryptionFloor,
-) -> Result<(), CircleScopeError> {
-    if metadata_floor_rank(next) >= metadata_floor_rank(previous) {
-        Ok(())
-    } else {
-        Err(CircleScopeError::ContentEncryptionFloorDowngrade { previous, next })
-    }
-}
-
-/// Reducer-pure validator for the one-way metadata encryption floor ratchet.
-/// Tightening or preserving the floor is accepted; lowering it returns
-/// [`CircleScopeError::MetadataEncryptionFloorDowngrade`].
-pub fn validate_metadata_encryption_floor_ratchet(
-    previous: EncryptionFloor,
-    next: EncryptionFloor,
-) -> Result<(), CircleScopeError> {
-    if metadata_floor_rank(next) >= metadata_floor_rank(previous) {
-        Ok(())
-    } else {
-        Err(CircleScopeError::MetadataEncryptionFloorDowngrade { previous, next })
-    }
-}
-
-/// Validate that Circle encryption satisfies its own content-encryption floor.
-pub fn validate_circle_encryption_floor(
-    content_encryption_floor: EncryptionFloor,
-    circle_encryption_profile: &EncryptionProfile,
-) -> Result<(), CircleScopeError> {
-    let requires_mls = matches!(content_encryption_floor, EncryptionFloor::E2eeRequired);
-    if requires_mls && !matches!(circle_encryption_profile, EncryptionProfile::MlsRfc9420) {
-        Err(CircleScopeError::CircleEncryptionBelowFloor {
-            content_encryption_floor,
-            circle_encryption_profile: circle_encryption_profile.clone(),
-        })
-    } else {
-        Ok(())
-    }
-}
-
-/// Validate Strand / Message / Morph / Blob content writes against the
-/// selected scope's explicit encryption settings.
-pub fn validate_content_encryption_floor(
-    content_encryption_floor: EncryptionFloor,
-    scope_encryption_profile: Option<&EncryptionProfile>,
-) -> Result<(), CircleScopeError> {
-    if !matches!(content_encryption_floor, EncryptionFloor::E2eeRequired) {
-        return Ok(());
-    }
-    let mls_backed = matches!(
-        scope_encryption_profile,
-        Some(EncryptionProfile::MlsRfc9420)
-    );
-    if mls_backed {
-        Ok(())
-    } else {
-        Err(CircleScopeError::ContentEncryptionFloorViolation)
+    match (previous_mls_group_id, next_mls_group_id) {
+        (None, _) => Ok(()),
+        (Some(previous), Some(next)) if previous == next => Ok(()),
+        _ => Err(CircleScopeError::MlsActivationIrreversible),
     }
 }
 
@@ -668,46 +570,16 @@ pub enum CircleScopeError {
         from: Option<CircleId>,
         to: Option<CircleId>,
     },
-    /// Circle's `metadata_encryption_floor` is laxer than the parent
-    /// Realm's. Wire reason:
-    /// [`arkret_wire::ReasonCode::METADATA_ENCRYPTION_FLOOR_VIOLATION`].
+    /// Plaintext write into a scope whose `ak.mls.genesis` is accepted.
     #[error(
-        "reason=metadata_encryption_floor_violation: circle_floor={circle_floor:?} is \
-         laxer than realm_floor={realm_floor:?} (AKP-0007 §3.4.1)"
+        "reason=mls_activation_required: content write into an activated scope is not MLS-backed"
     )]
-    MetadataEncryptionFloorViolation {
-        realm_floor: EncryptionFloor,
-        circle_floor: EncryptionFloor,
-    },
-    /// A content encryption floor update lowered the effective floor.
+    MlsActivationRequired,
+    /// An attempt to re-run or undo an accepted MLS activation.
     #[error(
-        "reason=content_encryption_floor_downgrade: content_encryption_floor ratchet \
-         attempted to lower from {previous:?} to {next:?}"
+        "reason=mls_activation_irreversible: an accepted MLS activation cannot be replaced or cleared"
     )]
-    ContentEncryptionFloorDowngrade {
-        previous: EncryptionFloor,
-        next: EncryptionFloor,
-    },
-    /// A metadata encryption floor update lowered the effective floor.
-    #[error(
-        "reason=metadata_encryption_floor_downgrade: metadata_encryption_floor ratchet \
-         attempted to lower from {previous:?} to {next:?}"
-    )]
-    MetadataEncryptionFloorDowngrade {
-        previous: EncryptionFloor,
-        next: EncryptionFloor,
-    },
-    /// Circle encryption profile would be weaker than its content floor.
-    #[error(
-        "reason=circle_encryption_below_floor: circle_encryption_profile={circle_encryption_profile:?} is below content_encryption_floor={content_encryption_floor:?}"
-    )]
-    CircleEncryptionBelowFloor {
-        content_encryption_floor: EncryptionFloor,
-        circle_encryption_profile: EncryptionProfile,
-    },
-    /// Plaintext content write under `content_encryption_floor=e2ee_required`.
-    #[error("reason=content_encryption_floor_violation: content write is not MLS-backed")]
-    ContentEncryptionFloorViolation,
+    MlsActivationIrreversible,
     /// `Space.child_scope_policy` rejected the child's scope.
     #[error("child_scope_policy={policy_kind} violated: {detail} (AKP-0007 §3.4.2)")]
     ChildScopePolicyViolated {
@@ -743,11 +615,7 @@ impl Circle {
             directory_visibility: CircleDirectoryVisibility::Members,
             join_rule: CircleJoinRule::Invite,
             history_access: HistoryAccess::SinceJoin,
-            content_encryption_floor: None,
-            metadata_encryption_floor: None,
             agent_participation: None,
-            encryption_profile: EncryptionProfile::None,
-            content_scheme: None,
             mls_group_id: None,
             state: CircleState::Active,
             state_changed_at: None,
@@ -783,11 +651,7 @@ impl Circle {
             directory_visibility: CircleDirectoryVisibility::Members,
             join_rule: CircleJoinRule::Invite,
             history_access: HistoryAccess::SinceJoin,
-            content_encryption_floor: None,
-            metadata_encryption_floor: None,
             agent_participation: None,
-            encryption_profile: EncryptionProfile::None,
-            content_scheme: None,
             mls_group_id: None,
             state: CircleState::Active,
             state_changed_at: None,

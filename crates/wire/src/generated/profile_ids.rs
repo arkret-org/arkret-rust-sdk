@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: profiles/conformance-profiles.json; version=2026-09-16.9;
-//! sha256=c9ccda819f31c17edfc9ec747796e5633251950caeb869b14d83640d605ffd3c Entries: profile_ids=85
+//! Input: profiles/conformance-profiles.json; version=2026-09-16.10;
+//! sha256=8cdb1eff609b6ace7e84887dca127942aaa830782d77a6c075c20daedd26d1ff Entries: profile_ids=81
 
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,6 @@ pub enum ProfileId {
     AppletE2eeJoinV1,
     AppletServiceV1,
     AppletWidgetV1,
-    AttestedAuditE2eeV1,
     BindingWebsocketV1,
     BlobNodeV1,
     CalendarEventV1,
@@ -38,10 +37,8 @@ pub enum ProfileId {
     DirectConversationRealmV1,
     DirectConversationRepairV1,
     DirectoryServiceV1,
-    DisclosedAuditE2eeV1,
     DraftSyncV1,
     E2eeClientV1,
-    E2eeRelaxedV1,
     EncodingCborV1,
     EnterpriseClientV1,
     EphemeralPairwisePrincipalV1,
@@ -68,7 +65,6 @@ pub enum ProfileId {
     MlsMinimalMetadataRealmV1,
     MlsCiphersuiteChacha20poly1305V1,
     MlsCiphersuitePqAuthV1,
-    MlsGovernanceBindingFullV1,
     OrganizationV1,
     OrganizationHighAssuranceIdentityV1,
     PersonalNodeV1,
@@ -149,7 +145,6 @@ impl ProfileId {
         Self::AppletE2eeJoinV1,
         Self::AppletServiceV1,
         Self::AppletWidgetV1,
-        Self::AttestedAuditE2eeV1,
         Self::BindingWebsocketV1,
         Self::BlobNodeV1,
         Self::CalendarEventV1,
@@ -165,10 +160,8 @@ impl ProfileId {
         Self::DirectConversationRealmV1,
         Self::DirectConversationRepairV1,
         Self::DirectoryServiceV1,
-        Self::DisclosedAuditE2eeV1,
         Self::DraftSyncV1,
         Self::E2eeClientV1,
-        Self::E2eeRelaxedV1,
         Self::EncodingCborV1,
         Self::EnterpriseClientV1,
         Self::EphemeralPairwisePrincipalV1,
@@ -195,7 +188,6 @@ impl ProfileId {
         Self::MlsMinimalMetadataRealmV1,
         Self::MlsCiphersuiteChacha20poly1305V1,
         Self::MlsCiphersuitePqAuthV1,
-        Self::MlsGovernanceBindingFullV1,
         Self::OrganizationV1,
         Self::OrganizationHighAssuranceIdentityV1,
         Self::PersonalNodeV1,
@@ -237,7 +229,6 @@ impl ProfileId {
     pub const APPLET_E2EE_JOIN_V1: &'static str = "ak.profile.applet_e2ee_join.v1";
     pub const APPLET_SERVICE_V1: &'static str = "ak.profile.applet_service.v1";
     pub const APPLET_WIDGET_V1: &'static str = "ak.profile.applet_widget.v1";
-    pub const ATTESTED_AUDIT_E2EE_V1: &'static str = "ak.profile.attested_audit.e2ee.v1";
     pub const BINDING_WEBSOCKET_V1: &'static str = "ak.profile.binding.websocket.v1";
     pub const BLOB_NODE_V1: &'static str = "ak.profile.blob_node.v1";
     pub const CALENDAR_EVENT_V1: &'static str = "ak.profile.calendar_event.v1";
@@ -260,10 +251,8 @@ impl ProfileId {
     pub const DIRECT_CONVERSATION_REPAIR_V1: &'static str =
         "ak.profile.direct_conversation_repair.v1";
     pub const DIRECTORY_SERVICE_V1: &'static str = "ak.profile.directory_service.v1";
-    pub const DISCLOSED_AUDIT_E2EE_V1: &'static str = "ak.profile.disclosed_audit.e2ee.v1";
     pub const DRAFT_SYNC_V1: &'static str = "ak.profile.draft_sync.v1";
     pub const E2EE_CLIENT_V1: &'static str = "ak.profile.e2ee_client.v1";
-    pub const E2EE_RELAXED_V1: &'static str = "ak.profile.e2ee_relaxed.v1";
     pub const ENCODING_CBOR_V1: &'static str = "ak.profile.encoding.cbor.v1";
     pub const ENTERPRISE_CLIENT_V1: &'static str = "ak.profile.enterprise_client.v1";
     pub const EPHEMERAL_PAIRWISE_PRINCIPAL_V1: &'static str =
@@ -298,8 +287,6 @@ impl ProfileId {
     pub const MLS_CIPHERSUITE_CHACHA20POLY1305_V1: &'static str =
         "ak.profile.mls_ciphersuite.chacha20poly1305.v1";
     pub const MLS_CIPHERSUITE_PQ_AUTH_V1: &'static str = "ak.profile.mls_ciphersuite.pq_auth.v1";
-    pub const MLS_GOVERNANCE_BINDING_FULL_V1: &'static str =
-        "ak.profile.mls_governance_binding.full.v1";
     pub const ORGANIZATION_V1: &'static str = "ak.profile.organization.v1";
     pub const ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1: &'static str =
         "ak.profile.organization_high_assurance_identity.v1";
@@ -346,7 +333,6 @@ impl ProfileId {
             Self::AppletE2eeJoinV1 => Self::APPLET_E2EE_JOIN_V1,
             Self::AppletServiceV1 => Self::APPLET_SERVICE_V1,
             Self::AppletWidgetV1 => Self::APPLET_WIDGET_V1,
-            Self::AttestedAuditE2eeV1 => Self::ATTESTED_AUDIT_E2EE_V1,
             Self::BindingWebsocketV1 => Self::BINDING_WEBSOCKET_V1,
             Self::BlobNodeV1 => Self::BLOB_NODE_V1,
             Self::CalendarEventV1 => Self::CALENDAR_EVENT_V1,
@@ -362,10 +348,8 @@ impl ProfileId {
             Self::DirectConversationRealmV1 => Self::DIRECT_CONVERSATION_REALM_V1,
             Self::DirectConversationRepairV1 => Self::DIRECT_CONVERSATION_REPAIR_V1,
             Self::DirectoryServiceV1 => Self::DIRECTORY_SERVICE_V1,
-            Self::DisclosedAuditE2eeV1 => Self::DISCLOSED_AUDIT_E2EE_V1,
             Self::DraftSyncV1 => Self::DRAFT_SYNC_V1,
             Self::E2eeClientV1 => Self::E2EE_CLIENT_V1,
-            Self::E2eeRelaxedV1 => Self::E2EE_RELAXED_V1,
             Self::EncodingCborV1 => Self::ENCODING_CBOR_V1,
             Self::EnterpriseClientV1 => Self::ENTERPRISE_CLIENT_V1,
             Self::EphemeralPairwisePrincipalV1 => Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1,
@@ -392,7 +376,6 @@ impl ProfileId {
             Self::MlsMinimalMetadataRealmV1 => Self::MLS_MINIMAL_METADATA_REALM_V1,
             Self::MlsCiphersuiteChacha20poly1305V1 => Self::MLS_CIPHERSUITE_CHACHA20POLY1305_V1,
             Self::MlsCiphersuitePqAuthV1 => Self::MLS_CIPHERSUITE_PQ_AUTH_V1,
-            Self::MlsGovernanceBindingFullV1 => Self::MLS_GOVERNANCE_BINDING_FULL_V1,
             Self::OrganizationV1 => Self::ORGANIZATION_V1,
             Self::OrganizationHighAssuranceIdentityV1 => {
                 Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1
@@ -438,7 +421,6 @@ impl ProfileId {
             Self::AppletE2eeJoinV1 => ProfileRole::Server,
             Self::AppletServiceV1 => ProfileRole::Server,
             Self::AppletWidgetV1 => ProfileRole::Server,
-            Self::AttestedAuditE2eeV1 => ProfileRole::Admin,
             Self::BindingWebsocketV1 => ProfileRole::Interop,
             Self::BlobNodeV1 => ProfileRole::Gateway,
             Self::CalendarEventV1 => ProfileRole::Client,
@@ -454,10 +436,8 @@ impl ProfileId {
             Self::DirectConversationRealmV1 => ProfileRole::Admin,
             Self::DirectConversationRepairV1 => ProfileRole::Server,
             Self::DirectoryServiceV1 => ProfileRole::Directory,
-            Self::DisclosedAuditE2eeV1 => ProfileRole::Admin,
             Self::DraftSyncV1 => ProfileRole::Client,
             Self::E2eeClientV1 => ProfileRole::Client,
-            Self::E2eeRelaxedV1 => ProfileRole::Client,
             Self::EncodingCborV1 => ProfileRole::Interop,
             Self::EnterpriseClientV1 => ProfileRole::Client,
             Self::EphemeralPairwisePrincipalV1 => ProfileRole::Admin,
@@ -484,7 +464,6 @@ impl ProfileId {
             Self::MlsMinimalMetadataRealmV1 => ProfileRole::Admin,
             Self::MlsCiphersuiteChacha20poly1305V1 => ProfileRole::Interop,
             Self::MlsCiphersuitePqAuthV1 => ProfileRole::Interop,
-            Self::MlsGovernanceBindingFullV1 => ProfileRole::Admin,
             Self::OrganizationV1 => ProfileRole::Admin,
             Self::OrganizationHighAssuranceIdentityV1 => ProfileRole::Directory,
             Self::PersonalNodeV1 => ProfileRole::Admin,
@@ -535,7 +514,6 @@ impl ProfileId {
             Self::APPLET_E2EE_JOIN_V1 => Some(Self::AppletE2eeJoinV1),
             Self::APPLET_SERVICE_V1 => Some(Self::AppletServiceV1),
             Self::APPLET_WIDGET_V1 => Some(Self::AppletWidgetV1),
-            Self::ATTESTED_AUDIT_E2EE_V1 => Some(Self::AttestedAuditE2eeV1),
             Self::BINDING_WEBSOCKET_V1 => Some(Self::BindingWebsocketV1),
             Self::BLOB_NODE_V1 => Some(Self::BlobNodeV1),
             Self::CALENDAR_EVENT_V1 => Some(Self::CalendarEventV1),
@@ -553,10 +531,8 @@ impl ProfileId {
             Self::DIRECT_CONVERSATION_REALM_V1 => Some(Self::DirectConversationRealmV1),
             Self::DIRECT_CONVERSATION_REPAIR_V1 => Some(Self::DirectConversationRepairV1),
             Self::DIRECTORY_SERVICE_V1 => Some(Self::DirectoryServiceV1),
-            Self::DISCLOSED_AUDIT_E2EE_V1 => Some(Self::DisclosedAuditE2eeV1),
             Self::DRAFT_SYNC_V1 => Some(Self::DraftSyncV1),
             Self::E2EE_CLIENT_V1 => Some(Self::E2eeClientV1),
-            Self::E2EE_RELAXED_V1 => Some(Self::E2eeRelaxedV1),
             Self::ENCODING_CBOR_V1 => Some(Self::EncodingCborV1),
             Self::ENTERPRISE_CLIENT_V1 => Some(Self::EnterpriseClientV1),
             Self::EPHEMERAL_PAIRWISE_PRINCIPAL_V1 => Some(Self::EphemeralPairwisePrincipalV1),
@@ -587,7 +563,6 @@ impl ProfileId {
                 Some(Self::MlsCiphersuiteChacha20poly1305V1)
             }
             Self::MLS_CIPHERSUITE_PQ_AUTH_V1 => Some(Self::MlsCiphersuitePqAuthV1),
-            Self::MLS_GOVERNANCE_BINDING_FULL_V1 => Some(Self::MlsGovernanceBindingFullV1),
             Self::ORGANIZATION_V1 => Some(Self::OrganizationV1),
             Self::ORGANIZATION_HIGH_ASSURANCE_IDENTITY_V1 => {
                 Some(Self::OrganizationHighAssuranceIdentityV1)

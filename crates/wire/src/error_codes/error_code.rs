@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-16.10;
-//! sha256=6f0f103fa9689d1ef5dba5b2170484d7273ece98598a6a6e5c6981a38e9d71bd Entries: error_codes=268
+//! Input: registry/error-code-registry.json; version=2026-09-16.11;
+//! sha256=745a4aa77c463b97d6848f06bbcf0613da78faeb6bc2d768352b8d355f7ff3f2 Entries: error_codes=268
 
 use serde::{Deserialize, Serialize};
 
@@ -104,8 +104,8 @@ pub enum ErrorCode {
     DeviceGenerationFenced,
     DeviceReanchorAuthorityMismatch,
     DeviceReanchorAuthorizeMismatch,
+    DeviceReanchorCheckpointMismatch,
     DeviceReanchorConflict,
-    DeviceReanchorFrontierMismatch,
     DeviceRecoveryGenerationMismatch,
     DeviceRevocationPending,
     DeviceRevoked,
@@ -140,8 +140,6 @@ pub enum ErrorCode {
     FirstBackupGateUnsatisfied,
     FrankingProofUnavailable,
     FrankingTampered,
-    FrontierStale,
-    FrontierUnavailable,
     GovernanceKeyInvalid,
     GrantAlreadyConsumed,
     HandleUnverified,
@@ -248,6 +246,8 @@ pub enum ErrorCode {
     RecoverySessionIdReused,
     RecoverySessionNotPending,
     ResponseInvalid,
+    RevisionStale,
+    RevisionUnavailable,
     SchemaViolation,
     SelectorTooComplex,
     ServiceIdentityConflict,
@@ -388,8 +388,8 @@ impl ErrorCode {
         Self::DeviceGenerationFenced,
         Self::DeviceReanchorAuthorityMismatch,
         Self::DeviceReanchorAuthorizeMismatch,
+        Self::DeviceReanchorCheckpointMismatch,
         Self::DeviceReanchorConflict,
-        Self::DeviceReanchorFrontierMismatch,
         Self::DeviceRecoveryGenerationMismatch,
         Self::DeviceRevocationPending,
         Self::DeviceRevoked,
@@ -424,8 +424,6 @@ impl ErrorCode {
         Self::FirstBackupGateUnsatisfied,
         Self::FrankingProofUnavailable,
         Self::FrankingTampered,
-        Self::FrontierStale,
-        Self::FrontierUnavailable,
         Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
         Self::HandleUnverified,
@@ -532,6 +530,8 @@ impl ErrorCode {
         Self::RecoverySessionIdReused,
         Self::RecoverySessionNotPending,
         Self::ResponseInvalid,
+        Self::RevisionStale,
+        Self::RevisionUnavailable,
         Self::SchemaViolation,
         Self::SelectorTooComplex,
         Self::ServiceIdentityConflict,
@@ -666,8 +666,9 @@ impl ErrorCode {
         "device_reanchor_authority_mismatch";
     pub const DEVICE_REANCHOR_AUTHORIZE_MISMATCH: &'static str =
         "device_reanchor_authorize_mismatch";
+    pub const DEVICE_REANCHOR_CHECKPOINT_MISMATCH: &'static str =
+        "device_reanchor_checkpoint_mismatch";
     pub const DEVICE_REANCHOR_CONFLICT: &'static str = "device_reanchor_conflict";
-    pub const DEVICE_REANCHOR_FRONTIER_MISMATCH: &'static str = "device_reanchor_frontier_mismatch";
     pub const DEVICE_RECOVERY_GENERATION_MISMATCH: &'static str =
         "device_recovery_generation_mismatch";
     pub const DEVICE_REVOCATION_PENDING: &'static str = "device_revocation_pending";
@@ -706,8 +707,6 @@ impl ErrorCode {
     pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
-    pub const FRONTIER_STALE: &'static str = "frontier_stale";
-    pub const FRONTIER_UNAVAILABLE: &'static str = "frontier_unavailable";
     pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
     pub const HANDLE_UNVERIFIED: &'static str = "handle_unverified";
@@ -833,6 +832,8 @@ impl ErrorCode {
     pub const RECOVERY_SESSION_ID_REUSED: &'static str = "recovery_session_id_reused";
     pub const RECOVERY_SESSION_NOT_PENDING: &'static str = "recovery_session_not_pending";
     pub const RESPONSE_INVALID: &'static str = "response_invalid";
+    pub const REVISION_STALE: &'static str = "revision_stale";
+    pub const REVISION_UNAVAILABLE: &'static str = "revision_unavailable";
     pub const SCHEMA_VIOLATION: &'static str = "schema_violation";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
@@ -971,8 +972,8 @@ impl ErrorCode {
             Self::DeviceGenerationFenced => "device_generation_fenced",
             Self::DeviceReanchorAuthorityMismatch => "device_reanchor_authority_mismatch",
             Self::DeviceReanchorAuthorizeMismatch => "device_reanchor_authorize_mismatch",
+            Self::DeviceReanchorCheckpointMismatch => "device_reanchor_checkpoint_mismatch",
             Self::DeviceReanchorConflict => "device_reanchor_conflict",
-            Self::DeviceReanchorFrontierMismatch => "device_reanchor_frontier_mismatch",
             Self::DeviceRecoveryGenerationMismatch => "device_recovery_generation_mismatch",
             Self::DeviceRevocationPending => "device_revocation_pending",
             Self::DeviceRevoked => "device_revoked",
@@ -1009,8 +1010,6 @@ impl ErrorCode {
             Self::FirstBackupGateUnsatisfied => "first_backup_gate_unsatisfied",
             Self::FrankingProofUnavailable => "franking_proof_unavailable",
             Self::FrankingTampered => "franking_tampered",
-            Self::FrontierStale => "frontier_stale",
-            Self::FrontierUnavailable => "frontier_unavailable",
             Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
             Self::HandleUnverified => "handle_unverified",
@@ -1129,6 +1128,8 @@ impl ErrorCode {
             Self::RecoverySessionIdReused => "recovery_session_id_reused",
             Self::RecoverySessionNotPending => "recovery_session_not_pending",
             Self::ResponseInvalid => "response_invalid",
+            Self::RevisionStale => "revision_stale",
+            Self::RevisionUnavailable => "revision_unavailable",
             Self::SchemaViolation => "schema_violation",
             Self::SelectorTooComplex => "selector_too_complex",
             Self::ServiceIdentityConflict => "service_identity_conflict",
@@ -1268,8 +1269,8 @@ impl ErrorCode {
             "device_generation_fenced" => Some(Self::DeviceGenerationFenced),
             "device_reanchor_authority_mismatch" => Some(Self::DeviceReanchorAuthorityMismatch),
             "device_reanchor_authorize_mismatch" => Some(Self::DeviceReanchorAuthorizeMismatch),
+            "device_reanchor_checkpoint_mismatch" => Some(Self::DeviceReanchorCheckpointMismatch),
             "device_reanchor_conflict" => Some(Self::DeviceReanchorConflict),
-            "device_reanchor_frontier_mismatch" => Some(Self::DeviceReanchorFrontierMismatch),
             "device_recovery_generation_mismatch" => Some(Self::DeviceRecoveryGenerationMismatch),
             "device_revocation_pending" => Some(Self::DeviceRevocationPending),
             "device_revoked" => Some(Self::DeviceRevoked),
@@ -1310,8 +1311,6 @@ impl ErrorCode {
             "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
-            "frontier_stale" => Some(Self::FrontierStale),
-            "frontier_unavailable" => Some(Self::FrontierUnavailable),
             "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
             "handle_unverified" => Some(Self::HandleUnverified),
@@ -1444,6 +1443,8 @@ impl ErrorCode {
             "recovery_session_id_reused" => Some(Self::RecoverySessionIdReused),
             "recovery_session_not_pending" => Some(Self::RecoverySessionNotPending),
             "response_invalid" => Some(Self::ResponseInvalid),
+            "revision_stale" => Some(Self::RevisionStale),
+            "revision_unavailable" => Some(Self::RevisionUnavailable),
             "schema_violation" => Some(Self::SchemaViolation),
             "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
@@ -1616,7 +1617,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The accepted Agent key component contains conflicting active authorization state at the target frontier. The Event and signer evidence MUST be quarantined.",
+        description: "The accepted Agent key component contains conflicting active authorization state at the target checkpoint. The Event and signer evidence MUST be quarantined.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentAuthorizationInactive,
@@ -1666,7 +1667,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Agent signer evidence exists but its source freshness observation or state frontier is too old for the target Event admission. Consumers remain Unresolved/Stale and retry without promoting the Event to Verified.",
+        description: "Agent signer evidence exists but its source freshness observation or state checkpoint is too old for the target Event admission. Consumers remain Unresolved/Stale and retry without promoting the Event to Verified.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentSigningKeyMismatch,
@@ -2259,6 +2260,16 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A device re-anchor completion authorization does not match the expected re-anchor authorization. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::DeviceReanchorCheckpointMismatch,
+        type_uri: "https://arkret.org/problems/device_reanchor_checkpoint_mismatch",
+        title: "Device reanchor checkpoint mismatch",
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "A device re-anchor completion carries a checkpoint that does not match the recomputed device checkpoint. Dual-registered as a service code and a reason_code (see reason_codes[]).",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::DeviceReanchorConflict,
         type_uri: "https://arkret.org/problems/device_reanchor_conflict",
         title: "Device reanchor conflict",
@@ -2267,16 +2278,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "Concurrent device re-anchor completions conflict on the same principal generation state.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::DeviceReanchorFrontierMismatch,
-        type_uri: "https://arkret.org/problems/device_reanchor_frontier_mismatch",
-        title: "Device reanchor frontier mismatch",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "A device re-anchor completion carries a frontier that does not match the recomputed device frontier. Dual-registered as a service code and a reason_code (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRecoveryGenerationMismatch,
@@ -2536,7 +2537,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "authority-commit plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane typed current result, or a ordinary Event targeted a control-plane typed current result. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md Â§13 and zh/sync/service-http-binding.md (write outcomes).",
+        description: "authority-commit plane invariant failed: the registered reducer projection for a Event targeted a data-plane typed current result, or a Event targeted a control-plane typed current result. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md Â§13 and zh/sync/service-http-binding.md (write outcomes).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,
@@ -2617,26 +2618,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "endpoint",
         applies_to: &[],
         description: "The franking tag is tampered or does not verify.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FrontierStale,
-        type_uri: "https://arkret.org/problems/frontier_stale",
-        title: "Frontier stale",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The service's verified authority-stream head is behind the RealmCommit position required by the request.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::FrontierUnavailable,
-        type_uri: "https://arkret.org/problems/frontier_unavailable",
-        title: "Frontier unavailable",
-        http_status: 503,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The service cannot currently produce the requested frontier because required authority commit, reducer, or witness state is unavailable.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GovernanceKeyInvalid,
@@ -2936,7 +2917,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A 0 -> 0 group_security_frontier query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The service MUST NOT default content_scheme. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
+        description: "A 0 -> 0 group_key_access_revision query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceAnchorUnreachable,
@@ -2946,7 +2927,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required RealmCommit/Event/witness material that prevents the service from deciding dominance is frontier_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
+        description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required RealmCommit/Event/witness material that prevents the service from deciding dominance is revision_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsKeypackageClaimRequestExpired,
@@ -3136,7 +3117,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The accepted PCR authority frontier, device generation, recovery-policy version or account-local-lineage binding is stale. DID freshness cannot repair this failure.",
+        description: "The accepted PCR authority checkpoint, device generation, recovery-policy version or account-local-lineage binding is stale. DID freshness cannot repair this failure.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PeerStateStaleUnavailable,
@@ -3196,7 +3177,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The policy service, policy frontier, or policy proof required for this operation is temporarily unavailable.",
+        description: "The policy service, realm_policy revision, or policy proof required for this operation is temporarily unavailable.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PolicyViolation,
@@ -3236,7 +3217,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The requested projection cannot be claimed complete under the current supported feature set or dependency frontier.",
+        description: "The requested projection cannot be claimed complete under the current supported feature set or dependency checkpoint.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PsiBatchUnavailable,
@@ -3366,7 +3347,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' â†’ child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Move with this wire code. See zh/discovery/read-receipts.md Â§2.5.",
+        description: "A child Realm's read-receipt policy attempted to cross the parent's compliance floor (parent disclosure='required' â†’ child 'optional' or 'disabled') without the parent explicitly setting child_privacy_tightening_against_required=true. Reducer MUST reject the offending ak.realm.read_receipt_policy Event with this wire code. See zh/discovery/read-receipts.md Â§2.5.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::RealmFederationPolicyClosed,
@@ -3699,6 +3680,26 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "A downstream service response was syntactically valid transport data but did not satisfy the expected protocol contract, including directory/projection/service-call schema mismatch or missing required pagination/error fields.",
     },
     ErrorCodeDescriptor {
+        code: ErrorCode::RevisionStale,
+        type_uri: "https://arkret.org/problems/revision_stale",
+        title: "Checkpoint stale",
+        http_status: 409,
+        http_status_by_context: &[],
+        scope: "both",
+        applies_to: &[],
+        description: "The service's verified authority-stream head is behind the RealmCommit position required by the request.",
+    },
+    ErrorCodeDescriptor {
+        code: ErrorCode::RevisionUnavailable,
+        type_uri: "https://arkret.org/problems/revision_unavailable",
+        title: "Checkpoint unavailable",
+        http_status: 503,
+        http_status_by_context: &[],
+        scope: "endpoint",
+        applies_to: &[],
+        description: "The service cannot currently produce the requested checkpoint because required authority commit, reducer, or witness state is unavailable.",
+    },
+    ErrorCodeDescriptor {
         code: ErrorCode::SchemaViolation,
         type_uri: "https://arkret.org/problems/schema_violation",
         title: "Schema violation",
@@ -3916,7 +3917,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "service_call",
         applies_to: &[],
-        description: "Directory ingest or cross-service projection could not verify declared source_refs against the authoritative Station, resource source, or signed projection frontier.",
+        description: "Directory ingest or cross-service projection could not verify declared source_refs against the authoritative Station, resource source, or signed projection checkpoint.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::StateMismatch,
@@ -4166,7 +4167,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The selected operation, portable artifact, Realm genesis, or Realm reducer-profile control state requires a profile or feature the service does not implement. Reducer support is advertised in ServiceDescribe.supported_reducer_profiles; other capabilities use supported_features / supported_profiles. The server MUST fail closed and MUST NOT substitute a local default or permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
+        description: "The selected operation or portable artifact requires a profile or feature the service does not implement. Capabilities use supported_features / supported_profiles. The server MUST fail closed and MUST NOT substitute a local default or permissive interpretation. Dual-registered as a per-device reason_code for ak.edge.push.command.notify.v1 (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedProfilePatchPath,
@@ -4196,7 +4197,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A syntactically well-formed protocol-family bootstrap discriminator is not supported by the receiver. For v1 ServiceDescribe and equivalent ping surfaces, a protocol_version string other than the canonical value 1.0 makes the complete service unusable before capability intersection or route caching. Missing or non-string values remain schema_violation. A binding that implements Arkret-Protocol-Version header or equivalent media-type negotiation returns this code for an unsupported requested version. Dual-registered as a top-level service code and a reason_code. See zh/overview/evolution-and-compatibility.md Â§1 and Â§4.",
+        description: "A syntactically well-formed protocol-family bootstrap discriminator is not supported by the receiver. For v1 ServiceDescribe and equivalent ping surfaces, a protocol_version string other than the canonical value 1.0 makes the complete service unusable before capability intersection or route caching. Missing or non-string values remain schema_violation. A binding that implements Arkret-Protocol-Version header or equivalent media-type negotiation returns this code for an unsupported requested version. Dual-registered as a top-level service code and a reason_code. See zh/overview/current-contract.md Â§1 and Â§4.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedSignatureAlg,

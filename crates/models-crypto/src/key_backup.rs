@@ -1,12 +1,13 @@
 //! End-to-end encrypted `secret_storage` backup models.
 //!
-//! Legacy shared-history recovery carriers are not part of this model.
+//! Backup records are bound to current authority commits and local encryption
+//! material; they do not carry producer ordering coordinates.
 
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, BackupId, BackupSeriesId, Base64UrlString, DeviceId, DidUrl, EventId,
-    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, RealmCommitId, ReasonCode, Result,
+    ActorId, BackupId, BackupSeriesId, Base64UrlString, CommittedEventRef, DeviceId, DidUrl,
+    EventId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, ReasonCode, Result,
     SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -47,8 +48,8 @@ impl TryFrom<&str> for BackupKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupFrontierRef {
-    pub realm_commit_id: RealmCommitId,
+pub struct KeyBackupSourceRef {
+    pub committed_event_ref: CommittedEventRef,
     pub device_generation_ref: String,
 }
 
@@ -90,7 +91,7 @@ pub struct KeyBackup {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frontier_ref: Option<KeyBackupFrontierRef>,
+    pub source_ref: Option<KeyBackupSourceRef>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -104,10 +105,10 @@ impl KeyBackup {
         }
         match self.series_seq {
             0 if self.supersedes_id.is_some() || self.supersedes_digest.is_some() => {
-                return protocol("key backup genesis must not carry predecessor fields");
+                return protocol("key backup genesis must not carry supersession fields");
             }
             1.. if self.supersedes_id.is_none() || self.supersedes_digest.is_none() => {
-                return protocol("key backup successor requires predecessor id and digest");
+                return protocol("key backup successor requires prior backup id and digest");
             }
             _ => {}
         }

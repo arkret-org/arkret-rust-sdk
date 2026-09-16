@@ -203,7 +203,7 @@ impl RelationConflictDomainKind {
 }
 
 /// The single primary conflict domain a `require_review` group and its
-/// `ak.relation.resolve` Control Move address.
+/// `ak.relation.resolve` Event address.
 ///
 /// The Realm is deliberately not a member: an Event takes it from its own
 /// envelope and a read takes it from the request selector. A Circle is not a

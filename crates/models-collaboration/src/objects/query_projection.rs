@@ -17,7 +17,7 @@ pub enum ReferenceProjectionState {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StateFrontier {
+pub struct StateRevision {
     pub stream_heads: Vec<CommitStreamHead>,
 }
 
@@ -40,7 +40,7 @@ pub struct DocumentMorphProjectionOutcome {
         feature = "openapi",
         salvo(schema(value_type = Option<serde_json::Value>))
     )]
-    pub frontier: Option<StateFrontier>,
+    pub checkpoint: Option<StateRevision>,
 }
 
 /// `view.schema.json#/$defs/document_morph_projection_outcome/properties/document`.

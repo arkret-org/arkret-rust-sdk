@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-16.8;
-//! sha256=8486d844f9abd84b4c39a0e6ab05617dcac2e4a0759f557229c7989eed603efa Entries: schema_ids=216,
-//! active=216
+//! Input: registry/schema-registry.json; version=2026-09-16.10;
+//! sha256=2ac78a68533abaf1590b9b85f7279ccafddea53736383bb8f4444b368438f0d2 Entries: schema_ids=214,
+//! active=214
 
 use serde::{Deserialize, Serialize};
 
@@ -47,8 +47,6 @@ pub enum SchemaId {
     AppletRegistrationEpochEvidenceV1,
     AppletRegistrationEpochTranscriptV1,
     AppletWidgetDeclarationV1,
-    AuditReleaseAttestationV1,
-    AuditRywReceiptV1,
     AuthenticatedSignerResolutionEvidenceV1,
     AuthorityCommitOperationsV1,
     AuthoritySetPolicyV1,
@@ -267,8 +265,6 @@ impl SchemaId {
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
-        Self::AuditReleaseAttestationV1,
-        Self::AuditRywReceiptV1,
         Self::AuthenticatedSignerResolutionEvidenceV1,
         Self::AuthorityCommitOperationsV1,
         Self::AuthoritySetPolicyV1,
@@ -487,8 +483,6 @@ impl SchemaId {
         Self::AppletRegistrationEpochEvidenceV1,
         Self::AppletRegistrationEpochTranscriptV1,
         Self::AppletWidgetDeclarationV1,
-        Self::AuditReleaseAttestationV1,
-        Self::AuditRywReceiptV1,
         Self::AuthenticatedSignerResolutionEvidenceV1,
         Self::AuthorityCommitOperationsV1,
         Self::AuthoritySetPolicyV1,
@@ -786,13 +780,6 @@ impl SchemaId {
     /// Closed declaration for Applet UI widget origin, CSP, scoped token capability scope, and
     /// consent gate.
     pub const APPLET_WIDGET_DECLARATION_V1: &'static str = "ak.schema.applet_widget_declaration.v1";
-    /// Remote attestation evidence for an attested_hardware audit release service. Carried inline
-    /// as audit_release_payload.release_attestation on every ak.audit.release under a binding whose
-    /// audit_assurance_class is attested_hardware; verified at admission against the binding's
-    /// attestation_policy (audit_release_attestation_invalid) and the active binding fields
-    /// (audit_release_attestation_mismatch). See zh/crypto-media/audited-e2ee.md §6.
-    pub const AUDIT_RELEASE_ATTESTATION_V1: &'static str = "ak.schema.audit_release_attestation.v1";
-    pub const AUDIT_RYW_RECEIPT_V1: &'static str = "ak.schema.audit_ryw_receipt.v1";
     /// Content-addressed historical signer-resolution evidence pinned for Event, Station and
     /// AvailabilityReceipt signature verification.
     pub const AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1: &'static str =
@@ -868,7 +855,7 @@ impl SchemaId {
     /// (stage / finalize / resolve / code claim / status). See device-lifecycle.md §2.1.1.
     pub const DEVICE_PAIRING_OPERATIONS_V1: &'static str = "ak.schema.device_pairing_operations.v1";
     /// Closed PCR-policy recovery payload binding one account-local lineage, accepted
-    /// policy/session, monotonic PCR generation CAS, complete pre-fence RealmCommit frontier and
+    /// policy/session, monotonic PCR generation CAS, complete pre-fence RealmCommit checkpoint and
     /// replacement authorization digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
     /// Authority-commit-owned durable state for ak.device.revoke security transactions: exact
@@ -1326,8 +1313,6 @@ impl SchemaId {
                 Self::APPLET_REGISTRATION_EPOCH_TRANSCRIPT_V1
             }
             Self::AppletWidgetDeclarationV1 => Self::APPLET_WIDGET_DECLARATION_V1,
-            Self::AuditReleaseAttestationV1 => Self::AUDIT_RELEASE_ATTESTATION_V1,
-            Self::AuditRywReceiptV1 => Self::AUDIT_RYW_RECEIPT_V1,
             Self::AuthenticatedSignerResolutionEvidenceV1 => {
                 Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1
             }
@@ -1579,8 +1564,6 @@ impl SchemaId {
                 "schemas/applet-registration-epoch-transcript.schema.json"
             }
             Self::AppletWidgetDeclarationV1 => "schemas/applet-widget-declaration.schema.json",
-            Self::AuditReleaseAttestationV1 => "schemas/audit-release-attestation.schema.json",
-            Self::AuditRywReceiptV1 => "schemas/audit-ryw-receipt.schema.json",
             Self::AuthenticatedSignerResolutionEvidenceV1 => {
                 "schemas/authenticated-signer-resolution-evidence.schema.json"
             }
@@ -1840,8 +1823,6 @@ impl SchemaId {
                 Some(Self::AppletRegistrationEpochTranscriptV1)
             }
             Self::APPLET_WIDGET_DECLARATION_V1 => Some(Self::AppletWidgetDeclarationV1),
-            Self::AUDIT_RELEASE_ATTESTATION_V1 => Some(Self::AuditReleaseAttestationV1),
-            Self::AUDIT_RYW_RECEIPT_V1 => Some(Self::AuditRywReceiptV1),
             Self::AUTHENTICATED_SIGNER_RESOLUTION_EVIDENCE_V1 => {
                 Some(Self::AuthenticatedSignerResolutionEvidenceV1)
             }

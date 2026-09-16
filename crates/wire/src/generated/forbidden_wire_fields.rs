@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=837cd66d66618e867eb725ecf0378911ee71becc6dd60b815c2e6f5aef5ae0a7
-//! Entries: forbidden_wire_fields=245
+//! sha256=141820715e3167afadac11b17a57d5239b390d9fd31a54c0032ae5ad3e464fd8
+//! Entries: forbidden_wire_fields=239
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -338,6 +338,28 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         ],
         match_kind: "field",
         match_values: &["allowed_target_classes"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "authority-ordered projection_types",
+        context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
+        rejection_level: "hard_reject",
+        selectors: &[
+            ForbiddenWireSelector {
+                document_kind: "wire",
+                schema_ref: "*",
+                instance_pointer: "",
+                match_scope: "descendants",
+            },
+            ForbiddenWireSelector {
+                document_kind: "executable_artifact",
+                schema_ref: "*",
+                instance_pointer: "",
+                match_scope: "descendants",
+            },
+        ],
+        match_kind: "field",
+        match_values: &["authority-ordered projection_types"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -759,28 +781,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "lattice_types",
-        context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "wire",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-            ForbiddenWireSelector {
-                document_kind: "executable_artifact",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-        ],
-        match_kind: "field",
-        match_values: &["lattice_types"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "link_type",
         context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
         rejection_level: "hard_reject",
@@ -844,50 +844,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         ],
         match_kind: "field",
         match_values: &["morph_types"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "notary.type",
-        context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "wire",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-            ForbiddenWireSelector {
-                document_kind: "executable_artifact",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-        ],
-        match_kind: "path",
-        match_values: &["notary.type"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "notary_type",
-        context: "all_arkret_owned_wire_canonical_json_and_executable_artifact_contexts",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "wire",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-            ForbiddenWireSelector {
-                document_kind: "executable_artifact",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-        ],
-        match_kind: "field",
-        match_values: &["notary_type"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -2167,48 +2123,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "audit_agent_did",
-        context: "attestation_evidence",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "audit-release-attestation.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["audit_agent_did"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "evidence_id",
-        context: "audit_release_attestation",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "audit-release-attestation.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["evidence_id"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "stage",
-        context: "audit_session_contract",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "event-payload.schema.json#/$defs/audit_session_contract",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["stage"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "sha256",
         context: "blob_metadata",
         rejection_level: "hard_reject",
@@ -2265,6 +2179,20 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
+        id: "space_stream_head",
+        context: "checkpoint_object_property",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "wire",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "descendants",
+        }],
+        match_kind: "field",
+        match_values: &["space_stream_head"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
         id: "require_scope_ref",
         context: "child_scope_policy.kind",
         rejection_level: "hard_reject",
@@ -2308,10 +2236,10 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "or-set",
-        context: "crdt_lattice_enum",
+        context: "crdt_authority-ordered projection_enum",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
-            document_kind: "lattice_kind_value",
+            document_kind: "authority-ordered projection_kind_value",
             schema_ref: "*",
             instance_pointer: "",
             match_scope: "descendants",
@@ -2322,10 +2250,10 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "ordered-log",
-        context: "crdt_lattice_enum",
+        context: "crdt_authority-ordered projection_enum",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
-            document_kind: "lattice_kind_value",
+            document_kind: "authority-ordered projection_kind_value",
             schema_ref: "*",
             instance_pointer: "",
             match_scope: "descendants",
@@ -2710,20 +2638,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["cleartext_sha256"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "space_frontier",
-        context: "frontier_object_property",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["space_frontier"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -3231,20 +3145,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "patch_path",
         match_values: &["stage", "stage_changed_at"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "notary_configuration.recovery_members",
-        context: "notary_configuration",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "realm.schema.json#/$defs/notary_configuration",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["recovery_members"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

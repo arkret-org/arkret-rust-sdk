@@ -80,18 +80,6 @@ impl RealmAuthorityResetPayload {
     }
 }
 
-/// `mls_send_pause` value of [`RealmPolicyBundlePayload`].
-///
-/// A closed one-value enum rather than a `bool`: `advisory` downgrades the MLS
-/// send pause from MUST to SHOULD and is only accepted when the Realm declares
-/// `ak.profile.e2ee_relaxed.v1`; omitting the field in a later revision reverts
-/// to the strict default, which has no token of its own.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MlsSendPause {
-    Advisory,
-}
-
 /// `account_deactivation.member_action` of [`RealmPolicyBundlePayload`].
 ///
 /// The single authority for this closed enum and its outcome semantics is
@@ -120,19 +108,10 @@ pub struct RealmAccountDeactivationPolicy {
 pub struct RealmPreauthPolicy {
     /// When true, every invite into this Realm MUST pass the holder consent
     /// admission gate in `identity/consent-model.md` §6.1 before the invite
-    /// Control Move is submitted. It MUST NOT be read as permission for a
+    /// Event is submitted. It MUST NOT be read as permission for a
     /// cross-Realm authority-commit condition.
     pub consent_required: bool,
 }
-
-/// Absolute ceiling on `relaxed_window_max_ms`
-/// (`crypto-media/encryption-and-audit.md` §2.4.1).
-///
-/// Deliberately **not** enforced by the wire type: the schema leaves the field
-/// unbounded above so an over-ceiling value reaches the reducer and surfaces as
-/// `relaxed_window_exceeds_ceiling`. A type that clamped or rejected here would
-/// turn that into `schema_violation`, or worse, into a silent truncation.
-pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload`.
@@ -146,18 +125,13 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 /// **no** independent facet Event kind. Components that own their own kind and
 /// cell (`ak.realm.join_rule`, `ak.realm.history_access`,
 /// `ak.realm.read_receipt_policy`, `ak.realm.media_service`, …) are written by
-/// those events and already reach `policy_root` through the
-/// `ak.component.realm.*policy*` leaf filter; echoing them here would create a
-/// second, drifting truth.
+/// those events and reach the accepted policy projection through their own
+/// typed current result; echoing them here would create a second, drifting
+/// truth.
 ///
-/// `content_scheme` is **not** a member: it is frozen by the accepted MLS group
-/// Genesis and read from that exact group state. The closed schema omits it, so
-/// a bundle that restated the value would create a second, mutable truth.
-///
-/// `policy_revision` is strictly monotonic and is what gives this cell family a
-/// generation dimension inside its value; sequenced-state supersession binds by
-/// value, so a family that can otherwise repeat a value needs one
-/// (`event-auth-state-resolution.md` §9.3.1).
+/// `policy_revision` is strictly monotonic: the governance Station rejects a
+/// rollback or a gap, so a later revision always supersedes an earlier one even
+/// when the restated component set repeats a value.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 // Field declaration order is byte-for-byte the `properties` order of
@@ -165,21 +139,7 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 pub struct RealmPolicyBundlePayload {
     pub policy_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_encryption_floor: Option<EncryptionFloor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub metadata_encryption_floor: Option<EncryptionFloor>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub federation_policy: Option<FederationPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_send_pause: Option<MlsSendPause>,
-    /// Declared `ak.profile.e2ee_relaxed.v1` removed-member decryption window.
-    /// Absent means the spec default of 30000 ms.
-    ///
-    /// A value above [`RELAXED_WINDOW_MAX_MS_CEILING`] is representable on
-    /// purpose: the reducer and every receiver reject it with
-    /// `relaxed_window_exceeds_ceiling`, and MUST NOT silently clamp it.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub relaxed_window_max_ms: Option<u64>,
     /// Whether a media service listed in `plaintext_visible_services` may
     /// decrypt call media. Absent means `false`. One of three conditions that
     /// MUST all hold (`crypto-media/media-service-binding.md` §8.2).
@@ -210,11 +170,7 @@ impl RealmPolicyBundlePayload {
     pub fn new(policy_revision: u64) -> Self {
         Self {
             policy_revision,
-            content_encryption_floor: None,
-            metadata_encryption_floor: None,
             federation_policy: None,
-            mls_send_pause: None,
-            relaxed_window_max_ms: None,
             media_service_decrypts: None,
             join_policy: None,
             handle_issuer_policies: None,
@@ -236,15 +192,6 @@ impl RealmPolicyBundlePayload {
             policy_revision,
             ..self.clone()
         }
-    }
-
-    /// Whether `relaxed_window_max_ms` is above the absolute ceiling.
-    ///
-    /// Callers reject with `relaxed_window_exceeds_ceiling`; they MUST NOT
-    /// truncate to the ceiling and continue.
-    pub fn relaxed_window_exceeds_ceiling(&self) -> bool {
-        self.relaxed_window_max_ms
-            .is_some_and(|value| value > RELAXED_WINDOW_MAX_MS_CEILING)
     }
 
     pub fn media_service_decrypts(&self) -> bool {
@@ -716,9 +663,9 @@ pub struct RealmOrganizationPayload {
     /// REQUIRED when `status == revoked`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revokes_statement_id: Option<String>,
-    /// Optional digest of the Realm control frontier the organization evaluated.
+    /// Optional authority commit the organization evaluated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_frontier_digest: Option<Hash>,
+    pub realm_commit_ref: Option<RealmCommitId>,
     /// Optional DID-document delegation URL / policy object / governance
     /// decision / attestation reference.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -807,7 +754,7 @@ struct OrganizationStatementTranscript<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     revokes_statement_id: Option<&'a String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    realm_frontier_digest: Option<&'a Hash>,
+    realm_commit_ref: Option<&'a RealmCommitId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     organization_policy_ref: Option<&'a ObjectRef>,
     issuer: &'a DidCoreId,
@@ -844,7 +791,7 @@ pub fn realm_organization_statement_signing_bytes(
         expires_at: payload.expires_at,
         supersedes_statement_id: payload.supersedes_statement_id.as_ref(),
         revokes_statement_id: payload.revokes_statement_id.as_ref(),
-        realm_frontier_digest: payload.realm_frontier_digest.as_ref(),
+        realm_commit_ref: payload.realm_commit_ref.as_ref(),
         organization_policy_ref: payload.organization_policy_ref.as_ref(),
         issuer: &authorization.issuer_id,
         issuer_role: &authorization.issuer_role,

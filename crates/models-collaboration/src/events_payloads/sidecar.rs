@@ -2,16 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The only active v1 Sidecar encryption profile.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SidecarEncryptionProfile {
-    #[serde(rename = "mls_rfc9420")]
-    MlsRfc9420,
-}
-
 /// Counterpart for `event-payload.schema.json#/$defs/sidecar_create_payload`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+///
+/// The payload is empty: `sidecar_id` is derived from the Event id, and
+/// `realm_id`, `controller_account_id`, `state` and the timestamps are
+/// reducer-derived from the accepted envelope. The Sidecar scope activates
+/// standard RFC 9420 through its own accepted `ak.mls.genesis`.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SidecarCreatePayload {
-    pub encryption_profile: SidecarEncryptionProfile,
-}
+pub struct SidecarCreatePayload {}

@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, DidCoreId, ErrorCode, GrantId, Hash, RealmId, ReasonCode, Result, WireError,
+    ActorId, DidCoreId, ErrorCode, GrantId, RealmCommitId, RealmId, ReasonCode, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -202,12 +202,12 @@ pub struct RealmLinkPayload {
     pub commitment: Option<String>,
 }
 
-/// A sealed Realm Link write and the canonical bytes needed to distinguish an
-/// exact replay from a conflicting sibling at the same basis.
+/// A Realm Link write and the canonical bytes needed to distinguish an exact
+/// replay from a conflicting write on the same basis.
 #[derive(Clone, Copy, Debug)]
 pub struct RealmLinkTransitionCandidate<'a> {
     pub payload: &'a RealmLinkPayload,
-    pub canonical_move_bytes: &'a [u8],
+    pub canonical_event_bytes: &'a [u8],
     pub canonical_basis_bytes: &'a [u8],
 }
 
@@ -216,7 +216,7 @@ pub struct RealmLinkTransitionCandidate<'a> {
 pub enum RealmLinkTransitionOutcome {
     Apply,
     IdempotentReplay,
-    Bottom,
+    Rejected,
 }
 
 /// Canonical admission errors for Realm Link writes.
@@ -251,8 +251,8 @@ impl RealmLinkTransitionError {
 
 /// Evaluate a Realm Link write against its currently accepted head.
 ///
-/// Exact move-byte replay at the same canonical basis is idempotent. Any other
-/// same-basis sibling is Bottom. A write on a later basis must follow the
+/// Exact event-byte replay at the same canonical basis is idempotent. Any other
+/// write on that basis is rejected. A write on a later basis must follow the
 /// canonical FSM; terminal tombstones cannot be rewritten.
 pub fn evaluate_realm_link_transition(
     source_realm_id: &RealmId,
@@ -269,10 +269,10 @@ pub fn evaluate_realm_link_transition(
     };
 
     if current.canonical_basis_bytes == candidate.canonical_basis_bytes {
-        return if current.canonical_move_bytes == candidate.canonical_move_bytes {
+        return if current.canonical_event_bytes == candidate.canonical_event_bytes {
             Ok(RealmLinkTransitionOutcome::IdempotentReplay)
         } else {
-            Ok(RealmLinkTransitionOutcome::Bottom)
+            Ok(RealmLinkTransitionOutcome::Rejected)
         };
     }
 
@@ -583,7 +583,7 @@ pub struct RealmOrganizationRelationshipRow {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub revokes_statement_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub realm_frontier_digest: Option<Hash>,
+    pub realm_commit_ref: Option<RealmCommitId>,
     pub issuer_role: RealmOrganizationIssuerRole,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delegation_ref: Option<String>,

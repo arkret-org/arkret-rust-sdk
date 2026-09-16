@@ -304,56 +304,6 @@ pub enum EncryptionProfile {
     External,
 }
 
-/// MLS-backed content envelope scheme, frozen by the accepted MLS group
-/// Genesis.
-///
-/// `models/realm-and-space.md` section 2.3 and `models/circle.md` section 2 both
-/// make this a closed two-value union that applies exactly when
-/// `encryption_profile = mls_rfc9420`. `mls_rfc9420` uses MLS PrivateMessage and
-/// uses the MLS message ratchet, so it pins `history_access` to `since_join`;
-/// `mls_exporter_aead_v1` derives a per-epoch `epoch_content_root` and admits
-/// either state. It is immutable for the lifetime of the derived
-/// `mls_group_id`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum ContentScheme {
-    MlsRfc9420,
-    MlsExporterAeadV1,
-}
-
-impl ContentScheme {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::MlsRfc9420 => "mls_rfc9420",
-            Self::MlsExporterAeadV1 => "mls_exporter_aead_v1",
-        }
-    }
-}
-
-impl FromStr for ContentScheme {
-    type Err = ContentSchemeParseError;
-
-    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
-        match value {
-            "mls_rfc9420" => Ok(Self::MlsRfc9420),
-            "mls_exporter_aead_v1" => Ok(Self::MlsExporterAeadV1),
-            _ => Err(ContentSchemeParseError),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ContentSchemeParseError;
-
-impl fmt::Display for ContentSchemeParseError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("content_scheme is unregistered")
-    }
-}
-
-impl std::error::Error for ContentSchemeParseError {}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActorKind {
@@ -581,7 +531,7 @@ pub enum AuthzDecision {
     RequireReview,
 }
 
-/// Frontier freshness classification for revocation-sensitive authz decisions.
+/// Checkpoint freshness classification for revocation-sensitive authz decisions.
 /// Spec `AuthzCheckOutcome.freshness_state` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -592,12 +542,13 @@ pub enum FreshnessState {
     Unknown,
 }
 
-/// Coarse status of the notary / frontier source used to diagnose stale or
-/// unknown revocation freshness. Spec `AuthzCheckOutcome.notary_status` enum.
+/// Coarse status of the current governance Station and committed-stream source
+/// used to diagnose stale or unknown revocation freshness. Spec
+/// `AuthzCheckOutcome.authority_status` enum.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-pub enum NotaryStatus {
+pub enum AuthorityStatus {
     Fresh,
     Lagging,
     Unreachable,
@@ -1049,8 +1000,7 @@ pub enum RelationDirection {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 // Deliberate exception to the crate-wide `snake_case` enum convention: the
 // `encrypted-envelope.schema.json` `scheme` const is the kebab-case token
-// `mls_rfc9420` (distinct from the `encryption_profile` enum value
-// `mls_rfc9420`). The exception is made explicit per-variant rather than via
+// `mls_rfc9420`. The exception is made explicit per-variant rather than via
 // `rename_all = "kebab-case"` so a future `snake_case` variant added by habit
 // doesn't silently produce a wire-incompatible token.
 #[serde(rename_all = "snake_case")]

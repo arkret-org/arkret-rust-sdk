@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "ordinary_leaf_and_batch_key": "must both equal the current accepted device identity key",
             "actor_credential": "must equal the selected Agent or pairwise ActorId",
             "actor_leaf_and_batch_key": "must both equal the selected accepted endpoint key",
-            "deprecated_fields": [
+            "forbidden_fields": [
                 "keypackages[].endpoint_signature",
                 "mls_keypackage_payload.endpoint_signature",
                 "available_count"

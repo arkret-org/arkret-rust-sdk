@@ -185,7 +185,7 @@ pub struct AccountSubscribeFrame {
 pub enum AccountSubscribeFrameKind {
     Delta,
     CatchupComplete,
-    Frontier,
+    Checkpoint,
     Heartbeat,
     Dropped,
     ResyncRequired,
@@ -264,7 +264,7 @@ impl AccountSubscribeFrame {
             AccountSubscribeFrameKind::Delta => {
                 self.cursor.is_some() && self.reconnect_after_ms.is_none()
             }
-            AccountSubscribeFrameKind::CatchupComplete | AccountSubscribeFrameKind::Frontier => {
+            AccountSubscribeFrameKind::CatchupComplete | AccountSubscribeFrameKind::Checkpoint => {
                 self.cursor.is_some() && !has_data && self.reconnect_after_ms.is_none()
             }
             AccountSubscribeFrameKind::Dropped => self.cursor.is_some() && !has_data,
@@ -596,7 +596,7 @@ impl std::error::Error for AccountSubscribeReconnectAfter {}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StreamTraceFrameKind {
     Data,
-    Frontier,
+    Checkpoint,
     Heartbeat,
     CatchupComplete,
     Dropped,
@@ -608,7 +608,7 @@ impl StreamTraceFrameKind {
     fn as_str(self) -> &'static str {
         match self {
             Self::Data => "data",
-            Self::Frontier => "frontier",
+            Self::Checkpoint => "checkpoint",
             Self::Heartbeat => "heartbeat",
             Self::CatchupComplete => "catchup_complete",
             Self::Dropped => "dropped",
@@ -692,7 +692,7 @@ impl StreamTraceValidator {
         }
         let kind = match frame.kind {
             AccountSubscribeFrameKind::Delta => StreamTraceFrameKind::Data,
-            AccountSubscribeFrameKind::Frontier => StreamTraceFrameKind::Frontier,
+            AccountSubscribeFrameKind::Checkpoint => StreamTraceFrameKind::Checkpoint,
             AccountSubscribeFrameKind::Heartbeat => StreamTraceFrameKind::Heartbeat,
             AccountSubscribeFrameKind::CatchupComplete => StreamTraceFrameKind::CatchupComplete,
             AccountSubscribeFrameKind::Dropped => StreamTraceFrameKind::Dropped,
@@ -702,7 +702,7 @@ impl StreamTraceValidator {
         if matches!(
             kind,
             StreamTraceFrameKind::Data
-                | StreamTraceFrameKind::Frontier
+                | StreamTraceFrameKind::Checkpoint
                 | StreamTraceFrameKind::CatchupComplete
                 | StreamTraceFrameKind::Dropped
         ) && frame.cursor.as_deref().is_none_or(str::is_empty)
@@ -725,13 +725,13 @@ impl StreamTraceValidator {
         }
         if matches!(
             kind,
-            StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier
+            StreamTraceFrameKind::Data | StreamTraceFrameKind::Checkpoint
         ) {
             self.baseline_data_seen = true;
         }
         match kind {
             StreamTraceFrameKind::Data
-            | StreamTraceFrameKind::Frontier
+            | StreamTraceFrameKind::Checkpoint
             | StreamTraceFrameKind::CatchupComplete
             | StreamTraceFrameKind::Dropped => self.reconnect_cursor = frame.cursor.clone(),
             StreamTraceFrameKind::ResyncRequired => self.reconnect_cursor = None,

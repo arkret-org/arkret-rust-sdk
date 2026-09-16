@@ -112,16 +112,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::AppletDiscovery
         | EventKind::AppletManagedActorProvision
         | EventKind::AppletRegistration => EventProductClass::Applet,
-        EventKind::AuditAccessed
-        | EventKind::AuditAppletBindingCreate
-        | EventKind::AuditAppletBindingState
-        | EventKind::AuditErasureReceipt
-        | EventKind::AuditRelease
-        | EventKind::AuditRywReceipt
-        | EventKind::AuditSessionAuthorize
-        | EventKind::AuditSessionClose
-        | EventKind::AuditSessionNotice
-        | EventKind::AuditSessionRequest => EventProductClass::Audit,
+        EventKind::AuditAccessed | EventKind::AuditErasureReceipt => EventProductClass::Audit,
         EventKind::CapabilityDerived
         | EventKind::CapabilityGrant
         | EventKind::CapabilityRelinquish
@@ -312,7 +303,6 @@ mod tests {
         assert!(is_invite_kind(&EventKind::InviteCreate));
         assert!(is_membership_kind(&EventKind::MemberState));
         assert!(is_pin_kind(&EventKind::PinAdd));
-        assert!(is_audit_kind(&EventKind::AuditRywReceipt));
         assert!(is_redaction_kind(&EventKind::Redaction));
         assert!(is_realm_lifecycle_kind(&EventKind::RealmTombstone));
         assert!(is_strand_tracks_kind(&EventKind::StrandTracksUpdate));

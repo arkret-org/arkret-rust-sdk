@@ -10,6 +10,7 @@ mod group;
 mod identity;
 mod message;
 mod public_group_state;
+mod recovery;
 mod signal;
 
 pub use arkret_policy::{
@@ -25,6 +26,7 @@ pub use group::*;
 pub use identity::*;
 pub use message::*;
 pub use public_group_state::*;
+pub use recovery::*;
 pub use signal::*;
 
 pub const ARKRET_MLS_ALGORITHM: &str = "ak.mls.v1";

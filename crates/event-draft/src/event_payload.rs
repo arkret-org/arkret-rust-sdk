@@ -6,11 +6,7 @@ use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentDraftProposePayload, AgentKeyAuthorizePayload,
     AgentKeyRevokePayload, AgentPausePayload, AgentProvisionPayload, AgentResumePayload,
 };
-use arkret_models_collaboration::events_payloads::audit::{
-    AuditAccessedPayload, AuditAppletBindingCreatePayload, AuditAppletBindingStatePayload,
-    AuditPayload, AuditReleasePayload, AuditSessionAuthorizePayload, AuditSessionClosePayload,
-    AuditSessionNoticePayload, AuditSessionRequestPayload,
-};
+use arkret_models_collaboration::events_payloads::audit::AuditAccessedPayload;
 use arkret_models_collaboration::events_payloads::call::{
     CallCreatePayload, CallRecordingStartPayload, CallStatePayload, CallSummaryPayload,
 };
@@ -300,14 +296,6 @@ event_payload_accessors! {
     event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload, MlsGenesisPayload::validate),
     event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload, MlsCommitPayload::validate),
     event_spec::AuditAccessed => (as_audit_accessed, AuditAccessedPayload),
-    event_spec::AuditAppletBindingCreate => (as_audit_applet_binding_create, AuditAppletBindingCreatePayload),
-    event_spec::AuditAppletBindingState => (as_audit_applet_binding_state, AuditAppletBindingStatePayload),
-    event_spec::AuditSessionRequest => (as_audit_session_request, AuditSessionRequestPayload),
-    event_spec::AuditSessionAuthorize => (as_audit_session_authorize, AuditSessionAuthorizePayload),
-    event_spec::AuditSessionNotice => (as_audit_session_notice, AuditSessionNoticePayload),
-    event_spec::AuditRelease => (as_audit_release, AuditReleasePayload),
-    event_spec::AuditSessionClose => (as_audit_session_close, AuditSessionClosePayload),
-    event_spec::AuditRywReceipt => (as_audit_ryw_receipt, AuditPayload),
     event_spec::AuditErasureReceipt => (as_audit_erasure_receipt, ErasureReceipt),
     event_spec::SelfModerationReport => (as_self_moderation_report, ModerationReportPayload),
     event_spec::ModerationFrankingProof => (as_moderation_franking_proof, FrankingProof),

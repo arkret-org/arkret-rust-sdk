@@ -2,67 +2,18 @@
 //!
 //! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
-use std::collections::BTreeSet;
-
-use arkret_wire::{ConsentId, ErrorCode, EventId, Result, WireError};
+use arkret_wire::{ConsentId, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Canonical consent add-dot reference.
-///
-/// Mirrors `event-payload.schema.json#/$defs/consent_revoke_payload`
-/// `observed_dot_ids[]`: `<canonical event ref>:<write index>`.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct ConsentObservedDot(String);
-
-impl ConsentObservedDot {
-    pub fn new(value: String) -> Result<Self> {
-        let (event_ref, write_index) = value.rsplit_once(':').ok_or_else(|| {
-            WireError::Protocol("consent observed dot must contain a write index".to_owned())
-        })?;
-        EventId::new(event_ref.to_owned()).map_err(|_| {
-            WireError::Protocol(
-                "consent observed dot must start with a canonical event ref".to_owned(),
-            )
-        })?;
-        if write_index.is_empty() || !write_index.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(WireError::Protocol(
-                "consent observed dot write index must contain decimal digits".to_owned(),
-            ));
-        }
-        Ok(Self(value))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl TryFrom<String> for ConsentObservedDot {
-    type Error = WireError;
-
-    fn try_from(value: String) -> Result<Self> {
-        Self::new(value)
-    }
-}
-
-impl From<ConsentObservedDot> for String {
-    fn from(value: ConsentObservedDot) -> Self {
-        value.0
-    }
-}
-
-/// Typed `ak.consent.revoke` payload with REQUIRED
-/// `observed_dot_ids`. Reducers MUST reject envelopes that omit this
-/// field with `schema_violation` (it would otherwise enable implicit
-/// cascade revoke).
+/// Typed `ak.consent.revoke` command payload. The stable consent identifier
+/// selects the current authority projection and `expected_revision` provides
+/// optimistic concurrency without exposing reducer internals.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsentRevokePayload {
     pub consent_id: ConsentId,
-
-    pub observed_dot_ids: Vec<ConsentObservedDot>,
+    pub expected_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
@@ -72,24 +23,11 @@ pub struct ConsentRevokePayload {
 
 impl ConsentRevokePayload {
     pub fn validate_minimal(&self) -> Result<()> {
-        if self.observed_dot_ids.is_empty() {
-            return Err(WireError::Protocol(format!(
-                "ak.consent.revoke MUST carry non-empty observed_dot_ids ({})",
-                ErrorCode::SCHEMA_VIOLATION
-            )));
+        if self.reason.as_deref().is_some_and(str::is_empty) {
+            return Err(WireError::Protocol(
+                "consent revoke reason must be absent or non-empty".to_owned(),
+            ));
         }
-        let unique = self
-            .observed_dot_ids
-            .iter()
-            .map(ConsentObservedDot::as_str)
-            .collect::<BTreeSet<_>>();
-        if unique.len() != self.observed_dot_ids.len() {
-            return Err(WireError::Protocol(format!(
-                "ak.consent.revoke observed_dot_ids MUST be unique ({})",
-                ErrorCode::SCHEMA_VIOLATION
-            )));
-        }
-
         Ok(())
     }
 }

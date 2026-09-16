@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-16.8;
-//! sha256=fb58d1554ec8fe46b144132e5df50c464af9709b04b9e6da967543b4408eba2a
-//! Entries: operation_bundles=35 features=15
+//! Input: registry/contract-registry.json; version=2026-09-16.10;
+//! sha256=97b98ea986449fc3c0a343b986ad028dbfbeb3cffe000d76f1613d3b181845d1
+//! Entries: operation_bundles=34 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
 
@@ -266,14 +266,6 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
     OperationBundleDescriptor {
         operation_bundle_id: "ak.operation_bundle.moderation_service.describe.v1",
         service_kind: ServiceKind::ModerationService,
-        members: &[OperationBindingPair {
-            operation_id: ServiceOperationId::ServerReadDescribeV1,
-            binding_kind: BindingKind::HttpJson,
-        }],
-    },
-    OperationBundleDescriptor {
-        operation_bundle_id: "ak.operation_bundle.notary.describe.v1",
-        service_kind: ServiceKind::Notary,
         members: &[OperationBindingPair {
             operation_id: ServiceOperationId::ServerReadDescribeV1,
             binding_kind: BindingKind::HttpJson,
@@ -1271,19 +1263,6 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         conflicts: &[],
     },
     FeatureDescriptor {
-        feature_id: "ak.feature.e2ee_relaxed.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/crypto-media/encryption-and-audit.md",
-        service_kinds: &[],
-        required_operation_pairs: &[],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[
-            "The deployment supports the explicitly relaxed E2EE policy branch defined by the normative encryption contract.",
-        ],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
         feature_id: "ak.feature.identity.webvh_native_log.v1",
         status: FeatureStatus::Active,
         defined_in: "zh/identity/identity-did.md",
@@ -1319,32 +1298,6 @@ pub const FEATURES: &[FeatureDescriptor] = &[
         required_limits: &[],
         semantic_guarantees: &[
             "Message bodies accept the versioned Content Block structural contract.",
-        ],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
-        feature_id: "ak.feature.mls_exporter_aead.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/crypto-media/encryption-and-audit.md",
-        service_kinds: &[],
-        required_operation_pairs: &[],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[
-            "Application encryption derives AEAD material through the registered MLS exporter labels.",
-        ],
-        conflicts: &[],
-    },
-    FeatureDescriptor {
-        feature_id: "ak.feature.mls_governance_binding.full.v1",
-        status: FeatureStatus::Active,
-        defined_in: "zh/crypto-media/encryption-and-audit.md",
-        service_kinds: &[],
-        required_operation_pairs: &[],
-        required_profiles: &[],
-        required_limits: &[],
-        semantic_guarantees: &[
-            "MLS epochs are fully bound to the accepted Arkret governance frontier.",
         ],
         conflicts: &[],
     },

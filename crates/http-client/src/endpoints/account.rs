@@ -339,7 +339,7 @@ impl Client {
     /// deltas are folded until a valid `catchup_complete`; without catch-up,
     /// the first validated delta completes this one-shot call.
     ///
-    /// Benign keepalive and frontier frames are validated while waiting.
+    /// Benign keepalive and checkpoint frames are validated while waiting.
     /// Control interrupts (`dropped` / `resync_required` /
     /// `unauthorized`) surface as [`Error::AccountStreamInterrupt`] so
     /// the caller can reconcile per client-sync.md §2.2 — they are never
@@ -750,8 +750,8 @@ mod tests {
                 }
                 ReplayTrigger::ServiceUnavailable => {
                     let body = serde_json::json!({
-                        "type": "https://arkret.org/problems/frontier_unavailable",
-                        "title": "Frontier unavailable",
+                        "type": "https://arkret.org/problems/checkpoint_unavailable",
+                        "title": "Checkpoint unavailable",
                         "status": 503,
                         "detail": "retry",
                         "instance": "attempt-1"

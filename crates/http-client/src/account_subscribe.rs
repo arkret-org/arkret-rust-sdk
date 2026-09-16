@@ -202,13 +202,13 @@ mod tests {
     }
 
     #[test]
-    fn folder_accepts_frontier_only_bounded_long_poll_timeout() {
+    fn folder_accepts_checkpoint_only_bounded_long_poll_timeout() {
         let mut folder =
             AccountSubscribeFolder::for_request(&request(true, Some("ak:cursor:saved")));
         assert!(
             !folder
                 .push(frame(serde_json::json!({
-                    "kind": "frontier",
+                    "kind": "checkpoint",
                     "cursor": "ak:cursor:idle",
                 })))
                 .unwrap()

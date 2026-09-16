@@ -504,7 +504,6 @@ pub const PROVIDER_EGRESS_STRIP_KEYS: &[&str] = &[
     "route_tokens",
     "realm_route_token",
     "scope_route_token",
-    "delivery_binding_frontier_token",
     "attestation_evidence",
     "attestation_chain",
     "size",
@@ -526,7 +525,6 @@ pub const PROVIDER_EGRESS_STRIP_KEYS: &[&str] = &[
     "snooze_until",
     "audit_purpose",
     "audit_policy_version_digest",
-    "policy_frontier_digest",
     "trust_domain",
 ];
 
