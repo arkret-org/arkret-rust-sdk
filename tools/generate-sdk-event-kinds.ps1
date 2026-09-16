@@ -62,6 +62,7 @@ $entries = @($kinds | ForEach-Object {
         WireScope = $wireScope
         Admission = ConvertTo-OptionString -Value $row.admission
         PayloadSchemaRef = ConvertTo-OptionString -Value $row.payload_schema_ref
+        ReducerInput = $(if ($row.reducer_input) { 'true' } else { 'false' })
     }
 })
 
@@ -114,6 +115,7 @@ Add-Line '    pub category: EventRegistryCategory,'
 Add-Line '    pub wire_scope: EventWireScope,'
 Add-Line "    pub admission: Option<&'static str>,"
 Add-Line "    pub payload_schema_ref: Option<&'static str>,"
+Add-Line '    pub reducer_input: bool,'
 Add-Line '}'
 Add-Line
 Add-Line '/// Canonical wire strings for active standard Event kinds.'
@@ -172,6 +174,12 @@ Add-Line '        self.descriptor().map(|descriptor| descriptor.category)'
 Add-Line '    }'
 Add-Line
 Add-Line '    pub fn product_class(&self) -> EventProductClass { event_product_class(self) }'
+Add-Line
+Add-Line '    /// Whether the registry declares this kind an input to the shared product'
+Add-Line '    /// reducer. Unregistered kinds are never reducer inputs.'
+Add-Line '    pub fn is_reducer_input(&self) -> bool {'
+Add-Line '        self.descriptor().is_some_and(|descriptor| descriptor.reducer_input)'
+Add-Line '    }'
 Add-Line
 Add-Line '    pub fn wire_scope(&self) -> EventWireScope {'
 Add-Line '        self.descriptor()'
@@ -237,6 +245,7 @@ foreach ($entry in $entries) {
     Add-Line "        wire_scope: EventWireScope::$($entry.WireScope),"
     Add-Line "        admission: $($entry.Admission),"
     Add-Line "        payload_schema_ref: $($entry.PayloadSchemaRef),"
+    Add-Line "        reducer_input: $($entry.ReducerInput),"
     Add-Line '    },'
 }
 Add-Line '];'

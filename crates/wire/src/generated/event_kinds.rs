@@ -69,6 +69,7 @@ pub struct EventKindDescriptor {
     pub wire_scope: EventWireScope,
     pub admission: Option<&'static str>,
     pub payload_schema_ref: Option<&'static str>,
+    pub reducer_input: bool,
 }
 
 /// Canonical wire strings for active standard Event kinds.
@@ -1005,6 +1006,13 @@ impl EventKind {
 
     pub fn product_class(&self) -> EventProductClass {
         event_product_class(self)
+    }
+
+    /// Whether the registry declares this kind an input to the shared product
+    /// reducer. Unregistered kinds are never reducer inputs.
+    pub fn is_reducer_input(&self) -> bool {
+        self.descriptor()
+            .is_some_and(|descriptor| descriptor.reducer_input)
     }
 
     pub fn wire_scope(&self) -> EventWireScope {
@@ -2274,6 +2282,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/account_blocklist_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::ACCOUNT_DATA_SET,
@@ -2283,6 +2292,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/account_data_set_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::ACTOR_DISCOVERY,
@@ -2292,6 +2302,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/actor_discovery_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_ACTION_APPROVE,
@@ -2301,6 +2312,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_action_approve_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_ACTION_REJECT,
@@ -2310,6 +2322,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_action_reject_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_ACTION_REQUEST,
@@ -2319,6 +2332,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_action_request_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_DRAFT_PROPOSE,
@@ -2328,6 +2342,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_draft_propose_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_KEY_AUTHORIZE,
@@ -2337,6 +2352,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_key_authorize_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_KEY_REVOKE,
@@ -2346,6 +2362,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_key_revoke_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_PROVISION,
@@ -2353,6 +2370,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/agent-provision.schema.json"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_SELECTOR_CLAIM,
@@ -2360,6 +2378,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/agent-selector-claim.schema.json"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AGENT_SIDECAR_EXCHANGE_CONTROL,
@@ -2369,6 +2388,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::APPLET_BRIDGE_ERROR,
@@ -2378,6 +2398,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_bridge_error_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::APPLET_DISCOVERY,
@@ -2387,6 +2408,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_discovery_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::APPLET_MANAGED_ACTOR_PROVISION,
@@ -2396,6 +2418,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_managed_actor_provision_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::APPLET_REGISTRATION,
@@ -2405,6 +2428,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/applet_registration_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AUDIT_ACCESSED,
@@ -2412,6 +2436,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/audit_accessed_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::AUDIT_ERASURE_RECEIPT,
@@ -2421,6 +2446,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/erasure_receipt_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::CALL_CREATE,
@@ -2428,6 +2454,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/call_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CALL_RECORDING_START,
@@ -2437,6 +2464,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/call_recording_start_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CALL_STATE,
@@ -2444,6 +2472,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/call_state_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CALL_SUMMARY,
@@ -2451,6 +2480,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/call_summary_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CAPABILITY_DERIVED,
@@ -2460,6 +2490,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_derived_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CAPABILITY_GRANT,
@@ -2469,6 +2500,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_grant_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CAPABILITY_RELINQUISH,
@@ -2478,6 +2510,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_relinquish_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CAPABILITY_REVOKE,
@@ -2487,6 +2520,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/capability_revoke_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_ARCHIVE,
@@ -2496,6 +2530,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_CREATE,
@@ -2503,6 +2538,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/circle_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_HISTORY_ACCESS,
@@ -2512,6 +2548,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/circle_history_access_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_MEMBER_STATE,
@@ -2521,6 +2558,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/circle_member_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_RESTORE,
@@ -2530,6 +2568,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_TOMBSTONE,
@@ -2539,6 +2578,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CIRCLE_UPDATE,
@@ -2546,6 +2586,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/circle_patch_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONSENT_GRANT,
@@ -2553,6 +2594,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/consent_grant_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONSENT_REVOKE,
@@ -2560,6 +2602,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/consent_revoke_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTACT_ACCEPTED,
@@ -2569,6 +2612,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_accepted_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTACT_REJECTED,
@@ -2578,6 +2622,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_rejected_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTACT_REQUESTED,
@@ -2587,6 +2632,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_requested_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTACT_SCOPE_UPDATE,
@@ -2596,6 +2642,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_scope_update_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTACT_TOMBSTONE,
@@ -2605,6 +2652,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/contact_tombstoned_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTAINER_MOVE_ITEM,
@@ -2614,6 +2662,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/container_move_item_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::CONTAINER_REBALANCE,
@@ -2623,6 +2672,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/container_rebalance_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::DEVICE_AUTHORIZE,
@@ -2632,6 +2682,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_authorize_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::DEVICE_LIST_UPDATE,
@@ -2641,6 +2692,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_list_update_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::DEVICE_PUSH_ROUTE,
@@ -2650,6 +2702,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_push_route_payload",
         ),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::DEVICE_REANCHOR,
@@ -2659,6 +2712,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/device_reanchor_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::DEVICE_REVOKE,
@@ -2666,6 +2720,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/device_revoke_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::DIRECT_CONVERSATION_BOUND,
@@ -2675,6 +2730,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/direct_conversation_bound_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::HANDLE_DISCOVERY,
@@ -2684,6 +2740,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/handle_discovery_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::IDENTITY_ACCOUNTABILITY_GRANT,
@@ -2691,6 +2748,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("self_authored_proof"),
         payload_schema_ref: Some("schemas/accountability-grant.schema.json"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::IDENTITY_RESOLUTION_UPDATE,
@@ -2700,6 +2758,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/identity_resolution_update_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::INVITE_ACCEPT,
@@ -2707,6 +2766,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_accept_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::INVITE_CANCEL,
@@ -2714,6 +2774,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_cancel_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::INVITE_CLAIM,
@@ -2721,6 +2782,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_claim_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::INVITE_CREATE,
@@ -2728,6 +2790,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::INVITE_REVOKE,
@@ -2735,6 +2798,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/invite_revoke_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::INVITE_THIRD_PARTY,
@@ -2744,6 +2808,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/invite_third_party_create_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::KEY_BACKUP_ACTIVE_SERIES,
@@ -2753,6 +2818,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/key_backup_active_series_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MEMBER_IDENTITY_UPDATE,
@@ -2762,6 +2828,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/member_identity_update_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MEMBER_STATE,
@@ -2769,6 +2836,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("capability_gated"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/membership_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MESSAGE_CREATE,
@@ -2776,6 +2844,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/message_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MESSAGE_REDACT,
@@ -2783,6 +2852,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/message_redact_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MESSAGE_REVISE,
@@ -2790,6 +2860,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/message_revise_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MIMI_ROOM_BINDING,
@@ -2799,6 +2870,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/mimi_room_binding_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MLS_COMMIT,
@@ -2806,6 +2878,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_commit_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MLS_GENESIS,
@@ -2813,6 +2886,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/mls_genesis_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MODERATION_DECISION,
@@ -2822,6 +2896,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/moderation_decision_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MODERATION_DECISION_LIFT,
@@ -2831,6 +2906,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/moderation_decision_lift_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MODERATION_FRANKING_PROOF,
@@ -2838,6 +2914,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("crypto_verifiable"),
         payload_schema_ref: Some("schemas/moderation-evidence.schema.json#/$defs/franking_proof"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MORPH_ARCHIVE,
@@ -2847,6 +2924,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MORPH_CREATE,
@@ -2854,6 +2932,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/morph_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MORPH_RESTORE,
@@ -2863,6 +2942,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MORPH_STAGE_SET,
@@ -2872,6 +2952,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/morph_stage_set_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::MORPH_UPDATE,
@@ -2879,6 +2960,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/morph_update_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::ORGANIZATION_DISCOVERY,
@@ -2888,6 +2970,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/organization_discovery_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::ORGANIZATION_MODERATION_POLICY,
@@ -2897,6 +2980,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/organization_moderation_policy_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::PIN_ADD,
@@ -2904,6 +2988,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/pin_add_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::PIN_REMOVE,
@@ -2911,6 +2996,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/pin_remove_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::PIN_REORDER,
@@ -2918,6 +3004,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/pin_reorder_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::POLICY_ACTION,
@@ -2927,6 +3014,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/policy_action_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::POLICY_RULE,
@@ -2936,6 +3024,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/policy_rule_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::POLICY_SET,
@@ -2945,6 +3034,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/policy_set_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::PROFILE_CREATE,
@@ -2954,6 +3044,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/actor_profile_create_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::PROFILE_REALM_OVERRIDE,
@@ -2963,6 +3054,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/profile_realm_override_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::PROFILE_UPDATE,
@@ -2972,6 +3064,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/actor_profile_update_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REACTION_ADD,
@@ -2979,6 +3072,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/reaction_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REACTION_REMOVE,
@@ -2986,6 +3080,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/reaction_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::READ_CURSOR_ADVANCE,
@@ -2993,6 +3088,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::ActorPrivateEvent,
         admission: None,
         payload_schema_ref: Some("schemas/read-cursor.schema.json"),
+        reducer_input: false,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_ALIAS,
@@ -3000,6 +3096,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_alias_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_ARCHIVE,
@@ -3007,6 +3104,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_archive_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_ASSET_PRIVACY_POLICY,
@@ -3016,6 +3114,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_asset_privacy_policy_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_CREATE,
@@ -3023,6 +3122,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_DESTROY,
@@ -3030,6 +3130,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_destroy_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_DISCOVERY,
@@ -3039,6 +3140,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_discovery_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_FREEZE,
@@ -3046,6 +3148,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_freeze_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_GOVERNANCE_STATION_CHANGE,
@@ -3055,6 +3158,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_governance_station_change_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_HISTORY_ACCESS,
@@ -3062,6 +3166,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/history_access_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_INHERITANCE_POLICY,
@@ -3071,6 +3176,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_inheritance_policy_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_JOIN_RULE,
@@ -3080,6 +3186,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_join_rule_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_LINK,
@@ -3087,6 +3194,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_link_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_MEDIA_SERVICE,
@@ -3096,6 +3204,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_media_service_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_ORGANIZATION,
@@ -3105,6 +3214,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_organization_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_OWNER_TRANSFER,
@@ -3114,6 +3224,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_owner_transfer_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
@@ -3123,6 +3234,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/plaintext_visible_services_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_POLICY,
@@ -3130,6 +3242,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_policy_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_POLICY_BUNDLE,
@@ -3139,6 +3252,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_policy_bundle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_PREVIEW_POLICY,
@@ -3146,6 +3260,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/preview_policy_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_PROFILE,
@@ -3153,6 +3268,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_profile_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_READ_RECEIPT_POLICY,
@@ -3162,6 +3278,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/read_receipt_policy_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_RESTORE,
@@ -3169,6 +3286,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_archive_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_SCHEMA,
@@ -3176,6 +3294,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_schema_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_SEARCH_POLICY,
@@ -3185,6 +3304,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_search_policy_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_SET_DEFAULT_STRAND,
@@ -3194,6 +3314,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_set_default_strand_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_TOMBSTONE,
@@ -3203,6 +3324,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/realm_tombstone_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REALM_UNFREEZE,
@@ -3210,6 +3332,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/realm_freeze_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::REDACTION,
@@ -3219,6 +3342,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/cross_object_redaction_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::RELATION_CREATE,
@@ -3228,6 +3352,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_create_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::RELATION_RESOLVE,
@@ -3237,6 +3362,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_resolve_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::RELATION_TOMBSTONE,
@@ -3246,6 +3372,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_tombstone_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::RELATION_UPDATE,
@@ -3255,6 +3382,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/relation_update_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::RSVP_SET,
@@ -3262,6 +3390,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/rsvp_set_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SCHEMA_DEFINE,
@@ -3271,6 +3400,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/schema_define_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SELF_AGENT_DEACTIVATE,
@@ -3280,6 +3410,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/agent_deactivate_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SELF_AGENT_PAUSE,
@@ -3287,6 +3418,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/agent_pause_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SELF_AGENT_RESUME,
@@ -3294,6 +3426,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("conditional"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/agent_resume_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SELF_MODERATION_REPORT,
@@ -3303,6 +3436,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/moderation_report_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SIDECAR_CONTEXT_ATTACH,
@@ -3312,6 +3446,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/sidecar_context_attach_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SIDECAR_CREATE,
@@ -3319,6 +3454,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: Some("sidecar_account_self_authored_proof"),
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/sidecar_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SOVEREIGN_DID_POLICY,
@@ -3328,6 +3464,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/sovereign_did_policy_state_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SPACE_ARCHIVE,
@@ -3337,6 +3474,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/space_state_transition_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SPACE_CREATE,
@@ -3344,6 +3482,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/space_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SPACE_PARENT,
@@ -3351,6 +3490,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/space_parent_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SPACE_RESTORE,
@@ -3360,6 +3500,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/space_state_transition_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SPACE_TOMBSTONE,
@@ -3369,6 +3510,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/space_object_tombstone_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::SPACE_UPDATE,
@@ -3376,6 +3518,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/space_patch_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_ARCHIVE,
@@ -3385,6 +3528,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_CREATE,
@@ -3392,6 +3536,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_create_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_MOVE,
@@ -3399,6 +3544,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_move_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_REORDER,
@@ -3406,6 +3552,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_reorder_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_RESTORE,
@@ -3415,6 +3562,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/object_lifecycle_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_STAGE_SET,
@@ -3424,6 +3572,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/strand_stage_set_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_TRACKS_UPDATE,
@@ -3431,6 +3580,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_patch_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_UPDATE,
@@ -3438,6 +3588,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/strand_patch_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::STRAND_WATCH_SET,
@@ -3447,6 +3598,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         payload_schema_ref: Some(
             "schemas/event-payload.schema.json#/$defs/strand_watch_set_payload",
         ),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::VIEW_CREATE,
@@ -3454,6 +3606,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/view_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::VIEW_RECONCILE,
@@ -3461,6 +3614,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/view_reconcile_payload"),
+        reducer_input: true,
     },
     EventKindDescriptor {
         kind: event_kind_str::VIEW_UPDATE,
@@ -3468,6 +3622,7 @@ pub const EVENT_KIND_DESCRIPTORS: &[EventKindDescriptor] = &[
         wire_scope: EventWireScope::DurableEvent,
         admission: None,
         payload_schema_ref: Some("schemas/event-payload.schema.json#/$defs/view_payload"),
+        reducer_input: true,
     },
 ];
 
