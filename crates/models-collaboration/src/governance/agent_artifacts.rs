@@ -1,5 +1,5 @@
 //! Agent lifecycle schema artifact leaf shapes (public keys, grant
-//! snapshots, device metadata, key-authorization state, seal signatures).
+//! snapshots, device metadata, key-authorization state, payload signatures).
 //!
 //! `KeyState` stays in the `arkret` umbrella because it binds the agent
 //! lifecycle/scope enums (`AgentLifecycleState`, `AgentRuntimeState`,
@@ -63,13 +63,3 @@ pub struct PublicKey {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_digest: Option<Hash>,
 }
-
-// `seal.schema.json#/$defs/signature` is modelled by
-// [`arkret_wire::PayloadSignature`]. A second, incompatible `Signature` struct
-// used to live here with `verification_method: DidCoreId`, which rejected every legal
-// wire value (the schema's own description says "Bare DID is not valid for
-// signatures"). It had zero constructors and zero readers across all
-// repositories — it only leaked into the facade through
-// `arkret_sdk`'s glob re-export — so it was removed rather than migrated, and
-// its `extra: BTreeMap` (schema `additionalProperties: true`) was folded into
-// `PayloadSignature`.

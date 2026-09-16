@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-16.8;
-//! sha256=bbd1b59cc19f1a477a0352c07fc41e2f01e3ded44d598f945b52de349a6a10b3 Entries: error_codes=268
+//! Input: registry/error-code-registry.json; version=2026-09-16.10;
+//! sha256=6f0f103fa9689d1ef5dba5b2170484d7273ece98598a6a6e5c6981a38e9d71bd Entries: error_codes=268
 
 use serde::{Deserialize, Serialize};
 
@@ -2626,7 +2626,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The service frontier is behind the causal frontier required by the request.",
+        description: "The service's verified authority-stream head is behind the RealmCommit position required by the request.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrontierUnavailable,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-16.8;
-//! sha256=bbd1b59cc19f1a477a0352c07fc41e2f01e3ded44d598f945b52de349a6a10b3
+//! Input: registry/error-code-registry.json; version=2026-09-16.10;
+//! sha256=6f0f103fa9689d1ef5dba5b2170484d7273ece98598a6a6e5c6981a38e9d71bd
 //! Entries: reason_codes=410
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -2706,7 +2706,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_REVOKED_UPSTREAM,
         applies_to: &["auth_decision", "state_resolution"],
-        description: "A child grant or Move depends on a parent grant that is locally known to be revoked, superseded, expired, or tombstoned. Reducers MUST fail closed without waiting for the child causal frontier to include the revoke. See zh/authz/capabilities.md Â§10.3.",
+        description: "A child grant or Move depends on a parent grant that is locally known to be revoked, superseded, expired, or tombstoned. Reducers MUST fail closed immediately. See zh/authz/capabilities.md Â§10.3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_VALIDITY_WINDOW_EMPTY,
@@ -2741,7 +2741,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::HISTORY_ACCESS_REQUIRES_HISTORY_CAPABLE_SCHEME,
         applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when an MLS-backed Realm/Circle with content_scheme=mls_rfc9420 sets history_access other than since_join. Standard RFC 9420 content has no deliverable history_secret for later endpoints; plaintext and mls_exporter_aead_v1 may use either since_join or all_history_for_current_members. See zh/models/realm-and-space.md Â§2.3 and zh/crypto-media/encryption-and-audit.md Â§2.10.",
+        description: "Sub-reason for failed_precondition when an MLS-backed Realm/Circle with content_scheme=mls_rfc9420 sets history_access other than since_join. A later endpoint starts from its own Add/Welcome admission and uses only locally held MLS state; plaintext and mls_exporter_aead_v1 may use either since_join or all_history_for_current_members. See zh/models/realm-and-space.md Â§2.3 and zh/crypto-media/encryption-and-audit.md Â§2.10.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE,
@@ -3041,7 +3041,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MINIMAL_DISCLOSURE_VIOLATION,
         applies_to: &["moderation_decision", "moderation_report"],
-        description: "A moderation evidence package discloses material beyond the minimal-disclosure obligation (for example unrelated plaintext message bodies, MLS epoch or history secrets). The evidence submission MUST reject. See governance/content-moderation.md.",
+        description: "A moderation evidence package discloses material beyond the minimal-disclosure obligation (for example unrelated plaintext message bodies or MLS private state). The evidence submission MUST reject. See governance/content-moderation.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MINIMAL_METADATA_AUTHOR_CREDENTIAL_INVALID,

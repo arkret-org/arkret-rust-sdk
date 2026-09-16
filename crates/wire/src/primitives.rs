@@ -310,9 +310,9 @@ pub enum EncryptionProfile {
 /// `models/realm-and-space.md` section 2.3 and `models/circle.md` section 2 both
 /// make this a closed two-value union that applies exactly when
 /// `encryption_profile = mls_rfc9420`. `mls_rfc9420` uses MLS PrivateMessage and
-/// produces no deliverable history secret, so it pins `history_access` to
-/// `since_join`; `mls_exporter_aead_v1` derives a per-epoch `history_secret` and
-/// admits either state. It is immutable for the lifetime of the derived
+/// uses the MLS message ratchet, so it pins `history_access` to `since_join`;
+/// `mls_exporter_aead_v1` derives a per-epoch `epoch_content_root` and admits
+/// either state. It is immutable for the lifetime of the derived
 /// `mls_group_id`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1057,10 +1057,8 @@ pub enum RelationDirection {
 pub enum EncryptedPayloadScheme {
     #[serde(rename = "mls_rfc9420")]
     MlsRfc9420,
-    // §2.10 history-shareable content scheme: content is encrypted under a
-    // retainable per-epoch `history_secret` (MLS exporter) instead of the
-    // forward-secret message ratchet, so an authorized current member can
-    // receive encrypted history keys through the history-key protocol.
+    // §2.10 exporter content scheme: content is encrypted under the local
+    // per-epoch `epoch_content_root` derived from the MLS exporter.
     #[serde(rename = "mls_exporter_aead_v1")]
     MlsExporterAeadV1,
 }

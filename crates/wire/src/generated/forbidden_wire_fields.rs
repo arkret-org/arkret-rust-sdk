@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=be66dbfb4f6cad8f6303469af16eb306eaef16cc2ebac7666c1d529b312b68c6
+//! sha256=837cd66d66618e867eb725ecf0378911ee71becc6dd60b815c2e6f5aef5ae0a7
 //! Entries: forbidden_wire_fields=245
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

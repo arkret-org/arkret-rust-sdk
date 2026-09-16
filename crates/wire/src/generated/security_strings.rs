@@ -2,8 +2,8 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/proof-context-registry.json; version=2026-09-16.6;
 //! sha256=ffb7fd290ec47bb5a7e9b8f9b1a1e7227132a7c4c24e0c80ce51c7097b68d75f Input: registry/
-//! exporter-label-registry.json; version=2026-09-01.1;
-//! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
+//! exporter-label-registry.json; version=2026-09-16.1;
+//! sha256=6e31ef9ad2a1a559e0f7f573017fb957319c9115b8af9f09f7b0324eac8b10fc Input: registry/
 //! digest-suite-registry.json; version=2026-09-16.7;
 //! sha256=ed95ff0b8d0ebb7f8a1c345ab5e4fefcad739f5812bec18f477b5d953faa2cbb Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
@@ -738,7 +738,7 @@ impl HpkeSuiteId {
 #[repr(usize)]
 pub enum ExporterLabelId {
     ContentV1,
-    HistoryV1,
+    EpochContentRootV1,
     ReactionRoutingRootV1,
     ReactionRoutingV1,
     RtcFrameKeyV1,
@@ -751,7 +751,7 @@ pub enum ExporterLabelId {
 impl ExporterLabelId {
     pub const ALL: &'static [Self] = &[
         Self::ContentV1,
-        Self::HistoryV1,
+        Self::EpochContentRootV1,
         Self::ReactionRoutingRootV1,
         Self::ReactionRoutingV1,
         Self::RtcFrameKeyV1,
@@ -762,7 +762,7 @@ impl ExporterLabelId {
     ];
 
     pub const CONTENT_V1: &'static str = "ak.content-v1";
-    pub const HISTORY_V1: &'static str = "ak.history-v1";
+    pub const EPOCH_CONTENT_ROOT_V1: &'static str = "ak.epoch-content-root-v1";
     pub const REACTION_ROUTING_ROOT_V1: &'static str = "ak.reaction-routing-root-v1";
     pub const REACTION_ROUTING_V1: &'static str = "ak.reaction-routing-v1";
     pub const RTC_FRAME_KEY_V1: &'static str = "ak.rtc-frame-key/v1";
@@ -774,7 +774,7 @@ impl ExporterLabelId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ContentV1 => Self::CONTENT_V1,
-            Self::HistoryV1 => Self::HISTORY_V1,
+            Self::EpochContentRootV1 => Self::EPOCH_CONTENT_ROOT_V1,
             Self::ReactionRoutingRootV1 => Self::REACTION_ROUTING_ROOT_V1,
             Self::ReactionRoutingV1 => Self::REACTION_ROUTING_V1,
             Self::RtcFrameKeyV1 => Self::RTC_FRAME_KEY_V1,
@@ -788,7 +788,7 @@ impl ExporterLabelId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::CONTENT_V1 => Some(Self::ContentV1),
-            Self::HISTORY_V1 => Some(Self::HistoryV1),
+            Self::EPOCH_CONTENT_ROOT_V1 => Some(Self::EpochContentRootV1),
             Self::REACTION_ROUTING_ROOT_V1 => Some(Self::ReactionRoutingRootV1),
             Self::REACTION_ROUTING_V1 => Some(Self::ReactionRoutingV1),
             Self::RTC_FRAME_KEY_V1 => Some(Self::RtcFrameKeyV1),
@@ -1674,8 +1674,8 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         forbid_reuse_with: &["ak.reaction-routing-v1", "ak.signal-v1"],
     },
     ExporterLabelDescriptor {
-        id: ExporterLabelId::HistoryV1,
-        label: "ak.history-v1",
+        id: ExporterLabelId::EpochContentRootV1,
+        label: "ak.epoch-content-root-v1",
         primitive: Some("MLS-Exporter"),
         context_fields: &["effective_scope"],
         output_bytes: "KDF.Nh",
@@ -1689,7 +1689,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &["effective_scope"],
         output_bytes: "KDF.Nh",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.history-v1", "ak.signal-root-v1"],
+        forbid_reuse_with: &["ak.epoch-content-root-v1", "ak.signal-root-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::ReactionRoutingV1,
@@ -1755,7 +1755,7 @@ pub const EXPORTER_LABELS: &[ExporterLabelDescriptor] = &[
         context_fields: &["effective_scope"],
         output_bytes: "KDF.Nh",
         empty_context_forbidden: true,
-        forbid_reuse_with: &["ak.history-v1", "ak.reaction-routing-root-v1"],
+        forbid_reuse_with: &["ak.epoch-content-root-v1", "ak.reaction-routing-root-v1"],
     },
     ExporterLabelDescriptor {
         id: ExporterLabelId::SignalV1,
