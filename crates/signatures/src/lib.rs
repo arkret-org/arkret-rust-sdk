@@ -16,6 +16,11 @@ pub mod service_resolution;
 // model features alongside the other HTTP message-signature helpers.
 pub mod federation;
 
+// Detached authority/delivery object signatures. Unconditional: the model is
+// `arkret_wire::DetachedObjectSignature` and the authority-commit, snapshot and
+// MLS Welcome seams all need it without any model feature.
+pub mod detached_object;
+
 pub use development_identity::{
     development_signing_key, development_signing_key_seed, development_verifying_key,
 };
@@ -32,6 +37,10 @@ pub use eddsa_jcs_2022::{
 pub mod account_status;
 #[cfg(feature = "collaboration")]
 pub mod agent;
+// Account Authority controller-gate signing. Gated by `collaboration` because
+// the gate model is owned by arkret-models-identity.
+#[cfg(feature = "collaboration")]
+pub mod agent_evidence;
 #[cfg(feature = "collaboration")]
 pub mod contact_receipt;
 #[cfg(feature = "collaboration")]

@@ -90,6 +90,36 @@ pub enum DetachedSignatureContext {
     MlsWelcomeDelivery,
 }
 
+impl DetachedSignatureContext {
+    /// The wire string this context serializes to. It is also the domain
+    /// separation label of the signature transcript, so a signature made for
+    /// one context can never verify under another.
+    pub fn as_wire_str(self) -> &'static str {
+        match self {
+            Self::RealmCommit => "ak.realm_commit_signature.v1",
+            Self::RealmAuthorityHandoffOld => "ak.realm_authority_handoff_old_signature.v1",
+            Self::RealmAuthorityHandoffNewAcceptance => {
+                "ak.realm_authority_handoff_new_acceptance_signature.v1"
+            }
+            Self::RealmAuthorityCurrentAssertion => {
+                "ak.realm_authority_current_assertion_signature.v1"
+            }
+            Self::RealmSnapshot => "ak.realm_snapshot_signature.v1",
+            Self::MlsWelcomeDelivery => "ak.mls_welcome_delivery_signature.v1",
+        }
+    }
+
+    /// Every context the closed enum admits, in declaration order.
+    pub const ALL: [Self; 6] = [
+        Self::RealmCommit,
+        Self::RealmAuthorityHandoffOld,
+        Self::RealmAuthorityHandoffNewAcceptance,
+        Self::RealmAuthorityCurrentAssertion,
+        Self::RealmSnapshot,
+        Self::MlsWelcomeDelivery,
+    ];
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DetachedObjectSignature {
@@ -1175,5 +1205,19 @@ mod tests {
             truncated: false,
         };
         assert!(outcome.validate_for_request(&request).is_err());
+    }
+
+    /// The domain label and the serialized wire string are the same fact. If
+    /// they ever diverge, a signature made over the label would not cover the
+    /// context the object actually carries.
+    #[test]
+    fn every_signature_context_label_is_its_own_wire_string() {
+        for context in DetachedSignatureContext::ALL {
+            let encoded = serde_json::to_value(context).unwrap();
+            assert_eq!(encoded.as_str().unwrap(), context.as_wire_str());
+            let decoded: DetachedSignatureContext =
+                serde_json::from_value(serde_json::json!(context.as_wire_str())).unwrap();
+            assert_eq!(decoded, context);
+        }
     }
 }
