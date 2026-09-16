@@ -335,3 +335,226 @@ pub fn validate_root_anchored_authorize_payload_digest(
     }
     Ok(())
 }
+
+/// Registered revocation reason of `ak.device.revoke`.
+///
+/// `event-payload.schema.json#/$defs/device_revoke_payload` constrains the
+/// member to `^[a-z][a-z0-9_]{0,63}$`. The newtype keeps that pattern on the
+/// deserialization path so an unconstrained `String` can never reach a signed
+/// payload.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
+pub struct DeviceRevocationReason(String);
+
+impl DeviceRevocationReason {
+    pub const MAX_BYTES: usize = 64;
+
+    pub fn new(value: impl Into<String>) -> Result<Self> {
+        let value = value.into();
+        let mut characters = value.chars();
+        let Some(first) = characters.next() else {
+            return Err(WireError::Protocol(
+                "device revocation reason must not be empty".to_owned(),
+            ));
+        };
+        if value.len() > Self::MAX_BYTES
+            || !first.is_ascii_lowercase()
+            || !characters.all(|character| {
+                character.is_ascii_lowercase() || character.is_ascii_digit() || character == '_'
+            })
+        {
+            return Err(WireError::Protocol(
+                "device revocation reason must match ^[a-z][a-z0-9_]{0,63}$".to_owned(),
+            ));
+        }
+        Ok(Self(value))
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for DeviceRevocationReason {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for DeviceRevocationReason {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Self::new(String::deserialize(deserializer)?).map_err(serde::de::Error::custom)
+    }
+}
+
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/device_revoke_payload`.
+///
+/// The revoked subject account is derived exclusively from the Event envelope
+/// `actor_id`, so the payload carries no `principal_id` mirror. It likewise
+/// carries no checkpoint, generation or pending-selector member: the permanent
+/// cutoff is the accepted `RealmCommit` covering this Event, and the
+/// `revocation_pending` record for the reducer-derived authorization and
+/// generation is created by first durable acceptance, never self-reported by
+/// the producer.
+// Field declaration order is byte-for-byte the properties order of
+// event-payload.schema.json#/$defs/device_revoke_payload.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceRevokePayload {
+    pub device_id: DeviceId,
+    pub revoked_by: DeviceOrPrincipalRef,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub revoked_at: DateTime<Utc>,
+    pub reason: DeviceRevocationReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof: Option<SignatureMaterial>,
+}
+
+impl DeviceRevokePayload {
+    /// The subject of a revocation is the envelope author, so a payload that
+    /// names a device the author does not control is refused before it is
+    /// authored rather than after it is committed.
+    pub fn validate(&self) -> Result<()> {
+        if let DeviceOrPrincipalRef::DeviceId(revoking_device) = &self.revoked_by
+            && *revoking_device == self.device_id
+        {
+            return Err(WireError::Protocol(
+                "ak.device.revoke must not name the revoked device as its own revoking authority"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod device_revoke_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const DEVICE: &str = "ak:device:01964137-0000-7000-8000-000000000001";
+    const OTHER_DEVICE: &str = "ak:device:01964137-0000-7000-8000-000000000002";
+
+    fn payload_value() -> Value {
+        json!({
+            "device_id": DEVICE,
+            "revoked_by": "ak:did_core:webvh:z6mkcontroller",
+            "revoked_at": "2026-09-16T00:00:00.000Z",
+            "reason": "device_lost",
+            "proof": "ak.proof.detached"
+        })
+    }
+
+    #[test]
+    fn payload_round_trips_in_schema_property_order() {
+        let payload: DeviceRevokePayload = serde_json::from_value(payload_value()).unwrap();
+        assert_eq!(payload.device_id.as_str(), DEVICE);
+        assert_eq!(payload.reason.as_str(), "device_lost");
+        payload.validate().unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), payload_value());
+    }
+
+    #[test]
+    fn proof_is_the_only_optional_member() {
+        for member in ["device_id", "revoked_by", "revoked_at", "reason"] {
+            let mut missing = payload_value();
+            missing.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<DeviceRevokePayload>(missing).is_err(),
+                "{member} must be required"
+            );
+        }
+        let mut without_proof = payload_value();
+        without_proof.as_object_mut().unwrap().remove("proof");
+        let payload: DeviceRevokePayload = serde_json::from_value(without_proof.clone()).unwrap();
+        assert!(payload.proof.is_none());
+        assert_eq!(serde_json::to_value(&payload).unwrap(), without_proof);
+    }
+
+    #[test]
+    fn the_payload_never_mirrors_a_principal_id() {
+        let mut mirrored = payload_value();
+        mirrored.as_object_mut().unwrap().insert(
+            "principal_id".to_owned(),
+            json!("ak:did_core:webvh:z6mksubject"),
+        );
+        assert!(serde_json::from_value::<DeviceRevokePayload>(mirrored).is_err());
+    }
+
+    #[test]
+    fn no_checkpoint_or_generation_member_is_accepted() {
+        for member in ["generation", "checkpoint", "revocation_pending"] {
+            let mut extended = payload_value();
+            extended
+                .as_object_mut()
+                .unwrap()
+                .insert(member.to_owned(), json!(1));
+            assert!(
+                serde_json::from_value::<DeviceRevokePayload>(extended).is_err(),
+                "{member} is reducer-derived and must not be producer-supplied"
+            );
+        }
+    }
+
+    #[test]
+    fn reason_follows_the_registered_pattern() {
+        for accepted in ["a", "device_lost", "k9_rotated", &"a".repeat(64)] {
+            DeviceRevocationReason::new(accepted).unwrap();
+        }
+        for refused in [
+            "",
+            "Device_lost",
+            "9lost",
+            "device-lost",
+            "device lost",
+            "device.lost",
+            &"a".repeat(65),
+        ] {
+            assert!(
+                DeviceRevocationReason::new(refused).is_err(),
+                "{refused:?} must be refused"
+            );
+        }
+        let mut invalid = payload_value();
+        invalid
+            .as_object_mut()
+            .unwrap()
+            .insert("reason".to_owned(), json!("Device Lost"));
+        assert!(serde_json::from_value::<DeviceRevokePayload>(invalid).is_err());
+    }
+
+    #[test]
+    fn a_device_cannot_be_its_own_revoking_authority() {
+        let mut self_revoking = payload_value();
+        self_revoking
+            .as_object_mut()
+            .unwrap()
+            .insert("revoked_by".to_owned(), json!(DEVICE));
+        let payload: DeviceRevokePayload = serde_json::from_value(self_revoking).unwrap();
+        assert!(payload.validate().is_err());
+
+        let mut peer_revoking = payload_value();
+        peer_revoking
+            .as_object_mut()
+            .unwrap()
+            .insert("revoked_by".to_owned(), json!(OTHER_DEVICE));
+        let payload: DeviceRevokePayload = serde_json::from_value(peer_revoking).unwrap();
+        payload.validate().unwrap();
+    }
+
+    #[test]
+    fn revoked_at_must_be_a_canonical_timestamp() {
+        let mut loose = payload_value();
+        loose
+            .as_object_mut()
+            .unwrap()
+            .insert("revoked_at".to_owned(), json!("2026-09-16T00:00:00Z"));
+        assert!(serde_json::from_value::<DeviceRevokePayload>(loose).is_err());
+    }
+}

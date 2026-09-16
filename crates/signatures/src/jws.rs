@@ -45,7 +45,7 @@ use crate::proof::sign_ed25519_detached_jws;
 /// that won't verify.
 ///
 /// Callers are responsible for choosing the `verification_method` they
-/// advertise alongside this JWS (e.g. `<service_id>#notary-key`); the SDK does
+/// advertise alongside this JWS (e.g. `<service_id>#authority-key`); the SDK does
 /// not bake the kid into the protected header to keep the signing input
 /// byte-stable per RFC 7515 §4.1.4 (kid is not required to be in the protected
 /// header for detached use cases).

@@ -1,6 +1,6 @@
 use arkret_wire::{
-    AccountId, ActorId, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey, ProtocolOperationId,
-    ProtocolSignature, ReservationHandle,
+    AccountId, ActorId, BlobRef, Did, DidCoreId, Event, EventId, Hash, IdempotencyKey,
+    ProtocolOperationId, ProtocolSignature, RealmId, ReservationHandle, StrandId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ pub enum ContactScope {
 }
 
 /// The exact producer key authenticated by an enclosing Contact source
-/// receipt or lineage. It has no reusable authorization or notary semantics.
+/// receipt or lineage. It has no reusable authorization or authority semantics.
 ///
 /// `schemas/contact-operations.schema.json#/$defs/contact_producer_signer`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1907,13 +1907,438 @@ impl PeerContactSubmitOutcome {
     }
 }
 
-/// Viewer-specific current Contact rows. Row internals remain closed by the
-/// schema and are intentionally opaque at this transport boundary.
+/// `contact-operations.schema.json#/$defs/contact_state`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ContactState {
+    PendingOutgoing,
+    PendingIncoming,
+    Accepted,
+    Rejected,
+    Expired,
+    Tombstoned,
+}
+
+/// `contact-operations.schema.json#/$defs/direct_conversation_summary.state`.
+///
+/// Coordinates of a materialized Direct Conversation are immutable; this only
+/// says whether the same conversation is currently sendable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum DirectConversationSummaryState {
+    Found,
+    Suspended,
+}
+
+/// `contact-operations.schema.json#/$defs/direct_conversation_summary`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct DirectConversationSummary {
+    pub realm_id: RealmId,
+    pub main_strand_id: StrandId,
+    pub binding_event_ref: EventId,
+    pub state: DirectConversationSummaryState,
+}
+
+/// `contact-operations.schema.json#/$defs/contact_agent_projection`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct ContactAgentProjection {
+    pub actor_id: ActorId,
+    pub controller_account_id: AccountId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_slug: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_blob_ref: Option<BlobRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+}
+
+/// `contact-operations.schema.json#/$defs/contact_list_row`.
+///
+/// The schema's conditional requirements (`next_prepare_input` exactly for
+/// `accepted`, `request_event_ref` for `pending_incoming`, `request_message`
+/// only there, `effective_scopes == bidirectional_scopes`) are enforced on
+/// deserialization through `ContactListRowWire`, so a row that reaches a
+/// caller has already been checked.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(try_from = "ContactListRowWire")]
+pub struct ContactListRow {
+    pub peer: ContactPeer,
+    pub state: ContactState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub response_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tombstone_event_ref: Option<EventId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_prepare_input: Option<ContactNextPrepareInput>,
+    pub granted_to_peer_scopes: Vec<ContactScope>,
+    pub granted_by_peer_scopes: Vec<ContactScope>,
+    pub bidirectional_scopes: Vec<ContactScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_scopes: Option<Vec<ContactScope>>,
+    /// Portable checkpoint plus the exact remaining tail. Present only after
+    /// both participant Stations have committed the same checkpoint and the
+    /// caller explicitly exports it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub continuity_evidence: Option<ContactContinuityEvidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub direct_conversation: Option<DirectConversationSummary>,
+    /// Active agents controlled by this contact that currently accept direct
+    /// messages from the authenticated actor. Viewer-specific and fail-closed;
+    /// clients must not infer it from public selector claims.
+    #[serde(
+        rename = "contact_agents",
+        default,
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub contact_agent_projections: Vec<ContactAgentProjection>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ContactListRowWire {
+    peer: ContactPeer,
+    state: ContactState,
+    #[serde(default)]
+    request_event_ref: Option<EventId>,
+    #[serde(default)]
+    request_message: Option<String>,
+    #[serde(default)]
+    response_event_ref: Option<EventId>,
+    #[serde(default)]
+    tombstone_event_ref: Option<EventId>,
+    #[serde(default)]
+    next_prepare_input: Option<ContactNextPrepareInput>,
+    granted_to_peer_scopes: Vec<ContactScope>,
+    granted_by_peer_scopes: Vec<ContactScope>,
+    bidirectional_scopes: Vec<ContactScope>,
+    #[serde(default)]
+    effective_scopes: Option<Vec<ContactScope>>,
+    #[serde(default)]
+    continuity_evidence: Option<ContactContinuityEvidence>,
+    #[serde(default)]
+    direct_conversation: Option<DirectConversationSummary>,
+    #[serde(default)]
+    contact_agents: Vec<ContactAgentProjection>,
+}
+
+impl TryFrom<ContactListRowWire> for ContactListRow {
+    type Error = arkret_wire::WireError;
+
+    fn try_from(wire: ContactListRowWire) -> arkret_wire::Result<Self> {
+        let row = Self {
+            peer: wire.peer,
+            state: wire.state,
+            request_event_ref: wire.request_event_ref,
+            request_message: wire.request_message,
+            response_event_ref: wire.response_event_ref,
+            tombstone_event_ref: wire.tombstone_event_ref,
+            next_prepare_input: wire.next_prepare_input,
+            granted_to_peer_scopes: wire.granted_to_peer_scopes,
+            granted_by_peer_scopes: wire.granted_by_peer_scopes,
+            bidirectional_scopes: wire.bidirectional_scopes,
+            effective_scopes: wire.effective_scopes,
+            continuity_evidence: wire.continuity_evidence,
+            direct_conversation: wire.direct_conversation,
+            contact_agent_projections: wire.contact_agents,
+        };
+        row.validate_shape()?;
+        Ok(row)
+    }
+}
+
+impl ContactListRow {
+    pub fn validate_shape(&self) -> arkret_wire::Result<()> {
+        if self.state == ContactState::PendingIncoming && self.request_event_ref.is_none() {
+            return Err(arkret_wire::WireError::Protocol(
+                "pending_incoming requires request_event_ref".to_owned(),
+            ));
+        }
+        if let Some(message) = &self.request_message
+            && (self.state != ContactState::PendingIncoming
+                || !(1..=2000).contains(&message.chars().count()))
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "request_message requires pending_incoming and 1..2000 characters".to_owned(),
+            ));
+        }
+        if (self.state == ContactState::Accepted) != self.next_prepare_input.is_some() {
+            return Err(arkret_wire::WireError::Protocol(
+                "next_prepare_input must be present exactly for accepted Contact rows".to_owned(),
+            ));
+        }
+        if let Some(input) = &self.next_prepare_input {
+            input.validate_shape()?;
+        }
+        if self
+            .effective_scopes
+            .as_ref()
+            .is_some_and(|scopes| scopes != &self.bidirectional_scopes)
+        {
+            return Err(arkret_wire::WireError::Protocol(
+                "effective_scopes must equal bidirectional_scopes when present".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Viewer-specific current Contact rows.
+/// `contact-operations.schema.json#/$defs/contact_list`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ContactList {
-    pub contacts: Vec<serde_json::Value>,
+    pub contacts: Vec<ContactListRow>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<arkret_wire::Cursor>,
     pub has_more: bool,
+}
+
+#[cfg(test)]
+mod contact_list_projection_tests {
+    use serde_json::{Value, json};
+
+    use super::*;
+
+    const REALM: &str = "ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5";
+    const STRAND: &str = "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9";
+    const BINDING_EVENT: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const REQUEST_EVENT: &str = "ak:event:Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const RESPONSE_EVENT: &str = "ak:event:Accccccccccccccccccccccccccccccccccccccccccc";
+    const ROUND: &str = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
+    const AVATAR: &str =
+        "ak:blob:sha256:2222222222222222222222222222222222222222222222222222222222222222";
+
+    fn human_peer() -> Value {
+        json!({
+            "kind": "human",
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkpeerprincipal",
+                "station_id": "ak:did_core:webvh:z6mkpeerstation"
+            }
+        })
+    }
+
+    fn direct_conversation() -> Value {
+        json!({
+            "realm_id": REALM,
+            "main_strand_id": STRAND,
+            "binding_event_ref": BINDING_EVENT,
+            "state": "found"
+        })
+    }
+
+    /// The member order here is the schema `properties` order of
+    /// `contact_list_row`; the round-trip assertion below therefore fails if a
+    /// field is ever reordered or renamed in the Rust declaration.
+    fn accepted_row() -> Value {
+        json!({
+            "peer": human_peer(),
+            "state": "accepted",
+            "request_event_ref": REQUEST_EVENT,
+            "response_event_ref": RESPONSE_EVENT,
+            "next_prepare_input": {
+                "contact_round_id": ROUND,
+                "version": 2,
+                "predecessor_event_ref": RESPONSE_EVENT
+            },
+            "granted_to_peer_scopes": ["invite", "direct_message"],
+            "granted_by_peer_scopes": ["direct_message"],
+            "bidirectional_scopes": ["direct_message"],
+            "effective_scopes": ["direct_message"],
+            "direct_conversation": direct_conversation(),
+            "contact_agents": [{
+                "actor_id": {
+                    "kind": "account",
+                    "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkagentprincipal",
+                        "station_id": "ak:did_core:webvh:z6mkpeerstation"
+                    }
+                },
+                "controller_account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkpeerprincipal",
+                    "station_id": "ak:did_core:webvh:z6mkpeerstation"
+                },
+                "display_name": "Scheduler",
+                "agent_slug": "scheduler",
+                "avatar_blob_ref": AVATAR,
+                "direct_conversation": direct_conversation()
+            }]
+        })
+    }
+
+    #[test]
+    fn accepted_row_round_trips_byte_for_byte() {
+        let row: ContactListRow = serde_json::from_value(accepted_row()).unwrap();
+        assert_eq!(row.state, ContactState::Accepted);
+        assert_eq!(
+            row.direct_conversation.as_ref().unwrap().state,
+            DirectConversationSummaryState::Found
+        );
+        assert_eq!(row.contact_agent_projections.len(), 1);
+        assert_eq!(serde_json::to_value(&row).unwrap(), accepted_row());
+    }
+
+    #[test]
+    fn contact_list_carries_typed_rows() {
+        let list: ContactList = serde_json::from_value(json!({
+            "contacts": [accepted_row()],
+            "has_more": false
+        }))
+        .unwrap();
+        assert_eq!(list.contacts.len(), 1);
+        assert!(!list.has_more);
+        assert_eq!(list.contacts[0].state, ContactState::Accepted);
+    }
+
+    #[test]
+    fn every_contact_state_is_the_schema_enum() {
+        for (wire, expected) in [
+            ("pending_outgoing", ContactState::PendingOutgoing),
+            ("pending_incoming", ContactState::PendingIncoming),
+            ("accepted", ContactState::Accepted),
+            ("rejected", ContactState::Rejected),
+            ("expired", ContactState::Expired),
+            ("tombstoned", ContactState::Tombstoned),
+        ] {
+            let decoded: ContactState = serde_json::from_value(json!(wire)).unwrap();
+            assert_eq!(decoded, expected);
+            assert_eq!(serde_json::to_value(decoded).unwrap(), json!(wire));
+        }
+        assert!(serde_json::from_value::<ContactState>(json!("blocked")).is_err());
+    }
+
+    #[test]
+    fn next_prepare_input_is_present_exactly_for_accepted() {
+        let mut without = accepted_row();
+        without
+            .as_object_mut()
+            .unwrap()
+            .remove("next_prepare_input");
+        assert!(serde_json::from_value::<ContactListRow>(without).is_err());
+
+        let mut pending = accepted_row();
+        let object = pending.as_object_mut().unwrap();
+        object.insert("state".to_owned(), json!("pending_incoming"));
+        object.remove("effective_scopes");
+        assert!(serde_json::from_value::<ContactListRow>(pending.clone()).is_err());
+
+        pending
+            .as_object_mut()
+            .unwrap()
+            .remove("next_prepare_input");
+        let row: ContactListRow = serde_json::from_value(pending).unwrap();
+        assert_eq!(row.state, ContactState::PendingIncoming);
+        assert!(row.next_prepare_input.is_none());
+    }
+
+    #[test]
+    fn pending_incoming_requires_its_request_event_ref() {
+        let mut pending = accepted_row();
+        let object = pending.as_object_mut().unwrap();
+        object.insert("state".to_owned(), json!("pending_incoming"));
+        object.remove("next_prepare_input");
+        object.remove("request_event_ref");
+        assert!(serde_json::from_value::<ContactListRow>(pending).is_err());
+    }
+
+    #[test]
+    fn request_message_belongs_only_to_pending_incoming() {
+        let mut accepted = accepted_row();
+        accepted
+            .as_object_mut()
+            .unwrap()
+            .insert("request_message".to_owned(), json!("hello"));
+        assert!(serde_json::from_value::<ContactListRow>(accepted).is_err());
+
+        let mut pending = accepted_row();
+        let object = pending.as_object_mut().unwrap();
+        object.insert("state".to_owned(), json!("pending_incoming"));
+        object.remove("next_prepare_input");
+        object.insert("request_message".to_owned(), json!("hello"));
+        let row: ContactListRow = serde_json::from_value(pending.clone()).unwrap();
+        assert_eq!(row.request_message.as_deref(), Some("hello"));
+
+        pending
+            .as_object_mut()
+            .unwrap()
+            .insert("request_message".to_owned(), json!("x".repeat(2001)));
+        assert!(serde_json::from_value::<ContactListRow>(pending).is_err());
+    }
+
+    #[test]
+    fn effective_scopes_must_equal_bidirectional_scopes() {
+        let mut row = accepted_row();
+        row.as_object_mut()
+            .unwrap()
+            .insert("effective_scopes".to_owned(), json!(["invite"]));
+        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+    }
+
+    #[test]
+    fn rows_and_their_nested_projections_reject_unknown_members() {
+        let mut row = accepted_row();
+        row.as_object_mut()
+            .unwrap()
+            .insert("effective_scope".to_owned(), json!(["invite"]));
+        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+
+        let mut summary = direct_conversation();
+        summary
+            .as_object_mut()
+            .unwrap()
+            .insert("strand_id".to_owned(), json!(STRAND));
+        assert!(serde_json::from_value::<DirectConversationSummary>(summary).is_err());
+
+        let mut projection = accepted_row()["contact_agents"][0].clone();
+        projection
+            .as_object_mut()
+            .unwrap()
+            .insert("avatar".to_owned(), json!("x"));
+        assert!(serde_json::from_value::<ContactAgentProjection>(projection).is_err());
+    }
+
+    #[test]
+    fn direct_conversation_summary_state_is_closed() {
+        for (wire, expected) in [
+            ("found", DirectConversationSummaryState::Found),
+            ("suspended", DirectConversationSummaryState::Suspended),
+        ] {
+            let mut summary = direct_conversation();
+            summary
+                .as_object_mut()
+                .unwrap()
+                .insert("state".to_owned(), json!(wire));
+            let decoded: DirectConversationSummary = serde_json::from_value(summary).unwrap();
+            assert_eq!(decoded.state, expected);
+        }
+        let mut summary = direct_conversation();
+        summary
+            .as_object_mut()
+            .unwrap()
+            .insert("state".to_owned(), json!("creating"));
+        assert!(serde_json::from_value::<DirectConversationSummary>(summary).is_err());
+    }
+
+    #[test]
+    fn a_stale_next_prepare_input_version_is_refused() {
+        let mut row = accepted_row();
+        row["next_prepare_input"]
+            .as_object_mut()
+            .unwrap()
+            .insert("version".to_owned(), json!(1));
+        assert!(serde_json::from_value::<ContactListRow>(row).is_err());
+    }
 }

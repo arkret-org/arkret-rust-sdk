@@ -128,8 +128,13 @@ pub struct AgentLifecycleOutcome {
     pub lifecycle_ref: CommittedEventRef,
 }
 
-/// Read projection. Its business projection remains server-owned JSON; durable
-/// coordinates are carried separately as an accepted commit reference.
+/// Read projection of one Agent.
+///
+/// Field declaration order is byte-for-byte the properties order of
+/// `agent-operations.schema.json#/$defs/agent_projection`. The definition is
+/// closed (`additionalProperties: false`), so the projection carries no commit
+/// coordinate: durable coordinates reach callers through the operation outcome
+/// that accepted the Event, never through this read projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentProjection {
@@ -142,7 +147,6 @@ pub struct AgentProjection {
     pub lifecycle: AgentLifecycleState,
     pub readiness: AgentReadiness,
     pub presence: AgentPresence,
-    pub provision_ref: CommittedEventRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub created_at: Option<DateTime<Utc>>,
@@ -406,15 +410,45 @@ pub fn agent_key_pairing_request_binding_digest(
         .map_err(|error| WireError::Protocol(error.to_string()))
 }
 
+/// Field declaration order is byte-for-byte the properties order of
+/// `agent-operations.schema.json#/$defs/agent_list`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentList {
-    pub agent_projections: Vec<AgentProjection>,
+    pub agents: Vec<AgentProjection>,
+    /// Opaque continuation token in the `ak:cursor:` wire form.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
     pub has_more: bool,
 }
 
+impl AgentList {
+    /// Wire prefix every `next_cursor` token carries
+    /// (`agent-operations.schema.json#/$defs/agent_list`).
+    pub const CURSOR_PREFIX: &'static str = "ak:cursor:";
+
+    /// Reject a continuation token that is not the opaque `ak:cursor:` form the
+    /// closed schema pattern admits.
+    pub fn validate(&self) -> Result<()> {
+        let Some(cursor) = self.next_cursor.as_deref() else {
+            return Ok(());
+        };
+        let body = cursor.strip_prefix(Self::CURSOR_PREFIX).unwrap_or_default();
+        if body.is_empty()
+            || !body
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        {
+            return Err(WireError::Protocol(
+                "Agent list next_cursor is not an ak:cursor: continuation token".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Field declaration order is byte-for-byte the properties order of
+/// `agent-operations.schema.json#/$defs/agent_view`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AgentView {
@@ -560,5 +594,77 @@ mod tests {
             "runtime_state": "ready"
         });
         assert!(serde_json::from_value::<KeyState>(value).is_err());
+    }
+
+    fn agent_projection_value() -> Value {
+        serde_json::json!({
+            "agent_id": "ak:did_core:webvh:z6mkagent",
+            "slug": "summary",
+            "lifecycle": "active",
+            "readiness": { "state": "ready", "blockers": [] },
+            "presence": {
+                "state": "unknown",
+                "expires_at": "2026-07-18T00:15:00.000Z",
+                "refresh_after": "2026-07-18T00:00:00.000Z"
+            }
+        })
+    }
+
+    /// `agent_list` names its array `agents`; the closed
+    /// `agent-operations.schema.json#/$defs/agent_list` admits no other member.
+    #[test]
+    fn an_agent_list_names_its_array_agents() {
+        let list: AgentList = serde_json::from_value(serde_json::json!({
+            "agents": [agent_projection_value()],
+            "has_more": false
+        }))
+        .expect("the spec member name deserializes");
+        assert_eq!(list.agents.len(), 1);
+        list.validate().unwrap();
+
+        assert!(
+            serde_json::from_value::<AgentList>(serde_json::json!({
+                "agent_projections": [agent_projection_value()],
+                "has_more": false
+            }))
+            .is_err(),
+            "the pre-migration member name must not deserialize"
+        );
+    }
+
+    /// The projection is a read view, not a commit coordinate carrier: the
+    /// closed schema has no `provision_ref`, and a durable coordinate reaches
+    /// callers through the provisioning outcome instead.
+    #[test]
+    fn an_agent_projection_carries_no_commit_coordinate() {
+        serde_json::from_value::<AgentProjection>(agent_projection_value())
+            .expect("the closed projection deserializes");
+        let mut value = agent_projection_value();
+        value["provision_ref"] = serde_json::json!({
+            "event_id": "ak:event:sha256:AAAA",
+            "commit_id": "ak:realm_commit:AAAA",
+            "stream_ref": { "kind": "realm", "realm_id": "ak:realm:AAAA" },
+            "stream_position": 1
+        });
+        assert!(serde_json::from_value::<AgentProjection>(value).is_err());
+    }
+
+    #[test]
+    fn a_next_cursor_outside_the_ak_cursor_form_is_rejected() {
+        let mut list: AgentList = serde_json::from_value(serde_json::json!({
+            "agents": [agent_projection_value()],
+            "next_cursor": "ak:cursor:aGVsbG8-_",
+            "has_more": true
+        }))
+        .unwrap();
+        list.validate().unwrap();
+
+        for rejected in ["", "ak:cursor:", "opaque", "ak:cursor:has space"] {
+            list.next_cursor = Some(rejected.to_owned());
+            assert!(
+                list.validate().is_err(),
+                "{rejected:?} is not an ak:cursor: token"
+            );
+        }
     }
 }

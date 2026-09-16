@@ -355,3 +355,33 @@ fn a_registration_ref_outside_the_signed_basis_is_rejected() {
         .expect_err("an unpinned registration coordinate must fail closed");
     assert!(error.to_string().contains("registration_ref"), "{error}");
 }
+
+/// One producer-side round trip: the authored unit satisfies the receiver-side
+/// binding check verbatim.
+///
+/// The authoring API and the receiver share one implementation of the
+/// cross-binding rules — `applet_managed_actor_unit_submissions` is the only
+/// place they are written, and it ends by calling
+/// `AppletManagedActorAuthoringBundle::validate_bindings`, so the producer
+/// cannot satisfy a rule the receiver does not apply.
+#[test]
+fn an_authored_unit_passes_the_receiver_side_binding_check() {
+    let (request, bundle) = authored_unit();
+
+    bundle
+        .validate_bindings(&request)
+        .expect("the authored bundle binds its own signed authoring request");
+
+    let submissions = applet_managed_actor_unit_submissions(&bundle, &request)
+        .expect("the receiver accepts the authored unit");
+    assert_eq!(submissions.len(), 4);
+
+    // The same check refuses a bundle re-pointed at another signed request.
+    let mut foreign = request.clone();
+    foreign.issued_at = request.issued_at + chrono::Duration::seconds(1);
+    assert!(
+        bundle.validate_bindings(&foreign).is_err(),
+        "a bundle must not validate against a request it was not authored for"
+    );
+    assert!(applet_managed_actor_unit_submissions(&bundle, &foreign).is_err());
+}

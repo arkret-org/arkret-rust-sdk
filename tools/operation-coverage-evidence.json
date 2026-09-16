@@ -17,7 +17,6 @@
     },
     "ak.edge.applet.command.transaction.v1": {
       "api": [
-        "crates/models-collaboration/src/http_bodies.rs::AppletTransactionRequestBody",
         "crates/server/src/applet.rs::AppletHandler::handle_transaction"
       ],
       "handler": [

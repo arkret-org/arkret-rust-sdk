@@ -29,6 +29,7 @@ thiserror = { workspace = true }
 [dev-dependencies]
 arkret-schema-conformance = { workspace = true }
 arkret-schema = { workspace = true }
+arkret-wire = { workspace = true, features = ["test-support"] }
 ed25519-dalek.workspace = true
 
 [lints]

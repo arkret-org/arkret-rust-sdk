@@ -126,8 +126,8 @@ pub(crate) fn self_signer_error(code: ErrorCode, message: &str) -> WireError {
 #[cfg(test)]
 mod tests {
     use arkret_wire::{
-        AccountId, ActorId, Base64UrlString, CommitStreamRef, DidCoreId, DidUrl, EventId, RealmId,
-        RealmCommitId,
+        AccountId, ActorId, Base64UrlString, CommitStreamRef, DidCoreId, DidUrl, EventId,
+        RealmCommitId, RealmId,
     };
     use serde_json::json;
 

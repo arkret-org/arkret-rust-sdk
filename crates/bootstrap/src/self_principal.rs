@@ -3,10 +3,10 @@
 use arkret_models_collaboration::events_payloads::{
     FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis, RealmPurpose,
 };
-use arkret_models_identity::{IdentityCreationEvents, ResolutionCommitment};
+use arkret_models_identity::ResolutionCommitment;
 use arkret_wire::{
     AccountId, ActorId, Did, DidCoreId, Discoverability, Event, EventKind, EventRef, GenesisSalt,
-    HistoryAccess, JoinRule, ScopeRef, SecurityClass, TrustDomainId, WireError,
+    HistoryAccess, JoinRule, PcrGenesisUnit, ScopeRef, SecurityClass, TrustDomainId, WireError,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -142,15 +142,18 @@ pub fn validate_self_principal_pcr_create(
     Ok(())
 }
 
-/// Package the two independently producer-signed identity creation Events.
+/// Package the two independently producer-signed identity creation Events as
+/// the atomic PCR genesis unit.
 ///
-/// The Account Authority submits them to the current governance Station in
-/// this order, and the Station produces one RealmCommit for each Event in the
-/// Realm stream.
-pub fn build_identity_creation_events(
+/// The Account Authority submits the unit to the current governance Station in
+/// this exact order, and the Station produces one RealmCommit for each Event in
+/// the Realm stream. `principal-operations.schema.json#/$defs/pcr_genesis_unit`
+/// is the single carrier for the pair, so there is no second Rust shape that
+/// holds the same two Events under different member names.
+pub fn build_pcr_genesis_unit(
     realm_create: Event,
     founding_device_authorize: Event,
-) -> arkret_wire::Result<IdentityCreationEvents> {
+) -> arkret_wire::Result<PcrGenesisUnit> {
     validate_self_principal_pcr_create(&realm_create, true)?;
     if founding_device_authorize.actor_id != realm_create.actor_id {
         return Err(WireError::Protocol(
@@ -162,10 +165,5 @@ pub fn build_identity_creation_events(
         .verify_event_id_matches_content_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
     founding_device_authorize
         .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
-    let events = IdentityCreationEvents {
-        realm_create,
-        founding_device_authorize,
-    };
-    events.validate()?;
-    Ok(events)
+    PcrGenesisUnit::new(realm_create, founding_device_authorize)
 }

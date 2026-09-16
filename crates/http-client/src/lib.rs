@@ -61,8 +61,9 @@ pub(crate) use client_internals::reject_path_segment;
 pub(crate) use client_internals::validate_request_builder;
 pub use endpoints::{
     AccountSubscribeFrameStream, BlobDownloadOptions, BlobResumableUploadOptions,
-    RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES, SignalSubscribeFrameStream,
-    blob_resumable_upload_base_url,
+    EVENTS_SUBSCRIBE_MAX_SELECTOR_ITEMS, EventsSubscribeFrameStream, EventsSubscribeOptions,
+    RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES, STREAM_SCAN_MAX_LIMIT,
+    SignalSubscribeFrameStream, blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
 pub use key_backup_client::KeyBackupClient;

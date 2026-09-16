@@ -50,7 +50,6 @@ pub mod generated;
 pub mod ingress_budget;
 pub mod invite_token;
 pub mod mls_transition;
-pub mod notary;
 pub mod object_address;
 pub mod object_ref;
 pub mod operation_types;
@@ -63,6 +62,7 @@ pub mod platform;
 pub mod primitives;
 pub mod problem_details;
 pub mod query_auth;
+pub mod realm_authority_signer;
 pub mod receive_policy;
 pub mod recovery_authority;
 pub mod request_digest;
@@ -108,7 +108,6 @@ pub use genesis_salt::GenesisSalt;
 pub use ingress_budget::WireBodyClass;
 pub use invite_token::{INVITE_TOKEN_MAX_CHARS, validate_invite_token};
 pub use mls_transition::mls_genesis_transition_digest;
-pub use notary::{NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue};
 pub use object_address::*;
 pub use object_ref::is_object_ref;
 pub use operation_types::*;
@@ -122,6 +121,10 @@ pub use primitives::{proof_kind, *};
 pub use problem_details::*;
 pub use query_auth::{
     QUERY_AUTH_PARAMETER_NAMES, contains_query_auth_material, is_query_auth_parameter,
+};
+pub use realm_authority_signer::{
+    RealmAuthorityJoseAlgorithm, RealmAuthoritySignerDescriptor, RealmAuthoritySignerKeyKind,
+    RealmAuthoritySignerValue,
 };
 pub use receive_policy::*;
 pub use recovery_authority::{

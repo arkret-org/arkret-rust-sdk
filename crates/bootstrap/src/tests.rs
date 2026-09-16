@@ -13,7 +13,7 @@ use arkret_wire::{
 use crate::{
     AgentPcrCreateEventInput, AgentPcrCreatePayloadInput, AgentProvisionIntentOptions,
     DID_INCEPTION_REF_ROLE, SelfPrincipalPcrCreateInput, build_agent_pcr_create,
-    build_agent_provision_intent, build_identity_creation_events, build_self_principal_pcr_create,
+    build_agent_provision_intent, build_pcr_genesis_unit, build_self_principal_pcr_create,
 };
 
 fn realm(seed: u8) -> RealmId {
@@ -122,7 +122,7 @@ fn identity_creation_packaging_requires_producer_proofs() {
         .unwrap()
         .into_event();
     let authorize = create.clone();
-    assert!(build_identity_creation_events(create, authorize).is_err());
+    assert!(build_pcr_genesis_unit(create, authorize).is_err());
 }
 
 #[test]
@@ -153,10 +153,10 @@ fn identity_creation_packages_two_signed_events_without_event_predecessors() {
         "did:webvh:z6mkfixture:users.example:alice#device-1",
     );
 
-    let events = build_identity_creation_events(create.into_event(), authorize.into_event())
-        .expect("two independently signed events form the identity creation input");
-    assert_eq!(events.realm_create.realm_id, realm_id);
-    for event in [events.realm_create, events.founding_device_authorize] {
+    let unit = build_pcr_genesis_unit(create.into_event(), authorize.into_event())
+        .expect("two independently signed events form the PCR genesis unit");
+    assert_eq!(unit.create().realm_id, realm_id);
+    for event in unit.events.iter() {
         let wire = serde_json::to_value(event).unwrap();
         assert!(wire.get("previous_commit_ref").is_none());
         assert!(wire.get("stream_position").is_none());

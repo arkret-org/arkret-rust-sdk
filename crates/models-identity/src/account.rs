@@ -1,7 +1,7 @@
 use arkret_wire::{
-    AppletId, CommittedEventRef, DeviceId, Did, DidCoreId, DidUrl, Hash, PayloadProof, RealmId,
-    ReasonCode, RequestId, Result, SchemaId, ScopeRef, ServiceOperationId, SessionGrantId,
-    TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
+    AppletId, CommittedEventRef, DeviceId, Did, DidCoreId, DidUrl, Hash, PayloadProof,
+    PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId, ScopeRef, ServiceOperationId,
+    SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1158,41 +1158,6 @@ pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitKind; 2] = [
     PcrGenesisUnitKind::DeviceAuthorize,
 ];
 
-/// Producer-signed identity bootstrap Events. They are ordered inputs to the
-/// Account Authority, not an atomic multi-Event unit; acceptance yields one
-/// RealmCommit per Event.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IdentityCreationEvents {
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub realm_create: arkret_wire::Event,
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub founding_device_authorize: arkret_wire::Event,
-}
-
-impl IdentityCreationEvents {
-    pub fn validate(&self) -> Result<()> {
-        self.realm_create.validate_for_submit_structural()?;
-        self.founding_device_authorize
-            .validate_for_submit_structural()?;
-        if self.realm_create.kind != arkret_wire::EventKind::RealmCreate
-            || self.founding_device_authorize.kind != arkret_wire::EventKind::DeviceAuthorize
-            || self.realm_create.realm_id != self.founding_device_authorize.realm_id
-            || self.realm_create.scope_ref != ScopeRef::RealmGenesis
-            || self.founding_device_authorize.scope_ref
-                != (ScopeRef::Realm {
-                    realm_id: self.realm_create.realm_id.clone(),
-                })
-        {
-            return Err(WireError::Protocol(
-                "identity creation requires a Realm-create Event followed by a same-Realm founding-device authorization Event".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
 /// The first sender-constrained Standard grant requested atomically with
 /// account binding and PCR genesis.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1511,7 +1476,7 @@ pub struct IdentityCreationRegistration {
     pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
-    pub creation_events: IdentityCreationEvents,
+    pub pcr_genesis_unit: PcrGenesisUnit,
     pub initial_session: InitialSessionGrantIntent,
 }
 
@@ -1520,7 +1485,7 @@ impl IdentityCreationRegistration {
         self.control_proof.validate_shape()?;
         self.principal_registration_anchor.validate()?;
         self.registration_did_evidence_draft.validate_shape()?;
-        self.creation_events.validate()?;
+        self.pcr_genesis_unit.validate_ordered_envelopes()?;
         self.initial_session.validate()?;
         if self.initial_session.canonical_request_digest()?
             != self.control_proof.initial_session_request_digest
@@ -1550,17 +1515,17 @@ impl IdentityCreationRegistration {
             || self.principal_registration_anchor.canonical_digest()?
                 != self.control_proof.registration_anchor_digest
             || self
-                .creation_events
-                .realm_create
+                .pcr_genesis_unit
+                .create()
                 .actor_id
                 .signing_principal_id()
                 != &self.control_proof.principal_id
-            || self.creation_events.realm_create.realm_id != self.control_proof.pcr_realm_id
+            || self.pcr_genesis_unit.create().realm_id != self.control_proof.pcr_realm_id
             || Hash::new(canonical::canonical_sha256(
-                &self.creation_events.realm_create.payload,
+                &self.pcr_genesis_unit.create().payload,
             )?)? != self.control_proof.realm_create_payload_digest
             || Hash::new(canonical::canonical_sha256(
-                &self.creation_events.founding_device_authorize.payload,
+                &self.pcr_genesis_unit.founding_authorize().payload,
             )?)? != self.control_proof.founding_authorize_payload_digest
         {
             return Err(WireError::Protocol(
@@ -1568,8 +1533,8 @@ impl IdentityCreationRegistration {
             ));
         }
         let descriptor_device_id = self
-            .creation_events
-            .realm_create
+            .pcr_genesis_unit
+            .create()
             .payload
             .get("object")
             .and_then(Value::as_object)

@@ -107,10 +107,9 @@
         "realm_id",
         "scope_ref",
         "actor_id",
-        "actor_seq",
         "created_at",
-        "prev_refs",
-        "payload"
+        "payload",
+        "proofs"
       ]
     }
   ],

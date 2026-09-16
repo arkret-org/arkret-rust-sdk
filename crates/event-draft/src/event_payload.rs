@@ -17,6 +17,7 @@ use arkret_models_collaboration::governance::membership_invite::{
     InviteAcceptPayload, InviteCancelPayload, InviteClaimPayload, InviteCreatePayload,
     InviteRevokePayload, InviteThirdPartyCreatePayload, MembershipPayload, RelationCreatePayload,
 };
+use arkret_models_collaboration::governance::operation_wire::PolicySetStatePayload;
 use arkret_models_collaboration::governance::plaintext_visibility::PlaintextVisibleServicesPayload;
 use arkret_models_collaboration::governance::realm_governance::{
     CapabilityDerived, RealmAliasPayload, RealmLinkPayload,
@@ -296,6 +297,7 @@ event_payload_accessors! {
     event_spec::ProfileRealmOverride => (as_profile_realm_override, ProfileRealmOverridePayload),
     event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeries),
     event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| WireError::Protocol(reason.to_owned()))),
+    event_spec::DeviceRevoke => (as_device_revoke, DeviceRevokePayload, DeviceRevokePayload::validate),
     event_spec::DevicePushRoute => (as_device_push_route, DevicePushRoutePayload),
     event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload, MlsGenesisPayload::validate),
     event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload, MlsCommitPayload::validate),
@@ -322,6 +324,7 @@ event_payload_accessors! {
     event_spec::CallSummary => (as_call_summary, CallSummaryPayload),
     event_spec::RealmOwnerTransfer => (as_realm_owner_transfer, RealmOwnerTransferPayload),
     event_spec::CapabilityRelinquish => (as_capability_relinquish, CapabilityRelinquishPayload),
+    event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
 }
 
 #[cfg(test)]
@@ -583,6 +586,54 @@ mod tests {
             error,
             WireError::PayloadInvalid {
                 kind: event_spec::DeviceAuthorize::KIND_STR,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn device_revoke_binds_its_typed_payload() {
+        let mut event = base_event();
+        event.kind = EventKind::DeviceRevoke;
+        event.payload = serde_json::from_value(json!({
+            "device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",
+            "revoked_by": "ak:did_core:webvh:z6mkcontroller",
+            "revoked_at": "2026-09-16T00:00:00.000Z",
+            "reason": "device_lost"
+        }))
+        .unwrap();
+
+        let payload = event.as_device_revoke().unwrap();
+        assert_eq!(
+            payload.device_id.as_str(),
+            "ak:device:0198ff00-0000-7000-8000-000000000001"
+        );
+        assert_eq!(payload.reason.as_str(), "device_lost");
+        assert!(payload.proof.is_none());
+        validate_event_payload(
+            &EventKind::DeviceRevoke,
+            &Value::Object(event.payload.clone().into_iter().collect()),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn device_revoke_rejects_a_self_revoking_authority() {
+        let mut event = base_event();
+        event.kind = EventKind::DeviceRevoke;
+        event.payload = serde_json::from_value(json!({
+            "device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",
+            "revoked_by": "ak:device:0198ff00-0000-7000-8000-000000000001",
+            "revoked_at": "2026-09-16T00:00:00.000Z",
+            "reason": "device_lost"
+        }))
+        .unwrap();
+
+        let error = event.as_device_revoke().unwrap_err();
+        assert!(matches!(
+            error,
+            WireError::PayloadInvalid {
+                kind: event_spec::DeviceRevoke::KIND_STR,
                 ..
             }
         ));

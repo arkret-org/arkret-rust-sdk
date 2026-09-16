@@ -17,7 +17,7 @@ pub use agent::{
 };
 pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
 pub use self_principal::{
-    SelfPrincipalPcrCreateInput, build_identity_creation_events, build_self_principal_pcr_create,
+    SelfPrincipalPcrCreateInput, build_pcr_genesis_unit, build_self_principal_pcr_create,
     validate_self_principal_pcr_create,
 };
 

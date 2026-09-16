@@ -18,6 +18,18 @@
       "schema": "identity-receipt.schema.json"
     },
     {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentProjection",
+      "schema": "agent-operations.schema.json#/$defs/agent_projection"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentList",
+      "schema": "agent-operations.schema.json#/$defs/agent_list"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentView",
+      "schema": "agent-operations.schema.json#/$defs/agent_view"
+    },
+    {
       "rust_type": "crates/models-collaboration/src/events_payloads/account_data.rs::AccountDataSetPayload",
       "schema": "event-payload.schema.json#/$defs/account_data_set_payload"
     },
@@ -944,9 +956,69 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/sidecar.rs::AgentSidecarExchangeControlPayload",
       "schema": "event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactList",
+      "schema": "contact-operations.schema.json#/$defs/contact_list"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactListRow",
+      "schema": "contact-operations.schema.json#/$defs/contact_list_row"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::ContactAgentProjection",
+      "schema": "contact-operations.schema.json#/$defs/contact_agent_projection"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/contact_operations.rs::DirectConversationSummary",
+      "schema": "contact-operations.schema.json#/$defs/direct_conversation_summary"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/account_subscribe_projections.rs::MemberRoster",
+      "schema": "account-subscribe-frame.schema.json#/$defs/member_roster"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/account_subscribe_projections.rs::MemberRosterEntry",
+      "schema": "account-subscribe-frame.schema.json#/$defs/member_roster_entry"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/account_subscribe_projections.rs::AgentRuntimeApprovalNotificationData",
+      "schema": "account-subscribe-frame.schema.json#/$defs/agent_runtime_approval_notification_data"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/device_identity.rs::DeviceRevokePayload",
+      "schema": "event-payload.schema.json#/$defs/device_revoke_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/operation_wire.rs::PolicySetStatePayload",
+      "schema": "event-payload.schema.json#/$defs/policy_set_state_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/message_authoring.rs::MessagePrepareOutcome",
+      "schema": "message-authoring.schema.json#/$defs/message_prepare_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiSubmitMessageRequestBody",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_request_body"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiSubmitMessageOutcome",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_submit_message_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiIdentifierQueryOutcome",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_identifier_query_outcome"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/mimi_operations.rs::MimiProxyDownloadOutcome",
+      "schema": "mimi-operations.schema.json#/$defs/mimi_proxy_download_outcome"
     }
   ],
   "exemptions": [
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishRequest",
+      "reason": "struct-level serde conversion/transparent representation is not an object field set"
+    },
     {
       "rust_type": "crates/identity/src/binding_digest.rs::WebvhLogEvidence",
       "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['kind']."

@@ -10,7 +10,7 @@
 //!
 //! Platform backends namespace credentials under `"arkret.<application_id>"`
 //! so multiple Arkret-using apps on the same host (inkson, sodmin, soland
-//! notary, …) don't trample each other's keychain items. The
+//! authority, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
 //! (e.g. `"chat.acroidea.inkson"`). [`service_name`] builds that prefix and
@@ -192,6 +192,6 @@ mod tests {
     #[test]
     fn service_name_namespaces_per_application_id() {
         assert_eq!(service_name("inkson"), "arkret.inkson");
-        assert_eq!(service_name("soland.notary"), "arkret.soland.notary");
+        assert_eq!(service_name("soland.authority"), "arkret.soland.authority");
     }
 }

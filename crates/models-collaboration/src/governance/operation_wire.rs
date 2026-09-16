@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_crypto::recovery_policy::RecoveryPolicy;
 use arkret_wire::{
     AccountId, ActorId, GrantId, Hash, InviteId, InviteState, PolicyEffect, PolicyId, PolicyKind,
     RealmId, Result, SchemaId, WireError, XExtensionMap,
@@ -371,4 +372,261 @@ pub struct Invite {
 
 impl Invite {
     pub const SCHEMA: &'static str = SchemaId::INVITE_V1;
+}
+
+/// The two v1 Policy document families `ak.policy.set` can carry.
+///
+/// `event-payload.schema.json#/$defs/policy_set_state_payload` selects the
+/// family directly from `value.schema`, and an unknown family fails schema
+/// validation. The dispatch below is written against that member rather than
+/// left to an untagged `oneOf`: [`Policy`] carries a flattened extension map,
+/// so an untagged decoder would silently absorb a recovery policy into the
+/// governance branch instead of rejecting it.
+#[derive(Clone, Debug, Serialize)]
+#[serde(untagged)]
+pub enum PolicySetValue {
+    Governance(Box<Policy>),
+    Recovery(Box<RecoveryPolicy>),
+}
+
+impl PolicySetValue {
+    /// The document's own policy identity, which the enclosing payload's
+    /// `policy_id` subject must equal.
+    #[must_use]
+    pub fn policy_id(&self) -> &PolicyId {
+        match self {
+            Self::Governance(policy) => &policy.id,
+            Self::Recovery(policy) => &policy.policy_id,
+        }
+    }
+
+    #[must_use]
+    pub fn schema(&self) -> &str {
+        match self {
+            Self::Governance(policy) => &policy.schema,
+            Self::Recovery(policy) => &policy.schema,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Governance(policy) => policy.validate(),
+            Self::Recovery(policy) => policy.validate_shape(),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PolicySetValue {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = Value::deserialize(deserializer)?;
+        let schema = value
+            .get("schema")
+            .and_then(Value::as_str)
+            .ok_or_else(|| serde::de::Error::custom("policy value must carry a schema member"))?;
+        match schema {
+            SchemaId::POLICY_V1 => serde_json::from_value(value)
+                .map(|policy| Self::Governance(Box::new(policy)))
+                .map_err(serde::de::Error::custom),
+            SchemaId::RECOVERY_POLICY_V1 => serde_json::from_value(value)
+                .map(|policy| Self::Recovery(Box::new(policy)))
+                .map_err(serde::de::Error::custom),
+            other => Err(serde::de::Error::custom(format!(
+                "policy value schema {other} is not a registered v1 Policy document family"
+            ))),
+        }
+    }
+}
+
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/policy_set_state_payload`.
+///
+/// `policy_id` is the stable subject of the Policy typed current result, so
+/// repeated `ak.policy.set` Events under the same `policy_id` converge on one
+/// document rather than accumulating versions. There is no cell head, basis or
+/// version member on the wire: concurrency is resolved by the typed current
+/// result's `expected_revision` precondition.
+// Field declaration order is byte-for-byte the properties order of
+// event-payload.schema.json#/$defs/policy_set_state_payload.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicySetStatePayload {
+    pub policy_id: PolicyId,
+    pub value: PolicySetValue,
+}
+
+impl PolicySetStatePayload {
+    /// The payload subject and the document it carries are the same policy, so
+    /// a payload that files one document under another subject is refused
+    /// before it is authored.
+    pub fn validate(&self) -> Result<()> {
+        if self.policy_id != *self.value.policy_id() {
+            return Err(WireError::Protocol(
+                "policy set payload policy_id must equal the carried document policy id".to_owned(),
+            ));
+        }
+        self.value.validate()
+    }
+}
+
+#[cfg(test)]
+mod policy_set_state_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const POLICY: &str = "ak:policy:0198ff00-0000-7000-8000-000000000001";
+    const OTHER_POLICY: &str = "ak:policy:0198ff00-0000-7000-8000-000000000002";
+
+    fn governance_value() -> Value {
+        json!({
+            "policy_id": POLICY,
+            "value": {
+                "schema": "ak.schema.policy.v1",
+                "id": POLICY,
+                "policy_kind": "access",
+                "rules": [{
+                    "rule_id": "allow_members",
+                    "kind": "action",
+                    "effect": "allow",
+                    "actions": ["ak.message.create"]
+                }],
+                "default_effect": "deny",
+                "created_by": {
+                    "kind": "account",
+                    "account_id": {
+                        "principal_id": "ak:did_core:webvh:z6mkowner",
+                        "station_id": "ak:did_core:web:station.example"
+                    }
+                },
+                "created_at": "2026-09-16T00:00:00.000Z"
+            }
+        })
+    }
+
+    fn recovery_value() -> Value {
+        json!({
+            "policy_id": POLICY,
+            "value": {
+                "schema": "ak.schema.recovery_policy.v1",
+                "policy_id": POLICY,
+                "account_id": {
+                    "principal_id": "ak:did_core:webvh:z6mkholder",
+                    "station_id": "ak:did_core:web:station.example"
+                },
+                "version": 1,
+                "supersedes_id": null,
+                "trust_domain": "ak:trust_domain:station.example",
+                "issued_at": "2026-09-16T00:00:00.000Z",
+                "auth_data": {
+                    "verification_method": "did:web:station.example#key-1",
+                    "signature_algorithm": "Ed25519",
+                    "signature": "c2lnbmF0dXJl"
+                },
+                "methods": []
+            }
+        })
+    }
+
+    #[test]
+    fn the_governance_family_round_trips() {
+        let payload: PolicySetStatePayload = serde_json::from_value(governance_value()).unwrap();
+        assert!(matches!(payload.value, PolicySetValue::Governance(_)));
+        assert_eq!(payload.value.schema(), SchemaId::POLICY_V1);
+        payload.validate().unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), governance_value());
+    }
+
+    #[test]
+    fn the_recovery_family_round_trips() {
+        let payload: PolicySetStatePayload = serde_json::from_value(recovery_value()).unwrap();
+        assert!(matches!(payload.value, PolicySetValue::Recovery(_)));
+        assert_eq!(payload.value.schema(), SchemaId::RECOVERY_POLICY_V1);
+        payload.validate().unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), recovery_value());
+    }
+
+    #[test]
+    fn a_recovery_document_never_decodes_into_the_governance_branch() {
+        // `Policy` carries a flattened extension map, so this is the exact
+        // case an untagged decoder would get wrong.
+        let payload: PolicySetStatePayload = serde_json::from_value(recovery_value()).unwrap();
+        assert!(!matches!(payload.value, PolicySetValue::Governance(_)));
+    }
+
+    #[test]
+    fn an_unregistered_document_family_fails_closed() {
+        let mut unknown = governance_value();
+        unknown["value"]
+            .as_object_mut()
+            .unwrap()
+            .insert("schema".to_owned(), json!("ak.schema.policy.v2"));
+        assert!(serde_json::from_value::<PolicySetStatePayload>(unknown).is_err());
+
+        let mut without_schema = governance_value();
+        without_schema["value"]
+            .as_object_mut()
+            .unwrap()
+            .remove("schema");
+        assert!(serde_json::from_value::<PolicySetStatePayload>(without_schema).is_err());
+    }
+
+    #[test]
+    fn the_subject_must_be_the_carried_document_id() {
+        for mut mismatched in [governance_value(), recovery_value()] {
+            mismatched
+                .as_object_mut()
+                .unwrap()
+                .insert("policy_id".to_owned(), json!(OTHER_POLICY));
+            let payload: PolicySetStatePayload = serde_json::from_value(mismatched).unwrap();
+            assert!(payload.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn both_members_are_required_and_no_other_is_accepted() {
+        for member in ["policy_id", "value"] {
+            let mut missing = governance_value();
+            missing.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<PolicySetStatePayload>(missing).is_err(),
+                "{member} must be required"
+            );
+        }
+        for absent in ["expected_revision", "version", "basis"] {
+            let mut extended = governance_value();
+            extended
+                .as_object_mut()
+                .unwrap()
+                .insert(absent.to_owned(), json!(1));
+            assert!(
+                serde_json::from_value::<PolicySetStatePayload>(extended).is_err(),
+                "{absent} must not be a payload member"
+            );
+        }
+    }
+
+    #[test]
+    fn a_governance_document_with_no_rule_is_refused() {
+        let mut ruleless = governance_value();
+        ruleless["value"]
+            .as_object_mut()
+            .unwrap()
+            .insert("rules".to_owned(), json!([]));
+        let payload: PolicySetStatePayload = serde_json::from_value(ruleless).unwrap();
+        assert!(payload.validate().is_err());
+    }
+
+    #[test]
+    fn a_recovery_document_at_version_zero_is_refused() {
+        let mut zero = recovery_value();
+        zero["value"]
+            .as_object_mut()
+            .unwrap()
+            .insert("version".to_owned(), json!(0));
+        let payload: PolicySetStatePayload = serde_json::from_value(zero).unwrap();
+        assert!(payload.validate().is_err());
+    }
 }

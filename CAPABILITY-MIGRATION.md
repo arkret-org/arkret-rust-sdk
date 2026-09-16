@@ -257,8 +257,9 @@ type locally.
   `events_payloads/state.rs`, `state/src/consent.rs`, `wire/src/bottom.rs`).
   Neither file gates on those rows today, so they are stale evidence rather than
   a red gate.
-- `docs/move-anchor-runtime.md` documents the removed Move / anchor / cell
-  runtime end to end and has no surviving implementation.
+- `docs/move-anchor-runtime.md` documented the removed Move / anchor / cell
+  runtime end to end with no surviving implementation, and was deleted on
+  2026-09-16.
 
 ## Verification gates
 

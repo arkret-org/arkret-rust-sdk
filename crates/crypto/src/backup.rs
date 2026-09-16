@@ -1,16 +1,30 @@
-//! Client-side passphrase crypto primitives for `ak.schema.key_backup.v1`.
+//! Client-side `ak.schema.key_backup.v1` crypto: passphrase KDF, AEAD, the
+//! sole AAD construction, envelope assembly and the producer signature.
 //!
-//! This module deliberately stops below envelope assembly and signing. The
-//! caller first fixes current authorization metadata, then constructs the
-//! typed envelope from these ciphertext outputs.
+//! The whole `passphrase_kdf` envelope lives here on purpose. `key-management.md`
+//! §7.2 fixes one AAD construction that sealer and opener MUST both run, and one
+//! signing transcript (`RFC8785_JCS(envelope minus auth_data.signature)`). Both
+//! are byte-exact agreements between producer and verifier, so they are built
+//! once by the SDK rather than re-derived by every host: a host that assembled
+//! its own envelope would be re-implementing those byte rules and would drift
+//! from every other host at the first optional member.
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use arkret_canonical::base64url::{base64url_decode, base64url_encode};
 use arkret_canonical::canonical::{
-    canonical_json_bytes, format_timestamp_canonical, sha256_digest,
+    canonical_json_bytes, format_timestamp_canonical, normalize_timestamp_canonical, sha256_digest,
 };
-use arkret_models_crypto::key_backup::{BackupKind, KeyBackupRecipientMethod};
-use arkret_wire::{ActorId, BackupId, DeviceId, XExtensionMap};
+use arkret_models_crypto::artifacts_keys::{KeyBackupPlaintext, SecretStorageSecret};
+use arkret_models_crypto::key_backup::{
+    BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupAuthData,
+    KeyBackupDomainSeparation, KeyBackupEncryption, KeyBackupKdf, KeyBackupKdfName,
+    KeyBackupKdfParams, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm, KeyBackupSourceRef,
+    SecretStorageContentIndex, SecretStorageItemKind,
+};
+use arkret_wire::{
+    ActorId, BackupId, BackupSeriesId, Base64UrlString, DeviceId, DidUrl, EventId, Hash,
+    XExtensionMap,
+};
 use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use chrono::{DateTime, Utc};
@@ -341,6 +355,496 @@ pub fn commitment_digest(root: &[u8; VAULT_KDF_OUTPUT_LEN], backup_kind: BackupK
     digest
 }
 
+/// The wire form of [`commitment_digest`]: the value an envelope carries in
+/// `encryption.key_commitment`. Producer and opener derive it from the same
+/// helper so the published commitment is exactly the digest this module
+/// computes, never a second, separately-hashed encoding of it.
+pub fn key_commitment_value(
+    root: &[u8; VAULT_KDF_OUTPUT_LEN],
+    backup_kind: BackupKind,
+) -> Result<Hash> {
+    Hash::new(format!(
+        "sha256:{}",
+        hex::encode(commitment_digest(root, backup_kind))
+    ))
+    .map_err(|error| KeyBackupError::InvalidInput(format!("key commitment digest: {error}")))
+}
+
+/// Closed device authorization for a key-backup envelope. The producing device
+/// is fixed before the envelope is sealed; `KeyBackup::validate` re-checks that
+/// the top-level `device_id`, when present, names this same device.
+#[derive(Clone, Debug)]
+pub struct KeyBackupAuthBinding {
+    pub device_id: DeviceId,
+    pub verification_method: DidUrl,
+    pub signature_algorithm: KeyBackupSignatureAlgorithm,
+    pub device_authorize_event_id: EventId,
+}
+
+/// Raw detached signer over the §7.2 envelope transcript
+/// (`RFC8785_JCS(envelope minus auth_data.signature)`). The caller owns key
+/// custody; this module owns the bytes that get signed.
+pub type KeyBackupSignFn<'a> = &'a dyn Fn(&[u8]) -> Result<Vec<u8>>;
+
+/// Occupies `auth_data.signature` while the envelope's own signing transcript
+/// is computed. §7.2 removes that member from the transcript, so this value can
+/// never reach the signed bytes, and it is replaced by the producer signature
+/// before any envelope leaves this module.
+const UNSIGNED_SIGNATURE_PLACEHOLDER: &str = "AA";
+
+fn item_kind_wire(kind: SecretStorageItemKind) -> Result<String> {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .ok_or_else(|| {
+            KeyBackupError::Canonical(
+                "secret storage item_kind does not serialize to a wire string".to_owned(),
+            )
+        })
+}
+
+fn base64url_field(value: &str) -> Result<Base64UrlString> {
+    Base64UrlString::new(value.to_owned())
+        .map_err(|error| KeyBackupError::Encoding(format!("base64url field: {error}")))
+}
+
+/// Rebuild the exact [`VaultBinding`] an envelope was sealed under, from the
+/// envelope alone. Every AAD input is read back off the wire object, so an
+/// opener can never bind different metadata than the sealer published.
+fn vault_binding_from_envelope(envelope: &KeyBackup) -> Result<VaultBinding> {
+    Ok(VaultBinding {
+        backup_id: envelope.backup_id.clone(),
+        subdomain: envelope.domain_separation.subdomain.clone(),
+        actor_id: envelope.actor_id.clone(),
+        device_id: envelope.device_id.clone(),
+        backup_kind: envelope.backup_kind,
+        backup_version: envelope.backup_version.clone(),
+        created_at: envelope.created_at,
+        item_kinds: envelope
+            .contents
+            .iter()
+            .map(|index| item_kind_wire(index.item_kind))
+            .collect::<Result<Vec<_>>>()?,
+        recipient_method: envelope.encryption.recipient_method,
+        recipient_key_ref: envelope.encryption.recipient_key_ref.clone(),
+        aead_aad_extensions: envelope.domain_separation.aead_aad_extensions.clone(),
+    })
+}
+
+/// The sole §7.2 AEAD/HPKE additional authenticated data for a typed
+/// key-backup envelope.
+///
+/// Fixed members are derived from the envelope, never accepted from a caller
+/// list; `contents[].item_kind` is sorted bytewise and deduplicated, and only
+/// the closed `x_*` extension map may add members.
+pub fn key_backup_aead_aad(envelope: &KeyBackup) -> Result<Vec<u8>> {
+    vault_binding_from_envelope(envelope)?.aad()
+}
+
+/// Open a `passphrase_kdf` envelope and return its typed plaintext keybag.
+///
+/// Every producer/receiver invariant this module owns is enforced before any
+/// secret is returned: envelope shape, recipient method, KDF and AEAD profile,
+/// `ciphertext_digest`, key commitment, deterministic nonce, the §7.2 AAD, the
+/// AEAD tag, and finally that the decrypted keybag matches the public
+/// `contents` index it was published with.
+pub fn decrypt_key_backup_envelope(
+    passphrase: &[u8],
+    envelope: &KeyBackup,
+) -> Result<KeyBackupPlaintext> {
+    let plaintext = decrypt_key_backup_envelope_bytes(passphrase, envelope)?;
+    let keybag = serde_json::from_slice::<KeyBackupPlaintext>(&plaintext).map_err(|error| {
+        KeyBackupError::Encoding(format!(
+            "decrypted key backup is not ak.schema.key_backup_plaintext.v1: {error}"
+        ))
+    })?;
+    if keybag.backup_kind != envelope.backup_kind {
+        return Err(KeyBackupError::InvalidInput(
+            "decrypted keybag backup_kind differs from its envelope".to_owned(),
+        ));
+    }
+    keybag
+        .validate_against(&envelope.contents)
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    Ok(keybag)
+}
+
+fn decrypt_key_backup_envelope_bytes(
+    passphrase: &[u8],
+    envelope: &KeyBackup,
+) -> Result<Zeroizing<Vec<u8>>> {
+    envelope
+        .validate()
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    if envelope.encryption.recipient_method != KeyBackupRecipientMethod::PassphraseKdf {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup is not a passphrase_kdf envelope".to_owned(),
+        ));
+    }
+    let kdf = envelope.encryption.kdf.as_ref().ok_or_else(|| {
+        KeyBackupError::InvalidInput("passphrase_kdf envelope is missing kdf".to_owned())
+    })?;
+    if kdf.name != KeyBackupKdfName::Argon2id {
+        return Err(KeyBackupError::InvalidInput(
+            "this module only opens the Argon2id passphrase profile".to_owned(),
+        ));
+    }
+    if envelope.encryption.aead.name != KeyBackupAeadName::Xchacha20Poly1305 {
+        return Err(KeyBackupError::InvalidInput(
+            "passphrase_kdf envelopes use the XChaCha20-Poly1305 AEAD profile".to_owned(),
+        ));
+    }
+    let nonce = envelope
+        .encryption
+        .aead
+        .nonce
+        .as_ref()
+        .ok_or_else(|| KeyBackupError::InvalidInput("key backup is missing nonce".to_owned()))?;
+    let nonce_salt = envelope
+        .encryption
+        .aead
+        .nonce_salt
+        .as_ref()
+        .ok_or_else(|| {
+            KeyBackupError::InvalidInput("key backup is missing nonce_salt".to_owned())
+        })?;
+
+    let ciphertext_bytes = base64url_decode(envelope.ciphertext.as_str().trim_end_matches('='))
+        .map_err(|error| KeyBackupError::Encoding(format!("ciphertext base64: {error}")))?;
+    if sha256_digest(&ciphertext_bytes) != envelope.ciphertext_digest.as_str() {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup ciphertext_digest mismatch".to_owned(),
+        ));
+    }
+
+    let salt: [u8; VAULT_SALT_LEN] = base64url_decode(kdf.salt.as_str().trim_end_matches('='))
+        .map_err(|error| KeyBackupError::Encoding(format!("salt base64: {error}")))?
+        .try_into()
+        .map_err(|_| KeyBackupError::Encoding(format!("salt must be {VAULT_SALT_LEN} bytes")))?;
+    let kek = derive_vault_kek_with_salt(passphrase, &salt)?;
+    if envelope.encryption.key_commitment.as_ref()
+        != Some(&key_commitment_value(&kek.key, envelope.backup_kind)?)
+    {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup key_commitment mismatch".to_owned(),
+        ));
+    }
+
+    decrypt_vault(
+        passphrase,
+        &vault_binding_from_envelope(envelope)?,
+        kdf.salt.as_str(),
+        nonce.as_str(),
+        nonce_salt.as_str(),
+        envelope.ciphertext.as_str(),
+    )
+}
+
+/// Build and sign a genesis `passphrase_kdf` envelope from closed plaintext
+/// items.
+///
+/// The SDK derives the public `contents` index and the canonical
+/// `ak.schema.key_backup_plaintext.v1` keybag from the same values, so
+/// caller-controlled metadata can never drift from what was actually sealed.
+#[allow(clippy::too_many_arguments)]
+pub fn build_key_backup_envelope(
+    backup_id: BackupId,
+    actor_id: ActorId,
+    device_id: Option<DeviceId>,
+    backup_kind: BackupKind,
+    backup_version: &str,
+    subdomain: &str,
+    kek: &VaultKek,
+    items: Vec<SecretStorageSecret>,
+    auth: &KeyBackupAuthBinding,
+    sign: KeyBackupSignFn<'_>,
+) -> Result<KeyBackup> {
+    build_key_backup_envelope_with_extensions(
+        backup_id,
+        actor_id,
+        device_id,
+        backup_kind,
+        backup_version,
+        subdomain,
+        XExtensionMap::default(),
+        kek,
+        items,
+        auth,
+        sign,
+        None,
+    )
+}
+
+/// Build and sign a genesis envelope whose AAD additionally covers the closed
+/// `x_*` extension map. Fixed AAD members stay SDK-derived and cannot be
+/// overridden or shadowed by an extension.
+#[allow(clippy::too_many_arguments)]
+pub fn build_key_backup_envelope_with_extensions(
+    backup_id: BackupId,
+    actor_id: ActorId,
+    device_id: Option<DeviceId>,
+    backup_kind: BackupKind,
+    backup_version: &str,
+    subdomain: &str,
+    aead_aad_extensions: XExtensionMap,
+    kek: &VaultKek,
+    items: Vec<SecretStorageSecret>,
+    auth: &KeyBackupAuthBinding,
+    sign: KeyBackupSignFn<'_>,
+    source_ref: Option<KeyBackupSourceRef>,
+) -> Result<KeyBackup> {
+    let series_id = BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
+        .map_err(|error| {
+            KeyBackupError::InvalidInput(format!("failed to mint backup_series id: {error}"))
+        })?;
+    build_key_backup_envelope_in_series(
+        backup_id,
+        actor_id,
+        device_id,
+        backup_kind,
+        backup_version,
+        subdomain,
+        aead_aad_extensions,
+        kek,
+        items,
+        auth,
+        sign,
+        series_id,
+        0,
+        None,
+        None,
+        source_ref,
+    )
+}
+
+/// Build and sign the next envelope of an existing series.
+///
+/// The successor inherits actor, class, subdomain, extension map and series
+/// from `predecessor`, increments `series_seq`, and binds the predecessor by
+/// both `backup_id` and the digest of the predecessor's own §7.2 signing
+/// transcript — so a successor cannot be re-pointed at a different prior
+/// envelope without breaking the chain.
+#[allow(clippy::too_many_arguments)]
+pub fn build_key_backup_successor_envelope(
+    backup_id: BackupId,
+    predecessor: &KeyBackup,
+    device_id: Option<DeviceId>,
+    backup_version: &str,
+    kek: &VaultKek,
+    items: Vec<SecretStorageSecret>,
+    auth: &KeyBackupAuthBinding,
+    sign: KeyBackupSignFn<'_>,
+    source_ref: KeyBackupSourceRef,
+) -> Result<KeyBackup> {
+    if backup_id == predecessor.backup_id {
+        return Err(KeyBackupError::InvalidInput(
+            "successor backup_id must differ from predecessor".to_owned(),
+        ));
+    }
+    if source_ref.device_generation_ref.trim().is_empty() {
+        return Err(KeyBackupError::InvalidInput(
+            "successor source_ref.device_generation_ref must not be empty".to_owned(),
+        ));
+    }
+    let series_seq = predecessor
+        .series_seq
+        .checked_add(1)
+        .ok_or_else(|| KeyBackupError::InvalidInput("successor series_seq overflow".to_owned()))?;
+    let supersedes_digest = key_backup_supersedes_digest(predecessor)?;
+    build_key_backup_envelope_in_series(
+        backup_id,
+        predecessor.actor_id.clone(),
+        device_id,
+        predecessor.backup_kind,
+        backup_version,
+        &predecessor.domain_separation.subdomain,
+        predecessor.domain_separation.aead_aad_extensions.clone(),
+        kek,
+        items,
+        auth,
+        sign,
+        predecessor.series_id.clone(),
+        series_seq,
+        Some(predecessor.backup_id.clone()),
+        Some(supersedes_digest),
+        Some(source_ref),
+    )
+}
+
+/// Digest of the predecessor's §7.2 signing transcript. Using the transcript
+/// itself — rather than an ad-hoc projection — means `supersedes_digest`
+/// covers exactly the bytes the predecessor's producing device signed.
+fn key_backup_supersedes_digest(predecessor: &KeyBackup) -> Result<Hash> {
+    let transcript = predecessor.signing_payload_bytes().map_err(|error| {
+        KeyBackupError::Canonical(format!("predecessor key backup transcript: {error}"))
+    })?;
+    Hash::new(sha256_digest(&transcript)).map_err(|error| {
+        KeyBackupError::Canonical(format!("predecessor key backup digest: {error}"))
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_key_backup_envelope_in_series(
+    backup_id: BackupId,
+    actor_id: ActorId,
+    device_id: Option<DeviceId>,
+    backup_kind: BackupKind,
+    backup_version: &str,
+    subdomain: &str,
+    aead_aad_extensions: XExtensionMap,
+    kek: &VaultKek,
+    items: Vec<SecretStorageSecret>,
+    auth: &KeyBackupAuthBinding,
+    sign: KeyBackupSignFn<'_>,
+    series_id: BackupSeriesId,
+    series_seq: u64,
+    supersedes_id: Option<BackupId>,
+    supersedes_digest: Option<Hash>,
+    source_ref: Option<KeyBackupSourceRef>,
+) -> Result<KeyBackup> {
+    if items.is_empty() {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup plaintext items must not be empty".to_owned(),
+        ));
+    }
+    if device_id.as_ref().is_some_and(|id| id != &auth.device_id) {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup device_id must name the signing device".to_owned(),
+        ));
+    }
+    let domain_separation = KeyBackupDomainSeparation {
+        subdomain: subdomain.to_owned(),
+        aead_aad_extensions,
+    };
+    domain_separation
+        .validate()
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+
+    let contents = items
+        .iter()
+        .map(|item| {
+            item.validate()
+                .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+            Ok(SecretStorageContentIndex {
+                item_kind: item.item_kind,
+                secret_id: Some(item.secret_id.clone()),
+                secret_version: item
+                    .secret_version()
+                    .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let plaintext = KeyBackupPlaintext { backup_kind, items };
+    plaintext
+        .validate_against(&contents)
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    let plaintext_bytes = Zeroizing::new(
+        canonical_json_bytes(&plaintext)
+            .map_err(|error| KeyBackupError::Canonical(format!("key backup plaintext: {error}")))?,
+    );
+
+    // Truncate to the canonical timestamp resolution so the AAD binding
+    // round-trips byte-for-byte through the persisted `created_at`.
+    let created_at = normalize_timestamp_canonical(Utc::now());
+    let binding = VaultBinding {
+        backup_id: backup_id.clone(),
+        subdomain: domain_separation.subdomain.clone(),
+        actor_id: actor_id.clone(),
+        device_id: device_id.clone(),
+        backup_kind,
+        backup_version: backup_version.to_owned(),
+        created_at,
+        item_kinds: contents
+            .iter()
+            .map(|index| item_kind_wire(index.item_kind))
+            .collect::<Result<Vec<_>>>()?,
+        recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
+        recipient_key_ref: None,
+        aead_aad_extensions: domain_separation.aead_aad_extensions.clone(),
+    };
+    let ciphertext = encrypt_vault(kek, &binding, &plaintext_bytes)?;
+
+    let encryption = KeyBackupEncryption {
+        recipient_method: KeyBackupRecipientMethod::PassphraseKdf,
+        recipient_key_ref: None,
+        // The HPKE suite selector applies only to recipient_method =
+        // recovery_public_key, so the symmetric path omits it.
+        hpke_suite: None,
+        kdf: Some(KeyBackupKdf {
+            name: KeyBackupKdfName::Argon2id,
+            salt: base64url_field(&ciphertext.salt_b64)?,
+            params: KeyBackupKdfParams {
+                memory_kib: Some(u64::from(kek.m_kib)),
+                iterations: Some(u64::from(kek.t)),
+                parallelism: Some(u64::from(kek.p)),
+                digest_algorithm: None,
+                extra: XExtensionMap::default(),
+            },
+            degraded_profile_reason: None,
+            extra: XExtensionMap::default(),
+        }),
+        aead: KeyBackupAead {
+            name: KeyBackupAeadName::Xchacha20Poly1305,
+            aead_profile: Some(arkret_wire::AEAD_PROFILE_XCHACHA20_POLY1305_V1.to_owned()),
+            nonce_salt: Some(base64url_field(&ciphertext.nonce_salt_b64)?),
+            nonce: Some(base64url_field(&ciphertext.nonce_b64)?),
+            enc: None,
+            extra: XExtensionMap::default(),
+        },
+        key_commitment: Some(key_commitment_value(&kek.key, backup_kind)?),
+        extra: XExtensionMap::default(),
+    };
+
+    let mut envelope = KeyBackup {
+        backup_id,
+        actor_id,
+        device_id,
+        backup_kind,
+        mixed_secret_storage: false,
+        backup_version: backup_version.to_owned(),
+        created_at,
+        updated_at: None,
+        expires_at: None,
+        encryption,
+        domain_separation,
+        contents,
+        ciphertext: base64url_field(&ciphertext.ciphertext_b64)?,
+        ciphertext_digest: Hash::new(ciphertext.digest_sha256).map_err(|error| {
+            KeyBackupError::Canonical(format!("key backup ciphertext digest: {error}"))
+        })?,
+        plaintext_commitment: None,
+        auth_data: KeyBackupAuthData {
+            device_id: auth.device_id.clone(),
+            verification_method: auth.verification_method.clone(),
+            signature_algorithm: auth.signature_algorithm,
+            signature: base64url_field(UNSIGNED_SIGNATURE_PLACEHOLDER)?,
+            device_authorize_event_id: auth.device_authorize_event_id.clone(),
+        },
+        retention: None,
+        series_id,
+        series_seq,
+        supersedes_id,
+        supersedes_digest,
+        source_ref,
+        extra: XExtensionMap::default(),
+    };
+
+    let transcript = envelope.signing_payload_bytes().map_err(|error| {
+        KeyBackupError::Canonical(format!("key backup signing transcript: {error}"))
+    })?;
+    let signature = sign(&transcript)?;
+    if signature.is_empty() {
+        return Err(KeyBackupError::InvalidInput(
+            "key backup producer signature must not be empty".to_owned(),
+        ));
+    }
+    envelope.auth_data.signature = base64url_field(&base64url_encode(&signature))?;
+    envelope
+        .validate()
+        .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
+    Ok(envelope)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -406,6 +910,375 @@ mod tests {
         assert_ne!(
             format_backup_passphrase(&zeros),
             format_backup_passphrase(&final_bit)
+        );
+    }
+
+    const DEVICE: &str = "ak:device:01964137-0000-7000-8000-0000000000d1";
+    const AUTHORIZE_EVENT: &str = "ak:event:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB";
+    const PASSPHRASE: &[u8] = b"correct horse battery staple";
+
+    fn actor() -> ActorId {
+        ActorId::account(arkret_wire::AccountId::new(
+            "ak:did_core:webvh:z6mkfixture".parse().unwrap(),
+            "ak:did_core:web:station.example".parse().unwrap(),
+        ))
+    }
+
+    fn auth() -> KeyBackupAuthBinding {
+        KeyBackupAuthBinding {
+            device_id: DEVICE.parse().unwrap(),
+            verification_method: DidUrl::new("did:web:station.example#device-1").unwrap(),
+            signature_algorithm: KeyBackupSignatureAlgorithm::Ed25519,
+            device_authorize_event_id: AUTHORIZE_EVENT.parse().unwrap(),
+        }
+    }
+
+    /// Stand-in for the caller's device key: it records the exact transcript
+    /// the module asked it to sign, so tests can assert what was covered.
+    fn recording_signer(seen: &std::cell::RefCell<Vec<Vec<u8>>>) -> impl Fn(&[u8]) -> Result<Vec<u8>> {
+        move |transcript: &[u8]| {
+            seen.borrow_mut().push(transcript.to_vec());
+            Ok(arkret_canonical::canonical::sha256_bytes(transcript).to_vec())
+        }
+    }
+
+    fn items() -> Vec<SecretStorageSecret> {
+        vec![
+            SecretStorageSecret {
+                item_kind: SecretStorageItemKind::PrivateAccountState,
+                secret_id: "account.state".to_owned(),
+                secret_b64u: Base64UrlString::new("c2VjcmV0LW9uZQ".to_owned()).unwrap(),
+                secret_generation: Some(3),
+                extra: XExtensionMap::default(),
+            },
+            SecretStorageSecret {
+                item_kind: SecretStorageItemKind::MlsAccountSecret,
+                secret_id: "mls.account".to_owned(),
+                secret_b64u: Base64UrlString::new("c2VjcmV0LXR3bw".to_owned()).unwrap(),
+                secret_generation: None,
+                extra: XExtensionMap::default(),
+            },
+        ]
+    }
+
+    fn source_ref() -> KeyBackupSourceRef {
+        KeyBackupSourceRef {
+            committed_event_ref: arkret_wire::CommittedEventRef {
+                event_id: AUTHORIZE_EVENT.parse().unwrap(),
+                commit_id: "ak:realm_commit:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB"
+                    .parse()
+                    .unwrap(),
+                stream_ref: arkret_wire::CommitStreamRef::Realm {
+                    realm_id: arkret_wire::RealmId::from_event_id(
+                        &AUTHORIZE_EVENT.parse::<EventId>().unwrap(),
+                    ),
+                },
+                stream_position: 7,
+            },
+            device_generation_ref: "4".to_owned(),
+        }
+    }
+
+    fn genesis(kek: &VaultKek, seen: &std::cell::RefCell<Vec<Vec<u8>>>) -> KeyBackup {
+        let sign = recording_signer(seen);
+        build_key_backup_envelope(
+            "ak:backup:01964137-0000-7000-8000-000000000001"
+                .parse()
+                .unwrap(),
+            actor(),
+            Some(DEVICE.parse().unwrap()),
+            BackupKind::SecretStorage,
+            "kb_1",
+            "recovery_vault",
+            kek,
+            items(),
+            &auth(),
+            &sign,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn genesis_envelope_round_trips_through_decrypt() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+
+        assert_eq!(envelope.series_seq, 0);
+        assert!(envelope.supersedes_id.is_none() && envelope.supersedes_digest.is_none());
+        assert_eq!(envelope.contents.len(), 2);
+
+        let opened = decrypt_key_backup_envelope(PASSPHRASE, &envelope).unwrap();
+        assert_eq!(opened.backup_kind, BackupKind::SecretStorage);
+        assert_eq!(opened.items.len(), 2);
+        assert_eq!(opened.items[0].secret_id, "account.state");
+        assert_eq!(opened.items[1].secret_id, "mls.account");
+
+        // A different passphrase must fail before the AEAD, on the commitment.
+        assert!(decrypt_key_backup_envelope(b"wrong passphrase", &envelope).is_err());
+    }
+
+    #[test]
+    fn producer_signature_covers_the_envelope_minus_its_own_signature() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+
+        let signed = seen.into_inner();
+        assert_eq!(signed.len(), 1, "exactly one transcript is signed");
+        // Installing the real signature must not move the transcript: §7.2
+        // removes `auth_data.signature` from the signed bytes.
+        assert_eq!(signed[0], envelope.signing_payload_bytes().unwrap());
+        assert_ne!(
+            envelope.auth_data.signature.as_str(),
+            UNSIGNED_SIGNATURE_PLACEHOLDER,
+            "the placeholder must never survive into a returned envelope"
+        );
+        let transcript = String::from_utf8(signed[0].clone()).unwrap();
+        assert!(!transcript.contains("\"signature\""));
+        assert!(transcript.contains("\"ciphertext_digest\""));
+        assert!(transcript.contains("\"device_authorize_event_id\""));
+    }
+
+    #[test]
+    fn aad_is_derived_from_the_envelope_and_binds_its_metadata() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+
+        // The published AAD is exactly what the sealer bound.
+        let aad = String::from_utf8(key_backup_aead_aad(&envelope).unwrap()).unwrap();
+        assert!(aad.starts_with(r#"{"actor_id":"#));
+        assert!(aad.contains(r#""schema":"ak.schema.key_backup.v1""#));
+        // item_kinds is sorted bytewise, not left in contents order.
+        assert!(aad.contains(r#""item_kinds":["mls_account_secret","private_account_state"]"#));
+
+        // Every fixed AAD member is load-bearing.
+        for tamper in [
+            |envelope: &mut KeyBackup| envelope.backup_version = "kb_2".to_owned(),
+            |envelope: &mut KeyBackup| envelope.device_id = None,
+            |envelope: &mut KeyBackup| {
+                envelope.contents[0].item_kind = SecretStorageItemKind::RecoveryKeyShare;
+            },
+        ] {
+            let mut tampered = envelope.clone();
+            tamper(&mut tampered);
+            assert_ne!(
+                key_backup_aead_aad(&tampered).unwrap(),
+                key_backup_aead_aad(&envelope).unwrap()
+            );
+            assert!(decrypt_key_backup_envelope(PASSPHRASE, &tampered).is_err());
+        }
+
+        // `subdomain` is deliberately NOT an AAD member: §7.2 binds it through
+        // the HKDF `info` (`arkret-key-backup/<backup_kind>/<subdomain>/v1`),
+        // so rewriting it yields the same AAD but a different AEAD key.
+        let mut rebranded = envelope.clone();
+        rebranded.domain_separation.subdomain = "other_vault".to_owned();
+        assert_eq!(
+            key_backup_aead_aad(&rebranded).unwrap(),
+            key_backup_aead_aad(&envelope).unwrap()
+        );
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &rebranded).is_err());
+    }
+
+    #[test]
+    fn auth_data_device_binding_is_enforced_before_any_secret_is_returned() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+
+        let mut tampered = envelope;
+        tampered.auth_data.device_id = "ak:device:01964137-0000-7000-8000-0000000000d2"
+            .parse()
+            .unwrap();
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &tampered).is_err());
+
+        // The builder refuses the same disagreement up front.
+        let sign = recording_signer(&seen);
+        assert!(
+            build_key_backup_envelope(
+                "ak:backup:01964137-0000-7000-8000-00000000000f"
+                    .parse()
+                    .unwrap(),
+                actor(),
+                Some(
+                    "ak:device:01964137-0000-7000-8000-0000000000d2"
+                        .parse()
+                        .unwrap()
+                ),
+                BackupKind::SecretStorage,
+                "kb_1",
+                "recovery_vault",
+                &kek,
+                items(),
+                &auth(),
+                &sign,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn ciphertext_digest_mismatch_is_rejected() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+
+        let mut tampered = envelope.clone();
+        tampered.ciphertext_digest = Hash::new(format!("sha256:{}", "0".repeat(64))).unwrap();
+        let error = decrypt_key_backup_envelope(PASSPHRASE, &tampered).unwrap_err();
+        assert!(error.to_string().contains("ciphertext_digest mismatch"));
+
+        // Rewriting both ciphertext and its digest still fails on the AEAD tag.
+        let mut swapped = envelope;
+        let forged = base64url_encode(b"not the sealed vault");
+        swapped.ciphertext_digest =
+            Hash::new(sha256_digest(base64url_decode(&forged).unwrap())).unwrap();
+        swapped.ciphertext = Base64UrlString::new(forged).unwrap();
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &swapped).is_err());
+    }
+
+    #[test]
+    fn key_commitment_is_the_published_form_of_the_commitment_digest() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let envelope = genesis(&kek, &seen);
+        assert_eq!(
+            envelope.encryption.key_commitment.as_ref().unwrap().as_str(),
+            format!(
+                "sha256:{}",
+                hex::encode(commitment_digest(&kek.key, BackupKind::SecretStorage))
+            )
+        );
+
+        let mut tampered = envelope;
+        tampered.encryption.key_commitment =
+            Some(Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap());
+        let error = decrypt_key_backup_envelope(PASSPHRASE, &tampered).unwrap_err();
+        assert!(error.to_string().contains("key_commitment mismatch"));
+    }
+
+    #[test]
+    fn successor_links_to_its_predecessor_transcript_and_opens() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let predecessor = genesis(&kek, &seen);
+
+        let sign = recording_signer(&seen);
+        let successor = build_key_backup_successor_envelope(
+            "ak:backup:01964137-0000-7000-8000-000000000002"
+                .parse()
+                .unwrap(),
+            &predecessor,
+            Some(DEVICE.parse().unwrap()),
+            "kb_2",
+            &kek,
+            items(),
+            &auth(),
+            &sign,
+            source_ref(),
+        )
+        .unwrap();
+
+        assert_eq!(successor.series_id, predecessor.series_id);
+        assert_eq!(successor.series_seq, predecessor.series_seq + 1);
+        assert_eq!(successor.supersedes_id.as_ref(), Some(&predecessor.backup_id));
+        assert_eq!(
+            successor.supersedes_digest.as_ref().unwrap().as_str(),
+            sha256_digest(predecessor.signing_payload_bytes().unwrap())
+        );
+        assert_eq!(successor.source_ref.as_ref().unwrap(), &source_ref());
+        assert_eq!(
+            successor.domain_separation.subdomain,
+            predecessor.domain_separation.subdomain
+        );
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &successor).is_ok());
+
+        // Re-pointing the link at another envelope breaks the chain digest.
+        let mut relinked = successor;
+        relinked.supersedes_digest = Some(Hash::new(format!("sha256:{}", "2".repeat(64))).unwrap());
+        assert_ne!(
+            relinked.supersedes_digest.as_ref().unwrap().as_str(),
+            sha256_digest(predecessor.signing_payload_bytes().unwrap())
+        );
+
+        // A successor may not reuse the predecessor's backup_id.
+        assert!(
+            build_key_backup_successor_envelope(
+                predecessor.backup_id.clone(),
+                &predecessor,
+                Some(DEVICE.parse().unwrap()),
+                "kb_2",
+                &kek,
+                items(),
+                &auth(),
+                &sign,
+                source_ref(),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn aad_extensions_enter_the_binding_and_cannot_shadow_fixed_members() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let sign = recording_signer(&seen);
+        let mut extensions = XExtensionMap::default();
+        extensions
+            .insert("x_vault_profile".to_owned(), serde_json::json!("household"))
+            .unwrap();
+
+        let envelope = build_key_backup_envelope_with_extensions(
+            "ak:backup:01964137-0000-7000-8000-000000000003"
+                .parse()
+                .unwrap(),
+            actor(),
+            Some(DEVICE.parse().unwrap()),
+            BackupKind::SecretStorage,
+            "kb_1",
+            "recovery_vault",
+            extensions,
+            &kek,
+            items(),
+            &auth(),
+            &sign,
+            Some(source_ref()),
+        )
+        .unwrap();
+
+        let aad = String::from_utf8(key_backup_aead_aad(&envelope).unwrap()).unwrap();
+        assert!(aad.contains(r#""x_vault_profile":"household""#));
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &envelope).is_ok());
+
+        // Dropping the extension changes the AAD, so the envelope no longer opens.
+        let mut stripped = envelope;
+        stripped.domain_separation.aead_aad_extensions = XExtensionMap::default();
+        assert!(decrypt_key_backup_envelope(PASSPHRASE, &stripped).is_err());
+    }
+
+    #[test]
+    fn empty_item_set_is_refused() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let sign = recording_signer(&seen);
+        assert!(
+            build_key_backup_envelope(
+                "ak:backup:01964137-0000-7000-8000-000000000004"
+                    .parse()
+                    .unwrap(),
+                actor(),
+                Some(DEVICE.parse().unwrap()),
+                BackupKind::SecretStorage,
+                "kb_1",
+                "recovery_vault",
+                &kek,
+                Vec::new(),
+                &auth(),
+                &sign,
+            )
+            .is_err()
         );
     }
 }

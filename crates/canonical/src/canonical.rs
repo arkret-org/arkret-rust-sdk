@@ -1587,7 +1587,7 @@ mod tests {
     fn canonical_digest_is_byte_stable_for_fixed_input() {
         // The empty-input digest is the canonical sha256(b"") value;
         // any drift here is a backwards-incompatible change downstream
-        // (soland event_log, notary, policy hashing).
+        // (soland event_log, realm authority, policy hashing).
         assert_eq!(
             canonical_digest(b""),
             "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

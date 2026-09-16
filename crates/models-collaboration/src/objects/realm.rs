@@ -14,7 +14,7 @@ pub const PRINCIPAL_CONTROL_PURPOSE: &str = "principal_control";
 
 /// Current Realm business projection. Commit ordering, finality, and Station
 /// replacement live in `RealmCommit` / `RealmAuthorityBundle`, not in mirrored
-/// reducer, digest-suite, encryption-profile, or notary fields here.
+/// reducer, digest-suite, or encryption-profile fields here.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Realm {

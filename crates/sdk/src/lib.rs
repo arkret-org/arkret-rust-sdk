@@ -184,6 +184,7 @@ pub use arkret_models_collaboration::governance::third_party_invite::*;
 pub use arkret_models_collaboration::governance_payloads::*;
 pub use arkret_models_collaboration::message_authoring::{
     MessageAuthoringContent, MessageAuthoringIntent, MessageEncryptionContext,
+    MessagePrepareOutcome, MessageSubmitRequestBody,
 };
 pub use arkret_models_collaboration::mimi_operations::*;
 pub use arkret_models_collaboration::mls_group_state_material::*;
@@ -346,8 +347,18 @@ pub use arkret_server as server;
 pub use arkret_signatures as signatures;
 #[cfg(feature = "signer")]
 pub use arkret_signatures::Ed25519PayloadSigner;
+// Account Authority controller-gate issuance/verification and the generic
+// detached authority-object seal, surfaced so coauth / soland / inkson reach
+// one implementation instead of re-deriving either transcript.
+pub use arkret_signatures::agent_evidence::{
+    sign_controller_account_gate_attestation, verify_controller_account_gate_attestation,
+};
 pub use arkret_signatures::contact_receipt::{
     contact_request_acceptance_receipt_signing_bytes, verify_contact_request_acceptance_receipt,
+};
+pub use arkret_signatures::detached_object::{
+    detached_object_signed_digest, detached_object_signing_bytes, sign_detached_object,
+    verify_detached_object_signature,
 };
 pub use arkret_signatures::device_pairing::{
     sign_device_pairing_target_proof, verify_device_pairing_target_proof,
@@ -382,9 +393,6 @@ pub use arkret_wire::extension_manifest::*;
 pub use arkret_wire::ingress_budget::*;
 pub use arkret_wire::invite_token::*;
 pub use arkret_wire::mls_transition::mls_genesis_transition_digest;
-pub use arkret_wire::notary::{
-    NotaryJoseAlgorithm, NotaryKeyKind, NotarySignerDescriptor, NotaryValue,
-};
 pub use arkret_wire::object_address::*;
 pub use arkret_wire::object_ref::is_object_ref;
 pub use arkret_wire::operation_types::*;
@@ -395,6 +403,10 @@ pub use arkret_wire::plaintext::PlaintextDataClassKind;
 pub use arkret_wire::platform::{WasmHttpRequestBody, WasmHttpResponseBody};
 pub use arkret_wire::primitives::*;
 pub use arkret_wire::problem_details::*;
+pub use arkret_wire::realm_authority_signer::{
+    RealmAuthorityJoseAlgorithm, RealmAuthoritySignerDescriptor, RealmAuthoritySignerKeyKind,
+    RealmAuthoritySignerValue,
+};
 pub use arkret_wire::receive_policy::{
     EffectiveNewSourceQuota, InviteReceiveAction, NewSourceQuotaConstraints,
     NewSourceQuotaOverride, ReceivePolicyConstraints, ReceivePolicySurface, UnknownInviteAction,
@@ -445,6 +457,7 @@ pub mod events {
 }
 
 pub mod sync {
+    pub use arkret_models_collaboration::account_subscribe_projections::*;
     pub use arkret_models_collaboration::sync_frames::account_subscribe::*;
     pub use arkret_models_collaboration::sync_frames::current_results::*;
     pub use arkret_models_collaboration::sync_frames::realm_state_snapshot::*;

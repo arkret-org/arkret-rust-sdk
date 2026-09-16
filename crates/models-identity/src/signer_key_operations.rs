@@ -547,8 +547,7 @@ mod tests {
     #[test]
     fn an_outcome_answers_every_exact_selector_once() {
         let request = SignerKeysQueryRequestBody {
-            request_id: RequestId::new("ak:request:01904100-0000-7000-8000-000000000001")
-                .unwrap(),
+            request_id: RequestId::new("ak:request:01904100-0000-7000-8000-000000000001").unwrap(),
             realm_id: realm_id(),
             recipient_account_id: account_id(),
             queries: vec![device_selector()],

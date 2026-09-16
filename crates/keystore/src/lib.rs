@@ -40,7 +40,7 @@
 //!
 //! Backends namespace credentials under `"arkret.<application_id>"` so
 //! multiple Arkret-using apps on the same host (inkson, sodmin, soland
-//! notary, …) don't trample each other's keychain items. The
+//! authority, …) don't trample each other's keychain items. The
 //! `application_id` is supplied at construction time and SHOULD be a stable
 //! reverse-DNS-like identifier for the host application
 //! (e.g. `"chat.acroidea.inkson"`).

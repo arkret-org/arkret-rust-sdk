@@ -96,8 +96,8 @@ mod tests {
     #[test]
     fn wire_names_map_to_existing_rust_naming_convention() {
         assert_eq!(
-            variant("ak.self.events.read.frontier.v1", &["ak."]),
-            "SelfEventsReadFrontierV1"
+            variant("ak.self.events.read.scan.v1", &["ak."]),
+            "SelfEventsReadScanV1"
         );
         assert_eq!(associated_name("ak.realm.create", &["ak."]), "REALM_CREATE");
     }

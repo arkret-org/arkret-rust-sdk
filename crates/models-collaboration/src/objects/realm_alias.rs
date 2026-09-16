@@ -128,8 +128,9 @@ impl RealmAlias {
     /// Derive the realm-alias issuing authority domain operated by a service
     /// DID, so a client and its Station agree on the exact bytes.
     ///
-    /// The alias `<domain>` is the issuing authority, and a Realm's own notary
-    /// signature is not evidence that a foreign domain authorized the claim
+    /// The alias `<domain>` is the issuing authority, and a Realm's own
+    /// authority signature is not evidence that a foreign domain authorized
+    /// the claim
     /// (`discovery/object-addressing.md` §3.3). A deployment therefore issues
     /// aliases only beneath its own authority domain, which is the DID's host:
     ///
