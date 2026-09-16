@@ -167,6 +167,23 @@ def scan_structs(root: Path = ROOT) -> dict[str, RustStruct]:
     return found
 
 
+def declares_empty_object(node: Any) -> bool:
+    """True when the schema node is a deliberately empty closed object.
+
+    An empty property set is otherwise indistinguishable from a pointer that
+    resolved to the wrong target, so the caller must keep rejecting that case.
+    A def that spells out `"properties": {}` together with
+    `"additionalProperties": false` is stating that the wire object carries no
+    members at all, and the matching Rust counterpart is a unit struct.
+    """
+    return (
+        isinstance(node, dict)
+        and node.get("type") == "object"
+        and node.get("properties") == {}
+        and node.get("additionalProperties") is False
+    )
+
+
 def schema_property_names(
     resolver: SchemaResolver,
     path: Path,
@@ -272,7 +289,7 @@ def validate(
         except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError) as error:
             errors.append(f"cannot resolve {pointer} for {rust_type}: {error}")
             continue
-        if not schema_fields:
+        if not schema_fields and not declares_empty_object(node):
             errors.append(f"schema target for {rust_type} has no object properties: {pointer}")
             continue
         rust_only = set(item.fields) - schema_fields

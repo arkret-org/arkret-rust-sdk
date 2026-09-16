@@ -7,9 +7,10 @@
 
 use std::collections::BTreeMap;
 
+use arkret_models_identity::account::AccountLifecycleProof;
 use arkret_wire::{
     ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef, Did,
-    DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash, PayloadProof, PayloadSigner,
+    DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash, PayloadSigner,
     ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, WireError,
     canonical,
 };
@@ -155,7 +156,7 @@ pub struct AppletRevokeRequestBody {
     pub membership_state_events: Vec<EventCommitSubmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub proof: Option<PayloadProof>,
+    pub proof: Option<AccountLifecycleProof>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]

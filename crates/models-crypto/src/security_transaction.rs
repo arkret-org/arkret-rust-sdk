@@ -453,13 +453,13 @@ impl SecurityTransaction {
             || attestation.recovery_session_id != binding.recovery_session_id
             || attestation.terminal_receipt_id != binding.terminal_receipt_id
             || attestation.replacement_device_id != binding.replacement_device_id
-            || attestation.reanchor_ref.event_id != binding.reanchor_event_id
-            || attestation.device_authorization_ref.event_id != binding.authorize_event_id
+            || attestation.reanchor_event_ref.event_id != binding.reanchor_event_id
+            || attestation.device_authorization_event_ref.event_id != binding.authorize_event_id
             || attestation.result_model_generation_ref != plan.result_model_generation_ref
             || attestation.completed_at != completed_at
             || last.output_ref != receipt_id.as_str()
             || last.output_digest != attestation.terminal_receipt_digest
-            || attestation.reanchor_ref.stream_ref
+            || attestation.reanchor_event_ref.stream_ref
                 != (CommitStreamRef::Realm {
                     realm_id: plan.reanchor_commit_intent.realm_id.clone(),
                 })

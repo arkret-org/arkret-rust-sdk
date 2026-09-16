@@ -8,6 +8,8 @@ use arkret_wire::{ActorId, DidCoreId, DomainSeparationId};
 use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::internal_prelude::*;
+use crate::objects::media::MediaBackendKind;
+use crate::serde_absence::deserialize_non_null_optional;
 
 /// `ak.realm.governance_station.change` payload. The accepted change Event is
 /// committed in the Realm stream before the dual-signed authority handoff is
@@ -799,4 +801,360 @@ pub fn realm_organization_statement_signing_bytes(
         executed_by: authorization.executed_by.as_ref(),
     };
     Ok(canonical::canonical_json_bytes(&transcript)?)
+}
+
+/// Deployment roles supported by one Realm media service.
+///
+/// Mirrors the closed `modes[]` enum of
+/// `event-payload.schema.json#/$defs/realm_media_service_payload`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmMediaServiceMode {
+    Turn,
+    Sfu,
+    Mcu,
+}
+
+/// Call topologies a Realm media service may default to or allow.
+///
+/// Mirrors the closed `default_call_mode` / `allowed_call_modes[]` enum of
+/// `event-payload.schema.json#/$defs/realm_media_service_payload`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RealmMediaCallMode {
+    P2p,
+    Sfu,
+    Mcu,
+}
+
+/// One backend focus of the Realm media service descriptor.
+///
+/// `focus_kind` is the closed backend registry ([`MediaBackendKind`]); an
+/// unknown label fails to deserialize instead of surviving as a catch-all, so a
+/// receiver fails closed with
+/// [`ReasonCode::UNKNOWN_FOCUS_TYPE`](arkret_wire::ReasonCode::UNKNOWN_FOCUS_TYPE)
+/// rather than handing `backend_token` to an arbitrary SDK. `token_endpoint`
+/// and `connect_url` are required because a focus a client can neither exchange
+/// a token at nor connect to is not a usable focus. See
+/// `crypto-media/media-service-binding.md` section 2.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/media_service_focus`.
+pub struct MediaServiceFocus {
+    pub focus_id: NonEmptyString,
+    pub focus_kind: MediaBackendKind,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub region: Option<NonEmptyString>,
+    pub token_endpoint: String,
+    pub connect_url: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<NonEmptyString>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub health_endpoint: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub cascade_group: Option<NonEmptyString>,
+}
+
+impl MediaServiceFocus {
+    /// Enforces the profile constraints the derived `Deserialize` cannot carry:
+    /// the `non_typed_identifier_floor` on `focus_id` and the URL scheme
+    /// patterns on the three endpoint fields.
+    pub fn validate(&self) -> Result<()> {
+        if self.focus_id.as_str().starts_with("ak:") {
+            return media_schema_violation("media service focus_id must not use the ak: namespace");
+        }
+        if !is_url_with_scheme(&self.token_endpoint, "https://") {
+            return media_schema_violation("media service token_endpoint must be an https URL");
+        }
+        if !is_url_with_allowed_schemes(&self.connect_url, &["https://", "wss://"]) {
+            return media_schema_violation("media service connect_url must be an https or wss URL");
+        }
+        if self
+            .health_endpoint
+            .as_deref()
+            .is_some_and(|url| !is_url_with_scheme(url, "https://"))
+        {
+            return media_schema_violation("media service health_endpoint must be an https URL");
+        }
+        if contains_duplicate(&self.capabilities) {
+            return media_schema_violation("media service focus capabilities must be unique");
+        }
+        Ok(())
+    }
+}
+
+/// Closed media service descriptor carried under
+/// [`RealmMediaServicePayload::value`].
+///
+/// The descriptor is the trust root for media token issuance, so it is closed
+/// on purpose: issuer configuration (signing key ids, audiences, TTLs, backend
+/// credentials) is deployment configuration of the service named by
+/// `foci[].token_endpoint` and MUST NOT be carried here.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/realm_media_service_payload` `value`.
+pub struct RealmMediaServiceValue {
+    pub service_id: DidCoreId,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub modes: Option<Vec<RealmMediaServiceMode>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub ice_config_endpoint: Option<String>,
+    pub foci: Vec<MediaServiceFocus>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub default_call_mode: Option<RealmMediaCallMode>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub allowed_call_modes: Option<Vec<RealmMediaCallMode>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_non_null_optional",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub recording_supported: Option<bool>,
+}
+
+impl RealmMediaServiceValue {
+    /// A descriptor with a single flat endpoint, or with no foci at all, fails
+    /// closed with [`ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED`]; the realtime
+    /// path MUST NOT normalize or infer one.
+    pub fn validate(&self) -> Result<()> {
+        if self
+            .modes
+            .as_ref()
+            .is_some_and(|modes| modes.is_empty() || contains_duplicate(modes))
+        {
+            return media_schema_violation("media service modes must be non-empty and unique");
+        }
+        if self
+            .ice_config_endpoint
+            .as_deref()
+            .is_some_and(|url| !is_url_with_scheme(url, "https://"))
+        {
+            return media_schema_violation(
+                "media service ice_config_endpoint must be an https URL",
+            );
+        }
+        if self.foci.is_empty() || contains_duplicate(&self.foci) {
+            return Err(WireError::Protocol(format!(
+                "{}: media service foci must be non-empty and unique",
+                ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED
+            )));
+        }
+        for focus in &self.foci {
+            focus.validate()?;
+        }
+        if self
+            .allowed_call_modes
+            .as_ref()
+            .is_some_and(|modes| modes.is_empty() || contains_duplicate(modes))
+        {
+            return media_schema_violation(
+                "media service allowed_call_modes must be non-empty and unique",
+            );
+        }
+        Ok(())
+    }
+}
+
+/// `ak.realm.media_service` payload.
+///
+/// The descriptor lives under `payload.value` and is never flattened onto
+/// `payload`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/realm_media_service_payload`.
+pub struct RealmMediaServicePayload {
+    pub value: RealmMediaServiceValue,
+}
+
+impl RealmMediaServicePayload {
+    pub fn validate(&self) -> Result<()> {
+        self.value.validate()
+    }
+}
+
+fn media_schema_violation<T>(message: &str) -> Result<T> {
+    Err(WireError::Protocol(format!("schema_violation: {message}")))
+}
+
+fn contains_duplicate<T: PartialEq>(values: &[T]) -> bool {
+    values
+        .iter()
+        .enumerate()
+        .any(|(index, value)| values[..index].contains(value))
+}
+
+fn is_url_with_allowed_schemes(value: &str, schemes: &[&str]) -> bool {
+    schemes
+        .iter()
+        .any(|scheme| is_url_with_scheme(value, scheme))
+}
+
+fn is_url_with_scheme(value: &str, scheme: &str) -> bool {
+    value
+        .strip_prefix(scheme)
+        .is_some_and(|rest| !rest.is_empty() && !rest.chars().any(char::is_whitespace))
+}
+
+#[cfg(test)]
+mod media_service_tests {
+    use super::*;
+
+    fn focus_json() -> Value {
+        serde_json::json!({
+            "focus_id": "focus-eu-1",
+            "focus_kind": "livekit",
+            "region": "eu-west",
+            "token_endpoint": "https://media.example/token",
+            "connect_url": "wss://media.example/rtc",
+            "capabilities": ["simulcast", "svc"],
+            "health_endpoint": "https://media.example/health",
+            "cascade_group": "eu"
+        })
+    }
+
+    #[test]
+    fn media_service_focus_round_trips_every_property() {
+        let json = focus_json();
+        let focus: MediaServiceFocus = serde_json::from_value(json.clone()).unwrap();
+        focus.validate().unwrap();
+        assert_eq!(focus.focus_kind, MediaBackendKind::Livekit);
+        assert_eq!(serde_json::to_value(&focus).unwrap(), json);
+    }
+
+    #[test]
+    fn media_service_focus_omits_absent_optional_members() {
+        let focus: MediaServiceFocus = serde_json::from_value(serde_json::json!({
+            "focus_id": "focus-1",
+            "focus_kind": "arkret_native",
+            "token_endpoint": "https://media.example/token",
+            "connect_url": "https://media.example/rtc"
+        }))
+        .unwrap();
+        focus.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(&focus).unwrap(),
+            serde_json::json!({
+                "focus_id": "focus-1",
+                "focus_kind": "arkret_native",
+                "token_endpoint": "https://media.example/token",
+                "connect_url": "https://media.example/rtc"
+            })
+        );
+    }
+
+    #[test]
+    fn media_service_focus_rejects_unknown_member() {
+        let mut json = focus_json();
+        json["sfu_endpoint"] = serde_json::json!("https://media.example/sfu");
+        serde_json::from_value::<MediaServiceFocus>(json).unwrap_err();
+    }
+
+    #[test]
+    fn media_service_focus_rejects_missing_required_member() {
+        for required in ["focus_id", "focus_kind", "token_endpoint", "connect_url"] {
+            let mut json = focus_json();
+            json.as_object_mut().unwrap().remove(required);
+            serde_json::from_value::<MediaServiceFocus>(json)
+                .expect_err("required member omission must be rejected");
+        }
+    }
+
+    #[test]
+    fn media_service_focus_kind_registry_is_closed() {
+        for known in [
+            "livekit",
+            "mediasoup",
+            "janus",
+            "arkret_native",
+            "moq_relay",
+        ] {
+            let mut json = focus_json();
+            json["focus_kind"] = serde_json::json!(known);
+            serde_json::from_value::<MediaServiceFocus>(json).unwrap();
+        }
+        let mut json = focus_json();
+        json["focus_kind"] = serde_json::json!("whip");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .expect_err("unknown focus_kind must fail closed");
+    }
+
+    #[test]
+    fn media_service_focus_validate_rejects_bad_profiles() {
+        let mut json = focus_json();
+        json["focus_id"] = serde_json::json!("ak:focus");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .unwrap()
+            .validate()
+            .unwrap_err();
+
+        let mut json = focus_json();
+        json["token_endpoint"] = serde_json::json!("http://media.example/token");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .unwrap()
+            .validate()
+            .unwrap_err();
+
+        let mut json = focus_json();
+        json["connect_url"] = serde_json::json!("ws://media.example/rtc");
+        serde_json::from_value::<MediaServiceFocus>(json)
+            .unwrap()
+            .validate()
+            .unwrap_err();
+    }
+
+    #[test]
+    fn realm_media_service_payload_round_trips_and_requires_foci() {
+        let json = serde_json::json!({
+            "value": {
+                "service_id": "ak:did_core:web:media.example",
+                "modes": ["sfu"],
+                "ice_config_endpoint": "https://media.example/ice",
+                "foci": [focus_json()],
+                "default_call_mode": "sfu",
+                "allowed_call_modes": ["p2p", "sfu"],
+                "recording_supported": false
+            }
+        });
+        let payload: RealmMediaServicePayload = serde_json::from_value(json.clone()).unwrap();
+        payload.validate().unwrap();
+        assert_eq!(serde_json::to_value(&payload).unwrap(), json);
+
+        let mut empty = json;
+        empty["value"]["foci"] = serde_json::json!([]);
+        let payload: RealmMediaServicePayload = serde_json::from_value(empty).unwrap();
+        let message = payload.validate().unwrap_err().to_string();
+        assert!(message.contains(ReasonCode::MEDIA_SERVICE_FOCI_REQUIRED));
+    }
 }

@@ -37,10 +37,12 @@ pub mod authority_commit;
 pub mod consent_scope;
 pub mod constants;
 pub mod cursor;
+pub mod device_revocation;
 pub mod directory_source_ref_access;
 pub mod error_codes;
 pub mod event_envelope;
 pub mod event_receipt;
+pub mod event_submission;
 pub mod events;
 pub mod extension_manifest;
 pub mod forbidden_wire;
@@ -85,11 +87,13 @@ pub use authored_event::AuthoredEvent;
 pub use authority_commit::*;
 pub use consent_scope::*;
 pub use constants::*;
+pub use device_revocation::*;
 pub use directory_source_ref_access::{DirectorySourceRefAccess, DirectorySourceRefAccessKind};
 pub use error::{Result, WireError};
 pub use error_codes::*;
 pub use event_envelope::*;
 pub use event_receipt::*;
+pub use event_submission::*;
 pub use events::*;
 pub use extension_manifest::{
     ConfidentialityClass, ExtensionManifest, ExtensionManifestCatalog,

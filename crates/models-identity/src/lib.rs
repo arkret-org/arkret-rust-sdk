@@ -12,6 +12,7 @@ pub mod account;
 pub mod actor_profile;
 pub mod actor_profile_operations;
 pub mod admin_grant;
+pub mod agent_signer_evidence;
 pub mod agent_signer_state;
 pub mod artifacts_account;
 pub mod artifacts_device_identity;

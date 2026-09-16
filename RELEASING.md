@@ -21,12 +21,12 @@ arkret-wire
 arkret-hlc
 arkret-models-crypto
 arkret-models-identity
+arkret-schema
 arkret-models-collaboration
 arkret-models-discovery
 arkret-models-integration
 arkret-push-policy
 arkret-event-draft
-arkret-schema
 arkret-policy
 arkret-state
 arkret-signatures
@@ -35,7 +35,6 @@ arkret-crypto
 arkret-identity
 arkret-mls
 arkret-http-client
-arkret-lattice-registry
 arkret-bootstrap
 arkret-rate-limit
 arkret-server

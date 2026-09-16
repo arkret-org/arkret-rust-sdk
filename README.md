@@ -65,7 +65,7 @@ re-exports the public SDK surface:
 - `arkret-schema`: generated protocol registries and schema/artifact validation
 - `arkret-server`: framework-independent server handler contracts, service route metadata and endpoint fixture coverage
 - `arkret-signatures`: HTTP signatures, JWS/JWT and proof verification helpers
-- `arkret-state`: reducer, snapshot, lattice and state-transition primitives
+- `arkret-state`: authority commit-log primitives
 - `arkret-wire`: foundational wire constants, identifiers and protocol primitives
 - `arkret-models-*`: identity, crypto, collaboration, discovery and integration protocol model leaves
 - `arkret`: umbrella SDK crate with curated owner re-exports and integration feature forwarding

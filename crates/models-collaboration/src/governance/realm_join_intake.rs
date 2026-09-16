@@ -201,12 +201,19 @@ pub struct PeerRealmJoinBootstrapRequestBody {
     pub membership_ref: CommittedEventRef,
 }
 
+/// The verified current authority answers a bootstrap with one signed snapshot
+/// plus the head of every stream the new member may read after its membership
+/// Commit. The snapshot's own `visible_stream_heads` are the scan floor and
+/// these are the scan target; see [`super::realm_join_bootstrap`].
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `realm-join-intake.schema.json#/$defs/peer_bootstrap_outcome`.
 pub struct PeerRealmJoinBootstrapOutcome {
     pub request_id: RequestId,
     pub authority_bundle: RealmAuthorityBundle,
     pub snapshot: RealmStateSnapshot,
+    pub visible_stream_heads: Vec<CommitStreamHead>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

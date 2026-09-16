@@ -8,13 +8,16 @@
 //! invite addressing, moderation, and grant constraints)
 //! plus the first event-payload faces migrated from the `arkret` umbrella.
 
+pub mod account_lifecycle;
 pub mod account_operations;
 pub mod account_status;
 pub mod actor_profile_resolution;
 pub mod agent_operations;
 pub mod agent_scope;
+pub mod agent_sidecar;
 pub mod applet_installation_authority;
 pub mod call_signal;
+pub mod consent_operations;
 pub mod contact_operations;
 pub mod device_messages;
 pub mod device_pairing;
@@ -31,7 +34,9 @@ pub mod mls_group_state_material;
 pub mod object_lifecycle;
 pub mod objects;
 pub mod prepared_event_draft;
+pub mod principal_operations;
 mod serde_absence;
+pub mod session_grant_bodies;
 pub mod session_grants;
 pub mod sidecar_operations;
 pub mod signal_message_stream;

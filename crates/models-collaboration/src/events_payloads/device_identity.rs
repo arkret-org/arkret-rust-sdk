@@ -271,3 +271,67 @@ impl TryFrom<&Event> for DeviceAuthorizePayload {
             .map_err(|error| DeviceAuthorizePayloadError::InvalidPayload(error.to_string()))
     }
 }
+
+/// Canonical digest of an `ak.device.authorize` payload as it appears on the
+/// wire.
+///
+/// This is the value a root-anchored unit commits to. A root commitment cannot
+/// name the authorize Event id or envelope digest, because every `event_id`
+/// derives from its own signed content and the committing Event is referenced
+/// from the authorize envelope — the two would be preimages of each other.
+/// Committing to the payload keeps the binding one-directional while still
+/// fixing which device is authorized.
+///
+/// It takes the wire `payload` object rather than [`DeviceAuthorizePayload`] on
+/// purpose: the producer and the verifier must hash the same bytes, and a
+/// parse-then-reserialize round trip is one normalization away from disagreeing.
+pub fn device_authorize_payload_digest(
+    payload: &Value,
+    digest_suite: canonical::DigestSuite,
+) -> Result<Hash> {
+    let bytes = canonical::canonical_json_bytes(payload)?;
+    Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
+}
+
+/// Canonical digest for a locally constructed, typed
+/// [`DeviceAuthorizePayload`].
+///
+/// Producers should use this entry point so an untyped JSON value cannot be
+/// substituted while constructing a root commitment. Verifiers that already
+/// received wire JSON must continue to use [`device_authorize_payload_digest`]
+/// to hash the exact admitted payload object without a parse/reserialize
+/// round-trip.
+pub fn typed_device_authorize_payload_digest(
+    payload: &DeviceAuthorizePayload,
+    digest_suite: canonical::DigestSuite,
+) -> Result<Hash> {
+    payload
+        .validate_wire_constraints()
+        .map_err(|reason| WireError::Protocol(reason.to_owned()))?;
+    let bytes = canonical::canonical_json_bytes(payload)?;
+    Ok(Hash::new(canonical::digest(digest_suite, &bytes))?)
+}
+
+/// Verify that a root-anchored commitment names this exact authorize payload.
+pub fn validate_root_anchored_authorize_payload_digest(
+    committed_digest: &Hash,
+    payload: &Value,
+    digest_suite: canonical::DigestSuite,
+) -> Result<()> {
+    let authorize: DeviceAuthorizePayload = serde_json::from_value(payload.clone())?;
+    if !matches!(
+        authorize.authorization_binding_kind,
+        DeviceAuthorizationBindingKind::RegistrationAnchor
+            | DeviceAuthorizationBindingKind::PcrRecovery
+    ) {
+        return Err(WireError::Protocol(
+            "root-anchored unit requires a registration_anchor or pcr_recovery binding".to_owned(),
+        ));
+    }
+    if device_authorize_payload_digest(payload, digest_suite)? != *committed_digest {
+        return Err(WireError::Protocol(
+            "root-anchored authorize payload digest mismatch".to_owned(),
+        ));
+    }
+    Ok(())
+}

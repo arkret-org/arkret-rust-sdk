@@ -292,6 +292,7 @@ event_payload_accessors! {
     event_spec::ProfileUpdate => (as_profile_update, ActorProfileUpdatePayload),
     event_spec::ProfileRealmOverride => (as_profile_realm_override, ProfileRealmOverridePayload),
     event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeries),
+    event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| WireError::Protocol(reason.to_owned()))),
     event_spec::DevicePushRoute => (as_device_push_route, DevicePushRoutePayload),
     event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload, MlsGenesisPayload::validate),
     event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload, MlsCommitPayload::validate),
@@ -519,6 +520,69 @@ mod tests {
             digest
         );
         assert_eq!(event.payload["content"]["body"], "hello");
+    }
+
+    fn device_authorize_payload_value() -> Value {
+        json!({
+            "device_id": "ak:device:0198ff00-0000-7000-8000-000000000001",
+            "device_public_key_did": "did:key:z6MkfixtureDeviceKey",
+            "hpke_key": "z6LSfixtureHpkeKey",
+            "algorithms": ["ak.hpke_x25519_aead_chacha20poly1305.v1"],
+            "device_key_algorithm": "Ed25519",
+            "authorized_by": "ak:did_core:webvh:z6mkfixture:alice.example",
+            "not_before": "2026-04-26T00:00:00.000Z",
+            "authorization_binding_kind": "registration_anchor",
+            "device_signature": "cGVuZGluZw"
+        })
+    }
+
+    #[test]
+    fn device_authorize_binds_its_typed_payload() {
+        let mut event = base_event();
+        event.kind = EventKind::DeviceAuthorize;
+        event.payload = serde_json::from_value(device_authorize_payload_value()).unwrap();
+
+        let payload = event.as_device_authorize().unwrap();
+        assert_eq!(
+            payload.device_id.as_str(),
+            "ak:device:0198ff00-0000-7000-8000-000000000001"
+        );
+        assert_eq!(
+            payload.authorization_binding_kind,
+            DeviceAuthorizationBindingKind::RegistrationAnchor
+        );
+        assert!(payload.pairing_challenge_transcript_digest.is_none());
+        validate_event_payload(
+            &EventKind::DeviceAuthorize,
+            &Value::Object(event.payload.clone().into_iter().collect()),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn device_authorize_rejects_a_binding_kind_that_contradicts_its_anchor() {
+        // `accepted_device` is the only branch that carries a pairing
+        // challenge transcript, and it anchors on a device rather than a
+        // principal; the registration-anchor fixture therefore fails the
+        // payload's own wire constraints instead of parsing.
+        let mut payload = device_authorize_payload_value();
+        payload.as_object_mut().unwrap().insert(
+            "authorization_binding_kind".to_owned(),
+            json!("accepted_device"),
+        );
+
+        let mut event = base_event();
+        event.kind = EventKind::DeviceAuthorize;
+        event.payload = serde_json::from_value(payload).unwrap();
+
+        let error = event.as_device_authorize().unwrap_err();
+        assert!(matches!(
+            error,
+            WireError::PayloadInvalid {
+                kind: event_spec::DeviceAuthorize::KIND_STR,
+                ..
+            }
+        ));
     }
 
     #[test]

@@ -175,10 +175,11 @@ pub enum AgentHumanApprovalProblemError {
 /// Both identifiers name the same 33-octet token under two prefixes. The pair
 /// is derived here, never accepted from two independent inputs, so a producer
 /// cannot emit an `invite_id` and a `create_event_id` that disagree and a
-/// client cannot be handed a `head_eq` value it has to re-spell itself. The
-/// slot stores the `ak:event:` spelling verbatim: [`Self::create_event_id`] is
-/// the value a release Move must assert, and `invite_id` is only the object
-/// name to show a human or look a lifecycle up by.
+/// client cannot be handed an `expected_revision` value it has to re-spell
+/// itself. The slot stores the `ak:event:` spelling verbatim:
+/// [`Self::create_event_id`] is the value a release Event must assert, and
+/// `invite_id` is only the object name to show a human or look a lifecycle up
+/// by.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct InviteLiveTargetOccupiedProblem {
     reason_code: &'static str,
@@ -207,8 +208,8 @@ impl InviteLiveTargetOccupiedProblem {
         &self.invite_id
     }
 
-    /// The current slot value, and therefore the exact `head_eq` value a
-    /// release Move must carry. Always the `ak:event:` spelling.
+    /// The current slot value, and therefore the exact `expected_revision`
+    /// value a release Event must carry. Always the `ak:event:` spelling.
     pub fn create_event_id(&self) -> &crate::EventId {
         &self.create_event_id
     }

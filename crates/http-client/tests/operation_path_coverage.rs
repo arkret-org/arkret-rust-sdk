@@ -56,6 +56,18 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/data.rs"),
     ),
     (
+        "endpoints/key_backup.rs",
+        include_str!("../src/endpoints/key_backup.rs"),
+    ),
+    (
+        "endpoints/security.rs",
+        include_str!("../src/endpoints/security.rs"),
+    ),
+    (
+        "key_backup_client.rs",
+        include_str!("../src/key_backup_client.rs"),
+    ),
+    (
         "endpoints/authority.rs",
         include_str!("../src/endpoints/authority.rs"),
     ),

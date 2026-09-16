@@ -37,6 +37,7 @@ DEFAULT_SPEC_ROOT = ROOT.parent / "arkret-spec" / "spec" / "v1" / "artifacts" / 
 IDENTITY_TYPES = {
     "DidCoreId",
     "Did",
+    "DidKey",
     "DidUrl",
     "CoreId",
     "PrincipalId",
@@ -97,6 +98,22 @@ def scan_fields(source_root: Path) -> list[RustField]:
     return fields
 
 
+def is_did_key_scalar(node: Any) -> bool:
+    """True when a resolved def narrows to a fragmentless `did:key` string.
+
+    A def named `<something>_did` may alias `did_key`, which is strictly
+    narrower than a generic `did`. Matching on the alias name alone would widen
+    the required Rust type from `DidKey` back to `Did`, so the resolved pattern
+    decides.
+    """
+    return (
+        isinstance(node, dict)
+        and node.get("type") == "string"
+        and isinstance(node.get("pattern"), str)
+        and node["pattern"].startswith("^did:key:")
+    )
+
+
 def referenced_identity_kind(
     resolver: SchemaResolver,
     path: Path,
@@ -114,10 +131,24 @@ def referenced_identity_kind(
             return "actor"
         if tail in {"did_core_id", "core_id"}:
             return "core"
-        if tail == "did" or tail.endswith("_did"):
-            return "did"
+        if tail in {"did_key", "did_key_did"}:
+            return "did_key"
         if tail == "did_url":
             return "url"
+        # A def whose whole body is another `$ref` is an alias, and the name it
+        # was given says nothing about the scalar it narrows to:
+        # `requesting_device_public_key_did` aliases `did_key`, which is a
+        # strictly narrower string than a generic `did`. Follow the alias before
+        # falling back to the name suffix, or the suffix silently widens the
+        # required Rust type.
+        if tail == "did" or tail.endswith("_did"):
+            try:
+                _, alias_node = resolver.resolve_ref(path, node)
+            except (FileNotFoundError, KeyError, json.JSONDecodeError, TypeError):
+                return "did"
+            if is_did_key_scalar(alias_node):
+                return "did_key"
+            return "did"
         # A reference to a compound object may contain identity fields without
         # itself being an identity scalar. Only aliases whose final reference
         # names one of the scalar definitions above participate in this gate.
@@ -201,6 +232,7 @@ def validate(fields: Iterable[RustField], resolver: SchemaResolver) -> list[str]
             "actor": {"ActorId"},
             "core": {"DidCoreId"},
             "did": {"Did"},
+            "did_key": {"DidKey"},
             "url": {"DidUrl"},
         }[expected_kind]
         if actual not in expected:

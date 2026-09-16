@@ -1,8 +1,11 @@
 {
   "version": 2,
-  "total": 191,
+  "total": 170,
   "counts": {
-    "internal": 191
+    "internal": 47,
+    "optional_has_default": 119,
+    "required": 3,
+    "schema_field_unknown": 1
   },
   "sites": [
     {
@@ -66,32 +69,8 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 219,
-      "struct_name": "ConsentCellView",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 223,
-      "struct_name": "ConsentCellView",
-      "field_name": "requested_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 568,
+      "file": "crates/models-collaboration/src/account_status.rs",
+      "line": 44,
       "struct_name": "UnsignedAccountStatusRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -102,88 +81,88 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-collaboration/src/account_lifecycle.rs",
-      "line": 724,
+      "file": "crates/models-collaboration/src/account_status.rs",
+      "line": 198,
       "struct_name": "AccountStatusRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "account-operations.schema.json#/$defs/account_status_record",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 737,
+      "line": 116,
       "struct_name": "AgentProjection",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-operations.schema.json#/$defs/agent_projection",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 743,
+      "line": 119,
       "struct_name": "AgentProjection",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-operations.schema.json#/$defs/agent_projection",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 1169,
-      "struct_name": "AgentSidecar",
-      "field_name": "state_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 1177,
-      "struct_name": "AgentSidecar",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 2143,
+      "line": 228,
       "struct_name": "KeyState",
       "field_name": "pairing_expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-operations.schema.json#/$defs/key_state",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-collaboration/src/agent_operations.rs",
-      "line": 2153,
-      "struct_name": "KeyState",
-      "field_name": "approval_requested_at",
+      "file": "crates/models-collaboration/src/consent_operations.rs",
+      "line": 38,
+      "struct_name": "ConsentView",
+      "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "consent-operations.schema.json#/$defs/consent_view",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/consent_operations.rs",
+      "line": 44,
+      "struct_name": "ConsentView",
+      "field_name": "requested_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "consent-operations.schema.json#/$defs/consent_view",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/event_query.rs",
+      "line": 314,
+      "struct_name": "RedactedEventView",
+      "field_name": "created_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/RedactedEventView",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/account_data.rs",
@@ -193,9 +172,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/account_data_set_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/account_data.rs",
@@ -217,45 +196,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/audit.rs",
-      "line": 149,
-      "struct_name": "AuditAppletBindingCreatePayload",
-      "field_name": "not_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/audit.rs",
-      "line": 185,
-      "struct_name": "AuditPayload",
-      "field_name": "accessed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/audit.rs",
-      "line": 318,
-      "struct_name": "AuditSessionPayload",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/agent_key_authorize_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
@@ -265,9 +208,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/call_participant",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/call.rs",
@@ -301,9 +244,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "call-recording-artifact.schema.json#/$defs/call_recording_deletion_audit",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/circle.rs",
@@ -313,93 +256,69 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/circle_member_state_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/consent.rs",
-      "line": 18,
+      "line": 30,
       "struct_name": "ConsentGrantPayload",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/consent_grant_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/consent.rs",
-      "line": 21,
+      "line": 33,
       "struct_name": "ConsentGrantPayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
-      "line": 582,
-      "struct_name": "DeviceListUpdatePayload",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/device_identity.rs",
-      "line": 600,
-      "struct_name": "DeviceListUpdatePayloadWire",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/consent_grant_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/event_wire.rs",
-      "line": 136,
+      "line": 124,
       "struct_name": "Message",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "message.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/event_wire.rs",
-      "line": 141,
+      "line": 129,
       "struct_name": "Message",
       "field_name": "edited_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "message.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/event_wire.rs",
-      "line": 151,
+      "line": 139,
       "struct_name": "Message",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "message.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/mention.rs",
@@ -433,61 +352,61 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/mimi_room_binding_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
-      "line": 454,
+      "line": 81,
       "struct_name": "ModerationDecisionLiftPayload",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/moderation_decision_lift_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/moderation.rs",
-      "line": 493,
+      "line": 99,
       "struct_name": "ModerationDecisionPayload",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/moderation_decision_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 937,
+      "line": 658,
       "struct_name": "RealmOrganizationPayload",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/realm_organization_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 941,
+      "line": 662,
       "struct_name": "RealmOrganizationPayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/realm_organization_payload",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1027,
+      "line": 748,
       "struct_name": "OrganizationStatementTranscript",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
@@ -499,59 +418,11 @@
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/realm.rs",
-      "line": 1032,
+      "line": 753,
       "struct_name": "OrganizationStatementTranscript",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 913,
-      "struct_name": "OrganizationModerationPolicyRule",
-      "field_name": "created_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 919,
-      "struct_name": "OrganizationModerationPolicyRule",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 933,
-      "struct_name": "OrganizationModerationPolicyDocument",
-      "field_name": "not_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/events_payloads/state.rs",
-      "line": 939,
-      "struct_name": "OrganizationModerationPolicyDocument",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
       "has_skip": true,
       "schema_pointer": null,
       "schema_source": "none",
@@ -565,9 +436,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/events_payloads/view.rs",
@@ -577,13 +448,13 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/accountability.rs",
-      "line": 119,
+      "line": 109,
       "struct_name": "AccountabilityGrantPayload",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -601,9 +472,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-operations.schema.json#/$defs/grant_snapshot",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/agent_artifacts.rs",
@@ -613,69 +484,21 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-operations.schema.json#/$defs/agent_key_authorization_state",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/agent_membership_cascade.rs",
-      "line": 92,
+      "line": 118,
       "struct_name": "AgentCleanupRecord",
       "field_name": "completed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/audit.rs",
-      "line": 129,
-      "struct_name": "AuditRywWitness",
-      "field_name": "attested_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/audit.rs",
-      "line": 245,
-      "struct_name": "AuditAttestationChainEntry",
-      "field_name": "issued_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/audit.rs",
-      "line": 297,
-      "struct_name": "AuditAttestationRevocation",
-      "field_name": "last_checked_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/governance/audit.rs",
-      "line": 303,
-      "struct_name": "AuditAttestationRevocation",
-      "field_name": "next_check_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-membership-cascade.schema.json#/$defs/agent_cleanup_record",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/authorization.rs",
@@ -685,45 +508,45 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/AuthzCheckOutcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 220,
+      "line": 187,
       "struct_name": "Circle",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "circle.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 228,
+      "line": 195,
       "struct_name": "Circle",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "circle.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/circle.rs",
-      "line": 270,
+      "line": 228,
       "struct_name": "CircleView",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "circle-operations.schema.json#/$defs/circle_view",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/erasure.rs",
@@ -733,9 +556,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "erasure-receipt.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "schema_field_unknown"
     },
     {
       "file": "crates/models-collaboration/src/governance/erasure.rs",
@@ -745,57 +568,57 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "erasure-receipt.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 324,
+      "line": 325,
       "struct_name": "GrantConstraint",
       "field_name": "not_before",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "grant-constraint.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 327,
+      "line": 328,
       "struct_name": "GrantConstraint",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "grant-constraint.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 704,
+      "line": 701,
       "struct_name": "CapabilityGrant",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "capability-grant.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/grant_constraint.rs",
-      "line": 712,
+      "line": 709,
       "struct_name": "CapabilityGrant",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "capability-grant.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/invite_addressing.rs",
@@ -817,9 +640,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/moderation_queue.rs",
@@ -841,9 +664,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "moderation-queue-item.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -853,9 +676,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "policy.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -865,9 +688,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "policy.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
@@ -877,25 +700,25 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "policy.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/operation_wire.rs",
-      "line": 372,
+      "line": 369,
       "struct_name": "Invite",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "invite.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/peer_contact.rs",
-      "line": 95,
+      "line": 93,
       "struct_name": "ContactIntroductionEvidence",
       "field_name": "resolved_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -925,9 +748,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_row",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
@@ -937,9 +760,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_row",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/realm_governance.rs",
@@ -949,9 +772,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "realm-organization-operations.schema.json#/$defs/realm_organization_relationship_row",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance/third_party_invite.rs",
@@ -961,213 +784,21 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "invite.schema.json#/$defs/third_party_invite_provisioning_status_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/governance_payloads.rs",
-      "line": 68,
+      "line": 19,
       "struct_name": "ConsentRevokePayload",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1431,
-      "struct_name": "SignalSubmitOutcome",
-      "field_name": "server_received_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1471,
-      "struct_name": "ProjectionSpaceRow",
-      "field_name": "created_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1475,
-      "struct_name": "ProjectionSpaceRow",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1479,
-      "struct_name": "ProjectionSpaceRow",
-      "field_name": "state_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1506,
-      "struct_name": "ProjectionStrandRow",
-      "field_name": "state_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1519,
-      "struct_name": "ProjectionStrandRow",
-      "field_name": "stage_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1550,
-      "struct_name": "ProjectionStrandRow",
-      "field_name": "created_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1556,
-      "struct_name": "ProjectionStrandRow",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1595,
-      "struct_name": "ProjectionMorphRow",
-      "field_name": "state_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1608,
-      "struct_name": "ProjectionMorphRow",
-      "field_name": "stage_changed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1616,
-      "struct_name": "ProjectionMorphRow",
-      "field_name": "created_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 1620,
-      "struct_name": "ProjectionMorphRow",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 2088,
-      "struct_name": "MimiRequestConsentRequestBody",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 2170,
-      "struct_name": "MimiUpdateConsentRequestBody",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 2528,
-      "struct_name": "MimiProxyDownloadOutcome",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/http_bodies.rs",
-      "line": 2871,
-      "struct_name": "RedactedEventView",
-      "field_name": "created_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/consent_revoke_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/object_lifecycle.rs",
@@ -1177,9 +808,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/space_state_transition_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/object_lifecycle.rs",
@@ -1189,9 +820,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/space_object_tombstone_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/blob.rs",
@@ -1201,9 +832,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "blob.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/calendar_recurrence.rs",
@@ -1243,7 +874,7 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1391,
+      "line": 1386,
       "struct_name": "RealmRemark",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1255,31 +886,31 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1422,
+      "line": 1417,
       "struct_name": "ContactRemark",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "contact-remark.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1631,
+      "line": 1626,
       "struct_name": "AccountBlocklistPayload",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "event-payload.schema.json#/$defs/account_blocklist_payload",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/productivity.rs",
-      "line": 1646,
+      "line": 1641,
       "struct_name": "AccountBlocklistPayloadEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1297,9 +928,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "morph.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
@@ -1309,9 +940,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "morph.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
@@ -1321,9 +952,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "morph.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/profiles.rs",
@@ -1333,85 +964,217 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "identity-link.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 127,
+      "line": 128,
       "struct_name": "View",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/queries.rs",
-      "line": 157,
+      "line": 158,
       "struct_name": "View",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/query_projection.rs",
-      "line": 74,
+      "line": 64,
       "struct_name": "DocumentMorphProjection",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/query_projection.rs",
-      "line": 86,
+      "line": 76,
       "struct_name": "DocumentMorphProjection",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/query_projection.rs",
-      "line": 91,
+      "line": 81,
       "struct_name": "DocumentMorphProjection",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "view.schema.json#/$defs/document_morph_projection_outcome/properties/document",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 116,
+      "struct_name": "ProjectionMorphRow",
+      "field_name": "state_changed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 129,
+      "struct_name": "ProjectionMorphRow",
+      "field_name": "stage_changed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 137,
+      "struct_name": "ProjectionMorphRow",
+      "field_name": "created_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 143,
+      "struct_name": "ProjectionMorphRow",
+      "field_name": "updated_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionMorphRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 176,
+      "struct_name": "ProjectionSpaceRow",
+      "field_name": "state_changed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 184,
+      "struct_name": "ProjectionSpaceRow",
+      "field_name": "created_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 190,
+      "struct_name": "ProjectionSpaceRow",
+      "field_name": "updated_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionSpaceRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 207,
+      "struct_name": "ProjectionStrandRow",
+      "field_name": "state_changed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 220,
+      "struct_name": "ProjectionStrandRow",
+      "field_name": "stage_changed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 257,
+      "struct_name": "ProjectionStrandRow",
+      "field_name": "created_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/objects/query_projection.rs",
+      "line": 265,
+      "struct_name": "ProjectionStrandRow",
+      "field_name": "updated_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/ProjectionStrandRow",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
-      "line": 627,
+      "line": 732,
       "struct_name": "Notification",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "notification.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
-      "line": 659,
+      "line": 764,
       "struct_name": "NotificationWire",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1423,27 +1186,27 @@
     },
     {
       "file": "crates/models-collaboration/src/objects/read_receipts.rs",
-      "line": 783,
+      "line": 888,
       "struct_name": "OrdinaryProjectionContent",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "notification.schema.json#/$defs/ordinary_projection_content",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/realm.rs",
-      "line": 148,
+      "line": 62,
       "struct_name": "Realm",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "realm.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/relation.rs",
@@ -1453,9 +1216,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "relation.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/relation.rs",
@@ -1465,97 +1228,85 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "relation.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/space.rs",
-      "line": 109,
+      "line": 107,
       "struct_name": "Space",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "space.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/space.rs",
-      "line": 120,
+      "line": 118,
       "struct_name": "Space",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "space.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
-      "line": 247,
+      "line": 204,
       "struct_name": "Strand",
       "field_name": "state_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "strand.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
-      "line": 258,
+      "line": 215,
       "struct_name": "Strand",
       "field_name": "stage_changed_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "strand.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-collaboration/src/objects/strand.rs",
-      "line": 269,
+      "line": 226,
       "struct_name": "Strand",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "strand.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-collaboration/src/session_grant_bodies.rs",
-      "line": 849,
-      "struct_name": "AuthSessionLogoutRequestBody",
-      "field_name": "validated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-collaboration/src/session_grant_bodies.rs",
-      "line": 897,
+      "file": "crates/models-collaboration/src/session_grants.rs",
+      "line": 518,
       "struct_name": "SessionGrantIntrospectGrant",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/SessionGrantIntrospectGrant",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
-      "file": "crates/models-collaboration/src/session_grant_bodies.rs",
-      "line": 926,
+      "file": "crates/models-collaboration/src/session_grants.rs",
+      "line": 554,
       "struct_name": "SessionGrantIntrospectGrantWire",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1566,28 +1317,52 @@
       "classification": "internal"
     },
     {
+      "file": "crates/models-collaboration/src/session_grants.rs",
+      "line": 800,
+      "struct_name": "AuthSessionLogoutRequestBody",
+      "field_name": "validated_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/AuthSessionLogoutRequestBody",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-collaboration/src/signal_operations.rs",
+      "line": 17,
+      "struct_name": "SignalSubmitOutcome",
+      "field_name": "server_received_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/SignalSubmitOutcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 893,
+      "line": 272,
       "struct_name": "KeyRecord",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "has_skip": false,
+      "schema_pointer": "keys-operations.schema.json#/$defs/key_record",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-crypto/src/artifacts_keys.rs",
-      "line": 896,
+      "line": 277,
       "struct_name": "KeyRecord",
       "field_name": "created_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "has_skip": false,
+      "schema_pointer": "keys-operations.schema.json#/$defs/key_record",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-crypto/src/http_bodies.rs",
@@ -1615,55 +1390,31 @@
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 718,
-      "struct_name": "KeyBackupSummary",
-      "field_name": "updated_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 722,
-      "struct_name": "KeyBackupSummary",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 762,
+      "line": 72,
       "struct_name": "KeyBackup",
       "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "key-backup.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 766,
+      "line": 75,
       "struct_name": "KeyBackup",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "key-backup.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 1871,
+      "line": 421,
       "struct_name": "KeyBackupRetention",
       "field_name": "delete_after",
       "field_type": "Option<DateTime<Utc>>",
@@ -1674,10 +1425,10 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 1908,
-      "struct_name": "RecoveryPolicy",
-      "field_name": "not_before",
+      "file": "crates/models-crypto/src/key_backup_operations.rs",
+      "line": 78,
+      "struct_name": "KeyBackupSummary",
+      "field_name": "updated_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
@@ -1686,70 +1437,10 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 1912,
-      "struct_name": "RecoveryPolicy",
+      "file": "crates/models-crypto/src/key_backup_operations.rs",
+      "line": 81,
+      "struct_name": "KeyBackupSummary",
       "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2351,
-      "struct_name": "RecoveryPolicySummary",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2371,
-      "struct_name": "RecoveryControlFrontier",
-      "field_name": "observed_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2386,
-      "struct_name": "RecoveryPolicyActiveOutcome",
-      "field_name": "as_of",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2536,
-      "struct_name": "RecoveryKeyEntry",
-      "field_name": "revoked_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/models-crypto/src/key_backup.rs",
-      "line": 2618,
-      "struct_name": "RecoveryKeyAgreementEntry",
-      "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
@@ -1765,9 +1456,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
       "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "keys-operations.schema.json#/$defs/device_projection_attestation_core/properties/authorization_window",
+      "schema_source": "doc-pointer",
+      "classification": "required"
     },
     {
       "file": "crates/models-crypto/src/mls_records.rs",
@@ -1782,52 +1473,148 @@
       "classification": "internal"
     },
     {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 79,
+      "struct_name": "RecoveryKeyAgreementEntry",
+      "field_name": "revoked_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_key_agreement_entry",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 100,
+      "struct_name": "RecoveryKeyEntry",
+      "field_name": "revoked_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_key_entry",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 217,
+      "struct_name": "RecoveryPolicy",
+      "field_name": "not_before",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 223,
+      "struct_name": "RecoveryPolicy",
+      "field_name": "expires_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 321,
+      "struct_name": "RecoveryPolicySummary",
+      "field_name": "expires_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_policy_summary",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 327,
+      "struct_name": "RecoveryPolicySummary",
+      "field_name": "accepted_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_policy_summary",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 371,
+      "struct_name": "RecoveryAuthorityStreamHead",
+      "field_name": "observed_at",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": null,
+      "schema_source": "none",
+      "classification": "internal"
+    },
+    {
+      "file": "crates/models-crypto/src/recovery_policy.rs",
+      "line": 392,
+      "struct_name": "RecoveryPolicyActiveOutcome",
+      "field_name": "as_of",
+      "field_type": "Option<DateTime<Utc>>",
+      "has_default": true,
+      "has_skip": true,
+      "schema_pointer": "recovery-policy.schema.json#/$defs/recovery_policy_active_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
+    },
+    {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 768,
+      "line": 693,
       "struct_name": "DirectoryAgentSelectorResolutionOutcome",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_agent_selector_resolution_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 818,
+      "line": 743,
       "struct_name": "DirectoryListHandlesForSubjectRequestBody",
       "field_name": "as_of",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_list_handles_for_subject_request_body",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 1088,
+      "line": 1013,
       "struct_name": "DirectoryWithdrawRequestBody",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "service-operation-dtos.schema.json#/$defs/DirectoryWithdrawRequestBody",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/directory.rs",
-      "line": 1197,
+      "line": 1122,
       "struct_name": "DirectoryHandleResolutionOutcome",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_handle_resolution_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/http_bodies.rs",
@@ -1837,9 +1624,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/invite_consent_handoff_stub",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/presence.rs",
@@ -1849,49 +1636,49 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "presence-preference.schema.json",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1694,
+      "line": 1574,
       "struct_name": "VerifiedProfileEntry",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "service-describe.schema.json#/properties/verified_profiles/items",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1830,
+      "line": 1710,
       "struct_name": "RateLimitPolicy",
       "field_name": "effective_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "service-describe.schema.json#/properties/rate_limit_policy",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1833,
+      "line": 1713,
       "struct_name": "RateLimitPolicy",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "service-describe.schema.json#/properties/rate_limit_policy",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-discovery/src/service_description.rs",
-      "line": 1898,
+      "line": 1778,
       "struct_name": "RateLimitEntry",
       "field_name": "next_retry_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1939,7 +1726,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 259,
+      "line": 256,
       "struct_name": "AccountDeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1951,7 +1738,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 262,
+      "line": 259,
       "struct_name": "AccountDeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1963,7 +1750,7 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 265,
+      "line": 262,
       "struct_name": "AccountDeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -1975,15 +1762,15 @@
     },
     {
       "file": "crates/models-identity/src/account.rs",
-      "line": 956,
+      "line": 952,
       "struct_name": "AccountRequestErasureOutcome",
       "field_name": "withdrawal_window_ends_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "account-operations.schema.json#/$defs/account_request_erasure_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/actor_profile.rs",
@@ -1993,9 +1780,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "actor-profile.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/admin_grant.rs",
@@ -2010,52 +1797,40 @@
       "classification": "internal"
     },
     {
-      "file": "crates/models-identity/src/agent_signer_evidence.rs",
-      "line": 125,
-      "struct_name": "AgentAuthorizationEvidence",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 68,
+      "line": 61,
       "struct_name": "DeviceSummary",
       "field_name": "authorized_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "account-operations.schema.json#/$defs/device_summary",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 71,
+      "line": 64,
       "struct_name": "DeviceSummary",
       "field_name": "last_seen_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "account-operations.schema.json#/$defs/device_summary",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/artifacts_account.rs",
-      "line": 74,
+      "line": 67,
       "struct_name": "DeviceSummary",
       "field_name": "revoked_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "account-operations.schema.json#/$defs/device_summary",
+      "schema_source": "doc-pointer",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2065,9 +1840,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2077,9 +1852,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2089,9 +1864,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_presented_claim",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2101,9 +1876,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "directory-operations.schema.json#/$defs/directory_restricted_claim_presentation",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2113,9 +1888,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-selector-claim.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/claim_presentation.rs",
@@ -2125,9 +1900,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "agent-selector-claim.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-identity/src/device_push_route.rs",
@@ -2173,9 +1948,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
       "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "handle-claim.schema.json#/$defs/handle_claim_core",
+      "schema_source": "def-index",
+      "classification": "required"
     },
     {
       "file": "crates/models-identity/src/handle_claim.rs",
@@ -2197,9 +1972,9 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": false,
       "has_skip": false,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "handle-claim.schema.json",
+      "schema_source": "def-index",
+      "classification": "required"
     },
     {
       "file": "crates/models-identity/src/handle_claim.rs",
@@ -2221,13 +1996,13 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "member-identity.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/models-integration/src/applet/registration.rs",
-      "line": 1244,
+      "line": 1246,
       "struct_name": "AppletPackage",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
@@ -2245,51 +2020,27 @@
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "push-operations.schema.json#/$defs/push_register_device_outcome",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
       "file": "crates/policy/src/authz/authority.rs",
-      "line": 165,
+      "line": 161,
       "struct_name": "GrantConstraint",
       "field_name": "expires_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
+      "schema_pointer": "grant-constraint.schema.json",
+      "schema_source": "def-index",
+      "classification": "optional_has_default"
     },
     {
-      "file": "crates/state/src/consent.rs",
-      "line": 88,
-      "struct_name": "ConsentGrantValue",
-      "field_name": "not_before",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/state/src/consent.rs",
-      "line": 91,
-      "struct_name": "ConsentGrantValue",
-      "field_name": "expires_at",
-      "field_type": "Option<DateTime<Utc>>",
-      "has_default": true,
-      "has_skip": true,
-      "schema_pointer": null,
-      "schema_source": "none",
-      "classification": "internal"
-    },
-    {
-      "file": "crates/wire/src/bottom.rs",
-      "line": 38,
-      "struct_name": "Bottom",
-      "field_name": "escalated_at",
+      "file": "crates/wire/src/authority_commit.rs",
+      "line": 675,
+      "struct_name": "MemberStateCurrent",
+      "field_name": "joined_at",
       "field_type": "Option<DateTime<Utc>>",
       "has_default": true,
       "has_skip": true,

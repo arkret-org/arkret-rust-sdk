@@ -6,6 +6,9 @@ use arkret_wire::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::governance::agent_membership_cascade::{
+    AgentControllerMembershipBinding, MembershipLifecycleCause,
+};
 use crate::governance::third_party_invite::ThirdPartyInvite;
 use crate::objects::relation::Relation;
 
@@ -160,6 +163,8 @@ pub enum JoinPolicyChallengeKind {
 /// is not membership state.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `event-payload.schema.json#/$defs/membership_payload`.
 pub struct MembershipPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
@@ -171,6 +176,15 @@ pub struct MembershipPayload {
     pub gate_proofs: Vec<JoinGateProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// Closed audit-only lifecycle cause. It classifies the transition and
+    /// never supplies authority (`zh/models/actor.md` section on explicit
+    /// cascade).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_cause: Option<MembershipLifecycleCause>,
+    /// Exact controller authority pair and membership generation an Agent
+    /// membership is bound to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_controller_binding: Option<AgentControllerMembershipBinding>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_ref: Option<MembershipInviteRef>,
@@ -197,6 +211,8 @@ impl MembershipPayload {
             member_id,
             gate_proofs: Vec::new(),
             reason: Some(reason.into()),
+            membership_cause: None,
+            agent_controller_binding: None,
             invite_ref: None,
         }
     }
@@ -211,6 +227,8 @@ impl MembershipPayload {
             member_id,
             gate_proofs: Vec::new(),
             reason: Some(reason.into()),
+            membership_cause: None,
+            agent_controller_binding: None,
             invite_ref: None,
         }
     }
@@ -230,6 +248,32 @@ impl MembershipPayload {
             return Err(WireError::Protocol(
                 "membership payload reason exceeds 256 characters".to_owned(),
             ));
+        }
+        if self.membership_cause.is_some() {
+            let binding = self.agent_controller_binding.as_ref().ok_or_else(|| {
+                WireError::Protocol(
+                    "membership lifecycle cause requires the Agent controller binding".to_owned(),
+                )
+            })?;
+            if self.membership != MembershipPayloadState::Leave
+                || binding.controller_terminal_event_ref.is_none()
+            {
+                return Err(WireError::Protocol(
+                    "controller-membership-ended cleanup must be a leave bound to the terminal controller Event"
+                        .to_owned(),
+                ));
+            }
+            binding.validate()?;
+        }
+        if self.membership == MembershipPayloadState::Join
+            && let Some(binding) = self.agent_controller_binding.as_ref()
+        {
+            if binding.controller_terminal_event_ref.is_some() {
+                return Err(WireError::Protocol(
+                    "an Agent join binding must not carry a terminal controller Event".to_owned(),
+                ));
+            }
+            binding.validate()?;
         }
         self.member_id.validate()?;
         serde_json::to_value(self)

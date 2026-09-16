@@ -1,8 +1,8 @@
 //! Device identity receipt shapes.
 
 use arkret_wire::{
-    Audience, Did, DidCoreId, DidUrl, Hash, PayloadProof, ProofContextId, ReceiptId, Result,
-    SchemaId, TrustDomainId, WireError, canonical, project_did_to_core_id,
+    Audience, Did, DidCoreId, DidKey, DidUrl, Hash, PayloadProof, ProofContextId, ReceiptId,
+    Result, SchemaId, TrustDomainId, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -169,7 +169,7 @@ pub struct DidWebvhWitnessReceipt {
     pub version_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub log_head_digest: Option<Hash>,
-    pub witness_did: Did,
+    pub witness_did: DidKey,
     pub witness_verification_method: DidUrl,
     pub controlling_organization_did: Did,
     #[serde(with = "arkret_wire::serde_helpers::canonical_timestamp")]
@@ -264,16 +264,17 @@ impl DidWebvhWitnessReceipt {
                 "did:webvh witness receipt version_id must not be empty".to_owned(),
             ));
         }
-        if self.witness_did.method() != "key" {
-            return Err(WireError::Protocol(
-                "did:webvh witness receipt witness_did must use did:key".to_owned(),
-            ));
-        }
+        // `DidKey` only constructs from a `did:key:` string, so the method
+        // check the wire type used to need is now part of the type itself.
         let witness_key = self
             .witness_did
             .as_str()
             .strip_prefix("did:key:")
-            .expect("did:key method was checked above");
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "did:webvh witness receipt witness_did must use did:key".to_owned(),
+                )
+            })?;
         if self.witness_verification_method != format!("{}#{witness_key}", self.witness_did) {
             return Err(WireError::Protocol(
                 "did:webvh witness receipt witness_verification_method must be the canonical did:key verification method".to_owned(),
@@ -388,7 +389,7 @@ mod tests {
             log_head_digest: Some(
                 Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
             ),
-            witness_did: Did::new(
+            witness_did: DidKey::new(
                 "did:key:z6Mkrv5Cm2XCLumMPTqooLTCw6YDf421d7VdTziwrZ8vNf4L",
             )
             .unwrap(),

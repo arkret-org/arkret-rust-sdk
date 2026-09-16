@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::{
-    AccountId, CommitStreamRef, CommittedEventRef, DeviceId, DidUrl, Hash, ReceiptId,
+    AccountId, CommitStreamRef, CommittedEventRef, DeviceId, DidUrl, EventId, Hash, ReceiptId,
     RecoverySessionId, TransactionId,
 };
 
@@ -78,6 +78,8 @@ pub struct RecoveryCompletionAttestationAuthData {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the properties order of
+// recovery-authority.schema.json#/$defs/recovery_completion_attestation.
 pub struct RecoveryCompletionAttestation {
     pub schema: String,
     pub transaction_id: TransactionId,
@@ -90,15 +92,15 @@ pub struct RecoveryCompletionAttestation {
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
     pub replacement_device_id: DeviceId,
-    /// Exact authority commitment of the accepted recovery re-anchor Event.
-    pub reanchor_ref: CommittedEventRef,
-    /// Exact immediately following authority commitment of the replacement
-    /// device authorization Event.
-    pub device_authorization_ref: CommittedEventRef,
     pub result_model_generation_ref: u64,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub completed_at: DateTime<Utc>,
     pub auth_data: RecoveryCompletionAttestationAuthData,
+    /// Exact authority commitment of the accepted recovery re-anchor Event.
+    pub reanchor_event_ref: CommittedEventRef,
+    /// Exact immediately following authority commitment of the replacement
+    /// device authorization Event.
+    pub device_authorization_event_ref: CommittedEventRef,
 }
 
 impl RecoveryCompletionAttestation {
@@ -122,7 +124,10 @@ impl RecoveryCompletionAttestation {
                 "recovery completion generation must be positive".to_owned(),
             ));
         }
-        validate_recovery_commit_pair(&self.reanchor_ref, &self.device_authorization_ref)?;
+        validate_recovery_commit_pair(
+            &self.reanchor_event_ref,
+            &self.device_authorization_event_ref,
+        )?;
         Ok(())
     }
 
@@ -138,8 +143,8 @@ impl RecoveryCompletionAttestation {
             terminal_receipt_id: self.terminal_receipt_id.clone(),
             terminal_receipt_digest: self.terminal_receipt_digest.clone(),
             replacement_device_id: self.replacement_device_id.clone(),
-            reanchor_ref: self.reanchor_ref.clone(),
-            device_authorization_ref: self.device_authorization_ref.clone(),
+            reanchor_event_ref: self.reanchor_event_ref.clone(),
+            device_authorization_event_ref: self.device_authorization_event_ref.clone(),
             result_model_generation_ref: self.result_model_generation_ref,
             completed_at: self.completed_at,
         })
@@ -157,10 +162,10 @@ pub struct UnsignedRecoveryCompletionAttestationBody {
     pub terminal_receipt_id: ReceiptId,
     pub terminal_receipt_digest: Hash,
     pub replacement_device_id: DeviceId,
-    pub reanchor_ref: CommittedEventRef,
-    pub device_authorization_ref: CommittedEventRef,
     pub result_model_generation_ref: u64,
     pub completed_at: DateTime<Utc>,
+    pub reanchor_event_ref: CommittedEventRef,
+    pub device_authorization_event_ref: CommittedEventRef,
 }
 
 /// Non-serializable coordinator authoring state for a completion attestation.
@@ -201,8 +206,6 @@ impl UnsignedRecoveryCompletionAttestation {
             terminal_receipt_id: body.terminal_receipt_id,
             terminal_receipt_digest: body.terminal_receipt_digest,
             replacement_device_id: body.replacement_device_id,
-            reanchor_ref: body.reanchor_ref,
-            device_authorization_ref: body.device_authorization_ref,
             result_model_generation_ref: body.result_model_generation_ref,
             completed_at: body.completed_at,
             auth_data: RecoveryCompletionAttestationAuthData {
@@ -210,6 +213,8 @@ impl UnsignedRecoveryCompletionAttestation {
                 signature_algorithm: "Ed25519".to_owned(),
                 signature: signature.into_string(),
             },
+            reanchor_event_ref: body.reanchor_event_ref,
+            device_authorization_event_ref: body.device_authorization_event_ref,
         };
         attestation.validate_structural()?;
         Ok(attestation)
@@ -224,21 +229,40 @@ fn validate_recovery_completion_attestation_body(
             "recovery completion generation must be positive".to_owned(),
         ));
     }
-    validate_recovery_commit_pair(&body.reanchor_ref, &body.device_authorization_ref)?;
+    validate_recovery_commit_pair(
+        &body.reanchor_event_ref,
+        &body.device_authorization_event_ref,
+    )?;
     Ok(())
 }
 
+/// A completed RecoveryTransaction binds the re-anchor Event and the
+/// replacement-device authorize Event to two consecutive `CommittedEventRef`
+/// values in the same PCR Realm stream
+/// (`zh/crypto-media/device-lifecycle.md`, RecoveryTransaction termination).
+/// One RealmCommit carries exactly one `event_ref`
+/// (`realm-commit.schema.json`), so the pair names two distinct commits and
+/// two distinct Events at consecutive stream positions; a shared `commit_id`
+/// or a shared `event_id` is therefore a structural violation, not a match.
 fn validate_recovery_commit_pair(
-    reanchor_ref: &CommittedEventRef,
-    device_authorization_ref: &CommittedEventRef,
+    reanchor_event_ref: &CommittedEventRef,
+    device_authorization_event_ref: &CommittedEventRef,
 ) -> Result<()> {
-    if reanchor_ref.stream_ref != device_authorization_ref.stream_ref
-        || !matches!(reanchor_ref.stream_ref, CommitStreamRef::Realm { .. })
-        || device_authorization_ref.stream_position
-            != reanchor_ref.stream_position.saturating_add(1)
+    if reanchor_event_ref.stream_ref != device_authorization_event_ref.stream_ref
+        || !matches!(reanchor_event_ref.stream_ref, CommitStreamRef::Realm { .. })
+        || Some(device_authorization_event_ref.stream_position)
+            != reanchor_event_ref.stream_position.checked_add(1)
     {
         return Err(WireError::Protocol(
             "recovery reanchor and device authorization must be consecutive commits in the same PCR Realm stream"
+                .to_owned(),
+        ));
+    }
+    if reanchor_event_ref.commit_id == device_authorization_event_ref.commit_id
+        || reanchor_event_ref.event_id == device_authorization_event_ref.event_id
+    {
+        return Err(WireError::Protocol(
+            "recovery reanchor and device authorization must name two distinct commits and two distinct Events"
                 .to_owned(),
         ));
     }
@@ -259,8 +283,8 @@ fn recovery_completion_attestation_signing_bytes(
         "terminal_receipt_id": &body.terminal_receipt_id,
         "terminal_receipt_digest": &body.terminal_receipt_digest,
         "replacement_device_id": &body.replacement_device_id,
-        "reanchor_ref": &body.reanchor_ref,
-        "device_authorization_ref": &body.device_authorization_ref,
+        "reanchor_event_ref": &body.reanchor_event_ref,
+        "device_authorization_event_ref": &body.device_authorization_event_ref,
         "result_model_generation_ref": &body.result_model_generation_ref,
         "completed_at": crate::canonical::format_timestamp_canonical(body.completed_at),
     });
@@ -284,13 +308,14 @@ fn request_digest_without_digest<T: Serialize>(request: &T) -> Result<Hash> {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the properties order of
+// recovery-authority.schema.json#/$defs/issue_recovery_completion_grant_request.
 pub struct IssueRecoveryCompletionGrantRequest {
     pub transaction_id: TransactionId,
     pub transaction_request_digest: Hash,
     pub terminal_receipt: Value,
     pub completion_attestation: RecoveryCompletionAttestation,
-    pub reanchor_ref: CommittedEventRef,
-    pub device_authorization_ref: CommittedEventRef,
+    pub device_authorization_event_id: EventId,
     pub result_model_generation_ref: u64,
     pub initial_session: Value,
     pub canonical_request_digest: Hash,
@@ -306,8 +331,11 @@ impl IssueRecoveryCompletionGrantRequest {
         if self.transaction_id != self.completion_attestation.transaction_id
             || self.transaction_request_digest
                 != self.completion_attestation.transaction_request_digest
-            || self.reanchor_ref != self.completion_attestation.reanchor_ref
-            || self.device_authorization_ref != self.completion_attestation.device_authorization_ref
+            || self.device_authorization_event_id
+                != self
+                    .completion_attestation
+                    .device_authorization_event_ref
+                    .event_id
             || self.result_model_generation_ref
                 != self.completion_attestation.result_model_generation_ref
         {
@@ -318,8 +346,10 @@ impl IssueRecoveryCompletionGrantRequest {
         // The client-signed recovery receipt and Station completion
         // attestation must name the exact same committed re-anchor. The client
         // never signs or embeds the RealmCommit itself.
-        if self.terminal_receipt.get("reanchor_ref")
-            != Some(&serde_json::to_value(&self.reanchor_ref)?)
+        if self.terminal_receipt.get("reanchor_event_id")
+            != Some(&serde_json::to_value(
+                &self.completion_attestation.reanchor_event_ref.event_id,
+            )?)
         {
             return Err(WireError::Protocol(
                 "terminal receipt and completion attestation name different reanchor commits"
@@ -383,5 +413,25 @@ mod tests {
             realm_id: other_realm,
         };
         assert!(validate_recovery_commit_pair(&reanchor, &cross_stream).is_err());
+    }
+
+    #[test]
+    fn recovery_commit_pair_rejects_a_shared_commit_or_event() {
+        let reanchor = committed_ref(2, 3, 8);
+
+        let mut shared_commit = committed_ref(4, 3, 9);
+        shared_commit.commit_id = reanchor.commit_id.clone();
+        assert!(validate_recovery_commit_pair(&reanchor, &shared_commit).is_err());
+
+        let mut shared_event = committed_ref(2, 5, 9);
+        shared_event.event_id = reanchor.event_id.clone();
+        assert!(validate_recovery_commit_pair(&reanchor, &shared_event).is_err());
+    }
+
+    #[test]
+    fn recovery_commit_pair_rejects_a_saturating_position() {
+        let reanchor = committed_ref(2, 3, u64::MAX);
+        let authorization = committed_ref(4, 5, u64::MAX);
+        assert!(validate_recovery_commit_pair(&reanchor, &authorization).is_err());
     }
 }

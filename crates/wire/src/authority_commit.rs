@@ -498,6 +498,61 @@ pub struct EventCommitSubmission {
     pub event: Event,
 }
 
+/// Exact ordered, atomic PCR genesis unit: an identity-root signed
+/// `ak.realm.create` followed by a founding-device signed
+/// `ak.device.authorize`. These Events are replayable only inside this complete
+/// unit and its accepted receipt closure, never as standalone shared-history
+/// Events, and no partial acceptance is permitted.
+// Field declaration order is byte-for-byte the properties order of
+// principal-operations.schema.json#/$defs/pcr_genesis_unit.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PcrGenesisUnit {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = Vec<serde_json::Value>)))]
+    pub events: [Event; 2],
+}
+
+impl PcrGenesisUnit {
+    pub fn new(create: Event, founding_authorize: Event) -> Result<Self> {
+        let unit = Self {
+            events: [create, founding_authorize],
+        };
+        unit.validate_ordered_envelopes()?;
+        Ok(unit)
+    }
+
+    #[must_use]
+    pub fn create(&self) -> &Event {
+        &self.events[0]
+    }
+
+    #[must_use]
+    pub fn founding_authorize(&self) -> &Event {
+        &self.events[1]
+    }
+
+    pub fn validate_ordered_envelopes(&self) -> Result<()> {
+        let create = self.create();
+        let authorize = self.founding_authorize();
+        if create.kind != crate::EventKind::RealmCreate
+            || authorize.kind != crate::EventKind::DeviceAuthorize
+            || create.actor_id != authorize.actor_id
+            || create.realm_id != authorize.realm_id
+            || create.realm_id != RealmId::from_event_id(&create.event_id)
+            || create.event_id == authorize.event_id
+        {
+            return Err(WireError::Protocol(
+                "PCR genesis unit must be the exact ordered create/authorize pair".to_owned(),
+            ));
+        }
+        for event in &self.events {
+            event.validate_for_submit_structural()?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsCommitSubmission {

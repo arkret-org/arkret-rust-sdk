@@ -36,9 +36,8 @@ pub struct CapabilityGrantPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRevokePayload {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub grant_ref: Option<GrantId>,
     pub grant_id: GrantId,
+    pub expected_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -49,6 +48,7 @@ pub struct CapabilityRevokePayload {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRelinquishPayload {
     pub grant_id: GrantId,
+    pub expected_revision: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }

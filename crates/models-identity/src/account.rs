@@ -1,10 +1,11 @@
 use arkret_wire::{
-    CommittedEventRef, DeviceId, Did, DidCoreId, DidUrl, Hash, PayloadProof, RealmId, ReasonCode,
-    RequestId, Result, TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
+    AppletId, CommittedEventRef, DeviceId, Did, DidCoreId, DidUrl, Hash, PayloadProof, RealmId,
+    ReasonCode, RequestId, Result, SchemaId, ScopeRef, ServiceOperationId, SessionGrantId,
+    TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::artifacts_account::{
     DeviceSummaryStatus, DeviceSummaryVerificationSource, DeviceSummaryVerificationState,
@@ -1145,16 +1146,16 @@ impl AccountRegistrationControlProof {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum IdentityCreationEventKind {
+pub enum PcrGenesisUnitKind {
     #[serde(rename = "ak.realm.create")]
     RealmCreate,
     #[serde(rename = "ak.device.authorize")]
     DeviceAuthorize,
 }
 
-pub const IDENTITY_CREATION_EVENT_KINDS: [IdentityCreationEventKind; 2] = [
-    IdentityCreationEventKind::RealmCreate,
-    IdentityCreationEventKind::DeviceAuthorize,
+pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitKind; 2] = [
+    PcrGenesisUnitKind::RealmCreate,
+    PcrGenesisUnitKind::DeviceAuthorize,
 ];
 
 /// Producer-signed identity bootstrap Events. They are ordered inputs to the
@@ -1178,9 +1179,9 @@ impl IdentityCreationEvents {
         if self.realm_create.kind != arkret_wire::EventKind::RealmCreate
             || self.founding_device_authorize.kind != arkret_wire::EventKind::DeviceAuthorize
             || self.realm_create.realm_id != self.founding_device_authorize.realm_id
-            || self.realm_create.scope_ref != arkret_wire::ScopeRef::RealmGenesis
+            || self.realm_create.scope_ref != ScopeRef::RealmGenesis
             || self.founding_device_authorize.scope_ref
-                != (arkret_wire::ScopeRef::Realm {
+                != (ScopeRef::Realm {
                     realm_id: self.realm_create.realm_id.clone(),
                 })
         {
@@ -1206,10 +1207,8 @@ pub enum InitialSessionGrantOperation {
 impl InitialSessionGrantOperation {
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::AccountReadDescribe => {
-                arkret_wire::ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE_V1
-            }
-            Self::EventsReadScan => arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
+            Self::AccountReadDescribe => ServiceOperationId::SELF_ACCOUNT_READ_DESCRIBE_V1,
+            Self::EventsReadScan => ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
         }
     }
 }
@@ -1227,18 +1226,18 @@ pub fn standard_initial_session_grant_scope() -> Vec<String> {
 }
 
 pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 12] = [
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
-    arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
-    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
-    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
-    arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
-    arkret_wire::ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
-    arkret_wire::ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
+    ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
+    ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
+    ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
+    ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
+    ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
+    ServiceOperationId::SELF_KEYS_READ_LOOKUP_V1,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CONTINUE_V1,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_COMMAND_CREATE_V1,
+    ServiceOperationId::SELF_SECURITY_TRANSACTION_RESOURCE_GET_V1,
 ];
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -1311,7 +1310,7 @@ pub struct IdentityCreationControlProof {
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
     pub initial_session_request_digest: Hash,
-    pub creation_event_kinds: [IdentityCreationEventKind; 2],
+    pub genesis_unit_kinds: [PcrGenesisUnitKind; 2],
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
@@ -1354,7 +1353,7 @@ impl IdentityCreationControlProof {
             realm_create_payload_digest: self.realm_create_payload_digest.clone(),
             founding_authorize_payload_digest: self.founding_authorize_payload_digest.clone(),
             initial_session_request_digest: self.initial_session_request_digest.clone(),
-            creation_event_kinds: self.creation_event_kinds,
+            genesis_unit_kinds: self.genesis_unit_kinds,
             identity_creation_lease_id: self.identity_creation_lease_id.clone(),
             lease_fence: self.lease_fence,
             dpop_jkt: self.dpop_jkt.clone(),
@@ -1385,7 +1384,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
     pub initial_session_request_digest: Hash,
-    pub creation_event_kinds: [IdentityCreationEventKind; 2],
+    pub genesis_unit_kinds: [PcrGenesisUnitKind; 2],
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
@@ -1433,7 +1432,7 @@ impl UnsignedIdentityCreationControlProof {
             realm_create_payload_digest: body.realm_create_payload_digest,
             founding_authorize_payload_digest: body.founding_authorize_payload_digest,
             initial_session_request_digest: body.initial_session_request_digest,
-            creation_event_kinds: body.creation_event_kinds,
+            genesis_unit_kinds: body.genesis_unit_kinds,
             identity_creation_lease_id: body.identity_creation_lease_id,
             lease_fence: body.lease_fence,
             dpop_jkt: body.dpop_jkt,
@@ -1454,7 +1453,7 @@ fn validate_identity_creation_control_proof_body(
     body: &UnsignedIdentityCreationControlProofBody,
 ) -> Result<()> {
     if body.purpose != IdentityBindingPurpose::AccountBindingAndPcrGenesis
-        || body.creation_event_kinds != IDENTITY_CREATION_EVENT_KINDS
+        || body.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
         || body.lease_fence == 0
         || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
@@ -1486,7 +1485,7 @@ fn identity_creation_control_proof_signing_bytes(
         "realm_create_payload_digest": &body.realm_create_payload_digest,
         "founding_authorize_payload_digest": &body.founding_authorize_payload_digest,
         "initial_session_request_digest": &body.initial_session_request_digest,
-        "creation_event_kinds": body.creation_event_kinds,
+        "genesis_unit_kinds": body.genesis_unit_kinds,
         "identity_creation_lease_id": &body.identity_creation_lease_id,
         "lease_fence": body.lease_fence,
         "dpop_jkt": &body.dpop_jkt,
@@ -2143,5 +2142,116 @@ mod account_handoff_tests {
                 .can_control_identity()
         );
         assert!(IdentityCreationRecoveryKeyState::ExistingValidatedDurable.can_control_identity());
+    }
+}
+
+pub const ACCOUNT_LIFECYCLE_PROOF_SCHEMA: &str = SchemaId::ACCOUNT_OPERATIONS_V1;
+
+/// Closed authorization factor set for the account lifecycle commands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountLifecycleProofKind {
+    DidBoundSignature,
+    PairedDeviceProof,
+    PasskeyAssertion,
+    OidcCodeExchange,
+    AgentKeyProof,
+}
+
+// Field declaration order is byte-for-byte the properties order of
+// account-operations.schema.json#/$defs/account_lifecycle_proof.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountLifecycleProof {
+    pub proof_kind: AccountLifecycleProofKind,
+    pub challenge: String,
+    pub request_canonical_digest: Hash,
+    pub audience_id: DidCoreId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub issued_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verification_method: Option<DidUrl>,
+    pub signature: String,
+}
+
+/// Maximum issued lifetime of an account lifecycle proof, in seconds.
+pub const ACCOUNT_LIFECYCLE_PROOF_MAX_LIFETIME_SECONDS: i64 = 15 * 60;
+
+/// Applet selector bound into the session-revoke request digest. It is not a
+/// standalone wire object: `session_revoke_request_body` inlines these members
+/// under `dependentRequired`, and this grouping keeps the digest transcript and
+/// the request body from drifting apart.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SessionGrantAppletSelector {
+    pub applet_id: AppletId,
+    pub effective_scope: ScopeRef,
+    pub registration_epoch: Hash,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_id: Option<DidCoreId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capability_grant_refs: Vec<String>,
+}
+
+impl AccountLifecycleProof {
+    #[allow(clippy::too_many_arguments)]
+    pub fn session_revoke_request_digest(
+        actor_id: &DidCoreId,
+        service_id: &DidCoreId,
+        session_device_id: &DeviceId,
+        target_session_grant_id: Option<&SessionGrantId>,
+        target_device_id: Option<&DeviceId>,
+        all_sessions: bool,
+        applet_selector: Option<&SessionGrantAppletSelector>,
+    ) -> Result<Hash> {
+        let request = json!({
+            "schema": SchemaId::ACCOUNT_OPERATIONS_V1,
+            "operation": ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
+            "actor_id": actor_id,
+            "service_id": service_id,
+            "session_device_id": session_device_id,
+            "target_session_grant_id": target_session_grant_id,
+            "target_device_id": target_device_id,
+            "all_sessions": all_sessions,
+            "applet_selector": applet_selector,
+        });
+        Ok(Hash::new(canonical::canonical_sha256(&request)?)?)
+    }
+
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        let signing_input = json!({
+            "schema": ACCOUNT_LIFECYCLE_PROOF_SCHEMA,
+            "proof_kind": &self.proof_kind,
+            "challenge": &self.challenge,
+            "request_canonical_digest": &self.request_canonical_digest,
+            "audience_id": &self.audience_id,
+            "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
+            "expires_at": arkret_canonical::format_timestamp_canonical(self.expires_at),
+            "verification_method": &self.verification_method,
+        });
+        Ok(canonical::canonical_json_bytes(&signing_input)?)
+    }
+
+    pub fn validate_shape(&self) -> Result<()> {
+        if self.challenge.chars().count() < 16 {
+            return Err(WireError::Protocol(
+                "account lifecycle proof challenge is too short".to_owned(),
+            ));
+        }
+        if self.signature.is_empty() {
+            return Err(WireError::Protocol(
+                "account lifecycle proof requires a signature".to_owned(),
+            ));
+        }
+        if self.expires_at <= self.issued_at
+            || (self.expires_at - self.issued_at).num_seconds()
+                > ACCOUNT_LIFECYCLE_PROOF_MAX_LIFETIME_SECONDS
+        {
+            return Err(WireError::Protocol(
+                "account lifecycle proof lifetime exceeds the 15 minute ceiling".to_owned(),
+            ));
+        }
+        Ok(())
     }
 }

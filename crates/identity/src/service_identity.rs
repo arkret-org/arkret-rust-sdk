@@ -778,10 +778,10 @@ mod tests {
     fn service_document_rejects_endpoints_outside_registration_context() {
         let mut operation = inception();
         operation.state.service.push(ServiceDidEndpoint {
-            id: format!("{}#notary", operation.state.id),
+            id: format!("{}#archive", operation.state.id),
             endpoint_type: "ArkretService".to_owned(),
-            service_kind: ServiceKind::Notary,
-            service_endpoint: CanonicalServiceUrl::new("https://notary.example/").unwrap(),
+            service_kind: ServiceKind::ArchiveNode,
+            service_endpoint: CanonicalServiceUrl::new("https://archive.example/").unwrap(),
         });
         assert!(operation.validate_for(&registration_key()).is_err());
     }

@@ -57,6 +57,7 @@ arkret-models-identity = { workspace = true }
 arkret-models-integration = { workspace = true }
 arkret-policy = { workspace = true }
 arkret-push-policy.workspace = true
+arkret-retry = { workspace = true }
 arkret-schema = { workspace = true }
 arkret-server = { workspace = true, optional = true }
 arkret-signatures = { workspace = true, features = [

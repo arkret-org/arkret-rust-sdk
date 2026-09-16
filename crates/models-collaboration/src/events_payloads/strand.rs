@@ -91,7 +91,8 @@ impl StrandPatchPayload {
 /// Optional CAS guard carried on `ak.strand.move`
 /// (`event-payload.schema.json#/$defs/strand_move_payload` `expected_position`).
 ///
-/// Compiles to a `head_eq` precondition against the current position cell.
+/// Compiles to an `expected_revision` precondition against the current
+/// position typed current result.
 /// All three fields are optional in the spec sub-schema; `additionalProperties
 /// :false`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -236,8 +237,9 @@ pub enum StrandWatchLevel {
 /// CAS guard for `ak.strand.watch.set`
 /// (`event-payload.schema.json#/$defs/strand_watch_set_payload` `expected_value`).
 ///
-/// Carries the prior cell value `{ level, level_public? }` for a `head_eq`
-/// compare. `additionalProperties:false`; `level` is required when present.
+/// Carries the prior value `{ level, level_public? }` for an
+/// `expected_revision` compare. `additionalProperties:false`; `level` is
+/// required when present.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StrandWatchExpectedValue {

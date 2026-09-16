@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AccountId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId,
-    EventId, Hash, KeyPackageRef, NonEmptyString, RealmId, StrandId,
+    EventId, Hash, KeyPackageRef, MlsWelcomeDeliveryId, NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -1217,7 +1217,9 @@ pub struct RecipientMlsDurableReceipt {
     pub realm_id: RealmId,
     pub mls_group_id: NonEmptyString,
     pub mls_epoch: u64,
-    pub welcome_ref: EventId,
+    /// The delivery is not an Event and has no independent RealmCommit
+    /// (`keypackage-operations.schema.json#/$defs/recipient_mls_durable_receipt`).
+    pub welcome_ref: MlsWelcomeDeliveryId,
     pub welcome_digest: Hash,
     pub durable_at: DateTime<Utc>,
     pub signature: KeyOperationSignature,
@@ -1267,7 +1269,7 @@ struct RecipientMlsDurableReceiptWire {
     realm_id: RealmId,
     mls_group_id: NonEmptyString,
     mls_epoch: u64,
-    welcome_ref: EventId,
+    welcome_ref: MlsWelcomeDeliveryId,
     welcome_digest: Hash,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     durable_at: DateTime<Utc>,

@@ -90,18 +90,6 @@
       "schema": "event-payload.schema.json#/$defs/audit_accessed_payload"
     },
     {
-      "rust_type": "crates/models-collaboration/src/events_payloads/audit.rs::AuditAppletBindingStatePayload",
-      "schema": "event-payload.schema.json#/$defs/audit_applet_binding_state_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/audit.rs::AuditPayload",
-      "schema": "event-payload.schema.json#/$defs/audit_payload"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/audit.rs::AuditSessionPayload",
-      "schema": "event-payload.schema.json#/$defs/audit_session_contract"
-    },
-    {
       "rust_type": "crates/models-collaboration/src/events_payloads/call.rs::CallRecordingArtifact",
       "schema": "call-recording-artifact.schema.json"
     },
@@ -314,14 +302,6 @@
     {
       "rust_type": "crates/models-collaboration/src/governance/agent_participation.rs::AgentParticipationOutcome",
       "schema": "agent-operations.schema.json#/$defs/agent_participation_outcome"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/audit.rs::AuditRywReceipt",
-      "schema": "audit-ryw-receipt.schema.json"
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/audit.rs::AuditReleaseAttestation",
-      "schema": "audit-release-attestation.schema.json"
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/grant_constraint.rs::GrantConstraint",
@@ -702,6 +682,188 @@
     {
       "rust_type": "crates/wire/src/pairwise_endpoint_possession.rs::PairwiseEndpointPossessionProof",
       "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointPossessionProof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/authority_set_policy.rs::AuthoritySetPolicy",
+      "schema": "authority-set-policy.schema.json"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicy",
+      "schema": "recovery-policy.schema.json",
+      "comparison": "rust_fields_subset",
+      "reason": "serde(flatten) may carry schema-only fields; every declared non-flatten Rust field remains checked against schema properties."
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryKeyEntry",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_key_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryKeyAgreementEntry",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_key_agreement_entry"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyRef",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_ref"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicySummary",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_summary"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicySetPayload",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_set_payload"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryAuthorityStreamHead",
+      "schema": "recovery-policy.schema.json#/$defs/authority_stream_head"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyActiveOutcome",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_active_outcome"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyPublishOutcome",
+      "schema": "recovery-policy.schema.json#/$defs/recovery_policy_publish_outcome"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_policy.rs::RecoveryPolicyAuthData",
+      "schema": "recovery-policy.schema.json#/properties/auth_data"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoverySession",
+      "schema": "recovery-session.schema.json#/$defs/recovery_session_state"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoverySessionProofSummary",
+      "schema": "recovery-session.schema.json#/$defs/proof_summary"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::PublicationAuthorityContext",
+      "schema": "recovery-session.schema.json#/$defs/publication_authority_context"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoverySessionCreateRequestBody",
+      "schema": "recovery-session.schema.json#/$defs/recovery_session_create_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoveryDevicePossessionTranscript",
+      "schema": "recovery-session.schema.json#/$defs/recovery_device_possession_transcript"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::DidRootProofBody",
+      "schema": "recovery-session.schema.json#/$defs/did_root_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoveryUnlockProofBodyWithSignature",
+      "schema": "recovery-session.schema.json#/$defs/recovery_unlock_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::DeviceQuorumProofBodyWithSignatures",
+      "schema": "recovery-session.schema.json#/$defs/device_quorum_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::TrustedRecoveryServiceProofBodyWithSignature",
+      "schema": "recovery-session.schema.json#/$defs/trusted_recovery_service_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::DeviceQuorumSignature",
+      "schema": "recovery-session.schema.json#/$defs/device_quorum_proof/properties/signatures/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::DeviceQuorumSignatureBody",
+      "schema": "recovery-session.schema.json#/$defs/device_quorum_proof_body/properties/signatures/items"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoveryUnlockProofBody",
+      "schema": "recovery-session.schema.json#/$defs/recovery_unlock_proof_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::DeviceQuorumProofBody",
+      "schema": "recovery-session.schema.json#/$defs/device_quorum_proof_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::TrustedRecoveryServiceProofBody",
+      "schema": "recovery-session.schema.json#/$defs/trusted_recovery_service_proof_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::GenericRecoveryTranscript",
+      "schema": "recovery-session.schema.json#/$defs/generic_recovery_transcript"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::DidRootRecoveryTranscript",
+      "schema": "recovery-session.schema.json#/$defs/did_root_transcript"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoverySessionProofSubmitRequestBody",
+      "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_request_body"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/recovery_session.rs::RecoverySessionProofSubmitOutcome",
+      "schema": "recovery-session.schema.json#/$defs/recovery_session_proof_submit_outcome"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskRecoveryUnlockProofBody",
+      "schema": "high-risk-authority-proof.schema.json#/$defs/recovery_unlock_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskDeviceQuorumProofBody",
+      "schema": "high-risk-authority-proof.schema.json#/$defs/device_quorum_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskTrustedRecoveryServiceProofBody",
+      "schema": "high-risk-authority-proof.schema.json#/$defs/trusted_recovery_service_proof"
+    },
+    {
+      "rust_type": "crates/models-crypto/src/high_risk_authority_proof.rs::HighRiskDeviceQuorumSignature",
+      "schema": "high-risk-authority-proof.schema.json#/$defs/device_quorum_signature"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecar",
+      "schema": "agent-sidecar.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarViewState",
+      "schema": "agent-sidecar-view-state.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::SidecarStrandContextRef",
+      "schema": "agent-sidecar-view-state.schema.json#/$defs/strand_context_ref"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarExchangeControl",
+      "schema": "agent-sidecar-exchange-control.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarExchangeProjection",
+      "schema": "agent-sidecar-exchange-projection.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarFoldedCheckpoint",
+      "schema": "agent-sidecar-exchange-projection.schema.json#/$defs/folded_checkpoint"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::SidecarSourceTrackRef",
+      "schema": "agent-sidecar-exchange-projection.schema.json#/$defs/source_track_ref"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarEventExchangeBinding",
+      "schema": "agent-sidecar-event-exchange-binding.schema.json"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarExchangeRequestContext",
+      "schema": "agent-sidecar-event-exchange-binding.schema.json#/$defs/request_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::AgentSidecarMlsContext",
+      "schema": "agent-operations.schema.json#/$defs/agent_sidecar_mls_context"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::PendingSidecarAccessReconciliation",
+      "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_item"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/sidecar_operations.rs::SidecarStreamHead",
+      "schema": "principal-operations.schema.json#/$defs/sidecar_stream_head"
     }
   ],
   "exemptions": [
@@ -712,14 +874,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/agent.rs::AgentKeyScopeResource",
       "reason": "Documented counterpart is not field-set exact; Rust-only=['kind', 'operation', 'realm_id', 'resource_ref', 'schema_ref', 'service_id'], Spec-only=['actions', 'constraints', 'resources']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/audit.rs::AuditAppletBindingCreatePayload",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['activation_commit_ref'], Spec-only=['activation_frontier_digest']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/events_payloads/audit.rs::AuditReleasePayload",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['commit_ref', 'committed_by_ref', 'protected_epoch_range'], Spec-only=['sealed_by_commit_ref', 'sealed_epoch_range']."
     },
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/call.rs::ParticipantBinding",
@@ -764,10 +918,6 @@
     {
       "rust_type": "crates/models-collaboration/src/events_payloads/strand.rs::StrandWatchExpectedValue",
       "reason": "Documented counterpart is not field-set exact; Rust-only=[], Spec-only=['expected_value', 'strand_id', 'watcher_actor_id']."
-    },
-    {
-      "rust_type": "crates/models-collaboration/src/governance/audit.rs::RywFrontier",
-      "reason": "Documented counterpart is not field-set exact; Rust-only=['stream_heads'], Spec-only=['audit_actor_id', 'audit_assurance_class', 'audit_event_id', 'audit_policy_version_digest', 'frontier', 'issuer_id', 'issuer_role', 'observed_at', 'proofs', 'realm_id', 'realm_operator_organization_id', 'receipt_id', 'recovery_reason_code', 'schema', 'trust_domain', 'witness_attestation']."
     },
     {
       "rust_type": "crates/models-collaboration/src/governance/circle.rs::Circle",

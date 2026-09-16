@@ -180,6 +180,11 @@ pub struct PushRegistrationRecord {
     pub push_route_id: String,
     pub push_target_id: PushTargetId,
     pub salt_epoch_id: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
     pub expires_at: Option<DateTime<Utc>>,
     pub retained_push_targets: Vec<RetainedPushTarget>,
 }
@@ -188,6 +193,7 @@ pub struct PushRegistrationRecord {
 #[serde(deny_unknown_fields)]
 pub struct RetainedPushTarget {
     pub push_target_id: PushTargetId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub retained_until: DateTime<Utc>,
 }
 

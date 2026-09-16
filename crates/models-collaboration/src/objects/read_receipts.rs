@@ -4,10 +4,10 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, ActorId, BlobRef, CommittedEventRef, DeviceId, EventId, Hlc, MessageId, MorphId,
-    NotificationId, NotificationKind, NotificationPriority, NotificationProjectionId,
-    NotificationState, OpaqueLocalId, OrdinaryNotificationKind, ReadCursorScope, RealmId,
-    RelationId, Result, SchemaId, StrandId, ViewId, WireError, canonical,
+    AccountId, ActorId, BlobRef, DeviceId, EventId, Hlc, MessageId, MorphId, NotificationId,
+    NotificationKind, NotificationPriority, NotificationProjectionId, NotificationState,
+    OpaqueLocalId, OrdinaryNotificationKind, ReadCursorScope, RealmId, RelationId, Result,
+    SchemaId, StrandId, ViewId, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -139,13 +139,15 @@ fn validate_notification_track_name(track_name: &str) -> Result<()> {
 /// `updated_at` from the accepted advance envelope, never from this payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+// Field declaration order is byte-for-byte the `properties` order of
+// `read-cursor.schema.json`.
 pub struct ReadCursor {
     pub schema: String,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub realm_id: RealmId,
     pub read_scope: ReadCursorScope,
-    pub position: CommittedEventRef,
+    pub position: ReadCursorPosition,
 }
 
 impl ReadCursor {
@@ -154,6 +156,96 @@ impl ReadCursor {
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
+}
+
+/// The position one read cursor stands at.
+///
+/// `read-cursor.schema.json#/$defs/position` carries exactly the Event
+/// identity plus the authoring HLC. It is a single point on the actor's own
+/// stream, not a set: the multi-device merge rule below compares two positions
+/// by causal reachability between those two Event ids, and the HLC is a
+/// tie-break input only.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// Field declaration order is byte-for-byte the `properties` order of
+// `read-cursor.schema.json#/$defs/position`.
+pub struct ReadCursorPosition {
+    pub event_id: EventId,
+    pub hlc: Hlc,
+}
+
+/// Causal relationship between an incoming cursor position and the currently
+/// stored position.
+///
+/// The caller decides this from the Event closure it has actually acquired;
+/// HLC MUST NOT be used to guess an unknown relationship
+/// (`zh/discovery/read-receipts.md` §6.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadCursorCausalRelation {
+    CandidateDominatesCurrent,
+    CurrentDominatesCandidate,
+    Concurrent,
+    Undecidable,
+}
+
+/// Result of the normative causal-first read cursor merge.
+#[derive(Clone, Copy, Debug)]
+pub struct ReadCursorMerge<'a> {
+    pub winner: &'a ReadCursor,
+    /// `true` means the acquired causal closure was not enough to decide.
+    /// The winner is the preserved current position and MUST NOT be persisted
+    /// or reported as final (`zh/conformance/encoding.md` §7.3).
+    pub provisional: bool,
+}
+
+/// Merge two cursors for the same `(actor_id, realm_id, read_scope)`.
+///
+/// `zh/discovery/read-receipts.md` §6.5 fixes the three stages: causal
+/// dominance wins regardless of HLC; only causally concurrent positions
+/// compare HLC; only equal HLCs compare `device_id`. An undecidable closure
+/// preserves the current cursor provisionally rather than letting HLC decide.
+pub fn merge_read_cursors<'a>(
+    current: &'a ReadCursor,
+    candidate: &'a ReadCursor,
+    relation: ReadCursorCausalRelation,
+) -> Result<ReadCursorMerge<'a>> {
+    if current.actor_id != candidate.actor_id
+        || current.realm_id != candidate.realm_id
+        || current.read_scope != candidate.read_scope
+    {
+        return Err(WireError::Protocol(
+            "read cursor merge requires identical actor_id, realm_id, and read_scope".to_owned(),
+        ));
+    }
+
+    let (winner, provisional) = match relation {
+        ReadCursorCausalRelation::CandidateDominatesCurrent => (candidate, false),
+        ReadCursorCausalRelation::CurrentDominatesCandidate => (current, false),
+        ReadCursorCausalRelation::Concurrent => {
+            let order = arkret_wire::hlc::compare_hlc(
+                candidate.position.hlc.as_str(),
+                current.position.hlc.as_str(),
+            )?;
+            let winner = match order {
+                std::cmp::Ordering::Greater => candidate,
+                std::cmp::Ordering::Less => current,
+                std::cmp::Ordering::Equal => {
+                    if candidate.device_id.as_str() > current.device_id.as_str() {
+                        candidate
+                    } else {
+                        current
+                    }
+                }
+            };
+            (winner, false)
+        }
+        ReadCursorCausalRelation::Undecidable => (current, true),
+    };
+    Ok(ReadCursorMerge {
+        winner,
+        provisional,
+    })
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -167,12 +259,14 @@ pub struct ReadCursorAdvanceRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+// Field declaration order is byte-for-byte the `properties` order of
+// `read-cursor-operations.schema.json#/$defs/read_marker_outcome`.
 pub struct ReadMarkerOutcome {
     pub realm_id: RealmId,
     pub actor_id: ActorId,
     pub device_id: DeviceId,
     pub read_scope: ReadCursorScope,
-    pub position: CommittedEventRef,
+    pub position: ReadCursorPosition,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
 }
@@ -183,6 +277,167 @@ pub struct ReadMarkerOutcome {
 pub struct ReadCursorList {
     #[serde(default)]
     pub markers: Vec<ReadMarkerOutcome>,
+}
+
+#[cfg(test)]
+mod read_cursor_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const EVENT_A: &str = "ak:event:Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const EVENT_B: &str = "ak:event:Abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    fn position_value(event_id: &str, hlc: &str) -> Value {
+        json!({ "event_id": event_id, "hlc": hlc })
+    }
+
+    fn cursor(device_suffix: u32, event_id: &str, hlc: &str) -> ReadCursor {
+        serde_json::from_value(json!({
+            "schema": ReadCursor::SCHEMA,
+            "actor_id": {
+                "kind": "account",
+                "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:station.example"
+                }
+            },
+            "device_id": format!("ak:device:01964137-0000-7000-8000-{device_suffix:012x}"),
+            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "read_scope": {"kind": "realm"},
+            "position": position_value(event_id, hlc)
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn position_round_trips_through_canonical_json() {
+        let value = position_value(EVENT_A, "01970e589d21-0001-a13f9c2e");
+        let decoded: ReadCursorPosition = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(decoded.event_id.as_str(), EVENT_A);
+        assert_eq!(decoded.hlc.as_str(), "01970e589d21-0001-a13f9c2e");
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), value);
+    }
+
+    #[test]
+    fn position_rejects_a_member_outside_the_closed_field_set() {
+        let mut value = position_value(EVENT_A, "01970e589d21-0001-a13f9c2e");
+        value["stream_position"] = json!(7);
+        assert!(serde_json::from_value::<ReadCursorPosition>(value).is_err());
+    }
+
+    #[test]
+    fn position_rejects_an_omitted_required_member() {
+        assert!(
+            serde_json::from_value::<ReadCursorPosition>(json!({ "event_id": EVENT_A })).is_err()
+        );
+        assert!(
+            serde_json::from_value::<ReadCursorPosition>(
+                json!({ "hlc": "01970e589d21-0001-a13f9c2e" })
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn causal_dominance_wins_regardless_of_hlc() {
+        let current = cursor(1, EVENT_A, "01970e589d21-0002-a13f9c2e");
+        let candidate = cursor(2, EVENT_B, "01970e589d21-0001-a13f9c2e");
+        let merged = merge_read_cursors(
+            &current,
+            &candidate,
+            ReadCursorCausalRelation::CandidateDominatesCurrent,
+        )
+        .unwrap();
+        assert_eq!(merged.winner.position.event_id, candidate.position.event_id);
+        assert!(!merged.provisional);
+
+        let merged = merge_read_cursors(
+            &current,
+            &candidate,
+            ReadCursorCausalRelation::CurrentDominatesCandidate,
+        )
+        .unwrap();
+        assert_eq!(merged.winner.position.event_id, current.position.event_id);
+        assert!(!merged.provisional);
+    }
+
+    #[test]
+    fn concurrent_positions_compare_hlc_then_device_id() {
+        let current = cursor(1, EVENT_A, "01970e589d21-0001-a13f9c2e");
+        let higher_hlc = cursor(2, EVENT_B, "01970e589d21-0002-a13f9c2e");
+        assert_eq!(
+            merge_read_cursors(&current, &higher_hlc, ReadCursorCausalRelation::Concurrent)
+                .unwrap()
+                .winner
+                .device_id,
+            higher_hlc.device_id
+        );
+
+        let equal_hlc_higher_device = cursor(2, EVENT_B, "01970e589d21-0001-a13f9c2e");
+        assert_eq!(
+            merge_read_cursors(
+                &current,
+                &equal_hlc_higher_device,
+                ReadCursorCausalRelation::Concurrent
+            )
+            .unwrap()
+            .winner
+            .device_id,
+            equal_hlc_higher_device.device_id
+        );
+    }
+
+    #[test]
+    fn undecidable_closure_preserves_the_current_position_provisionally() {
+        let current = cursor(1, EVENT_A, "01970e589d21-0001-a13f9c2e");
+        let candidate = cursor(2, EVENT_B, "01970e589d21-0002-a13f9c2e");
+        let merged =
+            merge_read_cursors(&current, &candidate, ReadCursorCausalRelation::Undecidable)
+                .unwrap();
+        assert_eq!(merged.winner.position.event_id, current.position.event_id);
+        assert!(merged.provisional);
+    }
+
+    #[test]
+    fn merge_rejects_two_cursors_from_different_scopes() {
+        let current = cursor(1, EVENT_A, "01970e589d21-0001-a13f9c2e");
+        let mut other = cursor(2, EVENT_B, "01970e589d21-0002-a13f9c2e");
+        other.realm_id =
+            RealmId::new("ak:realm:AS8XThowW7JnZc80U10gJh-_lqkA-iSQ-LAvBXj6_9O5").unwrap();
+        assert!(
+            merge_read_cursors(&current, &other, ReadCursorCausalRelation::Concurrent).is_err()
+        );
+    }
+
+    #[test]
+    fn read_marker_outcome_round_trips_and_rejects_unknown_members() {
+        let value = json!({
+            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "actor_id": {
+                "kind": "account",
+                "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:station.example"
+                }
+            },
+            "device_id": "ak:device:01964137-0000-7000-8000-000000000001",
+            "read_scope": {"kind": "realm"},
+            "position": position_value(EVENT_A, "01970e589d21-0001-a13f9c2e"),
+            "updated_at": "2026-08-15T00:00:00.000Z"
+        });
+        let decoded: ReadMarkerOutcome = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(decoded.position.event_id.as_str(), EVENT_A);
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), value);
+
+        let mut unknown = value.clone();
+        unknown["stream_position"] = json!(3);
+        assert!(serde_json::from_value::<ReadMarkerOutcome>(unknown).is_err());
+
+        let mut missing = value;
+        missing.as_object_mut().unwrap().remove("position");
+        assert!(serde_json::from_value::<ReadMarkerOutcome>(missing).is_err());
+    }
 }
 
 /// `ak.receipt.read` is a Signal plaintext profile, not a durable object, so
