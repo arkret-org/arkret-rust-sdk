@@ -285,6 +285,28 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/wire/src/generated/reducer_managed_patch_paths.rs"
+      ],
+      "owner": "arkret-wire",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/reducer-managed-path-registry.json",
+        "schemas/actor-profile.schema.json",
+        "schemas/circle.schema.json",
+        "schemas/morph.schema.json",
+        "schemas/relation.schema.json",
+        "schemas/space.schema.json",
+        "schemas/strand.schema.json",
+        "schemas/view.schema.json"
+      ],
+      "provides": [
+        "REDUCER_MANAGED_PATCH_OBJECTS",
+        "REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/wire/src/generated/relation_kinds.rs"
       ],
       "owner": "arkret-wire",

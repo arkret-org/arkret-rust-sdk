@@ -2,10 +2,10 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1;
 //! sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264 Input: registry/
-//! contract-registry.json; version=2026-09-16.10;
-//! sha256=97b98ea986449fc3c0a343b986ad028dbfbeb3cffe000d76f1613d3b181845d1 Input: registry/
-//! operation-registry.json; version=2026-09-16.8;
-//! sha256=9589f9f98bedb23d06bfd447a7c2e402420f7dbded651bef0a1a3febf9a15cc2 Input: registry/
+//! contract-registry.json; version=2026-09-16.17;
+//! sha256=baaf72e4a5cbb47eaeb45a1d4ff2e95ac86f11efbb8a75cc5dbc0450f627f7fa Input: registry/
+//! operation-registry.json; version=2026-09-16.10;
+//! sha256=4de4a6e089a9dff644879b0f72669f2d71b1b4a5e2615a8e177cf2a665ebbaa7 Input: registry/
 //! event-kind-registry.json; version=2026-09-16.8;
 //! sha256=10480c08b1142cc3f6e6fecbd84d8e12c38af09182ba0577464e7f306a94f140 Input: registry/
 //! schema-registry.json; version=2026-09-16.10;
@@ -444,6 +444,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfContactCommandScopeUpdateV1,
             ServiceOperationId::SelfContactReadListV1,
             ServiceOperationId::SelfContactCommandTombstoneV1,
+            ServiceOperationId::SelfInvitesCommandDispatchV1,
             ServiceOperationId::SelfInviteReceivePolicyResourceGetV1,
             ServiceOperationId::SelfInviteReceivePolicyResourceReplaceV1,
             ServiceOperationId::SelfInviteLocatorCommandIssueV1,
@@ -766,6 +767,6 @@ pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
 
 pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-16.8";
 pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-16.10";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-16.8";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-16.10";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-16.10";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

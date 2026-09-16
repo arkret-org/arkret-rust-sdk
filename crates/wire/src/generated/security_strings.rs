@@ -1,11 +1,11 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-16.10;
-//! sha256=bb4417bc0c2660cdd6010237bc73853543490b6d896efcb39e232ba3ec41d00f Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-16.17;
+//! sha256=f3622a8c9eac9f7841d7b63b3a55509c4972a7636c8fa0105ed79ee99755ddf9 Input: registry/
 //! exporter-label-registry.json; version=2026-09-16.10;
 //! sha256=676cbb1dbfa467f97c46247cb79818affc3e236100fb54ee70498a0736b8a939 Input: registry/
-//! digest-suite-registry.json; version=2026-09-16.7;
-//! sha256=ed95ff0b8d0ebb7f8a1c345ab5e4fefcad739f5812bec18f477b5d953faa2cbb Input: registry/
+//! digest-suite-registry.json; version=2026-09-16.11;
+//! sha256=f020a1a9a227111af78b1c898215bcadcb8edc34dd7f3ee3e439e598617c9794 Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
 //! hpke-suite-registry.json; version=2026-09-16.7;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=46, exporter_labels=7, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=36, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=38, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -382,6 +382,9 @@ pub enum DomainSeparationId {
     ContactRequestSourceCheckpointV1,
     ControllerAccountGateV1,
     DeviceAuthorizeAcceptedDevicePossessionProofV1,
+    DeviceAuthorizeAppletManagedPossessionProofV1,
+    DeviceAuthorizePossessionProofV1,
+    DeviceAuthorizeRecoveryPossessionProofV1,
     DirectoryListHandlesForSubjectRequestProofV1,
     DirectoryResolveAgentSelectorRequestProofV1,
     DirectoryResolveHandleRequestProofV1,
@@ -397,7 +400,6 @@ pub enum DomainSeparationId {
     IdentityRecoveryPolicySignatureV1,
     IdentityRecoveryProofV1,
     IdentityRecoveryReceiptSignatureV1,
-    JoinedControlViewDigestV1,
     KeypackageClaimTerminalReceiptV1,
     KeypackageConsumeReceiptV1,
     MimiReporterAuthorityProofV1,
@@ -422,6 +424,9 @@ impl DomainSeparationId {
         Self::ContactRequestSourceCheckpointV1,
         Self::ControllerAccountGateV1,
         Self::DeviceAuthorizeAcceptedDevicePossessionProofV1,
+        Self::DeviceAuthorizeAppletManagedPossessionProofV1,
+        Self::DeviceAuthorizePossessionProofV1,
+        Self::DeviceAuthorizeRecoveryPossessionProofV1,
         Self::DirectoryListHandlesForSubjectRequestProofV1,
         Self::DirectoryResolveAgentSelectorRequestProofV1,
         Self::DirectoryResolveHandleRequestProofV1,
@@ -437,7 +442,6 @@ impl DomainSeparationId {
         Self::IdentityRecoveryPolicySignatureV1,
         Self::IdentityRecoveryProofV1,
         Self::IdentityRecoveryReceiptSignatureV1,
-        Self::JoinedControlViewDigestV1,
         Self::KeypackageClaimTerminalReceiptV1,
         Self::KeypackageConsumeReceiptV1,
         Self::MimiReporterAuthorityProofV1,
@@ -467,6 +471,12 @@ impl DomainSeparationId {
     pub const CONTROLLER_ACCOUNT_GATE_V1: &'static str = "ak.controller_account_gate.v1";
     pub const DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1: &'static str =
         "ak.device_authorize_accepted_device_possession_proof.v1";
+    pub const DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1: &'static str =
+        "ak.device_authorize_applet_managed_possession_proof.v1";
+    pub const DEVICE_AUTHORIZE_POSSESSION_PROOF_V1: &'static str =
+        "ak.device_authorize_possession_proof.v1";
+    pub const DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1: &'static str =
+        "ak.device_authorize_recovery_possession_proof.v1";
     pub const DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1: &'static str =
         "ak.directory_list_handles_for_subject_request_proof.v1";
     pub const DIRECTORY_RESOLVE_AGENT_SELECTOR_REQUEST_PROOF_V1: &'static str =
@@ -491,7 +501,6 @@ impl DomainSeparationId {
     pub const IDENTITY_RECOVERY_PROOF_V1: &'static str = "ak.identity.recovery_proof.v1";
     pub const IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1: &'static str =
         "ak.identity.recovery_receipt.signature.v1";
-    pub const JOINED_CONTROL_VIEW_DIGEST_V1: &'static str = "ak.joined_control_view_digest.v1";
     pub const KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1: &'static str =
         "ak.keypackage.claim_terminal_receipt.v1";
     pub const KEYPACKAGE_CONSUME_RECEIPT_V1: &'static str = "ak.keypackage.consume_receipt.v1";
@@ -526,6 +535,13 @@ impl DomainSeparationId {
             Self::DeviceAuthorizeAcceptedDevicePossessionProofV1 => {
                 Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1
             }
+            Self::DeviceAuthorizeAppletManagedPossessionProofV1 => {
+                Self::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1
+            }
+            Self::DeviceAuthorizePossessionProofV1 => Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1,
+            Self::DeviceAuthorizeRecoveryPossessionProofV1 => {
+                Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1
+            }
             Self::DirectoryListHandlesForSubjectRequestProofV1 => {
                 Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1
             }
@@ -555,7 +571,6 @@ impl DomainSeparationId {
             Self::IdentityRecoveryReceiptSignatureV1 => {
                 Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1
             }
-            Self::JoinedControlViewDigestV1 => Self::JOINED_CONTROL_VIEW_DIGEST_V1,
             Self::KeypackageClaimTerminalReceiptV1 => Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1,
             Self::KeypackageConsumeReceiptV1 => Self::KEYPACKAGE_CONSUME_RECEIPT_V1,
             Self::MimiReporterAuthorityProofV1 => Self::MIMI_REPORTER_AUTHORITY_PROOF_V1,
@@ -595,6 +610,15 @@ impl DomainSeparationId {
             Self::DEVICE_AUTHORIZE_ACCEPTED_DEVICE_POSSESSION_PROOF_V1 => {
                 Some(Self::DeviceAuthorizeAcceptedDevicePossessionProofV1)
             }
+            Self::DEVICE_AUTHORIZE_APPLET_MANAGED_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizeAppletManagedPossessionProofV1)
+            }
+            Self::DEVICE_AUTHORIZE_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizePossessionProofV1)
+            }
+            Self::DEVICE_AUTHORIZE_RECOVERY_POSSESSION_PROOF_V1 => {
+                Some(Self::DeviceAuthorizeRecoveryPossessionProofV1)
+            }
             Self::DIRECTORY_LIST_HANDLES_FOR_SUBJECT_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryListHandlesForSubjectRequestProofV1)
             }
@@ -628,7 +652,6 @@ impl DomainSeparationId {
             Self::IDENTITY_RECOVERY_RECEIPT_SIGNATURE_V1 => {
                 Some(Self::IdentityRecoveryReceiptSignatureV1)
             }
-            Self::JOINED_CONTROL_VIEW_DIGEST_V1 => Some(Self::JoinedControlViewDigestV1),
             Self::KEYPACKAGE_CLAIM_TERMINAL_RECEIPT_V1 => {
                 Some(Self::KeypackageClaimTerminalReceiptV1)
             }

@@ -16,10 +16,12 @@
 //! [`crate::agent_signer_state`].
 
 use arkret_wire::{
-    DidCoreId, DidUrl, ErrorCode, EventId, Hash, NonEmptyString, RequestId, Result, WireError,
+    Base64UrlString, DidCoreId, DidUrl, ErrorCode, Event, EventId, EventKind, Hash, NonEmptyString,
+    RequestId, Result, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 /// Longest positive validity an Account Authority may put on a gate.
 pub const CONTROLLER_ACCOUNT_GATE_MAX_VALIDITY_SECONDS: i64 = 300;
@@ -168,7 +170,7 @@ impl ControllerAccountGateAttestation {
         value
             .as_object_mut()
             .and_then(|object| object.get_mut("proof"))
-            .and_then(serde_json::Value::as_object_mut)
+            .and_then(Value::as_object_mut)
             .and_then(|proof| proof.remove("jws"))
             .ok_or_else(|| {
                 gate_error(
@@ -183,6 +185,95 @@ impl ControllerAccountGateAttestation {
         bytes.push(b'\n');
         bytes.extend_from_slice(&canonical);
         Ok(bytes)
+    }
+}
+
+/// Closed v1 Agent runtime signing-key profile. `Ed25519` is the fully
+/// specified JOSE algorithm identifier; polymorphic identifiers are rejected.
+// Field declaration order is byte-for-byte the properties order of
+// agent-operations.schema.json#/$defs/agent_runtime_public_key, minus the
+// `kid`, which the enclosing verification method already carries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct AgentSigningPublicKey {
+    pub kty: NonEmptyString,
+    pub algorithm: NonEmptyString,
+    pub key: Base64UrlString,
+}
+
+/// In-memory projection of the key authenticated by one complete
+/// `ak.agent.key.authorize` Event.
+///
+/// This view is never a second wire certificate and never an authority source:
+/// the caller separately verifies the Event's producer proof and the
+/// authority-signed RealmCommit that covers it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AgentAuthorizedSigningKey {
+    pub agent_id: DidCoreId,
+    pub agent_key_id: NonEmptyString,
+    pub verification_method: DidUrl,
+    pub public_key: AgentSigningPublicKey,
+    pub public_key_digest: Hash,
+    pub agent_key_authorize_event_id: EventId,
+    pub issued_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub controller_principal_id: DidCoreId,
+}
+
+impl AgentAuthorizedSigningKey {
+    /// Parse the key material carried by an authorize Event. Event and
+    /// RealmCommit authority are the caller's separate obligation.
+    pub fn from_event(event: &Event) -> Result<Self> {
+        let invalid = |reason: &str| WireError::Protocol(reason.to_owned());
+        if event.kind != EventKind::AgentKeyAuthorize {
+            return Err(invalid("Agent key source must be an authorize Event"));
+        }
+        let field = |name: &str| {
+            event
+                .payload
+                .get(name)
+                .cloned()
+                .ok_or_else(|| invalid("authorize Event omits key material"))
+        };
+        let verification_method: DidUrl = serde_json::from_value(field("verification_method")?)?;
+        let key = field("public_key")?;
+        if key.get("kid").and_then(Value::as_str) != Some(verification_method.as_str())
+            || key.get("kty").and_then(Value::as_str) != Some("OKP")
+            || key.get("algorithm").and_then(Value::as_str) != Some("Ed25519")
+            || key.as_object().is_none_or(|key| key.len() != 4)
+        {
+            return Err(invalid(
+                "authorize Event has an invalid Ed25519 key profile",
+            ));
+        }
+        let public_key = AgentSigningPublicKey {
+            kty: serde_json::from_value(key["kty"].clone())?,
+            algorithm: serde_json::from_value(key["algorithm"].clone())?,
+            key: serde_json::from_value(key["key"].clone())?,
+        };
+        let raw = arkret_canonical::base64url_decode(public_key.key.as_str())?;
+        if raw.len() != 32 || arkret_canonical::base64url_encode(&raw) != public_key.key.as_str() {
+            return Err(invalid(
+                "authorize Event key is not canonical Ed25519 material",
+            ));
+        }
+        Ok(Self {
+            agent_id: serde_json::from_value(field("agent_id")?)?,
+            agent_key_id: serde_json::from_value(field("key_id")?)?,
+            verification_method,
+            public_key,
+            public_key_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&raw))?,
+            agent_key_authorize_event_id: event.event_id.clone(),
+            issued_at: serde_json::from_value(field("issued_at")?)?,
+            expires_at: event
+                .payload
+                .get("expires_at")
+                .cloned()
+                .map(serde_json::from_value)
+                .transpose()?,
+            controller_principal_id: serde_json::from_value(field("accountable_principal_id")?)?,
+        })
     }
 }
 
@@ -229,7 +320,7 @@ mod tests {
     const BASIS_DIGEST: &str =
         "sha256:2222222222222222222222222222222222222222222222222222222222222222";
 
-    fn attestation_json() -> serde_json::Value {
+    fn attestation_json() -> Value {
         serde_json::json!({
             "schema": "ak.schema.controller_account_gate_attestation.v1",
             "principal_id": "ak:did_core:web:controller.example",

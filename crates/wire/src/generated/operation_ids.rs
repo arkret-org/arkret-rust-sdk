@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-16.8;
-//! sha256=9589f9f98bedb23d06bfd447a7c2e402420f7dbded651bef0a1a3febf9a15cc2 Entries: registered=218
+//! Input: registry/operation-registry.json; version=2026-09-16.10;
+//! sha256=4de4a6e089a9dff644879b0f72669f2d71b1b4a5e2615a8e177cf2a665ebbaa7 Entries: registered=219
 
 use serde::{Deserialize, Serialize};
 
@@ -184,6 +184,7 @@ pub enum ServiceOperationId {
     SelfInviteLocatorCommandRotateV1,
     SelfInviteReceivePolicyResourceGetV1,
     SelfInviteReceivePolicyResourceReplaceV1,
+    SelfInvitesCommandDispatchV1,
     SelfKeysBackupSeriesCommandEraseV1,
     SelfKeysBackupsCommandIssueDeleteChallengeV1,
     SelfKeysBackupsCommandIssueUnlockChallengeV1,
@@ -405,6 +406,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_INVITE_LOCATOR_COMMAND_ROTATE_V1,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_GET_V1,
     ServiceOperationId::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE_V1,
+    ServiceOperationId::SELF_INVITES_COMMAND_DISPATCH_V1,
     ServiceOperationId::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1,
     ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_ISSUE_UNLOCK_CHALLENGE_V1,
@@ -668,6 +670,7 @@ impl ServiceOperationId {
         Self::SelfInviteLocatorCommandRotateV1,
         Self::SelfInviteReceivePolicyResourceGetV1,
         Self::SelfInviteReceivePolicyResourceReplaceV1,
+        Self::SelfInvitesCommandDispatchV1,
         Self::SelfKeysBackupSeriesCommandEraseV1,
         Self::SelfKeysBackupsCommandIssueDeleteChallengeV1,
         Self::SelfKeysBackupsCommandIssueUnlockChallengeV1,
@@ -1013,6 +1016,8 @@ impl ServiceOperationId {
         "ak.self.invite_receive_policy.resource.get.v1";
     pub const SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE_V1: &'static str =
         "ak.self.invite_receive_policy.resource.replace.v1";
+    pub const SELF_INVITES_COMMAND_DISPATCH_V1: &'static str =
+        "ak.self.invites.command.dispatch.v1";
     pub const SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1: &'static str =
         "ak.self.keys.backup_series.command.erase.v1";
     pub const SELF_KEYS_BACKUPS_COMMAND_ISSUE_DELETE_CHALLENGE_V1: &'static str =
@@ -1363,6 +1368,7 @@ impl ServiceOperationId {
             Self::SelfInviteReceivePolicyResourceReplaceV1 => {
                 Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE_V1
             }
+            Self::SelfInvitesCommandDispatchV1 => Self::SELF_INVITES_COMMAND_DISPATCH_V1,
             Self::SelfKeysBackupSeriesCommandEraseV1 => {
                 Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1
             }
@@ -1792,6 +1798,7 @@ impl ServiceOperationId {
             Self::SELF_INVITE_RECEIVE_POLICY_RESOURCE_REPLACE_V1 => {
                 Some(Self::SelfInviteReceivePolicyResourceReplaceV1)
             }
+            Self::SELF_INVITES_COMMAND_DISPATCH_V1 => Some(Self::SelfInvitesCommandDispatchV1),
             Self::SELF_KEYS_BACKUP_SERIES_COMMAND_ERASE_V1 => {
                 Some(Self::SelfKeysBackupSeriesCommandEraseV1)
             }
@@ -5911,6 +5918,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some("service_local_material_identity_log_queue_or_external_effect_only"),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfInvitesCommandDispatchV1,
+        http_method: "POST",
+        http_path: "/_arkret/self/invites/dispatch",
+        grpc: Some("SelfInvites/Dispatch"),
+        mq: Some("self.invites.command.dispatch"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/invite-delivery-request.schema.json#/$defs/self_invite_dispatch_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/invite-delivery-request.schema.json#/$defs/invite_delivery_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "persists_a_byte_identical_service_local_peer_relay_outbox_without_authoring_an_event",
+            ),
             branch_contract_json: None,
         }),
     },

@@ -876,6 +876,74 @@
     {
       "rust_type": "crates/models-identity/src/authenticated_signer_resolution_evidence.rs::AuthenticatedSignerResolutionEvidence",
       "schema": "authenticated-signer-resolution-evidence.schema.json#/$defs/base"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::KeyState",
+      "schema": "agent-operations.schema.json#/$defs/key_state"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentRuntimeApprovalControllerProjection",
+      "schema": "agent-operations.schema.json#/$defs/agent_runtime_approval_controller_projection"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::KeyStateCurrentSignerEvidence",
+      "schema": "agent-operations.schema.json#/$defs/key_state/properties/current_signer_evidence"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentSidecarView",
+      "schema": "agent-operations.schema.json#/$defs/agent_sidecar_view"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/agent_operations.rs::AgentSidecarList",
+      "schema": "agent-operations.schema.json#/$defs/agent_sidecar_list"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/governance/realm_join_intake.rs::PeerRealmJoinBootstrapRequestBody",
+      "schema": "realm-join-intake.schema.json#/$defs/peer_bootstrap_request_body"
+    },
+    {
+      "rust_type": "crates/models-identity/src/session_credential.rs::SessionGrantDeviceBinding",
+      "schema": "service-operation-dtos.schema.json#/$defs/SessionGrantDeviceBinding"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grant_bodies.rs::RecoverySessionGrantRequest",
+      "schema": "service-operation-dtos.schema.json#/$defs/RecoverySessionGrantRequest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grant_bodies.rs::AgentSessionGrantRefreshRequest",
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRefreshRequest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grant_bodies.rs::AgentSessionRefreshProof",
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionRefreshProof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::AgentSessionGrantRequest",
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::HumanSessionGrantRequest",
+      "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRequest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::PairwiseEndpointSessionGrantRequest",
+      "schema": "service-operation-dtos.schema.json#/$defs/PairwiseEndpointSessionGrantRequest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::HumanSessionGrantRefreshRequest",
+      "schema": "service-operation-dtos.schema.json#/$defs/HumanSessionGrantRefreshRequest"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/session_grants.rs::AgentSessionGrantProof",
+      "schema": "service-operation-dtos.schema.json#/$defs/AgentSessionGrantRequest/properties/proof"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/sidecar.rs::SidecarContextAttachPayload",
+      "schema": "event-payload.schema.json#/$defs/sidecar_context_attach_payload"
+    },
+    {
+      "rust_type": "crates/models-collaboration/src/events_payloads/sidecar.rs::AgentSidecarExchangeControlPayload",
+      "schema": "event-payload.schema.json#/$defs/agent_sidecar_exchange_control_payload"
     }
   ],
   "exemptions": [

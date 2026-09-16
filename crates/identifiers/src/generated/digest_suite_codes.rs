@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/digest-suite-registry.json; version=2026-09-16.7;
-//! sha256=ed95ff0b8d0ebb7f8a1c345ab5e4fefcad739f5812bec18f477b5d953faa2cbb Entries: active=2
+//! Input: registry/digest-suite-registry.json; version=2026-09-16.11;
+//! sha256=f020a1a9a227111af78b1c898215bcadcb8edc34dd7f3ee3e439e598617c9794 Entries: active=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(u8)]

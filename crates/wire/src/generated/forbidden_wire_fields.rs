@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=141820715e3167afadac11b17a57d5239b390d9fd31a54c0032ae5ad3e464fd8
-//! Entries: forbidden_wire_fields=239
+//! sha256=3f65b197f481740a5b509202642ca63fa7feef396801f339cbf3fda4ed11ce2e
+//! Entries: forbidden_wire_fields=248
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -3269,6 +3269,132 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         ],
         match_kind: "field",
         match_values: &["sidecar_exchange_binding"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "commit_authorization_state",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["commit_authorization_state"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "commit_base",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["commit_base"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "domain_refs",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["domain_refs"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "expected_revision",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["expected_revision"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "hlc",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["hlc"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "preconditions",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["preconditions"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "producer_revision",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["producer_revision"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "requirements",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["requirements"],
+        value_pointer: "",
+    },
+    ForbiddenWireFieldDescriptor {
+        id: "unsigned",
+        context: "producer_event_envelope_root",
+        rejection_level: "hard_reject",
+        selectors: &[ForbiddenWireSelector {
+            document_kind: "event_envelope",
+            schema_ref: "*",
+            instance_pointer: "",
+            match_scope: "root",
+        }],
+        match_kind: "field",
+        match_values: &["unsigned"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

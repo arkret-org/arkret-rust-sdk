@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::agent_scope::AgentRequestedScopeDisclosure;
+pub use crate::session_grant_bodies::{
+    AgentSessionGrantRefreshRequest, RecoverySessionGrantRequest,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -63,10 +66,19 @@ pub fn human_session_grant_intent_digest(
     .map_err(Into::into)
 }
 
+/// Closed returning-human, Agent runtime, minimal-metadata pairwise endpoint
+/// or fresh-device recovery issuance union
+/// (`service-operation-dtos.schema.json#/$defs/SessionGrantRequestBody`).
+/// OIDC authorization codes are consumed only by the account-handoff body.
+///
+/// `Recovery` is declared before `Human` because an untagged union takes the
+/// first matching branch and the recovery body is the one pinned by its
+/// `credential_class` const.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
 pub enum SessionGrantRequestBody {
+    Recovery(RecoverySessionGrantRequest),
     Human(HumanSessionGrantRequest),
     Agent(AgentSessionGrantRequest),
     PairwiseEndpoint(PairwiseEndpointSessionGrantRequest),
@@ -75,6 +87,7 @@ pub enum SessionGrantRequestBody {
 impl SessionGrantRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
+            Self::Recovery(request) => request.validate(),
             Self::Human(request) => request.validate(),
             Self::Agent(request) => request.validate(),
             Self::PairwiseEndpoint(request) => request.validate(),
@@ -216,7 +229,28 @@ impl AgentSessionGrantRequest {
                 "agent session grant authorization ref must not be empty".into(),
             ));
         }
+        if self.proof.request_canonical_digest != self.canonical_request_digest()? {
+            return Err(WireError::Protocol(
+                "agent session grant proof does not bind this request".into(),
+            ));
+        }
         Ok(())
+    }
+
+    /// The immutable request intent the runtime key signs: JCS-SHA256 of this
+    /// body with the proof's own `signature` and `request_canonical_digest`
+    /// omitted, so the digest never covers itself.
+    pub fn canonical_request_digest(&self) -> Result<Hash> {
+        let mut value = serde_json::to_value(self)?;
+        let proof = value
+            .get_mut("proof")
+            .and_then(Value::as_object_mut)
+            .ok_or_else(|| {
+                WireError::Protocol("agent session grant request carries no proof".into())
+            })?;
+        proof.remove("signature");
+        proof.remove("request_canonical_digest");
+        Hash::new(canonical::canonical_sha256(&value)?).map_err(Into::into)
     }
 }
 
@@ -270,17 +304,49 @@ pub struct AgentSessionGrantProof {
     pub signature: String,
 }
 
+/// Longest validity window an initial Agent session proof may claim.
+pub const AGENT_SESSION_PROOF_MAX_LIFETIME_SECONDS: i64 = 300;
+/// Largest accepted clock skew ahead of the verifier for `issued_at`.
+pub const AGENT_SESSION_PROOF_MAX_CLOCK_SKEW_SECONDS: i64 = 30;
+
 impl AgentSessionGrantProof {
     pub fn validate_structure(&self) -> Result<()> {
         if !valid_agent_session_challenge(&self.challenge)
             || self.expires_at <= self.issued_at
-            || self.expires_at - self.issued_at > chrono::Duration::seconds(300)
+            || self.expires_at - self.issued_at
+                > chrono::Duration::seconds(AGENT_SESSION_PROOF_MAX_LIFETIME_SECONDS)
         {
             return Err(WireError::Protocol(
                 "invalid Agent session proof challenge or time window".into(),
             ));
         }
         Ok(())
+    }
+
+    /// First validation at the verifier's clock: the structural window plus
+    /// `issued_at <= now + 30s` and `now < expires_at`. There is no additional
+    /// nonce; an exact completed issuer-ledger replay reuses the durable
+    /// one-shot verification instead of re-running this check.
+    pub fn validate_at(&self, now: DateTime<Utc>) -> Result<()> {
+        self.validate_structure()?;
+        if self.issued_at
+            > now + chrono::Duration::seconds(AGENT_SESSION_PROOF_MAX_CLOCK_SKEW_SECONDS)
+            || now >= self.expires_at
+        {
+            return Err(WireError::Protocol(
+                "Agent session proof is outside its validity window".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// RFC 8785/JCS bytes of the whole proof with `signature` omitted. Every
+    /// other closed member, `proof_kind` included, stays covered; there is no
+    /// Event JWS wrapper and no extra prefix.
+    pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
+        self.validate_structure()?;
+        let value = canonical::unsigned_value(self, &["signature"])?;
+        Ok(canonical::canonical_json_bytes(&value)?)
     }
 }
 
@@ -409,10 +475,27 @@ fn valid_agent_session_challenge(challenge: &str) -> bool {
     })
 }
 
+/// Closed human-versus-Agent SessionGrant rotation union
+/// (`service-operation-dtos.schema.json#/$defs/SessionGrantRefreshRequestBody`,
+/// `key-management.md` §6.5). Neither branch accepts a client-generated
+/// challenge or a generic `proof_kind`: the human branch presents an
+/// accepted-device possession proof, the Agent branch its runtime-key refresh
+/// proof. A minimal-metadata pairwise holder satisfies neither and therefore
+/// cannot be refreshed at all.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SessionGrantRefreshRequestBody {
     Human(HumanSessionGrantRefreshRequest),
+    Agent(AgentSessionGrantRefreshRequest),
+}
+
+impl SessionGrantRefreshRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Human(request) => request.validate(),
+            Self::Agent(request) => request.validate(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -818,7 +901,6 @@ pub struct AuthSessionLogoutOutcome {
 
 #[cfg(test)]
 mod session_grant_introspection_tests {
-    use arkret_wire::{CommitStreamRef, CommittedEventRef, EventId, RealmCommitId};
     use serde_json::json;
 
     use super::*;
@@ -831,18 +913,8 @@ mod session_grant_introspection_tests {
     const LOGOUT_REQUEST_DIGEST: &str =
         "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 
-    fn device_authorization_ref() -> Value {
-        let realm_id =
-            RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
-        serde_json::to_value(CommittedEventRef {
-            event_id: EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g")
-                .unwrap(),
-            commit_id: RealmCommitId::from_digest([7; 32]),
-            stream_ref: CommitStreamRef::Realm { realm_id },
-            stream_position: 1,
-        })
-        .unwrap()
-    }
+    const DEVICE_AUTHORIZATION_EVENT_ID: &str =
+        "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g";
 
     fn human_grant_value() -> Value {
         json!({
@@ -866,7 +938,7 @@ mod session_grant_introspection_tests {
             },
             "device_binding": {
                 "device_id": DEVICE_ID,
-                "authorization_ref": device_authorization_ref(),
+                "authorization_event_id": DEVICE_AUTHORIZATION_EVENT_ID,
                 "model_generation_ref": 7
             }
         })
@@ -1151,5 +1223,177 @@ mod session_grant_introspection_tests {
                 "{member} must be required"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    const DEVICE: &str = "ak:device:01964137-0000-7000-8000-000000000001";
+    const PRINCIPAL: &str = "ak:did_core:web:alice.example";
+    const AUDIENCE: &str = "ak:did_core:web:station.example";
+    const REQUEST: &str = "ak:request:01970000-0000-7000-8000-000000000021";
+    const AUTHORIZATION: &str = "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g";
+    const VERIFICATION_METHOD: &str = "did:web:agent.example#runtime-1";
+
+    fn unsigned_agent_request() -> UnsignedAgentSessionGrantRequest {
+        UnsignedAgentSessionGrantRequest::new(
+            DidCoreId::new(PRINCIPAL).unwrap(),
+            DeviceId::new(DEVICE).unwrap(),
+            vec!["ak.self.events.read.scan.v1".to_owned()],
+            AUTHORIZATION.to_owned(),
+            SessionGrantAgentScopeRequest {
+                realm_ids: Vec::new(),
+                strand_ids: Vec::new(),
+                track_names: Vec::new(),
+            },
+            None,
+            SessionGrantDpopBindingProof {
+                proof_jwt: "header.body.signature".to_owned(),
+            },
+            None,
+            UnsignedAgentSessionGrantProof {
+                challenge: "AAAAAAAAAAAAAAAAAAAAAA".to_owned(),
+                audience_id: DidCoreId::new(AUDIENCE).unwrap(),
+                issued_at: "2026-08-15T00:00:00Z".parse().unwrap(),
+                expires_at: "2026-08-15T00:04:00Z".parse().unwrap(),
+                verification_method: DidUrl::new(VERIFICATION_METHOD).unwrap(),
+            },
+        )
+        .unwrap()
+    }
+
+    fn signed_agent_request() -> AgentSessionGrantRequest {
+        let unsigned = unsigned_agent_request();
+        match unsigned
+            .attach_signature(NonEmptyString::new("A".repeat(86)).unwrap())
+            .unwrap()
+        {
+            SessionGrantRequestBody::Agent(request) => request,
+            other => panic!("attach_signature must produce the Agent branch, got {other:?}"),
+        }
+    }
+
+    /// The signed body and the pre-signature builder must agree byte for byte:
+    /// the verifier recomputes this digest from the request it received.
+    #[test]
+    fn agent_request_digest_matches_the_pre_signature_transcript() {
+        let unsigned = unsigned_agent_request();
+        let expected = unsigned.canonical_request_digest().unwrap();
+        let signed = signed_agent_request();
+        assert_eq!(signed.proof.request_canonical_digest, expected);
+        assert_eq!(signed.canonical_request_digest().unwrap(), expected);
+        signed.validate().unwrap();
+    }
+
+    #[test]
+    fn agent_request_rejects_a_proof_bound_to_another_request() {
+        let mut request = signed_agent_request();
+        request.requested_scope = vec!["ak.self.events.command.submit.v1".to_owned()];
+        assert!(request.validate().is_err());
+    }
+
+    /// `proof_kind` and `signature` are the two members the transcript treats
+    /// asymmetrically: the kind is covered, the signature is not.
+    #[test]
+    fn agent_proof_signing_bytes_cover_every_member_but_the_signature() {
+        let proof = signed_agent_request().proof;
+        let bytes = proof.canonical_signing_bytes().unwrap();
+        let transcript = String::from_utf8(bytes.clone()).unwrap();
+        assert!(transcript.contains("\"proof_kind\":\"agent_key_proof\""));
+        assert!(!transcript.contains("\"signature\""));
+        let mut other = proof.clone();
+        other.signature = "B".repeat(86);
+        assert_eq!(other.canonical_signing_bytes().unwrap(), bytes);
+    }
+
+    #[test]
+    fn agent_proof_window_is_bounded_at_both_ends() {
+        let proof = signed_agent_request().proof;
+        proof
+            .validate_at("2026-08-15T00:02:00Z".parse().unwrap())
+            .unwrap();
+        assert!(
+            proof
+                .validate_at("2026-08-15T00:04:00Z".parse().unwrap())
+                .is_err()
+        );
+        assert!(
+            proof
+                .validate_at("2026-08-14T23:59:00Z".parse().unwrap())
+                .is_err()
+        );
+        proof
+            .validate_at("2026-08-14T23:59:45Z".parse().unwrap())
+            .unwrap();
+    }
+
+    fn recovery_value() -> Value {
+        json!({
+            "credential_class": "recovery_session",
+            "request_id": REQUEST,
+            "principal_id": PRINCIPAL,
+            "device_id": DEVICE,
+            "audience_id": AUDIENCE
+        })
+    }
+
+    fn human_issue_value() -> Value {
+        let mut value = recovery_value();
+        let object = value.as_object_mut().unwrap();
+        object.remove("credential_class");
+        object.insert(
+            "accepted_device_possession_proof".to_owned(),
+            json!({ "unused": true }),
+        );
+        value
+    }
+
+    /// The untagged union must not let the recovery body fall through into a
+    /// returning-human issuance, which carries different authority.
+    #[test]
+    fn issuance_union_separates_the_recovery_branch() {
+        let body: SessionGrantRequestBody = serde_json::from_value(recovery_value()).unwrap();
+        assert!(matches!(body, SessionGrantRequestBody::Recovery(_)));
+        body.validate().unwrap();
+        assert_eq!(serde_json::to_value(&body).unwrap(), recovery_value());
+        // A body with the human proof member is not a recovery request, and a
+        // malformed proof leaves no branch to fall into.
+        assert!(serde_json::from_value::<SessionGrantRequestBody>(human_issue_value()).is_err());
+    }
+
+    #[test]
+    fn refresh_union_separates_human_and_agent_branches() {
+        let agent = json!({
+            "grant_jwt": "header.body.signature",
+            "device_id": DEVICE,
+            "agent_session_refresh_proof": {
+                "context": "ak.agent_session_refresh_proof.v1",
+                "request_canonical_digest": format!("sha256:{}", "1".repeat(64)),
+                "audience_id": AUDIENCE,
+                "issued_at": "2026-08-15T00:00:00.000Z",
+                "expires_at": "2026-08-15T00:04:00.000Z",
+                "verification_method": VERIFICATION_METHOD,
+                "signature": "A".repeat(86)
+            }
+        });
+        let body: SessionGrantRefreshRequestBody = serde_json::from_value(agent.clone()).unwrap();
+        assert!(matches!(body, SessionGrantRefreshRequestBody::Agent(_)));
+        body.validate().unwrap();
+        assert_eq!(serde_json::to_value(&body).unwrap(), agent);
+
+        // The human branch carries an accepted-device proof instead, so the
+        // two branches never accept each other's body.
+        let mut crossed = agent;
+        let object = crossed.as_object_mut().unwrap();
+        object.remove("agent_session_refresh_proof");
+        object.insert(
+            "accepted_device_possession_proof".to_owned(),
+            json!({ "unused": true }),
+        );
+        assert!(serde_json::from_value::<SessionGrantRefreshRequestBody>(crossed).is_err());
     }
 }

@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
+pub mod agent_runtime_scope;
 mod criticality;
 mod derived_object_id;
 mod error;

@@ -105,6 +105,7 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_device_message_kinds(artifacts_dir)?,
         generate_authority_set_ids(artifacts_dir)?,
         generate_redactable_fields(artifacts_dir)?,
+        generate_reducer_managed_patch_paths(artifacts_dir)?,
         generate_forbidden_wire_fields(artifacts_dir)?,
         generate_mls_creator_bootstrap(artifacts_dir)?,
     ])
@@ -2111,6 +2112,138 @@ fn generate_redactable_fields(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     })
 }
 
+/// Project `registry/reducer-managed-path-registry.json` (the declared source
+/// of truth for `event-and-patch.md` section 4.2.5) into the per-object
+/// effective forbidden set plus the object-agnostic universal minimum.
+///
+/// The registry's own rule decides the effective set: the universal paths an
+/// object's schema actually declares, minus that object's registered
+/// exemptions, plus its own bans. This generator resolves the schema
+/// restriction here so no consumer re-derives it, and the emitted table is the
+/// only copy any SDK, reducer or conformance runner reads.
+fn generate_reducer_managed_patch_paths(artifacts_dir: &Path) -> Result<GeneratedOutput> {
+    let artifact = Artifact::load(artifacts_dir, "registry/reducer-managed-path-registry.json")?;
+    let universal = artifact.array("universal_forbidden_patch_paths")?;
+    let mut objects = artifact.array("objects")?;
+    objects.sort_by_key(|row| string(row, "object_kind").unwrap());
+
+    let mut rendered_objects = String::new();
+    let mut object_count = 0usize;
+    let mut path_count = 0usize;
+    for object in objects {
+        let object_kind = string(object, "object_kind")?;
+        let declared = declared_object_properties(artifacts_dir, string(object, "object_schema_ref")?)?;
+        let exempt = artifact_paths(object, "universal_exemptions")?;
+        let mut rows: Vec<(String, String)> = Vec::new();
+        for row in &universal {
+            let path = string(row, "path")?;
+            if !declared.contains(path) || exempt.contains(path) {
+                continue;
+            }
+            rows.push((
+                path.to_owned(),
+                render_reducer_managed_path(row, "None")?,
+            ));
+        }
+        for row in artifact_rows(object, "forbidden_patch_paths")? {
+            let path = string(row, "path")?;
+            let schema_enforced = match field(row, "schema_enforced")?.as_bool() {
+                Some(value) => format!("Some({value})"),
+                None => bail!("{path} schema_enforced is not a boolean"),
+            };
+            rows.push((
+                path.to_owned(),
+                render_reducer_managed_path(row, &schema_enforced)?,
+            ));
+        }
+        rows.sort_by(|left, right| left.0.cmp(&right.0));
+        path_count += rows.len();
+        object_count += 1;
+        writeln!(
+            rendered_objects,
+            "    ReducerManagedPatchObject {{\n        object_kind: {},\n        forbidden_paths: &[",
+            rust_string(object_kind)
+        )?;
+        for (_, rendered) in rows {
+            rendered_objects.push_str(&rendered);
+        }
+        rendered_objects.push_str("        ],\n    },\n");
+    }
+
+    let mut universal_paths = Vec::new();
+    for row in &universal {
+        universal_paths.push(string(row, "path")?.to_owned());
+    }
+    universal_paths.sort();
+
+    let mut output = header(
+        &[&artifact.source],
+        &format!(
+            "objects={object_count}, effective_paths={path_count}, universal_paths={}",
+            universal_paths.len()
+        ),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedPatchPath {\n    pub path: &'static str,\n    pub basis: &'static str,\n    pub reason_code: &'static str,\n    pub owner_kind: &'static str,\n    /// `Some(true)` when the named update payload already rejects the path\n    /// through its own guard; `None` for a universal path, which no payload\n    /// guard enumerates.\n    pub schema_enforced: Option<bool>,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedPatchObject {\n    pub object_kind: &'static str,\n    /// Effective set: the universal paths this object's schema declares, minus\n    /// its registered exemptions, plus its own bans.\n    pub forbidden_paths: &'static [ReducerManagedPatchPath],\n}\n\n/// Every object kind whose update payload embeds the generic patch surface.\npub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[\n",
+    );
+    output.push_str(&rendered_objects);
+    output.push_str(
+        "];\n\n/// The general minimum set, unrestricted and with no exemption honoured.\n/// It applies whenever the object kind behind a patch is not proven.\npub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[\n",
+    );
+    for path in &universal_paths {
+        writeln!(output, "    {},", rust_string(path))?;
+    }
+    output.push_str("];\n");
+    Ok(GeneratedOutput {
+        relative_path: "crates/wire/src/generated/reducer_managed_patch_paths.rs".into(),
+        contents: output,
+    })
+}
+
+fn render_reducer_managed_path(row: &Map<String, Value>, schema_enforced: &str) -> Result<String> {
+    Ok(format!(
+        "            ReducerManagedPatchPath {{\n                path: {},\n                basis: {},\n                reason_code: {},\n                owner_kind: {},\n                schema_enforced: {schema_enforced},\n            }},\n",
+        rust_string(string(row, "path")?),
+        rust_string(string(row, "basis")?),
+        rust_string(string(row, "reason_code")?),
+        rust_string(string(row, "owner_kind")?),
+    ))
+}
+
+fn artifact_rows<'a>(row: &'a Map<String, Value>, key: &str) -> Result<Vec<&'a Map<String, Value>>> {
+    field(row, key)?
+        .as_array()
+        .with_context(|| format!("field {key} is not an array"))?
+        .iter()
+        .map(|value| {
+            value
+                .as_object()
+                .with_context(|| format!("field {key} contains a non-object"))
+        })
+        .collect()
+}
+
+fn artifact_paths(row: &Map<String, Value>, key: &str) -> Result<BTreeSet<String>> {
+    artifact_rows(row, key)?
+        .into_iter()
+        .map(|entry| Ok(string(entry, "path")?.to_owned()))
+        .collect()
+}
+
+fn declared_object_properties(artifacts_dir: &Path, schema_ref: &str) -> Result<BTreeSet<String>> {
+    let path = artifacts_dir.join(schema_ref);
+    let bytes = std::fs::read(&path).with_context(|| format!("read {}", path.display()))?;
+    let schema: Value =
+        serde_json::from_slice(&bytes).with_context(|| format!("parse {}", path.display()))?;
+    Ok(schema
+        .get("properties")
+        .and_then(Value::as_object)
+        .with_context(|| format!("{schema_ref} declares no properties object"))?
+        .keys()
+        .cloned()
+        .collect())
+}
+
 fn generate_forbidden_wire_fields(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     let artifact = Artifact::load(artifacts_dir, "registry/forbidden-wire-fields.json")?;
     let mut entries = artifact.array("entries")?;
@@ -2189,8 +2322,9 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 22);
+        assert_eq!(outputs.len(), 23);
         for required in [
+            "crates/wire/src/generated/reducer_managed_patch_paths.rs",
             "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
             "crates/wire/src/generated/security_strings.rs",

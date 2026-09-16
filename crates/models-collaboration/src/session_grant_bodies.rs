@@ -12,7 +12,8 @@
 
 use arkret_models_identity::SessionGrantCredentialClass;
 use arkret_wire::{
-    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, RequestId, Result, WireError, canonical,
+    Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, RequestId, Result, SessionGrantId,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -222,6 +223,45 @@ pub fn agent_session_refresh_request_digest(
             verification_method,
         },
     )?)?)
+}
+
+#[derive(Serialize)]
+struct SessionGrantRefreshRequestDigestInput<'a> {
+    operation: &'static str,
+    grant_jwt_digest: String,
+    predecessor_session_grant_id: &'a SessionGrantId,
+    principal_id: &'a DidCoreId,
+    device_id: &'a DeviceId,
+    audience_id: &'a str,
+    holder_jkt: &'a str,
+}
+
+/// Stable canonical rotation intent a human device signs.
+///
+/// The predecessor JWT is hashed rather than carried, so the digest never
+/// re-exposes the credential it replaces, while the predecessor's signed
+/// stable id is carried separately to prevent cross-chain replay. Together
+/// with `predecessor_grant_id` it forms the request identity that makes an
+/// exact replay return the recorded successor.
+#[allow(clippy::too_many_arguments)]
+pub fn session_grant_refresh_request_digest(
+    grant_jwt: &str,
+    predecessor_session_grant_id: &SessionGrantId,
+    principal_id: &DidCoreId,
+    device_id: &DeviceId,
+    audience_id: &DidCoreId,
+    holder_jkt: &str,
+) -> Result<Hash> {
+    let input = SessionGrantRefreshRequestDigestInput {
+        operation: AGENT_SESSION_REFRESH_OPERATION,
+        grant_jwt_digest: canonical::sha256_digest(grant_jwt.as_bytes()),
+        predecessor_session_grant_id,
+        principal_id,
+        device_id,
+        audience_id: audience_id.as_str(),
+        holder_jkt,
+    };
+    Ok(Hash::new(canonical::canonical_sha256(&input)?)?)
 }
 
 #[cfg(test)]

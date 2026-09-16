@@ -24,7 +24,9 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
-use crate::generated::REDACTABLE_FIELD_PATHS;
+use crate::generated::{
+    REDACTABLE_FIELD_PATHS, REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS, REDUCER_MANAGED_PATCH_OBJECTS,
+};
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;
@@ -44,8 +46,38 @@ pub fn patch_path_covers(registered: &str, candidate: &str) -> bool {
             && candidate.as_bytes()[registered.len()] == b'.')
 }
 
-/// Strip selector suffixes and reject backtick-quoted segments so a registered
-/// path can be compared against a wire path segment by segment.
+/// The reason code a generic update surface must return when `path` addresses
+/// a field the patch author does not own on `object_kind`, or `None` when the
+/// path is the author's to write.
+///
+/// The decision comes from the registered effective set of
+/// `registry/reducer-managed-path-registry.json`
+/// ([`REDUCER_MANAGED_PATCH_OBJECTS`]), which already applies the registry's
+/// own rule: the universal paths the object's schema declares, minus the
+/// object's registered exemptions, plus its own bans. An object kind with no
+/// registered patch surface falls back to the universal minimum
+/// ([`REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS`]), so an unknown kind fails
+/// closed rather than silently admitting reducer-owned paths.
+///
+/// `path` is the full normalized dotted subject, not just a root segment: a
+/// registered path and every dotted descendant of it fall together.
+pub fn reducer_managed_patch_reason(object_kind: &str, path: &str) -> Option<&'static str> {
+    match REDUCER_MANAGED_PATCH_OBJECTS
+        .iter()
+        .find(|object| object.object_kind == object_kind)
+    {
+        Some(object) => object
+            .forbidden_paths
+            .iter()
+            .find(|registered| patch_path_covers(registered.path, path))
+            .map(|registered| registered.reason_code),
+        None => REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS
+            .iter()
+            .any(|registered| patch_path_covers(registered, path))
+            .then_some(ReasonCode::PATCH_PATH_REDUCER_MANAGED),
+    }
+}
+
 /// Explicit op discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -678,6 +710,54 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    /// The registry's own rule, applied to the three object kinds that make it
+    /// observable: `actor_profile` omits the universal paths its schema does
+    /// not declare, `view` is the one registered `state` exemption, and
+    /// `relation` carries the second reason code.
+    #[test]
+    fn reducer_managed_reason_follows_the_registered_effective_set() {
+        assert_eq!(
+            reducer_managed_patch_reason("actor_profile", "id"),
+            Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+        );
+        assert_eq!(reducer_managed_patch_reason("actor_profile", "state"), None);
+        assert_eq!(
+            reducer_managed_patch_reason("actor_profile", "state_changed_at"),
+            None
+        );
+
+        assert_eq!(reducer_managed_patch_reason("view", "state"), None);
+        assert_eq!(
+            reducer_managed_patch_reason("view", "state_changed_at"),
+            Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
+        );
+
+        assert_eq!(
+            reducer_managed_patch_reason("relation", "effective_scope"),
+            Some(ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED)
+        );
+        assert_eq!(
+            reducer_managed_patch_reason("relation", "effective_scope.circle_id"),
+            Some(ReasonCode::EFFECTIVE_SCOPE_REDUCER_MANAGED)
+        );
+        assert_eq!(reducer_managed_patch_reason("relation", "metadata"), None);
+    }
+
+    /// An object kind with no registered patch surface must not open the
+    /// universal minimum: it falls back to the unrestricted list with no
+    /// exemption honoured.
+    #[test]
+    fn unregistered_object_kind_falls_back_to_the_universal_minimum() {
+        for path in REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS {
+            assert_eq!(
+                reducer_managed_patch_reason("message", path),
+                Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED),
+                "{path} must stay closed for an unproven object kind"
+            );
+        }
+        assert_eq!(reducer_managed_patch_reason("message", "content"), None);
+    }
 
     #[test]
     fn direct_value_sugar_round_trips() {

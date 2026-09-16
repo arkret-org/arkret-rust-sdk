@@ -566,14 +566,15 @@ pub enum RealmOrganizationStatus {
 
 /// `control_scopes[]` item enum for [`RealmOrganizationPayload`]. A scope is an
 /// endorsement boundary only; actual Realm control still requires the matching
-/// Realm policy / notary / capability / service-binding event.
+/// Realm policy, governance-Station authority, capability or service-binding
+/// Event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum RealmOrganizationControlScope {
     OfficialBadge,
     RealmAdmin,
-    NotaryControl,
+    RealmAuthority,
     ModerationPolicy,
     RetentionPolicy,
     DirectoryListing,
