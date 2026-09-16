@@ -1,12 +1,11 @@
 //! Complete method-native verification for retained service signer evidence.
 
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, DidDocument,
-    PublicPrincipalResolution, ResolutionDidBindingEvidenceKind,
-    ResolutionDidBindingEvidenceReceipt, ResolutionDidBindingMethodProof,
-    ResolutionDidBindingMethodProofKind, ResolutionDidBindingWitness,
-    ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence, ServiceMethodState,
-    ServiceResolutionProjection,
+    AuthenticatedServiceResolution, DidDocument, PublicPrincipalResolution,
+    ResolutionDidBindingEvidenceKind, ResolutionDidBindingEvidenceReceipt,
+    ResolutionDidBindingMethodProof, ResolutionDidBindingMethodProofKind,
+    ResolutionDidBindingWitness, ResolutionMethodEvidenceBoundary, ResolutionMethodHistoryEvidence,
+    ServiceMethodState, ServiceResolutionProjection,
 };
 use arkret_wire::{Did, DidCoreId, Hash, WireError, project_did_to_core_id};
 use chrono::{DateTime, Utc};

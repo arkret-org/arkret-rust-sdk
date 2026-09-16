@@ -249,7 +249,7 @@ pub fn verify_ed25519_raw_transcript_signature(
 ///
 /// This checks the signature and the envelope's self-consistency only. The
 /// caller still owes the admission checks that need accepted state: that
-/// `verification_method` resolves, at `seal_ref`, to the active device signing
+/// `verification_method` resolves, at `stream_head_ref`, to the active device signing
 /// method authorized for `sender_device_id` under `sender_actor_id`; that the
 /// device may send into this scope; and, for `moderation`, the corresponding
 /// moderation action. `signal.md` §3 requires all four. In particular, no

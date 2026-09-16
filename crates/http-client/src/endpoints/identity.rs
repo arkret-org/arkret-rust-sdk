@@ -1,6 +1,5 @@
 //! Server-describe, identity, and directory endpoint methods on [`Client`].
 
-use arkret_models_crypto::{RecoveryPolicyPublishOutcome, RecoveryPolicyPublishRequest};
 use arkret_models_discovery::{
     DirectoryActorSearchOutcome, DirectoryAgentSelectorResolutionOutcome,
     DirectoryHandleResolutionOutcome, DirectoryListHandlesForSubjectRequestBody,
@@ -39,25 +38,6 @@ impl Client {
         request.validate()?;
         let outcome: arkret_models_identity::CurrentPrincipalOutcome = self
             .post("/_arkret/self/account/current-principal", request)
-            .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
-    /// Read the own-Station notary configuration for a Realm genesis this
-    /// authenticated account is about to author
-    /// (`sync/server-trusted-results.md` §5.8).
-    ///
-    /// Success is a signing input, never an authorization: no Realm is created,
-    /// no identifier is reserved, and the caller still signs `ak.realm.create`
-    /// itself. `notary` is copied verbatim into the genesis object.
-    pub async fn genesis_notary(
-        &self,
-        request: &arkret_models_identity::GenesisNotaryRequestBody,
-    ) -> Result<arkret_models_identity::GenesisNotaryOutcome> {
-        request.validate()?;
-        let outcome: arkret_models_identity::GenesisNotaryOutcome = self
-            .post("/_arkret/self/genesis-notary/query", request)
             .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)
@@ -115,8 +95,8 @@ impl Client {
     /// [`validate_resolved_actor_profile`](arkret_models_collaboration::actor_profile_resolution::validate_resolved_actor_profile):
     /// a caller degrades that one actor to unavailable rather than losing the
     /// rows that were fine, which is what the single-valued per-actor failure
-    /// vocabulary is for. Ordinary profile state has no covering Seal, so
-    /// nothing here waits for one.
+    /// vocabulary is for. The returned profile projection is already bound to
+    /// an accepted authority commit reference.
     pub async fn actor_profile_resolve(
         &self,
         request: &ActorProfileResolveRequest,
@@ -253,28 +233,6 @@ impl Client {
             .post("/_arkret/root/identity/submit-did-operation", request)
             .await?;
         outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
-    /// Publish a typed recovery-policy control Event using canonical JSON.
-    pub async fn identity_recovery_policy_publish(
-        &self,
-        request: &RecoveryPolicyPublishRequest,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<RecoveryPolicyPublishOutcome> {
-        request.validate_structural(digest_suite)?;
-        let payload = request.policy_payload()?;
-        let outcome: RecoveryPolicyPublishOutcome = self
-            .post("/_arkret/root/identity/recovery-policy", request)
-            .await?;
-        if outcome.policy_id != payload.policy_id
-            || outcome.account_id != payload.value.account_id
-            || outcome.version != payload.value.version
-        {
-            return Err(Error::Protocol(
-                "recovery-policy publish response changed policy binding".to_owned(),
-            ));
-        }
         Ok(outcome)
     }
 

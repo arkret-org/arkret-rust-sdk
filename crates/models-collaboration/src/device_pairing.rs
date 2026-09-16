@@ -373,7 +373,8 @@ pub struct DevicePairingStatusOutcome {
 impl DevicePairingStatusOutcome {
     pub fn validate(&self) -> Result<()> {
         let authorized = self.state == DevicePairingState::Authorized;
-        if authorized != self.device_id.is_some() || authorized != self.authorized_event_ref.is_some()
+        if authorized != self.device_id.is_some()
+            || authorized != self.authorized_event_ref.is_some()
         {
             return Err(WireError::Protocol(
                 "authorized device pairing status requires device and committed Event refs".into(),

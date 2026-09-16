@@ -350,5 +350,4 @@ mod tests {
             .expect("did:key fallback");
         assert_eq!(resolved.as_bytes(), signing.verifying_key().as_bytes());
     }
-
 }

@@ -131,6 +131,8 @@ fn service_describe_round_trips_interop_surfaces_on_the_canonical_key() {
 
 #[test]
 fn directory_realm_search_outcome_decodes_typed_preview_fields() {
+    let first_commit_id = arkret_wire::RealmCommitId::from_digest([1; 32]);
+    let second_commit_id = arkret_wire::RealmCommitId::from_digest([2; 32]);
     let value = serde_json::json!({
         "realms": [
             {
@@ -138,14 +140,30 @@ fn directory_realm_search_outcome_decodes_typed_preview_fields() {
                 "title": "Public Realm",
                 "member_count_bucket": "51-100",
                 "as_of": "2026-06-13T00:00:00.000Z",
-                "source_refs": ["ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1"],
+                "source_refs": [{
+                    "event_id": "ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1",
+                    "commit_id": first_commit_id,
+                    "stream_ref": {
+                        "kind": "realm",
+                        "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+                    },
+                    "stream_position": 7
+                }],
                 "policy_revision": "rev-1"
             },
             {
                 "realm_id": "ak:realm:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy",
                 "member_count_bucket": 342,
                 "as_of": "2026-06-13T00:00:00.000Z",
-                "source_refs": ["ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM"],
+                "source_refs": [{
+                    "event_id": "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
+                    "commit_id": second_commit_id,
+                    "stream_ref": {
+                        "kind": "realm",
+                        "realm_id": "ak:realm:AcsFZ3o2tOdN3EFpNceeLV-aI3jZkB9S34_4YIwJ5DLy"
+                    },
+                    "stream_position": 11
+                }],
                 "policy_revision": "rev-2"
             }
         ],

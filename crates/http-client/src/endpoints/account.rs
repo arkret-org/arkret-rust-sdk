@@ -9,14 +9,14 @@ use arkret_models_collaboration::contact_operations::{
     ContactAcceptRequestBody, ContactList, ContactOperationOutcome, ContactOperationRequestBody,
     ContactTombstoneRequestBody,
 };
-use arkret_models_collaboration::direct_conversation::{
-    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
-};
 use arkret_models_collaboration::device_pairing::{
     AccountDevicePairOutcome, AccountDevicePairRequestBody, DevicePairingBootstrap,
     DevicePairingCodeClaimOutcome, DevicePairingCodeClaimRequestBody, DevicePairingFinalizeOutcome,
     DevicePairingFinalizeRequestBody, DevicePairingResolveRequestBody, DevicePairingStageOutcome,
     DevicePairingStageRequestBody, DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
+};
+use arkret_models_collaboration::direct_conversation::{
+    DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
 #[cfg(all(test, not(target_arch = "wasm32")))]
 use arkret_models_collaboration::session_grants::{
@@ -679,14 +679,23 @@ mod tests {
         serde_json::from_value(serde_json::json!({
             "grant_jwt": "predecessor.jwt",
             "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
-            "agent_session_refresh_proof": {
-                "context": "ak.agent_session_refresh_proof.v1",
-                "request_canonical_digest": format!("sha256:{}", "11".repeat(32)),
+            "audience_id": "ak:did_core:web:service.example",
+            "accepted_device_possession_proof": {
+                "context": "ak.session_grant_accepted_device_possession_proof.v1",
+                "purpose": "session_grant_refresh",
+                "predecessor_session_grant_id": "ak:session_grant:Af0GheZX08ev4L1fQoFdngIpe5c_9Lk7SQqfN4jztzDW",
+                "account_id": {
+                    "principal_id": "ak:did_core:web:alice.example",
+                    "station_id": "ak:did_core:web:service.example"
+                },
+                "device_id": "ak:device:01964137-0000-7000-8000-000000000041",
                 "audience_id": "ak:did_core:web:service.example",
+                "holder_jkt": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "session_intent_digest": format!("sha256:{}", "11".repeat(32)),
                 "issued_at": "2026-08-08T11:59:00.000Z",
                 "expires_at": "2026-08-08T12:04:00.000Z",
                 "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                "verification_method": "did:web:agent.example#runtime-key-1"
+                "verification_method": "did:web:alice.example#device-1"
             }
         }))
         .unwrap()

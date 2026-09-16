@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
 
-use arkret_schema::Criticality;
 use arkret_schema::generated::{
     CapabilityRiskTier, REGISTERED_ID_KINDS, REGISTERED_SCHEMA_IDS,
     REGISTERED_SPECIAL_FORM_ID_KINDS,
@@ -58,10 +57,6 @@ pub struct ProfileRequirement {
     #[serde(default)]
     pub required_features: Vec<String>,
     #[serde(default)]
-    pub required_cell_namespaces: Vec<String>,
-    #[serde(default)]
-    pub required_cells: Vec<String>,
-    #[serde(default)]
     pub required_constraint_kinds: Vec<String>,
     #[serde(default)]
     pub non_event_grant_authority_rules: Vec<ParsedNonEventGrantAuthorityRule>,
@@ -88,26 +83,6 @@ pub struct ParsedNonEventGrantAuthorityRule {
     pub scope_binding: String,
     pub epoch_binding: String,
     pub requested_action_binding: String,
-}
-
-/// Component metadata for a single state event kind, as declared by the spec
-/// event-kind-registry.
-///
-/// Returned by [`SpecArtifactBundle::component`]. Multiple event kinds MAY
-/// share a `component_type` (e.g. `ak.capability.grant` and
-/// `ak.capability.revoke`) — the alias entry will set
-/// `component_slot_alias_of` to the canonical kind that owns the slot.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ComponentDescriptor {
-    pub event_kind: String,
-    pub component_type: String,
-    pub component_version: u64,
-    pub criticality: Criticality,
-    /// Canonical event kind whose cell this kind aliases, when set. Aliasing
-    /// kinds share the same `(component_type, component_version)` as the
-    /// canonical kind and resolve to the same cell.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub component_slot_alias_of: Option<String>,
 }
 
 /// Machine-readable descriptor for one capability action registry entry.
@@ -339,12 +314,6 @@ impl SpecArtifactBundle {
                 profile_id,
             )?,
             required_features: optional_string_array(entry, "required_features", profile_id)?,
-            required_cell_namespaces: optional_string_array(
-                entry,
-                "required_cell_namespaces",
-                profile_id,
-            )?,
-            required_cells: optional_string_array(entry, "required_cells", profile_id)?,
             required_constraint_kinds: profile_required_constraint_kinds(entry, profile_id)?,
             non_event_grant_authority_rules: optional_typed_array(
                 entry,
@@ -455,67 +424,6 @@ impl SpecArtifactBundle {
             );
         }
         issues
-    }
-
-    /// Look up the [`ComponentDescriptor`] for a state event kind.
-    ///
-    /// Returns `Ok(None)` when the kind is not registered, `Err` when the
-    /// registry entry does not identify one component slot or its cell family
-    /// lacks a `.vN` suffix.
-    pub fn component(&self, event_kind: &str) -> Result<Option<ComponentDescriptor>> {
-        let Some(entry) = registry_entry(
-            &self.event_kind_registry,
-            "event_kinds",
-            "event_kind",
-            event_kind,
-        ) else {
-            return Ok(None);
-        };
-        // A single-write kind owns one component slot. Registry rows carry
-        // that identity in `cell_writes[0]`.
-        let (component_type, cell_subject) = component_cell_identity(entry).ok_or_else(|| {
-            SchemaError::Protocol(format!(
-                "event kind {event_kind} does not declare one unambiguous component slot"
-            ))
-        })?;
-        let component_type = component_type.to_owned();
-        let component_version = component_type
-            .rsplit_once(".v")
-            .and_then(|(_, suffix)| suffix.parse::<u64>().ok())
-            .ok_or_else(|| {
-                SchemaError::Protocol(format!(
-                    "event kind {event_kind} cell_family missing .vN version suffix"
-                ))
-            })?;
-        let criticality = Criticality::Required;
-        // Alias owner is the first registry entry for the same component
-        // family. Genesis and mutation events intentionally resolve the same
-        // typed subject through different signed sources (for example,
-        // envelope.event_id vs payload.grant_id), so the source path is not
-        // part of the component-slot identity.
-        let component_slot_alias_of = cell_subject.and_then(|_| {
-            let canonical_owner = self.event_kind_registry["event_kinds"]
-                .as_array()
-                .and_then(|entries| {
-                    entries.iter().find_map(|other| {
-                        let other_kind = other.get("event_kind").and_then(Value::as_str)?;
-                        let (other_family, _) = component_cell_identity(other)?;
-                        (other_family == component_type).then(|| other_kind.to_owned())
-                    })
-                })?;
-            if canonical_owner == event_kind {
-                None
-            } else {
-                Some(canonical_owner)
-            }
-        });
-        Ok(Some(ComponentDescriptor {
-            event_kind: event_kind.to_owned(),
-            component_type,
-            component_version,
-            criticality,
-            component_slot_alias_of,
-        }))
     }
 
     /// Look up a capability action descriptor from the loaded spec artifact.
@@ -1247,18 +1155,6 @@ pub(super) fn registry_entry<'a>(
         .find(|entry| entry[key_field].as_str() == Some(expected_key))
 }
 
-fn component_cell_identity(entry: &Value) -> Option<(&str, Option<&Value>)> {
-    let writes = entry.get("cell_writes")?.as_array()?;
-    if writes.len() != 1 {
-        return None;
-    }
-    let write = &writes[0];
-    Some((
-        write.get("cell_family")?.as_str()?,
-        write.get("cell_subject"),
-    ))
-}
-
 #[cfg(test)]
 mod tests {
     use arkret_wire::{ErrorCode, ErrorStatusContext, REASON_CODE_DESCRIPTORS};
@@ -1456,32 +1352,6 @@ mod tests {
         live.sort_unstable();
         generated.sort_unstable();
         assert_eq!(generated, live);
-    }
-
-    #[test]
-    fn component_descriptor_resolves_canonical_and_alias_kinds() {
-        let bundle = SpecArtifactBundle::load_configured().unwrap();
-        let canonical = bundle
-            .component("ak.capability.grant")
-            .unwrap()
-            .expect("ak.capability.grant should be registered");
-        assert_eq!(canonical.criticality, Criticality::Required);
-        assert!(canonical.component_type.starts_with("ak.component."));
-        assert!(canonical.component_version >= 1);
-        assert!(canonical.component_slot_alias_of.is_none());
-
-        let alias = bundle
-            .component("ak.capability.revoke")
-            .unwrap()
-            .expect("ak.capability.revoke should be registered");
-        assert_eq!(
-            alias.component_slot_alias_of.as_deref(),
-            Some("ak.capability.grant"),
-            "ak.capability.revoke should slot-alias ak.capability.grant"
-        );
-        assert_eq!(alias.component_type, canonical.component_type);
-        assert_eq!(alias.component_version, canonical.component_version);
-        assert!(bundle.component("ak.bogus.kind").unwrap().is_none());
     }
 
     #[test]

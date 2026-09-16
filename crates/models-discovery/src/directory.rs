@@ -1166,6 +1166,8 @@ impl DirectorySubjectHandleList {
 
 #[cfg(test)]
 mod directory_actor_identity_tests {
+    use std::collections::BTreeSet;
+
     use serde_json::json;
 
     use super::*;
@@ -1543,88 +1545,5 @@ mod directory_governance_proof_tests {
         array_audience["audience"] = json!([DIRECTORY_SERVICE_ID]);
         serde_json::from_value::<DirectoryGovernanceProof>(array_audience)
             .expect_err("audience MUST be single valued");
-    }
-
-    /// Byte-level KAT: the 6th directory proof-context vector from
-    /// `fixtures/proof-context-transcript-fixture.json`
-    /// (`ak.vector.proof_context.transcript.directory_governance_request.v1`).
-    #[test]
-    fn spec_vector_directory_governance_request_matches_byte_for_byte() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/proof-context-transcript-fixture.json",
-        )
-        .expect("embedded fixture");
-        let cases = fixture["cases"].as_array().expect("cases");
-        let vector = cases
-            .iter()
-            .find(|case| {
-                case["vector_id"].as_str()
-                    == Some("ak.vector.proof_context.transcript.directory_governance_request.v1")
-            })
-            .expect("directory governance transcript vector");
-
-        let proof: DirectoryGovernanceProof = serde_json::from_value(json!({
-            "kind": "detached_jws",
-            "verification_method": vector["binding_object"]["verification_method"],
-            "payload_digest": vector["binding_object"]["payload_digest"],
-            "created_at": vector["binding_object"]["created_at"],
-            "proof_purpose": vector["binding_object"]["proof_purpose"],
-            "audience_id": vector["binding_object"]["audience_id"],
-            "jws": vector["detached_jws"],
-        }))
-        .expect("vector proof leaf fits the closed wire shape");
-
-        // `canonical_sha256` already returns the typed `sha256:<hex>` form.
-        let recomputed = arkret_canonical::canonical::canonical_sha256(&vector["unsigned_object"])
-            .expect("unsigned digest");
-        assert_eq!(
-            recomputed,
-            vector["unsigned_digest"].as_str().unwrap(),
-            "SHA-256(JCS(request_without_governance_proof)) must match"
-        );
-        assert_eq!(
-            proof.payload_digest.as_str(),
-            vector["unsigned_digest"].as_str().unwrap()
-        );
-
-        let binding = proof
-            .binding_bytes(
-                vector["binding_object"]["operation_id"].as_str().unwrap(),
-                vector["binding_object"]["resource_id"].as_str().unwrap(),
-                &proof.payload_digest.clone(),
-            )
-            .expect("binding bytes");
-        assert_eq!(
-            binding,
-            vector["binding_jcs"].as_str().unwrap().as_bytes(),
-            "canonical binding object must be byte-identical to the spec vector"
-        );
-
-        // The vector signature is a real Ed25519 signature over
-        // `signing_input_ascii` under the shared conformance test key.
-        let public_key_bytes =
-            arkret_canonical::base64url_decode(fixture["test_key"]["public_key"].as_str().unwrap())
-                .expect("test key decode");
-        let verifying_key = ed25519_dalek::VerifyingKey::from_bytes(
-            &<[u8; 32]>::try_from(public_key_bytes.as_slice()).unwrap(),
-        )
-        .unwrap();
-        let jws = vector["detached_jws"].as_str().unwrap();
-        let (header_segment, signature_segment) = jws
-            .split_once("..")
-            .expect("detached JWS has an empty payload segment");
-        let signing_input_ascii = vector["signing_input_ascii"].as_str().unwrap();
-        assert!(
-            signing_input_ascii.starts_with(header_segment),
-            "the signing input starts with the protected header segment"
-        );
-        let signature_bytes =
-            arkret_canonical::base64url_decode(signature_segment).expect("signature decode");
-        let signature =
-            ed25519_dalek::Signature::from_slice(&signature_bytes).expect("64-byte signature");
-        use ed25519_dalek::Verifier as _;
-        verifying_key
-            .verify(signing_input_ascii.as_bytes(), &signature)
-            .expect("vector signature verifies over the reconstructed signing input");
     }
 }

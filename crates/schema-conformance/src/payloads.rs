@@ -341,7 +341,10 @@ mod tests {
                     "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                     "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                    "rank": "U"
+                    "rank": {
+                        "depth": 0,
+                        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
+                    }
                 }),
             )
             .unwrap();
@@ -351,7 +354,10 @@ mod tests {
                 &json!({
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                     "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                    "rank": "U"
+                    "rank": {
+                        "depth": 0,
+                        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
+                    }
                 })
             ),
             Err(SchemaError::Protocol(_))
@@ -371,7 +377,10 @@ mod tests {
                     "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                     "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                    "rank": "U"
+                    "rank": {
+                        "depth": 0,
+                        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
+                    }
                 }),
             )
             .unwrap();
@@ -383,7 +392,10 @@ mod tests {
                         "board_space_id": "not-a-space-id",
                         "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                         "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                        "rank": "U"
+                        "rank": {
+                            "depth": 0,
+                            "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
+                        }
                     }),
                 )
                 .is_err()

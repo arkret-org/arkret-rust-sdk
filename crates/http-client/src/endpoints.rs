@@ -16,7 +16,6 @@ mod peer;
 mod push;
 mod realm_join;
 mod relation;
-mod security;
 mod signal;
 
 pub use account::AccountSubscribeFrameStream;

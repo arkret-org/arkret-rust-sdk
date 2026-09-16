@@ -67,8 +67,7 @@ pub enum Error {
 
     #[error(transparent)]
     StreamTrace(
-        #[from]
-        arkret_models_collaboration::sync_frames::account_subscribe::StreamTraceError,
+        #[from] arkret_models_collaboration::sync_frames::account_subscribe::StreamTraceError,
     ),
 
     /// DID resolution failure raised by the native `HttpDidResolver`
@@ -83,7 +82,7 @@ impl Error {
     ///
     /// Callers branch on [`arkret_wire::ErrorCode`] rather than comparing
     /// `detail` strings or bare HTTP statuses: a status alone cannot separate,
-    /// say, a Seal signing-slot fence from any other 409.
+    /// say, an authority stream-position conflict from any other 409.
     #[must_use]
     pub fn error_code(&self) -> Option<arkret_wire::ErrorCode> {
         match self {

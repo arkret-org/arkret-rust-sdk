@@ -100,10 +100,6 @@ const SOURCES: &[(&str, &str)] = &[
         include_str!("../src/endpoints/relation.rs"),
     ),
     (
-        "endpoints/security.rs",
-        include_str!("../src/endpoints/security.rs"),
-    ),
-    (
         "endpoints/signal.rs",
         include_str!("../src/endpoints/signal.rs"),
     ),
@@ -111,10 +107,6 @@ const SOURCES: &[(&str, &str)] = &[
     (
         "http_did_resolver.rs",
         include_str!("../src/http_did_resolver.rs"),
-    ),
-    (
-        "key_backup_client.rs",
-        include_str!("../src/key_backup_client.rs"),
     ),
     ("lib.rs", include_str!("../src/lib.rs")),
     ("request.rs", include_str!("../src/request.rs")),

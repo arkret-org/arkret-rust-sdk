@@ -14,8 +14,8 @@
 use arkret_models_collaboration::governance::realm_join_intake::{
     PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
     PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatusOutcome,
-    RealmJoinApplicationStatusRequest, SelfRealmJoinPrepareOutcome, SelfRealmJoinPrepareRequestBody,
-    SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
+    RealmJoinApplicationStatusRequest, SelfRealmJoinPrepareOutcome,
+    SelfRealmJoinPrepareRequestBody, SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
 };
 
 use crate::{Client, Result};
@@ -42,8 +42,8 @@ impl Client {
     ///
     /// The caller checks target, purpose, request binding and the bytes it is
     /// about to sign, then signs and submits. It never fetches remote
-    /// governance evidence, recomputes Seal roots, selects a candidate
-    /// endpoint or runs a reducer.
+    /// governance evidence or selects a candidate endpoint. The nonce-bound
+    /// authority bundle is the sole source of the current Station identity.
     pub async fn self_realm_join_prepare(
         &self,
         request: &SelfRealmJoinPrepareRequestBody,

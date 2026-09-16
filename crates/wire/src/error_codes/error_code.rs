@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-16.6;
-//! sha256=ad546a5d9e89035ddeffd7a624830ece1f215b8512b4e02d0f9025b7c67a9f0b Entries: error_codes=270
+//! Input: registry/error-code-registry.json; version=2026-09-16.8;
+//! sha256=bbd1b59cc19f1a477a0352c07fc41e2f01e3ded44d598f945b52de349a6a10b3 Entries: error_codes=268
 
 use serde::{Deserialize, Serialize};
 
@@ -131,7 +131,6 @@ pub enum ErrorCode {
     EpochMismatch,
     ExternalInviteActorMismatch,
     ExternalUserNoMainAccess,
-    FailedBottom,
     FailedPlane,
     FailedPrecondition,
     FederationActorOriginDenied,
@@ -193,7 +192,6 @@ pub enum ErrorCode {
     PayloadDigestMismatch,
     PayloadTooLarge,
     PcrAuthorityStale,
-    PeerStale,
     PeerStateStaleUnavailable,
     PolicyCombinationInvalid,
     PolicyDenied,
@@ -417,7 +415,6 @@ impl ErrorCode {
         Self::EpochMismatch,
         Self::ExternalInviteActorMismatch,
         Self::ExternalUserNoMainAccess,
-        Self::FailedBottom,
         Self::FailedPlane,
         Self::FailedPrecondition,
         Self::FederationActorOriginDenied,
@@ -479,7 +476,6 @@ impl ErrorCode {
         Self::PayloadDigestMismatch,
         Self::PayloadTooLarge,
         Self::PcrAuthorityStale,
-        Self::PeerStale,
         Self::PeerStateStaleUnavailable,
         Self::PolicyCombinationInvalid,
         Self::PolicyDenied,
@@ -700,7 +696,6 @@ impl ErrorCode {
     pub const EPOCH_MISMATCH: &'static str = "epoch_mismatch";
     pub const EXTERNAL_INVITE_ACTOR_MISMATCH: &'static str = "external_invite_actor_mismatch";
     pub const EXTERNAL_USER_NO_MAIN_ACCESS: &'static str = "external_user_no_main_access";
-    pub const FAILED_BOTTOM: &'static str = "failed_bottom";
     pub const FAILED_PLANE: &'static str = "failed_plane";
     pub const FAILED_PRECONDITION: &'static str = "failed_precondition";
     pub const FEDERATION_ACTOR_ORIGIN_DENIED: &'static str = "federation_actor_origin_denied";
@@ -769,7 +764,6 @@ impl ErrorCode {
     pub const PAYLOAD_DIGEST_MISMATCH: &'static str = "payload_digest_mismatch";
     pub const PAYLOAD_TOO_LARGE: &'static str = "payload_too_large";
     pub const PCR_AUTHORITY_STALE: &'static str = "pcr_authority_stale";
-    pub const PEER_STALE: &'static str = "peer_stale";
     pub const PEER_STATE_STALE_UNAVAILABLE: &'static str = "peer_state_stale_unavailable";
     pub const POLICY_COMBINATION_INVALID: &'static str = "policy_combination_invalid";
     pub const POLICY_DENIED: &'static str = "policy_denied";
@@ -1006,7 +1000,6 @@ impl ErrorCode {
             Self::EpochMismatch => "epoch_mismatch",
             Self::ExternalInviteActorMismatch => "external_invite_actor_mismatch",
             Self::ExternalUserNoMainAccess => "external_user_no_main_access",
-            Self::FailedBottom => "failed_bottom",
             Self::FailedPlane => "failed_plane",
             Self::FailedPrecondition => "failed_precondition",
             Self::FederationActorOriginDenied => "federation_actor_origin_denied",
@@ -1074,7 +1067,6 @@ impl ErrorCode {
             Self::PayloadDigestMismatch => "payload_digest_mismatch",
             Self::PayloadTooLarge => "payload_too_large",
             Self::PcrAuthorityStale => "pcr_authority_stale",
-            Self::PeerStale => "peer_stale",
             Self::PeerStateStaleUnavailable => "peer_state_stale_unavailable",
             Self::PolicyCombinationInvalid => "policy_combination_invalid",
             Self::PolicyDenied => "policy_denied",
@@ -1307,7 +1299,6 @@ impl ErrorCode {
             "epoch_mismatch" => Some(Self::EpochMismatch),
             "external_invite_actor_mismatch" => Some(Self::ExternalInviteActorMismatch),
             "external_user_no_main_access" => Some(Self::ExternalUserNoMainAccess),
-            "failed_bottom" => Some(Self::FailedBottom),
             "failed_plane" => Some(Self::FailedPlane),
             "failed_precondition" => Some(Self::FailedPrecondition),
             "federation_actor_origin_denied" => Some(Self::FederationActorOriginDenied),
@@ -1381,7 +1372,6 @@ impl ErrorCode {
             "payload_digest_mismatch" => Some(Self::PayloadDigestMismatch),
             "payload_too_large" => Some(Self::PayloadTooLarge),
             "pcr_authority_stale" => Some(Self::PcrAuthorityStale),
-            "peer_stale" => Some(Self::PeerStale),
             "peer_state_stale_unavailable" => Some(Self::PeerStateStaleUnavailable),
             "policy_combination_invalid" => Some(Self::PolicyCombinationInvalid),
             "policy_denied" => Some(Self::PolicyDenied),
@@ -2539,16 +2529,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The external user has no access to the main deployment surface.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::FailedBottom,
-        type_uri: "https://arkret.org/problems/failed_bottom",
-        title: "Failed bottom",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "authority-commit lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md Â§13; MUST NOT be reported as cas_conflict.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
         type_uri: "https://arkret.org/problems/failed_plane",
         title: "Failed plane",
@@ -2716,7 +2696,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "The requested Event range, backfill window, preview field, or E2EE history key share is not visible to the caller under the target Event's T0 history_access and the current safety policy. Non-enumerating surfaces MAY map this to not_found. See zh/governance/history-visibility.md.",
+        description: "The requested Event range, backfill window, or preview field is not visible to the caller under the target Event's T0 history_access and the current safety policy. Non-enumerating surfaces MAY map this to not_found. See zh/governance/history-visibility.md.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::HlcLogicalOverflow,
@@ -2956,7 +2936,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "A 0 -> 0 group_security_frontier query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The service MUST NOT default content_scheme or durability_policy. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
+        description: "A 0 -> 0 group_security_frontier query targets a scope/group with no accepted MLS Genesis but omits proposed_group_genesis_binding. The service MUST NOT default content_scheme. The caller must resubmit the exact proposed immutable binding; the failed request produces no proof and no cache entry.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsGovernanceAnchorUnreachable,
@@ -3157,16 +3137,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The accepted PCR authority frontier, device generation, recovery-policy version or account-local-lineage binding is stale. DID freshness cannot repair this failure.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::PeerStale,
-        type_uri: "https://arkret.org/problems/peer_stale",
-        title: "Peer stale",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "service_call",
-        applies_to: &[],
-        description: "A federation high-assurance peer has missed proactive frontier probes or produced invalid/divergent frontier evidence and is quarantined for the affected Realm until fork resolution succeeds. See zh/sync/federation.md Â§4.5.3.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::PeerStateStaleUnavailable,

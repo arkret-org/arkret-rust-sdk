@@ -150,11 +150,9 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 /// `ak.component.realm.*policy*` leaf filter; echoing them here would create a
 /// second, drifting truth.
 ///
-/// `content_scheme` and `durability_policy` are **not** members: both are
-/// frozen by the accepted MLS group Genesis and are read from that exact group
-/// state (`models/realm-and-space.md` sections 2.3 and 2.3.1). The closed
-/// schema omits them, so a bundle that restated either value would create a
-/// second, mutable truth for a create-locked field.
+/// `content_scheme` is **not** a member: it is frozen by the accepted MLS group
+/// Genesis and read from that exact group state. The closed schema omits it, so
+/// a bundle that restated the value would create a second, mutable truth.
 ///
 /// `policy_revision` is strictly monotonic and is what gives this cell family a
 /// generation dimension inside its value; sequenced-state supersession binds by
@@ -627,7 +625,6 @@ pub enum RealmOrganizationControlScope {
     OfficialBadge,
     RealmAdmin,
     NotaryControl,
-    DurabilityPolicy,
     ModerationPolicy,
     RetentionPolicy,
     DirectoryListing,

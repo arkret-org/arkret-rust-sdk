@@ -21,8 +21,8 @@ use std::collections::BTreeSet;
 pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ActorId, ContentScheme, DurabilityPolicy, EncryptionProfile, EventCommitSubmission,
-    HistoryAccess, RealmId, SchemaId,
+    ActorId, ContentScheme, EncryptionProfile, EventCommitSubmission, HistoryAccess, RealmId,
+    SchemaId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -208,8 +208,6 @@ pub struct Circle {
     /// group. It is not actor-supplied on create.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub durability_policy: Option<DurabilityPolicy>,
     pub state: CircleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -248,8 +246,6 @@ pub struct CircleView {
     pub content_scheme: Option<ContentScheme>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub durability_policy: Option<DurabilityPolicy>,
     pub state: CircleState,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewer_membership: Option<CircleMembership>,
@@ -753,7 +749,6 @@ impl Circle {
             encryption_profile: EncryptionProfile::None,
             content_scheme: None,
             mls_group_id: None,
-            durability_policy: None,
             state: CircleState::Active,
             state_changed_at: None,
             created_by,
@@ -794,7 +789,6 @@ impl Circle {
             encryption_profile: EncryptionProfile::None,
             content_scheme: None,
             mls_group_id: None,
-            durability_policy: None,
             state: CircleState::Active,
             state_changed_at: None,
             created_by,

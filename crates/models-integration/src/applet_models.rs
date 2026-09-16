@@ -16,11 +16,11 @@ use arkret_wire::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::GhostActorProvisionRequestBody;
 use crate::applet::{AppletPackage, AppletRegistrationEpochEvidence, GhostExternalTuple};
 use crate::artifacts_applet::{
     AppletEventRejection, E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance,
 };
-use crate::GhostActorProvisionRequestBody;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]

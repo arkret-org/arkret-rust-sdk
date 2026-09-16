@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=9ef4bd52680bd5e5d34ddf9e8a735316178482834af596584c2c90b79f58b38b
-//! Entries: forbidden_wire_fields=251
+//! sha256=be66dbfb4f6cad8f6303469af16eb306eaef16cc2ebac7666c1d529b312b68c6
+//! Entries: forbidden_wire_fields=245
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -2876,28 +2876,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "/visibility",
     },
     ForbiddenWireFieldDescriptor {
-        id: "participant_identity",
-        context: "media_response_backend_token_roster_binding_sfu_answer_exporter_context_error_code_or_vector_id",
-        rejection_level: "hard_reject",
-        selectors: &[
-            ForbiddenWireSelector {
-                document_kind: "wire",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-            ForbiddenWireSelector {
-                document_kind: "executable_artifact",
-                schema_ref: "*",
-                instance_pointer: "",
-                match_scope: "descendants",
-            },
-        ],
-        match_kind: "field",
-        match_values: &["participant_identity"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "avatar_ref",
         context: "member_identity.display_profile",
         rejection_level: "hard_reject",
@@ -3651,76 +3629,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         ],
         match_kind: "path",
         match_values: &["fields.rank"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "bootstrap_binding",
-        context: "retired_device_identity_wire",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["bootstrap_binding"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "cross_signing_binding",
-        context: "retired_device_identity_wire",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["cross_signing_binding"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "enrollment_authority_binding",
-        context: "retired_device_identity_wire",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["enrollment_authority_binding"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "recovery_authority_ticket",
-        context: "retired_device_identity_wire",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["recovery_authority_ticket"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "ssk_generation",
-        context: "retired_device_identity_wire",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "wire",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "descendants",
-        }],
-        match_kind: "field",
-        match_values: &["ssk_generation"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

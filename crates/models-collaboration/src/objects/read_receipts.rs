@@ -135,9 +135,8 @@ fn validate_notification_track_name(track_name: &str) -> Result<()> {
 /// authored advance Event, and the time of that update is that Event envelope
 /// `created_at`. There is no `read_cursor` typed id kind in the id-kind
 /// registry and no id-addressed read surface. Derived views that need a time —
-/// `ReadMarkerOutcome`,
-/// [`crate::sync_frames::account_sync::ActorPrivateReadCursorUpdate`] — take
-/// `updated_at` from the winning advance envelope, never from this payload.
+/// `ReadMarkerOutcome` and account-subscribe private projections take
+/// `updated_at` from the accepted advance envelope, never from this payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ReadCursor {

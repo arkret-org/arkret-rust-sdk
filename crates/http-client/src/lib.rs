@@ -42,7 +42,6 @@ mod subscribe_body;
 // which exist on the wasm32 fetch backend — native-only.
 #[cfg(not(target_arch = "wasm32"))]
 pub mod http_did_resolver;
-pub mod key_backup_client;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod service_resolution_fetcher;
 #[cfg(not(target_arch = "wasm32"))]

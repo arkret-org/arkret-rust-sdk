@@ -6,9 +6,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::canonical_timestamp;
-use arkret_wire::{
-    AccountId, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId, ProtocolKind,
-};
+use arkret_wire::{AccountId, DeviceId, DeviceMessageId, DidCoreId, DidUrl, EventId, ProtocolKind};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

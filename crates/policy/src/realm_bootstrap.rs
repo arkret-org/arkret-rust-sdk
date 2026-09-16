@@ -9,9 +9,7 @@ use arkret_event_draft::{EventIntent, EventPayloadExt, TypedEventDraft};
 use arkret_models_collaboration::events_payloads::{
     RealmCreatePayload, RealmGovernanceStationChangePayload, RealmOwnerTransferPayload,
 };
-use arkret_wire::{
-    ActorId, Event, EventKind, RealmId, Result, ScopeRef, WireError, event_spec,
-};
+use arkret_wire::{ActorId, Event, EventKind, RealmId, Result, ScopeRef, WireError, event_spec};
 use chrono::{DateTime, Utc};
 
 /// Validated immutable facts extracted from the Realm genesis Event.
@@ -61,7 +59,10 @@ pub fn build_realm_owner_transfer_intent(
     payload: RealmOwnerTransferPayload,
 ) -> Result<EventIntent> {
     if scope_ref.realm_id() != &payload.realm_id
-        || !payload.expected_state_digest.as_str().starts_with("sha256:")
+        || !payload
+            .expected_state_digest
+            .as_str()
+            .starts_with("sha256:")
     {
         return Err(WireError::Protocol(
             "schema_violation: invalid Realm owner transfer payload".to_owned(),
@@ -99,12 +100,8 @@ pub fn build_governance_station_change_intent(
             "schema_violation: invalid governance Station change payload".to_owned(),
         ));
     }
-    TypedEventDraft::<event_spec::RealmGovernanceStationChange>::new(
-        scope_ref,
-        actor_id,
-        payload,
-    )
-    .map_err(|error| WireError::Protocol(error.to_string()))?
-    .into_intent(created_at)
-    .map_err(|error| WireError::Protocol(error.to_string()))
+    TypedEventDraft::<event_spec::RealmGovernanceStationChange>::new(scope_ref, actor_id, payload)
+        .map_err(|error| WireError::Protocol(error.to_string()))?
+        .into_intent(created_at)
+        .map_err(|error| WireError::Protocol(error.to_string()))
 }

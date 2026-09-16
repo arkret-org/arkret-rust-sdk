@@ -4,12 +4,12 @@
 //! sha256=ffb7fd290ec47bb5a7e9b8f9b1a1e7227132a7c4c24e0c80ce51c7097b68d75f Input: registry/
 //! exporter-label-registry.json; version=2026-09-01.1;
 //! sha256=3d7e18e8420fd8ee39e2ddb4c3b38d94c566b362a8518c43c94ed1c5530502ce Input: registry/
-//! digest-suite-registry.json; version=2026-09-16.4;
-//! sha256=d853a02ca09252a326c4945b03b688fb9159b928f2f13d515cf90ad25e73e385 Input: registry/
+//! digest-suite-registry.json; version=2026-09-16.7;
+//! sha256=ed95ff0b8d0ebb7f8a1c345ab5e4fefcad739f5812bec18f477b5d953faa2cbb Input: registry/
 //! signature-alg-registry.json; version=2026-08-18.1;
 //! sha256=2bd41f0302e641c5a9eac6297b0e500c9d7100bb925c1f395d7198a7b4ac3e3c Input: registry/
-//! hpke-suite-registry.json; version=2026-09-16.6;
-//! sha256=0355f74b310dfd5d011230780381b6b7bfa878d3f5fbe7daee2c7b6762a0cbb3 Input: registry/
+//! hpke-suite-registry.json; version=2026-09-16.7;
+//! sha256=6a6ce15fa926d380ab5ee8b3ebf4d1cdc19e864afe985e6a6b0d4d7dab3bc43f Input: registry/
 //! mls-ciphersuite-registry.json; version=2026-08-25;
 //! sha256=68619d8db1de222c9d032fdc96e92be32e85fdc0a3a0befdf4b21d135a57075d Input: registry/
 //! mls-extension-registry.json; version=2026-09-10;

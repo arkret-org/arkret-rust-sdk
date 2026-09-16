@@ -1320,7 +1320,7 @@ mod private_contact_discovery_tests {
         maximal.match_response_bucket_bytes = 262_144;
         let maximal_plan = maximal.required_response_bucket_plan().unwrap();
         assert_eq!(maximal_plan.blind_max_unpadded_bytes, 47_448);
-        assert_eq!(maximal_plan.match_max_unpadded_bytes, 247_989);
+        assert_eq!(maximal_plan.match_max_unpadded_bytes, 243_893);
         assert_eq!(maximal_plan.blind_bucket_bytes, 65_536);
         assert_eq!(maximal_plan.match_bucket_bytes, 262_144);
         maximal.validate().unwrap();

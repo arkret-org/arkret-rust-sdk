@@ -8,6 +8,8 @@ pub const PATH_SELF_CONTACTS: &str = "/_arkret/self/contacts";
 pub const PATH_SELF_CONTACTS_TOMBSTONE: &str = "/_arkret/self/contacts/tombstone";
 pub const PATH_SELF_DIRECT_CONVERSATIONS_RESOLVE: &str =
     "/_arkret/self/direct-conversations/resolve";
-pub const PATH_SELF_CONSENT_CELLS: &str = "/_arkret/self/consent/cells";
-pub const PATH_SELF_CONSENT: &str = "/_arkret/self/consent";
+pub const PATH_SELF_CONSENT_RESULTS: &str = "/_arkret/self/consent/results";
+pub const PATH_SELF_CONSENT_RESULT: &str = "/_arkret/self/consent/result";
+pub const PATH_SELF_CONSENT_RESULTS_GRANT: &str = "/_arkret/self/consent/results/grant";
+pub const PATH_SELF_CONSENT_RESULTS_REVOKE: &str = "/_arkret/self/consent/results/revoke";
 pub const PATH_SELF_CONSENT_REQUEST: &str = "/_arkret/self/consent/request";

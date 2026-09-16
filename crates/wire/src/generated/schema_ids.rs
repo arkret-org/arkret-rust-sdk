@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-16.6;
-//! sha256=e5d775203aa3b0c087c1f2be599c615cf71a102df39bd379bf09eb0aa895da58 Entries: schema_ids=216,
+//! Input: registry/schema-registry.json; version=2026-09-16.8;
+//! sha256=8486d844f9abd84b4c39a0e6ab05617dcac2e4a0759f557229c7989eed603efa Entries: schema_ids=216,
 //! active=216
 
 use serde::{Deserialize, Serialize};
@@ -804,8 +804,8 @@ impl SchemaId {
     pub const AUTHORITY_SET_POLICY_V1: &'static str = "ak.schema.authority_set_policy.v1";
     /// Closed response DTO bundle for authorization query operations.
     pub const AUTHZ_OPERATIONS_V1: &'static str = "ak.schema.authz_operations.v1";
-    /// Immutable transaction-bound completion artifact proving all planned old secret_storage and
-    /// mls_history backup objects were erased after authoritative pointer switch.
+    /// Immutable transaction-bound completion artifact proving all planned old secret_storage
+    /// backup objects were erased after authoritative pointer switch.
     pub const BACKUP_SERIES_ERASE_CONFIRMATION_V1: &'static str =
         "ak.schema.backup_series_erase_confirmation.v1";
     pub const BLOB_V1: &'static str = "ak.schema.blob.v1";
@@ -871,10 +871,9 @@ impl SchemaId {
     /// policy/session, monotonic PCR generation CAS, complete pre-fence RealmCommit frontier and
     /// replacement authorization digest.
     pub const DEVICE_REANCHOR_V1: &'static str = "ak.schema.device_reanchor.v1";
-    /// Reducer-owned durable state machine for accepted ak.device.revoke proposals: mandatory Ack,
-    /// exact authority/device/generation binding, universal revocation_pending gates, exact
-    /// confirmed rejected command result release, overdue fault retention and covering-RealmCommit
-    /// finality.
+    /// Authority-commit-owned durable state for ak.device.revoke security transactions: exact
+    /// authority/device/generation binding, universal revocation_pending gates, terminal
+    /// command-result release, fault retention and consecutive same-stream RealmCommit finality.
     pub const DEVICE_REVOCATION_STATE_V1: &'static str = "ak.schema.device_revocation_state.v1";
     /// Verified DID binding contracts behind identity/did-usage-and-verification.md §5: canonical
     /// evidence receipt (evidence_digest), canonical resolver policy snapshot (policy_digest),

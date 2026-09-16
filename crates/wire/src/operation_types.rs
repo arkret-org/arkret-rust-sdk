@@ -261,7 +261,6 @@ pub struct MembershipCompensationDelegationCore {
     pub authority: MembershipCompensationAuthority,
     pub admission_id: ProtocolOpaqueId,
     pub join_event_id: EventId,
-    pub membership_cell_id: ProtocolOpaqueId,
     pub member_id: ActorId,
     pub join_actor_id: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -701,7 +701,7 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
 
 /// Canonical MIMI room URI accepted by `mimi_room_binding_payload`.
 ///
-/// The value is the `ak.component.mimi.room_binding.v1` cell subject source, so
+/// The value is the `ak.component.mimi.room_binding.v1` typed-result subject source, so
 /// it is a closed canonical form rather than a free URI
 /// (`zh/extensions/mimi-interop.md` §4). Two spellings of one room would
 /// otherwise each own a "first accepted binding" and the `revoked` terminal
@@ -891,7 +891,7 @@ impl<'de> Deserialize<'de> for MimiRoomUri {
 /// Non-room MIMI URI (`mimi-interop.schema.json#/$defs/mimi_uri`).
 ///
 /// Provider ids and identifier-query targets are ordinary MIMI URIs: they never
-/// address an Arkret cell, so they carry none of the canonicalization duties
+/// address an Arkret typed result, so they carry none of the canonicalization duties
 /// [`MimiRoomUri`] does and MUST NOT be substituted for one. A provider id such
 /// as `mimi://provider.example` has no path segment at all and is deliberately
 /// outside the room form.
@@ -1233,7 +1233,7 @@ mod tests {
         }
     }
 
-    /// `zh/extensions/mimi-interop.md` §4: the room URI is a cell subject
+    /// `zh/extensions/mimi-interop.md` §4: the room URI is a typed-result subject
     /// source, so every non-canonical spelling is rejected rather than
     /// normalized — two spellings would each own a "first accepted binding".
     #[test]

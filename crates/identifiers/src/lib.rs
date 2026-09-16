@@ -341,8 +341,9 @@ macro_rules! declare_uuid_id_kinds {
 ///
 /// Special forms are the spec `id-kind-registry.json` `special_forms` rows:
 /// `ak:<kind>:` identifiers whose payload is *not* a UUIDv7 — content digests,
-/// opaque base64url tokens, a cell family plus subject. Each therefore keeps
-/// its own validator instead of sharing one like [`declare_uuid_id_kinds!`].
+/// opaque base64url tokens, or externally scoped identities. Each therefore
+/// keeps its own validator instead of sharing one like
+/// [`declare_uuid_id_kinds!`].
 ///
 /// What the two blocks share is the reason they exist. `arkret-schema`'s
 /// `SUPPORTED_SPECIAL_FORM_ID_KINDS` was a hand-written list with nothing behind

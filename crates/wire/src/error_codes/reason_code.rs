@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-16.6;
-//! sha256=ad546a5d9e89035ddeffd7a624830ece1f215b8512b4e02d0f9025b7c67a9f0b
-//! Entries: reason_codes=414
+//! Input: registry/error-code-registry.json; version=2026-09-16.8;
+//! sha256=bbd1b59cc19f1a477a0352c07fc41e2f01e3ded44d598f945b52de349a6a10b3
+//! Entries: reason_codes=410
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -93,7 +93,6 @@ pub enum ReasonCode {
     ConsentWithdrawn,
     ContentEncryptionFloorDowngrade,
     ContentEncryptionFloorViolation,
-    ControlProposalDecisionOverdue,
     CrossDomainReplayRejected,
     CrossRealmStructuralRelation,
     CursorExpired,
@@ -126,7 +125,6 @@ pub enum ReasonCode {
     DirectConversationThirdPartyMemberForbidden,
     DirectDownloadDisallowedPresignForbidden,
     DuplicateConflict,
-    DurabilitySchemeIncompatible,
     E2eeKeySourceUnauthorised,
     E2eeRelaxedAuditBindingConflict,
     E2eeRelaxedDisallowedInComplianceProfile,
@@ -175,7 +173,6 @@ pub enum ReasonCode {
     Illegal,
     InclusionProofFailed,
     InitialSessionRequestMismatch,
-    InsufficientChallengeSamples,
     IntegrityFailed,
     InternalError,
     InvalidAckToken,
@@ -329,7 +326,6 @@ pub enum ReasonCode {
     RelationKindWatchesDerived,
     RelaxedWindowExceedsCeiling,
     ResolutionHistoryAncestorUnknown,
-    ResultInBottomState,
     RevocationFreshnessUnknown,
     RevokeUndoInvalidSignature,
     RiskPolicy,
@@ -538,7 +534,6 @@ impl ReasonCode {
         "content_encryption_floor_downgrade";
     pub const CONTENT_ENCRYPTION_FLOOR_VIOLATION: &'static str =
         "content_encryption_floor_violation";
-    pub const CONTROL_PROPOSAL_DECISION_OVERDUE: &'static str = "control_proposal_decision_overdue";
     pub const CROSS_DOMAIN_REPLAY_REJECTED: &'static str = "cross_domain_replay_rejected";
     pub const CROSS_REALM_STRUCTURAL_RELATION: &'static str = "cross_realm_structural_relation";
     pub const CURSOR_EXPIRED: &'static str = "cursor_expired";
@@ -586,7 +581,6 @@ impl ReasonCode {
     pub const DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN: &'static str =
         "direct_download_disallowed_presign_forbidden";
     pub const DUPLICATE_CONFLICT: &'static str = "duplicate_conflict";
-    pub const DURABILITY_SCHEME_INCOMPATIBLE: &'static str = "durability_scheme_incompatible";
     pub const E2EE_KEY_SOURCE_UNAUTHORISED: &'static str = "e2ee_key_source_unauthorised";
     pub const E2EE_RELAXED_AUDIT_BINDING_CONFLICT: &'static str =
         "e2ee_relaxed_audit_binding_conflict";
@@ -647,7 +641,6 @@ impl ReasonCode {
     pub const ILLEGAL: &'static str = "illegal";
     pub const INCLUSION_PROOF_FAILED: &'static str = "inclusion_proof_failed";
     pub const INITIAL_SESSION_REQUEST_MISMATCH: &'static str = "initial_session_request_mismatch";
-    pub const INSUFFICIENT_CHALLENGE_SAMPLES: &'static str = "insufficient_challenge_samples";
     pub const INTEGRITY_FAILED: &'static str = "integrity_failed";
     pub const INTERNAL_ERROR: &'static str = "internal_error";
     pub const INVALID_ACK_TOKEN: &'static str = "invalid_ack_token";
@@ -828,7 +821,6 @@ impl ReasonCode {
     pub const RELAXED_WINDOW_EXCEEDS_CEILING: &'static str = "relaxed_window_exceeds_ceiling";
     pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
         "resolution_history_ancestor_unknown";
-    pub const RESULT_IN_BOTTOM_STATE: &'static str = "result_in_bottom_state";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
     pub const REVOKE_UNDO_INVALID_SIGNATURE: &'static str = "revoke_undo_invalid_signature";
     pub const RISK_POLICY: &'static str = "risk_policy";
@@ -1034,7 +1026,6 @@ impl ReasonCode {
             Self::ConsentWithdrawn => Self::CONSENT_WITHDRAWN,
             Self::ContentEncryptionFloorDowngrade => Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE,
             Self::ContentEncryptionFloorViolation => Self::CONTENT_ENCRYPTION_FLOOR_VIOLATION,
-            Self::ControlProposalDecisionOverdue => Self::CONTROL_PROPOSAL_DECISION_OVERDUE,
             Self::CrossDomainReplayRejected => Self::CROSS_DOMAIN_REPLAY_REJECTED,
             Self::CrossRealmStructuralRelation => Self::CROSS_REALM_STRUCTURAL_RELATION,
             Self::CursorExpired => Self::CURSOR_EXPIRED,
@@ -1087,7 +1078,6 @@ impl ReasonCode {
                 Self::DIRECT_DOWNLOAD_DISALLOWED_PRESIGN_FORBIDDEN
             }
             Self::DuplicateConflict => Self::DUPLICATE_CONFLICT,
-            Self::DurabilitySchemeIncompatible => Self::DURABILITY_SCHEME_INCOMPATIBLE,
             Self::E2eeKeySourceUnauthorised => Self::E2EE_KEY_SOURCE_UNAUTHORISED,
             Self::E2eeRelaxedAuditBindingConflict => Self::E2EE_RELAXED_AUDIT_BINDING_CONFLICT,
             Self::E2eeRelaxedDisallowedInComplianceProfile => {
@@ -1144,7 +1134,6 @@ impl ReasonCode {
             Self::Illegal => Self::ILLEGAL,
             Self::InclusionProofFailed => Self::INCLUSION_PROOF_FAILED,
             Self::InitialSessionRequestMismatch => Self::INITIAL_SESSION_REQUEST_MISMATCH,
-            Self::InsufficientChallengeSamples => Self::INSUFFICIENT_CHALLENGE_SAMPLES,
             Self::IntegrityFailed => Self::INTEGRITY_FAILED,
             Self::InternalError => Self::INTERNAL_ERROR,
             Self::InvalidAckToken => Self::INVALID_ACK_TOKEN,
@@ -1316,7 +1305,6 @@ impl ReasonCode {
             Self::RelationKindWatchesDerived => Self::RELATION_KIND_WATCHES_DERIVED,
             Self::RelaxedWindowExceedsCeiling => Self::RELAXED_WINDOW_EXCEEDS_CEILING,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
-            Self::ResultInBottomState => Self::RESULT_IN_BOTTOM_STATE,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
             Self::RevokeUndoInvalidSignature => Self::REVOKE_UNDO_INVALID_SIGNATURE,
             Self::RiskPolicy => Self::RISK_POLICY,
@@ -1528,7 +1516,6 @@ impl ReasonCode {
             Self::CONSENT_WITHDRAWN => Self::ConsentWithdrawn,
             Self::CONTENT_ENCRYPTION_FLOOR_DOWNGRADE => Self::ContentEncryptionFloorDowngrade,
             Self::CONTENT_ENCRYPTION_FLOOR_VIOLATION => Self::ContentEncryptionFloorViolation,
-            Self::CONTROL_PROPOSAL_DECISION_OVERDUE => Self::ControlProposalDecisionOverdue,
             Self::CROSS_DOMAIN_REPLAY_REJECTED => Self::CrossDomainReplayRejected,
             Self::CROSS_REALM_STRUCTURAL_RELATION => Self::CrossRealmStructuralRelation,
             Self::CURSOR_EXPIRED => Self::CursorExpired,
@@ -1581,7 +1568,6 @@ impl ReasonCode {
                 Self::DirectDownloadDisallowedPresignForbidden
             }
             Self::DUPLICATE_CONFLICT => Self::DuplicateConflict,
-            Self::DURABILITY_SCHEME_INCOMPATIBLE => Self::DurabilitySchemeIncompatible,
             Self::E2EE_KEY_SOURCE_UNAUTHORISED => Self::E2eeKeySourceUnauthorised,
             Self::E2EE_RELAXED_AUDIT_BINDING_CONFLICT => Self::E2eeRelaxedAuditBindingConflict,
             Self::E2EE_RELAXED_DISALLOWED_IN_COMPLIANCE_PROFILE => {
@@ -1638,7 +1624,6 @@ impl ReasonCode {
             Self::ILLEGAL => Self::Illegal,
             Self::INCLUSION_PROOF_FAILED => Self::InclusionProofFailed,
             Self::INITIAL_SESSION_REQUEST_MISMATCH => Self::InitialSessionRequestMismatch,
-            Self::INSUFFICIENT_CHALLENGE_SAMPLES => Self::InsufficientChallengeSamples,
             Self::INTEGRITY_FAILED => Self::IntegrityFailed,
             Self::INTERNAL_ERROR => Self::InternalError,
             Self::INVALID_ACK_TOKEN => Self::InvalidAckToken,
@@ -1810,7 +1795,6 @@ impl ReasonCode {
             Self::RELATION_KIND_WATCHES_DERIVED => Self::RelationKindWatchesDerived,
             Self::RELAXED_WINDOW_EXCEEDS_CEILING => Self::RelaxedWindowExceedsCeiling,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
-            Self::RESULT_IN_BOTTOM_STATE => Self::ResultInBottomState,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
             Self::REVOKE_UNDO_INVALID_SIGNATURE => Self::RevokeUndoInvalidSignature,
             Self::RISK_POLICY => Self::RiskPolicy,
@@ -2079,7 +2063,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_UNRESOLVED,
         applies_to: &["event_envelope", "auth_decision", "service_call"],
-        description: "An Agent action or mention fanout requires the current target-local deployment/Realm/Circle/Strand participation policy, but one or more required layers are bottom (âŠ¥), stale or unresolvable. The action-time gate treats the unresolved policy as all false. The controller's private selection remains stored unchanged. See zh/authz/capabilities.md Â§5.4.",
+        description: "An Agent action or mention fanout requires the current target-local deployment/Realm/Circle/Strand participation policy, but one or more required layers are stale, unavailable, or unverifiable. The action-time gate treats the unresolved policy as all false. The controller's private selection remains stored unchanged. See zh/authz/capabilities.md Â§5.4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::AGENT_PARTICIPATION_CEILING_WIDEN,
@@ -2412,11 +2396,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Sub-reason for failed_precondition when a Realm declares content_encryption_floor=e2ee_required but a Strand / Message / Morph / Blob content write would land in a non-MLS-backed effective_scope (plaintext). The content effective_scope MUST be Realm-default MLS or Circle MLS. See zh/models/circle.md Â§7 (Realm.content_encryption_floor).",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::CONTROL_PROPOSAL_DECISION_OVERDUE,
-        applies_to: &["state_resolution", "auth_decision"],
-        description: "A receipted Control Move proposal reached its signed decision_due_at without include, confirmed rejected command result, or a valid bounded signed-defer, or exhausted its immutable absolute_due_at / maximum defer count without include or confirmed rejected command result. This is a governance health and censorship-evidence fault, not an acceptance or RealmCommit-finality result: a later cryptographically valid RealmCommit remains acceptable and the fault stays auditable. See zh/authz/event-auth-state-resolution.md section 7.2.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::CROSS_DOMAIN_REPLAY_REJECTED,
         applies_to: &["identity_creation", "proof_verification"],
         description: "The signed proof audience, origin or trust_domain does not match the current request context; the verifier rejects it before any state transition.",
@@ -2581,11 +2560,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "An idempotency key or non-Event stable identifier was reused with different canonical content. For to-device device_message_id the send operation rejects the conflicting enqueue with reason device_message_id_conflict. Event Envelope carried-ID mismatches use event_id_digest_mismatch; confirmed full-hash collision evidence uses witness_disagreement and whole-group quarantine per zh/sync/operations-sync.md Â§12.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::DURABILITY_SCHEME_INCOMPATIBLE,
-        applies_to: &["state_resolution"],
-        description: "Sub-reason for failed_precondition when a create-time binding (ak.realm.create or ak.circle.create) declares durability_policy.mode != none on a scope whose content_scheme is not mls_exporter_aead_v1, or when an ak.mls.commit governance_binding drifts the create-fixed durability_policy onto such a scope. mls_rfc9420 scopes have no deliverable history_secret, so Realm History Recovery Key (RHRK) durability is structurally unavailable. See zh/models/realm-and-space.md Â§2.3.1 and zh/crypto-media/encryption-and-audit.md Â§2.10.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::E2EE_KEY_SOURCE_UNAUTHORISED,
         applies_to: &["service_call"],
         description: "A backend media SDK supplied an SFrame / frame encryption key from a source other than the Arkret MLS exporter (label `ak.rtc-frame-key/v1`). Clients MUST reject and refuse to publish / subscribe media. Closes the attack where backend cloud key escrow could intercept ostensibly-E2EE media. See zh/crypto-media/media-service-binding.md Â§8.1.",
@@ -2707,7 +2681,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
             "state_resolution",
             "federation_transaction",
         ],
-        description: "An MLS Commit's mls_governance_binding GroupContext extension does not match the accepted key-access state or active epoch chain: group/epoch/profile fields disagree, security_frontier_digest is not the deterministic digest of the registered membership/leaf-key/MLS-membership/encryption-history frontier, or extension bytes differ from the Event payload. The receiver MUST reject the Commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale binding. See zh/crypto-media/encryption-and-audit.md Â§2.5.",
+        description: "An MLS Commit's mls_governance_binding GroupContext extension does not match the accepted key-access state or active epoch chain: group/epoch/profile fields disagree, key_access_revision is not the deterministic digest of the registered membership/leaf-key/MLS-membership/encryption-history frontier, or extension bytes differ from the Event payload. The receiver MUST reject the Commit - and, on a federation push, the batch - rather than advance an epoch under a forged or stale binding. See zh/crypto-media/encryption-and-audit.md Â§2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::GRANT_EXCEEDS_ISSUER_AUTHORITY,
@@ -2828,11 +2802,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::INITIAL_SESSION_REQUEST_MISMATCH,
         applies_to: &["identity_creation"],
         description: "The InitialSessionGrantRequest digest, device id, audience, scope ceiling, or RFC 7638 thumbprint does not match the frozen registration and handoff holder binding.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::INSUFFICIENT_CHALLENGE_SAMPLES,
-        applies_to: &["client_sync", "realm_state_snapshot_verification"],
-        description: "A high-assurance range/challenge attestation does not carry the required minimum number of event_id (or equivalent) samples. The challenge MUST reject. See sync/client-sync.md and fixtures/sync-fixture.json.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::INTEGRITY_FAILED,
@@ -2972,7 +2941,7 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED,
         applies_to: &["auth_decision"],
-        description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without the active media security frontier covering media_service_decrypts=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md Â§8.2.",
+        description: "An SFU / MCU attempted to negotiate plaintext-decrypting media role without a matching Realm policy plaintext_visible_services[] entry whose data_classes[] contains media_plaintext, OR without the active media key-access revision covering media_service_decrypts=true. Free-text purposes do not grant authority. MUST be rejected; the SFU may still act as opaque RTP relay. See zh/crypto-media/media-service-binding.md Â§8.2.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MEDIA_PLAINTEXT_WARNING_REQUIRED,
@@ -3102,17 +3071,17 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::MLS_GOVERNANCE_BINDING_STALE,
         applies_to: &["state_resolution", "auth_decision"],
-        description: "Current MLS epoch's security_frontier_digest does not cover key-access policy components the client wants to act on (for example media_service_decrypts and plaintext_visible_services for a decrypting media service). Receivers MUST refuse to act until a fresh Commit covers the rederived frontier. See zh/crypto-media/media-service-binding.md Â§8.2 and zh/crypto-media/encryption-and-audit.md Â§2.5.",
+        description: "Current MLS epoch's key_access_revision does not cover key-access policy components the client wants to act on (for example media_service_decrypts and plaintext_visible_services for a decrypting media service). Receivers MUST refuse to act until a fresh Commit covers the rederived frontier. See zh/crypto-media/media-service-binding.md Â§8.2 and zh/crypto-media/encryption-and-audit.md Â§2.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_CONTROL_SPLIT,
         applies_to: &["policy_decision", "state_resolution"],
-        description: "A moderation control typed current result resolved to bottom under conflicting committed Control Moves; downstream decisions depending on the typed current result fail closed until the split is resolved.",
+        description: "Committed moderation control evidence is internally inconsistent or cannot be verified; downstream decisions depending on it fail closed until a complete valid state is available.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MODERATION_STATE_CONFLICT,
         applies_to: &["auth_decision", "state_resolution"],
-        description: "The referenced moderation state typed current result is in bottom / exposed multi-head conflict. Read, write, and distribute paths MUST fail closed rather than selecting a temporary winner. See zh/governance/content-moderation.md.",
+        description: "The referenced moderation state cannot be verified as a complete valid projection. Read, write, and distribute paths MUST fail closed. See zh/governance/content-moderation.md.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::MORPH_ALREADY_TERMINAL,
@@ -3603,11 +3572,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
         applies_to: &["service_call"],
         description: "Sub-reason for param_invalid when ak.self.identity.read.resolution_audit.v1 receives an after_resolution_event_ref that is neither the genesis Event nor an accepted ak.identity.resolution.update in this account's current resolution lineage. The audit surface is already exact-current-holder authorized, so a stale or foreign cursor is reported as an invalid parameter rather than folded into the anti-enumeration outcome. See zh/identity/identity-did.md Â§4.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::RESULT_IN_BOTTOM_STATE,
-        applies_to: &["state_resolution", "auth_decision"],
-        description: "An explicitly registered cross-typed current result domain invariant cannot produce a valid combined projection from the deterministic winner of each involved ordinary typed current result. This diagnostic grants no authority, creates no safety state, and MUST NOT be emitted for ordinary causal_register concurrency by itself.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::REVOCATION_FRESHNESS_UNKNOWN,

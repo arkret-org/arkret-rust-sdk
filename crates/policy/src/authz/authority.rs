@@ -496,16 +496,11 @@ mod tests {
             created_at: Utc::now(),
             issuer_authority_refs: vec![IssuerAuthorityRef::RealmAuthority {
                 realm_id: "ak:realm:1".to_owned(),
-                governance_station_id: DidCoreId::new(
-                    "ak:did_core:webvh:z6mkfixtureserver",
-                )
-                .unwrap(),
+                governance_station_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureserver")
+                    .unwrap(),
                 authority_generation: 0,
                 basis: CommittedEventRef {
-                    event_id: EventId::from_digest(
-                        arkret_canonical::DigestSuite::Sha256,
-                        [2; 32],
-                    ),
+                    event_id: EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [2; 32]),
                     commit_id: RealmCommitId::from_digest([3; 32]),
                     stream_ref: CommitStreamRef::Realm { realm_id },
                     stream_position: 1,

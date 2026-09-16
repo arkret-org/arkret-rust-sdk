@@ -23,5 +23,4 @@ impl Client {
         outcome.validate_for_request(request)?;
         Ok(outcome)
     }
-
 }

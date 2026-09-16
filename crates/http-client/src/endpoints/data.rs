@@ -1,29 +1,25 @@
 //! Blob, key, key-backup, and device-message endpoint methods on [`Client`].
 
 use arkret_canonical::base64url::base64_standard_encode;
-use arkret_models_collaboration::objects::blob::{
-    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
-};
 use arkret_models_collaboration::device_messages::{
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
 };
+use arkret_models_collaboration::objects::blob::{
+    BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
+};
 use arkret_models_crypto::{
-    BackupSeriesEraseOutcome, BackupSeriesEraseRequestBody, KeyBackup, KeyBackupsListQuery,
     KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody, KeyPackagesConsumeOutcome,
     KeyPackagesConsumeRequestBody, KeyPackagesRevokeOutcome, KeyPackagesRevokeRequestBody,
-    KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody, KeysBackupsDeleteChallenge,
-    KeysBackupsDeleteOutcome, KeysBackupsDeleteRequestBody,
-    KeysBackupsIssueDeleteChallengeRequestBody, KeysBackupsList, KeysBackupsReplaceOutcome,
-    KeysBackupsUnlockRequestBody, KeysClaimOutcome, KeysClaimRequestBody, KeysQueryOutcome,
-    KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
+    KeyPackagesUploadOutcome, KeyPackagesUploadRequestBody, KeysClaimOutcome, KeysClaimRequestBody,
+    KeysQueryOutcome, KeysQueryRequestBody, KeysUploadOutcome, KeysUploadRequestBody,
 };
 use arkret_models_discovery::{ServiceDescribe, TransportBinding};
 use arkret_models_identity::account::{
     AccountDataDeleteOutcome, AccountDataDeleteRequestBody, AccountDataReplaceRequestBody,
     AccountDataRow,
 };
-use arkret_wire::{BackupId, BlobRef};
+use arkret_wire::BlobRef;
 use reqwest::Method;
 use reqwest::header::RANGE;
 use url::Url;
@@ -473,115 +469,6 @@ impl Client {
             .await
     }
 
-    /// Upload (create or update) an encrypted [`KeyBackup`] envelope.
-    /// Spec: `crypto-media/key-management.md` §7.2 +
-    /// `sync/service-http-binding.md` §3 (PUT
-    /// `/_arkret/self/keys/backups/{backup_id}`). The envelope's
-    /// The caller owns the stable idempotency key and MUST reuse it only for
-    /// byte-identical retries of the same backup body.
-    pub(crate) async fn put_key_backup(
-        &self,
-        backup_id: &BackupId,
-        body: &KeyBackup,
-        idempotency_key: &str,
-    ) -> Result<KeysBackupsReplaceOutcome> {
-        let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
-        let options = ClientRequestOptions::new().idempotency_key(idempotency_key);
-        self.put_with_options(&path, body, &options).await
-    }
-
-    /// List existing key backups for the authorized actor. Honors the
-    /// `series_id` / `backup_kind` / `cursor` / `limit` filters from
-    /// [`KeyBackupsListQuery`] (key-management.md §7.5).
-    pub async fn list_key_backups(&self, query: &KeyBackupsListQuery) -> Result<KeysBackupsList> {
-        if query.limit.is_some_and(|limit| !(1..=200).contains(&limit)) {
-            return Err(arkret_wire::WireError::Protocol(
-                "backup page limit must be 1..200".to_owned(),
-            )
-            .into());
-        }
-        let mut builder = self.request(Method::GET, "/_arkret/self/keys/backups")?;
-        if let Some(ref series_id) = query.series_id {
-            builder = builder.query(&[("series_id", series_id.as_str())]);
-        }
-        if let Some(class) = query.backup_kind {
-            builder = builder.query(&[("backup_kind", class.as_str())]);
-        }
-        if let Some(ref cursor) = query.cursor {
-            builder = builder.query(&[("cursor", cursor.as_str())]);
-        }
-        if let Some(limit) = query.limit {
-            builder = builder.query(&[("limit", limit.to_string())]);
-        }
-        let page: KeysBackupsList = self.send_json(builder).await?;
-        page.validate_for_query(query)?;
-        Ok(page)
-    }
-
-    /// Unlock and fetch a single encrypted [`KeyBackup`] envelope for local
-    /// decryption. The full ciphertext is returned only through the
-    /// proof-bearing command body registered as
-    /// `POST /_arkret/self/keys/backups/{backup_id}/unlock`.
-    pub async fn issue_key_backup_unlock_challenge(
-        &self,
-        backup_id: &BackupId,
-        request: &arkret_models_crypto::KeysBackupsIssueUnlockChallengeRequestBody,
-    ) -> Result<arkret_models_crypto::KeysBackupsUnlockChallenge> {
-        self.post(
-            &format!(
-                "/_arkret/self/keys/backups/{}/unlock-challenge",
-                backup_id.as_str()
-            ),
-            request,
-        )
-        .await
-    }
-
-    pub async fn unlock_key_backup(
-        &self,
-        backup_id: &BackupId,
-        request: &KeysBackupsUnlockRequestBody,
-    ) -> Result<KeyBackup> {
-        let path = format!("/_arkret/self/keys/backups/{}/unlock", backup_id.as_str());
-        self.post(&path, request).await
-    }
-
-    /// Ask the service to mint (or re-return) the single-use delete challenge a
-    /// high-risk delete proof is bound to.
-    ///
-    /// `key-management.md` §7.8.1: freshness is issued by the service, and a
-    /// caller-minted nonce is never accepted. While a challenge for the same
-    /// `(account_id, backup_id, request_id)` is still valid the service
-    /// returns that same challenge, so a retry of this call does not invalidate
-    /// a proof already signed against it; a different `request_id` mints a new
-    /// one.
-    pub async fn issue_key_backup_delete_challenge(
-        &self,
-        backup_id: &BackupId,
-        request: &KeysBackupsIssueDeleteChallengeRequestBody,
-    ) -> Result<KeysBackupsDeleteChallenge> {
-        let path = format!(
-            "/_arkret/self/keys/backups/{}/delete-challenge",
-            backup_id.as_str()
-        );
-        self.post(&path, request).await
-    }
-
-    /// Delete an existing key backup envelope. Spec §7.8 marks this as a
-    /// high-risk operation; the caller must supply the typed
-    /// [`KeysBackupsDeleteRequestBody`] carrying the `challenge_id` obtained
-    /// from [`issue_key_backup_delete_challenge`](Self::issue_key_backup_delete_challenge),
-    /// the `request_id` both calls share, one of the three registered proof
-    /// branches and (optionally) a human-readable reason.
-    pub async fn delete_key_backup(
-        &self,
-        backup_id: &BackupId,
-        request: &KeysBackupsDeleteRequestBody,
-    ) -> Result<KeysBackupsDeleteOutcome> {
-        let path = format!("/_arkret/self/keys/backups/{}", backup_id.as_str());
-        self.delete_with_body(&path, request).await
-    }
-
     /// Read one account-data entry.
     pub async fn account_data_get(&self, account_data_key: &str) -> Result<AccountDataRow> {
         reject_path_segment(account_data_key)?;
@@ -621,17 +508,6 @@ impl Client {
         let path = format!("/_arkret/self/account_data/{account_data_key}");
         let builder = self.canonical_json_body(self.request(Method::DELETE, &path)?, request)?;
         self.send_json(builder).await
-    }
-
-    pub async fn erase_backup_series(
-        &self,
-        request: &BackupSeriesEraseRequestBody,
-    ) -> Result<BackupSeriesEraseOutcome> {
-        let outcome: BackupSeriesEraseOutcome = self
-            .post("/_arkret/self/keys/backup-series/erase", request)
-            .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
     }
 
     pub async fn send_device_messages(

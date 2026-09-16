@@ -8,16 +8,16 @@
 //! invite addressing, moderation, and grant constraints)
 //! plus the first event-payload faces migrated from the `arkret` umbrella.
 
-pub mod account_status;
 pub mod account_operations;
+pub mod account_status;
 pub mod actor_profile_resolution;
 pub mod agent_operations;
 pub mod agent_scope;
 pub mod applet_installation_authority;
 pub mod call_signal;
 pub mod contact_operations;
-pub mod device_pairing;
 pub mod device_messages;
+pub mod device_pairing;
 pub mod direct_conversation;
 pub mod event_query;
 pub mod event_sync;
@@ -33,10 +33,10 @@ pub mod objects;
 pub mod prepared_event_draft;
 mod serde_absence;
 pub mod session_grants;
-pub mod signal_operations;
-pub mod signal_message_stream;
-pub mod signal_plaintext;
 pub mod sidecar_operations;
+pub mod signal_message_stream;
+pub mod signal_operations;
+pub mod signal_plaintext;
 pub mod sync_frames;
 
 pub use events_payloads::{

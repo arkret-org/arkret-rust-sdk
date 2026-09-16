@@ -5,10 +5,10 @@ use arkret_models_integration::{
     AppletActorView, AppletInstallOutcome, AppletInstallPreviewOutcome,
     AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthorOutcome,
     AppletManagedActorAuthorRequestBody, AppletPingOutcome, AppletProtocolMetadata,
-    AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
-    AppletRevokeRequestBody, AppletTransactionOutcome, AppletTransactionRequestBody,
-    GhostActorProvisionOutcome, GhostActorProvisionRequestBody, GhostPreviewOutcome,
-    GhostPreviewRequestBody,
+    AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome,
+    AppletRevokePreviewRequestBody, AppletRevokeRequestBody, AppletTransactionOutcome,
+    AppletTransactionRequestBody, GhostActorProvisionOutcome, GhostActorProvisionRequestBody,
+    GhostPreviewOutcome, GhostPreviewRequestBody,
 };
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;

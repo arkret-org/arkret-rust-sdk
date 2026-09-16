@@ -14,10 +14,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub const ACCOUNT_SYNC_MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
-pub const ACCOUNT_SYNC_MAX_WIRE_FRAME_BYTES: usize = 16 * 1024 * 1024;
-pub const ACCOUNT_SYNC_MAX_ROUND_BYTES: usize = 16 * 1024 * 1024;
-pub const ACCOUNT_SYNC_MAX_ROUND_FRAMES: usize = 16;
+pub const ACCOUNT_SUBSCRIBE_MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
+pub const ACCOUNT_SUBSCRIBE_MAX_WIRE_FRAME_BYTES: usize = 16 * 1024 * 1024;
+pub const ACCOUNT_SUBSCRIBE_MAX_ROUND_BYTES: usize = 16 * 1024 * 1024;
+pub const ACCOUNT_SUBSCRIBE_MAX_ROUND_FRAMES: usize = 16;
 pub const DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 5_000;
 pub const MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 60_000;
 
@@ -103,7 +103,11 @@ pub struct SyncFilter {
 
 impl SyncFilter {
     pub fn validate(&self) -> Result<()> {
-        bounded_unique(self.realm_ids.as_deref().unwrap_or_default(), 16, "filter.realm_ids")?;
+        bounded_unique(
+            self.realm_ids.as_deref().unwrap_or_default(),
+            16,
+            "filter.realm_ids",
+        )?;
         bounded_unique(
             self.strand_ids.as_deref().unwrap_or_default(),
             32,
@@ -209,7 +213,7 @@ impl AccountSubscribeFrame {
         if trimmed.is_empty() {
             return Ok(None);
         }
-        if line.len() > ACCOUNT_SYNC_MAX_WIRE_FRAME_BYTES {
+        if line.len() > ACCOUNT_SUBSCRIBE_MAX_WIRE_FRAME_BYTES {
             return Err(protocol_error("account frame exceeds its wire byte limit"));
         }
         let frame: Self = canonical::from_canonical_json_str(trimmed)?;
@@ -221,8 +225,10 @@ impl AccountSubscribeFrame {
         if let Some(cursor) = &self.cursor {
             validate_cursor(cursor)?;
         }
-        if canonical::canonical_json_bytes(self)?.len() > ACCOUNT_SYNC_MAX_FRAME_BYTES {
-            return Err(protocol_error("account frame exceeds its canonical byte limit"));
+        if canonical::canonical_json_bytes(self)?.len() > ACCOUNT_SUBSCRIBE_MAX_FRAME_BYTES {
+            return Err(protocol_error(
+                "account frame exceeds its canonical byte limit",
+            ));
         }
         if self.reconnect_after_ms == Some(0) {
             return Err(protocol_error("reconnect_after_ms must be positive"));
@@ -236,7 +242,11 @@ impl AccountSubscribeFrame {
         if let Some(account_data) = &self.account_data {
             account_data.validate()?;
         }
-        if self.notifications.as_ref().is_some_and(|value| value.items.len() > 100) {
+        if self
+            .notifications
+            .as_ref()
+            .is_some_and(|value| value.items.len() > 100)
+        {
             return Err(protocol_error("account notifications exceed 100 items"));
         }
         let has_data = self.realms.is_some()
@@ -264,7 +274,9 @@ impl AccountSubscribeFrame {
             AccountSubscribeFrameKind::ResyncRequired => self.cursor.is_none() && !has_data,
         };
         if !valid {
-            return Err(protocol_error("invalid fields for account subscribe frame kind"));
+            return Err(protocol_error(
+                "invalid fields for account subscribe frame kind",
+            ));
         }
         Ok(())
     }
@@ -532,9 +544,9 @@ impl AccountSyncRoundBudget {
             .canonical_bytes
             .checked_add(canonical_bytes)
             .ok_or_else(|| protocol_error("account round size overflow"))?;
-        if self.frame_count >= ACCOUNT_SYNC_MAX_ROUND_FRAMES
-            || canonical_bytes > ACCOUNT_SYNC_MAX_FRAME_BYTES
-            || total > ACCOUNT_SYNC_MAX_ROUND_BYTES
+        if self.frame_count >= ACCOUNT_SUBSCRIBE_MAX_ROUND_FRAMES
+            || canonical_bytes > ACCOUNT_SUBSCRIBE_MAX_FRAME_BYTES
+            || total > ACCOUNT_SUBSCRIBE_MAX_ROUND_BYTES
         {
             return Err(protocol_error("account sync round exceeds its budget"));
         }
@@ -606,7 +618,10 @@ impl StreamTraceFrameKind {
     }
 
     fn terminal(self) -> bool {
-        matches!(self, Self::Dropped | Self::ResyncRequired | Self::Unauthorized)
+        matches!(
+            self,
+            Self::Dropped | Self::ResyncRequired | Self::Unauthorized
+        )
     }
 }
 
@@ -662,7 +677,10 @@ impl StreamTraceValidator {
         }
     }
 
-    pub fn push(&mut self, frame: &AccountSubscribeFrame) -> std::result::Result<(), StreamTraceError> {
+    pub fn push(
+        &mut self,
+        frame: &AccountSubscribeFrame,
+    ) -> std::result::Result<(), StreamTraceError> {
         if self.rejected {
             return Err(StreamTraceError::TraceAlreadyRejected);
         }
@@ -681,11 +699,18 @@ impl StreamTraceValidator {
             AccountSubscribeFrameKind::ResyncRequired => StreamTraceFrameKind::ResyncRequired,
             AccountSubscribeFrameKind::Unauthorized => StreamTraceFrameKind::Unauthorized,
         };
-        if matches!(kind, StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier | StreamTraceFrameKind::CatchupComplete | StreamTraceFrameKind::Dropped)
-            && frame.cursor.as_deref().is_none_or(str::is_empty)
+        if matches!(
+            kind,
+            StreamTraceFrameKind::Data
+                | StreamTraceFrameKind::Frontier
+                | StreamTraceFrameKind::CatchupComplete
+                | StreamTraceFrameKind::Dropped
+        ) && frame.cursor.as_deref().is_none_or(str::is_empty)
         {
             self.rejected = true;
-            return Err(StreamTraceError::MissingCursor { kind: kind.as_str() });
+            return Err(StreamTraceError::MissingCursor {
+                kind: kind.as_str(),
+            });
         }
         if kind == StreamTraceFrameKind::CatchupComplete {
             if !self.catchup {
@@ -698,7 +723,10 @@ impl StreamTraceValidator {
             }
             self.catchup_complete_seen = true;
         }
-        if matches!(kind, StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier) {
+        if matches!(
+            kind,
+            StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier
+        ) {
             self.baseline_data_seen = true;
         }
         match kind {

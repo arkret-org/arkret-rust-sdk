@@ -223,9 +223,10 @@ pub use arkret_models_discovery::presence::{
     validate_status_message,
 };
 pub use arkret_models_discovery::realm_join_preview::{
-    REALM_JOIN_PREVIEW_REQUEST_DIGEST_LABEL, RealmJoinPeerPreviewOutcome,
-    RealmJoinPeerPreviewRequestBody, RealmJoinPreviewSource, RealmJoinSelfPreviewOutcome,
-    RealmJoinSelfPreviewRequestBody, RealmJoinTarget as PreviewRealmJoinTarget,
+    AuthorityLocatorHint as PreviewAuthorityLocatorHint,
+    AuthorityLocatorSource as PreviewAuthorityLocatorSource, RealmJoinPeerPreviewOutcome,
+    RealmJoinPeerPreviewRequestBody, RealmJoinSelfPreviewOutcome, RealmJoinSelfPreviewRequestBody,
+    RealmJoinTarget as PreviewRealmJoinTarget, RealmPublicPreview as PreviewRealmPublicPreview,
 };
 pub use arkret_models_discovery::service_description::*;
 pub use arkret_models_discovery::service_requirements::{
@@ -379,10 +380,6 @@ pub use arkret_http_client::http_did_resolver;
 /// Lives at the SDK root so station-style consumers (inkson,
 /// floria, cotest, teabay, soland) all reach the same verifier. Depends
 /// on `identity::DidResolver`.
-// `key_backup_client` is owned by arkret-http-client and surfaced here as
-// `arkret::key_backup_client::*`.
-#[cfg(feature = "client")]
-pub use arkret_http_client::key_backup_client;
 pub use arkret_signatures::{dpop, http_signature};
 // The MLS (RFC 9420) behavior layer lives in the standalone `arkret-mls` crate
 // (the sole OpenMLS boundary), surfaced here as `arkret::mls::*` under the
@@ -438,8 +435,6 @@ pub use identity::{
     verify_canonical_proof_with_did_resolver, verify_event_proof_with_did_resolver,
     verify_event_proof_with_did_resolver_context,
 };
-#[cfg(feature = "client")]
-pub use key_backup_client::KeyBackupClient;
 #[cfg(feature = "mls")]
 pub use mls::*;
 #[cfg(feature = "server")]
