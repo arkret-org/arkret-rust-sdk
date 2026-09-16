@@ -32,6 +32,8 @@ blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collabo
 sframe = ["dep:zeroize"]
 # RFC 9180 X25519 base-mode seal/open helpers used by backup protocols.
 hpke = ["dep:hpke", "dep:getrandom"]
+# Typed device-to-device secret sharing over the same RFC 9180 HPKE profile.
+secret-share = ["hpke"]
 # Client-side key-backup primitives: Argon2id KDF + XChaCha20-Poly1305 AEAD +
 # recovery-key codec. Envelope assembly remains in the authorization layer.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,

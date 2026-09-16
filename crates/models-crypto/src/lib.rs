@@ -20,6 +20,7 @@ pub mod mls_payloads;
 pub mod mls_records;
 pub mod mls_store_ports;
 pub mod protected_payload;
+pub mod secret_share;
 pub mod security_transaction;
 
 pub use artifacts_keys::*;
@@ -35,4 +36,5 @@ pub use mls_payloads::*;
 pub use mls_records::*;
 pub use mls_store_ports::*;
 pub use protected_payload::*;
+pub use secret_share::*;
 pub use security_transaction::*;

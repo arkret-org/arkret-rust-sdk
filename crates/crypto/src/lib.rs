@@ -22,6 +22,8 @@ pub mod hpke;
 pub mod identity_root;
 #[cfg(feature = "aead")]
 pub mod mls_exporter;
+#[cfg(feature = "secret-share")]
+pub mod secret_share;
 #[cfg(feature = "sframe")]
 pub mod sframe;
 
