@@ -19,6 +19,10 @@ pub mod binding_digest;
 pub mod binding_store;
 pub(crate) mod helpers;
 pub mod jws;
+// Cryptographic genesis-to-current Realm authority-chain verification. It
+// lives here, not in a downstream service, because a rule re-implemented per
+// repository drifts away from the verifier it is supposed to mirror.
+pub mod realm_authority_chain;
 mod records;
 pub mod registration_anchor;
 mod resolvers;
@@ -71,6 +75,11 @@ pub use error::{IdentityError, Result};
 /// downstream crates (e.g. starid) reuse the low-level classifier instead of
 /// re-implementing address tables (STA-05-001).
 pub use helpers::{DidWebvhUrlError, did_webvh_parts, host_is_safe_for_outbound, ip_is_public};
+pub use realm_authority_chain::{
+    RealmAuthorityChainError, RealmAuthorityFreshness, RealmAuthorityKeyDirectory,
+    RealmAuthorityKeyLookup, RealmAuthorityKeyMap, VerifiedRealmAuthority,
+    verify_realm_authority_bundle,
+};
 pub use records::*;
 pub use registration_anchor::validate_principal_registration_anchor;
 pub use resolvers::*;
