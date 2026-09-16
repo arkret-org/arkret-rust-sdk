@@ -6,24 +6,18 @@
 //! for live fixtures. Real and placeholder proofs carry distinct fidelity.
 
 use arkret_canonical::DigestSuite;
-use arkret_signatures::{Ed25519PayloadSigner, SignEventOptions, sign_event};
-use arkret_wire::{
-    ActorId, AuthoredEvent, DidUrl, Event, EventId, Hlc, PayloadSigner, Precondition, Result,
-    ScopeRef, SignerEvidenceRef,
-};
+use arkret_signatures::{Ed25519PayloadSigner, EventSigner, SignEventOptions, sign_event};
+use arkret_wire::{ActorId, AuthoredEvent, Event, Result, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
-use crate::hlc::pinned_hlc;
 use crate::proof::{ProofFidelity, StructuralOnlyPayloadSigner};
 
 /// The default authoring instant for a fixture that does not inject a clock.
 ///
 /// A static instant is correct for anything that never reaches a live service.
 /// It is wrong for anything that does: it lands before the Realm bootstrap the
-/// service already accepted, and the submission fails
-/// `created_at_before_causal_predecessor`. Those callers inject
-/// [`crate::hlc::monotonic_floor_clock`] instead.
+/// service already accepted. Live callers should inject their own clock.
 pub const FIXTURE_CREATED_AT: &str = "2026-01-01T00:00:00Z";
 
 /// An injected authoring clock.
@@ -92,11 +86,7 @@ pub struct SignedEventFixtureBuilder {
     kind: String,
     scope_ref: ScopeRef,
     actor_id: ActorId,
-    actor_seq: u64,
-    hlc: Hlc,
     payload: Value,
-    prev_refs: Vec<EventId>,
-    preconditions: Vec<Precondition>,
     clock: FixtureClock,
     digest_suite: DigestSuite,
 }
@@ -114,42 +104,10 @@ impl SignedEventFixtureBuilder {
             kind: kind.into(),
             scope_ref,
             actor_id,
-            actor_seq: 0,
-            hlc: pinned_hlc(0),
             payload,
-            prev_refs: Vec::new(),
-            preconditions: Vec::new(),
             clock: Box::new(fixed_fixture_instant),
             digest_suite: DigestSuite::Sha256,
         }
-    }
-
-    /// Set the actor-scoped sequence number.
-    #[must_use]
-    pub fn with_actor_seq(mut self, actor_seq: u64) -> Self {
-        self.actor_seq = actor_seq;
-        self
-    }
-
-    /// Set the HLC.
-    #[must_use]
-    pub fn with_hlc(mut self, hlc: Hlc) -> Self {
-        self.hlc = hlc;
-        self
-    }
-
-    /// Set the causal predecessors.
-    #[must_use]
-    pub fn with_prev_refs(mut self, prev_refs: Vec<EventId>) -> Self {
-        self.prev_refs = prev_refs;
-        self
-    }
-
-    /// Set the guards this Move signs over.
-    #[must_use]
-    pub fn with_preconditions(mut self, preconditions: Vec<Precondition>) -> Self {
-        self.preconditions = preconditions;
-        self
     }
 
     /// Inject the authoring clock.
@@ -180,18 +138,13 @@ impl SignedEventFixtureBuilder {
     /// Returns the wire error if the envelope is not a valid Event.
     pub fn build_unsigned(self) -> Result<Event> {
         let created_at = (self.clock)();
-        let mut event = arkret_wire::test_support::raw_event_for_actor_at(
+        arkret_wire::test_support::raw_event_for_actor_at(
             self.kind,
             self.scope_ref,
             self.actor_id,
-            self.actor_seq,
-            self.hlc,
             self.payload,
             created_at,
-        )?;
-        event.prev_refs = self.prev_refs;
-        event.preconditions = self.preconditions;
-        Ok(event)
+        )
     }
 
     /// Sign with a real Ed25519 key.
@@ -234,13 +187,7 @@ pub fn sign_verifiable_event(
     digest_suite: DigestSuite,
 ) -> Result<SignedEventFixture> {
     let created_at = event.created_at;
-    let event = attach_proof(
-        event,
-        signer,
-        signer.verification_method_id().clone(),
-        created_at,
-        digest_suite,
-    )?;
+    let event = attach_proof(event, signer, created_at, digest_suite)?;
     Ok(SignedEventFixture {
         event,
         fidelity: ProofFidelity::Verifiable,
@@ -261,23 +208,16 @@ pub fn sign_structural_only_event(
     digest_suite: DigestSuite,
 ) -> Result<SignedEventFixture> {
     let created_at = event.created_at;
-    let event = attach_proof(
-        event,
-        signer,
-        signer.verification_method_id().clone(),
-        created_at,
-        digest_suite,
-    )?;
+    let event = attach_proof(event, signer, created_at, digest_suite)?;
     Ok(SignedEventFixture {
         event,
         fidelity: ProofFidelity::StructuralOnly,
     })
 }
 
-fn attach_proof<S: PayloadSigner + ?Sized>(
+fn attach_proof<S: EventSigner + ?Sized>(
     event: Event,
     signer: &S,
-    verification_method: DidUrl,
     created_at: DateTime<Utc>,
     digest_suite: DigestSuite,
 ) -> Result<Event> {
@@ -285,12 +225,7 @@ fn attach_proof<S: PayloadSigner + ?Sized>(
     sign_event(
         &mut authored,
         signer,
-        &verification_method,
-        SignEventOptions::new(SignerEvidenceRef::new(format!(
-            "ak:signer_evidence:sha256:{}",
-            "5a".repeat(32)
-        ))?)
-        .with_created_at(created_at),
+        SignEventOptions::new().with_created_at(created_at),
     )
     .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
     Ok(authored.into_event())

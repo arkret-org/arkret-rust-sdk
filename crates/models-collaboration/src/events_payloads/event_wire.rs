@@ -1,6 +1,6 @@
 //! Event wire schema artifact counterparts.
 
-use arkret_wire::{AccountStatusRecordId, ActorId, Event, EventId, SchemaId};
+use arkret_wire::{AccountStatusRecordId, ActorId, CommittedEventRef, Event, EventId, SchemaId};
 use serde::de::DeserializeOwned;
 
 use crate::internal_prelude::*;
@@ -52,18 +52,6 @@ pub struct VerificationStubScope {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[serde(deny_unknown_fields)]
-pub struct VerificationStubSealInclusion {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frontier_digest: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub state_root: Option<Hash>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ErasureTrigger {
     Event {
@@ -87,7 +75,7 @@ pub struct VerificationStub {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub retained_digests: Option<Vec<Hash>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_inclusion: Option<VerificationStubSealInclusion>,
+    pub commit_ref: Option<CommittedEventRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redaction_authorization_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

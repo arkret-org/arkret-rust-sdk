@@ -36,7 +36,6 @@ pub mod relation;
 pub mod sidecar;
 pub mod signature;
 pub mod space;
-pub mod state;
 pub mod strand;
 pub mod view;
 
@@ -69,6 +68,5 @@ pub use relation::*;
 pub use sidecar::*;
 pub use signature::*;
 pub use space::*;
-pub use state::*;
 pub use strand::*;
 pub use view::*;

@@ -1,14 +1,8 @@
-//! Recovery-secret key schedule and recovery-proof authoring for principal identity roots.
+//! Recovery-secret key schedule for principal identity roots.
 
-use arkret_models_crypto::{
-    GenericRecoveryProofBody, GenericRecoveryTranscript, RecoveryFactorSignatureAlgorithm,
-    RecoveryProofKind, RecoverySessionProof, RecoverySessionState, RecoverySessionUnlockProof,
-    RecoverySessionUnlockProofKind, RecoveryUnlockProofBody, SessionState,
-};
-use arkret_wire::{Base64UrlString, DidUrl, DomainSeparationId, Hash, NonEmptyString};
-use ed25519_dalek::{Signer as _, SigningKey};
+use ed25519_dalek::SigningKey;
 use hpke::{Kem, Serializable};
-use sha2::{Digest as _, Sha256};
+use sha2::Sha256;
 use thiserror::Error;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -16,7 +10,6 @@ const EXTRACT_SALT: &[u8] = b"arkret-identity-recovery-kdf-v1";
 const ROOT_INFO: &[u8] = b"arkret/did-update/root/v1";
 const RECOVERY_PROOF_INFO: &[u8] = b"arkret/recovery-proof/v1";
 const BACKUP_HPKE_INFO: &[u8] = b"arkret/backup-hpke/v1";
-const RECOVERY_UNLOCK_BINDING_DOMAIN: &[u8] = b"ak.recovery-session-unlock-binding-v1\n";
 const X25519_MULTICODEC_PREFIX: [u8; 2] = [0xec, 0x01];
 const HPKE_X25519_KEM_SUITE_ID: &[u8] = b"KEM\x00\x20";
 
@@ -75,20 +68,6 @@ pub fn normalize_bip39_identity_recovery_mnemonic(
         return Err(IdentityRecoveryKdfError::MnemonicMustHave24Words);
     }
     Ok(mnemonic.words().collect::<Vec<_>>().join(" "))
-}
-
-#[derive(Debug, Error)]
-pub enum RecoveryUnlockAuthoringError {
-    #[error("recovery session is invalid: {0}")]
-    InvalidSession(String),
-    #[error("recovery_unlock may only be authored for a pending recovery session")]
-    SessionNotPending,
-    #[error("recovery secret ref is invalid: {0}")]
-    InvalidRecoverySecretRef(String),
-    #[error("recovery transcript canonicalization failed: {0}")]
-    Canonicalization(String),
-    #[error("recovery proof field is invalid: {0}")]
-    InvalidProofField(String),
 }
 
 /// Secret and public outputs for root generation `root_generation` and its
@@ -236,106 +215,6 @@ pub fn derive_identity_recovery_key_material_from_bip39(
     let result = derive_identity_recovery_key_material(&secret, root_generation);
     secret.zeroize();
     result
-}
-
-/// Build the canonical §15 `recovery_unlock` transcript.
-///
-/// `proof_body` is exactly the submitted proof object with `signature` and
-/// `unlock_commitment` omitted. The server reconstructs the same object from
-/// its stored recovery-session snapshot; callers cannot supply model or
-/// generation metadata independently.
-pub fn recovery_unlock_transcript(
-    session: &RecoverySessionState,
-    recovery_secret_ref: &str,
-) -> Result<GenericRecoveryTranscript, RecoveryUnlockAuthoringError> {
-    session
-        .validate()
-        .map_err(|error| RecoveryUnlockAuthoringError::InvalidSession(error.to_string()))?;
-    if session.state != SessionState::Pending {
-        return Err(RecoveryUnlockAuthoringError::SessionNotPending);
-    }
-    let recovery_secret_ref =
-        DidUrl::new(recovery_secret_ref.trim().to_owned()).map_err(|error| {
-            RecoveryUnlockAuthoringError::InvalidRecoverySecretRef(error.to_owned())
-        })?;
-    let model_generation_ref = session.current_device_generation_ref;
-    let proof_body = GenericRecoveryProofBody::RecoveryUnlock(RecoveryUnlockProofBody {
-        kind: RecoverySessionUnlockProofKind::RecoveryUnlock,
-        challenge: session.challenge.clone(),
-        recovery_secret_ref: NonEmptyString::new(recovery_secret_ref.as_str().to_owned())
-            .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
-        verification_method: recovery_secret_ref.clone(),
-        signature_algorithm: RecoveryFactorSignatureAlgorithm::Ed25519,
-    });
-    let transcript = GenericRecoveryTranscript {
-        schema: DomainSeparationId::IDENTITY_RECOVERY_PROOF_V1.to_owned(),
-        kind: RecoveryProofKind::RecoveryUnlock,
-        request_id: session.request_id.clone(),
-        session_grant_id: session.session_grant_id.clone(),
-        session_grant_cnf_jkt: session.session_grant_cnf_jkt.clone(),
-        account_id: session.account_id.clone(),
-        requesting_device_id: session.requesting_device_id.clone(),
-        requesting_device_public_key_did: session.requesting_device_public_key_did.clone(),
-        trust_domain: session.trust_domain.clone(),
-        policy_id: session.policy_id.clone(),
-        policy_version: session.policy_version,
-        recovery_session_id: session.recovery_session_id.clone(),
-        identity_model: session.identity_model,
-        model_generation_ref,
-        publication_authority_context_digest: session.publication_authority_context_digest.clone(),
-        challenge: session.challenge.clone(),
-        expires_at: session.expires_at,
-        created_at: session.created_at,
-        proof_body,
-    };
-    transcript
-        .validate()
-        .map_err(|error| RecoveryUnlockAuthoringError::InvalidSession(error.to_string()))?;
-    Ok(transcript)
-}
-
-/// Author a role-separated Ed25519 `recovery_unlock` proof from an already
-/// derived identity recovery schedule.
-///
-/// This function intentionally accepts [`IdentityRecoveryKeyMaterial`] rather
-/// than an arbitrary signing key, preventing callers from substituting the
-/// identity root or backup-HPKE key. The returned wire proof contains only
-/// public data and a signature; secret material remains in the zeroizing key
-/// schedule owned by the caller.
-pub fn build_recovery_unlock_proof(
-    session: &RecoverySessionState,
-    recovery_secret_ref: &str,
-    key_material: &IdentityRecoveryKeyMaterial,
-) -> Result<RecoverySessionProof, RecoveryUnlockAuthoringError> {
-    let transcript = recovery_unlock_transcript(session, recovery_secret_ref)?;
-    let transcript_bytes = arkret_canonical::canonical_json_bytes(&transcript)
-        .map_err(|error| RecoveryUnlockAuthoringError::Canonicalization(error.to_string()))?;
-
-    let mut hasher = Sha256::new();
-    hasher.update(RECOVERY_UNLOCK_BINDING_DOMAIN);
-    hasher.update(recovery_secret_ref.trim().as_bytes());
-    hasher.update(&transcript_bytes);
-    let unlock_commitment = Hash::new(format!("sha256:{}", hex::encode(hasher.finalize())))
-        .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_string()))?;
-
-    let signing_key = SigningKey::from_bytes(&key_material.recovery_proof_seed);
-    let signature = signing_key.sign(&transcript_bytes);
-    let proof = RecoverySessionUnlockProof {
-        kind: RecoverySessionUnlockProofKind::RecoveryUnlock,
-        challenge: session.challenge.clone(),
-        recovery_secret_ref: NonEmptyString::new(recovery_secret_ref.trim().to_owned())
-            .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
-        verification_method: DidUrl::new(recovery_secret_ref.trim().to_owned())
-            .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
-        signature_algorithm: NonEmptyString::new("Ed25519")
-            .map_err(|error| RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned()))?,
-        unlock_commitment,
-        signature: Base64UrlString::new(arkret_canonical::base64url_encode(signature.to_bytes()))
-            .map_err(|error| {
-            RecoveryUnlockAuthoringError::InvalidProofField(error.to_owned())
-        })?,
-    };
-    Ok(RecoverySessionProof::RecoveryUnlock(proof))
 }
 
 /// RFC 9180 DHKEM(X25519, HKDF-SHA256) raw `LabeledExpand` output before

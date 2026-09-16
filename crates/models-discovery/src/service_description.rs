@@ -65,55 +65,9 @@ impl std::error::Error for DirectoryResourceKindParseError {}
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ServerLimits {
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "deserialize_optional_mls_proof_limits"
-    )]
-    pub mls_governance_proof: Option<MlsGovernanceProofLimits>,
     #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub extensions: BTreeMap<String, Value>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct MlsGovernanceProofLimits {
-    #[serde(deserialize_with = "deserialize_mls_proof_response_bound")]
-    max_exact_response_bytes: u32,
-}
-
-impl MlsGovernanceProofLimits {
-    pub fn max_exact_response_bytes(&self) -> u32 {
-        self.max_exact_response_bytes
-    }
-}
-
-fn deserialize_optional_mls_proof_limits<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> std::result::Result<Option<MlsGovernanceProofLimits>, D::Error> {
-    MlsGovernanceProofLimits::deserialize(deserializer).map(Some)
-}
-
-impl Default for MlsGovernanceProofLimits {
-    fn default() -> Self {
-        Self {
-            max_exact_response_bytes: MLS_GOVERNANCE_PROOF_MAX_BYTES,
-        }
-    }
-}
-
-fn deserialize_mls_proof_response_bound<'de, D: serde::Deserializer<'de>>(
-    deserializer: D,
-) -> std::result::Result<u32, D::Error> {
-    let value = u32::deserialize(deserializer)?;
-    if value != MLS_GOVERNANCE_PROOF_MAX_BYTES {
-        return Err(serde::de::Error::custom(
-            "MLS governance proof response bound must be 1048576",
-        ));
-    }
-    Ok(value)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -600,10 +554,6 @@ pub struct ServiceDescribe {
     /// limits that do not fit the global `rate_limit_policy` shape.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limits: Option<BTreeMap<String, Value>>,
-    /// Registered Realm reducer profiles this service can actually execute.
-    /// This is a capability set, not a selected Realm profile.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub supported_reducer_profiles: Vec<String>,
     /// Vendor extensions permitted by the service-describe schema. Keys must
     /// use the reserved `x_<vendor>_*` namespace and are serialized at the
     /// top level.
@@ -658,7 +608,7 @@ impl ServiceDescribe {
     ) -> Self {
         let service_id = project_did_to_core_id(&did)
             .expect("development service full id must use a registered adapter");
-        let mut description = Self {
+        Self {
             service_id,
             service_resolution: arkret_models_identity::ResolutionCommitment {
                 did,
@@ -698,13 +648,8 @@ impl ServiceDescribe {
             accepted_did_methods: Vec::new(),
             takedown_contact: None,
             rate_limits: None,
-            supported_reducer_profiles: Vec::new(),
             extensions: XExtensionMap::default(),
-        };
-        if description.supports_operation(ServiceOperationId::SelfSealsReadMlsGovernanceProofV1) {
-            description.limits.mls_governance_proof = Some(Default::default());
         }
-        description
     }
 
     /// Validate the cross-field invariants:
@@ -712,22 +657,6 @@ impl ServiceDescribe {
     /// - the describe `anyOf` requires `rate_limit_policy` or `rate_limit_policy_id`.
     pub fn validate(&self) -> Result<()> {
         debug_assert_eq!(self.protocol_version, ServiceProtocolVersion::V1);
-        if self.limits.extensions.contains_key("mls_governance_proof")
-            || self
-                .limits
-                .mls_governance_proof
-                .as_ref()
-                .is_some_and(|limits| {
-                    limits.max_exact_response_bytes != MLS_GOVERNANCE_PROOF_MAX_BYTES
-                })
-            || (self.supports_operation(ServiceOperationId::SelfSealsReadMlsGovernanceProofV1)
-                && self.limits.mls_governance_proof.is_none())
-        {
-            return Err(WireError::Protocol(
-                "ServiceDescribe: missing or invalid MLS governance proof limit (schema_violation)"
-                    .to_owned(),
-            ));
-        }
         if project_did_to_core_id(&self.service_resolution.did)? != self.service_id
             || self.service_resolution.method_history_head.is_empty()
             || self.service_resolution.version_id.is_empty()
@@ -1088,54 +1017,6 @@ mod tests {
         )
     }
 
-    #[test]
-    fn mls_proof_limits_are_closed_and_fixed_while_other_limits_remain_open() {
-        let value = json!({
-            "mls_governance_proof": {"max_exact_response_bytes": 1048576},
-            "storage": "memory"
-        });
-        let limits: ServerLimits = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(
-            limits
-                .mls_governance_proof
-                .as_ref()
-                .unwrap()
-                .max_exact_response_bytes(),
-            MLS_GOVERNANCE_PROOF_MAX_BYTES
-        );
-        assert_eq!(serde_json::to_value(limits).unwrap(), value);
-        for invalid in [
-            json!(null),
-            json!({}),
-            json!({"max_exact_response_bytes": 1048575}),
-            json!({"max_exact_response_bytes": 1048577}),
-            json!({"max_exact_response_bytes": 1048576, "cursor": "old"}),
-        ] {
-            assert!(
-                serde_json::from_value::<ServerLimits>(json!({"mls_governance_proof": invalid}))
-                    .is_err()
-            );
-        }
-    }
-
-    #[test]
-    fn mls_proof_limit_requirement_follows_expanded_bundle_members() {
-        let mut description = station_description();
-        description.validate().unwrap();
-        description.limits.mls_governance_proof = None;
-        assert!(description.validate().is_err());
-        description.limits.extensions.insert(
-            "mls_governance_proof".to_owned(),
-            json!({"max_exact_response_bytes": 1048576}),
-        );
-        assert!(description.validate().is_err());
-        description.limits.extensions.clear();
-        description
-            .supported_operation_bundles
-            .retain(|id| id != "ak.operation_bundle.station.http_core.v1");
-        description.validate().unwrap();
-    }
-
     fn station_account_authority_description() -> ServiceDescribe {
         ServiceDescribe::development(
             Did::new("did:webvh:z6mkfixture:auth.example").unwrap(),
@@ -1349,7 +1230,6 @@ mod tests {
                 "per_ip_per_minute".to_owned(),
                 json!(60),
             )])),
-            supported_reducer_profiles: vec![],
             extensions: XExtensionMap::default(),
         }
     }

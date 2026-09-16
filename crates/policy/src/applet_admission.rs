@@ -1,8 +1,5 @@
 //! Installation-bound origin validation, independent of current liveness.
 
-#[cfg(test)]
-mod tests;
-
 use arkret_models_collaboration::applet_installation_authority::AppletInstallationAuthority;
 use arkret_models_collaboration::events_payloads::CapabilityGrantPayload;
 use arkret_models_collaboration::governance::grant_constraint::{

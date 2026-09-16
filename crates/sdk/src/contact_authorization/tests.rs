@@ -135,7 +135,7 @@ impl Fixture {
     }
 }
 fn event_id(value: u8) -> EventId {
-    EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [value; 32])
+    EventId::from_digest(DigestSuite::Sha256, [value; 32])
 }
 
 #[test]
@@ -388,24 +388,10 @@ impl CarrierFixture {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            actor_seq: 1,
             created_at: self.source.signature.created_at,
-            hlc: None,
-            prev_refs: Vec::new(),
             refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            auth_context: None,
-            data_basis: None,
-            seal_basis: Some(arkret_wire::SealBasis {
-                leaves: vec![
-                    arkret_wire::SealId::new(format!("ak:seal:sha256:{}", "5".repeat(64))).unwrap(),
-                ],
-            }),
             payload: serde_json::from_value(value).unwrap(),
-            unsigned: Default::default(),
             proofs: Vec::new(),
-            requirements: Default::default(),
         };
         self.sign_event(event)
     }
@@ -422,7 +408,6 @@ impl CarrierFixture {
             kind: arkret_wire::proof_kind::DETACHED_JWS.into(),
             verification_method: self.method.clone(),
             event_digest: digest,
-            signer_resolution_evidence_ref: None,
             created_at: event.created_at,
             domain: None,
             audience: None,
@@ -613,12 +598,7 @@ fn carrier_projection_binds_exact_method_and_key_without_changing_original_event
         unreachable!()
     };
     let original = arkret_canonical::canonical_json_bytes(signed_event).unwrap();
-    assert!(
-        signed_event.proofs[0]
-            .signer_resolution_evidence_ref
-            .is_none()
-    );
-    assert!(signed_event.validate_for_submit_structural().is_err());
+    assert!(signed_event.validate_for_submit_structural().is_ok());
     assert!(
         signed_event
             .validate_for_contact_history_structural()
@@ -690,7 +670,7 @@ fn carrier_projection_binds_exact_method_and_key_without_changing_original_event
 }
 
 #[test]
-fn carrier_history_structure_is_not_generic_admission_or_anchor_permission() {
+fn carrier_history_structure_accepts_producer_events_and_rejects_unrelated_kinds() {
     let fixture = CarrierFixture::new();
     let PeerContactSubmitRequestBody::Request {
         signed_event: event,
@@ -699,9 +679,7 @@ fn carrier_history_structure_is_not_generic_admission_or_anchor_permission() {
     else {
         unreachable!()
     };
-    let mut no_basis = event.clone();
-    no_basis.seal_basis = None;
-    assert!(no_basis.validate_for_contact_history_structural().is_err());
+    assert!(event.validate_for_contact_history_structural().is_ok());
     let mut unrelated = event.clone();
     unrelated.kind = EventKind::MessageCreate;
     assert!(unrelated.validate_for_contact_history_structural().is_err());
@@ -892,8 +870,7 @@ fn carrier_normal_round_uses_exact_request_and_response_origins_and_reject_never
         request_event_ref: er.event_id.clone(),
         request_acceptance_receipt_digest: request_receipt.computed_receipt_digest().unwrap(),
     };
-    let round =
-        arkret_models_collaboration::direct_conversation_ops::contact_round_id(&core).unwrap();
+    let round = compute_contact_round_id(&core).unwrap();
     let accept=b.event(EventKind::ContactAccepted,serde_json::json!({"peer":b.source.peer,"contact_round_id":round,"version":1,
         "request_event_ref":er.event_id,"request_acceptance_receipt_digest":request_receipt.computed_receipt_digest().unwrap(),"granted_to_peer_scopes":["voice_call"]}));
     let mut response = NormalResponseAcceptanceReceipt {
@@ -1029,8 +1006,7 @@ fn carrier_glare_round_authenticates_both_requests_and_both_source_attestations(
         unreachable!()
     };
     let core = ContactRound::glare_from_request_receipts(&[ra.clone(), rb.clone()]).unwrap();
-    let round =
-        arkret_models_collaboration::direct_conversation_ops::contact_round_id(&core).unwrap();
+    let round = compute_contact_round_id(&core).unwrap();
     let attestation = |f: &CarrierFixture| {
         let mut proof = GlareConcurrencyAttestation {
             subject_id: f.source.issuer.contact_actor_id(),

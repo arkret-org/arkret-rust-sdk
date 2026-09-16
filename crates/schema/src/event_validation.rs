@@ -18,12 +18,7 @@ pub fn validate_event_for_submit(event: &Event) -> Result<()> {
     event
         .validate_for_submit_structural()
         .map_err(|error| SchemaError::Protocol(error.to_string()))?;
-    validate_event_wire_schema(event)?;
-    crate::validate_registered_cell_plane_in_context(
-        event,
-        crate::EventCellContractContext::Standard,
-    )
-    .map_err(|error| SchemaError::Protocol(error.to_string()))
+    validate_event_wire_schema(event)
 }
 
 /// Typed wire validation layered on top of the wire [`Event`].
@@ -44,7 +39,7 @@ impl EventSchemaExt for Event {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DidCoreId, Hlc, RealmId, ScopeRef};
+    use arkret_wire::{DidCoreId, RealmId, ScopeRef};
     use serde_json::json;
 
     use super::*;
@@ -58,8 +53,6 @@ mod tests {
             },
             DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
             DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"content": {"kind": "ak.content.text", "body": "missing strand"}}),
         )
         .unwrap()

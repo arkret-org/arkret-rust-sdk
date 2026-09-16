@@ -15,12 +15,12 @@ use serde::{Deserialize, Serialize};
 /// custom scopes; the introspection helper does not enforce a closed
 /// set.
 pub mod admin_scopes {
-    /// Submit a Move that reconfigures a Space's notary cell.
-    pub const NOTARY_RECONFIGURE: &str = "notary.reconfigure";
-    /// Trigger a compaction seal (MAL-11).
-    pub const SEAL_COMPACT: &str = "seal.compact";
-    /// Submit a manual repair Move for a bottom cell.
-    pub const BOTTOM_REPAIR: &str = "bottom.repair";
+    /// Authorize an operator-assisted Realm authority handoff.
+    pub const AUTHORITY_HANDOFF: &str = "authority.handoff";
+    /// Trigger retention-aware commit-log compaction.
+    pub const COMMIT_LOG_COMPACT: &str = "commit_log.compact";
+    /// Repair a damaged independent Realm/Circle/Sidecar stream.
+    pub const STREAM_REPAIR: &str = "stream.repair";
     /// Read admin-scoped collection surfaces (accounts, spaces, etc.).
     pub const ADMIN_READ: &str = "admin.read";
 }
@@ -60,7 +60,7 @@ pub struct SessionGrantIntrospection {
     /// `org.arkret.principal_id` (or `sub`) on the IdP side.
     pub principal_id: DidCoreId,
     /// Granted admin scopes — e.g.
-    /// [`admin_scopes::NOTARY_RECONFIGURE`]. Receivers gate
+    /// [`admin_scopes::AUTHORITY_HANDOFF`]. Receivers gate
     /// individual admin operations on whether the relevant scope is
     /// present here.
     #[serde(default)]
@@ -96,7 +96,7 @@ impl SessionGrantIntrospection {
     }
 
     /// True iff the grant lists `scope`. Note: this is **exact match**;
-    /// hierarchical scopes (`seal.*` covering `seal.compact`) MUST
+    /// hierarchical scopes (`commit_log.*` covering `commit_log.compact`) MUST
     /// be expanded by the IdP before introspection.
     pub fn has_admin_scope(&self, scope: &str) -> bool {
         self.admin_scopes.iter().any(|s| s == scope)
@@ -167,24 +167,24 @@ mod tests {
 
     #[test]
     fn has_admin_scope_exact_match() {
-        let g = grant_active(&[admin_scopes::NOTARY_RECONFIGURE]);
-        assert!(g.has_admin_scope(admin_scopes::NOTARY_RECONFIGURE));
-        assert!(!g.has_admin_scope(admin_scopes::SEAL_COMPACT));
+        let g = grant_active(&[admin_scopes::AUTHORITY_HANDOFF]);
+        assert!(g.has_admin_scope(admin_scopes::AUTHORITY_HANDOFF));
+        assert!(!g.has_admin_scope(admin_scopes::COMMIT_LOG_COMPACT));
     }
 
     #[test]
     fn require_admin_scope_rejects_missing() {
         let g = grant_active(&[admin_scopes::ADMIN_READ]);
         let err = g
-            .require_admin_scope(admin_scopes::BOTTOM_REPAIR)
+            .require_admin_scope(admin_scopes::STREAM_REPAIR)
             .unwrap_err();
-        assert!(format!("{err}").contains("bottom.repair"));
+        assert!(format!("{err}").contains("stream.repair"));
     }
 
     #[test]
     fn require_admin_scope_ok_when_present() {
-        let g = grant_active(&[admin_scopes::NOTARY_RECONFIGURE]);
-        g.require_admin_scope(admin_scopes::NOTARY_RECONFIGURE)
+        let g = grant_active(&[admin_scopes::AUTHORITY_HANDOFF]);
+        g.require_admin_scope(admin_scopes::AUTHORITY_HANDOFF)
             .unwrap();
     }
 

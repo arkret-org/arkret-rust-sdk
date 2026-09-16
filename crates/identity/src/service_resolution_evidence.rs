@@ -1,7 +1,7 @@
 //! Complete method-native verification for retained service signer evidence.
 
 use arkret_models_identity::{
-    AuthenticatedServiceResolution, AuthenticatedSignerResolutionEvidence, DidDocument,
+    AuthenticatedServiceResolution, DidDocument,
     PublicPrincipalResolution, ResolutionDidBindingEvidenceKind,
     ResolutionDidBindingEvidenceReceipt, ResolutionDidBindingMethodProof,
     ResolutionDidBindingMethodProofKind, ResolutionDidBindingWitness,
@@ -411,40 +411,6 @@ pub fn authenticated_service_document_at(
             "mutable did:web cannot be used for historical service key selection".to_owned(),
         )),
     }
-}
-
-/// Retain a service signer-evidence leaf for the exact method that was
-/// effective at `at`, while carrying the single complete authenticated
-/// resolution history.
-pub fn service_signer_evidence_for_method_from_authenticated_resolution(
-    resolution: AuthenticatedServiceResolution,
-    expected_service_id: &DidCoreId,
-    verification_method: arkret_wire::DidUrl,
-    at: DateTime<Utc>,
-) -> Result<AuthenticatedSignerResolutionEvidence> {
-    let document = authenticated_service_document_at(&resolution, expected_service_id, at)?;
-    if !document
-        .verification_methods
-        .contains_key(verification_method.as_str())
-    {
-        return Err(IdentityError::Protocol(
-            "historical service document does not authorize the requested method".to_owned(),
-        ));
-    }
-    crate::validate_verification_method_relationship(
-        &document,
-        &verification_method,
-        &document.id,
-        crate::DidVerificationRelationship::AssertionMethod,
-    )
-    .map_err(|error| IdentityError::Protocol(error.to_string()))?;
-    let evidence = AuthenticatedSignerResolutionEvidence::Service {
-        signer_id: expected_service_id.clone(),
-        verification_method,
-        authenticated_resolution: resolution,
-    };
-    evidence.validate_attester_binding().map_err(wire)?;
-    Ok(evidence)
 }
 
 #[allow(clippy::too_many_arguments)]

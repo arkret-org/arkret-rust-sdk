@@ -1907,7 +1907,7 @@ pub fn prepare_service_inception<R: Rng + ?Sized>(
 /// the service's durable signing-key custody layer.
 ///
 /// This is the correct primitive when the same service identity signs Arkret
-/// credentials or notary Seals: the resulting DID document publishes the
+/// credentials or other durable attestations: the resulting DID document publishes the
 /// public half of `did_key_seed`, while the WebVH update key remains freshly
 /// generated from `rng`. The secret seed is copied into the returned
 /// [`PreparedInception`] so its existing zeroization guarantees still apply.

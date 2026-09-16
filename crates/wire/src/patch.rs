@@ -12,10 +12,8 @@
 //! - An **explicit op object** — `{ "$op": "set"|"unset"|"add"|"remove", "value": ... }`. `value`
 //!   is required for `set`/`add`/`remove` and MUST be absent for `unset`.
 //!
-//! Reducer parser rules (selector semantics, redactable-field
-//! protection, reducer-managed-field protection) are defined normatively
-//! in `zh/models/event-and-patch.md §4`. This module only models the
-//! wire grammar; semantic enforcement happens in the reducer layer.
+//! Selector semantics and redactable-field protection are defined in
+//! `zh/models/event-and-patch.md §4`.
 
 use std::collections::BTreeMap;
 
@@ -26,55 +24,13 @@ use serde_json::Value;
 
 use crate::error::{Result, WireError};
 use crate::error_codes::ReasonCode;
-use crate::generated::{
-    REDACTABLE_FIELD_PATHS, REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS, REDUCER_MANAGED_OBJECTS,
-    REDUCER_MANAGED_UNIVERSAL_PATHS,
-};
+use crate::generated::REDACTABLE_FIELD_PATHS;
 
 /// Maximum patch-path length in bytes, per spec.
 pub const PATCH_PATH_MAX_BYTES: usize = 1024;
 
 /// Maximum patch-path nesting depth (segments separated by `.`).
 pub const PATCH_PATH_MAX_SEGMENTS: usize = 16;
-
-/// Reason code for a patch path the named object kind does not let an actor
-/// write, or `None` when the path is writable.
-///
-/// The path set is the canonical projection in
-/// `registry/reducer-managed-path-registry.json`; this module never spells its
-/// own list. The decision is per object kind because the forbidden set is:
-/// `event-and-patch.md` section 4.2.5 registers a universal minimum set, each
-/// object kind adds its own paths (Relation `effective_scope`, Morph
-/// `morph_kind` / `stage`, Actor Profile `resolution`, ...), and View carves
-/// `state` back out because `views.md` section 3.1 makes an `ak.view.update`
-/// patch the only way to reach its terminal state. An unregistered object kind
-/// falls back to the universal minimum set.
-pub fn reducer_managed_patch_reason(object_kind: &str, path: &str) -> Option<&'static str> {
-    let normalized = normalized_patch_path(path)?;
-    if let Some(object) = REDUCER_MANAGED_OBJECTS
-        .iter()
-        .find(|descriptor| descriptor.object_kind == object_kind)
-    {
-        if let Some(entry) = object
-            .forbidden_paths
-            .iter()
-            .find(|entry| patch_path_covers(entry.path, &normalized))
-        {
-            return Some(entry.reason_code);
-        }
-        if object
-            .universal_exemptions
-            .iter()
-            .any(|exemption| patch_path_covers(exemption, &normalized))
-        {
-            return None;
-        }
-    }
-    REDUCER_MANAGED_UNIVERSAL_PATHS
-        .iter()
-        .find(|entry| patch_path_covers(entry.path, &normalized))
-        .map(|entry| entry.reason_code)
-}
 
 /// Whether a registered path bans `candidate`: the path itself and every dotted
 /// descendant of it fall together (`event-and-patch.md` section 4.2.5).
@@ -90,14 +46,6 @@ pub fn patch_path_covers(registered: &str, candidate: &str) -> bool {
 
 /// Strip selector suffixes and reject backtick-quoted segments so a registered
 /// path can be compared against a wire path segment by segment.
-fn normalized_patch_path(path: &str) -> Option<String> {
-    let mut segments = Vec::new();
-    for segment in path.split('.') {
-        segments.push(normalized_patch_segment_head(segment)?);
-    }
-    Some(segments.join("."))
-}
-
 /// Explicit op discriminator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -118,7 +66,7 @@ pub enum PatchOpKind {
 pub enum PatchOp {
     /// Direct value form: `path: <value>` sugars to `{ "$op": "set",
     /// "value": <value> }`. The value MUST NOT itself be a JSON object
-    /// carrying a `$op` field; reducers MUST detect that case and
+    /// carrying a `$op` field; validators MUST detect that case and
     /// reject with `patch_path_invalid` per spec.
     DirectValue(Value),
     /// Explicit op object.
@@ -287,13 +235,9 @@ impl Patch {
 
     /// Apply the patch to `prestate` and return the complete post-state.
     ///
-    /// This is the document half of the normative pure function
-    /// `reduce_patch(kind, target_ref, patch, pre_state)`
-    /// (`event-and-patch.md` §4.3.1). The caller supplies the frozen
-    /// pre-state; the result is the **whole** post-state value that an
-    /// `apply_patch` projection turns into a single `set` on the target
-    /// causal-register or sequenced-state cell, never a partial patch
-    /// (§4.3.1 step 3). `prestate` is never mutated: everything happens on a
+    /// The caller supplies the current committed value; the result is the
+    /// complete post-state submitted for governance-Station admission.
+    /// `prestate` is never mutated: everything happens on a
     /// clone that is discarded on the first failure, which is how §4.4's
     /// "every path succeeds or none applies" atomicity is met.
     ///
@@ -329,14 +273,13 @@ impl Patch {
     /// Selector segments (`field[key="value"]`) are refused; see
     /// `parse_object_path`.
     ///
-    /// Redactable-field and reducer-managed-field protection run first, per
-    /// §4.3.1 step 1: a path hitting either set is rejected immediately.
+    /// Redactable-field protection runs before application.
     pub fn apply(&self, prestate: &Value) -> Result<Value> {
         // `apply` only receives prestate JSON, and trusting an `id` found inside
         // it to choose the safety policy would let a caller borrow another
         // kind's carve-outs. The object kind is proven one layer up, from the
         // payload's typed target, so this hop stays on the superset.
-        self.apply_with_target(prestate, PatchTargetKind::Unverified)
+        self.apply_checked(prestate)
     }
 
     /// Apply a patch after the caller has bound it to the typed target carried
@@ -346,11 +289,12 @@ impl Patch {
     /// a Strand may update `schema_refs` to atomically activate a registered
     /// profile, while the same path remains create-locked for a Morph.
     pub fn apply_for_typed_target(&self, prestate: &Value, target_ref: &str) -> Result<Value> {
-        self.apply_with_target(prestate, PatchTargetKind::from_typed_target(target_ref))
+        let _ = target_ref;
+        self.apply_checked(prestate)
     }
 
-    fn apply_with_target(&self, prestate: &Value, target: PatchTargetKind<'_>) -> Result<Value> {
-        validate_patch_semantic_safety(self, target)?;
+    fn apply_checked(&self, prestate: &Value) -> Result<Value> {
+        validate_patch_semantic_safety(self)?;
 
         let mut parsed: Vec<(&str, Vec<String>, &PatchOp)> = Vec::with_capacity(self.entries.len());
         for (path, op) in &self.entries {
@@ -390,7 +334,7 @@ impl Patch {
     }
 }
 
-/// Validate a patch path's surface syntax. Reducers still need to do
+/// Validate a patch path's surface syntax. Admission still needs to do
 /// the full ABNF check (`zh/models/event-and-patch.md §4.2.1`); this
 /// only enforces the byte-length and segment-count limits the spec
 /// names explicitly.
@@ -408,7 +352,7 @@ pub fn validate_path(path: &str) -> Result<()> {
     }
     // Count top-level dot segments. Selectors (`[...]`) are part of a
     // segment, not a separator. We treat `.` as the splitter and let
-    // the reducer's parser handle nested selectors.
+    // the admission parser handle nested selectors.
     let segments = path.split('.').count();
     if segments > PATCH_PATH_MAX_SEGMENTS {
         return Err(WireError::Protocol(format!(
@@ -661,66 +605,11 @@ fn patch_apply_failed(path: &str, detail: &str) -> WireError {
     WireError::Protocol(format!("patch path '{path}' cannot be applied: {detail}"))
 }
 
-/// Whether the patch guard may honour the per-object-kind carve-outs of
-/// `registry/reducer-managed-path-registry.json`.
-///
-/// The registry's forbidden set is per object kind, and View deliberately carves
-/// `state` back out because `views.md` section 3.1 makes an `ak.view.update`
-/// patch the only way to reach its terminal state. Applying the object-agnostic
-/// superset there rejects the one legal terminal path, so a caller that has
-/// *proven* which object it is patching passes [`Self::Verified`].
-///
-/// Proof means the object kind came from the payload's own typed target
-/// (`strand_patch_payload.target_ref`, `morph_update_payload.target_ref`, or
-/// `view_payload.view_id`), not from an `id`
-/// found inside arbitrary prestate JSON: a guard that trusted that could be
-/// steered into another kind's exemptions. Anything unproven is
-/// [`Self::Unverified`] and keeps the conservative superset, so the guard fails
-/// closed by default.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PatchTargetKind<'a> {
-    /// The object kind was proven from the payload's typed target.
-    Verified(&'a str),
-    /// No target binding was proven; apply the object-agnostic superset.
-    Unverified,
-}
-
-impl<'a> PatchTargetKind<'a> {
-    /// Derive the verified kind from a typed target id (`ak:<kind>:<payload>`).
-    ///
-    /// A value that is not a typed id proves nothing, so it degrades to
-    /// [`Self::Unverified`] rather than guessing a kind.
-    pub fn from_typed_target(target_ref: &'a str) -> Self {
-        let Some(rest) = target_ref.strip_prefix("ak:") else {
-            return Self::Unverified;
-        };
-        match rest.split_once(':') {
-            Some((kind, payload)) if !kind.is_empty() && !payload.is_empty() => {
-                Self::Verified(kind)
-            }
-            _ => Self::Unverified,
-        }
-    }
-}
-
-/// Validate the cross-object patch safety rules that do not require reducer
-/// state. Object-specific reducers may add stricter checks, but they must not
-/// accept reducer-managed paths or direct removal of redactable content.
-///
-/// `target` decides which reducer-managed path set applies:
-/// [`PatchTargetKind::Verified`] consults [`reducer_managed_patch_reason`] for
-/// that exact kind, so registered carve-outs such as the View terminal `state`
-/// patch of `views.md` section 3.1 are honoured;
-/// [`PatchTargetKind::Unverified`] applies the object-agnostic superset, which
-/// carries no carve-out at all.
-pub fn validate_patch_semantic_safety(patch: &Patch, target: PatchTargetKind<'_>) -> Result<()> {
+/// Validate cross-object patch safety rules that are independent of the
+/// current committed object value.
+pub fn validate_patch_semantic_safety(patch: &Patch) -> Result<()> {
     patch.validate()?;
     for (path, op) in patch.iter() {
-        if patch_path_targets_reducer_managed(path, target) {
-            return Err(WireError::Protocol(
-                ReasonCode::PATCH_PATH_REDUCER_MANAGED.to_owned(),
-            ));
-        }
         if matches!(op.op(), PatchOpKind::Unset | PatchOpKind::Remove)
             && patch_path_targets_redactable_unset(path)
         {
@@ -732,21 +621,6 @@ pub fn validate_patch_semantic_safety(patch: &Patch, target: PatchTargetKind<'_>
     Ok(())
 }
 
-fn patch_path_targets_reducer_managed(path: &str, target: PatchTargetKind<'_>) -> bool {
-    let Some(normalized) = normalized_patch_path(path) else {
-        return false;
-    };
-    // A payload that wraps the object under `object.` addresses the same fields
-    // one segment deeper.
-    let subject = normalized.strip_prefix("object.").unwrap_or(&normalized);
-    if let PatchTargetKind::Verified(object_kind) = target {
-        return reducer_managed_patch_reason(object_kind, subject).is_some();
-    }
-    REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS
-        .iter()
-        .any(|registered| patch_path_covers(registered, subject))
-}
-
 /// Whether a patch path addresses a registered redactable content-carrier slot.
 ///
 /// The slot set is the canonical projection in
@@ -756,19 +630,11 @@ fn patch_path_targets_reducer_managed(path: &str, target: PatchTargetKind<'_>) -
 /// content slots: `$op="unset"` is their only non-terminal clear path and MUST
 /// be accepted (`event-and-patch.md` §4.2.4). Realm-defined
 /// `redactable: true` fields are declared by their own Realm schema and are
-/// enforced by the reducer holding that schema, not here.
+/// enforced by the governance Station's schema policy, not here.
 fn patch_path_targets_redactable_unset(path: &str) -> bool {
     REDACTABLE_FIELD_PATHS
         .iter()
         .any(|slot| path == *slot || path.starts_with(&format!("{slot}.")))
-}
-
-fn normalized_patch_segment_head(segment: &str) -> Option<&str> {
-    if segment.starts_with('`') {
-        return None;
-    }
-    let head = segment.split_once('[').map_or(segment, |(head, _)| head);
-    (!head.is_empty()).then_some(head)
 }
 
 impl Serialize for Patch {
@@ -911,117 +777,13 @@ mod tests {
     }
 
     #[test]
-    fn validate_patch_semantic_safety_rejects_reducer_managed_path() {
-        let mut patch = Patch::new();
-        patch
-            .insert_op("state", PatchOp::set(json!("archived")))
-            .unwrap();
-
-        let err = validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
-        );
-    }
-
-    #[test]
-    fn verified_view_target_accepts_the_registered_terminal_state_patch() {
-        // views.md 3.1: an `ak.view.update` patch setting state="tombstoned" is
-        // the only protocol-level removal of a shared View, and the registry
-        // carves `state` out of the reducer-managed set for kind `view`.
-        let mut patch = Patch::new();
-        patch
-            .insert_op("state", PatchOp::set(json!("tombstoned")))
-            .unwrap();
-        let view_target = PatchTargetKind::from_typed_target(
-            "ak:view:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
-        );
-        assert_eq!(view_target, PatchTargetKind::Verified("view"));
-        validate_patch_semantic_safety(&patch, view_target)
-            .expect("the View terminal patch is the one legal removal path");
-
-        // The same path on a kind without the carve-out stays rejected, and so
-        // does the object-agnostic superset.
-        for target in [
-            PatchTargetKind::from_typed_target(
-                "ak:strand:AVEbR6LJe9T0RIh43YEQxR-vov-d4AbPcHIDId501TNw",
-            ),
-            PatchTargetKind::Unverified,
-        ] {
-            let error = validate_patch_semantic_safety(&patch, target).unwrap_err();
-            assert!(
-                error
-                    .to_string()
-                    .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
-            );
-        }
-    }
-
-    #[test]
-    fn a_non_typed_target_proves_nothing_and_stays_on_the_superset() {
-        for candidate in [
-            "",
-            "view",
-            "ak:",
-            "ak:view",
-            "ak:view:",
-            "ak::token",
-            "did:web:x",
-        ] {
-            assert_eq!(
-                PatchTargetKind::from_typed_target(candidate),
-                PatchTargetKind::Unverified,
-                "{candidate} is not a typed target, so it must not select a kind"
-            );
-        }
-    }
-
-    #[test]
-    fn reducer_managed_patch_reason_is_decided_per_object_kind() {
-        // Relation is the only patch-surface object whose schema declares
-        // `effective_scope`, and the ban reaches every dotted descendant.
-        assert_eq!(
-            reducer_managed_patch_reason("relation", "effective_scope"),
-            Some("effective_scope_reducer_managed")
-        );
-        assert_eq!(
-            reducer_managed_patch_reason("relation", "effective_scope.circle_id"),
-            Some("effective_scope_reducer_managed")
-        );
-        assert_eq!(
-            reducer_managed_patch_reason("relation", "fields.note"),
-            None
-        );
-        assert_eq!(
-            reducer_managed_patch_reason("strand", "effective_scope"),
-            None
-        );
-
-        // The universal minimum set applies to every kind, registered or not.
-        for kind in ["relation", "strand", "view", "not_a_registered_kind"] {
-            assert_eq!(
-                reducer_managed_patch_reason(kind, "state_changed_at"),
-                Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
-            );
-        }
-
-        // views.md §3.1: a shared View reaches its terminal state through an
-        // ak.view.update patch, so `state` is authored on exactly this kind.
-        assert_eq!(reducer_managed_patch_reason("view", "state"), None);
-        assert_eq!(
-            reducer_managed_patch_reason("strand", "state"),
-            Some(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
-        );
-    }
-
-    #[test]
     fn validate_patch_semantic_safety_rejects_direct_redactable_unset() {
         let mut patch = Patch::new();
         patch
             .insert_op("encrypted_content", PatchOp::unset())
             .unwrap();
 
-        let err = validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
+        let err = validate_patch_semantic_safety(&patch).unwrap_err();
         assert!(
             err.to_string()
                 .contains(ReasonCode::PATCH_UNSET_REDACTABLE_FIELD)
@@ -1043,7 +805,7 @@ mod tests {
         ] {
             let mut patch = Patch::new();
             patch.insert_op(path, PatchOp::unset()).unwrap();
-            validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified)
+            validate_patch_semantic_safety(&patch)
                 .unwrap_or_else(|error| panic!("unset on {path} must be accepted: {error}"));
         }
     }
@@ -1060,7 +822,7 @@ mod tests {
                     PatchOp::set(serde_json::json!({"kind": "ak.content.text", "body": ""})),
                 )
                 .unwrap();
-            validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified)
+            validate_patch_semantic_safety(&patch)
                 .unwrap_or_else(|error| panic!("set on {path} must be accepted: {error}"));
         }
     }
@@ -1082,8 +844,7 @@ mod tests {
         for path in REDACTABLE_FIELD_PATHS {
             let mut patch = Patch::new();
             patch.insert_op(*path, PatchOp::unset()).unwrap();
-            let error =
-                validate_patch_semantic_safety(&patch, PatchTargetKind::Unverified).unwrap_err();
+            let error = validate_patch_semantic_safety(&patch).unwrap_err();
             assert!(
                 error
                     .to_string()
@@ -1101,10 +862,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_set_matches_the_prestate_binding_fixture() {
-        // `ak.vector.patch.projection_prestate_binding.v1` in
-        // state-reducer-hardening-fixture.json: the derived effect is the whole
-        // post-state, not the partial patch.
+    fn apply_set_returns_the_complete_poststate() {
         let prestate = json!({"metadata": {"fields": {"review_status": "pending"}}});
         let patch = patch_of(&[(
             "metadata.fields.review_status",
@@ -1190,7 +948,7 @@ mod tests {
     }
 
     #[test]
-    fn typed_strand_application_allows_profile_schema_activation() {
+    fn profile_schema_activation_is_a_regular_atomic_patch() {
         let patch = patch_of(&[
             (
                 "schema_refs",
@@ -1203,7 +961,11 @@ mod tests {
         ]);
         let prestate = json!({"metadata": {"fields": {}}});
 
-        assert!(patch.apply(&prestate).is_err());
+        let expected = json!({
+            "metadata": {"fields": {"calendar": {"status": "confirmed"}}},
+            "schema_refs": ["ak.schema.calendar_event.v1"],
+        });
+        assert_eq!(patch.apply(&prestate).unwrap(), expected);
         assert_eq!(
             patch
                 .apply_for_typed_target(
@@ -1211,10 +973,7 @@ mod tests {
                     "ak:strand:AU5DHBAGpYtmqCmUCrwMu2Tclj6LWbwoSjogDjJMHyNA",
                 )
                 .unwrap(),
-            json!({
-                "metadata": {"fields": {"calendar": {"status": "confirmed"}}},
-                "schema_refs": ["ak.schema.calendar_event.v1"],
-            })
+            expected
         );
     }
 
@@ -1407,16 +1166,7 @@ mod tests {
     }
 
     #[test]
-    fn apply_rejects_reducer_managed_and_redactable_paths_before_touching_the_prestate() {
-        let managed = patch_of(&[("state", PatchOp::set(json!("archived")))]);
-        assert!(
-            managed
-                .apply(&json!({"state": "active"}))
-                .unwrap_err()
-                .to_string()
-                .contains(ReasonCode::PATCH_PATH_REDUCER_MANAGED)
-        );
-
+    fn apply_rejects_redactable_paths_before_touching_the_prestate() {
         let redactable = patch_of(&[("encrypted_content", PatchOp::unset())]);
         assert!(
             redactable

@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, AttestationId, Base64UrlString, DidCoreId, DidUrl, EventId, Hash, NonEmptyString,
-    PayloadProof, ProfileId, RealmId, ReasonCode, ReceiptId, Result, SchemaId, TrustDomainId,
-    WireError,
+    ActorId, AttestationId, Base64UrlString, CommitStreamHead, DidCoreId, DidUrl, EventId, Hash,
+    NonEmptyString, PayloadProof, ProfileId, RealmId, ReasonCode, ReceiptId, Result, SchemaId,
+    TrustDomainId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -90,24 +90,11 @@ pub enum RywIssuerRole {
     PeerNode,
 }
 
-/// Per-actor frontier entry referenced by the RYW receipt.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct RywActorFrontierEntry {
-    pub actor_seq: u64,
-    pub event_id: EventId,
-}
-
 /// Frontier reference inside an RYW receipt
 /// (`audit-ryw-receipt.schema.json`).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RywFrontier {
-    pub realm_frontier: Vec<EventId>,
-    #[serde(
-        default,
-        skip_serializing_if = "BTreeMap::is_empty",
-        with = "crate::event_sync::actor_sequence_bounds_map"
-    )]
-    pub actor_frontier: BTreeMap<ActorId, RywActorFrontierEntry>,
+    pub stream_heads: Vec<CommitStreamHead>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -366,148 +353,5 @@ impl AuditReleaseAttestation {
         let bytes = arkret_canonical::base64url_decode(root.bytes_b64u.as_str())
             .map_err(|error| WireError::Protocol(error.to_string()))?;
         Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn actors() -> [ActorId; 3] {
-        let principal = DidCoreId::new("ak:did_core:web:auditor.example").unwrap();
-        [
-            ActorId::account(arkret_wire::AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
-            )),
-            ActorId::account(arkret_wire::AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
-            )),
-            ActorId::service(principal),
-        ]
-    }
-
-    fn frontier() -> RywFrontier {
-        let event_id =
-            EventId::new("ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA").unwrap();
-        RywFrontier {
-            realm_frontier: vec![event_id.clone()],
-            actor_frontier: actors()
-                .into_iter()
-                .enumerate()
-                .map(|(index, actor)| {
-                    (
-                        actor,
-                        RywActorFrontierEntry {
-                            actor_seq: index as u64,
-                            event_id: event_id.clone(),
-                        },
-                    )
-                })
-                .collect(),
-        }
-    }
-
-    #[test]
-    fn audit_ryw_receipt_and_frontier_preserve_full_actor_schema() {
-        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
-            .unwrap()
-            .expect("spec schema registry");
-        let digest = format!("sha256:{}", "0".repeat(64));
-        let frontier = frontier();
-        for actor in actors() {
-            let value = json!({
-                "receipt_id":"ak:receipt:019a6aa0-0000-7000-8000-000000000000",
-                "schema":AuditRywReceipt::SCHEMA,
-                "issuer_id":"ak:did_core:web:station-a.example",
-                "issuer_role":"events_api",
-                "audit_event_id":"ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                "realm_id":"ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi",
-                "trust_domain":"ak:trust_domain:fixture",
-                "realm_operator_organization_id":"ak:did_core:web:operator.example",
-                "audit_actor_id":actor,
-                "frontier":frontier,
-                "observed_at":"2026-07-22T10:05:00.000Z",
-                "witness_attestation":{"witnesses":[{
-                    "witness_id":"ak:did_core:web:witness.example",
-                    "verification_method":"did:web:witness.example#key-1",
-                    "controlling_organization_id":"ak:did_core:web:witness-operator.example"
-                }]},
-                "audit_assurance_class":"attested_hardware",
-                "audit_policy_version_digest":digest,
-                "proofs":[{
-                    "kind":"detached_jws",
-                    "verification_method":"did:web:station-a.example#key-1",
-                    "payload_digest":digest,
-                    "created_at":"2026-07-22T10:05:00.000Z",
-                    "jws":"a..b"
-                }]
-            });
-            registry
-                .validate_value(AuditRywReceipt::SCHEMA, &value)
-                .unwrap();
-            let encoded = serde_json::to_string(&value).unwrap();
-            let decoded: AuditRywReceipt = serde_json::from_str(&encoded).unwrap();
-            assert_eq!(decoded.audit_actor_id, actor);
-            assert_eq!(decoded.frontier, frontier);
-            assert_eq!(decoded.frontier.actor_frontier.len(), 3);
-            assert_eq!(serde_json::to_value(decoded).unwrap(), value);
-            let mut event_proof = value.clone();
-            let proof = event_proof["proofs"][0].as_object_mut().unwrap();
-            let digest = proof.remove("payload_digest").unwrap();
-            proof.insert("event_digest".to_owned(), digest);
-            assert!(
-                registry
-                    .validate_value(AuditRywReceipt::SCHEMA, &event_proof)
-                    .is_err()
-            );
-            assert!(serde_json::from_value::<AuditRywReceipt>(event_proof).is_err());
-        }
-        let wire = serde_json::to_value(&frontier).unwrap();
-        for actor in actors() {
-            let key = actor.canonical_key().unwrap();
-            assert!(wire["actor_frontier"].get(&key).is_some());
-        }
-    }
-
-    #[test]
-    fn audit_ryw_frontier_rejects_ambiguous_actor_map_keys() {
-        let actor = actors().into_iter().next().unwrap();
-        let canonical = actor.canonical_key().unwrap();
-        let entry =
-            r#"{"actor_seq":1,"event_id":"ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}"#;
-        let make_wire = |key: &str| {
-            format!(
-                "{{\"realm_frontier\":[],\"actor_frontier\":{{{}:{entry}}}}}",
-                serde_json::to_string(key).unwrap(),
-            )
-        };
-        for key in [
-            actor.signing_principal_id().to_string(),
-            format!(" {canonical}"),
-            serde_json::to_string_pretty(&actor).unwrap(),
-            r#"{"kind":"service","kind":"service","service_id":"ak:did_core:web:auditor.example"}"#
-                .to_owned(),
-            r#"{"kind":"hosted_principal","principal_id":"ak:did_core:web:auditor.example"}"#
-                .to_owned(),
-        ] {
-            assert!(
-                serde_json::from_str::<RywFrontier>(&make_wire(&key)).is_err(),
-                "{key}"
-            );
-        }
-        let key = serde_json::to_string(&canonical).unwrap();
-        let duplicate =
-            format!("{{\"realm_frontier\":[],\"actor_frontier\":{{{key}:{entry},{key}:{entry}}}}}");
-        assert!(serde_json::from_str::<RywFrontier>(&duplicate).is_err());
-        let empty: RywFrontier = serde_json::from_value(json!({"realm_frontier":[]})).unwrap();
-        assert!(empty.actor_frontier.is_empty());
-        assert_eq!(
-            serde_json::to_value(empty).unwrap(),
-            json!({"realm_frontier":[]})
-        );
     }
 }

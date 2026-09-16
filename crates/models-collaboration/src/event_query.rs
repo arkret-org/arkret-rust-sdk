@@ -29,15 +29,6 @@ pub struct EventsFrontierRequestBody {
     pub realm_id: Option<RealmId>,
 }
 
-/// Canonical QUERY content shared by `ak.self.seals.read.frontier.v1` and
-/// `ak.peer.seals.read.frontier.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SealFrontierRequestBody {
-    pub realm_id: RealmId,
-}
-
 /// Canonical QUERY content for `ak.peer.events.read.frontier.v1`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -142,82 +133,4 @@ where
 {
     validate_actor_selectors(values).map_err(serde::ser::Error::custom)?;
     values.serialize(serializer)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{EventsFrontierRequestBody, EventsQueryOrder, SealFrontierRequestBody};
-
-    #[test]
-    fn scan_rejects_present_empty_and_duplicate_actor_selectors() {
-        let actor = serde_json::json!({
-            "kind": "account",
-            "account_id": {
-                "principal_id": "ak:did_core:web:alice.example",
-                "station_id": "ak:did_core:web:station.example"
-            }
-        });
-        for value in [
-            serde_json::json!({"actor_ids": []}),
-            serde_json::json!({"actor_ids": [actor], "realm_ids": []}),
-            serde_json::json!({"actor_ids": [actor.clone(), actor]}),
-            serde_json::json!({"actor_ids": [actor], "realm_ids": null}),
-        ] {
-            assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
-        }
-        let request: super::EventsQueryPostRequestBody =
-            serde_json::from_value(serde_json::json!({"actor_ids": [actor]})).unwrap();
-        assert!(
-            !serde_json::to_value(&request)
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .contains_key("realm_ids")
-        );
-        let mut duplicate = request.clone();
-        duplicate.actor_ids.push(request.actor_ids[0].clone());
-        assert!(serde_json::to_value(duplicate).is_err());
-    }
-
-    #[test]
-    fn scan_rejects_retired_historical_completeness_selector() {
-        let mut value = serde_json::json!({
-            "realm_ids": [
-                "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"
-            ]
-        });
-        value.as_object_mut().unwrap().insert(
-            format!("include_{}", "completeness"),
-            serde_json::Value::Bool(true),
-        );
-        assert!(serde_json::from_value::<super::EventsQueryPostRequestBody>(value).is_err());
-    }
-
-    #[test]
-    fn query_order_uses_protocol_wire_values() {
-        assert_eq!(EventsQueryOrder::Default.as_str(), "default");
-        assert_eq!(EventsQueryOrder::Ascending.as_str(), "ascending");
-        assert_eq!(EventsQueryOrder::Descending.as_str(), "descending");
-        assert_eq!(
-            serde_json::to_string(&EventsQueryOrder::Descending).unwrap(),
-            "\"descending\""
-        );
-    }
-
-    #[test]
-    fn event_and_seal_frontier_requests_are_disjoint_closed_shapes() {
-        assert!(
-            serde_json::from_value::<EventsFrontierRequestBody>(serde_json::json!({
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
-            }))
-            .is_err()
-        );
-        assert!(
-            serde_json::from_value::<SealFrontierRequestBody>(serde_json::json!({
-                "actor_id": "ak:did_core:web:alice.example",
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
-            }))
-            .is_err()
-        );
-    }
 }

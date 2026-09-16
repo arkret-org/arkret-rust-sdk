@@ -140,49 +140,6 @@ pub struct MessageMetadata {
     pub extra: BTreeMap<String, Value>,
 }
 
-/// `message.schema.json#/$defs/message_metadata` key of the Agent Sidecar
-/// exchange binding. Legal only inside `encrypted_metadata` plaintext of an
-/// Event whose effective scope is the native Sidecar; forbidden in
-/// plaintext metadata and shared Realm/Circle events (forbidden-wire-fields
-/// `sidecar_exchange_binding`).
-pub const MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY: &str = "sidecar_exchange_binding";
-
-impl MessageMetadata {
-    /// Fail-closed consumer accessor for the exchange binding. Any missing
-    /// key, schema mismatch, unknown role, or field-validation failure yields
-    /// `None` — the Event is then non-echo by default, while the carrying
-    /// message still renders as an ordinary private message
-    /// (`zh/models/sidecar.md` §8).
-    pub fn sidecar_exchange_binding(
-        &self,
-    ) -> Option<crate::agent_operations::AgentSidecarEventExchangeBinding> {
-        let value = self
-            .extra
-            .get(MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY)?;
-        let binding: crate::agent_operations::AgentSidecarEventExchangeBinding =
-            serde_json::from_value(value.clone()).ok()?;
-        binding.validate().ok()?;
-        Some(binding)
-    }
-
-    /// Producer setter: validates the binding before mounting it. Callers MUST
-    /// only place the resulting metadata into `encrypted_metadata` plaintext
-    /// of a Sidecar-scoped Event, never into plaintext `metadata`.
-    pub fn set_sidecar_exchange_binding(
-        &mut self,
-        binding: &crate::agent_operations::AgentSidecarEventExchangeBinding,
-    ) -> Result<()> {
-        binding.validate()?;
-        self.extra.insert(
-            MESSAGE_METADATA_SIDECAR_EXCHANGE_BINDING_KEY.to_owned(),
-            serde_json::to_value(binding).map_err(|_| {
-                WireError::Protocol("Sidecar exchange binding serialization failed".to_owned())
-            })?,
-        );
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Strand {

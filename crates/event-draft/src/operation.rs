@@ -1,46 +1,33 @@
-//! SDK-local operation drafts and the registry-backed envelope builder.
+//! SDK-local reducer projections and MLS scheduler drafts.
+//!
+//! Producer Events are authored directly through [`crate::TypedEventDraft`].
+//! There is no second signed operation envelope and no producer-side causal
+//! chain; ordering belongs exclusively to Station-authored RealmCommit streams.
 
-use arkret_models_collaboration::sync_frames::account_sync::DeviceMessageTarget;
 use arkret_models_crypto::mls_envelopes::{
     MlsCommitEnvelope, MlsProposalEnvelope, MlsWelcomeEnvelope,
 };
 use arkret_wire::{
-    ActorId, AuthContext, AuthoredEvent, AuthorizationRef, CriticalExtension, DeviceId,
-    DeviceMessageId, Did, Event, EventId, EventKind, EventRef, EventRequirements, FeatureRef,
-    GrantId, Hash, Hlc, OperationId, OperationKind, Precondition, ProducerEventProof, ProfileRef,
-    RealmId, ScopeRef, SealBasis, SealId, canonical, project_did_to_core_id,
+    ActorId, AuthorizationRef, DeviceId, Did, Event, EventId, EventKind, EventRef, Hash,
+    OperationId, OperationKind, RealmId, ScopeRef, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::event_intent::EventIntent;
-use crate::registry::EventDraftKindRegistry;
-use crate::{EventDraftError, EventSpec, Result, TypedDeviceMessageTarget, device_message_spec};
+use crate::{EventDraftError, EventSpec, Result};
 
-/// Envelope facts consumed while projecting one accepted Event.
-///
-/// These values are never merged into the signed payload. Keeping them beside
-/// the payload prevents projection code from probing aliases such as
-/// `sender`/`actor_id` or maintaining enrich/strip field lists.
+/// Accepted Event facts retained beside a local reducer projection.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProjectionContext {
     pub sender: ActorId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub producer_device_id: Option<DeviceId>,
-    pub actor_seq: u64,
     pub event_id: EventId,
-    pub preconditions: Vec<Precondition>,
     pub accepted_event_id: EventId,
     pub canonical_event_digest: Hash,
-    pub envelope_causal_refs: Vec<Hash>,
-    pub seal_basis: Option<SealBasis>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data_basis: Option<SealId>,
-    pub hlc: Option<Hlc>,
     pub executed_by: Option<ActorId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_context: Option<AuthContext>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization_ref: Option<AuthorizationRef>,
     pub accepted_scope_ref: ScopeRef,
@@ -70,7 +57,6 @@ pub struct ProjectedEventOperation {
 impl ProjectedEventOperation {
     pub const SCHEMA: &'static str = "org.arkret.sdk.projected_event_operation.v1";
 
-    /// Project one already accepted Event without rewriting its signed payload.
     pub fn from_accepted_event(
         operation_id: OperationId,
         operation_kind: OperationKind,
@@ -98,19 +84,12 @@ impl ProjectedEventOperation {
             context: ProjectionContext {
                 sender: event.actor_id.clone(),
                 producer_device_id: producer_device_id(event),
-                actor_seq: event.actor_seq,
                 event_id: event.event_id.clone(),
-                preconditions: event.preconditions.clone(),
                 accepted_event_id: event.event_id.clone(),
                 canonical_event_digest: Hash::new(
                     event.event_digest_with_digest_suite(digest_suite)?,
                 )?,
-                envelope_causal_refs: event.causal_refs.clone(),
-                seal_basis: event.seal_basis.clone(),
-                data_basis: event.data_basis.clone(),
-                hlc: event.hlc.clone(),
                 executed_by: event.executed_by.clone(),
-                auth_context: event.auth_context.clone(),
                 authorization_ref: event.authorization_ref.clone(),
                 accepted_scope_ref: event.scope_ref.clone(),
             },
@@ -131,8 +110,6 @@ impl ProjectedEventOperation {
         }
     }
 
-    /// Borrow-independent minimal input for the registry effect projector.
-    /// This never fabricates a signed Event from an incomplete projection DTO.
     pub fn projection_input(&self) -> Result<arkret_wire::ProjectedEventInput> {
         let Value::Object(payload) = self.payload.clone() else {
             return Err(EventDraftError::Protocol(
@@ -144,19 +121,13 @@ impl ProjectedEventOperation {
             event_id: self.context.event_id.clone(),
             actor_id: self.context.sender.clone(),
             authorization_ref: self.context.authorization_ref.clone(),
-            actor_seq: self.context.actor_seq,
             realm_id: self.realm_id.clone(),
             created_at: self.created_at,
             payload: payload.into_iter().collect(),
             refs: self.refs.clone(),
-            preconditions: self.context.preconditions.clone(),
-            seal_basis: self.context.seal_basis.clone(),
-            data_basis: self.context.data_basis.clone(),
         })
     }
 
-    /// Decode the signed payload only when this projection carries the marker's
-    /// exact Event kind.
     pub fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload> {
         if self.event_kind != K::KIND {
             return Err(arkret_wire::WireError::PayloadKindMismatch {
@@ -185,7 +156,6 @@ fn producer_device_id(event: &Event) -> Option<DeviceId> {
     if producer_proofs.next().is_some() {
         return None;
     }
-
     let (controller, fragment) = producer_proof
         .verification_method
         .as_str()
@@ -195,7 +165,6 @@ fn producer_device_id(event: &Event) -> Option<DeviceId> {
     if &project_did_to_core_id(&controller).ok()? != signer_id.signing_principal_id() {
         return None;
     }
-
     DeviceId::new(fragment.to_owned()).ok()
 }
 
@@ -203,7 +172,8 @@ mod local_operation_sealed {
     pub trait Sealed {}
 }
 
-/// Type binding for the three non-Event MLS scheduler drafts.
+/// Type binding for local MLS scheduler records. They are never Events and do
+/// not participate in RealmCommit stream ordering.
 pub trait LocalOperationSpec: local_operation_sealed::Sealed + 'static {
     const OBJECT_KIND: &'static str;
     type Payload: Clone + Serialize;
@@ -236,7 +206,6 @@ local_operation_specs! {
     local_operation_spec::MlsWelcome => ("mls_welcome", MlsWelcomeEnvelope),
 }
 
-/// A local scheduler draft. It is not an Event or reducer projection.
 #[derive(Clone, Debug, Serialize)]
 pub struct LocalOperationDraft<K: LocalOperationSpec> {
     pub schema: String,
@@ -285,267 +254,9 @@ impl<K: LocalOperationSpec> LocalOperationDraft<K> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OperationEnvelope {
-    pub operation_id: OperationId,
-    pub scope_ref: ScopeRef,
-    pub actor_id: ActorId,
-    pub(crate) kind: EventKind,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub target_ref: Option<String>,
-    pub causal: CausalRef,
-    pub(crate) payload: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub authz_ref: Option<GrantId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<ProducerEventProof>,
-}
-
-impl OperationEnvelope {
-    pub fn kind(&self) -> &EventKind {
-        &self.kind
-    }
-
-    pub fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload> {
-        if self.kind != K::KIND {
-            return Err(arkret_wire::WireError::PayloadKindMismatch {
-                expected: K::KIND_STR,
-                actual: self.kind.as_str().to_owned(),
-            }
-            .into());
-        }
-        let payload = serde_json::from_value(self.payload.clone()).map_err(|source| {
-            arkret_wire::WireError::PayloadInvalid {
-                kind: K::KIND_STR,
-                reason: source.to_string(),
-            }
-        })?;
-        K::validate_payload(&payload).map_err(|error| arkret_wire::WireError::PayloadInvalid {
-            kind: K::KIND_STR,
-            reason: error.to_string(),
-        })?;
-        Ok(payload)
-    }
-
-    pub fn digest_payload(&self) -> Result<Value> {
-        Ok(canonical::unsigned_value(self, &["proofs"])?)
-    }
-
-    pub fn operation_digest(&self) -> Result<String> {
-        Ok(canonical::canonical_sha256(&self.digest_payload()?)?)
-    }
-
-    pub fn validate_for_submit(&self) -> Result<()> {
-        if self.proofs.is_empty() {
-            return Err(EventDraftError::Protocol(
-                "operation envelope proofs must contain at least one proof".to_owned(),
-            ));
-        }
-        if !self.payload.is_object() {
-            return Err(EventDraftError::Protocol(
-                "operation envelope payload must be a JSON object".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
-    /// Validate that all proofs bind to this operation's digest.
-    pub fn validate_proof_bindings(&self) -> Result<()> {
-        let digest = self.operation_digest()?;
-        let expected_hash = Hash::new(digest)?;
-        for proof in &self.proofs {
-            proof.validate()?;
-            if proof.event_digest != expected_hash {
-                return Err(EventDraftError::Protocol(format!(
-                    "operation proof event_digest '{}' does not match operation digest '{}'",
-                    proof.event_digest, expected_hash
-                )));
-            }
-        }
-        Ok(())
-    }
-
-    /// Materialize this SDK-local operation draft as a signed Event Envelope.
-    ///
-    /// Operation envelopes are not Arkret v1 wire facts. Callers must choose
-    /// the event causal/auth references during conversion, then submit the
-    /// returned [`Event`] to network, sync, federation or reducers.
-    pub(crate) fn into_event_envelope(
-        self,
-        conversion: OperationEventConversion,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<AuthoredEvent> {
-        let Value::Object(payload) = self.payload else {
-            return Err(EventDraftError::Protocol(
-                "operation envelope payload must be a JSON object".to_owned(),
-            ));
-        };
-        let mut event = EventIntent::new(
-            self.kind,
-            self.scope_ref,
-            self.actor_id,
-            Utc::now(),
-            payload.into_iter().collect(),
-        )
-        .with_prev_refs(conversion.prev_refs)
-        .with_refs(conversion.refs)
-        .with_requirements(EventRequirements {
-            schema_profile_refs: conversion.schema_profile_refs,
-            required_features: conversion.required_features,
-            critical_extensions: conversion.critical_extensions,
-        })
-        .author_with_digest_suite(self.causal.actor_seq, self.causal.hlc, digest_suite)?;
-        for proof in conversion.proofs {
-            event.attach_proof(proof.into());
-        }
-        event.insert_unsigned(
-            "local_operation_idempotency_alias",
-            Value::String(self.operation_id.to_string()),
-        );
-        if !self.causal.deps.is_empty() {
-            event.insert_unsigned(
-                "local_operation_dependencies",
-                serde_json::to_value(self.causal.deps)?,
-            );
-        }
-        if let Some(target_ref) = self.target_ref {
-            event.insert_unsigned("local_target_ref", Value::String(target_ref));
-        }
-        Ok(event)
-    }
-}
-
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct OperationEventConversion {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub prev_refs: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub refs: Vec<EventRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub schema_profile_refs: Vec<ProfileRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub required_features: Vec<FeatureRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub critical_extensions: Vec<CriticalExtension>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<ProducerEventProof>,
-}
-
-impl OperationEventConversion {
-    pub fn with_proof(mut self, proof: ProducerEventProof) -> Self {
-        self.proofs.push(proof);
-        self
-    }
-}
-
-/// Registry-backed builder for [`OperationEnvelope`].
-#[derive(Clone, Debug)]
-pub struct OperationEnvelopeBuilder<K: EventSpec> {
-    operation_id: OperationId,
-    scope_ref: ScopeRef,
-    actor_id: ActorId,
-    target_ref: Option<String>,
-    deps: Vec<OperationId>,
-    hlc: Hlc,
-    actor_seq: u64,
-    payload: K::Payload,
-    authz_ref: Option<GrantId>,
-    proofs: Vec<ProducerEventProof>,
-}
-
-impl<K: EventSpec> OperationEnvelopeBuilder<K> {
-    /// Create a builder for one registered operation kind.
-    pub fn new(
-        operation_id: OperationId,
-        scope_ref: ScopeRef,
-        actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
-        payload: K::Payload,
-    ) -> Self {
-        Self {
-            operation_id,
-            scope_ref,
-            actor_id,
-            target_ref: None,
-            deps: Vec::new(),
-            hlc,
-            actor_seq,
-            payload,
-            authz_ref: None,
-            proofs: Vec::new(),
-        }
-    }
-
-    /// Attach a proof.
-    pub fn with_proof(mut self, proof: ProducerEventProof) -> Self {
-        self.proofs.push(proof);
-        self
-    }
-
-    /// Build and validate the operation envelope against a registry.
-    pub fn build(self, registry: &EventDraftKindRegistry) -> Result<OperationEnvelope> {
-        K::validate_payload(&self.payload)?;
-        let payload = serde_json::to_value(self.payload)?;
-        let validation = registry.canonicalize(K::KIND.as_str())?;
-        let envelope = OperationEnvelope {
-            operation_id: self.operation_id,
-            scope_ref: self.scope_ref,
-            actor_id: self.actor_id,
-            kind: EventKind::from_wire(&validation.canonical_kind),
-            target_ref: self.target_ref,
-            causal: CausalRef {
-                deps: self.deps,
-                hlc: self.hlc,
-                actor_seq: self.actor_seq,
-            },
-            payload,
-            authz_ref: self.authz_ref,
-            proofs: self.proofs,
-        };
-        registry.validate_envelope(&envelope)?;
-        Ok(envelope)
-    }
-
-    /// Validate the marker-bound payload and materialize its standard Event in
-    /// one typed authoring chain. A deserialized raw [`OperationEnvelope`]
-    /// cannot call this conversion.
-    pub fn into_event_envelope(
-        self,
-        registry: &EventDraftKindRegistry,
-        conversion: OperationEventConversion,
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<AuthoredEvent> {
-        self.build(registry)?
-            .into_event_envelope(conversion, digest_suite)
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CausalRef {
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub deps: Vec<OperationId>,
-    pub hlc: Hlc,
-    pub actor_seq: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OperationSignature {
-    pub key_id: String,
-    pub signature_algorithm: String,
-    pub sig: String,
-}
-
-/// Build typed local scheduler drafts from MLS transport envelopes.
-///
-/// The envelope wire shapes live in `arkret_models_crypto::mls_envelopes`;
-/// this extension trait keeps the draft binding (envelope → repo
-/// operation) on the event-draft side so the data crate never depends on
-/// the drafting layer.
 pub trait MlsEnvelopeOperationExt {
     type Spec: LocalOperationSpec;
 
-    /// Build a repo operation that carries this MLS envelope.
     fn operation(
         &self,
         operation_id: OperationId,
@@ -612,37 +323,5 @@ impl MlsEnvelopeOperationExt for MlsWelcomeEnvelope {
             LocalOperationDraft::new(operation_id, realm_id, self.clone())
                 .with_object_id(format!("{}:{}:{endpoint}", self.group_id, self.epoch)),
         )
-    }
-}
-
-/// Project an MLS Welcome transport envelope into a `DeviceMessageTarget`.
-///
-/// A `Welcome` is delivered out-of-band to the invitee's device via the
-/// to-device channel. The `DeviceMessageTarget` wire shape is owned by
-/// `arkret-models-collaboration`, so this binding lives on the event-draft
-/// side (which already depends on it) rather than in the OpenMLS-isolation
-/// layer (`arkret-mls`), which must not reach the collaboration crate.
-pub trait MlsWelcomeTargetExt {
-    /// Build the registered `ak.mls.welcome` to-device target that carries this
-    /// Welcome to the recipient device.
-    fn welcome_device_message_target(
-        &self,
-        device_message_id: DeviceMessageId,
-        expires_at: DateTime<Utc>,
-    ) -> Result<DeviceMessageTarget>;
-}
-
-impl MlsWelcomeTargetExt for MlsWelcomeEnvelope {
-    fn welcome_device_message_target(
-        &self,
-        device_message_id: DeviceMessageId,
-        expires_at: DateTime<Utc>,
-    ) -> Result<DeviceMessageTarget> {
-        TypedDeviceMessageTarget::<device_message_spec::MlsWelcome>::new(
-            device_message_id,
-            expires_at,
-            self.clone(),
-        )?
-        .build()
     }
 }

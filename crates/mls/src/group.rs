@@ -4,37 +4,29 @@ use aes_gcm::aead::{Aead, Payload};
 use aes_gcm::{Aes128Gcm, KeyInit};
 use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
-    EncryptedPayload, EventContentPreEncryptionHeader, MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-    MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
-    MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope, MlsEndpointIdentity,
-    MlsGovernanceBindingExtension, MlsGovernanceBindingPayload,
-    MlsGovernanceBindingValidationContext, MlsGroupStateRecord, MlsGroupStateSink,
-    MlsKeyPackageRecord, MlsProposalEnvelope, MlsWelcomeEnvelope,
-    REQUIRED_ARKRET_GROUP_CAPABILITIES, decode_keypackage_capability_extension,
-    encode_keypackage_capability_extension, validate_required_keypackage_capabilities,
-    verify_mls_governance_binding_extension,
+    EncryptedPayload, EventContentPreEncryptionHeader, MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE,
+    MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE, MlsCommitEnvelope, MlsCommitPayload,
+    MlsEndpointIdentity, MlsGovernanceBindingPayload, MlsGroupStateRecord, MlsGroupStateSink,
+    MlsKeyPackageRecord, MlsProposalEnvelope, REQUIRED_ARKRET_GROUP_CAPABILITIES,
+    decode_keypackage_capability_extension, encode_keypackage_capability_extension,
+    validate_required_keypackage_capabilities,
 };
 use arkret_wire::{
-    ActorId, DidCoreId, EncryptedPayloadScheme, EventCandidateBinding, EventCandidateBindingKey,
-    EventCandidateBindingOutcome, EventId, Hash, HistoryCandidateMaterialRecord,
-    HistoryEffectiveScope, LocalAuthoritativeHistorySecret, MLS_CIPHERSUITES, ReasonCode, ScopeRef,
-    canonical,
+    ActorId, Base64UrlString, CommitStreamRef, DidCoreId, EncryptedPayloadScheme, EventId,
+    EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES, MlsWelcomeDelivery,
+    MlsWelcomeRecipientEndpoint, ReasonCode, StreamItem, canonical,
 };
 use chrono::Utc;
-use hkdf::Hkdf;
-use hmac::{Hmac, Mac};
 use openmls::prelude::{
     BasicCredential, Capabilities, CredentialWithKey, Extension, ExtensionType, Extensions,
     GroupContext, GroupId, LeafNode, LeafNodeIndex, LeafNodeParameters, MlsGroup,
     MlsGroupJoinConfig, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider, ProcessedMessageContent,
-    RatchetTreeIn, RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
+    RequiredCapabilitiesExtension, StagedWelcome, UnknownExtension,
 };
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
-use unicode_normalization::UnicodeNormalization;
 use zeroize::Zeroizing;
 
 use crate::identity::{
@@ -63,137 +55,10 @@ pub(super) fn handshake_policy(group_id: &[u8]) -> openmls::prelude::WireFormatP
     }
 }
 
-#[cfg(test)]
-mod handshake_policy_tests {
-    use arkret_wire::DeviceId;
-
-    use super::*;
-
-    fn identity(device: &str) -> ArkretMlsIdentity {
-        ArkretMlsIdentity::new_test_human_device(
-            DidCoreId::new("ak:did_core:web:handshake.example").unwrap(),
-            DeviceId::new(device).unwrap(),
-        )
-        .unwrap()
-    }
-
-    fn public_message(encoded: &str) -> bool {
-        matches!(
-            MlsMessageIn::tls_deserialize_exact(&decode(encoded).unwrap())
-                .unwrap()
-                .extract(),
-            MlsMessageBodyIn::PublicMessage(_)
-        )
-    }
-
-    #[test]
-    fn realm_circle_create_join_restore_keep_public_handshakes_and_private_application() {
-        for group_id in [
-            "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
-            "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
-        ] {
-            assert!(requires_public_handshake(group_id.as_bytes()));
-            let alice = identity("ak:device:01904100-0000-7000-8000-000000000071");
-            let bob = identity("ak:device:01904100-0000-7000-8000-000000000072");
-            let endpoints = vec![
-                alice.endpoint_identity().clone(),
-                bob.endpoint_identity().clone(),
-            ];
-            let package = bob.key_package_record().unwrap();
-            let mut group = alice.create_group(group_id).unwrap();
-            let added = group.add_member(&package).unwrap();
-            assert!(public_message(&added.commit.commit));
-            let mut joined = ArkretMlsGroup::join_from_welcome(bob, &added.welcome).unwrap();
-            joined.install_test_leaf_bindings(endpoints).unwrap();
-            assert_eq!(
-                joined.group.configuration().wire_format_policy(),
-                openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
-            );
-            let record = joined.export_state_record().unwrap();
-            let mut restored = ArkretMlsGroup::restore_from_state_record(&record).unwrap();
-            let update = restored.self_update_commit().unwrap();
-            assert!(public_message(&update.commit));
-            group.apply_commit(&update).unwrap();
-            let message = restored
-                .group
-                .create_message(
-                    &restored.identity.provider,
-                    &restored.identity.signer,
-                    b"private application",
-                )
-                .unwrap();
-            let bytes = message.tls_serialize_detached().unwrap();
-            assert!(matches!(
-                MlsMessageIn::tls_deserialize_exact(&bytes)
-                    .unwrap()
-                    .extract(),
-                MlsMessageBodyIn::PrivateMessage(_)
-            ));
-            restored
-                .group
-                .set_configuration(
-                    restored.identity.provider.storage(),
-                    &MlsGroupJoinConfig::default(),
-                )
-                .unwrap();
-            assert!(
-                ArkretMlsGroup::restore_from_state_record(&restored.export_state_record().unwrap())
-                    .is_err()
-            );
-        }
-    }
-
-    #[test]
-    fn sidecar_policy_is_not_changed_by_the_realm_public_handshake_rule() {
-        let bytes = b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV\x1fak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV";
-        assert!(!requires_public_handshake(bytes));
-        let mut group = identity("ak:device:01904100-0000-7000-8000-000000000071")
-            .create_group(bytes)
-            .unwrap();
-        assert!(!public_message(&group.self_update_commit().unwrap().commit));
-    }
-
-    #[test]
-    fn exact_leaf_removal_does_not_expand_to_other_leaves_of_the_actor() {
-        let alice = identity("ak:device:01904100-0000-7000-8000-000000000071");
-        let bob = identity("ak:device:01904100-0000-7000-8000-000000000072");
-        let mut group = alice
-            .create_group(b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
-            .unwrap();
-        group
-            .add_member(&bob.key_package_record().unwrap())
-            .unwrap();
-        let before = group.epoch();
-        for indices in [vec![], vec![1, 1], vec![99], vec![1, 0]] {
-            assert!(group.remove_members_by_leaf_indices(&indices).is_err());
-            assert_eq!(group.epoch(), before);
-        }
-        let removed = group.remove_members_by_leaf_indices(&[1]).unwrap();
-        assert_eq!(removed.removed_leaves, vec![1]);
-        assert!(public_message(&removed.commit.commit));
-        assert!(
-            removed
-                .proposals
-                .iter()
-                .all(|proposal| public_message(&proposal.proposal))
-        );
-        assert_eq!(group.group.members().count(), 1);
-    }
-}
-
-/// MLS exporter label for the per-epoch history secret.
-pub(crate) const HISTORY_SECRET_LABEL: &str = arkret_wire::ExporterLabelId::HISTORY_V1;
-/// HKDF-Expand label deriving the content key from the history secret.
-const CONTENT_KEY_LABEL: &str = arkret_wire::ExporterLabelId::CONTENT_V1;
-const REACTION_ROUTING_ROOT_LABEL: &str = arkret_wire::ExporterLabelId::REACTION_ROUTING_ROOT_V1;
-const REACTION_ROUTING_LABEL: &str = arkret_wire::ExporterLabelId::REACTION_ROUTING_V1;
-
-/// AEAD parameters an `aead_profile` fixes, shared by both MLS-exporter-derived
-/// AEAD domains: `mls_exporter_aead_v1` content (this module) and
-/// `ak.signal_exporter_aead.v1` (`crate::signal`).
+/// AEAD parameters fixed by the MLS ciphersuite for the live Signal rail.
 ///
 /// `encoding.md` §10.1 splits the `aead_profile` vocabulary by how the key was
-/// obtained, not by which envelope carries it: application-layer HPKE sealing
+/// obtained, not by which envelope carries it: application-layer HPKE encryption
 /// surfaces take `hpke-suite-registry.json`, while every domain whose key comes
 /// out of the MLS exporter takes the `canonical_id` of the
 /// `mls-ciphersuite-registry.json` row the group at `key_ref.group_state_ref`
@@ -277,7 +142,7 @@ impl ExporterAeadSuite {
         )))
     }
 
-    pub(crate) fn seal(
+    pub(crate) fn encrypt(
         self,
         key: &[u8],
         nonce: &[u8],
@@ -297,7 +162,7 @@ impl ExporterAeadSuite {
         }
     }
 
-    pub(crate) fn open(
+    pub(crate) fn decrypt(
         self,
         key: &[u8],
         nonce: &[u8],
@@ -336,29 +201,9 @@ pub struct ArkretMlsGroup {
     /// the same opaque T3 snapshot as the RFC 9420 state and is never inferred
     /// from BasicCredential bytes alone.
     pub(super) leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
-    /// Per-epoch MLS exporter `history_secret[N]` retained for the
-    /// `mls_exporter_aead_v1` content scheme. OpenMLS only evaluates
-    /// `export_secret` against the *current* epoch, so a `history_secret`
-    /// must be derived (via [`Self::derive_and_retain_history_secret`]) at
-    /// the time the group is at epoch `N` and kept here so it can later be
-    /// used to decrypt epoch-`N` content or be HPKE-sealed for a joiner.
-    /// Empty by default; persisted across reload via [`OpenMlsStateSnapshot`].
-    /// Values are [`Zeroizing`] so every retained secret is wiped from memory
-    /// when the entry (or the whole group) is dropped.
-    pub(super) history_secrets: BTreeMap<u64, Zeroizing<Vec<u8>>>,
-    /// Monotonic per-device AEAD nonce counter for the `mls_exporter_aead_v1`
-    /// content scheme (`encoding §10.1`: `device_nonce_counter_be64`). Never
-    /// reused within an epoch because the counter only ever advances, and
-    /// carried through [`OpenMlsStateSnapshot`] because §10.1 makes persisting
-    /// it mandatory: a device that cannot recover the counter for its epoch
-    /// MUST commit to a new epoch rather than restart at 0.
-    pub(super) content_nonce_counter: u64,
     /// Monotonic per-device AEAD nonce counter for the
-    /// `ak.signal_exporter_aead.v1` Signal scheme (`encoding §10.1`). Kept
-    /// separate from [`Self::content_nonce_counter`] because `purpose` is part
-    /// of the nonce-derivation tuple: the two domains have disjoint nonce
-    /// spaces, and sharing one counter would only waste range. Persisted with
-    /// the group snapshot — see [`crate::signal`] for the reuse contract.
+    /// `ak.signal_exporter_aead.v1` Signal scheme. Persisted with the group
+    /// snapshot so a device never repeats a nonce within one MLS epoch.
     pub(super) signal_nonce_counter: u64,
 }
 
@@ -366,14 +211,23 @@ pub struct ArkretMlsGroup {
 pub struct MlsAddMemberResult {
     pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
-    pub welcome: MlsWelcomeEnvelope,
+    pub welcome: MlsWelcomeDraft,
 }
 
 #[derive(Clone, Debug)]
 pub struct MlsAddMembersResult {
     pub proposals: Vec<MlsProposalEnvelope>,
     pub commit: MlsCommitEnvelope,
-    pub welcomes: Vec<MlsWelcomeEnvelope>,
+    pub welcomes: Vec<MlsWelcomeDraft>,
+}
+
+/// Member-side bytes that the producer signs and places in the authority's
+/// recipient queue as an [`MlsWelcomeDelivery`]. It is not a shared Event.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MlsWelcomeDraft {
+    pub recipient: MlsEndpointIdentity,
+    pub keypackage_claim_ref: KeypackageClaimId,
+    pub ciphertext_b64: Base64UrlString,
 }
 
 /// Result of removing one or more leaves from an MLS group.
@@ -404,7 +258,7 @@ pub struct MlsVerifiedLeafBinding {
     pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
     pub credential_ref: arkret_wire::NonEmptyString,
-    pub signature_key: arkret_wire::Base64UrlString,
+    pub signature_key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
 }
@@ -426,22 +280,12 @@ struct OpenMlsStateSnapshot {
     signer_public_key: String,
     storage_entries: BTreeMap<String, String>,
     leaf_bindings: BTreeMap<u32, MlsVerifiedLeafBinding>,
-    /// Retained per-epoch `history_secret[N]` (decimal epoch → base64url
-    /// secret bytes). Defaults to empty for snapshots written before the
-    /// `mls_exporter_aead_v1` content scheme existed.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    history_secrets: BTreeMap<String, String>,
-    /// Persisted monotonic content AEAD nonce counter so a reloaded group
-    /// never re-emits a counter in the same sender scope. Defaults to 0
-    /// for snapshots written before the content scheme existed.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
-    content_nonce_counter: u64,
     /// Persisted monotonic Signal AEAD nonce counter. `encoding.md` §10.1
     /// makes persistence mandatory: a device that cannot recover its counter
     /// for an epoch MUST advance the epoch rather than restart at 0. The
     /// counter only ever reaches this snapshot from an in-memory value that
     /// has already been advanced past every nonce this device emitted, so a
-    /// missing field can only mean "never sealed a Signal", i.e. 0.
+    /// missing field can only mean "never encrypted a Signal", i.e. 0.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     signal_nonce_counter: u64,
 }
@@ -548,74 +392,6 @@ impl ArkretMlsGroup {
         Ok(())
     }
 
-    /// Install historical authority from one authenticated accepted artifact.
-    /// Never inherit by tuple equality: a Remove+Add can reuse every public field.
-    pub fn install_accepted_leaf_bindings(
-        &mut self,
-        outcome: &arkret_models_crypto::MlsAcceptedArtifactOutcome,
-    ) -> Result<()> {
-        outcome.transition_head.validate()?;
-        arkret_models_crypto::validate_mls_leaf_authorizations(
-            &outcome.mls_frontier_leaves,
-            &outcome.mls_leaf_authorizations,
-        )?;
-        if outcome.governance_binding.mls_group_id() != self.group_id()
-            || outcome.governance_binding.next_epoch() != self.epoch()
-            || self.current_governance_binding()?.as_ref() != Some(&outcome.governance_binding)
-        {
-            return Err(Error::Protocol(
-                "accepted authority belongs to another MLS transition".into(),
-            ));
-        }
-        let members = self
-            .group
-            .members()
-            .map(|member| (member.index.u32(), member))
-            .collect::<BTreeMap<_, _>>();
-        let mut bindings = Vec::with_capacity(outcome.mls_frontier_leaves.len());
-        for (leaf, authorization) in outcome
-            .mls_frontier_leaves
-            .iter()
-            .zip(&outcome.mls_leaf_authorizations)
-        {
-            let member = members
-                .get(&leaf.leaf_index)
-                .ok_or_else(|| Error::Protocol("accepted authority names an empty leaf".into()))?;
-            let endpoint = authorization.endpoint_for_leaf(leaf)?;
-            if let MlsEndpointIdentity::MinimalMetadataPairwise {
-                verification_method,
-                ..
-            } = &endpoint
-            {
-                let multibase = verification_method
-                    .as_str()
-                    .strip_prefix("did:key:")
-                    .and_then(|method| method.split_once('#'))
-                    .map(|(key, _)| key)
-                    .ok_or_else(|| Error::Protocol("invalid pairwise leaf method".into()))?;
-                let key = arkret_canonical::decode_ed25519_multibase(multibase)
-                    .map_err(|error| Error::Protocol(error.to_string()))?;
-                if key.as_slice() != member.signature_key.as_slice() {
-                    return Err(Error::Protocol(
-                        "pairwise identity differs from actual leaf key".into(),
-                    ));
-                }
-            }
-            bindings.push(MlsVerifiedLeafBinding {
-                leaf_index: leaf.leaf_index,
-                actor_id: leaf.actor_id.clone(),
-                endpoint,
-                credential_ref: leaf.credential_ref.clone(),
-                signature_key: arkret_wire::Base64UrlString::new(base64url_encode(
-                    &member.signature_key,
-                ))
-                .map_err(|error| Error::Protocol(error.to_owned()))?,
-                device_authorize_event_id: authorization.device_authorize_event_id.clone(),
-            });
-        }
-        self.install_verified_leaf_bindings(bindings)
-    }
-
     pub fn install_local_creator_binding(
         &mut self,
         actor_id: ActorId,
@@ -634,9 +410,8 @@ impl ArkretMlsGroup {
                 .to_owned(),
         )
         .map_err(|error| Error::Protocol(error.to_owned()))?;
-        let signature_key =
-            arkret_wire::Base64UrlString::new(base64url_encode(member.signature_key.as_slice()))
-                .map_err(|error| Error::Protocol(error.to_owned()))?;
+        let signature_key = Base64UrlString::new(base64url_encode(member.signature_key.as_slice()))
+            .map_err(|error| Error::Protocol(error.to_owned()))?;
         self.install_verified_leaf_bindings(vec![MlsVerifiedLeafBinding {
             leaf_index: 0,
             actor_id,
@@ -693,10 +468,8 @@ impl ArkretMlsGroup {
                 actor_id: test_actor_for_endpoint(&endpoint),
                 endpoint,
                 credential_ref,
-                signature_key: arkret_wire::Base64UrlString::new(base64url_encode(
-                    &leaf.signature_key,
-                ))
-                .map_err(|error| Error::Protocol(error.to_owned()))?,
+                signature_key: Base64UrlString::new(base64url_encode(&leaf.signature_key))
+                    .map_err(|error| Error::Protocol(error.to_owned()))?,
                 device_authorize_event_id,
             });
         }
@@ -799,16 +572,6 @@ impl ArkretMlsGroup {
         Ok((group_info, ratchet_tree))
     }
 
-    pub fn governance_binding_extension(&self) -> Option<MlsGovernanceBindingExtension> {
-        self.group
-            .extensions()
-            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
-            .map(|extension| MlsGovernanceBindingExtension {
-                extension_type: MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-                extension_data: extension.0.clone(),
-            })
-    }
-
     pub fn required_keypackage_capabilities(&self) -> Result<Vec<String>> {
         let extension = self
             .group
@@ -823,59 +586,12 @@ impl ArkretMlsGroup {
             .map_err(|error| Error::Protocol(error.to_string()))
     }
 
-    pub fn current_governance_binding(&self) -> Result<Option<MlsGovernanceBindingPayload>> {
-        Ok(self
-            .governance_binding_extension()
-            .map(|extension| extension.decode_payload())
-            .transpose()?)
-    }
-
-    pub fn verify_current_governance_binding(
-        &self,
-        expected: &MlsGovernanceBindingValidationContext<'_>,
-    ) -> Result<MlsGovernanceBindingPayload> {
-        let extension = self.governance_binding_extension();
-        Ok(verify_mls_governance_binding_extension(
-            extension.as_ref(),
-            expected,
-        )?)
-    }
-
-    pub fn update_governance_binding(
-        &mut self,
-        binding: &MlsGovernanceBindingPayload,
-    ) -> Result<MlsCommitEnvelope> {
-        let extensions = self.governance_extensions_for_next_epoch(binding)?;
-
-        let (commit, _welcome, _group_info) = self
-            .group
-            .update_group_context_extensions(
-                &self.identity.provider,
-                extensions,
-                &self.identity.signer,
-            )
-            .map_err(mls_error)?;
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-
-        let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
-        let ratchet_tree = Some(self.ratchet_tree()?);
-        Ok(MlsCommitEnvelope {
-            group_id: self.group_id(),
-            epoch: self.epoch(),
-            commit: encode(&commit_bytes),
-            commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
-            ratchet_tree,
-        })
-    }
-
-    fn governance_extensions_for_next_epoch(
+    fn validate_governance_binding_for_next_epoch(
         &self,
         binding: &MlsGovernanceBindingPayload,
-    ) -> Result<Extensions<GroupContext>> {
+    ) -> Result<()> {
         binding.validate()?;
-        if binding.mls_group_id() != self.group_id() {
+        if binding.mls_group_id()? != self.group_id() {
             return Err(Error::Protocol(
                 "mls_governance_binding.mls_group_id does not match current MLS group".to_owned(),
             ));
@@ -886,36 +602,7 @@ impl ArkretMlsGroup {
             ));
         }
 
-        let mut extensions = self.group.extensions().clone();
-        extensions
-            .add_or_replace(governance_binding_required_capabilities_extension())
-            .map_err(mls_error)?;
-        extensions
-            .add_or_replace(governance_binding_openmls_extension(binding)?)
-            .map_err(mls_error)?;
-        Ok(extensions)
-    }
-
-    /// Content hash of the group's current key schedule, suitable for use as
-    /// the `key_schedule_hash` field in `ak.component.mls.key_schedule.v1` cell
-    /// values and in `ak.profile.mls_governance_binding.full.v1` binding
-    /// payloads. Derived deterministically from the OpenMLS
-    /// `epoch_authenticator()` — a value the spec binds to the current
-    /// (post-commit) MLS epoch + group state, so two clients on the same
-    /// epoch always produce the same hash without exchanging schedule
-    /// material.
-    ///
-    /// Returns a `sha256:`-prefixed lowercase hex `Hash` typed-id so callers
-    /// can hand it straight to `GovernanceBindingPayload::from_anchor` /
-    /// `Hash::new`. Computing the SHA-256 over the authenticator byte slice
-    /// (rather than handing back the raw authenticator) means the value can
-    /// be safely written into projection cells and audit logs without
-    /// leaking the underlying MLS secret directly — the authenticator MUST
-    /// stay scoped to MLS-internal consistency checks per RFC 9420 §8.5.
-    pub fn schedule_hash(&self) -> Hash {
-        let authenticator = self.group.epoch_authenticator();
-        Hash::new(canonical::sha256_digest(authenticator.as_slice()))
-            .expect("sha256:<hex> is always a valid Hash typed-id")
+        Ok(())
     }
 
     /// Derive an MLS RFC 9420 §8.5 exporter secret bound to the current
@@ -942,223 +629,6 @@ impl ArkretMlsGroup {
             .map_err(mls_error)
     }
 
-    /// Derive the current epoch's reaction routing tag from the protocol's
-    /// complete routing context. The returned value is the 32-byte HMAC output
-    /// encoded as 43-character base64url without padding.
-    pub fn reaction_routing_tag(
-        &mut self,
-        realm_id: &str,
-        scheme: EncryptedPayloadScheme,
-        effective_scope: &ScopeRef,
-        target_ref: &EventId,
-        routing_window: u64,
-        canonical_emoji: &str,
-    ) -> Result<String> {
-        let routing_root = match scheme {
-            EncryptedPayloadScheme::MlsExporterAeadV1 => {
-                self.derive_and_retain_history_secret(realm_id)?
-            }
-            EncryptedPayloadScheme::MlsRfc9420 => self.export_secret(
-                REACTION_ROUTING_ROOT_LABEL,
-                &effective_scope.canonical_effective_scope_key_bytes()?,
-                32,
-            )?,
-        };
-        reaction_routing_tag_from_root(
-            &routing_root,
-            effective_scope,
-            target_ref,
-            routing_window,
-            canonical_emoji,
-        )
-    }
-
-    // ── `mls_exporter_aead_v1` history-shareable content scheme ──────────────
-    //
-    // The content key for epoch `N` is derived purely from the MLS exporter at
-    // that epoch:
-    //   history_secret[N] = MLS-Exporter("ak.history-v1", realm_id, KDF.Nh)
-    //   K_content[N,S]    = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)
-    // `AEAD` is the one the group negotiated ([`ExporterAeadSuite`]) — §2.10.1
-    // takes its lengths and §2.10.2 its `aead_profile` from the MLS ciphersuite
-    // registry, never from a locally chosen algorithm. Content is sealed over
-    // (nonce, aad, plaintext) with the §10.1 nonce
-    // `I2OSP(durable_sender_counter, AEAD.Nn)`. Because `history_secret[N]`
-    // is reproducible from `history_secret` alone (no ratchet state), a provider
-    // can HPKE-seal a retained `history_secret[N]` to a joiner who can then
-    // decrypt every epoch-`N` message — the basis of encrypted history sharing.
-
-    /// Derive `history_secret[N]` for the **current** epoch and retain it for
-    /// later history sharing / decryption, returning the 32-byte secret.
-    ///
-    /// OpenMLS only evaluates `export_secret` against the current epoch, so this
-    /// MUST be called while the group is at epoch `N` (e.g. right after each
-    /// commit) for the secret to be recoverable afterwards. Idempotent within an
-    /// epoch: re-deriving overwrites with the identical value.
-    pub fn derive_and_retain_history_secret(
-        &mut self,
-        realm_id: &str,
-    ) -> Result<Zeroizing<Vec<u8>>> {
-        let secret = self.derive_history_secret(realm_id)?;
-        self.history_secrets.insert(self.epoch(), secret.clone());
-        Ok(secret)
-    }
-
-    /// Derive `history_secret[N]` for the current epoch **without** retaining
-    /// it.
-    ///
-    /// Retention exists so a late joiner can be granted readable history; an
-    /// ephemeral domain (the Signal rail) must not cause an epoch to be
-    /// retained as shareable history just because a typing indicator was sent
-    /// in it. Callers that do want the sharing side effect use
-    /// [`Self::derive_and_retain_history_secret`].
-    pub(crate) fn derive_history_secret(&self, realm_id: &str) -> Result<Zeroizing<Vec<u8>>> {
-        self.export_secret(HISTORY_SECRET_LABEL, realm_id.as_bytes(), 32)
-    }
-
-    /// Encrypt `plaintext` for the current epoch under the `mls_exporter_aead_v1`
-    /// content scheme, returning the durable counter and ciphertext. The nonce
-    /// is `I2OSP(counter, AEAD.Nn)` and is never duplicated on wire.
-    ///
-    /// Side effects: derives + retains `history_secret[epoch]` (so the sender can
-    /// later re-decrypt or share it) and advances the device nonce counter.
-    /// The caller supplies the already reconstructed closed pre-encryption
-    /// header. The ordinary-profile sender domain is derived internally from
-    /// the local identity and exact active LeafNode and must match the header.
-    pub fn encrypt_content_exporter_aead(
-        &mut self,
-        realm_id: &str,
-        header: &EventContentPreEncryptionHeader,
-        plaintext: &[u8],
-    ) -> Result<(u64, Vec<u8>)> {
-        let sender_domain = self.verified_local_content_sender_domain(&header.sender_domain)?;
-        header.validate()?;
-        if header.scheme != EncryptedPayloadScheme::MlsExporterAeadV1
-            || header.mls_group_id != self.group_id()
-            || header.epoch != self.epoch()
-            || header.sender_domain.as_bytes() != sender_domain
-        {
-            return Err(Error::Protocol(
-                "exporter content header does not match the active MLS sender state".to_owned(),
-            ));
-        }
-        // Resolved before any secret is derived: an unregistered or non-active
-        // ciphersuite must fail closed rather than produce ciphertext under an
-        // algorithm no receiver is allowed to accept.
-        let suite = self.content_suite()?;
-        let history_secret = self.derive_and_retain_history_secret(realm_id)?;
-        let content_key = derive_content_key_from_history_secret(
-            &history_secret,
-            &sender_domain,
-            suite.key_len(),
-        )?;
-
-        let epoch = self.epoch();
-        let counter = self.content_nonce_counter;
-        if header.counter != Some(counter) {
-            return Err(Error::Protocol(
-                "exporter content header counter was not reserved from the active sender state"
-                    .to_owned(),
-            ));
-        }
-        let nonce = self.content_aead_nonce(&sender_domain, epoch, suite, counter)?;
-
-        let aead_aad = header.canonical_bytes()?;
-        let ciphertext = suite.seal(&content_key, &nonce, &aead_aad, plaintext)?;
-
-        self.content_nonce_counter = self
-            .content_nonce_counter
-            .checked_add(1)
-            .ok_or_else(|| Error::Crypto("content nonce counter overflow".to_owned()))?;
-
-        Ok((counter, ciphertext))
-    }
-
-    /// Decrypt content produced by [`Self::encrypt_content_exporter_aead`] using
-    /// a supplied `history_secret` (e.g. one retained locally for the sender's
-    /// own epoch, or opened from a history-key carrier). `nonce_and_ct` is the
-    /// `nonce || ciphertext` blob; `key_ref`, `epoch` and `aad` MUST be the
-    /// verified envelope values. Takes `&self` — it does not touch ratchet state.
-    ///
-    /// The AEAD comes from the ciphersuite *this group* negotiated rather than
-    /// from a caller-declared `aead_profile`: §10.1 makes the group at
-    /// `key_ref.group_state_ref` the authority, so a caller holding the group
-    /// has nothing left to declare. The group-free
-    /// [`decrypt_content_exporter_aead_standalone`] is the path that must be
-    /// told.
-    pub fn decrypt_content_exporter_aead(
-        &self,
-        history_secret: &[u8],
-        verified_sender_domain: &[u8],
-        header: &EventContentPreEncryptionHeader,
-        ciphertext: &[u8],
-    ) -> Result<Vec<u8>> {
-        decrypt_content_exporter_aead_standalone(
-            history_secret,
-            verified_sender_domain,
-            header,
-            self.group_ciphersuite_canonical_id()?,
-            ciphertext,
-        )
-    }
-
-    /// Export one retained epoch secret as a `local_authoritative` record.
-    ///
-    /// This is the only constructor of that record class in the SDK, and it
-    /// takes the secret from **this** group rather than from an argument:
-    /// `key-management.md:864-866` admits a secret as `local_authoritative`
-    /// only when the endpoint exported it from an MLS state it fully verified
-    /// and actually applied, and holding an [`ArkretMlsGroup`] at that epoch is
-    /// exactly that evidence. Material from a history response, an
-    /// organization-recovery archive or a portable backup can never reach this
-    /// path, so it stays an `external_candidate` by construction.
-    ///
-    /// The caller supplies only the coordinates it alone knows: the durable
-    /// local post-state handle and the exact `ak.component.mls.epoch.v1` winner
-    /// tuple (`history-visibility.md:501-503`). All three transition fields are
-    /// required, because the record's whole purpose is to make the post-state
-    /// the secret came from checkable later.
-    pub fn export_local_authoritative_history_secret(
-        &self,
-        effective_scope: &HistoryEffectiveScope,
-        epoch: u64,
-        local_state_ref: &str,
-        transition_ref: &EventId,
-        transition_event_digest: &Hash,
-        mls_transition_digest: &Hash,
-    ) -> Result<LocalAuthoritativeHistorySecret> {
-        let mls_group_id = effective_scope.canonical_mls_group_id()?;
-        if mls_group_id != self.group_id() {
-            return Err(Error::Protocol(
-                "effective scope does not derive this MLS group id".to_owned(),
-            ));
-        }
-        let secret = self.history_secrets.get(&epoch).ok_or_else(|| {
-            Error::Protocol(format!(
-                "no locally derived history secret is retained for epoch {epoch}"
-            ))
-        })?;
-        let record = LocalAuthoritativeHistorySecret {
-            effective_scope: effective_scope.clone(),
-            mls_group_id,
-            epoch,
-            mls_ciphersuite: self.group_ciphersuite_canonical_id()?.to_owned(),
-            local_state_ref: local_state_ref.to_owned(),
-            transition_ref: transition_ref.clone(),
-            transition_event_digest: transition_event_digest.clone(),
-            mls_transition_digest: mls_transition_digest.clone(),
-            secret_b64u: base64url_encode(secret.as_slice()),
-        };
-        record.validate()?;
-        Ok(record)
-    }
-
-    /// The AEAD suite this group negotiated, resolved through
-    /// `mls-ciphersuite-registry.json`.
-    fn content_suite(&self) -> Result<ExporterAeadSuite> {
-        ExporterAeadSuite::resolve(self.group_ciphersuite_canonical_id()?)
-    }
-
     /// `canonical_id` of the ciphersuite this group negotiated.
     ///
     /// The wire value comes from the registry constant, never from the
@@ -1177,26 +647,8 @@ impl ArkretMlsGroup {
     }
 
     /// Compose the §10.1 full-width content counter nonce.
-    fn content_aead_nonce(
-        &self,
-        verified_sender_domain: &[u8],
-        epoch: u64,
-        suite: ExporterAeadSuite,
-        counter: u64,
-    ) -> Result<Vec<u8>> {
-        self.content_nonce_context(verified_sender_domain, epoch)?;
-        Ok(arkret_crypto::compose_aead_nonce(
-            counter,
-            suite.nonce_len(),
-        )?)
-    }
-
     /// Counter that must be frozen into the next exporter content header
-    /// before encryption. The subsequent seal consumes exactly this value.
-    pub fn next_content_counter(&self) -> u64 {
-        self.content_nonce_counter
-    }
-
+    /// before encryption. The subsequent encryption consumes exactly this value.
     /// Return the sender-domain string derived from the unique active local
     /// BasicCredential leaf. Callers use this value when freezing the
     /// pre-encryption header; they must not infer it from UI profile state.
@@ -1237,21 +689,6 @@ impl ArkretMlsGroup {
             ));
         }
         Ok(derived_sender_domain.into_bytes())
-    }
-
-    fn content_nonce_context(
-        &self,
-        verified_sender_domain: &[u8],
-        epoch: u64,
-    ) -> Result<arkret_crypto::AeadNonceContext> {
-        let verified_sender_domain = std::str::from_utf8(verified_sender_domain).map_err(|_| {
-            Error::Protocol("verified sender domain must be canonical UTF-8".to_owned())
-        })?;
-        Ok(arkret_crypto::AeadNonceContext {
-            mls_group_id: self.group_id(),
-            epoch,
-            sender_domain: verified_sender_domain.to_owned(),
-        })
     }
 
     /// Snapshot complete member identities from the accepted binding map.
@@ -1320,166 +757,6 @@ impl ArkretMlsGroup {
             .collect()
     }
 
-    /// Canonical current leaf set for MLS security-frontier projection.
-    pub fn security_frontier_leaves(
-        &self,
-    ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
-        self.require_complete_leaf_bindings()?;
-        let mut leaves = self
-            .leaf_bindings
-            .values()
-            .map(|binding| arkret_models_crypto::MlsSecurityFrontierLeaf {
-                leaf_index: binding.leaf_index,
-                actor_id: binding.actor_id.clone(),
-                credential_ref: binding.credential_ref.clone(),
-            })
-            .collect::<Vec<_>>();
-        leaves.sort_by_key(|leaf| leaf.leaf_index);
-        Ok(leaves)
-    }
-
-    /// Compute the exact post-Commit public leaf coordinates for an Add batch
-    /// by staging the transition in an isolated copy of the current RFC 9420
-    /// state. This is the author-side input to the governance proof request;
-    /// callers must not predict leaf positions from claim arrival order or by
-    /// scanning for a locally assumed blank index.
-    pub fn preview_member_admission_security_frontier(
-        &self,
-        member_key_packages: &[MlsKeyPackageRecord],
-        member_actor_ids: &[ActorId],
-        replace_existing_endpoints: bool,
-    ) -> Result<Vec<arkret_models_crypto::MlsSecurityFrontierLeaf>> {
-        if member_key_packages.is_empty() || member_key_packages.len() != member_actor_ids.len() {
-            return Err(Error::Protocol(
-                "refusing to preview an empty MLS KeyPackage batch".to_owned(),
-            ));
-        }
-        self.require_complete_leaf_bindings()?;
-
-        let state = self.export_state_record()?;
-        let mut preview = Self::restore_from_state_record(&state)?;
-        preview.add_members_with_optional_governance_binding(
-            member_key_packages,
-            None,
-            if replace_existing_endpoints {
-                member_actor_ids
-            } else {
-                &[]
-            },
-        )?;
-        let post_leaves = preview.active_author_leaves();
-
-        let mut result = Vec::with_capacity(post_leaves.len());
-        let mut attributed_indices = std::collections::BTreeSet::new();
-        for binding in self.leaf_bindings.values() {
-            if replace_existing_endpoints
-                && member_actor_ids.contains(&binding.actor_id)
-                && member_key_packages
-                    .iter()
-                    .any(|record| record.endpoint == binding.endpoint)
-            {
-                continue;
-            }
-            let leaf = post_leaves
-                .iter()
-                .find(|leaf| leaf.leaf_index == binding.leaf_index)
-                .ok_or_else(|| {
-                    Error::Protocol("MLS Add preview removed an existing occupied leaf".to_owned())
-                })?;
-            let expected_signature_key = decode(binding.signature_key.as_str())?;
-            let expected_credential = binding.credential_ref.as_bytes();
-            let crate::AuthorLeafCredential::Basic { identity } = &leaf.credential else {
-                return Err(Error::Protocol(
-                    "existing Arkret MLS leaf is not BasicCredential".to_owned(),
-                ));
-            };
-            if identity.as_slice() != expected_credential
-                || leaf.signature_key != expected_signature_key
-            {
-                return Err(Error::Protocol(
-                    "MLS Add preview changed an existing accepted leaf binding".to_owned(),
-                ));
-            }
-            attributed_indices.insert(binding.leaf_index);
-            result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
-                leaf_index: binding.leaf_index,
-                actor_id: binding.actor_id.clone(),
-                credential_ref: binding.credential_ref.clone(),
-            });
-        }
-
-        for (record, actor_id) in member_key_packages.iter().zip(member_actor_ids) {
-            record.endpoint.validate()?;
-            actor_id.validate()?;
-            if actor_id.signing_principal_id() != record.endpoint.actor_id() {
-                return Err(Error::Protocol(
-                    "MLS Add preview actor differs from signed endpoint principal".to_owned(),
-                ));
-            }
-            let key_package_bytes = decode(&record.keypackage)?;
-            if canonical::sha256_digest(&key_package_bytes) != record.keypackage_ref.as_str() {
-                return Err(Error::Protocol(
-                    "MLS Add preview KeyPackage bytes differ from keypackage_ref".to_owned(),
-                ));
-            }
-            let expected = crate::author_leaf_from_key_package_bytes(&key_package_bytes, 0)?;
-            let mut matches = post_leaves.iter().filter(|leaf| {
-                !attributed_indices.contains(&leaf.leaf_index)
-                    && leaf.credential == expected.credential
-                    && leaf.signature_key == expected.signature_key
-            });
-            let leaf = matches.next().ok_or_else(|| {
-                Error::Protocol(
-                    "MLS Add preview produced no leaf for an exact KeyPackage".to_owned(),
-                )
-            })?;
-            if matches.next().is_some() {
-                return Err(Error::Protocol(
-                    "MLS Add preview produced ambiguous duplicate KeyPackage leaves".to_owned(),
-                ));
-            }
-            let crate::AuthorLeafCredential::Basic { identity } = &leaf.credential else {
-                return Err(Error::Protocol(
-                    "new Arkret MLS leaf is not BasicCredential".to_owned(),
-                ));
-            };
-            let credential = std::str::from_utf8(identity).map_err(|_| {
-                Error::Protocol("new Arkret MLS credential is not UTF-8".to_owned())
-            })?;
-            let expected_credential = match &record.endpoint {
-                MlsEndpointIdentity::HumanDevice { device_id, .. } => device_id.as_str(),
-                MlsEndpointIdentity::AgentRuntime { agent_id, .. } => agent_id.as_str(),
-                MlsEndpointIdentity::MinimalMetadataPairwise {
-                    pairwise_actor_id, ..
-                } => pairwise_actor_id.as_str(),
-            };
-            if credential != expected_credential {
-                return Err(Error::Protocol(
-                    "MLS Add preview credential differs from the KeyPackage endpoint".to_owned(),
-                ));
-            }
-            if !attributed_indices.insert(leaf.leaf_index) {
-                return Err(Error::Protocol(
-                    "MLS Add preview attributed one leaf to multiple members".to_owned(),
-                ));
-            }
-            result.push(arkret_models_crypto::MlsSecurityFrontierLeaf {
-                leaf_index: leaf.leaf_index,
-                actor_id: actor_id.clone(),
-                credential_ref: arkret_wire::NonEmptyString::new(credential.to_owned())
-                    .map_err(|error| Error::Protocol(error.to_owned()))?,
-            });
-        }
-
-        if attributed_indices.len() != post_leaves.len() {
-            return Err(Error::Protocol(
-                "MLS Add preview left an unattributed post-Commit leaf".to_owned(),
-            ));
-        }
-        result.sort_by_key(|leaf| leaf.leaf_index);
-        Ok(result)
-    }
-
     /// Build the [`crate::AuthorGroupStateView`] for this group's current
     /// state. The caller supplies the `group_state_ref` it has verified as
     /// the winning group state for this epoch (accepted genesis / winning
@@ -1504,12 +781,6 @@ impl ArkretMlsGroup {
             signer_public_key: encode(self.identity.signer.public()),
             storage_entries: snapshot_provider_storage(&self.identity.provider)?,
             leaf_bindings: self.leaf_bindings.clone(),
-            history_secrets: self
-                .history_secrets
-                .iter()
-                .map(|(epoch, secret)| (epoch.to_string(), encode(secret)))
-                .collect(),
-            content_nonce_counter: self.content_nonce_counter,
             signal_nonce_counter: self.signal_nonce_counter,
         };
         Ok(MlsGroupStateRecord {
@@ -1574,14 +845,6 @@ impl ArkretMlsGroup {
             ));
         }
 
-        let mut history_secrets = BTreeMap::new();
-        for (epoch, secret_b64) in &snapshot.history_secrets {
-            let epoch: u64 = epoch.parse().map_err(|_| {
-                Error::Protocol("OpenMLS snapshot history_secret epoch is not a u64".to_owned())
-            })?;
-            history_secrets.insert(epoch, Zeroizing::new(decode(secret_b64)?));
-        }
-
         let bindings = snapshot.leaf_bindings;
         let mut restored = Self {
             identity: ArkretMlsIdentity {
@@ -1593,8 +856,6 @@ impl ArkretMlsGroup {
             },
             group,
             leaf_bindings: BTreeMap::new(),
-            history_secrets,
-            content_nonce_counter: snapshot.content_nonce_counter,
             signal_nonce_counter: snapshot.signal_nonce_counter,
         };
         restored.install_verified_leaf_bindings(bindings.into_values().collect())?;
@@ -1612,9 +873,9 @@ impl ArkretMlsGroup {
     /// TLS-serialised commit message (base64-url encoded) and whose
     /// `commit_digest` is the SHA-256 of that wire bytes — the same
     /// shape the SDK already emits from `add_member` / `remove_member_*`.
-    /// Side-effect: the group's pending commit is `merge`-d on success
-    /// so subsequent `encrypt_payload` calls run against the new
-    /// epoch.
+    /// The resulting commit remains staged. It is installed only by
+    /// [`Self::install_accepted_commit`] after the governance Station has
+    /// committed the Event to this scope's independent stream.
     pub fn self_update_commit(&mut self) -> Result<MlsCommitEnvelope> {
         let bundle = self
             .group
@@ -1624,9 +885,6 @@ impl ArkretMlsGroup {
                 LeafNodeParameters::default(),
             )
             .map_err(mls_error)?;
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
         let commit_bytes = bundle
             .commit()
             .tls_serialize_detached()
@@ -1634,7 +892,10 @@ impl ArkretMlsGroup {
         let ratchet_tree = Some(self.ratchet_tree()?);
         Ok(MlsCommitEnvelope {
             group_id: self.group_id(),
-            epoch: self.epoch(),
+            epoch: self
+                .epoch()
+                .checked_add(1)
+                .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
             commit: encode(&commit_bytes),
             commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
             ratchet_tree,
@@ -1728,31 +989,18 @@ impl ArkretMlsGroup {
                 "refusing to add an empty MLS KeyPackage batch".to_owned(),
             ));
         }
-        #[cfg(any(test, feature = "test-utils"))]
-        let test_endpoints = self
-            .leaf_bindings
-            .values()
-            .filter(|binding| {
-                !(replace_actors.contains(&binding.actor_id)
-                    && member_key_packages
-                        .iter()
-                        .any(|record| record.endpoint == binding.endpoint))
-            })
-            .map(|binding| binding.endpoint.clone())
-            .chain(
-                member_key_packages
-                    .iter()
-                    .map(|record| record.endpoint.clone()),
-            )
-            .collect::<Vec<_>>();
         let mut keypackages = Vec::with_capacity(member_key_packages.len());
         let required_capabilities = self.required_keypackage_capabilities()?;
         for member_key_package in member_key_packages {
-            if !member_key_package.is_usable() {
+            if member_key_package.state != arkret_models_crypto::MlsKeyPackageState::Claimed {
                 return Err(Error::Protocol(
-                    "refusing to add revoked MLS KeyPackage".to_owned(),
+                    "MLS Add requires an authority-claimed KeyPackage".to_owned(),
                 ));
             }
+            let claim_id = member_key_package.claim_id.as_deref().ok_or_else(|| {
+                Error::Protocol("claimed MLS KeyPackage omits claim_id".to_owned())
+            })?;
+            KeypackageClaimId::new(claim_id.to_owned())?;
             let keypackage = decode_key_package(&self.identity.provider, member_key_package)?;
             validate_keypackage_capability_binding(
                 member_key_package,
@@ -1766,7 +1014,7 @@ impl ArkretMlsGroup {
         let mut proposals = Vec::with_capacity(keypackages.len());
         // A fresh package for an existing endpoint repairs that endpoint in
         // the same winning Commit. Keeping both leaves would give one device
-        // two incarnations and leave the abandoned package in the frontier.
+        // two incarnations and leave the abandoned package active.
         let replacements: Vec<_> = self
             .leaf_bindings
             .values()
@@ -1815,16 +1063,13 @@ impl ArkretMlsGroup {
                 ratchet_tree: ratchet_tree.clone(),
             });
         }
-        let governance_extensions = governance_binding
-            .map(|binding| self.governance_extensions_for_next_epoch(binding))
-            .transpose()?;
-        let mut builder = self.group.commit_builder().consume_proposal_store(true);
-        if let Some(extensions) = governance_extensions {
-            builder = builder
-                .propose_group_context_extensions(extensions)
-                .map_err(mls_error)?;
+        if let Some(binding) = governance_binding {
+            self.validate_governance_binding_for_next_epoch(binding)?;
         }
-        let bundle = builder
+        let bundle = self
+            .group
+            .commit_builder()
+            .consume_proposal_store(true)
             .force_self_update(true)
             .load_psks(self.identity.provider.storage())
             .map_err(mls_error)?
@@ -1841,29 +1086,30 @@ impl ArkretMlsGroup {
             Error::Protocol("MLS add_members produced no Welcome message".to_owned())
         })?;
         let (commit, ..) = bundle.into_contents();
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-        #[cfg(any(test, feature = "test-utils"))]
-        self.install_test_leaf_bindings(test_endpoints)?;
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
         let welcome_bytes = welcome.tls_serialize_detached().map_err(mls_error)?;
         let commit_digest = Hash::new(canonical::sha256_digest(&commit_bytes))?;
-        let welcome_hash = Hash::new(canonical::sha256_digest(&welcome_bytes))?;
         let group_id = self.group_id();
-        let epoch = self.epoch();
+        let epoch = base_epoch
+            .checked_add(1)
+            .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?;
         let welcomes = member_key_packages
             .iter()
-            .map(|member_key_package| MlsWelcomeEnvelope {
-                group_id: group_id.clone(),
-                epoch,
-                recipient: member_key_package.endpoint.clone(),
-                welcome: encode(&welcome_bytes),
-                welcome_hash: welcome_hash.clone(),
-                ratchet_tree: ratchet_tree.clone(),
+            .map(|member_key_package| {
+                Ok(MlsWelcomeDraft {
+                    recipient: member_key_package.endpoint.clone(),
+                    keypackage_claim_ref: KeypackageClaimId::new(
+                        member_key_package
+                            .claim_id
+                            .clone()
+                            .expect("claimed package was validated"),
+                    )?,
+                    ciphertext_b64: Base64UrlString::new(encode(&welcome_bytes))
+                        .map_err(|error| Error::Protocol(error.to_owned()))?,
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(MlsAddMembersResult {
             proposals,
@@ -1969,7 +1215,7 @@ impl ArkretMlsGroup {
         governance_binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<MlsRemoveMemberResult> {
         if leaf_indices.is_empty()
-            || leaf_indices.len() > arkret_wire::mls_transition::MLS_FRONTIER_MAX_LEAVES
+            || leaf_indices.len() > 65_536
             || leaf_indices.windows(2).any(|pair| pair[0] >= pair[1])
         {
             return Err(Error::Protocol(
@@ -2035,16 +1281,13 @@ impl ArkretMlsGroup {
             });
         }
 
-        let governance_extensions = governance_binding
-            .map(|binding| self.governance_extensions_for_next_epoch(binding))
-            .transpose()?;
-        let mut builder = self.group.commit_builder().consume_proposal_store(true);
-        if let Some(extensions) = governance_extensions {
-            builder = builder
-                .propose_group_context_extensions(extensions)
-                .map_err(mls_error)?;
+        if let Some(binding) = governance_binding {
+            self.validate_governance_binding_for_next_epoch(binding)?;
         }
-        let (commit, _welcome_opt, _) = builder
+        let (commit, _welcome_opt, _) = self
+            .group
+            .commit_builder()
+            .consume_proposal_store(true)
             .load_psks(self.identity.provider.storage())
             .map_err(mls_error)?
             .build(
@@ -2057,12 +1300,6 @@ impl ArkretMlsGroup {
             .stage_commit(&self.identity.provider)
             .map_err(mls_error)?
             .into_contents();
-        self.group
-            .merge_pending_commit(&self.identity.provider)
-            .map_err(mls_error)?;
-        for leaf in leaves {
-            self.leaf_bindings.remove(&leaf.u32());
-        }
 
         let commit_bytes = commit.tls_serialize_detached().map_err(mls_error)?;
 
@@ -2077,7 +1314,9 @@ impl ArkretMlsGroup {
             proposals,
             commit: MlsCommitEnvelope {
                 group_id: self.group_id(),
-                epoch: self.epoch(),
+                epoch: base_epoch
+                    .checked_add(1)
+                    .ok_or_else(|| Error::Protocol("MLS epoch overflow".to_owned()))?,
                 commit: encode(&commit_bytes),
                 commit_digest: Hash::new(canonical::sha256_digest(&commit_bytes))?,
                 ratchet_tree,
@@ -2087,60 +1326,110 @@ impl ArkretMlsGroup {
         })
     }
 
-    pub fn join_from_welcome(
+    /// Consume an authority-queued Welcome only after resolving the exact
+    /// accepted Commit Event it names. Producer-proof verification is a
+    /// prerequisite performed by the caller against the accepted producer
+    /// identity; this method validates every MLS and stream binding.
+    pub fn join_from_verified_welcome_delivery(
         identity: ArkretMlsIdentity,
-        envelope: &MlsWelcomeEnvelope,
+        delivery: &MlsWelcomeDelivery,
+        accepted_commit: &StreamItem,
     ) -> Result<Self> {
-        if envelope.recipient != identity.endpoint_identity() {
+        delivery.validate_shape()?;
+        accepted_commit.validate_shape()?;
+        if accepted_commit.event.kind != EventKind::MlsCommit
+            || delivery.commit_event_ref != accepted_commit.event.event_id
+            || delivery.realm_id != accepted_commit.event.realm_id
+            || delivery.effective_scope != accepted_commit.event.scope_ref
+        {
             return Err(Error::Protocol(
-                "MLS Welcome recipient does not match identity".to_owned(),
+                "MLS Welcome does not name the exact accepted Commit Event".to_owned(),
+            ));
+        }
+        let expected_stream = CommitStreamRef::from_scope(&delivery.effective_scope, None)?;
+        if accepted_commit.commit.stream_ref != expected_stream {
+            return Err(Error::Protocol(
+                "MLS Welcome Commit is in a different independent stream".to_owned(),
+            ));
+        }
+        let commit_payload = serde_json::from_value::<MlsCommitPayload>(
+            serde_json::Value::Object(accepted_commit.event.payload.clone().into_iter().collect()),
+        )?;
+        commit_payload.validate()?;
+        if commit_payload.governance_binding().effective_scope() != &delivery.effective_scope {
+            return Err(Error::Protocol(
+                "MLS Welcome scope differs from the accepted Commit payload".to_owned(),
+            ));
+        }
+        let recipient_matches = match (&identity.endpoint, &delivery.recipient_endpoint) {
+            (
+                MlsEndpointIdentity::HumanDevice {
+                    principal_id,
+                    device_id,
+                },
+                MlsWelcomeRecipientEndpoint::Device {
+                    device_id: delivered_device,
+                },
+            ) => {
+                device_id == delivered_device
+                    && delivery.recipient_actor_id.signing_principal_id() == principal_id
+            }
+            (
+                MlsEndpointIdentity::AgentRuntime {
+                    agent_id,
+                    verification_method,
+                    ..
+                },
+                MlsWelcomeRecipientEndpoint::AgentRuntime {
+                    verification_method: delivered_method,
+                },
+            ) => {
+                verification_method == delivered_method
+                    && delivery.recipient_actor_id.signing_principal_id() == agent_id
+            }
+            _ => false,
+        };
+        if !recipient_matches {
+            return Err(Error::Protocol(
+                "MLS Welcome recipient does not match this endpoint".to_owned(),
             ));
         }
 
-        let welcome_bytes = decode(&envelope.welcome)?;
-        let actual_welcome_hash = canonical::sha256_digest(&welcome_bytes);
-        if actual_welcome_hash != envelope.welcome_hash.as_str() {
-            return Err(Error::Protocol("MLS Welcome hash mismatch".to_owned()));
-        }
-
+        let welcome_bytes = decode(delivery.ciphertext_b64.as_str())?;
         let message =
             MlsMessageIn::tls_deserialize_exact(welcome_bytes.as_slice()).map_err(mls_error)?;
         let MlsMessageBodyIn::Welcome(welcome) = message.extract() else {
-            return Err(Error::Protocol("MLS message is not a Welcome".to_owned()));
+            return Err(Error::Protocol(
+                "MLS delivery does not contain a Welcome".to_owned(),
+            ));
         };
-        let ratchet_tree = match &envelope.ratchet_tree {
-            Some(tree) => {
-                let tree_bytes = decode(tree)?;
-                Some(
-                    RatchetTreeIn::tls_deserialize_exact(tree_bytes.as_slice())
-                        .map_err(mls_error)?,
-                )
-            }
-            None => None,
-        };
-
         let staged_welcome = StagedWelcome::new_from_welcome(
             &identity.provider,
             &MlsGroupJoinConfig::default(),
             welcome,
-            ratchet_tree,
+            None,
         )
         .map_err(mls_error)?;
-
         let context = staged_welcome.group_context();
-        if encode(context.group_id().as_slice()) != envelope.group_id
-            || context.epoch().as_u64() != envelope.epoch
+        if encode(context.group_id().as_slice()) != commit_payload.mls_group_id()?
+            || context.epoch().as_u64() != commit_payload.next_epoch()
         {
             return Err(Error::Protocol(
-                "MLS Welcome envelope differs from its authenticated group or epoch".to_owned(),
+                "MLS Welcome authenticated group state differs from the accepted Commit".to_owned(),
             ));
         }
+        Self::join_staged_welcome(identity, staged_welcome)
+    }
+
+    fn join_staged_welcome(
+        identity: ArkretMlsIdentity,
+        staged_welcome: StagedWelcome,
+    ) -> Result<Self> {
+        let context = staged_welcome.group_context();
         let join_config = MlsGroupJoinConfig::builder()
             .wire_format_policy(handshake_policy(context.group_id().as_slice()))
             .build();
-
-        let required_extension = staged_welcome
-            .group_context()
+        let required_extension = context
             .extensions()
             .unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE)
             .ok_or_else(|| {
@@ -2169,13 +1458,10 @@ impl ArkretMlsGroup {
                 .map_err(mls_error)?;
             return Err(error);
         }
-
         Ok(Self {
             identity,
             group,
             leaf_bindings: BTreeMap::new(),
-            history_secrets: BTreeMap::new(),
-            content_nonce_counter: 0,
             signal_nonce_counter: 0,
         })
     }
@@ -2213,37 +1499,6 @@ impl ArkretMlsGroup {
             content_type: header.content_type.clone(),
             ciphertext,
             counter: None,
-            pre_encryption_header: header,
-            payload_digest,
-        })
-    }
-
-    /// Encrypt `plaintext` under the §2.10 `mls_exporter_aead_v1` content scheme
-    /// and return the full [`EncryptedPayload`] (scheme / key_ref / digest set),
-    /// so a late joiner granted the epoch's `history_secret` can decrypt it.
-    ///
-    /// `header` is the exact authenticated pre-encryption object. Side effect:
-    /// derives + retains this
-    /// epoch's `history_secret` (so the author can re-decrypt and later share it).
-    pub fn encrypt_payload_exporter_aead(
-        &mut self,
-        realm_id: &str,
-        header: EventContentPreEncryptionHeader,
-        plaintext: &[u8],
-    ) -> Result<EncryptedPayload> {
-        let (counter, ciphertext) =
-            self.encrypt_content_exporter_aead(realm_id, &header, plaintext)?;
-        let epoch = self.epoch();
-        let ciphertext = encode(&ciphertext);
-        let payload_digest =
-            EncryptedPayload::payload_digest_for_header(&header, ciphertext.clone())?;
-        Ok(EncryptedPayload {
-            scheme: EncryptedPayloadScheme::MlsExporterAeadV1,
-            group_id: self.group_id(),
-            epoch,
-            content_type: header.content_type.clone(),
-            ciphertext,
-            counter: Some(counter),
             pre_encryption_header: header,
             payload_digest,
         })
@@ -2297,7 +1552,34 @@ impl ArkretMlsGroup {
         }
     }
 
-    pub fn apply_commit(&mut self, envelope: &MlsCommitEnvelope) -> Result<u64> {
+    /// Install an MLS Commit only after the containing Event has an accepted
+    /// `RealmCommit` in the same independent Realm/Circle/Sidecar stream.
+    pub fn install_accepted_commit(&mut self, item: &StreamItem) -> Result<u64> {
+        item.validate_shape()?;
+        if item.event.kind != EventKind::MlsCommit {
+            return Err(Error::Protocol(
+                "accepted MLS transition must contain ak.mls.commit".to_owned(),
+            ));
+        }
+        let payload = serde_json::from_value::<MlsCommitPayload>(serde_json::Value::Object(
+            item.event.payload.clone().into_iter().collect(),
+        ))?;
+        payload.validate()?;
+        if payload.governance_binding().effective_scope() != &item.event.scope_ref
+            || payload
+                .governance_binding()
+                .effective_scope()
+                .realm_id_opt()
+                != Some(&item.event.realm_id)
+        {
+            return Err(Error::Protocol(
+                "accepted MLS Commit payload differs from its independent Event stream".to_owned(),
+            ));
+        }
+        self.merge_accepted_commit_envelope(&payload.commit_envelope()?)
+    }
+
+    fn merge_accepted_commit_envelope(&mut self, envelope: &MlsCommitEnvelope) -> Result<u64> {
         if envelope.group_id != self.group_id() {
             return Err(Error::Protocol(
                 "MLS Commit group_id does not match the local group".to_owned(),
@@ -2364,7 +1646,7 @@ impl ArkretMlsGroup {
                 // A transition may add, remove, or replace occupied leaves.
                 // The old map is never a valid compatibility fallback; the
                 // caller must install the every-and-only accepted-transition
-                // binding before any roster/frontier API can succeed.
+                // binding before any roster API can succeed.
                 self.leaf_bindings.clear();
                 Ok(applied_epoch)
             }
@@ -2405,243 +1687,6 @@ impl ArkretMlsGroup {
             _ => Err(Error::Protocol("expected MLS Proposal".to_owned())),
         }
     }
-
-    /// Apply one strictly-next Commit and immediately retain the entered
-    /// epoch's history secret before the caller exports a durable snapshot.
-    ///
-    /// Callers MUST persist the resulting group snapshot and retention marker
-    /// as one recovery unit. This method deliberately takes the Realm context
-    /// explicitly so Circle and Sidecar group identifiers are never mistaken
-    /// for the MLS exporter context.
-    pub fn apply_commit_and_retain_history_secret(
-        &mut self,
-        envelope: &MlsCommitEnvelope,
-        realm_id: &str,
-    ) -> Result<u64> {
-        let epoch = self.apply_commit(envelope)?;
-        self.derive_and_retain_history_secret(realm_id)?;
-        Ok(epoch)
-    }
-}
-
-/// Derive the registered reaction routing tag from a replay-verified epoch
-/// routing root. This is the group-free counterpart used by KAT runners and
-/// history receivers that already verified the exact epoch state.
-pub fn reaction_routing_tag_from_root(
-    routing_root: &[u8],
-    effective_scope: &ScopeRef,
-    target_ref: &EventId,
-    routing_window: u64,
-    canonical_emoji: &str,
-) -> Result<String> {
-    #[derive(Serialize)]
-    struct RoutingContext<'a> {
-        effective_scope: &'a ScopeRef,
-        target_ref: &'a EventId,
-        routing_window: u64,
-    }
-
-    let normalized: String = canonical_emoji.nfc().collect();
-    if normalized.is_empty() {
-        return Err(Error::Protocol(
-            "reaction routing emoji must not be empty".to_owned(),
-        ));
-    }
-    let context = canonical::canonical_json_bytes(&RoutingContext {
-        effective_scope,
-        target_ref,
-        routing_window,
-    })?;
-    let routing_key = arkret_crypto::mls_exporter::mls_expand_with_label(
-        routing_root,
-        REACTION_ROUTING_LABEL,
-        &context,
-        32,
-    )
-    .map_err(|error| Error::Crypto(error.to_string()))?;
-    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(&routing_key)
-        .map_err(|_| Error::Crypto("reaction routing HMAC key is invalid".to_owned()))?;
-    mac.update(normalized.as_bytes());
-    Ok(base64url_encode(mac.finalize().into_bytes()))
-}
-
-/// Standalone (group-free) variant of
-/// [`ArkretMlsGroup::decrypt_content_exporter_aead`]. A device that holds a
-/// granted `history_secret` but has **no** local MLS group snapshot for the
-/// Realm (e.g. a member granted history before processing its own Welcome) can
-/// decrypt `mls_exporter_aead_v1` content with this. `header` MUST be
-/// reconstructed from the verified outer Event and exact winning group state.
-///
-/// `aead_profile` is a parameter here because this path has no group to ask.
-/// It MUST come from the exact verified historical group state; the minimal
-/// encrypted-envelope wire does not carry an algorithm selector.
-pub fn decrypt_content_exporter_aead_standalone(
-    history_secret: &[u8],
-    verified_sender_domain: &[u8],
-    header: &EventContentPreEncryptionHeader,
-    aead_profile: &str,
-    ciphertext: &[u8],
-) -> Result<Vec<u8>> {
-    header.validate()?;
-    if header.scheme != EncryptedPayloadScheme::MlsExporterAeadV1
-        || header.sender_domain.as_bytes() != verified_sender_domain
-    {
-        return Err(Error::Protocol(
-            "exporter content header does not match the verified sender domain".to_owned(),
-        ));
-    }
-    let suite = ExporterAeadSuite::resolve(aead_profile)?;
-    if ciphertext.is_empty() {
-        return Err(Error::Protocol(
-            "exporter-aead ciphertext must not be empty".to_owned(),
-        ));
-    }
-    let counter = header.counter.ok_or_else(|| {
-        Error::Protocol("exporter content header is missing its counter".to_owned())
-    })?;
-    let nonce = arkret_crypto::aead_nonce::compose_aead_nonce(counter, suite.nonce_len())
-        .map_err(|error| Error::Crypto(error.to_string()))?;
-    if verified_sender_domain.is_empty() {
-        return Err(Error::Protocol(
-            "verified sender domain must not be empty".to_owned(),
-        ));
-    }
-    let content_key = derive_content_key_from_history_secret(
-        history_secret,
-        verified_sender_domain,
-        suite.key_len(),
-    )?;
-    let aead_aad = header.canonical_bytes()?;
-    suite.open(&content_key, &nonce, &aead_aad, ciphertext)
-}
-
-/// What trying one exact received candidate against one exact accepted Event
-/// established.
-///
-/// The AEAD result has exactly two carriers and no third one: a single
-/// `EventCandidateBinding` row, and — only on success — the plaintext. Nothing
-/// here promotes the candidate or the epoch, and the type deliberately has no
-/// field that could
-/// (`history-visibility.md:140`, `:437-440`).
-#[derive(Clone, Debug)]
-#[must_use = "the binding must be recorded whether the attempt succeeded or failed"]
-pub struct EventCandidateAttempt {
-    pub binding: EventCandidateBinding,
-    pub plaintext: Option<Vec<u8>>,
-}
-
-/// Try one received history-secret candidate against one exact accepted Event
-/// and return the Event→candidate binding it establishes.
-///
-/// This is the only place the `mls_exporter_aead_v1` open result is turned into
-/// a store decision. `history-visibility.md:436-440` requires the caller to
-/// have verified the outer Event proof, the scope/group/epoch, the sender
-/// domain and the reconstructed AAD before a candidate is tried; the
-/// consistency half of that (candidate coordinates, binding key and
-/// pre-encryption header all naming the same scope/group/epoch/sender) is
-/// enforced here so no caller can bind a plaintext to the wrong Event.
-///
-/// `mls_ciphersuite` MUST come from the exact verified historical group state,
-/// not from the envelope: an unregistered suite is a hard error rather than a
-/// failure binding, because it would otherwise turn a configuration fault into
-/// "every candidate failed".
-pub fn bind_event_candidate(
-    candidate: &HistoryCandidateMaterialRecord,
-    event_binding_key: &EventCandidateBindingKey,
-    header: &EventContentPreEncryptionHeader,
-    mls_ciphersuite: &str,
-    ciphertext: &[u8],
-    first_observed_at: chrono::DateTime<Utc>,
-) -> Result<EventCandidateAttempt> {
-    candidate.validate()?;
-    event_binding_key.validate()?;
-    header.validate()?;
-    let _ = ExporterAeadSuite::resolve(mls_ciphersuite)?;
-    if candidate.material_key.effective_scope != event_binding_key.effective_scope
-        || candidate.material_key.mls_group_id != event_binding_key.mls_group_id
-        || candidate.material_key.epoch != event_binding_key.epoch
-    {
-        return Err(Error::Protocol(
-            "history candidate coordinates differ from the Event binding key".to_owned(),
-        ));
-    }
-    if header.mls_group_id != event_binding_key.mls_group_id
-        || header.epoch != event_binding_key.epoch
-        || header.sender_domain != event_binding_key.verified_sender_domain
-        || header.effective_scope != ScopeRef::from(event_binding_key.effective_scope.clone())
-    {
-        return Err(Error::Protocol(
-            "exporter content header differs from the Event binding key".to_owned(),
-        ));
-    }
-    let secret = base64url_decode(candidate.secret_b64u.as_bytes())
-        .map_err(|error| Error::Protocol(format!("invalid history candidate bytes: {error}")))?;
-    let plaintext = decrypt_content_exporter_aead_standalone(
-        &secret,
-        event_binding_key.verified_sender_domain.as_bytes(),
-        header,
-        mls_ciphersuite,
-        ciphertext,
-    )
-    .ok();
-    let outcome = if plaintext.is_some() {
-        EventCandidateBindingOutcome::Success
-    } else {
-        EventCandidateBindingOutcome::Failure
-    };
-    Ok(EventCandidateAttempt {
-        binding: EventCandidateBinding::new(
-            event_binding_key.clone(),
-            candidate.material_key.candidate_digest.clone(),
-            outcome,
-            first_observed_at,
-        )?,
-        plaintext,
-    })
-}
-
-/// `K_content[N,S] = ExpandWithLabel(history_secret[N], "ak.content-v1", S, AEAD.Nk)`
-/// (§2.10.1), where `S` is the already-verified sender domain. For the ordinary
-/// profile it is the canonical `device_id` UTF-8 bytes; for minimal metadata it
-/// is the exact active LeafNode credential identity bytes. Callers MUST verify
-/// that identity before invoking this function.
-///
-/// `key_len` is the negotiated suite's `AEAD.Nk` and is encoded into
-/// the `ExpandWithLabel` info, so two suites never derive a shared prefix.
-///
-/// Expand-only, no Extract: the `history_secret` is an MLS exporter output and
-/// already has full entropy, which is what `ExpandWithLabel` assumes of its
-/// Secret input.
-pub fn derive_content_key_from_history_secret(
-    history_secret: &[u8],
-    verified_sender_domain: &[u8],
-    key_len: usize,
-) -> Result<Zeroizing<Vec<u8>>> {
-    if verified_sender_domain.is_empty() {
-        return Err(Error::Protocol(
-            "verified sender domain must not be empty".to_owned(),
-        ));
-    }
-    if key_len == 0 {
-        return Err(Error::Protocol(
-            "content key length must be the positive AEAD.Nk of the active ciphersuite".to_owned(),
-        ));
-    }
-    let hkdf = Hkdf::<Sha256>::from_prk(history_secret)
-        .map_err(|_| Error::Crypto("history_secret too short for HKDF PRK".to_owned()))?;
-    let info = mls_kdf_label(key_len, CONTENT_KEY_LABEL, verified_sender_domain)?;
-    let mut key = Zeroizing::new(vec![0u8; key_len]);
-    hkdf.expand(&info, key.as_mut())
-        .map_err(|_| Error::Crypto("content key derivation failed".to_owned()))?;
-    Ok(key)
-}
-
-/// RFC 9420 §8.1 `KDFLabel` encoding used by `ExpandWithLabel`. Shared with
-/// the Signal domain ([`crate::signal`]), which derives its per-epoch key from
-/// the same `history_secret` under a different registered label.
-pub(crate) fn mls_kdf_label(length: usize, label: &str, context: &[u8]) -> Result<Vec<u8>> {
-    arkret_crypto::mls_exporter::mls_kdf_label(length, label, context)
-        .map_err(|error| Error::Crypto(error.to_string()))
 }
 
 pub(super) fn snapshot_provider_storage(
@@ -2674,6 +1719,55 @@ pub(super) fn restore_provider_storage(
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use arkret_wire::DeviceId;
+
+    use super::*;
+
+    fn identity() -> ArkretMlsIdentity {
+        ArkretMlsIdentity::new_test_human_device(
+            DidCoreId::new("ak:did_core:web:mls.example").unwrap(),
+            DeviceId::new("ak:device:01904100-0000-7000-8000-000000000071").unwrap(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn scope_groups_keep_independent_handshake_policies() {
+        for group_id in [
+            "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+        ] {
+            assert!(requires_public_handshake(group_id.as_bytes()));
+            assert_eq!(
+                handshake_policy(group_id.as_bytes()),
+                openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
+            );
+        }
+
+        let sidecar_group = b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV\x1fak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV";
+        assert!(!requires_public_handshake(sidecar_group));
+        assert_eq!(
+            handshake_policy(sidecar_group),
+            openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY
+        );
+    }
+
+    #[test]
+    fn outbound_commit_stays_pending_until_authority_acceptance() {
+        let mut group = identity()
+            .create_group(b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+            .unwrap();
+        let base_epoch = group.epoch();
+
+        let commit = group.self_update_commit().unwrap();
+
+        assert_eq!(group.epoch(), base_epoch);
+        assert_eq!(commit.epoch, base_epoch + 1);
+    }
+}
+
 pub(super) fn encode(bytes: &[u8]) -> String {
     base64url_encode(bytes)
 }
@@ -2682,19 +1776,9 @@ pub(super) fn decode(value: &str) -> Result<Vec<u8>> {
     Ok(base64url_decode(value)?)
 }
 
-pub(super) fn governance_binding_openmls_extension(
-    binding: &MlsGovernanceBindingPayload,
-) -> Result<Extension> {
-    Ok(Extension::Unknown(
-        MLS_GOVERNANCE_BINDING_EXTENSION_TYPE,
-        UnknownExtension(binding.to_deterministic_cbor()?),
-    ))
-}
-
-pub(super) fn governance_binding_required_capabilities_extension() -> Extension {
+pub(super) fn arkret_required_capabilities_extension() -> Extension {
     Extension::RequiredCapabilities(RequiredCapabilitiesExtension::new(
         &[
-            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
         ],
@@ -2703,10 +1787,9 @@ pub(super) fn governance_binding_required_capabilities_extension() -> Extension 
     ))
 }
 
-pub(super) fn governance_binding_openmls_capabilities() -> Capabilities {
+pub(super) fn arkret_openmls_capabilities() -> Capabilities {
     Capabilities::builder()
         .extensions(vec![
-            ExtensionType::Unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
             ExtensionType::Unknown(MLS_REQUIRED_KEYPACKAGE_CAPABILITIES_EXTENSION_TYPE),
         ])
@@ -2734,17 +1817,12 @@ fn required_keypackage_capabilities_group_context_extension() -> Result<Extensio
     ))
 }
 
-pub(super) fn governance_binding_group_context_extensions(
-    binding: Option<&MlsGovernanceBindingPayload>,
-) -> Result<Extensions<GroupContext>> {
-    let mut extensions = vec![
-        governance_binding_required_capabilities_extension(),
+pub(super) fn arkret_group_context_extensions() -> Result<Extensions<GroupContext>> {
+    Extensions::from_vec(vec![
+        arkret_required_capabilities_extension(),
         required_keypackage_capabilities_group_context_extension()?,
-    ];
-    if let Some(binding) = binding {
-        extensions.push(governance_binding_openmls_extension(binding)?);
-    }
-    Extensions::from_vec(extensions).map_err(mls_error)
+    ])
+    .map_err(mls_error)
 }
 
 fn validate_keypackage_capability_binding(
@@ -2842,309 +1920,5 @@ impl arkret_crypto::sframe::MlsExporterSource for ArkretMlsGroup {
         // Bridge the MLS behavior-layer error into the crypto-boundary error.
         ArkretMlsGroup::export_secret(self, label, context, length)
             .map_err(|error| arkret_crypto::Error::Crypto(error.to_string()))
-    }
-}
-
-#[cfg(test)]
-mod content_scheme_anchor_tests {
-    use arkret_crypto::compose_aead_nonce;
-    use arkret_wire::DeviceId;
-
-    use super::*;
-    use crate::identity::ArkretMlsIdentity;
-
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
-    }
-
-    const REALM: &str = "ak:realm:AWaw3_J06Ml7_fh-rnNBMJ3WJ6cLKzz1DvKyRhPSuJs0";
-    const DEVICE: &str = "ak:device:01904100-0000-7000-8000-000000000007";
-
-    fn founder() -> ArkretMlsGroup {
-        ArkretMlsIdentity::new_test_human_device(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
-            DeviceId::new(DEVICE.to_owned()).unwrap(),
-        )
-        .unwrap()
-        .create_group(REALM.as_bytes())
-        .unwrap()
-    }
-
-    #[test]
-    fn accepted_own_pending_commit_merges_the_exact_staged_state() {
-        let mut group = founder();
-        group
-            .group
-            .set_configuration(
-                group.identity.provider.storage(),
-                &openmls::prelude::MlsGroupJoinConfig::builder()
-                    .wire_format_policy(openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY)
-                    .build(),
-            )
-            .unwrap();
-        let bundle = group
-            .group
-            .self_update(
-                &group.identity.provider,
-                &group.identity.signer,
-                LeafNodeParameters::default(),
-            )
-            .unwrap();
-        let bytes = bundle.commit().tls_serialize_detached().unwrap();
-        let envelope = MlsCommitEnvelope {
-            group_id: group.group_id(),
-            epoch: group.epoch() + 1,
-            commit: encode(&bytes),
-            commit_digest: Hash::new(canonical::sha256_digest(&bytes)).unwrap(),
-            ratchet_tree: None,
-        };
-        assert_eq!(group.apply_commit(&envelope).unwrap(), 1);
-        assert!(group.apply_commit(&envelope).is_err());
-    }
-
-    /// Every wire-breaking AEAD parameter of the content scheme, checked
-    /// against the registry rather than against this module.
-    ///
-    /// `encryption-and-audit.md` §2.10.2 makes `aead_profile` the active
-    /// ciphersuite `canonical_id` of the group at `key_ref.group_state_ref`,
-    /// from `mls-ciphersuite-registry.json`, and forbids an HPKE suite name or
-    /// any local alias; §2.10.1 then takes `AEAD.Nk` and the nonce length from
-    /// that suite. The registry's only active row is AES-128-GCM, so the
-    /// content scheme is 16-byte keys and 12-byte nonces — no registered MLS
-    /// ciphersuite uses XChaCha20-Poly1305 at all.
-    #[test]
-    fn content_aead_parameters_come_from_the_mls_ciphersuite_registry() {
-        let group = founder();
-        let profile = group.group_ciphersuite_canonical_id().unwrap();
-        assert_eq!(profile, "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519");
-        let MlsEndpointIdentity::HumanDevice { device_id, .. } = &group.identity.endpoint else {
-            panic!("test founder is a human device");
-        };
-        assert_eq!(
-            group
-                .content_nonce_context(device_id.as_str().as_bytes(), 3)
-                .unwrap()
-                .mls_group_id,
-            group.group_id()
-        );
-
-        let suite = group.content_suite().unwrap();
-        assert_eq!(suite, ExporterAeadSuite::Aes128Gcm);
-        assert_eq!(suite.key_len(), 16);
-        assert_eq!(suite.nonce_len(), 12);
-
-        // The pre-fix local aliases are not registered MLS ciphersuites and
-        // MUST fail closed rather than select an algorithm.
-        for alias in [
-            "mls_exporter_aead_xchacha20poly1305",
-            "mls_exporter_aead_aes_256_gcm",
-            "ak.hpke_x25519_aead_chacha20poly1305.v1",
-            "",
-        ] {
-            let error = ExporterAeadSuite::resolve(alias).unwrap_err().to_string();
-            assert!(error.contains("unsupported_aead_profile"), "{error}");
-        }
-        // A registered-but-reserved row is equally forbidden on the wire.
-        let error =
-            ExporterAeadSuite::resolve("MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519")
-                .unwrap_err()
-                .to_string();
-        assert!(error.contains("reserved"), "{error}");
-    }
-
-    /// Pins the byte-exact `mls_exporter_aead_v1` content-scheme chain from a
-    /// fixed history_secret — RFC 9420 ExpandWithLabel content key, canonical
-    /// AAD construction, and the AEAD ciphertext itself. Any silent change to
-    /// a label, key length, AAD shape or nonce composition breaks these bytes.
-    /// The sender nonce prefix is not anchored here: it comes from a live MLS
-    /// exporter, which has no fixed value outside a group (see
-    /// `content_nonce_prefix_is_the_exporter_over_the_canonical_context_alone`).
-    #[test]
-    fn exporter_aead_content_scheme_regression_anchor() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/arkret-private-kdf-fixture.json",
-        )
-        .unwrap();
-        let case = fixture["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| {
-                case["vector_id"].as_str()
-                    == Some("ak.vector.mls_exporter_aead.seal_open_transcript.v1")
-            })
-            .unwrap();
-        let history_secret =
-            hex::decode(case["input"]["history_secret_hex"].as_str().unwrap()).unwrap();
-        let verified_sender_domain = case["input"]["verified_sender_domain"]
-            .as_str()
-            .unwrap()
-            .as_bytes();
-        let suite = ExporterAeadSuite::Aes128Gcm;
-        let profile = ARKRET_MLS_CIPHERSUITE_CANONICAL_ID;
-        let content_key = derive_content_key_from_history_secret(
-            &history_secret,
-            verified_sender_domain,
-            suite.key_len(),
-        )
-        .unwrap();
-        let other_sender_key = derive_content_key_from_history_secret(
-            &history_secret,
-            b"ak:device:01904100-0000-7000-8000-000000000008",
-            suite.key_len(),
-        )
-        .unwrap();
-        assert_ne!(content_key.as_slice(), other_sender_key.as_slice());
-
-        let nonce = compose_aead_nonce(7, suite.nonce_len()).unwrap();
-        assert_eq!(nonce.len(), suite.nonce_len());
-        assert_eq!(&nonce[4..], 7u64.to_be_bytes(), "counter suffix drifted");
-
-        let header: EventContentPreEncryptionHeader =
-            serde_json::from_value(case["expected"]["reconstructed_pre_encryption_header"].clone())
-                .unwrap();
-        let aad = header.canonical_bytes().unwrap();
-        assert_eq!(
-            std::str::from_utf8(&aad).unwrap(),
-            case["expected"]["aead_aad_canonical_json"]
-                .as_str()
-                .unwrap(),
-            "canonical content AAD drifted"
-        );
-
-        let plaintext = hex::decode(case["input"]["plaintext_hex"].as_str().unwrap()).unwrap();
-        let ciphertext = suite.seal(&content_key, &nonce, &aad, &plaintext).unwrap();
-        assert_eq!(
-            hex(&ciphertext),
-            case["expected"]["ciphertext_with_tag_hex"]
-                .as_str()
-                .unwrap(),
-            "exporter-aead ciphertext drifted"
-        );
-
-        let recovered = decrypt_content_exporter_aead_standalone(
-            &history_secret,
-            verified_sender_domain,
-            &header,
-            profile,
-            &ciphertext,
-        )
-        .unwrap();
-        assert_eq!(recovered, plaintext);
-
-        // Tamper negative: a flipped ciphertext byte must fail the tag check.
-        let mut tampered = ciphertext;
-        let last = tampered.len() - 1;
-        tampered[last] ^= 0x01;
-        assert!(
-            decrypt_content_exporter_aead_standalone(
-                &history_secret,
-                verified_sender_domain,
-                &header,
-                profile,
-                &tampered,
-            )
-            .is_err()
-        );
-    }
-
-    /// Reproduces the registered vector
-    /// `ak.vector.mls_exporter_aead.content_key_derivation.v1` verbatim.
-    ///
-    /// The vector used to declare `aead_nk: 32` under the case name
-    /// `..._sha256_aes256gcm`, which no registered MLS ciphersuite provides —
-    /// §2.10.1 takes the content key length from the negotiated suite's
-    /// `AEAD.Nk` and §2.10.2 forces `aead_profile` to an active
-    /// `mls-ciphersuite-registry.json` row, whose only active entry is
-    /// AES-128-GCM. arkret-spec `cb637541` moved the vector to that suite, so
-    /// the live path and the vector now agree and this asserts equality rather
-    /// than recording a disagreement.
-    ///
-    /// The length is bound into the `ExpandWithLabel` info, so this is a real
-    /// check: a key derived at any other length is not a prefix of this one.
-    #[test]
-    fn content_key_matches_registered_spec_vector() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/arkret-private-kdf-fixture.json",
-        )
-        .unwrap();
-        let case = &fixture["cases"][0];
-        let history_secret =
-            hex::decode(case["expected"]["history_secret_hex"].as_str().unwrap()).unwrap();
-        let vector_key_len = usize::try_from(case["input"]["aead_nk"].as_u64().unwrap()).unwrap();
-
-        // The vector's declared length must be the one the live path derives,
-        // not merely a length the derivation happens to accept.
-        assert_eq!(vector_key_len, ExporterAeadSuite::Aes128Gcm.key_len());
-        assert_eq!(
-            case["input"]["aead_profile"].as_str().unwrap(),
-            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID,
-        );
-
-        let sender_domain = case["input"]["verified_sender_domain_utf8"]
-            .as_str()
-            .expect("content key vector must bind a verified sender domain")
-            .as_bytes();
-        assert_eq!(
-            hex(&mls_kdf_label(
-                vector_key_len,
-                arkret_wire::ExporterLabelId::CONTENT_V1,
-                sender_domain
-            )
-            .unwrap()),
-            case["expected"]["content_expand_with_label_info_hex"]
-                .as_str()
-                .unwrap()
-        );
-        assert_eq!(
-            hex(derive_content_key_from_history_secret(
-                &history_secret,
-                sender_domain,
-                vector_key_len
-            )
-            .unwrap()
-            .as_ref()),
-            case["expected"]["content_key_hex"].as_str().unwrap()
-        );
-    }
-
-    #[test]
-    fn reaction_routing_tag_matches_registered_spec_vector() {
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/arkret-private-kdf-fixture.json",
-        )
-        .unwrap();
-        let case = fixture["cases"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|case| {
-                case["vector_id"].as_str() == Some("ak.vector.reaction.routing_hmac_kat.v1")
-            })
-            .unwrap();
-        let routing_root = hex::decode(case["input"]["routing_root_hex"].as_str().unwrap())
-            .expect("routing root hex");
-        let effective_scope: ScopeRef =
-            serde_json::from_value(case["input"]["effective_scope"].clone()).unwrap();
-        let target_ref =
-            EventId::new(case["input"]["target_ref"].as_str().unwrap().to_owned()).unwrap();
-        let routing_window = case["input"]["routing_window"].as_u64().unwrap();
-        let emoji = ["e\u{301}", "é", "👍🏽"];
-        let expected = case["expected"]["tags_hex"].as_array().unwrap();
-
-        for (emoji, expected) in emoji.into_iter().zip(expected) {
-            let tag = reaction_routing_tag_from_root(
-                &routing_root,
-                &effective_scope,
-                &target_ref,
-                routing_window,
-                emoji,
-            )
-            .unwrap();
-            assert_eq!(
-                hex(&base64url_decode(tag.as_bytes()).unwrap()),
-                expected.as_str().unwrap()
-            );
-        }
     }
 }

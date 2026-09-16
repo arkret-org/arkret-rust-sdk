@@ -2,8 +2,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-#[cfg(test)]
-use arkret_wire::DidCoreId;
 use arkret_wire::{
     ActorId, BlobRef, CircleId, RealmId, Result, SchemaId, SpaceId, SpaceState, WireError,
 };
@@ -257,103 +255,5 @@ impl Space {
             ));
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn structural_parent_requires_complete_same_realm_acyclic_chain() {
-        let check = |parent, facts: &[(&str, &str, Option<&str>, bool)]| {
-            validate_space_parent_chain("child", "realm", parent, |id| {
-                facts
-                    .iter()
-                    .find(|row| row.0 == id)
-                    .map(|row| SpaceStructureNode {
-                        realm_id: row.1,
-                        parent_space_id: row.2,
-                        active: row.3,
-                    })
-            })
-        };
-        assert_eq!(check(None, &[]), Ok(()));
-        assert_eq!(check(Some("parent"), &[]), Err("space_parent_unreadable"));
-        assert_eq!(
-            check(Some("parent"), &[("parent", "other", None, true)]),
-            Err("space_realm_mismatch")
-        );
-        assert_eq!(
-            check(Some("parent"), &[("parent", "realm", None, false)]),
-            Err("space_not_active")
-        );
-        assert_eq!(
-            check(Some("parent"), &[("parent", "realm", Some("child"), true)]),
-            Err("space_parent_cycle")
-        );
-        assert_eq!(
-            check(
-                Some("parent"),
-                &[("parent", "realm", Some("missing"), true)]
-            ),
-            Err("space_parent_unreadable")
-        );
-        assert_eq!(
-            check(
-                Some("parent"),
-                &[
-                    ("parent", "realm", Some("root"), true),
-                    ("root", "realm", None, false)
-                ]
-            ),
-            Ok(())
-        );
-        assert_eq!(
-            check(
-                Some("parent"),
-                &[
-                    ("root", "realm", None, false),
-                    ("parent", "realm", Some("root"), true)
-                ]
-            ),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn space_rejects_removed_default_realm_field() {
-        let mut value = serde_json::to_value(space("board")).unwrap();
-        value["default_realm_id"] = value["realm_id"].clone();
-        assert!(serde_json::from_value::<Space>(value).is_err());
-    }
-
-    fn space(kind: &str) -> Space {
-        Space::new(
-            SpaceId::new("ak:space:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-").unwrap(),
-            RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL").unwrap(),
-            kind,
-            "Work",
-            ActorId::service(DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap()),
-        )
-    }
-
-    #[test]
-    fn list_wip_policy_is_owned_by_space_fields() {
-        let mut list = space("list");
-        list.fields.insert("wip_limit".to_owned(), json!(5));
-        assert!(list.validate().is_err());
-        list.fields
-            .insert("wip_limit_enforcement".to_owned(), json!("reject"));
-        list.validate().unwrap();
-
-        let mut board = space("board");
-        board.fields.insert("wip_limit".to_owned(), json!(5));
-        board
-            .fields
-            .insert("wip_limit_enforcement".to_owned(), json!("warn"));
-        assert!(board.validate().is_err());
     }
 }

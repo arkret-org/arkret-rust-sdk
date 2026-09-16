@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=c6798acc04d0421a4105d50db4f7ba981f04e645be4272e6c8881d4d428ed704
-//! Entries: forbidden_wire_fields=262
+//! sha256=9ef4bd52680bd5e5d34ddf9e8a735316178482834af596584c2c90b79f58b38b
+//! Entries: forbidden_wire_fields=251
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ForbiddenWireSelector {
@@ -121,29 +121,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         match_kind: "value",
         match_values: &["ghost"],
         value_pointer: "/actor_kind",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "actor",
-        context: "agent.audit_binding",
-        rejection_level: "hard_reject",
-        selectors: &[],
-        match_kind: "field",
-        match_values: &["actor"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "agent_authority_state_evidence.lease",
-        context: "agent_authority_state_evidence",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "agent-signer-evidence.schema.json#/$defs/agent_authority_state_evidence",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["lease"],
-        value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
         id: "evidence_ref",
@@ -2474,24 +2451,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "blocked_principal_services",
-        context: "directory_query_policy",
-        rejection_level: "hard_reject",
-        selectors: &[],
-        match_kind: "field",
-        match_values: &["blocked_principal_services"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "blocked_subjects",
-        context: "directory_query_policy",
-        rejection_level: "hard_reject",
-        selectors: &[],
-        match_kind: "field",
-        match_values: &["blocked_subjects"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "parent_realm_id",
         context: "directory_search_request",
         rejection_level: "hard_reject",
@@ -2765,20 +2724,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["space_frontier"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "payload_hash",
-        context: "generic_proof",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "proof",
-            schema_ref: "*",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["payload_hash"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -3078,20 +3023,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "field",
         match_values: &["actor"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "endpoint_signature",
-        context: "mls_keypackage_payload",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "event-payload.schema.json#/$defs/mls_keypackage_payload",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["endpoint_signature"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -3793,15 +3724,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
-        id: "of",
-        context: "reviewer_quorum",
-        rejection_level: "hard_reject",
-        selectors: &[],
-        match_kind: "field",
-        match_values: &["of"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
         id: "ak.schema.read_marker.v1",
         context: "schema_id",
         rejection_level: "hard_reject",
@@ -3813,48 +3735,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
         }],
         match_kind: "value",
         match_values: &["ak.schema.read_marker.v1"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "notary_sig",
-        context: "seal",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "seal.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["notary_sig"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "seal.forensic_attribution",
-        context: "seal",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "seal.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["forensic_attribution"],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "seal.predecessor_refs",
-        context: "seal",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "seal.schema.json",
-            instance_pointer: "",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["predecessor_refs"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {
@@ -3904,20 +3784,6 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
             "disclosure_policy_ref",
             "rate_limit_policy_ref",
         ],
-        value_pointer: "",
-    },
-    ForbiddenWireFieldDescriptor {
-        id: "sha256",
-        context: "snapshot.chunks[]",
-        rejection_level: "hard_reject",
-        selectors: &[ForbiddenWireSelector {
-            document_kind: "schema_instance",
-            schema_ref: "realm-state-snapshot.schema.json",
-            instance_pointer: "/chunks/*",
-            match_scope: "root",
-        }],
-        match_kind: "field",
-        match_values: &["sha256"],
         value_pointer: "",
     },
     ForbiddenWireFieldDescriptor {

@@ -66,7 +66,10 @@ pub enum Error {
     Json(#[from] serde_json::Error),
 
     #[error(transparent)]
-    StreamTrace(#[from] arkret_models_collaboration::sync_frames::stream_trace::StreamTraceError),
+    StreamTrace(
+        #[from]
+        arkret_models_collaboration::sync_frames::account_subscribe::StreamTraceError,
+    ),
 
     /// DID resolution failure raised by the native `HttpDidResolver`
     /// (`arkret-identity` is a native-only dependency of this crate).

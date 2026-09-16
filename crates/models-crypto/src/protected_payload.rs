@@ -2,7 +2,7 @@
 //!
 //! These wrappers describe how a typed payload is carried. They do not create
 //! a second Event envelope: a plain and an MLS-protected payload still travel
-//! inside the same outer `Event` and retain the same CBS plane.
+//! inside the same outer `Event` and are committed on the same authority stream.
 
 use std::marker::PhantomData;
 

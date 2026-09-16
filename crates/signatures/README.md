@@ -56,8 +56,8 @@ verifier.verify(&bytes, &signature, &public).unwrap();
 - `keypackages`: enables MLS KeyPackage request signing helpers.
 - `service-identity`: enables service-identity statement helpers.
 - `webvh`: enables `did:webvh` inception and validation helpers.
-- `signer`: enables `Ed25519DetachedJwsSigner` / `Ed25519DetachedJwsVerifier`
-  and `Ed25519MoveSigner`.
+- `signer`: enables the generic `Ed25519PayloadSigner` for detached signatures
+  over non-Event protocol transcripts.
 
 The default surface contains proof/JWS/JWT/DPoP and HTTP Message Signature
 primitives without depending on any Arkret model leaf.
@@ -67,4 +67,4 @@ primitives without depending on any Arkret model leaf.
 `tests/vectors/canonical_json.json`, `tests/vectors/ed25519_jws.json`, and
 `tests/vectors/dev_proofs.json` are the cross-implementation conformance
 suite. They are exercised by `tests/proof_vectors.rs` and must reproduce
-byte-for-byte under any compatible implementation.
+byte-for-byte across independent implementations of the same profile.

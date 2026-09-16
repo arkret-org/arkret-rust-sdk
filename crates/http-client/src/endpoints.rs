@@ -3,10 +3,9 @@
 mod account;
 mod agent;
 mod applet;
+mod authority;
 mod circle;
 mod data;
-mod events;
-mod history_key;
 mod identity;
 mod invite;
 mod media;
@@ -25,5 +24,4 @@ pub use data::{
     BlobDownloadOptions, BlobResumableUploadOptions, RESUMABLE_UPLOAD_FEATURE,
     RESUMABLE_UPLOAD_THRESHOLD_BYTES, blob_resumable_upload_base_url,
 };
-pub use events::{EventsSubscribeFrameStream, EventsSubscribeOptions};
 pub use signal::SignalSubscribeFrameStream;

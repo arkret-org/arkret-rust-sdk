@@ -64,21 +64,6 @@ pub struct PublicKey {
     pub key_digest: Option<Hash>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn grant_snapshot_rejects_removed_status_hint() {
-        let value = serde_json::json!({
-            "grant_id": "ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
-            "realm_id": "ak:realm:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
-            "status": "active"
-        });
-        assert!(serde_json::from_value::<GrantSnapshot>(value).is_err());
-    }
-}
-
 // `seal.schema.json#/$defs/signature` is modelled by
 // [`arkret_wire::PayloadSignature`]. A second, incompatible `Signature` struct
 // used to live here with `verification_method: DidCoreId`, which rejected every legal

@@ -391,7 +391,7 @@ mod events_submit_tests {
         MimiReportAbuseRequestBody, MimiReporterAuthority,
     };
     use arkret_models_collaboration::objects::blob::BlobUploadMetadata;
-    use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
+    use arkret_models_collaboration::sync_frames::account_subscribe::SyncRequestBody;
     use arkret_models_crypto::{MlsGovernanceFrontierRequestBody, MlsSecurityFrontierLeaf};
     use arkret_wire::{
         AuthoritySetAuthorizationRule, AuthoritySetIssuer, AuthoritySetIssuerRole,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-15.3;
-//! sha256=9b02ed3a8d4258a13374001565602ef95b81c40c0e747e551b92b797be6dfa7d Entries: error_codes=279
+//! Input: registry/error-code-registry.json; version=2026-09-16.6;
+//! sha256=ad546a5d9e89035ddeffd7a624830ece1f215b8512b4e02d0f9025b7c67a9f0b Entries: error_codes=270
 
 use serde::{Deserialize, Serialize};
 
@@ -39,7 +39,6 @@ pub enum ErrorCode {
     AccountErased,
     AccountLocked,
     AccountSuspended,
-    ActorSeqInvalid,
     AgentAuthorizationConflicted,
     AgentAuthorizationInactive,
     AgentMlsLeafBindingMismatch,
@@ -142,10 +141,8 @@ pub enum ErrorCode {
     FirstBackupGateUnsatisfied,
     FrankingProofUnavailable,
     FrankingTampered,
-    FrontierSequenceExhausted,
     FrontierStale,
     FrontierUnavailable,
-    GenesisSealInvalid,
     GovernanceKeyInvalid,
     GrantAlreadyConsumed,
     HandleUnverified,
@@ -177,7 +174,6 @@ pub enum ErrorCode {
     MlsGenesisBindingProposalMismatch,
     MlsGenesisBindingProposalRequired,
     MlsGovernanceAnchorUnreachable,
-    MlsGovernanceProofBoundsExceeded,
     MlsKeypackageClaimRequestExpired,
     MorphKindImmutable,
     MorphProfileWidensSchemaRef,
@@ -255,11 +251,6 @@ pub enum ErrorCode {
     RecoverySessionNotPending,
     ResponseInvalid,
     SchemaViolation,
-    SealDeferredFutureSkew,
-    SealIncomplete,
-    SealRefUnknown,
-    SealSignerSlotFenced,
-    SealSignerUnauthorized,
     SelectorTooComplex,
     ServiceIdentityConflict,
     ServiceIdentityProviderUnavailable,
@@ -334,7 +325,6 @@ impl ErrorCode {
         Self::AccountErased,
         Self::AccountLocked,
         Self::AccountSuspended,
-        Self::ActorSeqInvalid,
         Self::AgentAuthorizationConflicted,
         Self::AgentAuthorizationInactive,
         Self::AgentMlsLeafBindingMismatch,
@@ -437,10 +427,8 @@ impl ErrorCode {
         Self::FirstBackupGateUnsatisfied,
         Self::FrankingProofUnavailable,
         Self::FrankingTampered,
-        Self::FrontierSequenceExhausted,
         Self::FrontierStale,
         Self::FrontierUnavailable,
-        Self::GenesisSealInvalid,
         Self::GovernanceKeyInvalid,
         Self::GrantAlreadyConsumed,
         Self::HandleUnverified,
@@ -472,7 +460,6 @@ impl ErrorCode {
         Self::MlsGenesisBindingProposalMismatch,
         Self::MlsGenesisBindingProposalRequired,
         Self::MlsGovernanceAnchorUnreachable,
-        Self::MlsGovernanceProofBoundsExceeded,
         Self::MlsKeypackageClaimRequestExpired,
         Self::MorphKindImmutable,
         Self::MorphProfileWidensSchemaRef,
@@ -550,11 +537,6 @@ impl ErrorCode {
         Self::RecoverySessionNotPending,
         Self::ResponseInvalid,
         Self::SchemaViolation,
-        Self::SealDeferredFutureSkew,
-        Self::SealIncomplete,
-        Self::SealRefUnknown,
-        Self::SealSignerSlotFenced,
-        Self::SealSignerUnauthorized,
         Self::SelectorTooComplex,
         Self::ServiceIdentityConflict,
         Self::ServiceIdentityProviderUnavailable,
@@ -615,7 +597,6 @@ impl ErrorCode {
     pub const ACCOUNT_ERASED: &'static str = "account_erased";
     pub const ACCOUNT_LOCKED: &'static str = "account_locked";
     pub const ACCOUNT_SUSPENDED: &'static str = "account_suspended";
-    pub const ACTOR_SEQ_INVALID: &'static str = "actor_seq_invalid";
     pub const AGENT_AUTHORIZATION_CONFLICTED: &'static str = "agent_authorization_conflicted";
     pub const AGENT_AUTHORIZATION_INACTIVE: &'static str = "agent_authorization_inactive";
     pub const AGENT_MLS_LEAF_BINDING_MISMATCH: &'static str = "agent_mls_leaf_binding_mismatch";
@@ -730,10 +711,8 @@ impl ErrorCode {
     pub const FIRST_BACKUP_GATE_UNSATISFIED: &'static str = "first_backup_gate_unsatisfied";
     pub const FRANKING_PROOF_UNAVAILABLE: &'static str = "franking_proof_unavailable";
     pub const FRANKING_TAMPERED: &'static str = "franking_tampered";
-    pub const FRONTIER_SEQUENCE_EXHAUSTED: &'static str = "frontier_sequence_exhausted";
     pub const FRONTIER_STALE: &'static str = "frontier_stale";
     pub const FRONTIER_UNAVAILABLE: &'static str = "frontier_unavailable";
-    pub const GENESIS_SEAL_INVALID: &'static str = "genesis_seal_invalid";
     pub const GOVERNANCE_KEY_INVALID: &'static str = "governance_key_invalid";
     pub const GRANT_ALREADY_CONSUMED: &'static str = "grant_already_consumed";
     pub const HANDLE_UNVERIFIED: &'static str = "handle_unverified";
@@ -767,8 +746,6 @@ impl ErrorCode {
     pub const MLS_GENESIS_BINDING_PROPOSAL_REQUIRED: &'static str =
         "mls_genesis_binding_proposal_required";
     pub const MLS_GOVERNANCE_ANCHOR_UNREACHABLE: &'static str = "mls_governance_anchor_unreachable";
-    pub const MLS_GOVERNANCE_PROOF_BOUNDS_EXCEEDED: &'static str =
-        "mls_governance_proof_bounds_exceeded";
     pub const MLS_KEYPACKAGE_CLAIM_REQUEST_EXPIRED: &'static str =
         "mls_keypackage_claim_request_expired";
     pub const MORPH_KIND_IMMUTABLE: &'static str = "morph_kind_immutable";
@@ -863,11 +840,6 @@ impl ErrorCode {
     pub const RECOVERY_SESSION_NOT_PENDING: &'static str = "recovery_session_not_pending";
     pub const RESPONSE_INVALID: &'static str = "response_invalid";
     pub const SCHEMA_VIOLATION: &'static str = "schema_violation";
-    pub const SEAL_DEFERRED_FUTURE_SKEW: &'static str = "seal_deferred_future_skew";
-    pub const SEAL_INCOMPLETE: &'static str = "seal_incomplete";
-    pub const SEAL_REF_UNKNOWN: &'static str = "seal_ref_unknown";
-    pub const SEAL_SIGNER_SLOT_FENCED: &'static str = "seal_signer_slot_fenced";
-    pub const SEAL_SIGNER_UNAUTHORIZED: &'static str = "seal_signer_unauthorized";
     pub const SELECTOR_TOO_COMPLEX: &'static str = "selector_too_complex";
     pub const SERVICE_IDENTITY_CONFLICT: &'static str = "service_identity_conflict";
     pub const SERVICE_IDENTITY_PROVIDER_UNAVAILABLE: &'static str =
@@ -932,7 +904,6 @@ impl ErrorCode {
             Self::AccountErased => "account_erased",
             Self::AccountLocked => "account_locked",
             Self::AccountSuspended => "account_suspended",
-            Self::ActorSeqInvalid => "actor_seq_invalid",
             Self::AgentAuthorizationConflicted => "agent_authorization_conflicted",
             Self::AgentAuthorizationInactive => "agent_authorization_inactive",
             Self::AgentMlsLeafBindingMismatch => "agent_mls_leaf_binding_mismatch",
@@ -1045,10 +1016,8 @@ impl ErrorCode {
             Self::FirstBackupGateUnsatisfied => "first_backup_gate_unsatisfied",
             Self::FrankingProofUnavailable => "franking_proof_unavailable",
             Self::FrankingTampered => "franking_tampered",
-            Self::FrontierSequenceExhausted => "frontier_sequence_exhausted",
             Self::FrontierStale => "frontier_stale",
             Self::FrontierUnavailable => "frontier_unavailable",
-            Self::GenesisSealInvalid => "genesis_seal_invalid",
             Self::GovernanceKeyInvalid => "governance_key_invalid",
             Self::GrantAlreadyConsumed => "grant_already_consumed",
             Self::HandleUnverified => "handle_unverified",
@@ -1080,7 +1049,6 @@ impl ErrorCode {
             Self::MlsGenesisBindingProposalMismatch => "mls_genesis_binding_proposal_mismatch",
             Self::MlsGenesisBindingProposalRequired => "mls_genesis_binding_proposal_required",
             Self::MlsGovernanceAnchorUnreachable => "mls_governance_anchor_unreachable",
-            Self::MlsGovernanceProofBoundsExceeded => "mls_governance_proof_bounds_exceeded",
             Self::MlsKeypackageClaimRequestExpired => "mls_keypackage_claim_request_expired",
             Self::MorphKindImmutable => "morph_kind_immutable",
             Self::MorphProfileWidensSchemaRef => "morph_profile_widens_schema_ref",
@@ -1170,11 +1138,6 @@ impl ErrorCode {
             Self::RecoverySessionNotPending => "recovery_session_not_pending",
             Self::ResponseInvalid => "response_invalid",
             Self::SchemaViolation => "schema_violation",
-            Self::SealDeferredFutureSkew => "seal_deferred_future_skew",
-            Self::SealIncomplete => "seal_incomplete",
-            Self::SealRefUnknown => "seal_ref_unknown",
-            Self::SealSignerSlotFenced => "seal_signer_slot_fenced",
-            Self::SealSignerUnauthorized => "seal_signer_unauthorized",
             Self::SelectorTooComplex => "selector_too_complex",
             Self::ServiceIdentityConflict => "service_identity_conflict",
             Self::ServiceIdentityProviderUnavailable => "service_identity_provider_unavailable",
@@ -1240,7 +1203,6 @@ impl ErrorCode {
             "account_erased" => Some(Self::AccountErased),
             "account_locked" => Some(Self::AccountLocked),
             "account_suspended" => Some(Self::AccountSuspended),
-            "actor_seq_invalid" => Some(Self::ActorSeqInvalid),
             "agent_authorization_conflicted" => Some(Self::AgentAuthorizationConflicted),
             "agent_authorization_inactive" => Some(Self::AgentAuthorizationInactive),
             "agent_mls_leaf_binding_mismatch" => Some(Self::AgentMlsLeafBindingMismatch),
@@ -1357,10 +1319,8 @@ impl ErrorCode {
             "first_backup_gate_unsatisfied" => Some(Self::FirstBackupGateUnsatisfied),
             "franking_proof_unavailable" => Some(Self::FrankingProofUnavailable),
             "franking_tampered" => Some(Self::FrankingTampered),
-            "frontier_sequence_exhausted" => Some(Self::FrontierSequenceExhausted),
             "frontier_stale" => Some(Self::FrontierStale),
             "frontier_unavailable" => Some(Self::FrontierUnavailable),
-            "genesis_seal_invalid" => Some(Self::GenesisSealInvalid),
             "governance_key_invalid" => Some(Self::GovernanceKeyInvalid),
             "grant_already_consumed" => Some(Self::GrantAlreadyConsumed),
             "handle_unverified" => Some(Self::HandleUnverified),
@@ -1396,7 +1356,6 @@ impl ErrorCode {
                 Some(Self::MlsGenesisBindingProposalRequired)
             }
             "mls_governance_anchor_unreachable" => Some(Self::MlsGovernanceAnchorUnreachable),
-            "mls_governance_proof_bounds_exceeded" => Some(Self::MlsGovernanceProofBoundsExceeded),
             "mls_keypackage_claim_request_expired" => Some(Self::MlsKeypackageClaimRequestExpired),
             "morph_kind_immutable" => Some(Self::MorphKindImmutable),
             "morph_profile_widens_schema_ref" => Some(Self::MorphProfileWidensSchemaRef),
@@ -1496,11 +1455,6 @@ impl ErrorCode {
             "recovery_session_not_pending" => Some(Self::RecoverySessionNotPending),
             "response_invalid" => Some(Self::ResponseInvalid),
             "schema_violation" => Some(Self::SchemaViolation),
-            "seal_deferred_future_skew" => Some(Self::SealDeferredFutureSkew),
-            "seal_incomplete" => Some(Self::SealIncomplete),
-            "seal_ref_unknown" => Some(Self::SealRefUnknown),
-            "seal_signer_slot_fenced" => Some(Self::SealSignerSlotFenced),
-            "seal_signer_unauthorized" => Some(Self::SealSignerUnauthorized),
             "selector_too_complex" => Some(Self::SelectorTooComplex),
             "service_identity_conflict" => Some(Self::ServiceIdentityConflict),
             "service_identity_provider_unavailable" => {
@@ -1663,16 +1617,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         scope: "both",
         applies_to: &[],
         description: "The principal account is suspended. Existing sessions may observe account state where permitted, but new session issuance and writes MUST fail closed with this code.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::ActorSeqInvalid,
-        type_uri: "https://arkret.org/problems/actor_seq_invalid",
-        title: "Actor seq invalid",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "Event submission rejected an actor chain sequence number that is duplicate, skipped without allowed repair evidence, or inconsistent with the actor frontier.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::AgentAuthorizationConflicted,
@@ -2072,7 +2016,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "An optimistic concurrency precondition failed. For ordinary Event actor-chain authoring, this code is returned only after duplicate-id checks and only when the accepted (realm_id, actor_id) sequence has strictly advanced beyond the submitted signed Event. Authenticated visible callers receive closed details {accepted:false,current_frontier:RealmActorFrontierView}; only that explicit result permits semantic re-author with a new event_id.",
+        description: "An optimistic concurrency precondition failed because the authority-committed typed current result or stream head no longer equals the submitted expectation. The caller must read current state and create a new signed Event; exact retry retains the original identity.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CausalConflict,
@@ -2082,7 +2026,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "Causal dependencies, prev_refs, refs[role=authorized_by], or actor-chain constraints are violated.",
+        description: "An application-level referenced object, revision, or domain transition is incompatible with current authority-committed state. This code does not describe an Event predecessor graph.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::ClaimFailed,
@@ -2252,7 +2196,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The supplied cursor fails syntax, schema, purpose, binding, or integrity validation before the operation can advance state. Welcome recipient discovery also uses this code when its bound current eligibility revision changed or its frozen window is no longer retained; unrelated Seal advancement alone does not invalidate it.",
+        description: "The supplied cursor fails syntax, schema, purpose, binding, or integrity validation before the operation can advance state. Welcome recipient discovery also uses this code when its bound current eligibility revision changed or its frozen window is no longer retained; unrelated RealmCommit advancement alone does not invalidate it.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::CursorRevoked,
@@ -2282,7 +2226,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "One or more exact Event, Seal, predecessor, proof, or other signed dependencies are absent. The response MUST identify the bounded missing set in the operation's closed details/item shape. This is recoverable only through bounded canonical backfill/resolve followed by a new evaluation; it is not authorization denial or service unavailability. Dual-registered with the per-item/federation-transaction reason code.",
+        description: "One or more exact Event, RealmCommit, predecessor, proof, or other signed dependencies are absent. The response MUST identify the bounded missing set in the operation's closed details/item shape. This is recoverable only through bounded canonical backfill/resolve followed by a new evaluation; it is not authorization denial or service unavailability. Dual-registered with the per-item/federation-transaction reason code.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceAlreadyAuthorized,
@@ -2362,7 +2306,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The exact device generation is blocked by one or more durable accepted ak.device.revoke proposals that have not been terminally rejected by a confirmed Seal command result or covered by an accepted Seal. Timeout and cache eviction do not clear this state.",
+        description: "The exact device generation is blocked by one or more durable accepted ak.device.revoke proposals that have not been terminally rejected by a confirmed RealmCommit command result or covered by an accepted RealmCommit. Timeout and cache eviction do not clear this state.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::DeviceRevoked,
@@ -2602,7 +2546,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBS lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md Â§13; MUST NOT be reported as cas_conflict.",
+        description: "authority-commit lattice join produced bottom (irreconcilable state) while applying the reducer-projected writes. Terminal failure state per zh/authz/event-auth-state-resolution.md Â§13; MUST NOT be reported as cas_conflict.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPlane,
@@ -2612,7 +2556,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "CBS plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane cell, or a ordinary Event targeted a control-plane cell. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md Â§13 and zh/sync/service-http-binding.md (write outcomes).",
+        description: "authority-commit plane invariant failed: the registered reducer projection for a Control Move targeted a data-plane typed current result, or a ordinary Event targeted a control-plane typed current result. Terminal failure state; the write MUST NOT be bypassed as cas_conflict. See zh/authz/event-auth-state-resolution.md Â§13 and zh/sync/service-http-binding.md (write outcomes).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FailedPrecondition,
@@ -2672,7 +2616,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The recovery-material gate requirements (first accepted Seal and genesis recovery policy) are not satisfied.",
+        description: "The recovery-material gate requirements (first accepted RealmCommit and genesis recovery policy) are not satisfied.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::FrankingProofUnavailable,
@@ -2695,16 +2639,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "The franking tag is tampered or does not verify.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::FrontierSequenceExhausted,
-        type_uri: "https://arkret.org/problems/frontier_sequence_exhausted",
-        title: "Frontier sequence exhausted",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The requested Realm-scoped actor frontier has accepted actor_seq u64::MAX, so no valid next_actor_seq exists. Producers MUST NOT wrap, reset, or author another Event for that chain.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::FrontierStale,
         type_uri: "https://arkret.org/problems/frontier_stale",
         title: "Frontier stale",
@@ -2722,17 +2656,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The service cannot currently produce the requested frontier because required seal, reducer, or witness state is unavailable.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::GenesisSealInvalid,
-        type_uri: "https://arkret.org/problems/genesis_seal_invalid",
-        title: "Genesis seal invalid",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The first Seal of a Realm did not atomically cover and materialize the complete registered bootstrap unit, or it declared an empty covered set or an empty control_event_set_root. The five ak.realm.create writes are genesis intent, create log, founding notary, reducer profile and authority root; profile, policy and creator membership are explicit signed slots in the same unit. For MLS-backed scope, epoch-0 binding is instead required on the first successor Seal covering ak.mls.genesis, whose seal_basis is the accepted Genesis Seal. Omitted founding state is never repairable by later Seals. See zh/authz/cbs-profiles.md section 3.",
+        description: "The service cannot currently produce the requested frontier because required authority commit, reducer, or witness state is unavailable.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::GovernanceKeyInvalid,
@@ -3042,17 +2966,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "endpoint",
         applies_to: &[],
-        description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required Seal/Event/witness material that prevents the service from deciding dominance is frontier_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::MlsGovernanceProofBoundsExceeded,
-        type_uri: "https://arkret.org/problems/mls_governance_proof_bounds_exceeded",
-        title: "Mls governance proof bounds exceeded",
-        http_status: 422,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "The complete near-current group_security_frontier outcome cannot fit the caller byte_limit or the v1 1 MiB canonical-response ceiling without splitting a registered frontier cell or completeness witness. The service MUST NOT truncate, omit boundary/nonmembership evidence, return a partial outcome, or split the request. The caller must present a closer independently verified proof_base_basis or fail closed; bulk history uses receipt-bound direct traversal and does not alter this query.",
+        description: "The exact canonical proof_target_basis does not dominate the exact caller-supplied, locally trusted canonical proof_base_basis: at least one base leaf is neither retained as a target leaf nor an ancestor of a target leaf. Concurrent or otherwise unreachable cuts produce this error; byte-identical base and target antichains are a valid zero-transition query and MUST NOT produce it. Missing required RealmCommit/Event/witness material that prevents the service from deciding dominance is frontier_unavailable instead. The service MUST NOT substitute a single head, common descendant, target, or untrusted base. The caller MAY retry only with another complete locally trusted basis or another authorized proof service.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::MlsKeypackageClaimRequestExpired,
@@ -3825,56 +3739,6 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         description: "Parsed input does not satisfy the declared schema contract.",
     },
     ErrorCodeDescriptor {
-        code: ErrorCode::SealDeferredFutureSkew,
-        type_uri: "https://arkret.org/problems/seal_deferred_future_skew",
-        title: "Seal deferred future skew",
-        http_status: 425,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The Seal is cryptographically eligible but sealed_at is temporarily beyond verifier wall time plus hard_future_skew_ms. This is non-terminal: retain and retry after the clock advances; do not reject descendants solely for this condition.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SealIncomplete,
-        type_uri: "https://arkret.org/problems/seal_incomplete",
-        title: "Seal incomplete",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "Seal coverage has gaps within the receiver's control auth-chain backfill bound; soft-fail per zh/conformance/scalability-constraints.md.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SealRefUnknown,
-        type_uri: "https://arkret.org/problems/seal_ref_unknown",
-        title: "Seal ref unknown",
-        http_status: 404,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "A Seal named by an ordinary Event auth_context.authority_refs entry or by a security command seal_basis leaf is not available to the receiving service for the target Realm.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SealSignerSlotFenced,
-        type_uri: "https://arkret.org/problems/seal_signer_slot_fenced",
-        title: "Seal signer slot fenced",
-        http_status: 409,
-        http_status_by_context: &[],
-        scope: "endpoint",
-        applies_to: &[],
-        description: "A Seal preparation request differs from the canonical request already frozen for its (realm_id, signer slot, predecessor basis) signing-slot fence, so exactly one signable body ever leaves that signing position. The exact frozen request keeps replaying its byte-identical body instead. The fence is durable protocol state: internal timeouts, lease release or expiry, cache eviction, failover and restart MUST NOT release it, because the device may already have signed the frozen body offline. Only an actually advanced predecessor basis, a formal notary rotation, an advanced signer device generation or an accepted equivocation fault opens a new signing position. A current signer that lost its local journal uses the registered prepare-fence-result read; the prepare 409 never carries frozen material. See zh/authz/event-auth-state-resolution.md section 8, zh/authz/cbs-profiles.md section 3, and zh/sync/service-http-binding.md.",
-    },
-    ErrorCodeDescriptor {
-        code: ErrorCode::SealSignerUnauthorized,
-        type_uri: "https://arkret.org/problems/seal_signer_unauthorized",
-        title: "Seal signer unauthorized",
-        http_status: 403,
-        http_status_by_context: &[],
-        scope: "both",
-        applies_to: &[],
-        description: "The submitted Seal signature does not satisfy the predecessor governance state's ak.component.notary.v1 membership and threshold rules. Visibility or ownership of the signing device is never sufficient.",
-    },
-    ErrorCodeDescriptor {
         code: ErrorCode::SelectorTooComplex,
         type_uri: "https://arkret.org/problems/selector_too_complex",
         title: "Selector too complex",
@@ -4272,7 +4136,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "A required protocol feature is not supported. It also carries the per-item rejection for a structurally valid Event whose producer class or wire feature has no admissible v1 form, such as an ak.mls.proposal decoded to an unsupported RFC 9420 sender class or Proposal type (mls-proposal-admission-registry.json); that case MUST NOT be reported as schema_violation. Dual-registered as a reason_code for the event_envelope scope (see reason_codes[]).",
+        description: "A required protocol feature is not supported. It also carries the per-item rejection for a structurally valid Event whose producer class or wire feature has no admissible v1 form, such as an rfc9420.proposal decoded to an unsupported RFC 9420 sender class or Proposal type (mls-proposal-admission-registry.json); that case MUST NOT be reported as schema_violation. Dual-registered as a reason_code for the event_envelope scope (see reason_codes[]).",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedHpkeSuite,
@@ -4282,7 +4146,7 @@ pub const ERROR_CODE_DESCRIPTORS: &[ErrorCodeDescriptor] = &[
         http_status_by_context: &[],
         scope: "both",
         applies_to: &[],
-        description: "HPKE suite id on an application-layer sealed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md Â§7.5.2.",
+        description: "HPKE suite id on an application-layer committed surface is not an active row of artifacts/registry/hpke-suite-registry.json (unknown, inactive, or reserved-but-not-activated). One of the four algorithm-agility fail-closed errors; dual-registered as a service code and a reason_code (see unsupported_digest_algorithm). Receivers MUST fail closed rather than infer suite parameters from the AEAD name. See zh/identity/key-management.md Â§7.5.2.",
     },
     ErrorCodeDescriptor {
         code: ErrorCode::UnsupportedJoinRule,

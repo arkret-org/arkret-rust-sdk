@@ -36,7 +36,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_collaboration::governance::grant_constraint::GrantConstraintSubkind;
-use arkret_wire::{ActorId, AppletId, CircleId, Hash};
+use arkret_wire::{ActorId, AppletId, CircleId, CommittedEventRef, DidCoreId, Hash};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -53,16 +53,12 @@ pub enum IssuerAuthorityRef {
     /// A grant the issuer holds. The issuer MUST be its subject, and it MUST
     /// be active at evaluation time.
     Grant { grant_id: String },
-    /// The Realm authority-root cell. `controller_epoch_at_issuance` proves the
-    /// issuer controlled the root when it signed and is never compared against
-    /// the current epoch — doing so would make an owner transfer kill the whole
-    /// authority tree. `authority_generation` IS compared: that is what an
-    /// authority reset advances.
-    RealmRoot {
+    /// A governance decision anchored to an exact Realm-stream commit.
+    RealmAuthority {
         realm_id: String,
-        cell_ref: String,
-        controller_epoch_at_issuance: u64,
+        governance_station_id: DidCoreId,
         authority_generation: u64,
+        basis: CommittedEventRef,
     },
 }
 
@@ -72,7 +68,7 @@ impl IssuerAuthorityRef {
     pub fn grant_id(&self) -> Option<&str> {
         match self {
             Self::Grant { grant_id } => Some(grant_id.as_str()),
-            Self::RealmRoot { .. } => None,
+            Self::RealmAuthority { .. } => None,
         }
     }
 
@@ -80,7 +76,7 @@ impl IssuerAuthorityRef {
     #[must_use]
     pub fn authority_generation(&self) -> Option<u64> {
         match self {
-            Self::RealmRoot {
+            Self::RealmAuthority {
                 authority_generation,
                 ..
             } => Some(*authority_generation),
@@ -111,14 +107,14 @@ pub struct Grant {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     /// The authority this grant was issued under (`capabilities.md` §10).
-    /// A `realm_root` ref is a rooted terminal; a `grant` ref is an edge, and
+    /// A `realm_authority` ref is a rooted terminal; a `grant` ref is an edge, and
     /// revoking the grant it names invalidates this one at read time.
     #[serde(default)]
     pub issuer_authority_refs: Vec<IssuerAuthorityRef>,
-    /// Reducer-derived absolute distance from an authority root.
+    /// Absolute distance from a committed authority decision.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authority_depth: Option<u64>,
-    /// Reducer-derived identities of the roots reached by this grant.
+    /// Committed authority decisions reached by this grant.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authority_root_refs:
         Vec<arkret_models_collaboration::governance::grant_constraint::AuthorityRootRef>,
@@ -411,7 +407,7 @@ pub fn validate_applet_authority_binding(
 
 /// Returns `true` iff every ancestor reachable through `issuer_authority_refs`
 /// is still active (not revoked, not expired). A grant whose refs are all
-/// `realm_root` is trivially intact — a root is a terminal, not an edge.
+/// `realm_authority` is trivially intact: it is a terminal, not an edge.
 ///
 /// Multiple refs only ever *add* constraints: the grant holds iff **every**
 /// path is intact. An alternate live path MUST NOT launder a revoked one.
@@ -471,7 +467,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::DidCoreId;
+    use arkret_wire::{CommitStreamRef, DidCoreId, EventId, RealmCommitId, RealmId};
     use chrono::Duration;
 
     use super::*;
@@ -484,6 +480,10 @@ mod tests {
     }
 
     fn root_grant(id: &str, actions: &[&str], resource: &str) -> Grant {
+        let realm_id = RealmId::from_event_id(&EventId::from_digest(
+            arkret_canonical::DigestSuite::Sha256,
+            [1; 32],
+        ));
         Grant {
             grant_id: id.to_owned(),
             realm_id: "ak:realm:1".to_owned(),
@@ -494,11 +494,22 @@ mod tests {
             constraints: Vec::new(),
             revoked: false,
             created_at: Utc::now(),
-            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
+            issuer_authority_refs: vec![IssuerAuthorityRef::RealmAuthority {
                 realm_id: "ak:realm:1".to_owned(),
-                cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
-                controller_epoch_at_issuance: 0,
+                governance_station_id: DidCoreId::new(
+                    "ak:did_core:webvh:z6mkfixtureserver",
+                )
+                .unwrap(),
                 authority_generation: 0,
+                basis: CommittedEventRef {
+                    event_id: EventId::from_digest(
+                        arkret_canonical::DigestSuite::Sha256,
+                        [2; 32],
+                    ),
+                    commit_id: RealmCommitId::from_digest([3; 32]),
+                    stream_ref: CommitStreamRef::Realm { realm_id },
+                    stream_position: 1,
+                },
             }],
             authority_depth: Some(1),
             authority_root_refs: Vec::new(),

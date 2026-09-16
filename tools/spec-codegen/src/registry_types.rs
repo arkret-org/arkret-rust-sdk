@@ -96,7 +96,6 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_capability_actions(artifacts_dir)?,
         generate_schema_ids(artifacts_dir)?,
         generate_profile_ids(artifacts_dir)?,
-        generate_reducer_profiles(artifacts_dir)?,
         generate_did_freshness_profiles(artifacts_dir)?,
         generate_did_method_adapters(artifacts_dir)?,
         generate_authority_sources(artifacts_dir)?,
@@ -105,9 +104,7 @@ pub fn generate(artifacts_dir: &Path) -> Result<Vec<GeneratedOutput>> {
         generate_service_contract_ids(artifacts_dir)?,
         generate_device_message_kinds(artifacts_dir)?,
         generate_authority_set_ids(artifacts_dir)?,
-        generate_history_store_limits(artifacts_dir)?,
         generate_redactable_fields(artifacts_dir)?,
-        generate_reducer_managed_paths(artifacts_dir)?,
         generate_forbidden_wire_fields(artifacts_dir)?,
         generate_mls_creator_bootstrap(artifacts_dir)?,
     ])
@@ -781,89 +778,6 @@ fn generate_profile_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     output.push_str("        _ => None,\n    } }\n}\n\nimpl std::fmt::Display for ProfileId { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) } }\nimpl Serialize for ProfileId { fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> { serializer.serialize_str(self.as_str()) } }\nimpl<'de> Deserialize<'de> for ProfileId { fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> { let raw = String::deserialize(deserializer)?; Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown profile id: {raw}\"))) } }\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/profile_ids.rs".into(),
-        contents: output,
-    })
-}
-
-fn generate_reducer_profiles(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let contracts = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
-    let contract_digest = arkret_canonical::canonical::canonical_sha256(&contracts.value)?;
-    let artifact = Artifact::load(artifacts_dir, "registry/reducer-profile-registry.json")?;
-    let rows = sorted_rows(
-        artifact
-            .array("profiles")?
-            .into_iter()
-            .filter(|row| string(row, "status").is_ok_and(|value| value == "active"))
-            .collect(),
-        "profile_id",
-    )?;
-    validate_unique(&rows, "profile_id", &["ak.reducer."])?;
-    let active = rows
-        .iter()
-        .map(|row| string(row, "profile_id").map(str::to_owned))
-        .collect::<Result<BTreeSet<_>>>()?;
-    let mut edges = Vec::new();
-    for row in &rows {
-        for target in row
-            .get("upgrade_edges")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-        {
-            let target = target.as_str().context("upgrade edge is not string")?;
-            if !active.contains(target) {
-                bail!(
-                    "reducer profile {} has edge to inactive {target}",
-                    string(row, "profile_id")?
-                );
-            }
-            edges.push((string(row, "profile_id")?.to_owned(), target.to_owned()));
-        }
-    }
-    edges.sort();
-    let mut output = simple_string_enum(
-        &artifact,
-        &rows,
-        "profile_id",
-        &["ak.reducer."],
-        "ReducerProfileId",
-        &format!(
-            "reducer_profiles={}, upgrade_edges={}",
-            rows.len(),
-            edges.len()
-        ),
-        false,
-    )?;
-    output = output.replacen(
-        "//! Entries:",
-        &format!(
-            "//! Input: {}; version={}; sha256={}\n//! Entries:",
-            contracts.source.relative_path, contracts.source.version, contracts.source.digest
-        ),
-        1,
-    );
-    writeln!(
-        output,
-        "\n/// SHA-256 of the JCS encoding of the complete canonical contract registry.\npub const CANONICAL_REDUCER_CONTRACT_DIGEST: &str = {};",
-        rust_string(&contract_digest)
-    )?;
-    output = output.replacen("#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", "/// Active Realm reducer profiles. A Realm selects exactly one through\n/// its reducer-profile singleton control cell; ordinary Events and\n/// federation service bindings do not declare one.\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", 1);
-    let close = output
-        .rfind('}')
-        .context("generated reducer enum has no closing brace")?;
-    output.insert_str(close, "\n    /// Whether this profile registers a direct upgrade to `target`.\n    pub fn can_upgrade_to(self, target: Self) -> bool { REDUCER_PROFILE_UPGRADE_EDGES.contains(&(self, target)) }\n");
-    output.push_str("\n/// Directed reducer-profile upgrades registered by the source profile.\npub const REDUCER_PROFILE_UPGRADE_EDGES: &[(ReducerProfileId, ReducerProfileId)] = &[\n");
-    for (source, target) in edges {
-        writeln!(
-            output,
-            "    (ReducerProfileId::{}, ReducerProfileId::{}),",
-            variant(&source, &["ak.reducer."]),
-            variant(&target, &["ak.reducer."])
-        )?;
-    }
-    output.push_str("];\n\npub fn is_reducer_profile_id(value: &str) -> bool { ReducerProfileId::from_wire(value).is_some() }\n\npub fn can_upgrade_reducer_profile(source: &str, target: &str) -> bool {\n    match (ReducerProfileId::from_wire(source), ReducerProfileId::from_wire(target)) {\n        (Some(source), Some(target)) => source.can_upgrade_to(target),\n        _ => false,\n    }\n}\n");
-    Ok(GeneratedOutput {
-        relative_path: "crates/wire/src/generated/reducer_profiles.rs".into(),
         contents: output,
     })
 }
@@ -1558,100 +1472,6 @@ fn generate_capability_actions(artifacts_dir: &Path) -> Result<GeneratedOutput> 
     let marker = "#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]";
     output = output.replacen(marker, "use serde::{Deserialize, Serialize};\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]", 1);
     output.push_str("\nimpl std::fmt::Display for CapabilityActionId {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n        f.write_str(self.as_str())\n    }\n}\n\nimpl Serialize for CapabilityActionId {\n    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n        serializer.serialize_str(self.as_str())\n    }\n}\n\nimpl<'de> Deserialize<'de> for CapabilityActionId {\n    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {\n        let raw = String::deserialize(deserializer)?;\n        Self::from_wire(&raw).ok_or_else(|| serde::de::Error::custom(format!(\"unknown capability action id: {raw}\")))\n    }\n}\n");
-    let contract = Artifact::load(artifacts_dir, "registry/contract-registry.json")?;
-    let registry = contract
-        .value
-        .get("authorization_dependency_registry")
-        .and_then(Value::as_object)
-        .context("missing authorization dependency registry")?;
-    let entries = field(registry, "entries")?
-        .as_array()
-        .context("dependency entries must be an array")?;
-    let action_sets = field(registry, "action_sets")?
-        .as_object()
-        .context("dependency action sets must be an object")?;
-    let mut entries = entries
-        .iter()
-        .map(|entry| {
-            entry
-                .as_object()
-                .context("dependency entry must be an object")
-        })
-        .collect::<Result<Vec<_>>>()?;
-    entries.sort_by_key(|entry| {
-        entry
-            .get("dependency_kind")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-    });
-    validate_unique(&entries, "dependency_kind", &[])?;
-    let kinds = entries
-        .iter()
-        .map(|entry| string(entry, "dependency_kind").map(str::to_owned))
-        .collect::<Result<Vec<_>>>()?;
-    output.push_str(
-        "\n// Authorization coordinates and combination bounds come from contract-registry.json.\n",
-    );
-    emit_closed_enum(&mut output, "AuthorizationDependencyKind", &kinds)?;
-    output.push_str("\nimpl AuthorizationDependencyKind {\n    pub fn permits_scope(self, scope: &crate::ScopeRef) -> bool {\n        match self {\n");
-    for entry in &entries {
-        let patterns = strings(entry, "scope_kinds")?
-            .iter()
-            .map(|scope| match scope.as_str() {
-                "realm" => Ok("crate::ScopeRef::Realm { .. }"),
-                "circle" => Ok("crate::ScopeRef::Circle { .. }"),
-                "sidecar" => Ok("crate::ScopeRef::Sidecar { .. }"),
-                _ => bail!("unknown authorization dependency scope: {scope}"),
-            })
-            .collect::<Result<Vec<_>>>()?
-            .join(" | ");
-        if patterns.is_empty() {
-            bail!("authorization dependency has no permitted scopes");
-        }
-        writeln!(
-            output,
-            "            Self::{} => matches!(scope, {}),",
-            variant(string(entry, "dependency_kind")?, &[]),
-            patterns
-        )?;
-    }
-    output.push_str("        }\n    }\n\n    pub fn permits_action(self, action: CapabilityActionId) -> bool {\n        match self {\n");
-    for entry in &entries {
-        let mut allowed = BTreeSet::new();
-        for set in strings(entry, "action_sets")? {
-            let values = action_sets
-                .get(&set)
-                .and_then(Value::as_array)
-                .with_context(|| format!("unknown dependency action set: {set}"))?;
-            for action in values {
-                let action = action
-                    .as_str()
-                    .context("dependency action must be a string")?;
-                if !rows
-                    .iter()
-                    .any(|row| row.get("action").and_then(Value::as_str) == Some(action))
-                {
-                    bail!("unregistered authorization dependency action: {action}");
-                }
-                allowed.insert(action.to_owned());
-            }
-        }
-        if allowed.is_empty() {
-            bail!("authorization dependency has no permitted actions");
-        }
-        let patterns = allowed
-            .iter()
-            .map(|action| format!("CapabilityActionId::{}", variant(action, &["ak."])))
-            .collect::<Vec<_>>()
-            .join(" | ");
-        writeln!(
-            output,
-            "            Self::{} => matches!(action, {}),",
-            variant(string(entry, "dependency_kind")?, &[]),
-            patterns
-        )?;
-    }
-    output.push_str("        }\n    }\n}\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/capability_actions.rs".into(),
         contents: output,
@@ -1910,11 +1730,15 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
     for kind in &kinds {
         writeln!(output, "    {},", variant(kind, &[]))?;
     }
-    output.push_str("}\n\nimpl MlsCreatorBootstrapStateKind {\n    pub const ALL: &'static [Self] = &[\n");
+    output.push_str(
+        "}\n\nimpl MlsCreatorBootstrapStateKind {\n    pub const ALL: &'static [Self] = &[\n",
+    );
     for kind in &kinds {
         writeln!(output, "        Self::{},", variant(kind, &[]))?;
     }
-    output.push_str("    ];\n\n    pub const fn as_str(self) -> &'static str {\n        match self {\n");
+    output.push_str(
+        "    ];\n\n    pub const fn as_str(self) -> &'static str {\n        match self {\n",
+    );
     for kind in &kinds {
         writeln!(
             output,
@@ -2009,7 +1833,9 @@ fn generate_mls_creator_bootstrap(artifacts_dir: &Path) -> Result<GeneratedOutpu
             variant(string(row, "transition_id")?, &[])
         )?;
     }
-    output.push_str("}\n\nimpl MlsCreatorBootstrapTransition {\n    pub const ALL: &'static [Self] = &[\n");
+    output.push_str(
+        "}\n\nimpl MlsCreatorBootstrapTransition {\n    pub const ALL: &'static [Self] = &[\n",
+    );
     for row in &transitions {
         writeln!(
             output,
@@ -2233,84 +2059,6 @@ fn generate_authority_set_ids(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     })
 }
 
-fn generate_history_store_limits(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(
-        artifacts_dir,
-        "registry/history-recovery-scalability-registry.json",
-    )?;
-    let store = artifact
-        .value
-        .get("history_store")
-        .and_then(Value::as_object)
-        .context("history recovery registry missing history_store object")?;
-    let fields = store
-        .iter()
-        .filter_map(|(name, value)| value.as_i64().map(|value| (name, value)))
-        .collect::<Vec<_>>();
-    let mut output = header(
-        &[&artifact.source],
-        &format!("history_store_limits={}", fields.len()),
-    );
-    writeln!(
-        output,
-        "/// Machine-readable `history_store` section of\n/// `registry/history-recovery-scalability-registry.json`, the single source\n/// of truth for the device-local history-only store quotas.\n///"
-    )?;
-    for (label, key) in [
-        ("Material dedupe rule", "material_dedupe_rule"),
-        ("Material quota rule", "material_quota_rule"),
-        ("Material eviction rule", "material_eviction_rule"),
-        ("Origin attribution rule", "origin_attribution_rule"),
-        (
-            "Event candidate binding rule",
-            "event_candidate_binding_rule",
-        ),
-    ] {
-        writeln!(
-            output,
-            "/// {label}: {}\n///",
-            rustdoc(
-                store
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .with_context(|| format!("history_store missing {key}"))?
-            )
-        )?;
-    }
-    writeln!(
-        output,
-        "/// `candidate_digest` preimage: {}.\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct HistoryStoreLimits {{",
-        rustdoc(
-            store
-                .get("candidate_digest")
-                .and_then(Value::as_str)
-                .context("history_store missing candidate_digest")?
-        )
-    )?;
-    for (name, _) in &fields {
-        writeln!(
-            output,
-            "    pub {name}: {},",
-            if name.ends_with("_seconds") {
-                "i64"
-            } else {
-                "usize"
-            }
-        )?;
-    }
-    writeln!(
-        output,
-        "}}\n\n/// The registered `history_store` limits.\npub const HISTORY_STORE_LIMITS: HistoryStoreLimits = HistoryStoreLimits {{"
-    )?;
-    for (name, value) in fields {
-        writeln!(output, "    {name}: {value},")?;
-    }
-    writeln!(output, "}};")?;
-    Ok(GeneratedOutput {
-        relative_path: "crates/wire/src/generated/history_store_limits.rs".into(),
-        contents: output,
-    })
-}
-
 fn rustdoc(value: &str) -> String {
     value
         .replace('&', "&amp;")
@@ -2359,115 +2107,6 @@ fn generate_redactable_fields(artifacts_dir: &Path) -> Result<GeneratedOutput> {
     output.push_str("];\n");
     Ok(GeneratedOutput {
         relative_path: "crates/wire/src/generated/redactable_fields.rs".into(),
-        contents: output,
-    })
-}
-
-fn generate_reducer_managed_paths(artifacts_dir: &Path) -> Result<GeneratedOutput> {
-    let artifact = Artifact::load(artifacts_dir, "registry/reducer-managed-path-registry.json")?;
-    let mut universal = artifact.array("universal_forbidden_patch_paths")?;
-    universal.sort_by_key(|row| string(row, "path").unwrap());
-    let mut objects = artifact.array("objects")?;
-    objects.sort_by_key(|row| string(row, "object_kind").unwrap());
-    let mut any_paths = universal
-        .iter()
-        .map(|row| string(row, "path").map(str::to_owned))
-        .collect::<Result<BTreeSet<_>>>()?;
-    for row in &objects {
-        for entry in field(row, "forbidden_patch_paths")?
-            .as_array()
-            .context("forbidden_patch_paths is not an array")?
-        {
-            any_paths.insert(
-                entry
-                    .get("path")
-                    .and_then(Value::as_str)
-                    .context("managed path missing path")?
-                    .to_owned(),
-            );
-        }
-    }
-    let mut output = header(
-        &[&artifact.source],
-        &format!(
-            "universal_paths={}, object_kinds={}, any_object_paths={}",
-            universal.len(),
-            objects.len(),
-            any_paths.len()
-        ),
-    );
-    output.push_str("#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedPathDescriptor {\n    pub path: &'static str,\n    pub basis: &'static str,\n    pub reason_code: &'static str,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedObjectPathDescriptor {\n    pub path: &'static str,\n    pub basis: &'static str,\n    pub reason_code: &'static str,\n    pub schema_enforced: bool,\n}\n\n#[derive(Clone, Copy, Debug, PartialEq, Eq)]\npub struct ReducerManagedObjectDescriptor {\n    pub object_kind: &'static str,\n    pub forbidden_paths: &'static [ReducerManagedObjectPathDescriptor],\n    pub universal_exemptions: &'static [&'static str],\n}\n\n/// General minimum set of `event-and-patch.md` section 4.2.5: the patch\n/// paths every patch-bearing object kind forbids unless it declares an\n/// explicit exemption.\npub const REDUCER_MANAGED_UNIVERSAL_PATHS: &[ReducerManagedPathDescriptor] = &[\n");
-    for row in universal {
-        writeln!(
-            output,
-            "    ReducerManagedPathDescriptor {{\n        path: {},\n        basis: {},\n        reason_code: {},\n    }},",
-            rust_string(string(row, "path")?),
-            rust_string(string(row, "basis")?),
-            rust_string(string(row, "reason_code")?)
-        )?;
-    }
-    output.push_str("];\n\n/// Per-object-kind additions and exemptions. An object kind absent from\n/// this table has no patch surface registered in the spec.\npub const REDUCER_MANAGED_OBJECTS: &[ReducerManagedObjectDescriptor] = &[\n");
-    for row in objects {
-        writeln!(
-            output,
-            "    ReducerManagedObjectDescriptor {{\n        object_kind: {},",
-            rust_string(string(row, "object_kind")?)
-        )?;
-        let mut entries = field(row, "forbidden_patch_paths")?
-            .as_array()
-            .context("forbidden_patch_paths is not an array")?
-            .iter()
-            .map(|value| {
-                value
-                    .as_object()
-                    .context("managed path entry is not an object")
-            })
-            .collect::<Result<Vec<_>>>()?;
-        entries.sort_by_key(|entry| string(entry, "path").unwrap());
-        if entries.is_empty() {
-            output.push_str("        forbidden_paths: &[],\n");
-        } else {
-            output.push_str("        forbidden_paths: &[\n");
-            for entry in entries {
-                writeln!(
-                    output,
-                    "            ReducerManagedObjectPathDescriptor {{\n                path: {},\n                basis: {},\n                reason_code: {},\n                schema_enforced: {},\n            }},",
-                    rust_string(string(entry, "path")?),
-                    rust_string(string(entry, "basis")?),
-                    rust_string(string(entry, "reason_code")?),
-                    field(entry, "schema_enforced")?
-                        .as_bool()
-                        .context("schema_enforced is not boolean")?
-                )?;
-            }
-            output.push_str("        ],\n");
-        }
-        let mut exemptions = field(row, "universal_exemptions")?
-            .as_array()
-            .context("universal_exemptions is not an array")?
-            .iter()
-            .map(|entry| {
-                entry
-                    .get("path")
-                    .and_then(Value::as_str)
-                    .context("universal exemption missing path")
-                    .map(str::to_owned)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        exemptions.sort();
-        writeln!(
-            output,
-            "        universal_exemptions: {},\n    }},",
-            string_slice(&exemptions)
-        )?;
-    }
-    output.push_str("];\n\n/// Conservative object-agnostic superset: every path forbidden on at\n/// least one object kind, with no exemption applied. Only for callers\n/// that cannot name the object kind; a caller that can name it MUST use\n/// the per-object table instead, because applying this superset to a\n/// View rejects the `state` patch that `views.md` section 3.1 requires.\npub const REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS: &[&str] = &[\n");
-    for path in any_paths {
-        writeln!(output, "    {},", rust_string(&path))?;
-    }
-    output.push_str("];\n");
-    Ok(GeneratedOutput {
-        relative_path: "crates/wire/src/generated/reducer_managed_paths.rs".into(),
         contents: output,
     })
 }
@@ -2550,7 +2189,7 @@ mod tests {
     #[test]
     fn all_registry_surfaces_are_generated_by_rust() {
         let outputs = generate(&spec_artifacts()).expect("generate registry surfaces");
-        assert_eq!(outputs.len(), 25);
+        assert_eq!(outputs.len(), 22);
         for required in [
             "crates/wire/src/generated/mls_creator_bootstrap.rs",
             "crates/wire/src/generated/operation_ids.rs",
@@ -2568,6 +2207,9 @@ mod tests {
             output
                 .contents
                 .contains("//! Generator: tools/spec-codegen")
+        }));
+        assert!(outputs.iter().all(|output| {
+            output.relative_path != Path::new("crates/wire/src/generated/history_store_limits.rs")
         }));
     }
 

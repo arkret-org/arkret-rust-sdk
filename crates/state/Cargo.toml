@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["algorithms", "data-structures"]
-description = "Arkret v1 Move/Seal state resolution and snapshot runtime."
+description = "Arkret v1 authority-commit stream persistence runtime."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "state", "snapshot", "protocol"]
@@ -17,39 +17,20 @@ default = []
 openapi = [
     "dep:salvo-oapi",
     "arkret-identifiers/openapi",
-    "arkret-models-collaboration/openapi",
-    "arkret-models-crypto/openapi",
     "arkret-wire/openapi",
     "salvo-oapi/chrono",
 ]
 
 [dependencies]
-arkret-canonical = { workspace = true }
-arkret-event-draft = { workspace = true }
 arkret-identifiers = { workspace = true }
-arkret-models-collaboration = { workspace = true }
-arkret-models-crypto = { workspace = true }
 arkret-wire = { workspace = true }
-async-trait = { workspace = true }
-chrono = { workspace = true, features = ["serde"] }
-hex = { workspace = true }
 salvo-oapi = { workspace = true, optional = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-arkret-schema-conformance = { workspace = true }
-arkret-schema = { workspace = true }
+arkret-canonical = { workspace = true }
 arkret-wire = { workspace = true, features = ["test-support"] }
-criterion = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt"] }
-
-# Scale measurements for the causal-register recompute path. Run on demand with
-# `cargo bench -p arkret-state`; never run in CI.
-[[bench]]
-name = "causal_register"
-harness = false
+chrono = { workspace = true }
 
 [lints]
 workspace = true

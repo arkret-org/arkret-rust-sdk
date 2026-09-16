@@ -1,12 +1,5 @@
 //! Canonical signatures, proof binding and HTTP message signature helpers.
 
-#[cfg(any(feature = "signer", test))]
-#[path = "signer.rs"]
-pub mod signer;
-
-#[cfg(any(feature = "signer", test))]
-pub use signer::Ed25519PayloadSigner;
-
 // Unified Event Envelope proof builder/verifier pipeline. Available without
 // the `signer` feature (canonical bytes + traits + dev-proof gating); the
 // `signer` feature also exposes the Ed25519 detached-JWS backend.
@@ -180,7 +173,6 @@ where
     F: Fn(&VerificationMethodDocument, &ProducerEventProof) -> Result<bool>,
 {
     proof.validate_production()?;
-    proof.validate_signer_resolution_evidence_ref()?;
     if proof.event_digest != context.expected_payload_digest {
         return Err(Error::Protocol(
             "proof event_digest does not match expected digest".to_owned(),
@@ -257,7 +249,6 @@ pub struct SignatureVerification {
 mod tests {
     use std::collections::BTreeMap;
 
-    use arkret_wire::SignerEvidenceRef;
     use chrono::Duration;
 
     use super::*;
@@ -298,10 +289,6 @@ mod tests {
         DidCoreId::new(format!("ak:did_core:webvh:z6mkfixture{name}")).unwrap()
     }
 
-    fn signer_evidence_ref() -> SignerEvidenceRef {
-        SignerEvidenceRef::new(format!("ak:signer_evidence:sha256:{}", "cc".repeat(32))).unwrap()
-    }
-
     /// SDK-SOTA-01 / SDK-CRY-02: `ES256` and `ML-DSA-65` are wire-reserved
     /// (registered active rows, no client impl) and MUST NOT be advertised as
     /// usable production algorithms while the Ed25519 verifier is the only
@@ -332,7 +319,6 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
-            signer_resolution_evidence_ref: Some(signer_evidence_ref()),
             created_at: Utc::now(),
             domain: Some("api.example".to_owned()),
             audience: Some(Audience::Single(actor("service").to_string())),
@@ -383,7 +369,6 @@ mod tests {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: payload_digest.clone(),
-            signer_resolution_evidence_ref: Some(signer_evidence_ref()),
             created_at: Utc::now(),
             domain: None,
             audience: Some(Audience::Single(

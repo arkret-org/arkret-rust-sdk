@@ -1,12 +1,12 @@
 //! Canonical device-pairing challenge transcript generation and verification.
 
-use arkret_models_collaboration::events_payloads::SignatureMaterial;
-use arkret_models_collaboration::governance::agent_artifacts::{DeviceMetadata, PublicKey};
-use arkret_models_collaboration::http_bodies::{
+use arkret_models_collaboration::device_pairing::{
     DevicePairingBootstrap, DevicePairingCode, DevicePairingNonce, DevicePairingRequestId,
     DevicePairingStageOutcome, DevicePairingStageRequestBody, DevicePairingTargetProof,
     UnsignedDevicePairingTargetProof,
 };
+use arkret_models_collaboration::events_payloads::SignatureMaterial;
+use arkret_models_collaboration::governance::agent_artifacts::{DeviceMetadata, PublicKey};
 use arkret_wire::{AccountId, Hash, NonEmptyString};
 #[cfg(test)]
 use arkret_wire::{Base64UrlString, DeviceId};
@@ -105,8 +105,8 @@ pub fn sign_device_pairing_target_proof(
 }
 
 /// Verify the target-device possession proof independently of the approving
-/// device Event. Call `DevicePairingTargetProof::validate_against_pair_request`
-/// afterwards to bind the verified material to the exact preassembled request.
+/// device Event. The authority submit path binds this proof to the exact
+/// Producer Event before admission.
 pub fn verify_device_pairing_target_proof(
     attestation: &DevicePairingTargetProof,
 ) -> Result<(), DevicePairingProofError> {

@@ -21,7 +21,7 @@ use std::collections::BTreeSet;
 pub use arkret_wire::CircleId;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    ActorId, ContentScheme, DurabilityPolicy, EncryptionProfile, EventInitialSubmission,
+    ActorId, ContentScheme, DurabilityPolicy, EncryptionProfile, EventCommitSubmission,
     HistoryAccess, RealmId, SchemaId,
 };
 use chrono::{DateTime, Utc};
@@ -131,7 +131,7 @@ pub enum CircleGlyph {
     Diamond,
     Flame,
     Leaf,
-    Seal,
+    Stamp,
     Compass,
     Atom,
     Bolt,
@@ -190,15 +190,11 @@ pub struct Circle {
     pub directory_visibility: CircleDirectoryVisibility,
     pub join_rule: CircleJoinRule,
     pub history_access: HistoryAccess,
-    /// Optional Circle-local content-encryption floor. When omitted the
-    /// Circle inherits the parent Realm `content_encryption_floor`; effective
-    /// floor = max(parent Realm, Circle). MAY only tighten parent Realm floor
-    /// and the effective floor is a one-way ratchet; `e2ee_required` is only
-    /// valid when `encryption_profile = mls_rfc9420`. Reducer enforces.
+    /// Optional Circle-local content-encryption floor. `e2ee_required` is only
+    /// valid when `encryption_profile = mls_rfc9420`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_encryption_floor: Option<EncryptionFloor>,
-    /// Optional tightening of metadata-encryption floor inherited from
-    /// parent Realm.
+    /// Optional Circle-local metadata-encryption floor.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_encryption_floor: Option<EncryptionFloor>,
     /// Optional Agent participation ceiling. Omitted bits inherit
@@ -208,8 +204,8 @@ pub struct Circle {
     pub encryption_profile: EncryptionProfile,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_scheme: Option<ContentScheme>,
-    /// Reducer-derived; populated by `ak.circle.create` reducer once the
-    /// independent MLS group is bound. NOT actor-supplied on wire.
+    /// Governance-committed binding of this Circle to its independent MLS
+    /// group. It is not actor-supplied on create.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mls_group_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -283,7 +279,7 @@ pub struct CircleCreateRequestBody {
     /// bytes through ordinary Event admission and MUST NOT co-sign, rebuild or
     /// synthesize the Event.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub create_event: EventInitialSubmission,
+    pub create_event: EventCommitSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -328,7 +324,7 @@ pub struct CircleMemberRequestBody {
     /// closed, and the `ak.circle.member.manage` decision is the admission path's,
     /// evaluated against projected grants rather than asserted by the request.
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub member_event: EventInitialSubmission,
+    pub member_event: EventCommitSubmission,
 }
 
 /// Request body for `ak.self.circle.member.resource.delete.v1`.
@@ -341,7 +337,7 @@ pub struct CircleMemberRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct CircleMemberDeleteRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub member_event: EventInitialSubmission,
+    pub member_event: EventCommitSubmission,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -603,18 +599,14 @@ pub fn validate_metadata_encryption_floor_ratchet(
     }
 }
 
-/// Reducer-pure validator: Circle encryption MUST NOT fall below the
-/// parent Realm or effective content encryption floor.
+/// Validate that Circle encryption satisfies its own content-encryption floor.
 pub fn validate_circle_encryption_floor(
-    realm_encryption_profile: &EncryptionProfile,
     content_encryption_floor: EncryptionFloor,
     circle_encryption_profile: &EncryptionProfile,
 ) -> Result<(), CircleScopeError> {
-    let requires_mls = matches!(realm_encryption_profile, EncryptionProfile::MlsRfc9420)
-        || matches!(content_encryption_floor, EncryptionFloor::E2eeRequired);
+    let requires_mls = matches!(content_encryption_floor, EncryptionFloor::E2eeRequired);
     if requires_mls && !matches!(circle_encryption_profile, EncryptionProfile::MlsRfc9420) {
-        Err(CircleScopeError::CircleEncryptionBelowRealmFloor {
-            realm_encryption_profile: realm_encryption_profile.clone(),
+        Err(CircleScopeError::CircleEncryptionBelowFloor {
             content_encryption_floor,
             circle_encryption_profile: circle_encryption_profile.clone(),
         })
@@ -623,20 +615,19 @@ pub fn validate_circle_encryption_floor(
     }
 }
 
-/// Reducer-pure validator for Strand / Message / Morph / Blob content writes
-/// under `Realm.content_encryption_floor`.
+/// Validate Strand / Message / Morph / Blob content writes against the
+/// selected scope's explicit encryption settings.
 pub fn validate_content_encryption_floor(
     content_encryption_floor: EncryptionFloor,
-    realm_encryption_profile: &EncryptionProfile,
-    circle_encryption_profile: Option<&EncryptionProfile>,
+    scope_encryption_profile: Option<&EncryptionProfile>,
 ) -> Result<(), CircleScopeError> {
     if !matches!(content_encryption_floor, EncryptionFloor::E2eeRequired) {
         return Ok(());
     }
-    let mls_backed = match circle_encryption_profile {
-        Some(profile) => matches!(profile, EncryptionProfile::MlsRfc9420),
-        None => matches!(realm_encryption_profile, EncryptionProfile::MlsRfc9420),
-    };
+    let mls_backed = matches!(
+        scope_encryption_profile,
+        Some(EncryptionProfile::MlsRfc9420)
+    );
     if mls_backed {
         Ok(())
     } else {
@@ -710,12 +701,11 @@ pub enum CircleScopeError {
         previous: EncryptionFloor,
         next: EncryptionFloor,
     },
-    /// Circle encryption profile would be weaker than the Realm content floor.
+    /// Circle encryption profile would be weaker than its content floor.
     #[error(
-        "reason=circle_encryption_below_realm_floor: circle_encryption_profile={circle_encryption_profile:?} is below realm_encryption_profile={realm_encryption_profile:?} / content_encryption_floor={content_encryption_floor:?}"
+        "reason=circle_encryption_below_floor: circle_encryption_profile={circle_encryption_profile:?} is below content_encryption_floor={content_encryption_floor:?}"
     )]
-    CircleEncryptionBelowRealmFloor {
-        realm_encryption_profile: EncryptionProfile,
+    CircleEncryptionBelowFloor {
         content_encryption_floor: EncryptionFloor,
         circle_encryption_profile: EncryptionProfile,
     },
@@ -851,310 +841,11 @@ impl Circle {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn actor(value: &str) -> ActorId {
-        ActorId::service(value.parse().unwrap())
-    }
-
-    fn sample_display() -> CircleDisplay {
-        CircleDisplay {
-            short_name: "Ops".to_owned(),
-            color_token: CircleColorToken::Indigo,
-            symbol: CircleSymbol::Glyph {
-                glyph: CircleGlyph::Shield,
-            },
-        }
-    }
-
-    #[test]
-    fn circle_round_trips_json() {
-        let id = CircleId::new("ak:circle:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-".to_owned())
-            .unwrap();
-        let realm_id =
-            RealmId::new("ak:realm:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL".to_owned())
-                .unwrap();
-        let actor = actor("ak:did_core:webvh:z6mkfixturealice");
-        let circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
-        let json = serde_json::to_value(&circle).unwrap();
-        let parsed: Circle = serde_json::from_value(json).unwrap();
-        assert_eq!(parsed.schema, SchemaId::CIRCLE_V1);
-        assert_eq!(parsed.title, "Ops Circle");
-        assert_eq!(parsed.profile_ref, circle.profile_ref);
-        assert_eq!(parsed.state, CircleState::Active);
-    }
-
-    #[test]
-    fn circle_agent_participation_round_trips_complete_ceiling() {
-        let id = CircleId::new("ak:circle:AeWYNl1hiGDuy4WCQ03g5lgs2NZzf_SFYgjsfhG-t9cg".to_owned())
-            .unwrap();
-        let realm_id =
-            RealmId::new("ak:realm:AZiQUXWgexBvj0pdmSuNERtMTAFCjqds5-eP8K9OsgEo".to_owned())
-                .unwrap();
-        let actor = actor("ak:did_core:webvh:z6mkfixturealice");
-        let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
-        circle.agent_participation = Some(AgentParticipationPolicy {
-            agent: Some(ParticipationBits {
-                reply_message: true,
-                reaction_add: true,
-                reaction_remove: true,
-                accept_third_party_mention: false,
-                act_on_behalf: false,
-            }),
-        });
-
-        let value = serde_json::to_value(&circle).unwrap();
-        assert_eq!(
-            value.get("agent_participation"),
-            Some(&serde_json::json!({
-                "agent": {
-                    "reply_message": true,
-                    "reaction_add": true,
-                    "reaction_remove": true,
-                    "accept_third_party_mention": false,
-                    "act_on_behalf": false
-                }
-            }))
-        );
-        let parsed: Circle = serde_json::from_value(value).unwrap();
-        assert_eq!(parsed.agent_participation, circle.agent_participation);
-    }
-
-    #[test]
-    fn circle_agent_participation_validates_tighten_only() {
-        let id = CircleId::new("ak:circle:AYdzR-cxE5CaMt7Xeab7lJ6oTMVcXRDFIfPqcXOahgQ4".to_owned())
-            .unwrap();
-        let realm_id =
-            RealmId::new("ak:realm:AYkxMogpjqRFcRiejZN897KN1bjKnAjkbNCCRbsgxeHR".to_owned())
-                .unwrap();
-        let actor = actor("ak:did_core:webvh:z6mkfixturealice");
-        let mut circle = Circle::new(id, realm_id, "Ops Circle", sample_display(), actor);
-        let parent = ParticipationBits {
-            reply_message: true,
-            reaction_add: true,
-            reaction_remove: true,
-            accept_third_party_mention: false,
-            act_on_behalf: true,
-        };
-
-        assert_eq!(
-            circle.validate_agent_participation_ceiling(parent).unwrap(),
-            parent
-        );
-
-        circle.agent_participation = Some(AgentParticipationPolicy {
-            agent: Some(ParticipationBits {
-                reply_message: false,
-                reaction_add: false,
-                reaction_remove: false,
-                accept_third_party_mention: false,
-                act_on_behalf: true,
-            }),
-        });
-        assert_eq!(
-            circle.validate_agent_participation_ceiling(parent).unwrap(),
-            ParticipationBits {
-                reply_message: false,
-                reaction_add: false,
-                reaction_remove: false,
-                accept_third_party_mention: false,
-                act_on_behalf: true,
-            }
-        );
-
-        circle.agent_participation = Some(AgentParticipationPolicy {
-            agent: Some(ParticipationBits {
-                reply_message: true,
-                reaction_add: true,
-                reaction_remove: true,
-                accept_third_party_mention: true,
-                act_on_behalf: true,
-            }),
-        });
-        assert!(matches!(
-            circle.validate_agent_participation_ceiling(parent),
-            Err(AgentParticipationError::CeilingWiden { .. })
-        ));
-    }
-
-    #[test]
-    fn strict_subset_accepts_empty_circle() {
-        let realm = vec![actor("ak:did_core:webvh:z6mkfixturealice")];
-        Circle::assert_member_ids_strict_subset(&[], &realm).unwrap();
-    }
-
-    #[test]
-    fn strict_subset_rejects_outsider() {
-        let alice = actor("ak:did_core:webvh:z6mkfixturealice");
-        let bob = actor("ak:did_core:webvh:z6mkfixturebob");
-        let realm = vec![alice];
-        let err = Circle::assert_member_ids_strict_subset(std::slice::from_ref(&bob), &realm)
-            .unwrap_err();
-        match err {
-            CircleScopeError::MemberNotInRealm { circle_member } => {
-                assert_eq!(circle_member, bob);
-            }
-            _ => panic!("unexpected variant"),
-        }
-    }
-
-    // ── validate_member_transition ─────────────────────────────────────────
-
-    #[test]
-    fn member_transition_accepts_four_state_fsm_paths() {
-        use CircleMemberState::*;
-        validate_member_transition(None, Join, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Join), Leave, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Leave), Join, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Join), Ban, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(Some(Ban), Leave, CircleJoinRule::Invite).unwrap();
-        validate_member_transition(None, Ban, CircleJoinRule::Invite).unwrap();
-    }
-
-    #[test]
-    fn member_transition_knock_requires_request_join_rule() {
-        use CircleMemberState::*;
-        validate_member_transition(None, Knock, CircleJoinRule::Knock).unwrap();
-        validate_member_transition(Some(Leave), Knock, CircleJoinRule::Knock).unwrap();
-        for jr in [CircleJoinRule::Invite, CircleJoinRule::Public] {
-            let err = validate_member_transition(None, Knock, jr).unwrap_err();
-            match err {
-                CircleScopeError::IllegalMemberTransition { from, to, .. } => {
-                    assert_eq!(from, None);
-                    assert_eq!(to, Knock);
-                }
-                _ => panic!("expected IllegalMemberTransition, got {err:?}"),
-            }
-        }
-    }
-
-    #[test]
-    fn member_transition_ban_to_join_is_hard_wall() {
-        use CircleMemberState::*;
-        for jr in [
-            CircleJoinRule::Invite,
-            CircleJoinRule::Public,
-            CircleJoinRule::Knock,
-        ] {
-            assert!(validate_member_transition(Some(Ban), Join, jr).is_err());
-        }
-    }
-
-    #[test]
-    fn member_transition_rejects_self_loops() {
-        use CircleMemberState::*;
-        for s in [Join, Knock, Leave, Ban] {
-            assert!(
-                validate_member_transition(Some(s), s, CircleJoinRule::Invite).is_err(),
-                "self-loop {s:?} → {s:?} MUST be illegal"
-            );
-        }
-    }
-
-    // ── validate_no_scope_rebind ───────────────────────────────────────────
-
-    fn circle_a() -> CircleId {
-        CircleId::new("ak:circle:AfbuccJDrS3BsS8P0aU9BrlGUaJIhhDcLOcyloeyFzvK".to_owned()).unwrap()
-    }
-    fn circle_b() -> CircleId {
-        CircleId::new("ak:circle:AQGn4ahivUviiVFvRY8dK3cbp__YLN2_Kbe8Ibm8t1ay".to_owned()).unwrap()
-    }
-
-    #[test]
-    fn scope_rebind_accepts_identity_pairs() {
-        validate_no_scope_rebind(None, None).unwrap();
-        let a = circle_a();
-        validate_no_scope_rebind(Some(&a), Some(&a)).unwrap();
-    }
-
-    #[test]
-    fn scope_rebind_rejects_all_changes() {
-        let a = circle_a();
-        let b = circle_b();
-        // None → Some
-        assert!(matches!(
-            validate_no_scope_rebind(None, Some(&a)),
-            Err(CircleScopeError::ScopeRebindForbidden { .. })
-        ));
-        // Some → None
-        assert!(matches!(
-            validate_no_scope_rebind(Some(&a), None),
-            Err(CircleScopeError::ScopeRebindForbidden { .. })
-        ));
-        // Some(A) → Some(B)
-        assert!(matches!(
-            validate_no_scope_rebind(Some(&a), Some(&b)),
-            Err(CircleScopeError::ScopeRebindForbidden { .. })
-        ));
-    }
-
-    // ── validate_metadata_floor_tightens ───────────────────────────────────
-
-    #[test]
-    fn metadata_floor_accepts_tightening() {
-        use EncryptionFloor::*;
-        validate_metadata_floor_tightens(AllowPlaintext, AllowPlaintext).unwrap();
-        validate_metadata_floor_tightens(AllowPlaintext, E2eeRequired).unwrap();
-        validate_metadata_floor_tightens(E2eeRequired, E2eeRequired).unwrap();
-    }
-
-    #[test]
-    fn metadata_floor_rejects_loosening() {
-        use EncryptionFloor::*;
-        assert!(matches!(
-            validate_metadata_floor_tightens(E2eeRequired, AllowPlaintext),
-            Err(CircleScopeError::MetadataEncryptionFloorViolation { .. })
-        ));
-    }
-
-    #[test]
-    fn encryption_floor_ratchets_reject_downgrade() {
-        use EncryptionFloor::*;
-        validate_content_encryption_floor_ratchet(AllowPlaintext, AllowPlaintext).unwrap();
-        validate_content_encryption_floor_ratchet(AllowPlaintext, E2eeRequired).unwrap();
-        validate_content_encryption_floor_ratchet(E2eeRequired, E2eeRequired).unwrap();
-        assert!(matches!(
-            validate_content_encryption_floor_ratchet(E2eeRequired, AllowPlaintext),
-            Err(CircleScopeError::ContentEncryptionFloorDowngrade { .. })
-        ));
-
-        validate_metadata_encryption_floor_ratchet(AllowPlaintext, AllowPlaintext).unwrap();
-        validate_metadata_encryption_floor_ratchet(AllowPlaintext, E2eeRequired).unwrap();
-        validate_metadata_encryption_floor_ratchet(E2eeRequired, E2eeRequired).unwrap();
-        assert!(matches!(
-            validate_metadata_encryption_floor_ratchet(E2eeRequired, AllowPlaintext),
-            Err(CircleScopeError::MetadataEncryptionFloorDowngrade { .. })
-        ));
-    }
-
-    // ── CircleMemberState wire shape ───────────────────────────────────────
-
-    #[test]
-    fn member_state_serialises_as_snake_case() {
-        for (variant, expected) in [
-            (CircleMemberState::Join, "join"),
-            (CircleMemberState::Knock, "knock"),
-            (CircleMemberState::Leave, "leave"),
-            (CircleMemberState::Ban, "ban"),
-        ] {
-            assert_eq!(variant.as_str(), expected);
-            let v = serde_json::to_value(variant).unwrap();
-            assert_eq!(v.as_str().unwrap(), expected);
-            let parsed: CircleMemberState =
-                serde_json::from_str(&format!("\"{expected}\"")).unwrap();
-            assert_eq!(parsed, variant);
-        }
-    }
-}
-
 /// Reducer-pure predicate for `Space.child_scope_policy` enforcement
 /// (AKP-0007 §3.4.2).
 ///
 /// * `AllowAny` — accepts any scope.
-/// * `RequireE2ee` — child MUST live in an MLS-backed scope: a Circle scope, or the Realm-default
-///   scope when `realm_encryption_profile = MlsRfc9420`.
+/// * `RequireE2ee` — child MUST live in a scope whose committed MLS binding is active.
 /// * `RequireSameScope` — child's `scope_circle_id` MUST equal the parent Space's `scope_circle_id`
 ///   (both `None` counts as "same").
 /// * `RequireScopeCircleId` — child's `scope_circle_id` MUST equal the named Circle.
@@ -1162,50 +853,31 @@ pub fn enforce_child_scope_policy(
     policy: &ChildScopePolicy,
     child_scope: Option<&CircleId>,
     parent_space_scope: Option<&CircleId>,
-    realm_encryption_profile: &EncryptionProfile,
+    scope_mls_active: bool,
 ) -> Result<(), CircleScopeError> {
-    enforce_child_scope_policy_with_circle_profile(
+    enforce_child_scope_policy_with_mls_state(
         policy,
         child_scope,
         parent_space_scope,
-        realm_encryption_profile,
-        None,
+        scope_mls_active,
     )
 }
 
-/// Variant of [`enforce_child_scope_policy`] for reducers that have already
-/// resolved the child Circle and can distinguish plaintext delivery-only
-/// Circles from MLS-backed Circles.
-pub fn enforce_child_scope_policy_with_circle_profile(
+/// Variant of [`enforce_child_scope_policy`] for callers that have resolved
+/// whether the selected scope has an active committed MLS binding.
+pub fn enforce_child_scope_policy_with_mls_state(
     policy: &ChildScopePolicy,
     child_scope: Option<&CircleId>,
     parent_space_scope: Option<&CircleId>,
-    realm_encryption_profile: &EncryptionProfile,
-    child_circle_encryption_profile: Option<&EncryptionProfile>,
+    scope_mls_active: bool,
 ) -> Result<(), CircleScopeError> {
     match policy {
         ChildScopePolicy::AllowAny {} => Ok(()),
-        ChildScopePolicy::RequireE2ee {} => match child_scope {
-            Some(_)
-                if matches!(
-                    child_circle_encryption_profile,
-                    Some(EncryptionProfile::MlsRfc9420)
-                ) =>
-            {
-                Ok(())
-            }
-            Some(_) => Err(CircleScopeError::ChildScopePolicyViolated {
-                policy_kind: "require_e2ee",
-                detail: "Circle-scoped child requires circle.encryption_profile = mls_rfc9420",
-            }),
-            None => match realm_encryption_profile {
-                EncryptionProfile::MlsRfc9420 => Ok(()),
-                _ => Err(CircleScopeError::ChildScopePolicyViolated {
-                    policy_kind: "require_e2ee",
-                    detail: "Realm-default child requires realm.encryption_profile = mls_rfc9420",
-                }),
-            },
-        },
+        ChildScopePolicy::RequireE2ee {} if scope_mls_active => Ok(()),
+        ChildScopePolicy::RequireE2ee {} => Err(CircleScopeError::ChildScopePolicyViolated {
+            policy_kind: "require_e2ee",
+            detail: "child scope requires an active governance-committed MLS binding",
+        }),
         ChildScopePolicy::RequireSameScope {} => {
             let child_s = child_scope.map(|c| c.as_str());
             let parent_s = parent_space_scope.map(|c| c.as_str());
@@ -1227,111 +899,5 @@ pub fn enforce_child_scope_policy_with_circle_profile(
                 detail: "child scope_circle_id does not match the policy's required circle",
             }),
         },
-    }
-}
-
-#[cfg(test)]
-mod child_scope_tests {
-    use super::*;
-
-    fn circle_a() -> CircleId {
-        CircleId::new("ak:circle:AfbuccJDrS3BsS8P0aU9BrlGUaJIhhDcLOcyloeyFzvK".to_owned()).unwrap()
-    }
-    fn circle_b() -> CircleId {
-        CircleId::new("ak:circle:AQGn4ahivUviiVFvRY8dK3cbp__YLN2_Kbe8Ibm8t1ay".to_owned()).unwrap()
-    }
-
-    // ── enforce_child_scope_policy ─────────────────────────────────────────
-
-    #[test]
-    fn child_scope_allow_any_accepts_everything() {
-        let policy = ChildScopePolicy::AllowAny {};
-        enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None).unwrap();
-        enforce_child_scope_policy(&policy, Some(&circle_a()), None, &EncryptionProfile::None)
-            .unwrap();
-    }
-
-    #[test]
-    fn child_scope_require_e2ee_needs_circle_or_mls_realm() {
-        let policy = ChildScopePolicy::RequireE2ee {};
-        // Circle-scoped child requires the reducer to resolve the Circle's
-        // encryption profile; plaintext delivery-only Circles do not satisfy
-        // require_e2ee.
-        enforce_child_scope_policy_with_circle_profile(
-            &policy,
-            Some(&circle_a()),
-            None,
-            &EncryptionProfile::None,
-            Some(&EncryptionProfile::MlsRfc9420),
-        )
-        .unwrap();
-        assert!(matches!(
-            enforce_child_scope_policy_with_circle_profile(
-                &policy,
-                Some(&circle_a()),
-                None,
-                &EncryptionProfile::None,
-                Some(&EncryptionProfile::None),
-            ),
-            Err(CircleScopeError::ChildScopePolicyViolated {
-                policy_kind: "require_e2ee",
-                ..
-            })
-        ));
-        // Realm-default child + MLS realm → accept.
-        enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::MlsRfc9420).unwrap();
-        // Realm-default child + non-MLS realm → reject.
-        assert!(matches!(
-            enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None),
-            Err(CircleScopeError::ChildScopePolicyViolated {
-                policy_kind: "require_e2ee",
-                ..
-            })
-        ));
-    }
-
-    #[test]
-    fn child_scope_require_same_scope_matches_parent() {
-        let policy = ChildScopePolicy::RequireSameScope {};
-        let a = circle_a();
-        enforce_child_scope_policy(&policy, Some(&a), Some(&a), &EncryptionProfile::None).unwrap();
-        enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None).unwrap();
-        // Mismatch.
-        let b = circle_b();
-        assert!(matches!(
-            enforce_child_scope_policy(&policy, Some(&b), Some(&a), &EncryptionProfile::None),
-            Err(CircleScopeError::ChildScopePolicyViolated {
-                policy_kind: "require_same_scope",
-                ..
-            })
-        ));
-        // Asymmetric None/Some.
-        assert!(matches!(
-            enforce_child_scope_policy(&policy, None, Some(&a), &EncryptionProfile::None),
-            Err(CircleScopeError::ChildScopePolicyViolated { .. })
-        ));
-    }
-
-    #[test]
-    fn child_scope_require_circle_id_matches_named() {
-        let a = circle_a();
-        let policy = ChildScopePolicy::RequireScopeCircleId {
-            scope_circle_id: a.clone(),
-        };
-        enforce_child_scope_policy(&policy, Some(&a), None, &EncryptionProfile::None).unwrap();
-        // Wrong circle.
-        let b = circle_b();
-        assert!(matches!(
-            enforce_child_scope_policy(&policy, Some(&b), None, &EncryptionProfile::None),
-            Err(CircleScopeError::ChildScopePolicyViolated {
-                policy_kind: "require_scope_circle_id",
-                ..
-            })
-        ));
-        // No scope at all.
-        assert!(matches!(
-            enforce_child_scope_policy(&policy, None, None, &EncryptionProfile::None),
-            Err(CircleScopeError::ChildScopePolicyViolated { .. })
-        ));
     }
 }

@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use super::*;
-use crate::{DidCoreId, ProofContextId, SignerEvidenceRef};
+use crate::{DidCoreId, ProofContextId};
 
 /// Complete protocol identity for one principal at one Station, including
 /// human accounts, Agents and integration actors. This identity does
@@ -1248,8 +1248,6 @@ pub struct ProducerEventProof {
     pub kind: String,
     pub verification_method: DidUrl,
     pub event_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1558,34 +1556,6 @@ const DEV_PROOF_KINDS: &[&str] = &["dev", "test", "mock", "stub", "dummy"];
 const PROOF_CREATED_AT_HARD_SKEW_MINUTES: i64 = 5;
 
 impl ProducerEventProof {
-    pub fn validate_signer_resolution_evidence_ref(&self) -> Result<()> {
-        self.signer_resolution_evidence_ref
-            .as_ref()
-            .ok_or_else(|| {
-                WireError::Protocol(
-                    "portable producer proof requires signer_resolution_evidence_ref".to_owned(),
-                )
-            })?
-            .content_digest()
-            .map(|_| ())
-    }
-
-    pub fn validate_direct_signer_resolution_evidence(&self) -> Result<()> {
-        self.validate_signer_resolution_evidence_ref()
-    }
-
-    /// Validate the unit-local proof form used by the closed PCR genesis and
-    /// recovery authorizations. The surrounding unit validator must resolve
-    /// the signer from the frozen registration or recovery proof-of-possession.
-    pub fn validate_unit_local_signer_resolution(&self) -> Result<()> {
-        if self.signer_resolution_evidence_ref.is_some() {
-            return Err(WireError::Protocol(
-                "unit-local producer proof must omit signer_resolution_evidence_ref".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-
     /// Deserialize an inbound Proof after canonical JSON ingress checks
     /// (NFC strings, duplicate keys, number profile).
     pub fn from_canonical_json_slice(bytes: &[u8]) -> Result<Self> {
@@ -1606,7 +1576,6 @@ impl ProducerEventProof {
     /// Build the canonical **proof binding object** that the detached JWS
     /// signs (encoding.md §6 / event-and-patch.md §3): a canonical-JSON
     /// object over `{event_digest, actor_id, verification_method,
-    /// signer_resolution_evidence_ref,
     /// created_at, domain?, audience?}`.
     ///
     /// The detached-JWS payload MUST be these bytes — **not** the raw
@@ -1659,12 +1628,6 @@ impl ProducerEventProof {
             "verification_method".to_owned(),
             Value::String(self.verification_method.as_str().to_owned()),
         );
-        if let Some(evidence_ref) = &self.signer_resolution_evidence_ref {
-            obj.insert(
-                "signer_resolution_evidence_ref".to_owned(),
-                Value::String(evidence_ref.as_ref().to_owned()),
-            );
-        }
         obj.insert(
             "created_at".to_owned(),
             Value::String(canonical::format_timestamp_canonical(self.created_at)),

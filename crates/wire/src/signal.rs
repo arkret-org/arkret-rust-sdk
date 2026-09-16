@@ -1,7 +1,7 @@
 //! Signal Extension envelope (`zh/sync/signal.md`).
 //!
-//! A Signal is a peer of Event and Device Message, not a subtype: an Event is a
-//! durable signed fact that enters the reducer and federates, while a Signal is
+//! A Signal is a peer of Event, not a subtype: an Event is a
+//! durable signed fact committed by the governance Station, while a Signal is
 //! a momentary encrypted announcement with no durable effect.
 //!
 //! There is exactly one encrypted envelope and one live rail. There is no
@@ -13,8 +13,7 @@
 //! the sender sequence live inside `encrypted_payload` and are never
 //! reconstructible from the outer header.
 //!
-//! Device verification, secret distribution and history recovery do NOT
-//! belong here — they use `DeviceMessageEnvelope` and its reliable queue.
+//! Device verification and MLS Welcome delivery do not belong here.
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,7 +26,7 @@ use crate::generated::ProofContextId;
 use crate::primitives::Audience;
 use crate::{
     AccountId, ActorId, Base64UrlString, DeviceId, Did, DidUrl, EventId, ExporterLabelId, Hash,
-    RealmId, SealId, canonical, project_did_to_core_id,
+    RealmCommitId, RealmId, canonical, project_did_to_core_id,
 };
 
 /// Construction identifier of the v1 Signal payload.
@@ -145,7 +144,7 @@ pub struct SignalKeyRef {
 /// §10.2). Its canonical bytes are the AEAD AAD, and its digest is what
 /// travels as [`SignalEncryptedPayload::aad_digest`].
 ///
-/// Every member is fixed before the AEAD seal runs, which is the whole point
+/// Every member is fixed before AEAD encryption runs, which is the whole point
 /// of §10.2: nothing that depends on the AEAD output (ciphertext digest, the
 /// `aad_digest` itself, `envelope_digest`, the proof) may enter the AAD, so a
 /// sender can build the AAD without having encrypted anything yet. The one
@@ -162,7 +161,9 @@ pub struct SignalAeadBinding<'a> {
     pub scope_ref: &'a ScopeRef,
     pub sender_actor_id: &'a ActorId,
     pub sender_device_id: Option<&'a DeviceId>,
-    pub seal_ref: &'a SealId,
+    /// Exact head of this scope's independent commit stream used for current
+    /// sender authorization.
+    pub stream_head_ref: &'a RealmCommitId,
     pub signal_class: SignalClass,
     pub sent_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
@@ -251,8 +252,8 @@ impl SignalAeadBinding<'_> {
             );
         }
         object.insert(
-            "seal_ref".to_owned(),
-            Value::String(self.seal_ref.as_str().to_owned()),
+            "stream_head_ref".to_owned(),
+            Value::String(self.stream_head_ref.as_str().to_owned()),
         );
         object.insert(
             "signal_class".to_owned(),
@@ -319,8 +320,7 @@ pub struct SignalProof {
 
 /// Encrypted-only broadcast Signal envelope.
 ///
-/// It is never a durable Event: it advances no `actor_seq`, enters no Seal
-/// coverage or `state_root`, and produces no reducer state.
+/// It is never a durable Event and never enters an authority commit stream.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -334,7 +334,7 @@ pub struct SignalEnvelope {
         deserialize_with = "deserialize_present_proof_value"
     )]
     pub sender_device_id: Option<DeviceId>,
-    pub seal_ref: SealId,
+    pub stream_head_ref: RealmCommitId,
     pub signal_class: SignalClass,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub sent_at: DateTime<Utc>,
@@ -393,7 +393,7 @@ impl SignalEnvelope {
             scope_ref: &self.scope_ref,
             sender_actor_id: &self.sender_actor_id,
             sender_device_id: self.sender_device_id.as_ref(),
-            seal_ref: &self.seal_ref,
+            stream_head_ref: &self.stream_head_ref,
             signal_class: self.signal_class,
             sent_at: self.sent_at,
             expires_at: self.expires_at,
@@ -520,7 +520,7 @@ impl SignalEnvelope {
     /// Every check the sender, ingress, relay and receiver share, except the
     /// signature verification and the current-directory device authorization
     /// lookup, which need key material and accepted state. The two are separate
-    /// state domains: `seal_ref` selects the Realm/scope basis only, never the
+    /// state domains: `stream_head_ref` selects the Realm/scope basis only, never the
     /// device frontier (`signal.md` §1).
     ///
     /// Notably absent by design: any inspection of a product `signal_kind`,
@@ -820,7 +820,7 @@ mod tests {
             scope_ref: ScopeRef::Realm { realm_id: realm() },
             sender_actor_id: actor(),
             sender_device_id: Some(device()),
-            seal_ref: SealId::new(format!("ak:seal:sha256:{}", "a".repeat(64))).unwrap(),
+            stream_head_ref: RealmCommitId::from_digest([0xaa; 32]),
             signal_class,
             sent_at: sent_at(),
             expires_at: sent_at() + Duration::seconds(ttl_seconds),

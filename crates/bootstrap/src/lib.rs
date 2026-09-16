@@ -1,50 +1,66 @@
-//! Arkret bootstrap: the closed genesis units a Realm may be created with.
+//! Producer-side builders for Arkret bootstrap Events.
 //!
-//! Three branches share one derivation path — the self-principal PCR bootstrap
-//! unit ([`self_principal`]), its device-signed Seals ([`self_principal_seal`]),
-//! and the controller-delegated Agent PCR ([`agent`]) — plus
-//! the controller-owned provisioning drafts ([`agent_provision`]). Everything a
-//! bootstrap Event writes comes from the injected
-//! [`CellWriteProjector`][projection::CellWriteProjector]; see [`projection`]
-//! for why the evaluator is injected rather than linked.
+//! Bootstrap produces content-bound Events which a producer signs. The current
+//! governance Station validates those immutable Events and appends one
+//! [`arkret_wire::RealmCommit`] per Event to the appropriate independent Realm,
+//! Circle, or Sidecar stream.
 
 mod agent;
 mod agent_provision;
-mod projection;
 mod self_principal;
-mod self_principal_seal;
 #[cfg(test)]
 mod tests;
 
 pub use agent::{
-    AgentPcrControlMaterial, AgentPcrCreatePayloadInput, AgentPcrGenesisAuthority,
-    agent_pcr_genesis_control_unit, build_agent_pcr_bootstrap_seal, build_agent_pcr_create_payload,
-    materialize_agent_pcr_control,
+    AgentPcrCreateEventInput, AgentPcrCreatePayloadInput, build_agent_pcr_create,
+    build_agent_pcr_create_payload,
 };
 pub use agent_provision::{AgentProvisionIntentOptions, build_agent_provision_intent};
-pub use projection::{CellWriteProjector, expected_realm_create_cells};
 pub use self_principal::{
-    SelfPrincipalPcrCreateInput, build_self_principal_pcr_create,
-    build_self_principal_pcr_genesis_unit, validate_pcr_native_unit_authoring_checkpoint,
-    validate_self_principal_pcr_genesis_unit,
+    SelfPrincipalPcrCreateInput, build_identity_creation_events, build_self_principal_pcr_create,
+    validate_self_principal_pcr_create,
 };
-pub use self_principal_seal::build_self_principal_bootstrap_seal;
 
 pub const DID_INCEPTION_REF_ROLE: &str = "did_inception";
 
-// The Realm role markers are owned by the Realm model, next to the sibling
-// Direct Conversation role constants, so the profile id and the `purpose`
-// discriminator are each spelled exactly once in the SDK. Re-exported here
-// because this crate's public bootstrap API has always carried the profile id.
-pub use arkret_models_collaboration::objects::realm::PRINCIPAL_CONTROL_PURPOSE;
-// The canonical `cell_subject: null` cell ids live in `arkret_wire::cell`, the
-// lowest crate that owns cell identity, so every consumer (this crate, soland's
-// reducer and its HTTP proof path) spells them once. The Realm role
-// classification (`principal_control`, `collaboration`, ...) is a prose term
-// only (`models/realm-and-space.md` section 2.8.3) and MUST NOT appear in a cell
-// id: doing so both forks the `state_root` leaf set and turns the per-Realm
-// genesis singleton into a deployment-wide shared key.
-pub use arkret_wire::{
-    REALM_AUTHORITY_ROOT_CELL, REALM_CREATE_CELL, REALM_GENESIS_CELL, REALM_NOTARY_CELL,
-    REALM_PROFILE_CELL, REALM_REDUCER_PROFILE_CELL,
-};
+#[allow(clippy::too_many_arguments)]
+fn author_event(
+    kind: arkret_wire::EventKind,
+    scope_ref: arkret_wire::ScopeRef,
+    actor_id: arkret_wire::ActorId,
+    executed_by: Option<arkret_wire::ActorId>,
+    authorization_ref: Option<arkret_wire::AuthorizationRef>,
+    created_at: chrono::DateTime<chrono::Utc>,
+    refs: Vec<arkret_wire::EventRef>,
+    payload: serde_json::Value,
+) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
+    let serde_json::Value::Object(payload) = payload else {
+        return Err(arkret_wire::WireError::Protocol(
+            "bootstrap Event payload must serialize as an object".to_owned(),
+        ));
+    };
+    let placeholder =
+        arkret_wire::EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0; 32]);
+    let realm_id = scope_ref
+        .realm_id_opt()
+        .cloned()
+        .unwrap_or_else(|| arkret_wire::RealmId::from_event_id(&placeholder));
+    arkret_wire::AuthoredEvent::finalize_with_digest_suite(
+        arkret_wire::Event {
+            event_id: placeholder,
+            kind,
+            realm_id,
+            scope_ref,
+            actor_id,
+            executed_by,
+            authorization_ref,
+            applet_id: None,
+            external_ref: None,
+            created_at: arkret_canonical::normalize_timestamp_canonical(created_at),
+            refs,
+            payload: payload.into_iter().collect(),
+            proofs: Vec::new(),
+        },
+        arkret_canonical::DigestSuite::Sha256,
+    )
+}

@@ -66,9 +66,5 @@ serde_json = { workspace = true }
 harness = false
 name = "proof_verify"
 
-[[test]]
-name = "history_source_signing"
-required-features = ["collaboration"]
-
 [lints]
 workspace = true

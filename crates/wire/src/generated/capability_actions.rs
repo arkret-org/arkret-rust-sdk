@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/capability-action-registry.json; version=2026-09-12.5;
-//! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Entries: registered=162
+//! Input: registry/capability-action-registry.json; version=2026-09-16.6;
+//! sha256=13c96ab4d78bc99611786aea6e71606e64c88f57ad50ee8c0f94707409a6452a Entries: registered=156
 
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,6 @@ pub enum CapabilityActionId {
     ContainerMoveItem,
     ContainerRebalance,
     EventRead,
-    ForkResolution,
     InviteAccept,
     InviteCancel,
     InviteClaim,
@@ -72,10 +71,6 @@ pub enum CapabilityActionId {
     MessageStreamSend,
     MlsCommit,
     MlsGenesis,
-    MlsKeypackage,
-    MlsProposal,
-    MlsWelcome,
-    MlsWelcomeOwnDevice,
     ModerationDecision,
     ModerationDecisionLift,
     MorphArchive,
@@ -107,11 +102,11 @@ pub enum CapabilityActionId {
     RealmAdmin,
     RealmAlias,
     RealmArchive,
-    RealmAuthorityReset,
     RealmCreate,
     RealmDestroy,
     RealmDiscover,
     RealmFreeze,
+    RealmGovernanceStationChange,
     RealmLink,
     RealmMediaService,
     RealmNotificationAudit,
@@ -123,7 +118,6 @@ pub enum CapabilityActionId {
     RealmSearchPolicy,
     RealmSetDefaultStrand,
     RealmTombstone,
-    RealmUpgrade,
     ReceiptBroadcast,
     RelationCreate,
     RelationResolve,
@@ -218,7 +212,6 @@ impl CapabilityActionId {
         Self::ContainerMoveItem,
         Self::ContainerRebalance,
         Self::EventRead,
-        Self::ForkResolution,
         Self::InviteAccept,
         Self::InviteCancel,
         Self::InviteClaim,
@@ -238,10 +231,6 @@ impl CapabilityActionId {
         Self::MessageStreamSend,
         Self::MlsCommit,
         Self::MlsGenesis,
-        Self::MlsKeypackage,
-        Self::MlsProposal,
-        Self::MlsWelcome,
-        Self::MlsWelcomeOwnDevice,
         Self::ModerationDecision,
         Self::ModerationDecisionLift,
         Self::MorphArchive,
@@ -273,11 +262,11 @@ impl CapabilityActionId {
         Self::RealmAdmin,
         Self::RealmAlias,
         Self::RealmArchive,
-        Self::RealmAuthorityReset,
         Self::RealmCreate,
         Self::RealmDestroy,
         Self::RealmDiscover,
         Self::RealmFreeze,
+        Self::RealmGovernanceStationChange,
         Self::RealmLink,
         Self::RealmMediaService,
         Self::RealmNotificationAudit,
@@ -289,7 +278,6 @@ impl CapabilityActionId {
         Self::RealmSearchPolicy,
         Self::RealmSetDefaultStrand,
         Self::RealmTombstone,
-        Self::RealmUpgrade,
         Self::ReceiptBroadcast,
         Self::RelationCreate,
         Self::RelationResolve,
@@ -382,7 +370,6 @@ impl CapabilityActionId {
     pub const CONTAINER_MOVE_ITEM: &'static str = "ak.container.move_item";
     pub const CONTAINER_REBALANCE: &'static str = "ak.container.rebalance";
     pub const EVENT_READ: &'static str = "ak.event.read";
-    pub const FORK_RESOLUTION: &'static str = "ak.fork.resolution";
     pub const INVITE_ACCEPT: &'static str = "ak.invite.accept";
     pub const INVITE_CANCEL: &'static str = "ak.invite.cancel";
     pub const INVITE_CLAIM: &'static str = "ak.invite.claim";
@@ -402,10 +389,6 @@ impl CapabilityActionId {
     pub const MESSAGE_STREAM_SEND: &'static str = "ak.message.stream.send";
     pub const MLS_COMMIT: &'static str = "ak.mls.commit";
     pub const MLS_GENESIS: &'static str = "ak.mls.genesis";
-    pub const MLS_KEYPACKAGE: &'static str = "ak.mls.keypackage";
-    pub const MLS_PROPOSAL: &'static str = "ak.mls.proposal";
-    pub const MLS_WELCOME: &'static str = "ak.mls.welcome";
-    pub const MLS_WELCOME_OWN_DEVICE: &'static str = "ak.mls.welcome.own_device";
     pub const MODERATION_DECISION: &'static str = "ak.moderation.decision";
     pub const MODERATION_DECISION_LIFT: &'static str = "ak.moderation.decision.lift";
     pub const MORPH_ARCHIVE: &'static str = "ak.morph.archive";
@@ -437,11 +420,11 @@ impl CapabilityActionId {
     pub const REALM_ADMIN: &'static str = "ak.realm.admin";
     pub const REALM_ALIAS: &'static str = "ak.realm.alias";
     pub const REALM_ARCHIVE: &'static str = "ak.realm.archive";
-    pub const REALM_AUTHORITY_RESET: &'static str = "ak.realm.authority.reset";
     pub const REALM_CREATE: &'static str = "ak.realm.create";
     pub const REALM_DESTROY: &'static str = "ak.realm.destroy";
     pub const REALM_DISCOVER: &'static str = "ak.realm.discover";
     pub const REALM_FREEZE: &'static str = "ak.realm.freeze";
+    pub const REALM_GOVERNANCE_STATION_CHANGE: &'static str = "ak.realm.governance_station.change";
     pub const REALM_LINK: &'static str = "ak.realm.link";
     pub const REALM_MEDIA_SERVICE: &'static str = "ak.realm.media_service";
     pub const REALM_NOTIFICATION_AUDIT: &'static str = "ak.realm.notification.audit";
@@ -454,7 +437,6 @@ impl CapabilityActionId {
     pub const REALM_SEARCH_POLICY: &'static str = "ak.realm.search_policy";
     pub const REALM_SET_DEFAULT_STRAND: &'static str = "ak.realm.set_default_strand";
     pub const REALM_TOMBSTONE: &'static str = "ak.realm.tombstone";
-    pub const REALM_UPGRADE: &'static str = "ak.realm.upgrade";
     pub const RECEIPT_BROADCAST: &'static str = "ak.receipt.broadcast";
     pub const RELATION_CREATE: &'static str = "ak.relation.create";
     pub const RELATION_RESOLVE: &'static str = "ak.relation.resolve";
@@ -555,7 +537,6 @@ impl CapabilityActionId {
             Self::ContainerMoveItem => Self::CONTAINER_MOVE_ITEM,
             Self::ContainerRebalance => Self::CONTAINER_REBALANCE,
             Self::EventRead => Self::EVENT_READ,
-            Self::ForkResolution => Self::FORK_RESOLUTION,
             Self::InviteAccept => Self::INVITE_ACCEPT,
             Self::InviteCancel => Self::INVITE_CANCEL,
             Self::InviteClaim => Self::INVITE_CLAIM,
@@ -575,10 +556,6 @@ impl CapabilityActionId {
             Self::MessageStreamSend => Self::MESSAGE_STREAM_SEND,
             Self::MlsCommit => Self::MLS_COMMIT,
             Self::MlsGenesis => Self::MLS_GENESIS,
-            Self::MlsKeypackage => Self::MLS_KEYPACKAGE,
-            Self::MlsProposal => Self::MLS_PROPOSAL,
-            Self::MlsWelcome => Self::MLS_WELCOME,
-            Self::MlsWelcomeOwnDevice => Self::MLS_WELCOME_OWN_DEVICE,
             Self::ModerationDecision => Self::MODERATION_DECISION,
             Self::ModerationDecisionLift => Self::MODERATION_DECISION_LIFT,
             Self::MorphArchive => Self::MORPH_ARCHIVE,
@@ -610,11 +587,11 @@ impl CapabilityActionId {
             Self::RealmAdmin => Self::REALM_ADMIN,
             Self::RealmAlias => Self::REALM_ALIAS,
             Self::RealmArchive => Self::REALM_ARCHIVE,
-            Self::RealmAuthorityReset => Self::REALM_AUTHORITY_RESET,
             Self::RealmCreate => Self::REALM_CREATE,
             Self::RealmDestroy => Self::REALM_DESTROY,
             Self::RealmDiscover => Self::REALM_DISCOVER,
             Self::RealmFreeze => Self::REALM_FREEZE,
+            Self::RealmGovernanceStationChange => Self::REALM_GOVERNANCE_STATION_CHANGE,
             Self::RealmLink => Self::REALM_LINK,
             Self::RealmMediaService => Self::REALM_MEDIA_SERVICE,
             Self::RealmNotificationAudit => Self::REALM_NOTIFICATION_AUDIT,
@@ -626,7 +603,6 @@ impl CapabilityActionId {
             Self::RealmSearchPolicy => Self::REALM_SEARCH_POLICY,
             Self::RealmSetDefaultStrand => Self::REALM_SET_DEFAULT_STRAND,
             Self::RealmTombstone => Self::REALM_TOMBSTONE,
-            Self::RealmUpgrade => Self::REALM_UPGRADE,
             Self::ReceiptBroadcast => Self::RECEIPT_BROADCAST,
             Self::RelationCreate => Self::RELATION_CREATE,
             Self::RelationResolve => Self::RELATION_RESOLVE,
@@ -728,7 +704,6 @@ impl CapabilityActionId {
             Self::CONTAINER_MOVE_ITEM => Some(Self::ContainerMoveItem),
             Self::CONTAINER_REBALANCE => Some(Self::ContainerRebalance),
             Self::EVENT_READ => Some(Self::EventRead),
-            Self::FORK_RESOLUTION => Some(Self::ForkResolution),
             Self::INVITE_ACCEPT => Some(Self::InviteAccept),
             Self::INVITE_CANCEL => Some(Self::InviteCancel),
             Self::INVITE_CLAIM => Some(Self::InviteClaim),
@@ -748,10 +723,6 @@ impl CapabilityActionId {
             Self::MESSAGE_STREAM_SEND => Some(Self::MessageStreamSend),
             Self::MLS_COMMIT => Some(Self::MlsCommit),
             Self::MLS_GENESIS => Some(Self::MlsGenesis),
-            Self::MLS_KEYPACKAGE => Some(Self::MlsKeypackage),
-            Self::MLS_PROPOSAL => Some(Self::MlsProposal),
-            Self::MLS_WELCOME => Some(Self::MlsWelcome),
-            Self::MLS_WELCOME_OWN_DEVICE => Some(Self::MlsWelcomeOwnDevice),
             Self::MODERATION_DECISION => Some(Self::ModerationDecision),
             Self::MODERATION_DECISION_LIFT => Some(Self::ModerationDecisionLift),
             Self::MORPH_ARCHIVE => Some(Self::MorphArchive),
@@ -783,11 +754,11 @@ impl CapabilityActionId {
             Self::REALM_ADMIN => Some(Self::RealmAdmin),
             Self::REALM_ALIAS => Some(Self::RealmAlias),
             Self::REALM_ARCHIVE => Some(Self::RealmArchive),
-            Self::REALM_AUTHORITY_RESET => Some(Self::RealmAuthorityReset),
             Self::REALM_CREATE => Some(Self::RealmCreate),
             Self::REALM_DESTROY => Some(Self::RealmDestroy),
             Self::REALM_DISCOVER => Some(Self::RealmDiscover),
             Self::REALM_FREEZE => Some(Self::RealmFreeze),
+            Self::REALM_GOVERNANCE_STATION_CHANGE => Some(Self::RealmGovernanceStationChange),
             Self::REALM_LINK => Some(Self::RealmLink),
             Self::REALM_MEDIA_SERVICE => Some(Self::RealmMediaService),
             Self::REALM_NOTIFICATION_AUDIT => Some(Self::RealmNotificationAudit),
@@ -799,7 +770,6 @@ impl CapabilityActionId {
             Self::REALM_SEARCH_POLICY => Some(Self::RealmSearchPolicy),
             Self::REALM_SET_DEFAULT_STRAND => Some(Self::RealmSetDefaultStrand),
             Self::REALM_TOMBSTONE => Some(Self::RealmTombstone),
-            Self::REALM_UPGRADE => Some(Self::RealmUpgrade),
             Self::RECEIPT_BROADCAST => Some(Self::ReceiptBroadcast),
             Self::RELATION_CREATE => Some(Self::RelationCreate),
             Self::RELATION_RESOLVE => Some(Self::RelationResolve),
@@ -876,1180 +846,5 @@ impl<'de> Deserialize<'de> for CapabilityActionId {
         let raw = String::deserialize(deserializer)?;
         Self::from_wire(&raw)
             .ok_or_else(|| serde::de::Error::custom(format!("unknown capability action id: {raw}")))
-    }
-}
-
-// Authorization coordinates and combination bounds come from contract-registry.json.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuthorizationDependencyKind {
-    Accountability,
-    AgentActive,
-    AgentKeyAuthorization,
-    AppletRegistration,
-    CapabilityGrant,
-    CircleActive,
-    ConsentGrant,
-    ContactDirectionScope,
-    DeviceAuthorization,
-    DeviceGeneration,
-    MemberJoin,
-    MlsLeaf,
-    RealmAuthorityGeneration,
-    RealmControllerAssignment,
-    RealmNonterminal,
-    RealmUnarchived,
-    RealmUnfrozen,
-}
-
-impl AuthorizationDependencyKind {
-    pub const ALL: &'static [Self] = &[
-        Self::Accountability,
-        Self::AgentActive,
-        Self::AgentKeyAuthorization,
-        Self::AppletRegistration,
-        Self::CapabilityGrant,
-        Self::CircleActive,
-        Self::ConsentGrant,
-        Self::ContactDirectionScope,
-        Self::DeviceAuthorization,
-        Self::DeviceGeneration,
-        Self::MemberJoin,
-        Self::MlsLeaf,
-        Self::RealmAuthorityGeneration,
-        Self::RealmControllerAssignment,
-        Self::RealmNonterminal,
-        Self::RealmUnarchived,
-        Self::RealmUnfrozen,
-    ];
-
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Accountability => "accountability",
-            Self::AgentActive => "agent_active",
-            Self::AgentKeyAuthorization => "agent_key_authorization",
-            Self::AppletRegistration => "applet_registration",
-            Self::CapabilityGrant => "capability_grant",
-            Self::CircleActive => "circle_active",
-            Self::ConsentGrant => "consent_grant",
-            Self::ContactDirectionScope => "contact_direction_scope",
-            Self::DeviceAuthorization => "device_authorization",
-            Self::DeviceGeneration => "device_generation",
-            Self::MemberJoin => "member_join",
-            Self::MlsLeaf => "mls_leaf",
-            Self::RealmAuthorityGeneration => "realm_authority_generation",
-            Self::RealmControllerAssignment => "realm_controller_assignment",
-            Self::RealmNonterminal => "realm_nonterminal",
-            Self::RealmUnarchived => "realm_unarchived",
-            Self::RealmUnfrozen => "realm_unfrozen",
-        }
-    }
-
-    pub fn from_wire(value: &str) -> Option<Self> {
-        match value {
-            "accountability" => Some(Self::Accountability),
-            "agent_active" => Some(Self::AgentActive),
-            "agent_key_authorization" => Some(Self::AgentKeyAuthorization),
-            "applet_registration" => Some(Self::AppletRegistration),
-            "capability_grant" => Some(Self::CapabilityGrant),
-            "circle_active" => Some(Self::CircleActive),
-            "consent_grant" => Some(Self::ConsentGrant),
-            "contact_direction_scope" => Some(Self::ContactDirectionScope),
-            "device_authorization" => Some(Self::DeviceAuthorization),
-            "device_generation" => Some(Self::DeviceGeneration),
-            "member_join" => Some(Self::MemberJoin),
-            "mls_leaf" => Some(Self::MlsLeaf),
-            "realm_authority_generation" => Some(Self::RealmAuthorityGeneration),
-            "realm_controller_assignment" => Some(Self::RealmControllerAssignment),
-            "realm_nonterminal" => Some(Self::RealmNonterminal),
-            "realm_unarchived" => Some(Self::RealmUnarchived),
-            "realm_unfrozen" => Some(Self::RealmUnfrozen),
-            _ => None,
-        }
-    }
-}
-
-impl std::fmt::Display for AuthorizationDependencyKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str((*self).as_str())
-    }
-}
-
-impl AuthorizationDependencyKind {
-    pub fn permits_scope(self, scope: &crate::ScopeRef) -> bool {
-        match self {
-            Self::Accountability => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::AgentActive => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::AgentKeyAuthorization => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::AppletRegistration => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::CapabilityGrant => matches!(
-                scope,
-                crate::ScopeRef::Realm { .. }
-                    | crate::ScopeRef::Circle { .. }
-                    | crate::ScopeRef::Sidecar { .. }
-            ),
-            Self::CircleActive => matches!(scope, crate::ScopeRef::Circle { .. }),
-            Self::ConsentGrant => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::ContactDirectionScope => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::DeviceAuthorization => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::DeviceGeneration => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::MemberJoin => matches!(
-                scope,
-                crate::ScopeRef::Realm { .. } | crate::ScopeRef::Circle { .. }
-            ),
-            Self::MlsLeaf => matches!(
-                scope,
-                crate::ScopeRef::Realm { .. }
-                    | crate::ScopeRef::Circle { .. }
-                    | crate::ScopeRef::Sidecar { .. }
-            ),
-            Self::RealmAuthorityGeneration => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::RealmControllerAssignment => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::RealmNonterminal => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::RealmUnarchived => matches!(scope, crate::ScopeRef::Realm { .. }),
-            Self::RealmUnfrozen => matches!(scope, crate::ScopeRef::Realm { .. }),
-        }
-    }
-
-    pub fn permits_action(self, action: CapabilityActionId) -> bool {
-        match self {
-            Self::Accountability => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::AgentActive => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::AgentKeyAuthorization => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::AppletRegistration => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::CapabilityGrant => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::CircleActive => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::ConsentGrant => matches!(action, CapabilityActionId::CallJoin),
-            Self::ContactDirectionScope => matches!(
-                action,
-                CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-            ),
-            Self::DeviceAuthorization => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::DeviceGeneration => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::MemberJoin => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::MlsLeaf => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::RealmAuthorityGeneration => matches!(
-                action,
-                CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::RealmControllerAssignment => matches!(
-                action,
-                CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::RealmNonterminal => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::RealmUnarchived => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-            Self::RealmUnfrozen => matches!(
-                action,
-                CapabilityActionId::AgentSidecarExchangeControl
-                    | CapabilityActionId::AgentSidecarPublish
-                    | CapabilityActionId::AgentSidecarWrite
-                    | CapabilityActionId::AppletBridgeError
-                    | CapabilityActionId::AuditAccessed
-                    | CapabilityActionId::CallJoin
-                    | CapabilityActionId::CallModerate
-                    | CapabilityActionId::CallRecord
-                    | CapabilityActionId::CallScreenShare
-                    | CapabilityActionId::CallTranscribe
-                    | CapabilityActionId::CircleManage
-                    | CapabilityActionId::ContainerMoveItem
-                    | CapabilityActionId::ContainerRebalance
-                    | CapabilityActionId::MessageCreate
-                    | CapabilityActionId::MessageMentionBroadcast
-                    | CapabilityActionId::MessageRedact
-                    | CapabilityActionId::MessageRedactOwn
-                    | CapabilityActionId::MessageRevise
-                    | CapabilityActionId::MessageReviseOwn
-                    | CapabilityActionId::MlsCommit
-                    | CapabilityActionId::MlsProposal
-                    | CapabilityActionId::MlsWelcome
-                    | CapabilityActionId::MlsWelcomeOwnDevice
-                    | CapabilityActionId::MorphArchive
-                    | CapabilityActionId::MorphCreate
-                    | CapabilityActionId::MorphRestore
-                    | CapabilityActionId::MorphStageSet
-                    | CapabilityActionId::MorphUpdate
-                    | CapabilityActionId::ObjectArchive
-                    | CapabilityActionId::ObjectRestore
-                    | CapabilityActionId::ObjectStageSet
-                    | CapabilityActionId::PinAdd
-                    | CapabilityActionId::PinRemove
-                    | CapabilityActionId::PinReorder
-                    | CapabilityActionId::PolicyAction
-                    | CapabilityActionId::PolicyManage
-                    | CapabilityActionId::ReactionAdd
-                    | CapabilityActionId::ReactionRemove
-                    | CapabilityActionId::RealmAdmin
-                    | CapabilityActionId::RealmOwner
-                    | CapabilityActionId::RealmProfile
-                    | CapabilityActionId::RealmSetDefaultStrand
-                    | CapabilityActionId::RelationCreate
-                    | CapabilityActionId::RelationResolve
-                    | CapabilityActionId::RelationTombstone
-                    | CapabilityActionId::RelationUpdate
-                    | CapabilityActionId::RsvpSet
-                    | CapabilityActionId::SpaceArchive
-                    | CapabilityActionId::SpaceCreate
-                    | CapabilityActionId::SpaceParent
-                    | CapabilityActionId::SpaceRestore
-                    | CapabilityActionId::SpaceTombstone
-                    | CapabilityActionId::SpaceUpdate
-                    | CapabilityActionId::StrandArchive
-                    | CapabilityActionId::StrandCreate
-                    | CapabilityActionId::StrandMove
-                    | CapabilityActionId::StrandReorder
-                    | CapabilityActionId::StrandRestore
-                    | CapabilityActionId::StrandStageSet
-                    | CapabilityActionId::StrandTracksUpdate
-                    | CapabilityActionId::StrandUpdate
-                    | CapabilityActionId::StrandWatchSet
-                    | CapabilityActionId::StrandWatchSetOthers
-                    | CapabilityActionId::ViewCreate
-                    | CapabilityActionId::ViewReconcile
-                    | CapabilityActionId::ViewUpdate
-            ),
-        }
     }
 }

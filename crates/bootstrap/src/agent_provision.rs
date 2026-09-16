@@ -1,35 +1,20 @@
-//! Controller-owned agent provisioning Event authoring.
+//! Controller-owned Agent provisioning Event authoring.
 
-use arkret_event_draft::TypedEventDraft;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentProvisionAccountabilityScope, AgentProvisionPayload, AgentProvisionSchema,
 };
 use arkret_models_identity::handle::HandleVisibility;
-use arkret_wire::{
-    AccountId, ActorId, DidCoreId, DidUrl, Hash, ProfileRef, RealmId, Result, SchemaId, ScopeRef,
-    SealBasis, WireError, event_spec,
-};
+use arkret_wire::{AccountId, ActorId, DidCoreId, DidUrl, Hash, RealmId, ScopeRef, WireError};
 use chrono::{DateTime, Utc};
 
-/// Envelope facts supplied before the ordinary submit pipeline authors and
-/// signs the single controller-authored provision Event.
-///
-/// The actor-chain position and HLC are deliberately absent: they belong to the
-/// submit path that reads the accepted frontier, not to a builder.
 #[derive(Clone, Debug)]
 pub struct AgentProvisionIntentOptions {
-    /// Station for the controller authority pair that admits the
-    /// provision Event. This is envelope identity, not the controller DID.
     pub controller_station_id: DidCoreId,
     pub created_at: DateTime<Utc>,
-    pub seal_basis: Option<SealBasis>,
 }
 
-/// Draft the single closed `ak.agent.provision` registered by v1.
-///
-/// The payload carries no nested proof. Callers author this intent and attach
-/// the controller's ordinary Event proof and publication evidence through the
-/// standard submit pipeline.
+/// Draft one producer Event. Its Realm-stream position is assigned only by the
+/// current governance Station after validation.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_provision_intent(
     controller_principal_id: &DidCoreId,
@@ -42,7 +27,7 @@ pub fn build_agent_provision_intent(
     selector_visibility: HandleVisibility,
     selector_audience: Option<String>,
     options: AgentProvisionIntentOptions,
-) -> Result<arkret_event_draft::EventIntent> {
+) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
     let created_at = arkret_canonical::normalize_timestamp_canonical(options.created_at);
     let payload = AgentProvisionPayload {
         schema: AgentProvisionSchema::V1,
@@ -58,23 +43,22 @@ pub fn build_agent_provision_intent(
         created_at,
     };
     payload.validate()?;
-    let controller_account_id = AccountId::new(
-        controller_principal_id.clone(),
-        options.controller_station_id,
-    );
-    let mut draft = TypedEventDraft::<event_spec::AgentProvision>::new(
+    crate::author_event(
+        arkret_wire::EventKind::AgentProvision,
         ScopeRef::Realm {
             realm_id: controller_realm_id.clone(),
         },
-        ActorId::account(controller_account_id),
-        payload,
+        ActorId::account(AccountId::new(
+            controller_principal_id.clone(),
+            options.controller_station_id,
+        )),
+        None,
+        Some(
+            arkret_wire::AuthorizationRef::new(controller_authorization_ref.as_str())
+                .map_err(|error| WireError::Protocol(error.to_owned()))?,
+        ),
+        created_at,
+        Vec::new(),
+        serde_json::to_value(payload)?,
     )
-    .map_err(|error| WireError::Protocol(error.to_string()))?
-    .with_schema_profile_ref(ProfileRef::new(SchemaId::AGENT_PROVISION_V1).unwrap());
-    if let Some(seal_basis) = options.seal_basis {
-        draft = draft.with_seal_basis(seal_basis);
-    }
-    draft
-        .into_intent(created_at)
-        .map_err(|error| WireError::Protocol(error.to_string()))
 }

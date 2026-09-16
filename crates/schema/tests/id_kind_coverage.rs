@@ -47,13 +47,7 @@ fn newly_covered_producer_ids_reject_noncanonical_wire_values() {
             assert!(!accepts::<$ty>("01987de1-3914-7000-8000-000000000001"));
         };
     }
-    check!(arkret_identifiers::HistoryRequestId, "ak:history_request:");
-    check!(
-        arkret_identifiers::HistoryResponseId,
-        "ak:history_response:"
-    );
     check!(arkret_identifiers::OperationId, "ak:operation:");
-    check!(arkret_identifiers::RecoveryKeyId, "ak:recovery_key:");
 }
 
 #[test]

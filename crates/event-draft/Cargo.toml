@@ -1,7 +1,7 @@
 [package]
 authors = ["Chris Young <chris@sonc.ai>"]
 categories = ["api-bindings", "data-structures"]
-description = "Arkret v1 client-side event drafting: operation drafts, the operation envelope builder, the event-draft kind registry, and rank interval arithmetic."
+description = "Arkret v1 client-side drafting for minimal producer Events and local projections."
 edition = "2024"
 homepage = "https://github.com/arkret-org/arkret-rust-sdk"
 keywords = ["arkret", "operation", "draft", "protocol"]

@@ -1,6 +1,6 @@
 //! Canonical Account Authority issuer-record signing and verification.
 
-use arkret_models_collaboration::account_lifecycle::{
+use arkret_models_collaboration::account_status::{
     AccountStatusReceipt, AccountStatusRecord, UnsignedAccountStatusReceipt,
     UnsignedAccountStatusRecord,
 };
@@ -68,7 +68,7 @@ pub fn verify_account_status_receipt(
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::account_lifecycle::{
+    use arkret_models_collaboration::account_status::{
         UnsignedAccountStatusReceipt, UnsignedAccountStatusRecord,
     };
     use arkret_models_collaboration::objects::account_status::AccountStatus;

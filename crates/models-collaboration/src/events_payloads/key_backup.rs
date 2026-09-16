@@ -25,9 +25,7 @@ struct UnsignedKeyBackupActiveSeriesAuthData {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyBackupActiveSeriesFrontierRef {
-    pub frontier_digest: Hash,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<SealId>,
+    pub commit_ref: CommittedEventRef,
     pub device_generation_ref: u64,
 }
 
@@ -76,8 +74,7 @@ impl UnsignedKeyBackupActiveSeries {
         active_series_id: BackupSeriesId,
         series_pointer_version: u64,
         previous_series_ids: Vec<BackupSeriesId>,
-        frontier_digest: Hash,
-        seal_ref: Option<SealId>,
+        commit_ref: CommittedEventRef,
         issued_at: DateTime<Utc>,
         verification_method: DidUrl,
         trust_anchor: ControllerBackupTrustAnchor,
@@ -118,8 +115,7 @@ impl UnsignedKeyBackupActiveSeries {
             series_pointer_version,
             previous_series_ids,
             frontier_ref: KeyBackupActiveSeriesFrontierRef {
-                frontier_digest,
-                seal_ref,
+                commit_ref,
                 device_generation_ref: trust_anchor.generation_ref,
             },
             issued_at,
@@ -184,16 +180,6 @@ impl KeyBackupActiveSeries {
             extra: self.extra.clone(),
         };
         unsigned.signing_payload_bytes()
-    }
-
-    /// Canonical CAS cell selected by `(actor_id, backup_kind)`.
-    pub fn cell_ref(&self) -> Result<CellRef> {
-        let actor_key = self.actor_id.canonical_key()?;
-        let subject = composite_subject(&[actor_key.as_str(), self.backup_kind.as_str()])?;
-        Ok(CellRef::new(format!(
-            "ak:cell:{}:{subject}",
-            CellFamilyId::KEY_BACKUP_ACTIVE_SERIES_V1
-        ))?)
     }
 }
 
@@ -381,55 +367,4 @@ fn valid_active_series_extension_key(key: &str) -> bool {
         && chars.all(|candidate| {
             candidate.is_ascii_lowercase() || candidate.is_ascii_digit() || candidate == '_'
         })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn unsigned_fixture() -> UnsignedKeyBackupActiveSeries {
-        UnsignedKeyBackupActiveSeries::new(
-            ActorId::service(DidCoreId::new("ak:did_core:web:alice.example").unwrap()),
-            BackupKind::MlsHistory,
-            BackupSeriesId::new("ak:backup_series:019a6760-0000-7000-8000-000000000001".to_owned())
-                .unwrap(),
-            1,
-            vec![],
-            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            Some(SealId::new(format!("ak:seal:sha256:{}", "b".repeat(64))).unwrap()),
-            DateTime::parse_from_rfc3339("2026-08-08T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            DidUrl::new("did:web:alice.example#device-1".to_owned()).unwrap(),
-            ControllerBackupTrustAnchor {
-                authorize_event_id: EventId::new(
-                    "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e".to_owned(),
-                )
-                .unwrap(),
-                generation_ref: 1,
-            },
-        )
-        .unwrap()
-    }
-
-    #[test]
-    fn active_series_signing_transcript_kat_is_stable_across_typestates() {
-        const EXPECTED: &str = concat!(
-            r#"{"active_series_id":"ak:backup_series:019a6760-0000-7000-8000-000000000001","actor_id":{"kind":"service","service_id":"ak:did_core:web:alice.example"},"auth_data":{"device_authorize_event_id":"ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e","signature_algorithm":"Ed25519","verification_method":"did:web:alice.example#device-1"},"backup_kind":"mls_history","frontier_ref":{"device_generation_ref":1,"frontier_digest":"sha256:"#,
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            r#"","seal_ref":"ak:seal:sha256:"#,
-            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-            r#""},"issued_at":"2026-08-08T00:00:00.000Z","previous_series_ids":[],"schema":"ak.schema.key_backup_active_series.v1","series_pointer_version":1}"#,
-        );
-        let unsigned = unsigned_fixture();
-        assert_eq!(
-            unsigned.signing_payload_bytes().unwrap(),
-            EXPECTED.as_bytes()
-        );
-
-        let signed = unsigned
-            .attach_signature(Base64UrlString::new("AQ".to_owned()).unwrap())
-            .unwrap();
-        assert_eq!(signed.signing_payload_bytes().unwrap(), EXPECTED.as_bytes());
-    }
 }

@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    AppletId, CircleId, DidCoreId, DidUrl, EventId, EventProofAudience, Hash, RealmId, ReasonCode,
-    SchemaId, WebOrigin, WireResourceSelector, XExtensionMap,
+    AppletId, CircleId, CommittedEventRef, DidCoreId, DidUrl, EventId, EventProofAudience, Hash,
+    RealmId, ReasonCode, SchemaId, WebOrigin, WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -123,7 +123,7 @@ pub struct E2eeEffect {
     pub mls_join_required: bool,
     pub plaintext_access: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorization_refs: Option<Vec<EventId>>,
+    pub authorization_refs: Option<Vec<CommittedEventRef>>,
 }
 
 /// Counterpart for
@@ -158,7 +158,7 @@ pub struct NamespaceConflict {
 pub struct WidgetEffect {
     pub widget_allowed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub policy_event_ref: Option<EventId>,
+    pub policy_event_ref: Option<CommittedEventRef>,
 }
 
 /// Counterpart for `spec/v1/artifacts/schemas/applet-package.schema.json#/$defs/delegation_policy`.

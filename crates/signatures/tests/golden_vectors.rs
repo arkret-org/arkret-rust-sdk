@@ -4,11 +4,11 @@
 //! These vectors pin the converged bytes that must not drift:
 //!
 //! 1. The detached-JWS protected header is exactly `{"alg":"Ed25519"}` across the ecosystem
-//!    (base64url `eyJhbGciOiJFZDI1NTE5In0`), matching spec §6, soland `move_seal_wire`, cotest and
-//!    teabay `sdk::jws`.
-//! 2. `Ed25519PayloadSigner` (Move/Seal signing) and the generic detached-JWS signer produce the
-//!    same signing input and same 64-byte signature for identical canonical bytes, proving the
-//!    historical JWS forks have converged.
+//!    (base64url `eyJhbGciOiJFZDI1NTE5In0`), matching spec §6 and downstream services. teabay
+//!    `sdk::jws`.
+//! 2. `Ed25519PayloadSigner` and the generic detached-JWS signer produce the same signing input and
+//!    same 64-byte signature for identical canonical bytes, proving the historical JWS forks have
+//!    converged.
 //! 3. base58btc (`arkret-canonical`, `bs58` backend) stays stable for the did:key Ed25519
 //!    multiencoding stack.
 //! 4. base64url (`arkret-canonical`) remains unpadded and URL-safe.
@@ -37,8 +37,7 @@ fn payload_signer_and_generic_detached_jws_signer_share_one_header_and_signature
     use arkret_identifiers::Did;
     use arkret_signatures::Ed25519PayloadSigner;
     use arkret_signatures::proof::{Ed25519DetachedJwsSigner, EventSigner};
-    use arkret_wire::DidUrl;
-    use arkret_wire::signer::PayloadSigner;
+    use arkret_wire::{DidUrl, PayloadSigner};
 
     let seed = [7u8; 32];
     let did = Did::new("did:web:alice.example".to_owned()).unwrap();

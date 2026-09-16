@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/authority-set-policy-registry.json; version=2026-09-11.1;
-//! sha256=71bad1d50f0d59f26b5962a576a9f46b5a62e2fe0b43de12e5193b2c98f150c9
+//! Input: registry/authority-set-policy-registry.json; version=2026-09-16.6;
+//! sha256=ea238a2ee4bb13a9513ee1349a92dbe9bc3542698d08d5cdb6878dbf5a30ebe2
 //! Entries: authority_sets=3
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

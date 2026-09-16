@@ -415,7 +415,7 @@ impl Problem {
     /// `ak.invite.create` hits an occupied Realm live-target slot.
     ///
     /// The rejection is atomic: the Event is not accepted, enters no canonical
-    /// history and derives no cell write, projection or notification.
+    /// history and derives no projection or notification.
     pub fn invite_live_target_occupied(
         detail: impl Into<String>,
         details: InviteLiveTargetOccupiedProblem,

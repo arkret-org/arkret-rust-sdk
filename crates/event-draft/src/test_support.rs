@@ -1,6 +1,6 @@
 //! Test-only raw projection fixtures.
 
-use arkret_wire::{DidCoreId, EventKind, Hlc, OperationId, OperationKind, RealmId, ScopeRef};
+use arkret_wire::{DidCoreId, EventKind, OperationId, OperationKind, RealmId, ScopeRef};
 use serde_json::Value;
 
 use crate::ProjectedEventOperation;
@@ -25,8 +25,6 @@ pub fn raw_projected_operation(
         ScopeRef::Realm { realm_id },
         actor.clone(),
         actor,
-        1,
-        Hlc::new("01970e589d21-0000-a13f9c2e").expect("fixed fixture HLC is valid"),
         fixture.payload,
     )
     .expect("raw fixture Event is valid");

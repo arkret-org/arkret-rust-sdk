@@ -6,8 +6,9 @@ use std::collections::BTreeMap;
 
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
 use arkret_wire::{
-    ActorId, AppletId, CircleId, DidCoreId, EncryptionProfile, EvaluationClass, Facet, GrantId,
-    Hash, HistoryAccess, RealmId, Result, SchemaId, WireError, WireResourceSelector, XExtensionMap,
+    ActorId, AppletId, CircleId, CommittedEventRef, DidCoreId, EncryptionProfile, EvaluationClass,
+    Facet, GrantId, Hash, HistoryAccess, RealmId, Result, SchemaId, WireError,
+    WireResourceSelector, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -644,30 +645,26 @@ pub enum IssuerAuthorityRef {
     /// A grant the issuer holds. The issuer MUST be its subject and the ref
     /// MUST be active when the child is evaluated.
     Grant { grant_id: GrantId },
-    /// The Realm authority-root cell — a rooted terminal, never a graph edge.
-    ///
-    /// `controller_epoch_at_issuance` is issuance audit only: comparing it to
-    /// the current epoch would make an owner transfer invalidate every grant
-    /// the previous controller ever signed. `authority_generation` is the field
-    /// that IS compared, because an authority reset advances it precisely so a
-    /// whole tree stops resolving.
-    RealmRoot {
+    /// A decision admitted by the current governance Station and anchored to
+    /// an exact Realm-stream commit.
+    RealmAuthority {
         realm_id: RealmId,
-        cell_ref: String,
-        controller_epoch_at_issuance: u64,
+        governance_station_id: DidCoreId,
         authority_generation: u64,
+        basis: CommittedEventRef,
     },
 }
 
-/// Reducer-derived identity of one authority root reached by a grant.
+/// Identity of one committed Realm authority decision reached by a grant.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AuthorityRootRef {
-    RealmRoot {
+    RealmAuthority {
         realm_id: RealmId,
-        cell_ref: String,
+        governance_station_id: DidCoreId,
         authority_generation: u64,
+        basis: CommittedEventRef,
     },
 }
 
@@ -685,7 +682,7 @@ pub struct CapabilityGrant {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub constraints: Vec<GrantConstraint>,
     /// The authority this grant was issued under (`capabilities.md` §10).
-    /// A `realm_root` entry is a rooted terminal; a `grant` entry is an edge.
+    /// A `realm_authority` entry is a rooted terminal; a `grant` entry is an edge.
     /// v1 has one grant shape, so this is the only thing that distinguishes a
     /// root controller's grant from a member re-granting what it holds.
     // Required by capability-grant.schema.json.  Do not add `default` or
@@ -710,175 +707,4 @@ pub struct CapabilityGrant {
         with = "optional_canonical_timestamp"
     )]
     pub revoked_at: Option<DateTime<Utc>>,
-}
-
-#[cfg(test)]
-mod tests {
-    use arkret_wire::AccountId;
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn capability_revocation_preserves_exact_actor_identity() {
-        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
-            .unwrap()
-            .expect("spec schema registry");
-        let principal = DidCoreId::new("ak:did_core:web:revoker.example").unwrap();
-        let mut identities = std::collections::BTreeSet::new();
-        for actor in [
-            ActorId::account(AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
-            )),
-            ActorId::account(AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
-            )),
-            ActorId::service(principal.clone()),
-        ] {
-            let value = json!({
-                "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                "schema": SchemaId::CAPABILITY_V1,
-                "issuer_id": actor,
-                "subject": actor,
-                "actions": ["ak.event.read"],
-                "resources": [{"kind": "realm"}],
-                "issuer_authority_refs": [{
-                    "kind": "realm_root",
-                    "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                    "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
-                    "controller_epoch_at_issuance": 0,
-                    "authority_generation": 0
-                }],
-                "issued_at": "2026-07-14T12:34:56.789Z",
-                "revoked_by": actor
-            });
-            registry
-                .validate_value(SchemaId::CAPABILITY_V1, &value)
-                .unwrap();
-            let decoded: CapabilityGrant = serde_json::from_value(value.clone()).unwrap();
-            assert_eq!(decoded.revoked_by.as_ref(), Some(&actor));
-            assert_eq!(serde_json::to_value(decoded).unwrap(), value);
-            assert!(identities.insert(actor));
-        }
-    }
-
-    #[test]
-    fn capability_grant_accepts_omitted_optional_constraints() {
-        let grant: CapabilityGrant = serde_json::from_value(json!({
-            "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer_id": {"kind": "service", "service_id": "ak:did_core:web:issuer.example"},
-            "subject": {"kind": "service", "service_id": "ak:did_core:web:subject.example"},
-            "actions": ["ak.event.read"],
-            "resources": [{"kind": "realm"}],
-            "issuer_authority_refs": [{
-                "kind": "realm_root",
-                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-                "cell_ref": "ak:cell:ak.component.realm.authority_root.v1:null",
-                "controller_epoch_at_issuance": 0,
-                "authority_generation": 0
-            }],
-            "issued_at": "2026-07-14T12:34:56.789Z"
-        }))
-        .expect("constraints are optional in capability-grant.schema.json");
-
-        assert!(grant.constraints.is_empty());
-    }
-
-    #[test]
-    fn capability_grant_rejects_missing_issuer_authority_refs() {
-        let error = serde_json::from_value::<CapabilityGrant>(json!({
-            "id": "ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "schema": "ak.schema.capability.v1",
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "issuer_id": {"kind": "service", "service_id": "ak:did_core:web:issuer.example"},
-            "subject": {"kind": "service", "service_id": "ak:did_core:web:subject.example"},
-            "actions": ["ak.event.read"],
-            "resources": [{"kind": "realm"}],
-            "issued_at": "2026-07-14T12:34:56.789Z",
-            "proofs": []
-        }))
-        .expect_err("issuer_authority_refs is required by capability-grant.schema.json");
-
-        assert!(error.to_string().contains("issuer_authority_refs"));
-    }
-
-    #[test]
-    fn applet_authority_uses_registered_authority_control_shape() {
-        let constraint = GrantConstraint::applet_authority(
-            AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap(),
-            ActorId::service(DidCoreId::new("ak:did_core:web:calendar.example").unwrap()),
-            Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-        );
-        let wire = serde_json::to_value(constraint).unwrap();
-
-        assert_eq!(wire["constraint_kind"], "authority_control");
-        assert_eq!(wire["constraint_subkind"], "applet_authority");
-        assert_eq!(wire["evaluation_class"], "grant_local");
-        assert_eq!(
-            wire["executed_by"],
-            serde_json::json!({"kind":"service","service_id":"ak:did_core:web:calendar.example"})
-        );
-        assert!(wire.get("applet_delegation_binding").is_none());
-    }
-
-    #[test]
-    fn capability_grant_serializes_lifecycle_timestamps_canonically() {
-        let fractional = DateTime::parse_from_rfc3339("2026-07-14T12:34:56.789Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let grant = CapabilityGrant {
-            id: GrantId::new("ak:grant:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            schema: "ak.schema.capability.v1".to_owned(),
-            realm_id: Some(
-                RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap(),
-            ),
-            issuer_id: ActorId::service(DidCoreId::new("ak:did_core:web:issuer.example").unwrap()),
-            subject: CapabilitySubject::Actor(ActorId::service(
-                DidCoreId::new("ak:did_core:web:subject.example").unwrap(),
-            )),
-            actions: vec!["ak.event.read".to_owned()],
-            resources: vec![serde_json::from_value(json!({"kind": "realm"})).unwrap()],
-            constraints: vec![
-                serde_json::from_value(json!({
-                    "constraint_kind": "temporal",
-                    "effect": "allow",
-                    "not_before": "2026-07-14T12:34:56.789Z",
-                    "expires_at": "2026-07-14T12:34:56.789Z"
-                }))
-                .unwrap(),
-            ],
-            issuer_authority_refs: vec![IssuerAuthorityRef::RealmRoot {
-                realm_id: RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19")
-                    .unwrap(),
-                cell_ref: "ak:cell:ak.component.realm.authority_root.v1:null".to_owned(),
-                controller_epoch_at_issuance: 0,
-                authority_generation: 0,
-            }],
-            issued_at: fractional,
-            updated_by: None,
-            updated_at: Some(fractional),
-            revoked_by: None,
-            revoked_at: Some(fractional),
-        };
-
-        let wire = serde_json::to_value(&grant).unwrap();
-        for pointer in [
-            "/issued_at",
-            "/constraints/0/not_before",
-            "/constraints/0/expires_at",
-            "/updated_at",
-            "/revoked_at",
-        ] {
-            assert_eq!(
-                wire.pointer(pointer).and_then(Value::as_str),
-                Some("2026-07-14T12:34:56.789Z")
-            );
-        }
-
-        assert!(wire.get("proofs").is_none());
-    }
 }

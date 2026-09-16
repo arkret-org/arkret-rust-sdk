@@ -1,37 +1,35 @@
 //! Session-grant, account-subscribe, contacts, and direct-conversation
 //! endpoint methods on [`Client`].
 
-use arkret_models_collaboration::account_lifecycle::{
+use arkret_models_collaboration::account_operations::{
     AccountRegisterOutcome, AccountRegisterRequestBody, AccountUpdateProfileRequestBody,
     AccountView,
 };
 use arkret_models_collaboration::contact_operations::{
-    ContactAcceptRequestBody, ContactOperationOutcome, ContactOperationRequestBody,
+    ContactAcceptRequestBody, ContactList, ContactOperationOutcome, ContactOperationRequestBody,
     ContactTombstoneRequestBody,
 };
-use arkret_models_collaboration::direct_conversation_ops::{
+use arkret_models_collaboration::direct_conversation::{
     DirectConversationResolveOutcome, DirectConversationResolveRequestBody,
 };
-use arkret_models_collaboration::http_bodies::{
-    AccountDevicePairOutcome, AccountDevicePairRequestBody, ContactList, DevicePairingBootstrap,
+use arkret_models_collaboration::device_pairing::{
+    AccountDevicePairOutcome, AccountDevicePairRequestBody, DevicePairingBootstrap,
     DevicePairingCodeClaimOutcome, DevicePairingCodeClaimRequestBody, DevicePairingFinalizeOutcome,
     DevicePairingFinalizeRequestBody, DevicePairingResolveRequestBody, DevicePairingStageOutcome,
     DevicePairingStageRequestBody, DevicePairingStatusOutcome, DevicePairingStatusRequestBody,
 };
 #[cfg(all(test, not(target_arch = "wasm32")))]
-use arkret_models_collaboration::session_grant_bodies::{
+use arkret_models_collaboration::session_grants::{
     AgentSessionGrantProof, AgentSessionGrantProofKind, AgentSessionGrantRequest,
     SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof,
 };
-use arkret_models_collaboration::session_grant_bodies::{
+use arkret_models_collaboration::session_grants::{
     SessionGrantOutcome, SessionGrantRefreshRequestBody, SessionGrantRequestBody,
 };
 use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeBatch, AccountSubscribeFrame, AccountSubscribeFrameKind,
-    AccountSubscribeSnapshotResult,
+    AccountSubscribeSnapshotResult, AccountSyncRoundBudget, StreamTraceValidator, SyncRequestBody,
 };
-use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_identity::{
     AccountCursorRevokeOutcome, AccountCursorRevokeRequestBody, AccountHandoffOutcome,
@@ -63,7 +61,7 @@ pub struct AccountSubscribeFrameStream {
     inner: BoxAccountSubscribeFrameStream,
     trace: StreamTraceValidator,
     failed: bool,
-    round_budget: arkret_models_collaboration::sync_frames::demand_sync::AccountSyncRoundBudget,
+    round_budget: AccountSyncRoundBudget,
 }
 
 impl AccountSubscribeFrameStream {
@@ -204,9 +202,8 @@ impl Client {
     pub async fn account_update_profile(
         &self,
         request: &AccountUpdateProfileRequestBody,
-        digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<AccountUpdateProfileOutcome> {
-        request.validate(digest_suite)?;
+        request.validate()?;
         self.post("/_arkret/self/account/profile", request).await
     }
 
@@ -552,7 +549,7 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::client_sync::SyncFilter;
+    use arkret_models_collaboration::sync_frames::account_subscribe::SyncFilter;
     use url::Url;
 
     use super::*;

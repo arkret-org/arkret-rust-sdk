@@ -1,7 +1,6 @@
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, PayloadProof, RealmId, ReasonCode, RequestId,
-    Result, SignerEvidenceRef, TrustDomainId, WebOrigin, WireError, canonical,
-    project_did_to_core_id,
+    CommittedEventRef, DeviceId, Did, DidCoreId, DidUrl, Hash, PayloadProof, RealmId, ReasonCode,
+    RequestId, Result, TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -9,7 +8,7 @@ use serde_json::Value;
 
 use crate::artifacts_account::{
     DeviceSummaryStatus, DeviceSummaryVerificationSource, DeviceSummaryVerificationState,
-    validate_device_summary_evidence, validate_device_summary_state,
+    validate_device_summary_evidence,
 };
 use crate::handle::Handle;
 use crate::principal_registration_anchor::PrincipalRegistrationAnchor;
@@ -163,11 +162,9 @@ pub struct AccountRegistrationAudit {
 
 /// Body of `ak.self.account_data.resource.replace.v1`.
 ///
-/// `ak.account_data.set`'s actor-private cell subject is
-/// `composite[envelope.actor_id, payload.key]`, so the subject *is* the holder:
-/// only the holder can sign the Event, and a service that authors it under its own
-/// DID collapses every holder's value for one key into a single cell keyed by the
-/// service, sharing one `server_revision_cas` counter.
+/// `ak.account_data.set` is actor-private and therefore bypasses RealmCommit.
+/// Its logical key is `(envelope.actor_id, payload.key)`, so only the holder may
+/// sign it and each holder keeps an independent `server_revision_cas` counter.
 ///
 /// So the body carries the signed Event and nothing else. `expected_revision`,
 /// `key` and the value (`body` or `encrypted_payload`) all live in
@@ -180,7 +177,7 @@ pub struct AccountRegistrationAudit {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataReplaceRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub set_event: arkret_wire::EventInitialSubmission,
+    pub set_event: arkret_wire::Event,
 }
 
 /// Body of `ak.self.account_data.resource.delete.v1`.
@@ -195,7 +192,7 @@ pub struct AccountDataReplaceRequestBody {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct AccountDataDeleteRequestBody {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub set_event: arkret_wire::EventInitialSubmission,
+    pub set_event: arkret_wire::Event,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -251,9 +248,8 @@ pub struct AccountDeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub authorized_event_ref: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signer_resolution_evidence_ref: Option<SignerEvidenceRef>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub authorization_ref: Option<CommittedEventRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub authorized_at: Option<DateTime<Utc>>,
@@ -263,18 +259,14 @@ pub struct AccountDeviceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub revocation_states: Option<Vec<arkret_wire::DeviceRevocationGateRecord>>,
 }
 
 impl AccountDeviceSummary {
     pub fn validate(&self) -> Result<()> {
-        validate_device_summary_state(self.status, self.revocation_states.as_deref())?;
         validate_device_summary_evidence(
             self.verification_state,
             self.verification_source,
-            self.authorized_event_ref.as_ref(),
-            self.signer_resolution_evidence_ref.as_ref(),
+            self.authorization_ref.as_ref(),
         )
     }
 }
@@ -1153,17 +1145,52 @@ impl AccountRegistrationControlProof {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum PcrGenesisUnitEventKind {
+pub enum IdentityCreationEventKind {
     #[serde(rename = "ak.realm.create")]
     RealmCreate,
     #[serde(rename = "ak.device.authorize")]
     DeviceAuthorize,
 }
 
-pub const PCR_GENESIS_UNIT_KINDS: [PcrGenesisUnitEventKind; 2] = [
-    PcrGenesisUnitEventKind::RealmCreate,
-    PcrGenesisUnitEventKind::DeviceAuthorize,
+pub const IDENTITY_CREATION_EVENT_KINDS: [IdentityCreationEventKind; 2] = [
+    IdentityCreationEventKind::RealmCreate,
+    IdentityCreationEventKind::DeviceAuthorize,
 ];
+
+/// Producer-signed identity bootstrap Events. They are ordered inputs to the
+/// Account Authority, not an atomic multi-Event unit; acceptance yields one
+/// RealmCommit per Event.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityCreationEvents {
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub realm_create: arkret_wire::Event,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub founding_device_authorize: arkret_wire::Event,
+}
+
+impl IdentityCreationEvents {
+    pub fn validate(&self) -> Result<()> {
+        self.realm_create.validate_for_submit_structural()?;
+        self.founding_device_authorize
+            .validate_for_submit_structural()?;
+        if self.realm_create.kind != arkret_wire::EventKind::RealmCreate
+            || self.founding_device_authorize.kind != arkret_wire::EventKind::DeviceAuthorize
+            || self.realm_create.realm_id != self.founding_device_authorize.realm_id
+            || self.realm_create.scope_ref != arkret_wire::ScopeRef::RealmGenesis
+            || self.founding_device_authorize.scope_ref
+                != (arkret_wire::ScopeRef::Realm {
+                    realm_id: self.realm_create.realm_id.clone(),
+                })
+        {
+            return Err(WireError::Protocol(
+                "identity creation requires a Realm-create Event followed by a same-Realm founding-device authorization Event".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// The first sender-constrained Standard grant requested atomically with
 /// account binding and PCR genesis.
@@ -1199,13 +1226,12 @@ pub fn standard_initial_session_grant_scope() -> Vec<String> {
         .collect()
 }
 
-pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 13] = [
+pub const RECOVERY_SESSION_GRANT_OPERATIONS: [&str; 12] = [
     arkret_wire::ServiceOperationId::ROOT_IDENTITY_LOG_READ_LIST_V1,
     arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_POLICY_RESOURCE_GET_V1,
     arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_CREATE_V1,
     arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_COMMAND_SUBMIT_PROOF_V1,
     arkret_wire::ServiceOperationId::ROOT_IDENTITY_RECOVERY_SESSION_RESOURCE_GET_V1,
-    arkret_wire::ServiceOperationId::SELF_EVENTS_READ_FRONTIER_V1,
     arkret_wire::ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
     arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_COMMAND_UNLOCK_V1,
     arkret_wire::ServiceOperationId::SELF_KEYS_BACKUPS_READ_LIST_V1,
@@ -1285,7 +1311,7 @@ pub struct IdentityCreationControlProof {
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
     pub initial_session_request_digest: Hash,
-    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub creation_event_kinds: [IdentityCreationEventKind; 2],
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
@@ -1328,7 +1354,7 @@ impl IdentityCreationControlProof {
             realm_create_payload_digest: self.realm_create_payload_digest.clone(),
             founding_authorize_payload_digest: self.founding_authorize_payload_digest.clone(),
             initial_session_request_digest: self.initial_session_request_digest.clone(),
-            genesis_unit_kinds: self.genesis_unit_kinds,
+            creation_event_kinds: self.creation_event_kinds,
             identity_creation_lease_id: self.identity_creation_lease_id.clone(),
             lease_fence: self.lease_fence,
             dpop_jkt: self.dpop_jkt.clone(),
@@ -1359,7 +1385,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub realm_create_payload_digest: Hash,
     pub founding_authorize_payload_digest: Hash,
     pub initial_session_request_digest: Hash,
-    pub genesis_unit_kinds: [PcrGenesisUnitEventKind; 2],
+    pub creation_event_kinds: [IdentityCreationEventKind; 2],
     pub identity_creation_lease_id: String,
     pub lease_fence: u64,
     pub dpop_jkt: String,
@@ -1407,7 +1433,7 @@ impl UnsignedIdentityCreationControlProof {
             realm_create_payload_digest: body.realm_create_payload_digest,
             founding_authorize_payload_digest: body.founding_authorize_payload_digest,
             initial_session_request_digest: body.initial_session_request_digest,
-            genesis_unit_kinds: body.genesis_unit_kinds,
+            creation_event_kinds: body.creation_event_kinds,
             identity_creation_lease_id: body.identity_creation_lease_id,
             lease_fence: body.lease_fence,
             dpop_jkt: body.dpop_jkt,
@@ -1428,7 +1454,7 @@ fn validate_identity_creation_control_proof_body(
     body: &UnsignedIdentityCreationControlProofBody,
 ) -> Result<()> {
     if body.purpose != IdentityBindingPurpose::AccountBindingAndPcrGenesis
-        || body.genesis_unit_kinds != PCR_GENESIS_UNIT_KINDS
+        || body.creation_event_kinds != IDENTITY_CREATION_EVENT_KINDS
         || body.lease_fence == 0
         || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
@@ -1460,7 +1486,7 @@ fn identity_creation_control_proof_signing_bytes(
         "realm_create_payload_digest": &body.realm_create_payload_digest,
         "founding_authorize_payload_digest": &body.founding_authorize_payload_digest,
         "initial_session_request_digest": &body.initial_session_request_digest,
-        "genesis_unit_kinds": body.genesis_unit_kinds,
+        "creation_event_kinds": body.creation_event_kinds,
         "identity_creation_lease_id": &body.identity_creation_lease_id,
         "lease_fence": body.lease_fence,
         "dpop_jkt": &body.dpop_jkt,
@@ -1486,7 +1512,7 @@ pub struct IdentityCreationRegistration {
     pub principal_registration_anchor: PrincipalRegistrationAnchor,
     pub registration_did_evidence_draft: arkret_wire::RegistrationDidEvidenceDraft,
     pub control_proof: IdentityCreationControlProof,
-    pub pcr_genesis_unit: arkret_wire::PcrGenesisUnit,
+    pub creation_events: IdentityCreationEvents,
     pub initial_session: InitialSessionGrantIntent,
 }
 
@@ -1495,7 +1521,7 @@ impl IdentityCreationRegistration {
         self.control_proof.validate_shape()?;
         self.principal_registration_anchor.validate()?;
         self.registration_did_evidence_draft.validate_shape()?;
-        self.pcr_genesis_unit.validate_ordered_envelopes()?;
+        self.creation_events.validate()?;
         self.initial_session.validate()?;
         if self.initial_session.canonical_request_digest()?
             != self.control_proof.initial_session_request_digest
@@ -1525,17 +1551,17 @@ impl IdentityCreationRegistration {
             || self.principal_registration_anchor.canonical_digest()?
                 != self.control_proof.registration_anchor_digest
             || self
-                .pcr_genesis_unit
-                .create()
+                .creation_events
+                .realm_create
                 .actor_id
                 .signing_principal_id()
                 != &self.control_proof.principal_id
-            || self.pcr_genesis_unit.create().realm_id != self.control_proof.pcr_realm_id
+            || self.creation_events.realm_create.realm_id != self.control_proof.pcr_realm_id
             || Hash::new(canonical::canonical_sha256(
-                &self.pcr_genesis_unit.create().payload,
+                &self.creation_events.realm_create.payload,
             )?)? != self.control_proof.realm_create_payload_digest
             || Hash::new(canonical::canonical_sha256(
-                &self.pcr_genesis_unit.founding_authorize().payload,
+                &self.creation_events.founding_device_authorize.payload,
             )?)? != self.control_proof.founding_authorize_payload_digest
         {
             return Err(WireError::Protocol(
@@ -1543,8 +1569,8 @@ impl IdentityCreationRegistration {
             ));
         }
         let descriptor_device_id = self
-            .pcr_genesis_unit
-            .create()
+            .creation_events
+            .realm_create
             .payload
             .get("object")
             .and_then(Value::as_object)
@@ -1798,7 +1824,7 @@ mod account_data_tests {
     }
 
     #[test]
-    fn verified_device_summary_requires_both_historical_references() {
+    fn verified_device_summary_requires_exact_committed_authorization() {
         let mut value = json!({
             "device_id": "ak:device:0196419b-0000-7000-8000-000000000001",
             "status": "active",
@@ -1808,13 +1834,15 @@ mod account_data_tests {
         let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
         assert!(summary.validate().is_err());
 
-        value["authorized_event_ref"] =
-            json!("ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e");
-        let summary: AccountDeviceSummary = serde_json::from_value(value.clone()).unwrap();
-        assert!(summary.validate().is_err());
-
-        value["signer_resolution_evidence_ref"] =
-            json!(format!("ak:signer_evidence:sha256:{}", "a".repeat(64)));
+        value["authorization_ref"] = json!({
+            "event_id": "ak:event:AfAnsJqSlM9bHVI7P1QBMOEW3p5P1PNQu7BBMpiSnD_e",
+            "commit_id": arkret_wire::RealmCommitId::from_digest([7; 32]),
+            "stream_ref": {
+                "kind": "realm",
+                "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19"
+            },
+            "stream_position": 1
+        });
         let summary: AccountDeviceSummary = serde_json::from_value(value).unwrap();
         summary.validate().unwrap();
     }

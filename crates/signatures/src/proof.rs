@@ -585,7 +585,7 @@ mod ed25519_jws {
     /// SDK-canonical detached-JWS protected header (`{"alg":"Ed25519"}`).
     ///
     /// This is the single header byte string shared by fixtures and services
-    /// for Move, Seal, and event-proof signatures. It intentionally omits
+    /// for canonical payload and Event-proof signatures. It intentionally omits
     /// `typ`; the default v1 proof profile does not declare one.
     pub(super) const PROTECTED_HEADER_ED25519: &str = r#"{"alg":"Ed25519"}"#;
 
@@ -877,7 +877,6 @@ pub fn build_proof_envelope(
     kind: impl Into<String>,
     verification_method: DidUrl,
     payload_digest: Hash,
-    signer_resolution_evidence_ref: arkret_wire::SignerEvidenceRef,
     domain: Option<String>,
     audience: Option<arkret_wire::Audience>,
     jws: impl Into<String>,
@@ -886,7 +885,6 @@ pub fn build_proof_envelope(
         kind: kind.into(),
         verification_method,
         event_digest: payload_digest,
-        signer_resolution_evidence_ref: Some(signer_resolution_evidence_ref),
         created_at: Utc::now(),
         domain,
         audience,
@@ -1063,11 +1061,6 @@ mod tests {
             proof_kind::DETACHED_JWS,
             verification_method,
             digest,
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "11".repeat(32)
-            ))
-            .unwrap(),
             None,
             None,
             "",

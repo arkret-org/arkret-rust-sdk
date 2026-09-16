@@ -1,105 +1,180 @@
-//! `ak.self.account.stream.subscribe.v1` NDJSON frame family and validated
-//! batch results.
+//! Account-aggregate subscription frames.
+//!
+//! The account cursor orders delivery of aggregate frames only. Durable Realm,
+//! Circle, and Sidecar data remains in independent governance-authority commit
+//! streams; each timeline item retains its own `CommitStreamRef` coordinate.
+
+use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::account::AccountDataRow;
-use arkret_wire::SchemaId;
+use arkret_wire::{
+    ActorId, Cursor, Event, RealmId, Result, SchemaId, StrandId, StreamItem, WireError, canonical,
+};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use super::demand_sync::*;
-use crate::internal_prelude::*;
+pub const ACCOUNT_SYNC_MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
+pub const ACCOUNT_SYNC_MAX_WIRE_FRAME_BYTES: usize = 16 * 1024 * 1024;
+pub const ACCOUNT_SYNC_MAX_ROUND_BYTES: usize = 16 * 1024 * 1024;
+pub const ACCOUNT_SYNC_MAX_ROUND_FRAMES: usize = 16;
+pub const DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 5_000;
+pub const MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 60_000;
 
-/// One NDJSON frame on `ak.self.account.stream.subscribe.v1`.
+fn protocol_error(message: impl Into<String>) -> WireError {
+    WireError::Protocol(message.into())
+}
+
+fn validate_cursor(value: &str) -> Result<()> {
+    let tail = value
+        .strip_prefix("ak:cursor:")
+        .ok_or_else(|| protocol_error("invalid account stream cursor prefix"))?;
+    if tail.is_empty()
+        || value.len() > 2048
+        || !tail
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    {
+        return Err(protocol_error("invalid bounded account stream cursor"));
+    }
+    Ok(())
+}
+
+fn bounded_unique<T: Ord>(values: &[T], maximum: usize, field: &str) -> Result<()> {
+    if values.len() > maximum || values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+        return Err(protocol_error(format!(
+            "{field} exceeds its bound or contains duplicates"
+        )));
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SyncRequestBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catchup: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<SyncFilter>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_list: Option<RealmListRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replace_filter: Option<bool>,
+}
+
+impl SyncRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(after) = &self.after {
+            validate_cursor(after)?;
+        }
+        if self.replace_filter == Some(true) && (self.after.is_none() || self.filter.is_none()) {
+            return Err(protocol_error(
+                "replace_filter requires after and an explicit filter",
+            ));
+        }
+        if let Some(filter) = &self.filter {
+            filter.validate()?;
+        }
+        if let Some(realm_list) = &self.realm_list {
+            realm_list.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SyncFilter {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub realm_ids: Option<Vec<RealmId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strand_ids: Option<Vec<StrandId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeline_limit: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lazy_load_members: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_kinds: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub not_event_kinds: Option<Vec<String>>,
+}
+
+impl SyncFilter {
+    pub fn validate(&self) -> Result<()> {
+        bounded_unique(self.realm_ids.as_deref().unwrap_or_default(), 16, "filter.realm_ids")?;
+        bounded_unique(
+            self.strand_ids.as_deref().unwrap_or_default(),
+            32,
+            "filter.strand_ids",
+        )?;
+        for (field, values) in [
+            ("filter.event_kinds", &self.event_kinds),
+            ("filter.not_event_kinds", &self.not_event_kinds),
+        ] {
+            bounded_unique(values.as_deref().unwrap_or_default(), 64, field)?;
+        }
+        if self.timeline_limit.is_some_and(|limit| limit > 100) {
+            return Err(protocol_error("timeline_limit must be <= 100"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmListRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub after: Option<Cursor>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
+
+impl RealmListRequest {
+    pub fn validate(&self) -> Result<()> {
+        if let Some(after) = &self.after {
+            validate_cursor(after.as_str())?;
+        }
+        if self.limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
+            return Err(protocol_error("Realm list limit must be 1..=100"));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountSubscribeFrame {
     pub kind: AccountSubscribeFrameKind,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realms: Option<AccountSubscribeRealms>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub to_device: Option<DeviceMessageContainer>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_lists: Option<AccountSubscribeDeviceListChanges>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<AccountDataContainer>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reconnect_after_ms: Option<u64>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_list: Option<RealmListPage>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_list_changes: Option<RealmListChanges>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub baseline: Option<AccountBaselineSegment>,
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        deserialize_with = "crate::serde_absence::deserialize_non_null_optional"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub realm_invalidations: Option<Vec<RealmInvalidation>>,
 }
 
-/// Account-subscribe NDJSON frame discriminator.
-///
-/// `#[non_exhaustive]`: a future spec revision may register additional frame
-/// kinds. Downstream `match` expressions MUST carry a `_` arm with
-/// fail-closed semantics (ignore/drop an unrecognised frame rather than
-/// treating it as a delta or a state transition). Deserialisation itself
-/// stays closed-set: an unknown wire value still fails the frame parse.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -113,47 +188,29 @@ pub enum AccountSubscribeFrameKind {
     Unauthorized,
 }
 
-/// Structured control interrupt extracted from a `dropped` /
-/// `resync_required` / `unauthorized` account-subscribe frame
-/// (client-sync.md §2 / §2.2). These frames MUST NOT be silently
-/// skipped: the client has to reconcile (dropped/resync) or
-/// re-authenticate (unauthorized), and MUST honor any
-/// `reconnect_after_ms` hold before reconnecting the same scope.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind")]
 pub enum AccountStreamInterrupt {
-    /// `dropped`: the server cannot continue from the current position.
-    /// Reconnect with `after=<cursor>&catchup=true` (client-sync.md §2.2.3).
     Dropped {
-        /// Suggested catch-up cursor, required by the v1 wire contract.
         cursor: String,
-        /// Server-mandated hold before reconnecting the same scope.
         reconnect_after_ms: Option<u64>,
     },
-    /// `resync_required`: clear the local cursor cache and redo the
-    /// initial account sync (client-sync.md §2.2.4).
     ResyncRequired {
-        /// Server-mandated hold before reconnecting the same scope.
         reconnect_after_ms: Option<u64>,
     },
-    /// `unauthorized`: the session may no longer consume this stream;
-    /// re-authenticate or sign out (client-sync.md §2.2.5).
     Unauthorized,
 }
 
 impl AccountSubscribeFrame {
     pub const SCHEMA: &'static str = SchemaId::ACCOUNT_SUBSCRIBE_FRAME_V1;
-    /// Parse one NDJSON line. Empty / whitespace-only lines return
-    /// `Ok(None)` so callers can chunk-read transparently. Mirrors the
-    /// existing `EventsSubscribeFrame::from_ndjson_line` API
-    /// (see `crates/models-collaboration/src/sync_frames/account_subscribe.rs`).
+
     pub fn from_ndjson_line(line: &str) -> Result<Option<Self>> {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             return Ok(None);
         }
         if line.len() > ACCOUNT_SYNC_MAX_WIRE_FRAME_BYTES {
-            return Err(demand_error("Account frame exceeds its wire byte limit"));
+            return Err(protocol_error("account frame exceeds its wire byte limit"));
         }
         let frame: Self = canonical::from_canonical_json_str(trimmed)?;
         frame.validate()?;
@@ -162,71 +219,25 @@ impl AccountSubscribeFrame {
 
     pub fn validate(&self) -> Result<()> {
         if let Some(cursor) = &self.cursor {
-            validate_demand_cursor(cursor)?;
+            validate_cursor(cursor)?;
         }
-        if arkret_canonical::canonical_json_bytes(self)?.len() > ACCOUNT_SYNC_MAX_FRAME_BYTES {
-            return Err(demand_error(
-                "Account frame exceeds its canonical byte limit",
-            ));
+        if canonical::canonical_json_bytes(self)?.len() > ACCOUNT_SYNC_MAX_FRAME_BYTES {
+            return Err(protocol_error("account frame exceeds its canonical byte limit"));
         }
-        if let Some(page) = &self.realm_list {
-            page.validate()?;
-        }
-        if let Some(changes) = &self.realm_list_changes {
-            changes.validate()?;
-        }
-        if let Some(baseline) = &self.baseline {
-            baseline.validate()?;
-            if baseline
-                .channels
-                .contains(&AccountBaselineChannel::StationCas)
-                && self
-                    .account_data
-                    .as_ref()
-                    .and_then(|data| data.station_cas.as_ref())
-                    .is_some_and(|data| !data.removals.is_empty())
-            {
-                return Err(demand_error(
-                    "Station-CAS baseline segments cannot contain removals",
-                ));
-            }
-        }
-        if let Some(invalidations) = &self.realm_invalidations {
-            if invalidations.len() > ACCOUNT_SYNC_MAX_COLLECTION_ITEMS {
-                return Err(demand_error("Realm invalidations exceed 100 items"));
-            }
-            let mut seen = std::collections::BTreeSet::new();
-            for item in invalidations {
-                item.validate()?;
-                if !seen.insert(&item.realm_id) {
-                    return Err(demand_error("Realm invalidations repeat a Realm"));
-                }
-            }
+        if self.reconnect_after_ms == Some(0) {
+            return Err(protocol_error("reconnect_after_ms must be positive"));
         }
         if let Some(realms) = &self.realms {
-            if realms.entries.len() > ACCOUNT_SYNC_MAX_REALMS {
-                return Err(demand_error("Account frame exceeds 16 Realm details"));
-            }
-            for (realm_key, realm) in &realms.entries {
-                let realm_id = RealmId::new(realm_key.clone())?;
-                realm.validate_demand()?;
-                if let Some(current) = &realm.current {
-                    for entry in &current.entries {
-                        entry.selector().validate_for_realm(&realm_id)?;
-                    }
-                }
-            }
+            realms.validate()?;
         }
         if let Some(devices) = &self.device_lists {
-            bounded_unique(&devices.changed_ids, 100, "device_lists.changed_ids")?;
-            bounded_unique(&devices.left_ids, 100, "device_lists.left_ids")?;
+            devices.validate()?;
         }
-        if self
-            .notifications
-            .as_ref()
-            .is_some_and(|items| items.items.len() > 100)
-        {
-            return Err(demand_error("Account notifications exceed 100 items"));
+        if let Some(account_data) = &self.account_data {
+            account_data.validate()?;
+        }
+        if self.notifications.as_ref().is_some_and(|value| value.items.len() > 100) {
+            return Err(protocol_error("account notifications exceed 100 items"));
         }
         let has_data = self.realms.is_some()
             || self.to_device.is_some()
@@ -239,17 +250,6 @@ impl AccountSubscribeFrame {
             || self.realm_list_changes.is_some()
             || self.baseline.is_some()
             || self.realm_invalidations.is_some();
-        if self.reconnect_after_ms == Some(0) {
-            return Err(WireError::Protocol(
-                "reconnect_after_ms must be greater than zero".to_owned(),
-            ));
-        }
-        if let Some(to_device) = &self.to_device {
-            to_device.validate()?;
-        }
-        if let Some(account_data) = &self.account_data {
-            account_data.validate()?;
-        }
         let valid = match self.kind {
             AccountSubscribeFrameKind::Delta => {
                 self.cursor.is_some() && self.reconnect_after_ms.is_none()
@@ -264,16 +264,11 @@ impl AccountSubscribeFrame {
             AccountSubscribeFrameKind::ResyncRequired => self.cursor.is_none() && !has_data,
         };
         if !valid {
-            return Err(WireError::Protocol(format!(
-                "account subscribe fields are invalid for {:?}",
-                self.kind
-            )));
+            return Err(protocol_error("invalid fields for account subscribe frame kind"));
         }
         Ok(())
     }
 
-    /// True iff this frame requires the client to reset its cursor and
-    /// re-subscribe (kinds `dropped` / `resync_required`).
     pub fn requires_resubscribe(&self) -> bool {
         matches!(
             self.kind,
@@ -281,23 +276,17 @@ impl AccountSubscribeFrame {
         )
     }
 
-    /// Server-advertised lower bound before reconnecting the same
-    /// account-subscribe scope.
     pub fn reconnect_after_ms(&self) -> Option<u64> {
         self.reconnect_after_ms
     }
 
-    /// Structured control interrupt carried by this frame, if any.
-    ///
-    /// `dropped` / `resync_required` / `unauthorized` are terminal for the
-    /// current subscription and MUST be surfaced to the sync loop instead of
-    /// being skipped like benign keepalive frames.
     pub fn interrupt(&self) -> Result<Option<AccountStreamInterrupt>> {
         Ok(match self.kind {
             AccountSubscribeFrameKind::Dropped => Some(AccountStreamInterrupt::Dropped {
-                cursor: self.cursor.clone().ok_or_else(|| {
-                    WireError::Protocol("stream trace dropped_missing_cursor".to_owned())
-                })?,
+                cursor: self
+                    .cursor
+                    .clone()
+                    .ok_or_else(|| protocol_error("stream trace dropped_missing_cursor"))?,
                 reconnect_after_ms: self.reconnect_after_ms,
             }),
             AccountSubscribeFrameKind::ResyncRequired => {
@@ -306,23 +295,142 @@ impl AccountSubscribeFrame {
                 })
             }
             AccountSubscribeFrameKind::Unauthorized => Some(AccountStreamInterrupt::Unauthorized),
-            AccountSubscribeFrameKind::Delta
-            | AccountSubscribeFrameKind::CatchupComplete
-            | AccountSubscribeFrameKind::Frontier
-            | AccountSubscribeFrameKind::Heartbeat => None,
+            _ => None,
         })
-    }
-
-    /// True iff `kind == catchup_complete`.
-    pub fn is_catchup_complete(&self) -> bool {
-        matches!(self.kind, AccountSubscribeFrameKind::CatchupComplete)
     }
 }
 
-/// Account-scoped private state carried by an account-subscribe delta.
-///
-/// Holder-authored events and Station-CAS registers have distinct authority
-/// and therefore remain separate typed branches.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct AccountSubscribeRealms {
+    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
+    pub entries: BTreeMap<String, RealmSyncEntry>,
+}
+
+impl AccountSubscribeRealms {
+    fn validate(&self) -> Result<()> {
+        if self.entries.len() > 16 {
+            return Err(protocol_error("account frame exceeds 16 Realm details"));
+        }
+        for (realm, entry) in &self.entries {
+            RealmId::new(realm.clone())?;
+            entry.validate()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmSyncEntry {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeline: Option<RealmTimeline>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeline_baseline: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_at_window_start: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_data: Option<EventContainer>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub member_roster: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unread_notifications: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unavailable: Option<Value>,
+}
+
+impl RealmSyncEntry {
+    fn validate(&self) -> Result<()> {
+        if let Some(timeline) = &self.timeline {
+            timeline.validate()?;
+        }
+        if self.unavailable.is_some()
+            && (self.timeline.is_some()
+                || self.current.is_some()
+                || self.account_data.is_some()
+                || self.summary.is_some())
+        {
+            return Err(protocol_error(
+                "unavailable Realm detail cannot carry projection data",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmTimeline {
+    #[serde(default)]
+    pub commits: Vec<StreamItem>,
+    pub limited: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prev_cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview_only: Option<bool>,
+}
+
+impl RealmTimeline {
+    fn validate(&self) -> Result<()> {
+        if self.commits.len() > 100 {
+            return Err(protocol_error("Realm timeline exceeds 100 commits"));
+        }
+        if let Some(cursor) = &self.prev_cursor {
+            validate_cursor(cursor)?;
+        }
+        for item in &self.commits {
+            item.commit.validate_shape()?;
+            if item.commit.event_ref != item.event.event_id {
+                return Err(protocol_error("timeline commit does not bind its Event"));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventContainer {
+    #[serde(default)]
+    pub events: Vec<Event>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceMessageContainer {
+    #[serde(default)]
+    pub messages: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ack_token: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lost: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limited: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountSubscribeDeviceListChanges {
+    #[serde(default)]
+    pub changed_ids: Vec<ActorId>,
+    #[serde(default)]
+    pub left_ids: Vec<ActorId>,
+}
+
+impl AccountSubscribeDeviceListChanges {
+    fn validate(&self) -> Result<()> {
+        bounded_unique(&self.changed_ids, 100, "device_lists.changed_ids")?;
+        bounded_unique(&self.left_ids, 100, "device_lists.left_ids")
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccountDataContainer {
@@ -333,9 +441,9 @@ pub struct AccountDataContainer {
 }
 
 impl AccountDataContainer {
-    pub fn validate(&self) -> Result<()> {
+    fn validate(&self) -> Result<()> {
         if self.events.len() > 100 {
-            return Err(demand_error("Account Data exceeds 100 Events"));
+            return Err(protocol_error("Account Data exceeds 100 Events"));
         }
         if let Some(station_cas) = &self.station_cas {
             station_cas.validate()?;
@@ -344,7 +452,6 @@ impl AccountDataContainer {
     }
 }
 
-/// Cursor-covered Station-authored Account Data register projection.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StationCasAccountDataContainer {
@@ -355,39 +462,14 @@ pub struct StationCasAccountDataContainer {
 }
 
 impl StationCasAccountDataContainer {
-    pub fn validate(&self) -> Result<()> {
+    fn validate(&self) -> Result<()> {
         if self.upserts.len() > 100 || self.removals.len() > 100 {
-            return Err(demand_error("Station-CAS data exceeds 100 items"));
-        }
-
-        let mut keys = std::collections::BTreeSet::new();
-        for upsert in &self.upserts {
-            if upsert.account_data_key.is_empty()
-                || upsert.revision == 0
-                || !keys.insert(upsert.account_data_key.as_str())
-            {
-                return Err(WireError::Protocol(
-                    "station_cas upserts must have unique non-empty keys and positive revisions"
-                        .to_owned(),
-                ));
-            }
-        }
-        for removal in &self.removals {
-            if removal.account_data_key.is_empty()
-                || removal.revision == 0
-                || !keys.insert(removal.account_data_key.as_str())
-            {
-                return Err(WireError::Protocol(
-                    "station_cas changes must have unique non-empty keys and positive revisions"
-                        .to_owned(),
-                ));
-            }
+            return Err(protocol_error("Station-CAS data exceeds 100 items"));
         }
         Ok(())
     }
 }
 
-/// Explicit deletion of one Station-CAS Account Data register.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StationCasAccountDataRemoval {
@@ -397,177 +479,70 @@ pub struct StationCasAccountDataRemoval {
     pub updated_at: DateTime<Utc>,
 }
 
-#[cfg(test)]
-mod account_subscribe_frame_tests {
-    use super::*;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationDeltaAction {
+    Upsert,
+    Remove,
+}
 
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_delta() {
-        let line = r#"{"cursor":"ak:cursor:acc-1","kind":"delta"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert_eq!(frame.kind, AccountSubscribeFrameKind::Delta);
-        assert_eq!(frame.cursor.as_deref(), Some("ak:cursor:acc-1"));
-        assert!(!frame.requires_resubscribe());
-        assert!(!frame.is_catchup_complete());
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_catchup_complete() {
-        let line = r#"{"cursor":"ak:cursor:live-0","kind":"catchup_complete"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert!(frame.is_catchup_complete());
-        assert!(!frame.requires_resubscribe());
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_frontier() {
-        let line = r#"{"cursor":"ak:cursor:adv-7","kind":"frontier"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert_eq!(frame.kind, AccountSubscribeFrameKind::Frontier);
-        assert!(!frame.requires_resubscribe());
-        assert!(!frame.is_catchup_complete());
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_heartbeat() {
-        let line = r#"{"kind":"heartbeat"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert_eq!(frame.kind, AccountSubscribeFrameKind::Heartbeat);
-        assert!(!frame.requires_resubscribe());
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_dropped_requires_resubscribe() {
-        let line = r#"{"cursor":"ak:cursor:dropped","kind":"dropped","reconnect_after_ms":10000}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert!(frame.requires_resubscribe());
-        assert_eq!(frame.reconnect_after_ms(), Some(10_000));
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_resync_required_requires_resubscribe() {
-        let line = r#"{"kind":"resync_required","reconnect_after_ms":7500}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert!(frame.requires_resubscribe());
-        assert_eq!(frame.reconnect_after_ms(), Some(7_500));
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_unauthorized() {
-        let line = r#"{"kind":"unauthorized"}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert_eq!(frame.kind, AccountSubscribeFrameKind::Unauthorized);
-        assert!(!frame.requires_resubscribe());
-    }
-
-    #[test]
-    fn account_subscribe_delta_accepts_closed_agent_notification_items() {
-        let line = r#"{"cursor":"ak:cursor:account-2","kind":"delta","notifications":{"items":[{"action":"upsert","data":{"agent_id":"ak:did_core:webvh:z6mkfixture","approval_request_id":"agent_runtime_approval:01964137-0000-7000-8000-000000000002","expires_at":"2026-07-13T10:15:00.000Z","requested_at":"2026-07-13T10:00:00.000Z"},"id":"ak:notification:01964137-0000-7000-8000-000000000002"}]}}"#;
-        let frame = AccountSubscribeFrame::from_ndjson_line(line)
-            .unwrap()
-            .unwrap();
-        assert_eq!(frame.notifications.unwrap().items.len(), 1);
-    }
-
-    #[test]
-    fn account_subscribe_delta_rejects_old_or_incomplete_notification_shapes() {
-        let old_container =
-            r#"{"cursor":"ak:cursor:account-3","kind":"delta","notifications":{"events":[]}}"#;
-        assert!(AccountSubscribeFrame::from_ndjson_line(old_container).is_err());
-
-        let missing_data = r#"{"cursor":"ak:cursor:account-4","kind":"delta","notifications":{"items":[{"id":"ak:notification:01964137-0000-7000-8000-000000000003","action":"upsert"}]}}"#;
-        assert!(AccountSubscribeFrame::from_ndjson_line(missing_data).is_err());
-    }
-
-    #[test]
-    fn account_subscribe_station_cas_uses_the_segment_completion_marker() {
-        let value = serde_json::json!({"kind":"delta","cursor":"ak:cursor:next",
-            "baseline":{"snapshot_cursor":"ak:cursor:snapshot","channels":["station_cas"],"completed_channels":[]},
-            "account_data":{"events":[],"station_cas":{"upserts":[],"removals":[]}}});
-        let frame: AccountSubscribeFrame = serde_json::from_value(value.clone()).unwrap();
-        frame.validate().unwrap();
-        assert!(frame.baseline.unwrap().completed_channels.is_empty());
-        let mut retired = value.clone();
-        retired["account_data"]["station_cas"]["complete"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<AccountSubscribeFrame>(retired).is_err());
-        let mut wrong = value;
-        wrong["baseline"]["completed_channels"] = serde_json::json!(["device_lists"]);
-        assert!(
-            serde_json::from_value::<AccountSubscribeFrame>(wrong)
-                .unwrap()
-                .validate()
-                .is_err()
-        );
-    }
-
-    #[test]
-    fn account_subscribe_rejects_removal_inside_station_cas_snapshot() {
-        let frame:AccountSubscribeFrame=serde_json::from_value(serde_json::json!({"kind":"delta","cursor":"ak:cursor:next",
-            "baseline":{"snapshot_cursor":"ak:cursor:snapshot","channels":["station_cas"],"completed_channels":["station_cas"]},
-            "account_data":{"events":[],"station_cas":{"upserts":[],"removals":[{"account_data_key":"ak.account.invite_delivery","revision":3,"updated_at":"2026-09-03T12:00:00.000Z"}]}}
-        })).unwrap();
-        assert!(frame.validate().is_err());
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_empty_returns_none() {
-        assert!(
-            AccountSubscribeFrame::from_ndjson_line("")
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            AccountSubscribeFrame::from_ndjson_line("   \n  ")
-                .unwrap()
-                .is_none()
-        );
-    }
-
-    #[test]
-    fn account_subscribe_frame_rejects_non_nfc_string() {
-        let line = "{\"kind\":\"dropped\",\"reason\":\"cafe\u{301}\"}";
-        assert!(AccountSubscribeFrame::from_ndjson_line(line).is_err());
-    }
-
-    #[test]
-    fn account_subscribe_frame_rejects_duplicate_key() {
-        let line = r#"{"kind":"heartbeat","kind":"heartbeat"}"#;
-        assert!(AccountSubscribeFrame::from_ndjson_line(line).is_err());
-    }
-
-    #[test]
-    fn account_subscribe_frame_from_ndjson_line_unknown_kind_errors() {
-        // AccountSubscribeFrameKind is a closed enum: parsing an unknown
-        // discriminant returns Err, distinct from the "Unknown" variant
-        // tolerance EventsSubscribeFrame has.
-        let line = r#"{"kind":"future_kind_42"}"#;
-        let err = AccountSubscribeFrame::from_ndjson_line(line).unwrap_err();
-        assert!(format!("{err}").contains("future_kind_42"));
-    }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NotificationDelta {
+    pub id: String,
+    pub action: NotificationDeltaAction,
+    pub data: Value,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct AccountSubscribeRealms {
-    #[serde(default, flatten, skip_serializing_if = "BTreeMap::is_empty")]
-    pub entries: BTreeMap<String, RealmSyncEntry>,
+#[serde(deny_unknown_fields)]
+pub struct NotificationContainer {
+    #[serde(default)]
+    pub items: Vec<NotificationDelta>,
 }
 
-pub const DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 5_000;
-pub const MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS: u64 = 60_000;
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct RealmListPage(pub Value);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct RealmListChanges(pub Value);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AccountBaselineSegment(pub Value);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmInvalidation {
+    pub realm_id: RealmId,
+    pub revision: u64,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct AccountSyncRoundBudget {
+    frame_count: usize,
+    canonical_bytes: usize,
+}
+
+impl AccountSyncRoundBudget {
+    pub fn observe(&mut self, canonical_bytes: usize) -> Result<()> {
+        let total = self
+            .canonical_bytes
+            .checked_add(canonical_bytes)
+            .ok_or_else(|| protocol_error("account round size overflow"))?;
+        if self.frame_count >= ACCOUNT_SYNC_MAX_ROUND_FRAMES
+            || canonical_bytes > ACCOUNT_SYNC_MAX_FRAME_BYTES
+            || total > ACCOUNT_SYNC_MAX_ROUND_BYTES
+        {
+            return Err(protocol_error("account sync round exceeds its budget"));
+        }
+        self.frame_count += 1;
+        self.canonical_bytes = total;
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum AccountSubscribeSnapshotResult {
@@ -580,12 +555,6 @@ pub enum AccountSubscribeSnapshotResult {
     },
 }
 
-/// Validated account-subscribe catch-up step.
-///
-/// `frames` may be empty when a bounded long-poll expires without account
-/// changes. In that case the wire trace contains a cursor-bearing `frontier`
-/// followed by `catchup_complete`; the cursor still advances the reconnect
-/// baseline while the projection update is intentionally empty.
 #[derive(Clone, Debug)]
 pub struct AccountSubscribeBatch {
     pub frames: Vec<AccountSubscribeFrame>,
@@ -602,19 +571,166 @@ pub struct AccountSubscribeReconnectAfter {
 
 impl std::fmt::Display for AccountSubscribeReconnectAfter {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.reason.as_deref() {
-            Some(reason) => write!(
-                formatter,
-                "account subscribe requested reconnect after {} ms: {}",
-                self.reconnect_after_ms, reason
-            ),
-            None => write!(
-                formatter,
-                "account subscribe requested reconnect after {} ms",
-                self.reconnect_after_ms
-            ),
-        }
+        write!(
+            formatter,
+            "account subscribe requested reconnect after {} ms",
+            self.reconnect_after_ms
+        )
     }
 }
 
 impl std::error::Error for AccountSubscribeReconnectAfter {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StreamTraceFrameKind {
+    Data,
+    Frontier,
+    Heartbeat,
+    CatchupComplete,
+    Dropped,
+    ResyncRequired,
+    Unauthorized,
+}
+
+impl StreamTraceFrameKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Data => "data",
+            Self::Frontier => "frontier",
+            Self::Heartbeat => "heartbeat",
+            Self::CatchupComplete => "catchup_complete",
+            Self::Dropped => "dropped",
+            Self::ResyncRequired => "resync_required",
+            Self::Unauthorized => "unauthorized",
+        }
+    }
+
+    fn terminal(self) -> bool {
+        matches!(self, Self::Dropped | Self::ResyncRequired | Self::Unauthorized)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum StreamTraceError {
+    #[error("stream frame `{kind}` requires a non-empty cursor")]
+    MissingCursor { kind: &'static str },
+    #[error("catchup_complete arrived before baseline data")]
+    CatchupCompleteBeforeData,
+    #[error("catchup_complete is forbidden when catchup=false")]
+    UnexpectedCatchupComplete,
+    #[error("stream frame arrived after terminal `{terminal}`")]
+    FrameAfterTerminal { terminal: &'static str },
+    #[error("stream trace was already rejected")]
+    TraceAlreadyRejected,
+    #[error("stream ended before catchup_complete")]
+    CatchupIncomplete,
+}
+
+impl StreamTraceError {
+    pub fn violation(&self) -> &'static str {
+        match self {
+            Self::MissingCursor { kind: "dropped" } => "dropped_missing_cursor",
+            Self::MissingCursor { .. } => "cursor_required",
+            Self::CatchupCompleteBeforeData => "catchup_complete_before_delta",
+            Self::UnexpectedCatchupComplete => "unexpected_catchup_complete",
+            Self::FrameAfterTerminal { .. } => "frame_after_terminal",
+            Self::TraceAlreadyRejected => "trace_already_rejected",
+            Self::CatchupIncomplete => "catchup_incomplete",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct StreamTraceValidator {
+    catchup: bool,
+    baseline_data_seen: bool,
+    catchup_complete_seen: bool,
+    reconnect_cursor: Option<String>,
+    terminal: Option<StreamTraceFrameKind>,
+    rejected: bool,
+}
+
+impl StreamTraceValidator {
+    pub fn new(catchup: bool, reconnect_cursor: Option<String>) -> Self {
+        Self {
+            catchup,
+            baseline_data_seen: false,
+            catchup_complete_seen: false,
+            reconnect_cursor,
+            terminal: None,
+            rejected: false,
+        }
+    }
+
+    pub fn push(&mut self, frame: &AccountSubscribeFrame) -> std::result::Result<(), StreamTraceError> {
+        if self.rejected {
+            return Err(StreamTraceError::TraceAlreadyRejected);
+        }
+        if let Some(terminal) = self.terminal {
+            self.rejected = true;
+            return Err(StreamTraceError::FrameAfterTerminal {
+                terminal: terminal.as_str(),
+            });
+        }
+        let kind = match frame.kind {
+            AccountSubscribeFrameKind::Delta => StreamTraceFrameKind::Data,
+            AccountSubscribeFrameKind::Frontier => StreamTraceFrameKind::Frontier,
+            AccountSubscribeFrameKind::Heartbeat => StreamTraceFrameKind::Heartbeat,
+            AccountSubscribeFrameKind::CatchupComplete => StreamTraceFrameKind::CatchupComplete,
+            AccountSubscribeFrameKind::Dropped => StreamTraceFrameKind::Dropped,
+            AccountSubscribeFrameKind::ResyncRequired => StreamTraceFrameKind::ResyncRequired,
+            AccountSubscribeFrameKind::Unauthorized => StreamTraceFrameKind::Unauthorized,
+        };
+        if matches!(kind, StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier | StreamTraceFrameKind::CatchupComplete | StreamTraceFrameKind::Dropped)
+            && frame.cursor.as_deref().is_none_or(str::is_empty)
+        {
+            self.rejected = true;
+            return Err(StreamTraceError::MissingCursor { kind: kind.as_str() });
+        }
+        if kind == StreamTraceFrameKind::CatchupComplete {
+            if !self.catchup {
+                self.rejected = true;
+                return Err(StreamTraceError::UnexpectedCatchupComplete);
+            }
+            if !self.baseline_data_seen {
+                self.rejected = true;
+                return Err(StreamTraceError::CatchupCompleteBeforeData);
+            }
+            self.catchup_complete_seen = true;
+        }
+        if matches!(kind, StreamTraceFrameKind::Data | StreamTraceFrameKind::Frontier) {
+            self.baseline_data_seen = true;
+        }
+        match kind {
+            StreamTraceFrameKind::Data
+            | StreamTraceFrameKind::Frontier
+            | StreamTraceFrameKind::CatchupComplete
+            | StreamTraceFrameKind::Dropped => self.reconnect_cursor = frame.cursor.clone(),
+            StreamTraceFrameKind::ResyncRequired => self.reconnect_cursor = None,
+            _ => {}
+        }
+        if kind.terminal() {
+            self.terminal = Some(kind);
+        }
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> std::result::Result<(), StreamTraceError> {
+        if self.rejected {
+            return Err(StreamTraceError::TraceAlreadyRejected);
+        }
+        if self.catchup && !self.catchup_complete_seen && self.terminal.is_none() {
+            self.rejected = true;
+            return Err(StreamTraceError::CatchupIncomplete);
+        }
+        Ok(())
+    }
+
+    pub fn reconnect_cursor(&self) -> Option<&str> {
+        self.reconnect_cursor.as_deref()
+    }
+
+    pub const fn is_terminal(&self) -> bool {
+        self.terminal.is_some()
+    }
+}

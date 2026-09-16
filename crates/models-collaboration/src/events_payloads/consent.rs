@@ -2,8 +2,20 @@
 
 use arkret_wire::ConsentScope;
 
-use crate::account_lifecycle::ConsentPeer;
 use crate::internal_prelude::*;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum ConsentPeer {
+    Actor {
+        actor_id: ActorId,
+    },
+    PairwisePrincipal {
+        realm_id: RealmId,
+        principal_id: DidCoreId,
+    },
+}
 
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/consent_grant_payload`.

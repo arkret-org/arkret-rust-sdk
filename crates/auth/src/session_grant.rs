@@ -3,8 +3,8 @@
 //! Human issuance is account-handoff + accepted-device proof only. Agent
 //! issuance remains an explicitly scoped runtime-key-signed branch.
 
-use arkret_models_collaboration::agent_operations::AgentRequestedScopeDisclosure;
-use arkret_models_collaboration::session_grant_bodies::{
+use arkret_models_collaboration::agent_scope::AgentRequestedScopeDisclosure;
+use arkret_models_collaboration::session_grants::{
     AcceptedDeviceIssuePossessionProof, AcceptedDeviceRefreshPossessionProof,
     HumanSessionGrantRefreshRequest, HumanSessionGrantRequest, PairwiseEndpointSessionGrantRequest,
     SessionGrantAgentScopeRequest, SessionGrantDpopBindingProof, SessionGrantRefreshRequestBody,

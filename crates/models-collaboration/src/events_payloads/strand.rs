@@ -1,8 +1,5 @@
 //! Strand lifecycle and ordering event payloads.
 
-#[cfg(test)]
-use arkret_wire::DidCoreId;
-
 use crate::internal_prelude::*;
 
 /// Counterpart for
@@ -301,145 +298,9 @@ impl StrandWatchSetPayload {
         }
     }
 
-    /// Canonical causal-register cell this write targets: family
-    /// `ak.component.strand.watch.v1` with the tuple subject
-    /// `(strand_id, watcher_actor_id)` from the event-kind registry
-    /// `cell_writes` contract.
-    ///
-    /// It lives on the payload because two sides need the same id from the
-    /// same place: whoever authors the `ak.audit.accessed` partner of a
-    /// `.others` write fills `target_cell_id` with it, and whoever admits the
-    /// pair matches against it. `watch_cell_ref_matches_the_registered_contract`
-    /// pins the derivation to [`arkret_schema::project_registered_cell_writes`],
-    /// so this cannot quietly fork from the registry.
-    pub fn cell_ref(&self) -> Result<CellRef> {
-        let watcher_actor_key = self.watcher_actor_id.canonical_key()?;
-        let subject = composite_subject(&[self.strand_id.as_str(), &watcher_actor_key])?;
-        Ok(CellRef::new(format!(
-            "ak:cell:{}:{subject}",
-            CellFamilyId::STRAND_WATCH_V1
-        ))?)
-    }
-
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self).map_err(|err| {
             WireError::Protocol(format!("strand watch set payload serialize: {err}"))
         })
-    }
-}
-
-#[cfg(test)]
-mod presence_tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn realm_id() -> RealmId {
-        RealmId::new("ak:realm:AcbFC8Nil95DfV11kMMMvRtzRdEC3g-tFtBE8_VQQ74j").unwrap()
-    }
-
-    fn strand_id(suffix: &str) -> StrandId {
-        StrandId::from_event_id(
-            &EventId::from_event_digest(
-                &Hash::new(arkret_canonical::sha256_digest(suffix.as_bytes())).unwrap(),
-            )
-            .unwrap(),
-        )
-    }
-
-    #[test]
-    fn default_strand_cas_normalizes_missing_and_null() {
-        let base = json!({
-            "realm_id": realm_id(),
-            "strand_id": strand_id("000000000001")
-        });
-        let missing: RealmSetDefaultStrandPayload = serde_json::from_value(base.clone()).unwrap();
-        let mut explicit_null = base.clone();
-        explicit_null["expected_default_strand_id"] = Value::Null;
-        let null: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_null).unwrap();
-        let mut explicit_value = base;
-        explicit_value["expected_default_strand_id"] = json!(strand_id("000000000002"));
-        let value: RealmSetDefaultStrandPayload = serde_json::from_value(explicit_value).unwrap();
-
-        assert_eq!(missing.expected_default_strand_id, None);
-        assert_eq!(null.expected_default_strand_id, None);
-        assert!(value.expected_default_strand_id.is_some());
-        assert!(
-            serde_json::to_value(missing)
-                .unwrap()
-                .get("expected_default_strand_id")
-                .is_none()
-        );
-        assert!(
-            serde_json::to_value(null)
-                .unwrap()
-                .get("expected_default_strand_id")
-                .is_none()
-        );
-    }
-
-    /// `StrandWatchSetPayload::cell_ref` exists so the audit partner of a
-    /// `.others` write and the admission path that matches it agree on
-    /// `target_cell_id`. It is only worth having if it stays equal to what the
-    /// registered cell contract derives, so assert that directly rather than
-    /// restating the tuple-subject recipe.
-    #[test]
-    fn watch_cell_ref_matches_the_registered_contract() {
-        let payload = StrandWatchSetPayload::set(
-            strand_id("000000000001"),
-            ActorId::account(AccountId::new(
-                project_did_to_core_id(&Did::new("did:webvh:z6mkfixturebob:bob.example").unwrap())
-                    .unwrap(),
-                DidCoreId::new("ak:did_core:webvh:z6mkfixturestation").unwrap(),
-            )),
-            StrandWatchLevel::Participating,
-            None,
-        );
-        let event = test_support::raw_event(
-            "ak.strand.watch.set",
-            ScopeRef::Realm {
-                realm_id: realm_id(),
-            },
-            project_did_to_core_id(&Did::new("did:webvh:z6mkfixture:alice.example").unwrap())
-                .unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-            1,
-            Hlc::new("01970e589d21-0000-a13f9c2e").unwrap(),
-            serde_json::to_value(&payload).unwrap(),
-        )
-        .unwrap();
-
-        let writes = arkret_schema::project_registered_cell_writes(
-            &event,
-            arkret_canonical::DigestSuite::Sha256,
-        )
-        .unwrap();
-
-        assert_eq!(writes.len(), 1);
-        assert_eq!(writes[0].cell_id, payload.cell_ref().unwrap());
-    }
-
-    #[test]
-    fn watch_cas_normalizes_null_to_the_omitted_empty_value() {
-        let payload: StrandWatchSetPayload = serde_json::from_value(json!({
-            "strand_id": strand_id("000000000001"),
-            "watcher_actor_id": {
-                "kind": "account",
-                "account_id": {
-                    "principal_id": "ak:did_core:web:alice.example",
-                    "station_id": "ak:did_core:webvh:z6mkfixturestation"
-                }
-            },
-            "level": null,
-            "expected_value": null
-        }))
-        .unwrap();
-        assert_eq!(payload.expected_value, None);
-        assert!(
-            serde_json::to_value(payload)
-                .unwrap()
-                .get("expected_value")
-                .is_none()
-        );
     }
 }

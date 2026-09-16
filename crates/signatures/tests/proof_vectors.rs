@@ -208,11 +208,6 @@ fn dev_proof_kind_vectors_match_wire_validation() {
             v.kind.clone(),
             DidUrl::new("did:web:test.example#key-1").unwrap(),
             dummy_hash.clone(),
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "11".repeat(32)
-            ))
-            .unwrap(),
             None,
             None,
             "header..signature",

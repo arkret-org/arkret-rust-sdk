@@ -2,16 +2,16 @@
 //!
 //! The install preview / install request bodies embed the applet package
 //! (`AppletPackage`, this crate's `applet::registration`), so they live here.
-//! `AppletTransactionRequestBody` (binds encrypted `SignalEnvelope` values) and
-//! `AppletRevokeRequestBody` (binds `AccountLifecycleProof`) live in
-//! `arkret-models-collaboration`.
+//! Applet transaction and revoke carriers live here with the rest of the
+//! Applet-owned edge contract.
 
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, AppletId, AppletRevokeMode, BlobRef, DidCoreId, DidUrl, Event, EventId, GrantId, Hash,
-    NotarySignerDescriptor, PayloadSigner, ProtocolOperationId, RealmId, ReasonCode, Result,
-    ScopeRef, WireError, canonical,
+    ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef, Did,
+    DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash, PayloadProof, PayloadSigner,
+    ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, WireError,
+    canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,7 @@ use crate::applet::{AppletPackage, AppletRegistrationEpochEvidence, GhostExterna
 use crate::artifacts_applet::{
     AppletEventRejection, E2eePolicy, ExternalRef, FieldDefinition, ProtocolInstance,
 };
+use crate::GhostActorProvisionRequestBody;
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -45,10 +46,116 @@ pub enum AppletTransactionStatus {
 #[serde(deny_unknown_fields)]
 pub struct AppletTransactionOutcome {
     pub status: AppletTransactionStatus,
+    /// Exact authority commits accepted from this transaction. Each reference
+    /// retains its Realm, Circle, or Sidecar stream coordinate.
+    pub committed_event_refs: Vec<CommittedEventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejections: Vec<AppletEventRejection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retry_after_ms: Option<u64>,
+}
+
+/// Current Applet edge transaction. Durable Events are producer-authored
+/// Events; the receiving governance Station decides and signs finality.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppletTransactionRequestBody {
+    Events(AppletEventTransactionRequestBody),
+    Authoring(Box<AppletAuthoringTransactionRequestBody>),
+}
+
+impl AppletTransactionRequestBody {
+    pub fn applet_id(&self) -> &AppletId {
+        match self {
+            Self::Events(body) => &body.applet_id,
+            Self::Authoring(body) => &body.applet_id,
+        }
+    }
+
+    pub fn source_id(&self) -> &DidCoreId {
+        match self {
+            Self::Events(body) => &body.source_id,
+            Self::Authoring(body) => &body.source_id,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::Events(body) => body.validate(),
+            Self::Authoring(_) => Ok(()),
+        }
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletEventTransactionRequestBody {
+    pub applet_id: AppletId,
+    pub source_id: DidCoreId,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub events: Vec<Event>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub signals: Vec<SignalEnvelope>,
+}
+
+impl AppletEventTransactionRequestBody {
+    pub fn validate(&self) -> Result<()> {
+        if self.events.is_empty() && self.signals.is_empty() {
+            return Err(WireError::Protocol(
+                "applet transaction requires at least one Event or Signal".into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletAuthoringTransactionRequestBody {
+    pub applet_id: AppletId,
+    pub source_id: DidCoreId,
+    pub authoring_result: AppletManagedActorAuthoringResult,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletManagedActorAuthoringResult {
+    pub committed_request: AppletManagedActorCommittedRequest,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub realm_stream_head: CommitStreamHead,
+}
+
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppletManagedActorCommittedRequest {
+    Install(Box<AppletInstallRequestBody>),
+    Ghost(Box<GhostActorProvisionRequestBody>),
+}
+
+/// Request that atomically fences an Applet installation and submits the
+/// producer-authored effects to their governance Station.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletRevokeRequestBody {
+    pub revoke_plan_digest: Hash,
+    pub effective_scope: ScopeRef,
+    pub reason_code: ReasonCode,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revoke_mode: AppletRevokeMode,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub capability_revoke_events: Vec<EventCommitSubmission>,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub membership_state_events: Vec<EventCommitSubmission>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub proof: Option<PayloadProof>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -110,14 +217,14 @@ pub enum AppletInstallEffectiveStatus {
 pub struct AppletInstallOutcome {
     pub install_id: String,
     pub applet_id: AppletId,
-    pub registration_event_ref: EventId,
+    pub registration_event_ref: CommittedEventRef,
     pub registration_epoch: Hash,
     pub bot_actor_id: ActorId,
-    pub bot_actor_provision_ref: EventId,
+    pub bot_actor_provision_ref: CommittedEventRef,
     pub bot_principal_control_realm_id: RealmId,
     pub capability_grant_refs: Vec<GrantId>,
-    pub e2ee_authorization_refs: Vec<EventId>,
-    pub widget_policy_ref: Option<EventId>,
+    pub e2ee_authorization_refs: Vec<CommittedEventRef>,
+    pub widget_policy_ref: Option<CommittedEventRef>,
     pub effective_status: AppletInstallEffectiveStatus,
     pub rejections: Vec<AppletScopeRejection>,
 }
@@ -255,12 +362,24 @@ pub enum AppletRevokeEffectKind {
     LocalAppletFence,
 }
 
+/// Durable effect reference returned by an Applet revoke saga.
+///
+/// Authority-accepted Event effects carry their exact commit coordinate;
+/// local resource invalidations retain their protocol-typed resource string.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AppletRevokeEffectRef {
+    CommittedEvent(CommittedEventRef),
+    TypedResource(String),
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AppletRevokeStep {
     pub effect_kind: AppletRevokeEffectKind,
-    pub effect_ref: String,
+    pub effect_ref: AppletRevokeEffectRef,
     pub status: AppletRevokeStepStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<ReasonCode>,
@@ -275,7 +394,7 @@ pub struct AppletRevokeOutcome {
     pub status: AppletRevokeSagaStatus,
     pub steps: Vec<AppletRevokeStep>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub revoked_refs: Vec<String>,
+    pub revoked_refs: Vec<AppletRevokeEffectRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub rejections: Vec<AppletScopeRejection>,
 }
@@ -493,7 +612,7 @@ pub struct AppletGhostAuthoringRequestBasis {
     pub external_ref: GhostExternalTuple,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    pub registration_event_ref: EventId,
+    pub registration_event_ref: CommittedEventRef,
     pub authorization_ref: GrantId,
     pub registration_epoch_evidence: AppletRegistrationEpochEvidence,
     pub package_digest: Hash,
@@ -578,6 +697,45 @@ pub struct AppletManagedActorProof {
     pub jws: String,
 }
 
+/// Current Realm authority identity used to issue a short-lived Applet
+/// managed-actor authoring request.
+///
+/// This is an identity binding, not a frozen signer set or quorum.
+/// Callers resolve `service_id` and `authority_generation` through the current
+/// Realm authority bundle before accepting the request. Circle and Sidecar
+/// Events still commit to their own independent streams.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletAuthoringAuthority {
+    pub service_id: DidCoreId,
+    pub authority_generation: u64,
+    pub verification_method: DidUrl,
+}
+
+impl AppletAuthoringAuthority {
+    pub fn validate(&self) -> Result<()> {
+        let controller = self
+            .verification_method
+            .as_str()
+            .split_once('#')
+            .map(|(controller, _)| controller)
+            .ok_or_else(|| {
+                WireError::Protocol(
+                    "Applet authoring authority verification_method has no fragment".to_owned(),
+                )
+            })?;
+        let controller = Did::new(controller.to_owned())?;
+        if arkret_wire::project_did_to_core_id(&controller)? != self.service_id {
+            return Err(WireError::Protocol(
+                "Applet authoring authority verification_method controller does not match service_id"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -587,7 +745,7 @@ pub struct AppletManagedActorAuthoringRequest {
     pub basis: AppletManagedActorAuthoringBasis,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plan_digest: Option<Hash>,
-    pub hosting_notary: NotarySignerDescriptor,
+    pub authoring_authority: AppletAuthoringAuthority,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -605,7 +763,7 @@ impl AppletManagedActorAuthoringRequest {
             "purpose": self.purpose,
             "basis": self.basis,
             "plan_digest": self.plan_digest,
-            "hosting_notary": self.hosting_notary,
+            "authoring_authority": self.authoring_authority,
             "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
             "expires_at": arkret_canonical::format_timestamp_canonical(self.expires_at),
         })
@@ -632,15 +790,14 @@ impl AppletManagedActorAuthoringRequest {
 
     pub fn validate_bindings(&self) -> Result<()> {
         self.basis.validate()?;
-        self.hosting_notary.validate()?;
+        self.authoring_authority.validate()?;
         if self.schema != Self::SCHEMA
             || self.purpose != self.basis.purpose()
             || (self.purpose == AppletManagedActorPurpose::InstallBot) != self.plan_digest.is_some()
             || self.proof.payload_digest != self.payload_digest()?
             || &self.proof.audience_id != self.basis.service_id()
-            || self.proof.verification_method != self.hosting_notary.verification_method
-            || self.hosting_notary.actor_id
-                != ActorId::service(self.basis.target_station_id().clone())
+            || self.proof.verification_method != self.authoring_authority.verification_method
+            || &self.authoring_authority.service_id != self.basis.target_station_id()
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
             || self.issued_at >= self.expires_at
             || self.expires_at - self.issued_at > chrono::Duration::minutes(5)
@@ -657,18 +814,20 @@ impl AppletManagedActorAuthoringRequest {
     pub fn sign<S: PayloadSigner + ?Sized>(
         basis: AppletInstallAuthoringRequestBasis,
         plan_digest: Hash,
-        hosting_notary: NotarySignerDescriptor,
+        authoring_authority: AppletAuthoringAuthority,
         issued_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
         signer: &S,
     ) -> Result<Self> {
         basis.validate()?;
-        hosting_notary.validate()?;
-        if hosting_notary.actor_id != ActorId::service(basis.target_station_id.clone())
-            || hosting_notary.verification_method != *signer.verification_method_id()
+        authoring_authority.validate()?;
+        if authoring_authority.service_id != basis.target_station_id
+            || authoring_authority.verification_method != *signer.verification_method_id()
+            || arkret_wire::project_did_to_core_id(signer.signer_did())?
+                != authoring_authority.service_id
         {
             return Err(WireError::Protocol(
-                "hosting notary does not match the install authoring signer".to_owned(),
+                "authoring authority does not match the install authoring signer".to_owned(),
             ));
         }
         let issued_at = arkret_canonical::canonical::normalize_timestamp_canonical(issued_at);
@@ -679,7 +838,7 @@ impl AppletManagedActorAuthoringRequest {
             purpose: AppletManagedActorPurpose::InstallBot,
             basis: AppletManagedActorAuthoringBasis::InstallBot(Box::new(basis)),
             plan_digest: Some(plan_digest),
-            hosting_notary,
+            authoring_authority,
             issued_at,
             expires_at,
             proof: AppletManagedActorProof {
@@ -699,18 +858,20 @@ impl AppletManagedActorAuthoringRequest {
 
     pub fn sign_ghost<S: PayloadSigner + ?Sized>(
         basis: AppletGhostAuthoringRequestBasis,
-        hosting_notary: NotarySignerDescriptor,
+        authoring_authority: AppletAuthoringAuthority,
         issued_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
         signer: &S,
     ) -> Result<Self> {
         basis.validate()?;
-        hosting_notary.validate()?;
-        if hosting_notary.actor_id != ActorId::service(basis.target_station_id.clone())
-            || hosting_notary.verification_method != *signer.verification_method_id()
+        authoring_authority.validate()?;
+        if authoring_authority.service_id != basis.target_station_id
+            || authoring_authority.verification_method != *signer.verification_method_id()
+            || arkret_wire::project_did_to_core_id(signer.signer_did())?
+                != authoring_authority.service_id
         {
             return Err(WireError::Protocol(
-                "hosting notary does not match the Ghost authoring signer".to_owned(),
+                "authoring authority does not match the Ghost authoring signer".to_owned(),
             ));
         }
         let issued_at = arkret_canonical::canonical::normalize_timestamp_canonical(issued_at);
@@ -721,7 +882,7 @@ impl AppletManagedActorAuthoringRequest {
             purpose: AppletManagedActorPurpose::ProvisionGhost,
             basis: AppletManagedActorAuthoringBasis::ProvisionGhost(Box::new(basis)),
             plan_digest: None,
-            hosting_notary,
+            authoring_authority,
             issued_at,
             expires_at,
             proof: AppletManagedActorProof {
@@ -898,9 +1059,9 @@ pub struct AppletInstallReuseRequestBody {
 #[serde(deny_unknown_fields)]
 pub struct ReuseExistingManagedActor {
     pub actor_id: ActorId,
-    pub managed_actor_provision_ref: EventId,
-    pub pcr_genesis_ref: EventId,
-    pub accountability_grant_ref: EventId,
-    pub profile_event_ref: EventId,
+    pub managed_actor_provision_ref: CommittedEventRef,
+    pub pcr_genesis_ref: CommittedEventRef,
+    pub accountability_grant_ref: CommittedEventRef,
+    pub profile_event_ref: CommittedEventRef,
     pub initial_package_bot_actor_id: ActorId,
 }

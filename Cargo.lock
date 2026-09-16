@@ -164,7 +164,6 @@ dependencies = [
  "arkret-identifiers",
  "arkret-identity",
  "arkret-keystore",
- "arkret-lattice-registry",
  "arkret-mls",
  "arkret-models-collaboration",
  "arkret-models-crypto",
@@ -206,13 +205,8 @@ name = "arkret-bootstrap"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
- "arkret-event-draft",
- "arkret-lattice-registry",
  "arkret-models-collaboration",
  "arkret-models-identity",
- "arkret-schema",
- "arkret-signatures",
- "arkret-state",
  "arkret-wire",
  "chrono",
  "serde_json",
@@ -407,19 +401,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arkret-lattice-registry"
-version = "0.3.0"
-dependencies = [
- "arkret-models-collaboration",
- "arkret-schema",
- "arkret-schema-conformance",
- "arkret-state",
- "arkret-wire",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "arkret-locale"
 version = "0.3.0"
 dependencies = [
@@ -469,7 +450,6 @@ dependencies = [
  "arkret-identifiers",
  "arkret-models-crypto",
  "arkret-models-identity",
- "arkret-models-integration",
  "arkret-schema",
  "arkret-schema-conformance",
  "arkret-wire",
@@ -681,22 +661,11 @@ name = "arkret-state"
 version = "0.3.0"
 dependencies = [
  "arkret-canonical",
- "arkret-event-draft",
  "arkret-identifiers",
- "arkret-models-collaboration",
- "arkret-models-crypto",
- "arkret-schema",
- "arkret-schema-conformance",
  "arkret-wire",
- "async-trait",
  "chrono",
- "criterion",
- "hex",
  "salvo-oapi",
- "serde",
- "serde_json",
  "thiserror",
- "tokio",
 ]
 
 [[package]]
@@ -711,6 +680,7 @@ dependencies = [
  "chrono",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -733,6 +703,7 @@ dependencies = [
  "unicode-normalization",
  "unicode-security",
  "url",
+ "uuid",
  "web-time",
 ]
 

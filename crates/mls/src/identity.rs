@@ -1,9 +1,6 @@
 use std::collections::BTreeMap;
 
 use arkret_canonical::base64url_encode;
-use arkret_models_collaboration::events_payloads::{
-    MlsRequesterTrustBinding, MlsWelcomeClaimEnvelope, UnsignedMlsWelcomeClaimEnvelope,
-};
 use arkret_models_crypto::{
     KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
     KeyPackagesConsumeUnsignedRequest, KeyPackagesUploadRequestBody,
@@ -13,9 +10,7 @@ use arkret_models_crypto::{
     keypackages_consume_signing_input, keypackages_upload_signing_input,
     mls_key_package_record_upload_entry, validate_advertised_keypackage_capabilities,
 };
-use arkret_wire::{
-    ActorId, Base64UrlString, DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical,
-};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -28,9 +23,9 @@ use serde::{Deserialize, Serialize};
 use tls_codec::{Deserialize as TlsDeserializeTrait, Serialize as TlsSerializeTrait};
 
 use crate::group::{
-    ArkretMlsGroup, decode, encode, governance_binding_group_context_extensions,
-    governance_binding_openmls_capabilities, keypackage_capabilities_leaf_extensions, mls_error,
-    restore_provider_storage, snapshot_provider_storage,
+    ArkretMlsGroup, arkret_group_context_extensions, arkret_openmls_capabilities, decode, encode,
+    keypackage_capabilities_leaf_extensions, mls_error, restore_provider_storage,
+    snapshot_provider_storage,
 };
 use crate::{MlsError as Error, Result};
 
@@ -503,47 +498,6 @@ impl ArkretMlsIdentity {
         Ok(body)
     }
 
-    /// Sign a Welcome claim envelope as a minimal-metadata pairwise requester.
-    /// The requester authority is the exact MLS Leaf did:key; no transport
-    /// Account or Device identity is inferred or mirrored into the transcript.
-    pub fn sign_pairwise_welcome_claim_envelope(
-        &self,
-        envelope: UnsignedMlsWelcomeClaimEnvelope,
-    ) -> Result<MlsWelcomeClaimEnvelope> {
-        let ArkretMlsIdentityProfile::MinimalMetadataPairwise {
-            pairwise_actor_id,
-            verification_method,
-        } = &self.profile
-        else {
-            return Err(Error::Protocol(
-                "pairwise Welcome requester signing requires a pairwise MLS identity".to_owned(),
-            ));
-        };
-        let input = envelope.signing_input();
-        if input.requester_actor_id != ActorId::service(pairwise_actor_id.clone())
-            || !matches!(
-                &input.trust_binding,
-                MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
-                    requester_pairwise_verification_method,
-                } if requester_pairwise_verification_method == verification_method
-            )
-        {
-            return Err(Error::Protocol(
-                "Welcome requester transcript does not match this pairwise MLS identity".to_owned(),
-            ));
-        }
-        let signing_bytes = envelope.canonical_signing_bytes()?;
-        let signature = self.signer.sign(&signing_bytes).map_err(mls_error)?;
-        envelope
-            .attach_signature(
-                NonEmptyString::new(verification_method.as_str())
-                    .map_err(|error| Error::Protocol(error.to_owned()))?,
-                Base64UrlString::new(base64url_encode(signature))
-                    .map_err(|error| Error::Protocol(error.to_owned()))?,
-            )
-            .map_err(Into::into)
-    }
-
     fn sign_keypackage_input(
         &self,
         verification_method: &str,
@@ -558,7 +512,7 @@ impl ArkretMlsIdentity {
     }
 
     fn key_package_record_inner(&self) -> Result<MlsKeyPackageRecord> {
-        let capabilities = governance_binding_openmls_capabilities();
+        let capabilities = arkret_openmls_capabilities();
         let builder = KeyPackage::builder()
             .leaf_node_capabilities(capabilities)
             .leaf_node_extensions(keypackage_capabilities_leaf_extensions()?);
@@ -649,8 +603,8 @@ impl ArkretMlsIdentity {
         let config = MlsGroupCreateConfig::builder()
             .wire_format_policy(crate::group::handshake_policy(group_id.as_ref()))
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
-            .capabilities(governance_binding_openmls_capabilities())
-            .with_group_context_extensions(governance_binding_group_context_extensions(None)?)
+            .capabilities(arkret_openmls_capabilities())
+            .with_group_context_extensions(arkret_group_context_extensions()?)
             .with_leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
             .map_err(mls_error)?
             .use_ratchet_tree_extension(true)
@@ -669,8 +623,6 @@ impl ArkretMlsIdentity {
             identity: self,
             group,
             leaf_bindings: BTreeMap::new(),
-            history_secrets: BTreeMap::new(),
-            content_nonce_counter: 0,
             signal_nonce_counter: 0,
         };
         #[cfg(any(test, feature = "test-utils"))]
@@ -685,7 +637,7 @@ impl ArkretMlsIdentity {
     ) -> Result<ArkretMlsGroup> {
         let group_id_bytes = group_id.as_ref();
         binding.validate()?;
-        if binding.mls_group_id() != base64url_encode(group_id_bytes) {
+        if binding.mls_group_id()? != base64url_encode(group_id_bytes) {
             return Err(Error::Protocol(
                 "mls_governance_binding.mls_group_id does not match new MLS group".to_owned(),
             ));
@@ -699,10 +651,8 @@ impl ArkretMlsIdentity {
         let config = MlsGroupCreateConfig::builder()
             .wire_format_policy(crate::group::handshake_policy(group_id_bytes))
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
-            .capabilities(governance_binding_openmls_capabilities())
-            .with_group_context_extensions(governance_binding_group_context_extensions(Some(
-                binding,
-            ))?)
+            .capabilities(arkret_openmls_capabilities())
+            .with_group_context_extensions(arkret_group_context_extensions()?)
             .with_leaf_node_extensions(keypackage_capabilities_leaf_extensions()?)
             .map_err(mls_error)?
             .use_ratchet_tree_extension(true)
@@ -721,8 +671,6 @@ impl ArkretMlsIdentity {
             identity: self,
             group,
             leaf_bindings: BTreeMap::new(),
-            history_secrets: BTreeMap::new(),
-            content_nonce_counter: 0,
             signal_nonce_counter: 0,
         };
         #[cfg(any(test, feature = "test-utils"))]
@@ -815,327 +763,4 @@ pub fn validate_keypackage_capability_binding(bytes: &[u8], advertised: &[String
         ));
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::Value;
-
-    use super::*;
-
-    #[test]
-    fn ciphersuite_canonical_id_matches_registry() {
-        // The wire `cipher_suite(s)` value is sourced from
-        // ARKRET_MLS_CIPHERSUITE_CANONICAL_ID (the registry canonical_id),
-        // NOT from the openmls `Debug` impl. Pin that the two still agree so
-        // an upstream openmls change to `Debug` fails here instead of
-        // silently emitting an off-registry cipher_suite string on the wire.
-        assert_eq!(
-            format!("{ARKRET_MLS_CIPHERSUITE:?}"),
-            ARKRET_MLS_CIPHERSUITE_CANONICAL_ID
-        );
-    }
-
-    #[test]
-    fn key_package_record_carries_required_capabilities() {
-        let identity = ArkretMlsIdentity::new_test_human_device(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturealice".to_owned()).unwrap(),
-            DeviceId::new("ak:device:01964137-0000-7000-8000-000000000001".to_owned()).unwrap(),
-        )
-        .unwrap();
-
-        let record = identity.key_package_record().unwrap();
-        assert_eq!(
-            record.capabilities,
-            vec!["ak.content.v1".to_owned(), "mimi.content.v1".to_owned()]
-        );
-
-        let value = serde_json::to_value(&record).unwrap();
-        assert!(
-            matches!(value.get("capabilities"), Some(Value::Array(values)) if !values.is_empty())
-        );
-
-        let key_package_bytes = decode(&record.keypackage).unwrap();
-        assert_eq!(
-            keypackage_capabilities_from_key_package_bytes(&key_package_bytes).unwrap(),
-            record.capabilities
-        );
-        validate_keypackage_capability_binding(&key_package_bytes, &record.capabilities).unwrap();
-        let mut mismatched = record.capabilities;
-        mismatched.pop();
-        assert!(validate_keypackage_capability_binding(&key_package_bytes, &mismatched).is_err());
-    }
-
-    #[test]
-    fn agent_identity_reuses_authorized_runtime_signing_key() {
-        let seed = [7_u8; 32];
-        let expected = ed25519_dalek::SigningKey::from_bytes(&seed)
-            .verifying_key()
-            .to_bytes();
-        let agent_id = DidCoreId::new("ak:did_core:web:agent.example".to_owned()).unwrap();
-        let identity = ArkretMlsIdentity::new_agent(
-            agent_id,
-            DidUrl::new("did:web:agent.example#runtime".to_owned()).unwrap(),
-            arkret_wire::EventId::new(
-                "ak:event:ARKEyrg59dN-i97Pleo3vwwRkZomIcqPiuK9PtjzGLdh".to_owned(),
-            )
-            .unwrap(),
-            ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(&seed)),
-        )
-        .unwrap();
-
-        let record = identity.key_package_record().unwrap();
-        let leaf =
-            author_leaf_from_key_package_bytes(&decode(&record.keypackage).unwrap(), 0).unwrap();
-        assert_eq!(leaf.signature_key, expected);
-    }
-
-    fn minimal_profile_inputs(seed: [u8; 32]) -> (DidCoreId, DidUrl) {
-        let key = ed25519_dalek::SigningKey::from_bytes(&seed)
-            .verifying_key()
-            .to_bytes();
-        let multibase = arkret_canonical::ed25519_pubkey_to_did_key_multibase(&key);
-        (
-            DidCoreId::new(format!("ak:did_core:key:{multibase}")).unwrap(),
-            DidUrl::new(format!("did:key:{multibase}#{multibase}")).unwrap(),
-        )
-    }
-
-    #[test]
-    fn minimal_metadata_identity_binds_pairwise_leaf_sender_and_restore() {
-        let seed = [19_u8; 32];
-        let (pairwise_actor_id, verification_method) = minimal_profile_inputs(seed);
-        let identity = ArkretMlsIdentity::new_minimal_metadata_pairwise(
-            pairwise_actor_id.clone(),
-            verification_method.clone(),
-            ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(&seed)),
-        )
-        .unwrap();
-        assert_eq!(
-            identity.profile(),
-            &ArkretMlsIdentityProfile::MinimalMetadataPairwise {
-                pairwise_actor_id: pairwise_actor_id.clone(),
-                verification_method: verification_method.clone(),
-            }
-        );
-        let key_package = identity.key_package_record().unwrap();
-        assert_eq!(
-            key_package.endpoint,
-            MlsEndpointIdentity::MinimalMetadataPairwise {
-                pairwise_actor_id: pairwise_actor_id.clone(),
-                verification_method: verification_method.clone(),
-            }
-        );
-        let key_package_leaf =
-            author_leaf_from_key_package_bytes(&decode(&key_package.keypackage).unwrap(), 0)
-                .unwrap();
-        assert_eq!(
-            key_package_leaf.credential,
-            crate::AuthorLeafCredential::Basic {
-                identity: pairwise_actor_id.as_str().as_bytes().to_vec(),
-            }
-        );
-
-        let private_state = identity.export_private_state().unwrap();
-        let restored = ArkretMlsIdentity::restore_from_private_state(
-            MlsEndpointIdentity::minimal_metadata_pairwise(
-                pairwise_actor_id.clone(),
-                verification_method.clone(),
-            )
-            .unwrap(),
-            &private_state,
-        )
-        .unwrap();
-        let alice = ArkretMlsIdentity::new_test_human_device(
-            DidCoreId::new("ak:did_core:webvh:z6mkfixturebob".to_owned()).unwrap(),
-            DeviceId::new("ak:device:01964137-0000-7000-8000-000000000002".to_owned()).unwrap(),
-        )
-        .unwrap();
-        let alice_endpoint = alice.endpoint_identity();
-        let mut alice_group = alice.create_group(b"minimal-profile-identity").unwrap();
-        let add = alice_group.add_member(&key_package).unwrap();
-        assert_eq!(
-            add.welcome.recipient,
-            MlsEndpointIdentity::MinimalMetadataPairwise {
-                pairwise_actor_id: pairwise_actor_id.clone(),
-                verification_method: verification_method.clone(),
-            }
-        );
-        let welcome_wire = serde_json::to_value(&add.welcome).unwrap();
-        assert!(welcome_wire.get("recipient_principal_id").is_none());
-        assert_eq!(
-            welcome_wire["recipient_pairwise_actor_id"],
-            pairwise_actor_id.as_str()
-        );
-        assert_eq!(
-            welcome_wire["recipient_pairwise_verification_method"],
-            verification_method.as_str()
-        );
-        let welcome: arkret_models_crypto::MlsWelcomeEnvelope =
-            serde_json::from_value(welcome_wire).unwrap();
-        assert_eq!(welcome, add.welcome);
-        let serialized_welcome = serde_json::to_vec(&welcome).unwrap();
-        let decoded_welcome: arkret_models_crypto::MlsWelcomeEnvelope =
-            serde_json::from_slice(&serialized_welcome).unwrap();
-        assert_eq!(decoded_welcome, welcome);
-        let mut group = ArkretMlsGroup::join_from_welcome(restored, &decoded_welcome).unwrap();
-        group
-            .install_test_leaf_bindings(vec![alice_endpoint, key_package.endpoint.clone()])
-            .unwrap();
-        assert_eq!(
-            group.local_content_sender_domain().unwrap(),
-            pairwise_actor_id.as_str()
-        );
-        let leaves = group.active_author_leaves();
-        let pairwise_leaf = leaves
-            .iter()
-            .find(|leaf| {
-                leaf.credential
-                    == (crate::AuthorLeafCredential::Basic {
-                        identity: pairwise_actor_id.as_str().as_bytes().to_vec(),
-                    })
-            })
-            .unwrap();
-        assert_eq!(
-            pairwise_leaf.signature_key,
-            ed25519_dalek::SigningKey::from_bytes(&seed)
-                .verifying_key()
-                .to_bytes()
-                .to_vec()
-        );
-
-        let record = group.export_state_record().unwrap();
-        let restored_group = ArkretMlsGroup::restore_from_state_record(&record).unwrap();
-        assert_eq!(
-            restored_group.local_content_sender_domain().unwrap(),
-            pairwise_actor_id.as_str()
-        );
-        assert_eq!(
-            restored_group.identity().profile(),
-            &ArkretMlsIdentityProfile::MinimalMetadataPairwise {
-                pairwise_actor_id,
-                verification_method,
-            }
-        );
-    }
-
-    #[test]
-    fn minimal_metadata_identity_rejects_actor_or_method_key_mismatch() {
-        let seed = [23_u8; 32];
-        let (pairwise_actor_id, verification_method) = minimal_profile_inputs(seed);
-        let (other_actor_id, other_method) = minimal_profile_inputs([24_u8; 32]);
-        assert!(
-            ArkretMlsIdentity::new_minimal_metadata_pairwise(
-                other_actor_id,
-                verification_method,
-                ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(
-                    &seed
-                ),),
-            )
-            .is_err()
-        );
-        assert!(
-            ArkretMlsIdentity::new_minimal_metadata_pairwise(
-                pairwise_actor_id,
-                other_method,
-                ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(
-                    &seed
-                ),),
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn pairwise_identity_signs_welcome_durable_receipt_and_consume_command() {
-        let seed = [31_u8; 32];
-        let (pairwise_actor_id, verification_method) = minimal_profile_inputs(seed);
-        let identity = ArkretMlsIdentity::new_minimal_metadata_pairwise(
-            pairwise_actor_id.clone(),
-            verification_method.clone(),
-            ArkretMlsSigner::from_ed25519_signing_key(ed25519_dalek::SigningKey::from_bytes(&seed)),
-        )
-        .unwrap();
-        let fixture = arkret_schema_conformance::spec_json_artifact(
-            "fixtures/keypackage-pairwise-welcome-fixture.json",
-        )
-        .unwrap();
-        let claim_receipt: arkret_models_crypto::PeerKeyPackageClaimReceipt =
-            serde_json::from_value(
-                fixture["schema_validation_cases"][0]["instance"]["claim_receipt"].clone(),
-            )
-            .unwrap();
-        let claim_request_id = claim_receipt.claim_request_id.clone();
-        let keypackage_ref = format!("sha256:{}", "11".repeat(32));
-        let welcome_digest = Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap();
-        let envelope = UnsignedMlsWelcomeClaimEnvelope::new(
-            arkret_models_collaboration::events_payloads::mls::MlsWelcomeClaimEnvelopeSigningInput {
-                keypackage_ref: keypackage_ref.clone(),
-                keypackage_digest: Hash::new(format!("sha256:{}", "33".repeat(32))).unwrap(),
-                intended_realm_id: RealmId::new(
-                    "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5".to_owned(),
-                )
-                .unwrap(),
-                claim_id: NonEmptyString::new("claim-without-keypackage-prefix").unwrap(),
-                requester_actor_id: ActorId::service(pairwise_actor_id),
-                trust_binding: MlsRequesterTrustBinding::RequesterMinimalMetadataPairwise {
-                    requester_pairwise_verification_method: verification_method.clone(),
-                },
-                welcome_digest: welcome_digest.clone(),
-                created_at: Utc::now(),
-            },
-            &claim_receipt,
-        )
-        .unwrap();
-        let envelope = identity
-            .sign_pairwise_welcome_claim_envelope(envelope)
-            .unwrap();
-        assert_eq!(
-            envelope.signature.kid.as_str(),
-            verification_method.as_str()
-        );
-
-        let placeholder = KeyOperationSignature {
-            kid: NonEmptyString::new(verification_method.as_str()).unwrap(),
-            signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-            sig: Base64UrlString::new("AA").unwrap(),
-        };
-        let receipt = RecipientMlsDurableReceipt {
-            domain: NonEmptyString::new(
-                arkret_wire::DomainSeparationId::MLS_RECIPIENT_DURABLE_RECEIPT_V1,
-            )
-            .unwrap(),
-            claim_request_id,
-            key_package_ref: NonEmptyString::new(keypackage_ref).unwrap(),
-            recipient: RecipientMlsDurableSigner::MinimalMetadataPairwise {
-                recipient_pairwise_verification_method: verification_method.clone(),
-            },
-            recipient_id: DidCoreId::new("ak:did_core:webvh:z6mkfixtureservice".to_owned())
-                .unwrap(),
-            realm_id: RealmId::new(
-                "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5".to_owned(),
-            )
-            .unwrap(),
-            mls_group_id: NonEmptyString::new("pairwise-group").unwrap(),
-            mls_epoch: 1,
-            welcome_ref: arkret_wire::EventId::new(
-                "ak:event:ARELvWOpF6BRrks3DlbQy-9XIE6aAQQumDQp7fA4ApeM",
-            )
-            .unwrap(),
-            welcome_digest,
-            durable_at: Utc::now(),
-            signature: placeholder,
-        };
-        let receipt = identity
-            .sign_recipient_mls_durable_receipt(receipt)
-            .unwrap();
-        let request = identity
-            .signed_key_packages_consume_request(
-                NonEmptyString::new("claim-without-keypackage-prefix").unwrap(),
-                receipt,
-            )
-            .unwrap();
-        assert_eq!(request.signature.kid.as_str(), verification_method.as_str());
-        request.validate_shape().unwrap();
-    }
 }

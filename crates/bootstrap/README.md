@@ -1,7 +1,8 @@
 # arkret-bootstrap
 
-Arkret principal-control and agent bootstrap validation.
+Producer-side builders for principal-control and Agent bootstrap Events.
 
-Owns the validation surface for principal control and agent
-bootstrapping. Holds behavior only; wire shapes and canonical encoding live
-in the model and `arkret-canonical` crates.
+The crate creates immutable producer content and packages signed
+identity-creation Events. The current governance Station separately validates
+them and creates `RealmCommit` records in the affected Realm stream. Circle and
+Sidecar streams remain independent and are never ordered by bootstrap code.

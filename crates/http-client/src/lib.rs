@@ -61,8 +61,8 @@ pub(crate) use client_internals::reject_path_segment;
 pub(crate) use client_internals::validate_request_builder;
 pub use endpoints::{
     AccountSubscribeFrameStream, BlobDownloadOptions, BlobResumableUploadOptions,
-    EventsSubscribeFrameStream, EventsSubscribeOptions, RESUMABLE_UPLOAD_FEATURE,
-    RESUMABLE_UPLOAD_THRESHOLD_BYTES, SignalSubscribeFrameStream, blob_resumable_upload_base_url,
+    RESUMABLE_UPLOAD_FEATURE, RESUMABLE_UPLOAD_THRESHOLD_BYTES, SignalSubscribeFrameStream,
+    blob_resumable_upload_base_url,
 };
 pub use error::{Error, Result};
 #[cfg(not(target_arch = "wasm32"))]

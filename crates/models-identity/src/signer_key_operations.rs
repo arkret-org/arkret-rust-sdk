@@ -1,236 +1,123 @@
-//! Own-Station signing-key results for `ak.self.signer_keys.read.resolve.v1`
-//! (`POST /_arkret/self/signer-keys/query`).
-//!
-//! This is the single self-path signer surface. It replaced the separate
-//! `self/current-signer-evidence/query` and `self/agent-signer-evidence/query`
-//! operations, which the protocol no longer defines, and it answers both
-//! current-invocation and exact locally accepted historical questions in one
-//! closed result union.
-//!
-//! What it deliberately is not: portable evidence, a reusable current grant, or
-//! anything a caller can hand to a third party. The receiver is the
-//! authenticated recipient Station, never a caller-selected remote service.
+//! Authenticated self-query for current or exact committed historical signing
+//! keys. Results are query-local projections, not portable authority evidence.
 
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, ActorId, Base64UrlString, DeviceId, DidUrl, ErrorCode, EventId, RealmId, RequestId,
-    Result,
+    AccountId, ActorId, Base64UrlString, CommittedEventRef, CurrentRevision, DeviceId, DidUrl,
+    ErrorCode, RealmId, RequestId, Result,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::agent_signer_evidence::{
+use crate::agent_signer_state::{
     SELF_SIGNER_OUTCOME_MAX_BYTES, SELF_SIGNER_REQUEST_MAX_BYTES, SELF_SIGNER_RESULT_MAX_BYTES,
-    SignerEvidenceResolvedStatus, SignerEvidenceUnavailableStatus, StationSigningKey,
-    self_signer_error, validate_self_signer_bytes,
+    SignerKeyResolutionStatus, StationSigningKey, self_signer_error, validate_ed25519_public_key,
+    validate_self_signer_bytes,
 };
 
-/// Upper bound on selectors per request and results per outcome.
 pub const MAX_SIGNER_KEY_QUERIES: usize = 64;
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum CurrentAdmissionMode {
-    #[serde(rename = "current_admission")]
-    CurrentAdmission,
-}
-
+#[serde(rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum HistoricalEventMode {
-    #[serde(rename = "historical_event")]
-    HistoricalEvent,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AccountDeviceSenderKind {
-    #[serde(rename = "account_device")]
+pub enum SignerSubjectKind {
     AccountDevice,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum AgentSenderKind {
-    #[serde(rename = "agent")]
     Agent,
 }
 
-fn validate_signing_actor(actor: &ActorId) -> Result<()> {
-    let ActorId::Account { account_id } = actor else {
-        return Err(self_signer_error(
-            ErrorCode::SchemaViolation,
-            "signer key actor must keep the complete account ActorId of the signer",
-        ));
-    };
-    account_id.validate()
-}
-
-fn validate_ed25519_public_key(value: &str) -> Result<()> {
-    let decoded = arkret_canonical::base64url::base64url_decode(value).map_err(|_| {
-        self_signer_error(
-            ErrorCode::SchemaViolation,
-            "signer public key is not canonical unpadded base64url",
-        )
-    })?;
-    if decoded.len() != 32 || arkret_canonical::base64url::base64url_encode(&decoded) != value {
-        return Err(self_signer_error(
-            ErrorCode::SchemaViolation,
-            "signer public key must encode exactly 32 Ed25519 public-key bytes",
-        ));
-    }
-    Ok(())
-}
-
-/// Query-local key material. Identity is bound by the complete enclosing
-/// selector and is never duplicated in this wire object.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct QuerySigningKey {
-    pub public_key_b64u: Base64UrlString,
-    pub authorization_ref: EventId,
-}
-
-impl QuerySigningKey {
-    pub fn validate(&self) -> Result<()> {
-        validate_ed25519_public_key(self.public_key_b64u.as_str())
-    }
-
-    pub fn from_station_key(
-        key: StationSigningKey,
-        selector: &SignerKeyQuerySelector,
-    ) -> Result<Self> {
-        key.validate()?;
-        selector.validate()?;
-        if key.actor != *selector.actor()
-            || key.verification_method != *selector.verification_method()
-        {
-            return Err(self_signer_error(
-                ErrorCode::StateMismatch,
-                "signing key does not match the complete query selector",
-            ));
-        }
-        Ok(Self {
-            public_key_b64u: key.public_key_b64u,
-            authorization_ref: key.authorization_ref,
-        })
-    }
-}
-
-/// Historical device signing key. It carries no `authorization_ref`: the
-/// authority question was already settled when the Event was accepted.
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoricalDeviceSigningKey {
-    pub public_key_b64u: String,
-}
-
-impl HistoricalDeviceSigningKey {
-    pub fn validate(&self) -> Result<()> {
-        validate_ed25519_public_key(&self.public_key_b64u)
-    }
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CurrentAccountDeviceSelector {
-    pub verification_mode: CurrentAdmissionMode,
-    pub sender_kind: AccountDeviceSenderKind,
-    pub actor: ActorId,
-    pub device_id: DeviceId,
-    pub verification_method: DidUrl,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CurrentAgentSelector {
-    pub verification_mode: CurrentAdmissionMode,
-    pub sender_kind: AgentSenderKind,
-    pub actor: ActorId,
-    pub verification_method: DidUrl,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoricalAccountDeviceSelector {
-    pub verification_mode: HistoricalEventMode,
-    pub sender_kind: AccountDeviceSenderKind,
-    pub actor: ActorId,
-    pub device_id: DeviceId,
-    pub verification_method: DidUrl,
-    pub event_id: EventId,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoricalAgentSelector {
-    pub verification_mode: HistoricalEventMode,
-    pub sender_kind: AgentSenderKind,
-    pub actor: ActorId,
-    pub verification_method: DidUrl,
-    pub event_id: EventId,
-}
-
-/// Closed selector union. The verification mode and sender kind are signed-in
-/// constants rather than free enums, so a current question can never be
-/// answered from historical state or the other way round.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
 pub enum SignerKeyQuerySelector {
-    CurrentAccountDevice(CurrentAccountDeviceSelector),
-    CurrentAgent(CurrentAgentSelector),
-    HistoricalAccountDevice(HistoricalAccountDeviceSelector),
-    HistoricalAgent(HistoricalAgentSelector),
+    Current {
+        subject_kind: SignerSubjectKind,
+        actor: ActorId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device_id: Option<DeviceId>,
+        verification_method: DidUrl,
+    },
+    HistoricalCommittedEvent {
+        subject_kind: SignerSubjectKind,
+        actor: ActorId,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        device_id: Option<DeviceId>,
+        verification_method: DidUrl,
+        committed_event_ref: CommittedEventRef,
+    },
 }
 
 impl SignerKeyQuerySelector {
-    #[must_use]
     pub fn actor(&self) -> &ActorId {
         match self {
-            Self::CurrentAccountDevice(selector) => &selector.actor,
-            Self::CurrentAgent(selector) => &selector.actor,
-            Self::HistoricalAccountDevice(selector) => &selector.actor,
-            Self::HistoricalAgent(selector) => &selector.actor,
+            Self::Current { actor, .. } | Self::HistoricalCommittedEvent { actor, .. } => actor,
         }
     }
 
-    #[must_use]
     pub fn verification_method(&self) -> &DidUrl {
         match self {
-            Self::CurrentAccountDevice(selector) => &selector.verification_method,
-            Self::CurrentAgent(selector) => &selector.verification_method,
-            Self::HistoricalAccountDevice(selector) => &selector.verification_method,
-            Self::HistoricalAgent(selector) => &selector.verification_method,
+            Self::Current {
+                verification_method,
+                ..
+            }
+            | Self::HistoricalCommittedEvent {
+                verification_method,
+                ..
+            } => verification_method,
         }
     }
 
-    /// The exact Event a historical question is about, if any.
-    #[must_use]
-    pub fn event_id(&self) -> Option<&EventId> {
+    pub fn committed_event_ref(&self) -> Option<&CommittedEventRef> {
         match self {
-            Self::CurrentAccountDevice(_) | Self::CurrentAgent(_) => None,
-            Self::HistoricalAccountDevice(selector) => Some(&selector.event_id),
-            Self::HistoricalAgent(selector) => Some(&selector.event_id),
+            Self::Current { .. } => None,
+            Self::HistoricalCommittedEvent {
+                committed_event_ref,
+                ..
+            } => Some(committed_event_ref),
         }
     }
 
-    pub fn validate(&self) -> Result<()> {
-        validate_signing_actor(self.actor())
+    pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
+        let (subject_kind, device_id) = match self {
+            Self::Current {
+                subject_kind,
+                device_id,
+                ..
+            }
+            | Self::HistoricalCommittedEvent {
+                subject_kind,
+                device_id,
+                ..
+            } => (subject_kind, device_id),
+        };
+        let ActorId::Account { account_id } = self.actor() else {
+            return Err(self_signer_error(
+                ErrorCode::SchemaViolation,
+                "device and Agent signer selectors require a complete account ActorId",
+            ));
+        };
+        account_id.validate()?;
+        if matches!(subject_kind, SignerSubjectKind::AccountDevice) != device_id.is_some() {
+            return Err(self_signer_error(
+                ErrorCode::SchemaViolation,
+                "device_id is required exactly for account-device signer selectors",
+            ));
+        }
+        if self
+            .committed_event_ref()
+            .is_some_and(|reference| reference.stream_ref.realm_id() != realm_id)
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "historical signer Event belongs to another Realm",
+            ));
+        }
+        Ok(())
     }
 }
 
-/// Body of `ak.self.signer_keys.read.resolve.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct SignerKeysQueryRequestBody {
     pub request_id: RequestId,
     pub realm_id: RealmId,
@@ -245,16 +132,16 @@ impl SignerKeysQueryRequestBody {
         if self.queries.is_empty() || self.queries.len() > MAX_SIGNER_KEY_QUERIES {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
-                "signer keys query requires 1..=64 selectors",
+                "signer-key query requires 1..=64 selectors",
             ));
         }
         let mut seen = BTreeSet::new();
         for selector in &self.queries {
-            selector.validate()?;
+            selector.validate(&self.realm_id)?;
             if !seen.insert(arkret_canonical::canonical_json_bytes(selector)?) {
                 return Err(self_signer_error(
                     ErrorCode::SchemaViolation,
-                    "duplicate signer keys selector",
+                    "duplicate signer-key selector",
                 ));
             }
         }
@@ -262,124 +149,88 @@ impl SignerKeysQueryRequestBody {
     }
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CurrentSignerKeyOutcome {
-    pub selector: SignerKeyQuerySelector,
-    pub status: SignerEvidenceResolvedStatus,
-    pub key: QuerySigningKey,
-}
-
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoricalAccountDeviceSignerKeyOutcome {
-    pub selector: HistoricalAccountDeviceSelector,
-    pub status: SignerEvidenceResolvedStatus,
-    pub key: HistoricalDeviceSigningKey,
-    /// The producer's admission time for the Event, never the local receiver's
-    /// acceptance time.
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
+pub struct ResolvedSignerKey {
+    pub public_key_b64u: Base64UrlString,
+    pub authorization_ref: CommittedEventRef,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub revision: CurrentRevision,
 }
 
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HistoricalAgentSignerKeyOutcome {
-    pub selector: HistoricalAgentSelector,
-    pub status: SignerEvidenceResolvedStatus,
-    pub key: QuerySigningKey,
-    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub accepted_at: DateTime<Utc>,
-}
-
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct UnavailableSignerKeyOutcome {
-    pub selector: SignerKeyQuerySelector,
-    pub status: SignerEvidenceUnavailableStatus,
-}
-
-/// Closed per-selector result union.
-///
-/// `unavailable` is one indistinguishable answer: it never says whether the
-/// target is absent, invisible, revoked or merely unreachable this time, and it
-/// is never rendered as a missing row.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum SignerKeyQueryOutcome {
-    Current(CurrentSignerKeyOutcome),
-    HistoricalAgent(HistoricalAgentSignerKeyOutcome),
-    HistoricalAccountDevice(HistoricalAccountDeviceSignerKeyOutcome),
-    Unavailable(UnavailableSignerKeyOutcome),
-}
-
-impl SignerKeyQueryOutcome {
-    #[must_use]
-    pub fn selector(&self) -> SignerKeyQuerySelector {
-        match self {
-            Self::Current(result) => result.selector.clone(),
-            Self::HistoricalAgent(result) => {
-                SignerKeyQuerySelector::HistoricalAgent(result.selector.clone())
-            }
-            Self::HistoricalAccountDevice(result) => {
-                SignerKeyQuerySelector::HistoricalAccountDevice(result.selector.clone())
-            }
-            Self::Unavailable(result) => result.selector.clone(),
-        }
-    }
-
-    /// The resolved signing key, or `None` when the Station answered
-    /// `unavailable`.
-    #[must_use]
-    pub fn verification_method(&self) -> Option<&DidUrl> {
-        match self {
-            Self::Current(result) => Some(result.selector.verification_method()),
-            Self::HistoricalAgent(result) => Some(&result.selector.verification_method),
-            Self::HistoricalAccountDevice(result) => Some(&result.selector.verification_method),
-            Self::Unavailable(_) => None,
-        }
-    }
-
+impl ResolvedSignerKey {
     pub fn validate(&self) -> Result<()> {
-        validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
-        let selector = self.selector();
-        selector.validate()?;
-        match self {
-            Self::Current(result) => {
-                if matches!(
-                    result.selector,
-                    SignerKeyQuerySelector::HistoricalAccountDevice(_)
-                        | SignerKeyQuerySelector::HistoricalAgent(_)
-                ) {
-                    return Err(self_signer_error(
-                        ErrorCode::SchemaViolation,
-                        "a current signer key result must answer a current selector",
-                    ));
-                }
-                result.key.validate()?;
-            }
-            Self::HistoricalAgent(result) => result.key.validate()?,
-            Self::HistoricalAccountDevice(result) => result.key.validate()?,
-            Self::Unavailable(_) => return Ok(()),
+        validate_ed25519_public_key(self.public_key_b64u.as_str())?;
+        if self.authorization_ref.commit_id != self.revision.commit_id
+            && self.authorization_ref.stream_position > self.revision.stream_position
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "resolved signing key is not covered by its authority-stream revision",
+            ));
         }
         Ok(())
     }
+
+    pub fn from_station_key(
+        key: StationSigningKey,
+        selector: &SignerKeyQuerySelector,
+        realm_id: &RealmId,
+    ) -> Result<Self> {
+        key.validate()?;
+        selector.validate(realm_id)?;
+        if key.actor != *selector.actor()
+            || key.verification_method != *selector.verification_method()
+        {
+            return Err(self_signer_error(
+                ErrorCode::StateMismatch,
+                "signing key does not match the exact selector",
+            ));
+        }
+        let resolved = Self {
+            public_key_b64u: key.public_key_b64u,
+            authorization_ref: key.authorization_ref,
+            revision: key.revision,
+        };
+        resolved.validate()?;
+        Ok(resolved)
+    }
 }
 
-/// Success body of `ak.self.signer_keys.read.resolve.v1`.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub struct SignerKeyQueryResult {
+    pub selector: SignerKeyQuerySelector,
+    pub status: SignerKeyResolutionStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<ResolvedSignerKey>,
+}
+
+impl SignerKeyQueryResult {
+    pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
+        validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
+        self.selector.validate(realm_id)?;
+        match (self.status, &self.key) {
+            (SignerKeyResolutionStatus::Resolved, Some(key)) => key.validate(),
+            (SignerKeyResolutionStatus::Unavailable, None) => Ok(()),
+            _ => Err(self_signer_error(
+                ErrorCode::SchemaViolation,
+                "resolved status requires a key and unavailable status forbids one",
+            )),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub struct SignerKeysQueryOutcome {
     pub request_id: RequestId,
     pub realm_id: RealmId,
     pub recipient_account_id: AccountId,
-    pub results: Vec<SignerKeyQueryOutcome>,
+    pub results: Vec<SignerKeyQueryResult>,
 }
 
 impl SignerKeysQueryOutcome {
@@ -388,24 +239,22 @@ impl SignerKeysQueryOutcome {
         if self.results.is_empty() || self.results.len() > MAX_SIGNER_KEY_QUERIES {
             return Err(self_signer_error(
                 ErrorCode::SchemaViolation,
-                "signer keys outcome requires 1..=64 results",
+                "signer-key outcome requires 1..=64 results",
             ));
         }
         let mut seen = BTreeSet::new();
         for result in &self.results {
-            result.validate()?;
-            if !seen.insert(arkret_canonical::canonical_json_bytes(&result.selector())?) {
+            result.validate(&self.realm_id)?;
+            if !seen.insert(arkret_canonical::canonical_json_bytes(&result.selector)?) {
                 return Err(self_signer_error(
                     ErrorCode::SchemaViolation,
-                    "duplicate signer keys result",
+                    "duplicate signer-key result",
                 ));
             }
         }
         Ok(())
     }
 
-    /// Reject a late or foreign answer, then require exactly one result per
-    /// selector the caller asked about.
     pub fn validate_for_request(&self, request: &SignerKeysQueryRequestBody) -> Result<()> {
         request.validate()?;
         self.validate()?;
@@ -415,7 +264,7 @@ impl SignerKeysQueryOutcome {
         {
             return Err(self_signer_error(
                 ErrorCode::StateMismatch,
-                "signer keys result differs from the exact request, Realm or recipient",
+                "signer-key outcome does not match its request",
             ));
         }
         let asked: BTreeSet<Vec<u8>> = request
@@ -426,185 +275,14 @@ impl SignerKeysQueryOutcome {
         let answered: BTreeSet<Vec<u8>> = self
             .results
             .iter()
-            .map(|result| arkret_canonical::canonical_json_bytes(&result.selector()))
+            .map(|result| arkret_canonical::canonical_json_bytes(&result.selector))
             .collect::<std::result::Result<_, _>>()?;
         if asked != answered {
             return Err(self_signer_error(
                 ErrorCode::StateMismatch,
-                "signer keys result does not answer exactly the selectors that were asked",
+                "signer-key outcome must answer every exact selector once",
             ));
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use arkret_wire::DidCoreId;
-
-    use super::*;
-
-    fn account() -> AccountId {
-        AccountId::new(
-            DidCoreId::new("ak:did_core:web:alice.example").unwrap(),
-            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-        )
-    }
-
-    fn method() -> DidUrl {
-        DidUrl::new("did:web:alice.example#device-1").unwrap()
-    }
-
-    fn current_selector() -> SignerKeyQuerySelector {
-        SignerKeyQuerySelector::CurrentAccountDevice(CurrentAccountDeviceSelector {
-            verification_mode: CurrentAdmissionMode::CurrentAdmission,
-            sender_kind: AccountDeviceSenderKind::AccountDevice,
-            actor: ActorId::account(account()),
-            device_id: DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000001").unwrap(),
-            verification_method: method(),
-        })
-    }
-
-    fn historical_selector() -> HistoricalAccountDeviceSelector {
-        HistoricalAccountDeviceSelector {
-            verification_mode: HistoricalEventMode::HistoricalEvent,
-            sender_kind: AccountDeviceSenderKind::AccountDevice,
-            actor: ActorId::account(account()),
-            device_id: DeviceId::new("ak:device:019a0000-0000-7000-8000-000000000001").unwrap(),
-            verification_method: method(),
-            event_id: EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g")
-                .unwrap(),
-        }
-    }
-
-    fn station_key() -> StationSigningKey {
-        StationSigningKey {
-            actor: ActorId::account(account()),
-            verification_method: method(),
-            public_key_b64u: arkret_wire::Base64UrlString::new(
-                "WnA82IwABQeTR4DCdDNIbwpCZAbc6nFs1BaTzKuN3Gs",
-            )
-            .unwrap(),
-            authorization_ref: EventId::new(
-                "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
-            )
-            .unwrap(),
-        }
-    }
-
-    fn request() -> SignerKeysQueryRequestBody {
-        SignerKeysQueryRequestBody {
-            request_id: RequestId::new("ak:request:01970000-0000-7000-8000-000000000081").unwrap(),
-            realm_id: RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5")
-                .unwrap(),
-            recipient_account_id: account(),
-            queries: vec![
-                current_selector(),
-                SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
-            ],
-        }
-    }
-
-    #[test]
-    fn selector_modes_survive_a_wire_round_trip_without_collapsing() {
-        let request = request();
-        request.validate().unwrap();
-        let wire = serde_json::to_value(&request).unwrap();
-        assert_eq!(wire["queries"][0]["verification_mode"], "current_admission");
-        assert_eq!(wire["queries"][1]["verification_mode"], "historical_event");
-        let decoded: SignerKeysQueryRequestBody = serde_json::from_value(wire).unwrap();
-        assert_eq!(decoded, request);
-        assert!(decoded.queries[0].event_id().is_none());
-        assert!(decoded.queries[1].event_id().is_some());
-    }
-
-    #[test]
-    fn outcome_must_answer_exactly_the_selectors_that_were_asked() {
-        let request = request();
-        let outcome = SignerKeysQueryOutcome {
-            request_id: request.request_id.clone(),
-            realm_id: request.realm_id.clone(),
-            recipient_account_id: request.recipient_account_id.clone(),
-            results: vec![
-                SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
-                    selector: current_selector(),
-                    status: SignerEvidenceResolvedStatus::Resolved,
-                    key: QuerySigningKey::from_station_key(station_key(), &current_selector())
-                        .unwrap(),
-                }),
-                SignerKeyQueryOutcome::Unavailable(UnavailableSignerKeyOutcome {
-                    selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
-                    status: SignerEvidenceUnavailableStatus::Unavailable,
-                }),
-            ],
-        };
-        outcome.validate_for_request(&request).unwrap();
-
-        let mut short = outcome.clone();
-        short.results.pop();
-        assert!(short.validate_for_request(&request).is_err());
-
-        let mut foreign = outcome;
-        foreign.request_id =
-            RequestId::new("ak:request:01970000-0000-7000-8000-000000000082").unwrap();
-        assert!(foreign.validate_for_request(&request).is_err());
-    }
-
-    #[test]
-    fn a_result_may_not_substitute_another_verification_method() {
-        let mut key = station_key();
-        key.verification_method = DidUrl::new("did:web:alice.example#device-2").unwrap();
-        assert!(QuerySigningKey::from_station_key(key, &current_selector()).is_err());
-        let mut result = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
-            selector: current_selector(),
-            status: SignerEvidenceResolvedStatus::Resolved,
-            key: QuerySigningKey::from_station_key(station_key(), &current_selector()).unwrap(),
-        });
-        if let SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
-            selector: SignerKeyQuerySelector::CurrentAccountDevice(selector),
-            ..
-        }) = &mut result
-        {
-            selector.verification_method = DidUrl::new("did:web:alice.example#device-2").unwrap();
-        }
-        let mut request = request();
-        request.queries.truncate(1);
-        let outcome = SignerKeysQueryOutcome {
-            request_id: request.request_id.clone(),
-            realm_id: request.realm_id.clone(),
-            recipient_account_id: request.recipient_account_id.clone(),
-            results: vec![result],
-        };
-        assert!(outcome.validate_for_request(&request).is_err());
-    }
-
-    #[test]
-    fn query_key_rejects_duplicate_identity_fields() {
-        let key = QuerySigningKey::from_station_key(station_key(), &current_selector()).unwrap();
-        let mut value = serde_json::to_value(key).unwrap();
-        assert!(value.get("actor").is_none());
-        assert!(value.get("verification_method").is_none());
-        value["actor"] = serde_json::to_value(ActorId::account(account())).unwrap();
-        assert!(serde_json::from_value::<QuerySigningKey>(value).is_err());
-    }
-
-    #[test]
-    fn a_current_result_may_not_answer_a_historical_selector() {
-        let mismatched = SignerKeyQueryOutcome::Current(CurrentSignerKeyOutcome {
-            selector: SignerKeyQuerySelector::HistoricalAccountDevice(historical_selector()),
-            status: SignerEvidenceResolvedStatus::Resolved,
-            key: QuerySigningKey::from_station_key(station_key(), &current_selector()).unwrap(),
-        });
-        assert!(mismatched.validate().is_err());
-    }
-
-    #[test]
-    fn a_service_actor_is_not_a_signer_key_subject() {
-        let mut selector = current_selector();
-        if let SignerKeyQuerySelector::CurrentAccountDevice(inner) = &mut selector {
-            inner.actor =
-                ActorId::service(DidCoreId::new("ak:did_core:web:station.example").unwrap());
-        }
-        assert!(selector.validate().is_err());
     }
 }

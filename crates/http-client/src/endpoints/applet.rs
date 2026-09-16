@@ -1,15 +1,14 @@
 //! Applet endpoint methods on [`Client`].
 
-use arkret_models_collaboration::account_lifecycle::AppletRevokeRequestBody;
-use arkret_models_collaboration::http_bodies::AppletTransactionRequestBody;
 use arkret_models_discovery::ServiceDescribe;
 use arkret_models_integration::{
     AppletActorView, AppletInstallOutcome, AppletInstallPreviewOutcome,
     AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthorOutcome,
     AppletManagedActorAuthorRequestBody, AppletPingOutcome, AppletProtocolMetadata,
-    AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome,
-    AppletRevokePreviewRequestBody, AppletTransactionOutcome, GhostActorProvisionOutcome,
-    GhostActorProvisionRequestBody, GhostPreviewOutcome, GhostPreviewRequestBody,
+    AppletRealmView, AppletRevokeOutcome, AppletRevokePreviewOutcome, AppletRevokePreviewRequestBody,
+    AppletRevokeRequestBody, AppletTransactionOutcome, AppletTransactionRequestBody,
+    GhostActorProvisionOutcome, GhostActorProvisionRequestBody, GhostPreviewOutcome,
+    GhostPreviewRequestBody,
 };
 use reqwest::Method;
 use reqwest::header::CONTENT_TYPE;

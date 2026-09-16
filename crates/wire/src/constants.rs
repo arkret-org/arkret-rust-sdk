@@ -1,9 +1,6 @@
-use crate::{CapabilityActionId, DomainSeparationId, ReducerProfileId};
+use crate::{CapabilityActionId, DomainSeparationId};
 
 pub const PROTOCOL_VERSION: &str = "1.0";
-
-/// Exact canonical MLS governance proof response bound in Arkret v1.
-pub const MLS_GOVERNANCE_PROOF_MAX_BYTES: u32 = 1_048_576;
 
 /// Classify a protocol-family bootstrap discriminator before a v1-specific
 /// response is interpreted.
@@ -48,8 +45,6 @@ fn canonical_decimal(value: &str) -> bool {
         && (value == "0" || !value.starts_with('0'))
 }
 
-/// Canonical Realm reducer profile implemented by this SDK.
-pub const CORE_REDUCER_PROFILE: &str = ReducerProfileId::CORE_V1;
 pub const BUILT_IN_CONFORMANCE_FIXTURES_VERSION: &str = "arkret-sdk-builtin-v1";
 
 /// AEAD profile id used by every Arkret payload envelope that seals with
@@ -64,13 +59,10 @@ pub const BLOB_SCHEME_WHOLE_FILE_AEAD_V1: &str = "ak.blob.whole_file_aead.v1";
 /// Chunked streaming blob AEAD scheme id (STREAM / OAE2).
 pub const BLOB_SCHEME_STREAM_AEAD_V1: &str = "ak.blob.stream_aead.v1";
 /// HPKE `info` string bound into every device-to-device secret share.
-pub const SECRET_SHARE_HPKE_INFO: &[u8] = b"ak.secret-share/v1";
 /// Wire `kind` of a device-to-device secret request.
 pub const SECRET_REQUEST_KIND: &str = "ak.secret.request";
 /// Wire `kind` of a sealed device-to-device secret response.
 pub const SECRET_SEND_KIND: &str = "ak.secret.send";
-/// Cell family carrying the per-Realm media-service binding.
-pub const REALM_MEDIA_SERVICE_CELL_FAMILY: &str = crate::CellFamilyId::REALM_MEDIA_SERVICE_V1;
 /// `signature.type` of a signed identity recovery policy.
 pub const RECOVERY_POLICY_SIGNATURE_TYPE: &str =
     DomainSeparationId::IDENTITY_RECOVERY_POLICY_SIGNATURE_V1;

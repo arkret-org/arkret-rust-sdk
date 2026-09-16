@@ -2,9 +2,8 @@
 //!
 //! Owner of the SDK-local drafting layer that sits *in front of* the wire
 //! Event Envelope: typed Event drafts, the local MLS scheduler draft,
-//! [`OperationEnvelope`] + registry-backed [`OperationEnvelopeBuilder`],
-//! the draft-to-event conversion ([`OperationEventConversion`]), the
-//! event-draft kind registry, LexoRank-style rank interval arithmetic, and
+//! local reducer projections and MLS scheduler records, the event-draft kind
+//! registry, LexoRank-style rank interval arithmetic, and
 //! the strand create/tracks-update payload builders. None of these shapes
 //! are Arkret v1 wire facts — they materialize into signed [`Event`]s
 //! (owned by `arkret-wire`) before touching network, sync, or reducers.
@@ -15,7 +14,6 @@ mod accountability;
 mod agent;
 mod applet;
 mod calendar;
-mod device_message;
 mod event_intent;
 mod event_payload;
 mod ghost_profile;
@@ -30,25 +28,20 @@ mod typed_event_draft;
 
 pub use accountability::accountability_grant_intent;
 pub use agent::{
-    build_agent_deactivate_intent, build_agent_key_authorize_intent, build_agent_key_revoke_intent,
-    build_agent_pause_intent, build_agent_resume_intent,
+    AgentLifecycleState, build_agent_deactivate_intent, build_agent_key_authorize_intent,
+    build_agent_key_revoke_intent, build_agent_pause_intent, build_agent_resume_intent,
 };
 pub use applet::AppletBridgeErrorBuilder;
 pub use calendar::{RsvpAuthoring, RsvpResponseBranch};
-pub use device_message::{
-    DeviceMessageSpec, TypedDeviceMessageTarget, device_message_kind, device_message_spec,
-};
 pub use event_intent::EventIntent;
 pub use event_payload::{
-    EVENT_KINDS_WITHOUT_RUST_PAYLOAD, EVENT_PAYLOAD_BINDINGS,
-    EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT, EventPayloadBinding, EventPayloadExt, EventSpec,
-    MessageEventPayload, ResolvedStateEventPayloadExt, validate_event_payload,
+    EVENT_PAYLOAD_BINDINGS, EventPayloadBinding, EventPayloadExt, EventSpec, MessageEventPayload,
+    validate_event_payload,
 };
 pub use ghost_profile::GhostActorProfileRequest;
 pub use operation::{
-    CausalRef, LocalOperationDraft, LocalOperationSpec, MlsEnvelopeOperationExt,
-    MlsWelcomeTargetExt, OperationEnvelope, OperationEnvelopeBuilder, OperationEventConversion,
-    OperationSignature, ProjectedEventOperation, ProjectionContext, local_operation_spec,
+    LocalOperationDraft, LocalOperationSpec, MlsEnvelopeOperationExt, ProjectedEventOperation,
+    ProjectionContext, local_operation_spec,
 };
 pub use payloads::StrandCreateObject;
 pub use rank::{

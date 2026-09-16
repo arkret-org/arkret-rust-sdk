@@ -18,7 +18,6 @@ pub mod binding;
 pub mod binding_digest;
 pub mod binding_store;
 pub(crate) mod helpers;
-pub mod history_recovery;
 pub mod jws;
 mod records;
 pub mod registration_anchor;

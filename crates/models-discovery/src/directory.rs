@@ -1,10 +1,9 @@
 //! Directory search, resolve, announce, push, and takedown operation
 //! wire shapes (`discovery-directory.md`; R9).
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fmt;
 
-use arkret_models_identity::ServiceResolutionCarrier;
 use arkret_models_identity::claim_presentation::{
     AgentSelectorClaim, DirectoryRestrictedClaimPresentation, validate_agent_slug,
 };
@@ -12,9 +11,9 @@ use arkret_models_identity::handle::Handle;
 use arkret_models_identity::handle_claim::HandleClaim;
 use arkret_wire::event_envelope::Event;
 use arkret_wire::{
-    AccountId, ActorId, AppletId, AuditReasonText, BlobRef, DidCoreId, DidUrl, DomainSeparationId,
-    EncryptionProfile, EventId, Hash, JoinRule, NonEmptyString, PayloadProof, ProofContextId,
-    RealmId, Result, SchemaId, SealBasis, ServiceOperationId, WireError, proof_kind,
+    AccountId, ActorId, AppletId, AuditReasonText, BlobRef, CommittedEventRef, DidCoreId, DidUrl,
+    DomainSeparationId, Hash, JoinRule, NonEmptyString, ProofContextId, RealmId, Result, SchemaId,
+    ServiceOperationId, WireError, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -115,13 +114,10 @@ pub struct RealmPreview {
     pub join_candidates: Vec<RealmJoinCandidate>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    /// Event ids this entry was derived from. Omitted when the entry has no
-    /// Event provenance: `directory-operations.schema.json` keeps `minItems: 1`
-    /// on the array, so an empty one is not a legal way to say "none" — and a
-    /// synthesized id would be worse than absence, since it looks verifiable and
-    /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
+    /// Exact authority-committed Events this entry was derived from. Omitted
+    /// when the entry has no Event provenance.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale: Option<bool>,
@@ -137,116 +133,51 @@ pub enum RealmJoinCandidateServiceKind {
     Station,
 }
 
-/// Routing role for a Realm join candidate. This is an ordering and
-/// diagnostics hint, not an authorization grant.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmJoinCandidateRole {
-    JoinedMemberStation,
-}
-
-/// Join-side strand supported by a Realm join candidate.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum RealmJoinMethod {
-    InviteAccept,
-    MemberJoin,
-    Knock,
-    Application,
-    RestrictedJoin,
-}
-
 /// Source from which a Realm join candidate was derived.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RealmJoinCandidateSource {
-    InviteHint,
-    JoinedMemberAccount,
+    Invite,
+    Directory,
+    Cache,
 }
 
-/// `ak.schema.realm_join_candidate.v1`: time-bounded routing hint for
-/// submitting Realm join, invite-accept, knock, or restricted-join material.
-/// It is derived from a signed invite or exact joined-member identity and does
-/// not authorize membership by itself.
+/// `ak.schema.realm_join_candidate.v1`: untrusted route hint for obtaining a
+/// fresh, nonce-bound Realm authority bundle. It is never authority proof.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmJoinCandidate {
     pub realm_id: RealmId,
-    pub service_id: DidCoreId,
-    pub service_resolution: ServiceResolutionCarrier,
     pub service_kind: RealmJoinCandidateServiceKind,
-    pub role: RealmJoinCandidateRole,
+    pub service_id: DidCoreId,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoint_url: Option<String>,
-    pub operations: Vec<String>,
-    pub join_methods: Vec<RealmJoinMethod>,
-    /// Effective accepted Realm profile at `as_of`. Pre-join clients use this
-    /// instead of reading membership-gated Realm history when applying the
-    /// E2EE recovery-material gate.
-    pub encryption_profile: EncryptionProfile,
-    /// Verified current live digest suite at the complete accepted Seal basis.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
-    pub digest_algorithm: arkret_canonical::DigestSuite,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub priority: Option<u16>,
     pub source: RealmJoinCandidateSource,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub frontier_ref: Option<String>,
-    /// Complete Control Move basis for the current accepted Realm Seal
-    /// frontier at `as_of`. Station candidates MUST include the full
-    /// canonical antichain because a pre-join client cannot read the
-    /// membership-gated frontier view.
-    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
-    pub seal_basis: SealBasis,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
-    pub as_of: DateTime<Utc>,
+    pub observed_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub proofs: Vec<PayloadProof>,
 }
 
 impl RealmJoinCandidate {
     pub const SCHEMA: &'static str = SchemaId::REALM_JOIN_CANDIDATE_V1;
 
     pub fn validate(&self) -> Result<()> {
-        self.seal_basis.validate_protocol_bounds()?;
-        if self.operations.is_empty()
-            || !self
-                .operations
-                .iter()
-                .any(|operation| operation == ServiceOperationId::PEER_EVENTS_COMMAND_SUBMIT_V1)
-            || self.join_methods.is_empty()
-            || self.expires_at <= self.as_of
+        if self.expires_at <= self.observed_at {
+            return Err(WireError::Protocol(
+                "Realm authority locator expires_at must follow observed_at".to_owned(),
+            ));
+        }
+        if self
+            .endpoint_url
+            .as_deref()
+            .is_some_and(|endpoint| !endpoint.starts_with("https://") || endpoint.contains('#'))
         {
             return Err(WireError::Protocol(
-                "Realm join candidate has invalid operations, methods, basis, or lifetime"
+                "Realm authority locator endpoint_url must be an HTTPS URI without a fragment"
                     .to_owned(),
-            ));
-        }
-        let mut operations = self.operations.clone();
-        operations.sort();
-        operations.dedup();
-        if operations.len() != self.operations.len() {
-            return Err(WireError::Protocol(
-                "Realm join candidate operations contain duplicates".to_owned(),
-            ));
-        }
-        let methods = self.join_methods.iter().copied().collect::<BTreeSet<_>>();
-        if methods.len() != self.join_methods.len() {
-            return Err(WireError::Protocol(
-                "Realm join candidate methods contain duplicates".to_owned(),
-            ));
-        }
-        if self.source == RealmJoinCandidateSource::InviteHint && self.proofs.is_empty() {
-            return Err(WireError::Protocol(
-                "invite-derived Realm join candidate requires a proof".to_owned(),
             ));
         }
         Ok(())
@@ -402,7 +333,7 @@ pub struct DirectoryTargetResolutionOutcome {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub join_candidates: Vec<RealmJoinCandidate>,
     pub policy_revision: NonEmptyString,
@@ -454,13 +385,10 @@ pub struct OrganizationPreview {
     pub realm_count: Option<u64>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    /// Event ids this entry was derived from. Omitted when the entry has no
-    /// Event provenance: `directory-operations.schema.json` keeps `minItems: 1`
-    /// on the array, so an empty one is not a legal way to say "none" — and a
-    /// synthesized id would be worse than absence, since it looks verifiable and
-    /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
+    /// Exact authority-committed Events this entry was derived from. Omitted
+    /// when the entry has no Event provenance.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale: Option<bool>,
@@ -558,13 +486,10 @@ pub struct ActorPreview {
     pub avatar_blob_ref: Option<BlobRef>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
-    /// Event ids this entry was derived from. Omitted when the entry has no
-    /// Event provenance: `directory-operations.schema.json` keeps `minItems: 1`
-    /// on the array, so an empty one is not a legal way to say "none" — and a
-    /// synthesized id would be worse than absence, since it looks verifiable and
-    /// resolves to nothing (`discovery-directory.md` section 7.3 invariant 3).
+    /// Exact authority-committed Events this entry was derived from. Omitted
+    /// when the entry has no Event provenance.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     pub policy_revision: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stale: Option<bool>,
@@ -761,7 +686,7 @@ pub struct DirectoryAgentSelectorResolutionOutcome {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub selector_claim: AgentSelectorClaim,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
@@ -1190,7 +1115,7 @@ pub struct DirectoryHandleResolutionOutcome {
     )]
     pub claims: Option<Vec<HandleClaim>>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]

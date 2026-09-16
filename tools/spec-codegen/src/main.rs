@@ -1,4 +1,3 @@
-mod lattice_contracts;
 mod model;
 mod openapi;
 mod registry_types;
@@ -26,7 +25,6 @@ fn main() -> Result<()> {
     let output_root = output_root.context("--output-root is required")?;
     let inputs = SpecInputs::load(&artifacts_dir)?;
     let mut outputs = runtime_contracts::generate(&inputs)?;
-    outputs.push(lattice_contracts::generate(&inputs)?);
     outputs.extend(registry_types::generate(&artifacts_dir)?);
     outputs.push(openapi::generate(&artifacts_dir)?);
     for output in outputs {

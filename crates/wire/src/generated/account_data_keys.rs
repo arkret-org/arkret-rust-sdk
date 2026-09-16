@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/account-data-key-registry.json; version=2026-09-12.6;
-//! sha256=75b0317727cd9bd4d8605c90c3710629a3c1120faec9877d6a12598c488bafbb
+//! Input: registry/account-data-key-registry.json; version=2026-09-16.6;
+//! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04
 //! Entries: account_data_keys=24
 
 use serde::{Deserialize, Serialize};
@@ -174,8 +174,8 @@ impl AccountDataKey {
     /// Key pattern: `ak.tags.realm.<realm_id>`.
     pub const TAGS_REALM: &'static str = "ak.tags.realm";
     /// Actor-private View definition. The encrypted value validates as ak.schema.view.v1 with
-    /// visibility=private; it never enters a shared Realm View cell. Key pattern:
-    /// `ak.views.private.<view_id>`.
+    /// visibility=private; it never enters a shared Realm View typed current result.
+    /// Key pattern: `ak.views.private.<view_id>`.
     pub const VIEWS_PRIVATE: &'static str = "ak.views.private";
 
     pub const fn as_str(self) -> &'static str {

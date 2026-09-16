@@ -12,30 +12,7 @@
         "registry/event-kind-registry.json"
       ],
       "provides": [
-        "EventKind",
-        "CellFamilyId"
-      ]
-    },
-    {
-      "generator": "state-model-bindings",
-      "outputs": [
-        "crates/lattice-registry/src/generated/state_model_bindings.rs"
-      ],
-      "owner": "arkret-lattice-registry",
-      "mode": "registered+descriptor",
-      "artifacts": [
-        "registry/event-kind-registry.json"
-      ]
-    },
-    {
-      "generator": "mls-security-frontier",
-      "outputs": [
-        "crates/state/src/generated/mls_security_frontier.rs"
-      ],
-      "owner": "arkret-state",
-      "mode": "registered+projection",
-      "artifacts": [
-        "registry/mls-security-frontier-registry.json"
+        "EventKind"
       ]
     },
     {
@@ -47,17 +24,6 @@
       "mode": "enum+descriptor",
       "artifacts": [
         "registry/digest-suite-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/lattice-registry/src/generated/contract_registry.rs"
-      ],
-      "owner": "arkret-lattice-registry",
-      "mode": "static-typed-descriptor",
-      "artifacts": [
-        "registry/contract-registry.json"
       ]
     },
     {
@@ -263,17 +229,6 @@
     {
       "generator": "spec-codegen",
       "outputs": [
-        "crates/wire/src/generated/history_store_limits.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "descriptor",
-      "artifacts": [
-        "registry/history-recovery-scalability-registry.json"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
         "crates/wire/src/generated/mls_creator_bootstrap.rs"
       ],
       "owner": "arkret-wire",
@@ -325,38 +280,6 @@
       "provides": [
         "REDACTABLE_FIELDS",
         "REDACTABLE_FIELD_PATHS"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/reducer_managed_paths.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "registered+descriptor",
-      "artifacts": [
-        "registry/reducer-managed-path-registry.json"
-      ],
-      "provides": [
-        "REDUCER_MANAGED_UNIVERSAL_PATHS",
-        "REDUCER_MANAGED_OBJECTS",
-        "REDUCER_MANAGED_ANY_OBJECT_PATCH_PATHS"
-      ]
-    },
-    {
-      "generator": "spec-codegen",
-      "outputs": [
-        "crates/wire/src/generated/reducer_profiles.rs"
-      ],
-      "owner": "arkret-wire",
-      "mode": "enum+descriptor",
-      "artifacts": [
-        "registry/reducer-profile-registry.json",
-        "registry/contract-registry.json"
-      ],
-      "provides": [
-        "CANONICAL_REDUCER_CONTRACT_DIGEST",
-        "ReducerProfileId"
       ]
     },
     {
@@ -433,18 +356,6 @@
       "mode": "descriptor",
       "artifacts": [
         "profiles/conformance-profiles.json"
-      ]
-    },
-    {
-      "generator": "current-result-schemas",
-      "outputs": [
-        "crates/schema/src/generated/current_result_schemas.rs"
-      ],
-      "owner": "arkret-schema",
-      "mode": "closed-schema-bundle",
-      "artifacts": [
-        "registry/current-result-registry.json",
-        "schemas/account-current-result.schema.json"
       ]
     }
   ]

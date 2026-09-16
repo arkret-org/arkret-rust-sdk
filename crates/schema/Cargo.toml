@@ -34,15 +34,3 @@ hex = { workspace = true }
 
 [lints]
 workspace = true
-
-[[test]]
-name = "encoding_vectors"
-
-[[test]]
-name = "hash_transition_fixture"
-
-[[test]]
-name = "identity_link_response_signing_fixture"
-
-[[test]]
-name = "device_revocation_pending_fixture"

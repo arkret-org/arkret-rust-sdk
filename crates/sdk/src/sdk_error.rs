@@ -1,5 +1,4 @@
 use arkret_models_collaboration::sync_frames::account_subscribe::AccountStreamInterrupt;
-use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceError;
 use arkret_wire::{ErrorCode, Problem, ReasonCode};
 use thiserror::Error;
 
@@ -263,12 +262,6 @@ impl From<arkret_schema::SchemaError> for Error {
     }
 }
 
-impl From<StreamTraceError> for Error {
-    fn from(error: StreamTraceError) -> Self {
-        Self::Protocol(format!("stream trace {}: {error}", error.violation()))
-    }
-}
-
 #[cfg(feature = "client")]
 impl From<arkret_http_client::Error> for Error {
     fn from(error: arkret_http_client::Error) -> Self {
@@ -286,7 +279,6 @@ impl From<arkret_http_client::Error> for Error {
             arkret_http_client::Error::Signature(source) => source.into(),
             arkret_http_client::Error::Identifier(source) => source.into(),
             arkret_http_client::Error::Json(source) => source.into(),
-            arkret_http_client::Error::StreamTrace(source) => source.into(),
             #[cfg(not(target_arch = "wasm32"))]
             arkret_http_client::Error::Identity(source) => source.into(),
             _ => Self::Protocol(error.to_string()),

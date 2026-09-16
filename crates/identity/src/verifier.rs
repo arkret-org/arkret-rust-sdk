@@ -35,7 +35,7 @@
 //! Use the **ordinary path** ([`verify_jws_with_binding`], or
 //! [`verify_jws_with_document`] when the caller already pinned a historical
 //! document) when the signed object's key comes from an already-accepted
-//! Seal / auth-state, device authorization, agent signer evidence or a pinned
+//! authority commit, device authorization, agent signer evidence or a pinned
 //! historical binding. §3 lists these explicitly as identity-anchor operations:
 //! reading and rendering objects, equality / membership / routing, ordinary
 //! Event submission under an accepted key epoch, replay and backfill against
@@ -1150,7 +1150,7 @@ mod tests {
         use arkret_signatures::{
             Ed25519DetachedJwsVerifier, EventProofBuilder, sign_ed25519_detached_jws,
         };
-        use arkret_wire::{EventId, EventRequirements, Hlc, RealmId, ScopeRef, proof_kind};
+        use arkret_wire::{EventId, RealmId, ScopeRef, proof_kind};
         use chrono::TimeZone;
 
         use super::*;
@@ -1170,26 +1170,16 @@ mod tests {
                 actor_id: ActorId::service(
                     arkret_wire::project_did_to_core_id(&did()).expect("registered DID adapter"),
                 ),
-                actor_seq: 1,
                 created_at: Utc
                     .with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
                     .single()
                     .expect("valid timestamp"),
-                hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").expect("valid hlc")),
-                prev_refs: Vec::new(),
                 refs: Vec::new(),
-                preconditions: Vec::new(),
-                auth_context: None,
-                data_basis: None,
-                seal_basis: None,
-                requirements: EventRequirements::default(),
                 payload: BTreeMap::from([("body".to_owned(), serde_json::json!("hello"))]),
                 executed_by: None,
                 authorization_ref: None,
                 applet_id: None,
                 external_ref: None,
-                unsigned: BTreeMap::new(),
-                causal_refs: Vec::new(),
                 proofs: Vec::new(),
             }
         }
@@ -1209,7 +1199,6 @@ mod tests {
                     envelope_bytes(event),
                 ))
                 .expect("valid digest"),
-                signer_resolution_evidence_ref: None,
                 created_at: arkret_canonical::canonical::normalize_timestamp_canonical(
                     Utc.with_ymd_and_hms(2026, 4, 26, 0, 0, 0)
                         .single()

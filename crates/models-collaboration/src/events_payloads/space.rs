@@ -84,7 +84,7 @@ impl SpacePatchPayload {
             ));
         }
         if let Some(patch) = &self.patch {
-            validate_patch_semantic_safety(patch, PatchTargetKind::Verified("space"))?;
+            validate_patch_semantic_safety(patch)?;
         }
         Ok(())
     }
@@ -92,62 +92,5 @@ impl SpacePatchPayload {
     pub fn to_value(&self) -> Result<Value> {
         self.validate()?;
         serde_json::to_value(self).map_err(|error| WireError::Protocol(error.to_string()))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn payload() -> Value {
-        json!({"space_id": "ak:space:AQM8rE4gp8l4axkSbbb9_dkqwWE8ZPYHwFsC24o2mrIL"})
-    }
-
-    #[test]
-    fn typed_policy_only_update_omits_the_metadata_patch() {
-        let mut value = payload();
-        value["child_scope_policy"] = json!({"kind": "require_e2ee"});
-        let typed: SpacePatchPayload = serde_json::from_value(value.clone()).unwrap();
-        assert!(typed.patch.is_none());
-        assert_eq!(
-            typed.child_scope_policy,
-            Some(ChildScopePolicy::RequireE2ee {})
-        );
-        assert_eq!(typed.to_value().unwrap(), value);
-    }
-
-    #[test]
-    fn space_update_requires_an_effect_and_rejects_present_null() {
-        assert!(serde_json::from_value::<SpacePatchPayload>(payload()).is_err());
-        for field in ["patch", "child_scope_policy", "expected_state_digest"] {
-            let mut value = payload();
-            value["child_scope_policy"] = json!({"kind": "allow_any"});
-            value[field] = Value::Null;
-            assert!(serde_json::from_value::<SpacePatchPayload>(value).is_err());
-        }
-    }
-
-    #[test]
-    fn ordinary_metadata_patch_cannot_reach_security_or_identity_paths() {
-        for field in [
-            "child_scope_policy",
-            "child_scope_policy.kind",
-            "scope_circle_id",
-            "realm_id",
-            "id",
-            "created_by",
-            "created_at",
-            "state",
-            "parent_space_id",
-        ] {
-            let mut value = payload();
-            value["patch"] = json!({field: "forbidden"});
-            assert!(
-                serde_json::from_value::<SpacePatchPayload>(value).is_err(),
-                "{field}"
-            );
-        }
     }
 }

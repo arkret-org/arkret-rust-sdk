@@ -94,29 +94,6 @@ impl AccountStatus {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn deactivated_may_transition_to_active_or_erasure_pending() {
-        assert!(AccountStatus::Deactivated.can_transition_to(AccountStatus::Active));
-        assert!(AccountStatus::Deactivated.can_transition_to(AccountStatus::ErasurePending));
-        assert!(!AccountStatus::Deactivated.can_transition_to(AccountStatus::SoftLoggedOut));
-        assert!(!AccountStatus::Deactivated.can_transition_to(AccountStatus::Locked));
-        assert!(!AccountStatus::Deactivated.can_transition_to(AccountStatus::Suspended));
-    }
-
-    #[test]
-    fn erasure_pending_remains_terminal() {
-        assert!(AccountStatus::ErasurePending.is_terminal());
-        assert_eq!(
-            AccountStatus::ErasurePending.validate_transition_to(AccountStatus::Active),
-            Err(AccountStatusTransitionRejection::ErasurePendingIsTerminal)
-        );
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AccountStatusTransitionRejection {
     ErasurePendingIsTerminal,

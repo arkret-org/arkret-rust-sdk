@@ -58,14 +58,13 @@ pub fn owner_may_author_action(child_action: &str) -> Result<bool> {
     action_covers_event_kinds(CapabilityActionId::REALM_OWNER, child_action)
 }
 
-/// Structural current-v1 boundary: a Realm role can never cross into root,
-/// reducer or subject/personal authority even if generated aggregate rows are
+/// Structural boundary: a Realm role can never cross into root or
+/// subject/personal authority even if generated aggregate rows are
 /// accidentally widened. This predicate is compiled into the profile code and
 /// is evaluated before either direct Event coverage or grant-authority sets.
 fn owner_role_must_not_cover(action: &arkret_schema::CapabilityActionDescriptor) -> bool {
     action.root_control_only
         || action.subject_only
-        || action.reducer_only
         || action.category == "personal"
         || action.action.as_str().starts_with("ak.self.")
 }
@@ -102,7 +101,7 @@ mod tests {
     }
 
     #[test]
-    fn owner_role_hard_denies_root_subject_reducer_personal_and_unknown_semantics() {
+    fn owner_role_hard_denies_root_subject_personal_and_unknown_semantics() {
         for action in [
             "ak.realm.destroy",
             "ak.capability.relinquish",

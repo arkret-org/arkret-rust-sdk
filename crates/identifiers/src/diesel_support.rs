@@ -19,7 +19,7 @@ use diesel::pg::{Pg, PgValue};
 use diesel::serialize::{self, Output, ToSql};
 use diesel::sql_types::Text;
 
-use super::{CellRef, DidCoreId, Hash, WebOrigin};
+use super::{DidCoreId, Hash, WebOrigin};
 
 /// Emit diesel's `AsExpression` / `FromSqlRow` impls for a type whose
 /// definition cannot carry the derives directly.
@@ -123,13 +123,11 @@ pub fn parse_text_identifier<T, E>(
         .map_err(|_| -> Box<dyn Error + Send + Sync> { Box::new(InvalidDatabaseIdentifier(kind)) })
 }
 
-// `CellRef` and `Hash` come out of the shared special-form / id_type
-// definitions, so they take their diesel expression impls through a proxy.
+// `Hash` comes out of the shared id_type definition, so it takes its diesel
+// expression impls through a proxy.
 // `DidCoreId` and `WebOrigin` carry the derives on their own definitions.
-crate::diesel_foreign_sql_proxy!(CellRefDieselProxy, CellRef, ::diesel::sql_types::Text);
 crate::diesel_foreign_sql_proxy!(HashDieselProxy, Hash, ::diesel::sql_types::Text);
 
-crate::impl_text_identifier_sql!(CellRef, "CellRef");
 crate::impl_text_identifier_sql!(Hash, "Hash");
 crate::impl_text_identifier_sql!(WebOrigin, "WebOrigin");
 
@@ -141,13 +139,12 @@ mod tests {
     use diesel::prelude::*;
     use diesel::sql_types::{Nullable, Text};
 
-    use super::{CellRef, DidCoreId, Hash, WebOrigin, parse_database_text, parse_text_identifier};
+    use super::{DidCoreId, Hash, WebOrigin, parse_database_text, parse_text_identifier};
 
     diesel::table! {
         did_core_rows (core_id) {
             core_id -> Text,
             optional_core_id -> Nullable<Text>,
-            cell_ref -> Text,
             hash -> Text,
             origin -> Text,
         }
@@ -160,7 +157,6 @@ mod tests {
     struct DidCoreRow {
         core_id: DidCoreId,
         optional_core_id: Option<DidCoreId>,
-        cell_ref: CellRef,
         hash: Hash,
         origin: WebOrigin,
     }
@@ -170,7 +166,6 @@ mod tests {
     struct NewDidCoreRow<'a> {
         core_id: &'a DidCoreId,
         optional_core_id: Option<&'a DidCoreId>,
-        cell_ref: &'a CellRef,
         hash: &'a Hash,
         origin: &'a WebOrigin,
     }
@@ -232,18 +227,14 @@ mod tests {
         }
 
         assert_from_sql_row::<DidCoreId>();
-        assert_from_sql_row::<CellRef>();
         assert_from_sql_row::<Hash>();
         assert_from_sql_row::<WebOrigin>();
         assert_nullable_from_sql_row::<Option<DidCoreId>>();
-        assert_nullable_from_sql_row::<Option<CellRef>>();
         assert_nullable_from_sql_row::<Option<Hash>>();
         assert_text_expression::<DidCoreId>();
-        assert_text_expression::<CellRef>();
         assert_text_expression::<Hash>();
         assert_text_expression::<WebOrigin>();
         assert_text_expression::<&DidCoreId>();
-        assert_text_expression::<&CellRef>();
         assert_text_expression::<&Hash>();
         assert_text_expression::<&WebOrigin>();
         assert_nullable_text_expression::<DidCoreId>();
@@ -253,16 +244,11 @@ mod tests {
         assert_queryable_by_name::<DidCoreRow>();
 
         let core_id = DidCoreId::new("ak:did_core:web:peer-ps.example").unwrap();
-        let cell_ref = CellRef::new(
-            "ak:cell:ak.component.consent.grant.v1:ak:consent:019640ed-6000-7000-8000-000000000001",
-        )
-        .unwrap();
         let hash = Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap();
         let origin = WebOrigin::new("https://example.test").unwrap();
         let insert = diesel::insert_into(did_core_rows::table).values(NewDidCoreRow {
             core_id: &core_id,
             optional_core_id: Some(&core_id),
-            cell_ref: &cell_ref,
             hash: &hash,
             origin: &origin,
         });
@@ -270,7 +256,6 @@ mod tests {
         assert!(insert_sql.contains("$1"));
         assert!(insert_sql.contains("$2"));
         assert!(insert_sql.contains("$3"));
-        assert!(insert_sql.contains("$4"));
 
         let select = did_core_rows::table
             .filter(did_core_rows::core_id.eq(&core_id))
@@ -281,29 +266,11 @@ mod tests {
     }
 
     #[test]
-    fn database_text_validates_cell_refs_and_hashes() {
-        let cell_ref = parse_text_identifier(
-            "ak:cell:ak.component.consent.grant.v1:ak:consent:019640ed-6000-7000-8000-000000000001"
-                .to_owned(),
-            CellRef::new,
-            "CellRef",
-        )
-        .unwrap();
-        assert_eq!(
-            cell_ref.as_str(),
-            "ak:cell:ak.component.consent.grant.v1:ak:consent:019640ed-6000-7000-8000-000000000001"
-        );
-
+    fn database_text_validates_hashes() {
         let hash =
             parse_text_identifier(format!("sha256:{}", "a".repeat(64)), Hash::new, "Hash").unwrap();
         assert_eq!(hash.as_str(), format!("sha256:{}", "a".repeat(64)));
 
-        let cell_error =
-            parse_text_identifier("not-a-cell".to_owned(), CellRef::new, "CellRef").unwrap_err();
-        assert_eq!(
-            cell_error.to_string(),
-            "database text is not a valid CellRef"
-        );
         let hash_error =
             parse_text_identifier("not-a-hash".to_owned(), Hash::new, "Hash").unwrap_err();
         assert_eq!(hash_error.to_string(), "database text is not a valid Hash");

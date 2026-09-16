@@ -113,7 +113,7 @@ macro_rules! id_type {
 /// - [`from_uuid()`](#method.from_uuid) — rebuild the typed id from a bare DB uuid + this type's
 ///   kind prefix.
 ///
-/// Hash-bearing kinds (`BlobRef`, `SealId`, `Hash`), `OperationId`, DIDs,
+/// Hash-bearing kinds (`BlobRef`, `Hash`), `OperationId`, DIDs,
 /// cursors and `trust_domain` MUST stay on plain [`id_type!`] — they have no
 /// bare-uuid form.
 /// Database mappings are deliberately type-specific: the optional `diesel`
@@ -450,79 +450,6 @@ fn is_hash(value: &str) -> bool {
 
 fn has_prefix<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
     move |value| value.starts_with(prefix) && value.len() > prefix.len()
-}
-
-/// Validate a canonical Arkret cell-family identifier.
-///
-/// Cell families are first-class registry identifiers with the wire form
-/// `ak.component.<facet-path>.v<n>`. The complete family identifier is
-/// embedded unchanged in a [`CellRef`].
-pub fn is_cell_family(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ak.component.") else {
-        return false;
-    };
-    let Some((facet_path, version)) = rest.rsplit_once(".v") else {
-        return false;
-    };
-
-    !facet_path.is_empty()
-        && facet_path.split('.').all(|segment| {
-            !segment.is_empty()
-                && segment
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
-        })
-        && !version.is_empty()
-        && version.bytes().all(|byte| byte.is_ascii_digit())
-}
-
-/// Validate the canonical `ak:cell:<cell-family>:<subject>` wire form.
-///
-/// The family MUST be a complete `ak.component.*.v<n>` identifier. Subjects
-/// may contain colon-separated typed identifiers; an empty subject is allowed
-/// for a family-scoped singleton and is represented by the trailing colon.
-pub fn is_cell_ref(value: &str) -> bool {
-    let Some(rest) = value.strip_prefix("ak:cell:") else {
-        return false;
-    };
-    let Some((family, subject)) = rest.split_once(':') else {
-        return false;
-    };
-    if !is_cell_family(family) {
-        return false;
-    }
-    if subject.is_empty() {
-        return true;
-    }
-
-    subject.split(':').all(is_cell_subject_segment)
-}
-
-fn is_cell_subject_segment(segment: &str) -> bool {
-    if segment.is_empty() {
-        return false;
-    }
-
-    let bytes = segment.as_bytes();
-    let mut index = 0;
-    while index < bytes.len() {
-        let byte = bytes[index];
-        if byte == b'%' {
-            if index + 2 >= bytes.len()
-                || !bytes[index + 1].is_ascii_hexdigit()
-                || !bytes[index + 2].is_ascii_hexdigit()
-            {
-                return false;
-            }
-            index += 3;
-            continue;
-        }
-        if !byte.is_ascii_alphanumeric() && !matches!(byte, b'.' | b'_' | b'~' | b'=' | b'-') {
-            return false;
-        }
-        index += 1;
-    }
-    true
 }
 
 /// Validate the `ak:plan:<base64url>` wire form. The suffix is an opaque,
@@ -952,6 +879,8 @@ declare_uuid_id_kinds! {
     RequestId, "ak:request:", UUID_VERSION_PRODUCER_ALLOCATED;
     ScheduledSendId, "ak:scheduled_send:", UUID_VERSION_PRODUCER_ALLOCATED;
     RealmStateSnapshotId, "ak:realm_state_snapshot:", UUID_VERSION_PRODUCER_ALLOCATED;
+    MlsWelcomeDeliveryId, "ak:mls_welcome_delivery:", UUID_VERSION_PRODUCER_ALLOCATED;
+    KeypackageClaimId, "ak:keypackage_claim:", UUID_VERSION_PRODUCER_ALLOCATED;
     SubscriptionId, "ak:subscription:", UUID_VERSION_PRODUCER_ALLOCATED;
     TransactionId, "ak:transaction:", UUID_VERSION_PRODUCER_ALLOCATED;
 }
@@ -1068,7 +997,40 @@ pub const DECLARED_SUITE_TAGGED_FULL_DIGEST_ID_KIND_PREFIXES: &[&str] = &[
     SessionGrantId::KIND_PREFIX,
     AccountStatusRecordId::KIND_PREFIX,
     NotificationProjectionId::KIND_PREFIX,
+    RealmCommitId::KIND_PREFIX,
+    RealmAuthorityHandoffId::KIND_PREFIX,
+    RealmSnapshotId::KIND_PREFIX,
 ];
+
+macro_rules! suite_tagged_content_id_type {
+    ($name:ident, $prefix:literal) => {
+        id_type!($name, |value: &str| decode_digest_token(value, $prefix)
+            .is_some_and(|token| token[0] == DigestSuiteCode::Sha256.as_u8()));
+
+        impl $name {
+            pub const KIND_PREFIX: &'static str = $prefix;
+
+            pub fn from_digest(digest: [u8; 32]) -> Self {
+                let mut token = [0_u8; 33];
+                token[0] = DigestSuiteCode::Sha256.as_u8();
+                token[1..].copy_from_slice(&digest);
+                Self(encode_digest_token(Self::KIND_PREFIX, token))
+            }
+
+            pub fn digest_bytes(&self) -> [u8; 32] {
+                let token = decode_digest_token(&self.0, Self::KIND_PREFIX)
+                    .expect("validated content id carries a canonical digest token");
+                let mut digest = [0_u8; 32];
+                digest.copy_from_slice(&token[1..]);
+                digest
+            }
+        }
+    };
+}
+
+suite_tagged_content_id_type!(RealmCommitId, "ak:realm_commit:");
+suite_tagged_content_id_type!(RealmAuthorityHandoffId, "ak:realm_authority_handoff:");
+suite_tagged_content_id_type!(RealmSnapshotId, "ak:realm_snapshot:");
 
 fn decode_realm_token(value: &str) -> Option<[u8; 33]> {
     let payload = value.strip_prefix("ak:realm:")?;
@@ -1148,14 +1110,12 @@ declare_special_form_id_kinds! {
     // Content-addressed Blob bytes. Distinct from `BlobId`, which is the
     // `ak:blob:<uuidv7>` metadata-resource identity.
     BlobRef, "blob", is_blob_ref;
-    CellRef, "cell", is_cell_ref;
     Cursor, "cursor", has_prefix("ak:cursor:");
     OrganizationRegistrationChallengeId, "organization_registration_challenge",
         |value: &str| is_hex_identifier(value, "ak:organization_registration_challenge:");
     OrganizationRegistrationReceiptId, "organization_registration_receipt",
         |value: &str| is_hex_identifier(value, "ak:organization_registration_receipt:");
     PlanId, "plan", is_plan_id;
-    SealId, "seal", is_content_addressed("ak:seal:");
     ServiceRegistrationReceiptId,
         "service_registration_receipt",
         is_service_registration_receipt_id;
@@ -1183,10 +1143,7 @@ macro_rules! declare_producer_allocated_ids {
 }
 
 declare_producer_allocated_ids! {
-    HistoryRequestId, "ak:history_request:";
-    HistoryResponseId, "ak:history_response:";
     OperationId, "ak:operation:";
-    RecoveryKeyId, "ak:recovery_key:";
 }
 
 id_type!(DeviceMessageTransactionId, is_device_message_transaction_id);
@@ -1255,10 +1212,6 @@ fn is_blob_ref(value: &str) -> bool {
     value.strip_prefix("ak:blob:").is_some_and(is_hash)
 }
 
-fn is_content_addressed<'a>(prefix: &'a str) -> impl Fn(&str) -> bool + 'a {
-    move |value| value.strip_prefix(prefix).is_some_and(is_hash)
-}
-
 /// `device-message.schema.json` to-device correlation coordinate:
 /// `^[A-Za-z0-9._~=-]{1,128}$`.
 ///
@@ -1297,10 +1250,8 @@ id_type!(
     is_push_target_id
 );
 
-// Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest`, a Seal
-// root, or a control-plane `Seal.delta[]` entry. `ak:seal:` prefixes the
-// content-addressed Seal identifier itself, which is a special form and is
-// declared with the other `special_forms` kinds.
+// Bare `<algo>:<hex>` digest, e.g. an Event's `proof.event_digest` or another
+// authenticated content commitment.
 id_type!(Hash, is_hash);
 
 impl Hash {
@@ -1316,23 +1267,6 @@ impl Hash {
             .ok_or_else(|| IdentifierError::InvalidId(self.as_str().to_owned()))?;
         arkret_canonical::canonical::digest_suite(algorithm)
             .map_err(|_| IdentifierError::InvalidId(self.as_str().to_owned()))
-    }
-}
-
-impl SealId {
-    /// Digest suite this content-addressed Seal identity was minted under.
-    ///
-    /// A `SealId` is `ak:seal:` plus a bare `<algo>:<hex>` digest, so the suite
-    /// is carried by the identifier itself and re-deriving the body id needs no
-    /// second input. Without this accessor every verifier has to re-implement
-    /// the same prefix strip, which is a signature-verification failure when it
-    /// drifts, not a cosmetic one.
-    pub fn digest_suite(&self) -> Result<arkret_canonical::DigestSuite> {
-        let digest = self
-            .as_str()
-            .strip_prefix("ak:seal:")
-            .ok_or_else(|| IdentifierError::InvalidId(self.as_str().to_owned()))?;
-        Hash::new(digest)?.digest_suite()
     }
 }
 
@@ -1665,14 +1599,10 @@ mod tests {
         assert!(BlobRef::new(format!("ak:blob:blake3:{digest64}")).is_ok());
         assert!(BlobRef::new(format!("sha256:{digest64}")).is_err());
         assert!(BlobRef::new("ak:blob:01904100-0000-7000-8000-000000000001").is_err());
-        assert_eq!(CellRef::ID_KIND, "cell");
-        assert!(CellRef::new("ak:cell:ak.component.relation.lifecycle.v1:subject").is_ok());
         assert_eq!(Cursor::ID_KIND, "cursor");
         assert!(Cursor::new("ak:cursor:b3RoZXI").is_ok());
         assert_eq!(PlanId::ID_KIND, "plan");
         assert!(PlanId::new("ak:plan:b3RoZXI").is_ok());
-        assert_eq!(SealId::ID_KIND, "seal");
-        assert!(SealId::new(format!("ak:seal:sha256:{digest64}")).is_ok());
         assert_eq!(
             ServiceRegistrationReceiptId::ID_KIND,
             "service_registration_receipt"
@@ -1804,25 +1734,6 @@ mod tests {
         assert!(Hash::new(format!("sha3_256:{digest64}")).is_err());
         assert!(Hash::new(format!("sha512:{digest128}")).is_err());
         assert!(BlobRef::new(format!("ak:blob:sha3_256:{digest64}")).is_err());
-        assert!(SealId::new(format!("ak:seal:blake3:{digest64}")).is_ok());
-        assert!(SealId::new(format!("ak:seal:sha512:{digest128}")).is_err());
-    }
-
-    #[test]
-    fn cell_ref_requires_complete_cell_family_identifier() {
-        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:strand").is_ok());
-        assert!(CellRef::new("ak:cell:ak.component.realm.join_rule.v1:").is_ok());
-        assert!(CellRef::new(
-            "ak:cell:ak.component.member.state.v1:did:webvh:z6mkfixture:127.0.0.1%3A22816:webvh:alice"
-        )
-        .is_ok());
-        assert!(CellRef::new("ak:cell:ak.component.member.state.v1:did:web:host%3").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.member.state.v1:did:web:host%XZ").is_err());
-        assert!(CellRef::new("ak:cell:component.strand.position.v1:board:strand").is_err());
-        assert!(CellRef::new("ak:cell:message:019640ed-8000-7000-8000-000000000000").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.strand.position.v1:board:").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.Strand.position.v1:board:strand").is_err());
-        assert!(CellRef::new("ak:cell:ak.component.strand.position:board:strand").is_err());
     }
 
     #[test]

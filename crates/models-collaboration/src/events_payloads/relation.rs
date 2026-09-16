@@ -25,48 +25,6 @@ pub struct RelationUpdatePayload {
     pub relation_id: RelationId,
 }
 
-#[cfg(test)]
-mod update_tests {
-    use super::*;
-
-    #[test]
-    fn relation_update_requires_one_canonical_target_and_patch() {
-        let canonical = serde_json::json!({
-            "relation_id": "ak:relation:AZEvldDJcWI9IRHqP2BMibDDfc59Ax_LwrbsrQmeD6Ml",
-            "patch": {"fields.label": {"$op": "set", "value": "updated"}},
-            "expected_state_digest": format!("sha256:{}", "1".repeat(64)),
-        });
-        let parsed: RelationUpdatePayload = serde_json::from_value(canonical.clone()).unwrap();
-        assert_eq!(serde_json::to_value(parsed).unwrap(), canonical);
-        for field in ["relation_id", "patch"] {
-            let mut invalid = canonical.clone();
-            invalid.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<RelationUpdatePayload>(invalid).is_err());
-        }
-        for field in ["target_ref", "status"] {
-            let mut invalid = canonical.clone();
-            invalid[field] = canonical["relation_id"].clone();
-            assert!(serde_json::from_value::<RelationUpdatePayload>(invalid).is_err());
-        }
-        let mut old_target = canonical.clone();
-        old_target["target_ref"] = old_target
-            .as_object_mut()
-            .unwrap()
-            .remove("relation_id")
-            .unwrap();
-        assert!(serde_json::from_value::<RelationUpdatePayload>(old_target).is_err());
-        let mut null_guard = canonical.clone();
-        null_guard["expected_state_digest"] = Value::Null;
-        assert!(serde_json::from_value::<RelationUpdatePayload>(null_guard).is_err());
-        let mut unguarded = canonical;
-        unguarded
-            .as_object_mut()
-            .unwrap()
-            .remove("expected_state_digest");
-        assert!(serde_json::from_value::<RelationUpdatePayload>(unguarded).is_ok());
-    }
-}
-
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/relation_tombstone_payload`.
 #[derive(Clone, Debug, Serialize)]

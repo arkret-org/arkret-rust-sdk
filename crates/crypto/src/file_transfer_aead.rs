@@ -195,7 +195,7 @@ pub fn decrypt_segment(
         .map_err(|_| invalid("segment_aead_failed"))
 }
 
-/// Seal an immutable descriptor; its Blob digest is computed only afterwards.
+/// Encrypt an immutable descriptor; its Blob digest is computed only afterwards.
 pub fn encrypt(
     encryption: &FileTransferEncryption,
     media_type: &str,

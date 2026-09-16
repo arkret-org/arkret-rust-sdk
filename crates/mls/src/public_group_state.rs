@@ -1,12 +1,8 @@
 //! RFC 9420 validation for externally supplied public epoch state.
-#[cfg(test)]
-mod tests;
-
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::base64url_encode;
 use arkret_models_collaboration::events_payloads::mls_proposal_admission::MlsProposalSenderClass;
-use arkret_models_crypto::{MLS_GOVERNANCE_BINDING_EXTENSION_TYPE, MlsGovernanceBindingPayload};
 use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, NonEmptyString};
 use openmls::prelude::{
     GroupId, LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider,
@@ -40,8 +36,8 @@ pub struct MlsPublicEndpointLeaf {
 ///
 /// `PublicGroup::from_external` verifies the GroupInfo signature, ratchet-tree
 /// node semantics, tree hash, MLS version, leaf-node validity, and uniqueness
-/// constraints. No leaves or tree bytes are accepted from a governance proof
-/// bundle; callers obtain these two byte strings only from the typed standard
+/// constraints. No leaves or tree bytes are accepted from a service assertion;
+/// callers obtain these two byte strings only from the typed standard
 /// group-state-material operation after its content-address checks pass.
 pub fn validate_public_group_state(
     group_info_bytes: &[u8],
@@ -54,25 +50,6 @@ pub fn validate_public_group_state(
         ratchet_tree_bytes,
         expected_mls_group_id,
         expected_epoch,
-        None,
-    )
-}
-
-/// Validate public MLS state and require the transcript-authenticated Arkret
-/// governance binding to equal the binding accepted in the source Event.
-pub fn validate_public_group_state_with_governance_binding(
-    group_info_bytes: &[u8],
-    ratchet_tree_bytes: &[u8],
-    expected_mls_group_id: &str,
-    expected_epoch: u64,
-    expected_governance_binding: &MlsGovernanceBindingPayload,
-) -> Result<Vec<MlsPublicEndpointLeaf>> {
-    validate_public_group_state_inner(
-        group_info_bytes,
-        ratchet_tree_bytes,
-        expected_mls_group_id,
-        expected_epoch,
-        Some(expected_governance_binding),
     )
 }
 
@@ -81,14 +58,12 @@ fn validate_public_group_state_inner(
     ratchet_tree_bytes: &[u8],
     expected_mls_group_id: &str,
     expected_epoch: u64,
-    expected_governance_binding: Option<&MlsGovernanceBindingPayload>,
 ) -> Result<Vec<MlsPublicEndpointLeaf>> {
     MlsPublicGroupTracker::from_external(
         group_info_bytes,
         ratchet_tree_bytes,
         expected_mls_group_id,
         expected_epoch,
-        expected_governance_binding,
     )?
     .leaves()
 }
@@ -98,7 +73,6 @@ fn build_public_tracker(
     ratchet_tree_bytes: &[u8],
     expected_mls_group_id: &str,
     expected_epoch: u64,
-    expected_governance_binding: Option<&MlsGovernanceBindingPayload>,
 ) -> Result<MlsPublicGroupTracker> {
     let message = MlsMessageIn::tls_deserialize_exact(group_info_bytes).map_err(mls_error)?;
     let MlsMessageBodyIn::GroupInfo(group_info) = message.extract() else {
@@ -128,25 +102,6 @@ fn build_public_tracker(
         ProposalStore::new(),
     )
     .map_err(mls_error)?;
-    if let Some(expected) = expected_governance_binding {
-        let encoded = public_group
-            .group_context()
-            .extensions()
-            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
-            .ok_or_else(|| {
-                Error::Protocol(
-                    "MLS public group state omits the governance binding extension".to_owned(),
-                )
-            })?;
-        let actual = MlsGovernanceBindingPayload::from_deterministic_cbor(&encoded.0)
-            .map_err(|error| Error::Protocol(error.to_string()))?;
-        if &actual != expected {
-            return Err(Error::Protocol(
-                "MLS GroupContext governance binding does not match accepted genesis".to_owned(),
-            ));
-        }
-    }
-
     Ok(MlsPublicGroupTracker {
         provider,
         public_group,
@@ -254,9 +209,8 @@ impl MlsPublicGroupTracker {
         tree: &[u8],
         group_id: &str,
         epoch: u64,
-        binding: Option<&MlsGovernanceBindingPayload>,
     ) -> Result<Self> {
-        let tracker = build_public_tracker(group_info, tree, group_id, epoch, binding)?;
+        let tracker = build_public_tracker(group_info, tree, group_id, epoch)?;
         tracker.ensure_supported_group_context_extensions()?;
         Ok(tracker)
     }
@@ -270,17 +224,6 @@ impl MlsPublicGroupTracker {
 
     pub fn epoch(&self) -> u64 {
         self.public_group.group_context().epoch().as_u64()
-    }
-    pub fn governance_binding(&self) -> Result<Option<MlsGovernanceBindingPayload>> {
-        self.public_group
-            .group_context()
-            .extensions()
-            .unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)
-            .map(|extension| {
-                MlsGovernanceBindingPayload::from_deterministic_cbor(&extension.0)
-                    .map_err(|error| Error::Protocol(error.to_string()))
-            })
-            .transpose()
     }
     pub fn leaves(&self) -> Result<Vec<MlsPublicEndpointLeaf>> {
         public_leaves(&self.public_group)

@@ -196,8 +196,6 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
         "    pub required_fixtures: &'static [&'static str],",
         "    pub required_capability_actions: &'static [&'static str],",
         "    pub required_features: &'static [&'static str],",
-        "    pub required_cell_namespaces: &'static [&'static str],",
-        "    pub required_cells: &'static [&'static str],",
         "    pub required_constraint_kinds: &'static [&'static str],",
         "    pub non_event_grant_authority_rules: &'static [NonEventGrantAuthorityRule],",
         "}",
@@ -242,9 +240,6 @@ def generate(artifact_path: Path, event_kind_registry_path: Path | None = None) 
                 "            required_capability_actions: "
                 f"{rust_slice(row.get('required_capability_actions', []))},",
                 f"            required_features: {rust_slice(features)},",
-                "            required_cell_namespaces: "
-                f"{rust_slice(row.get('required_cell_namespaces', []))},",
-                f"            required_cells: {rust_slice(row.get('required_cells', []))},",
                 f"            required_constraint_kinds: {rust_slice(constraints)},",
                 f"            non_event_grant_authority_rules: &[{rules}],",
                 "        });",

@@ -939,13 +939,6 @@ mod tests {
                 verification_method: DidUrl::new("did:web:publisher.example#manifest-signing")
                     .unwrap(),
                 event_digest: hash(0),
-                signer_resolution_evidence_ref: Some(
-                    crate::SignerEvidenceRef::new(format!(
-                        "ak:signer_evidence:sha256:{}",
-                        "4".repeat(64)
-                    ))
-                    .unwrap(),
-                ),
                 created_at: published_at,
                 domain: None,
                 audience: None,

@@ -151,8 +151,6 @@ pub struct CapabilityAction {
     pub root_control_only: bool,
     #[serde(default)]
     pub subject_only: bool,
-    #[serde(default)]
-    pub reducer_only: bool,
     pub event_mapping_kind: String,
 }
 
@@ -215,7 +213,6 @@ pub struct AgentCapabilitySet {
 #[derive(Debug, Deserialize)]
 pub struct ContractRegistry {
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
-    pub event_kind_registry: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -285,53 +282,10 @@ pub struct EventKindRegistry {
 pub struct EventKindRegistration {
     pub event_kind: String,
     pub status: String,
-    #[serde(default)]
-    pub reducer_input: bool,
     pub id_source: Option<String>,
     pub id_kind: Option<String>,
     #[serde(default)]
     pub id_kinds: Vec<String>,
-    #[serde(default)]
-    pub pre_state_requirements: Vec<EventPreStateRequirement>,
-    pub cell_family: Option<String>,
-    #[serde(default)]
-    pub cell_writes: Vec<EventCellWrite>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventCellWrite {
-    pub cell_family: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStateRequirement {
-    pub cell_family: String,
-    pub subject: EventPreStateSubject,
-    /// Optional payload condition drawn from the same closed grammar as
-    /// `cell_writes[].condition`. A requirement whose condition does not hold
-    /// is not evaluated at all, so the raw AST is carried through verbatim
-    /// rather than flattened into a codegen-private shape.
-    pub condition: Option<serde_json::Value>,
-    pub predicate: EventPreStatePredicate,
-    pub failure: EventPreStateFailure,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStateSubject {
-    pub field: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStatePredicate {
-    pub kind: String,
-    pub field: String,
-    pub payload_field: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct EventPreStateFailure {
-    pub code: String,
-    pub reason_code: String,
 }
 
 #[derive(Debug, Deserialize)]

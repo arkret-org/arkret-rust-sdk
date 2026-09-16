@@ -79,7 +79,7 @@ fn unchanged_station_does_not_authorize_changed_issuer_or_authority() {
 }
 
 #[test]
-fn method_order_extensions_and_history_key_rotation_are_not_identity_changes() {
+fn method_order_extensions_and_resolution_version_are_not_identity_changes() {
     let pin = binding(&description()).unwrap();
     let mut changed = description();
     changed.auth_metadata.methods[0].scopes.reverse();

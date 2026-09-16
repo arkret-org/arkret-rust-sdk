@@ -5,11 +5,9 @@ mod development_identity;
 // did:webvh builders, the resolver, starid and the joint conformance harness
 // all sign or verify with it, and only some of them enable `webvh`.
 pub mod eddsa_jcs_2022;
-pub mod frozen_notary;
 pub mod http_signature;
 #[cfg(feature = "collaboration")]
 pub mod media;
-pub mod seal_conclusion;
 #[cfg(feature = "service-identity")]
 pub mod service_resolution;
 
@@ -26,14 +24,6 @@ pub use eddsa_jcs_2022::{
     EddsaJcs2022Error, build_eddsa_jcs_2022_proof, eddsa_jcs_2022_proof_config,
     eddsa_jcs_2022_signing_input, verify_eddsa_jcs_2022_proof,
 };
-pub use frozen_notary::{
-    verify_frozen_notary_detached_jws, verify_frozen_notary_signature, verify_seal_signature,
-};
-pub use seal_conclusion::{
-    VerifiedSealConclusionFacts, sign_seal_conclusion, sign_seal_configuration_handoff,
-    verify_seal_conclusion_facts, verify_seal_conclusion_set_authority_chain,
-    verify_seal_conclusion_signature, verify_seal_configuration_handoff_signature,
-};
 
 // Agent key-pairing canonical binding digests. Gated by `collaboration` because
 // they validate against the `PublicKey` wire model owned by
@@ -42,8 +32,6 @@ pub use seal_conclusion::{
 pub mod account_status;
 #[cfg(feature = "collaboration")]
 pub mod agent;
-#[cfg(feature = "collaboration")]
-pub mod agent_evidence;
 #[cfg(feature = "collaboration")]
 pub mod contact_receipt;
 #[cfg(feature = "collaboration")]
@@ -59,3 +47,8 @@ pub mod keypackages;
 
 mod protocol_api;
 pub use protocol_api::*;
+
+#[cfg(feature = "signer")]
+mod signer;
+#[cfg(feature = "signer")]
+pub use signer::{Ed25519PayloadSigner, verify_ed25519_payload_signature};

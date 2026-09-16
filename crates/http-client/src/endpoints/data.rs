@@ -4,7 +4,7 @@ use arkret_canonical::base64url::base64_standard_encode;
 use arkret_models_collaboration::objects::blob::{
     BlobPresignOutcome, BlobPresignRequestBody, BlobUploadMetadata, BlobUploadOutcome,
 };
-use arkret_models_collaboration::sync_frames::account_sync::{
+use arkret_models_collaboration::device_messages::{
     DeviceMessagesAckOutcome, DeviceMessagesAckRequestBody, DeviceMessagesGetOutcome,
     DeviceMessagesSendOutcome, DeviceMessagesSendRequestBody,
 };

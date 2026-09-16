@@ -4,7 +4,7 @@
 //! `ak.self.keys.read.lookup.v1` is a relationship-gated **cross principal**
 //! surface. Its prose used to require the receiver to replay a PCR
 //! authorization chain from an identity-root anchored genesis receipt, while
-//! the schema carried no genesis receipt, no chain and no Seal — so the stated
+//! the schema carried no genesis receipt or replayable chain, so the stated
 //! verification closure was not executable on the wire, and the only way to
 //! make it executable would have been to publish an account's internal
 //! governance log to every third party that happens to share a Realm with it.
@@ -412,9 +412,9 @@ mod tests {
         let material = crate::proof::PublicKeyMaterial::Ed25519Raw {
             bytes: signing_key.verifying_key().to_bytes().to_vec(),
         };
-        super::verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
+        verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
         assert!(
-            super::verify_device_projection_with_key_material(
+            verify_device_projection_with_key_material(
                 &attestation,
                 &material,
                 at - chrono::Duration::seconds(1)
@@ -422,8 +422,7 @@ mod tests {
             .is_err()
         );
         assert!(
-            super::verify_device_projection_with_key_material(&attestation, &material, expiry)
-                .is_err()
+            verify_device_projection_with_key_material(&attestation, &material, expiry).is_err()
         );
         let foreign_key = crate::proof::PublicKeyMaterial::Ed25519Raw {
             bytes: SigningKey::from_bytes(&[16_u8; 32])
@@ -432,10 +431,9 @@ mod tests {
                 .to_vec(),
         };
         assert!(
-            super::verify_device_projection_with_key_material(&attestation, &foreign_key, at)
-                .is_err()
+            verify_device_projection_with_key_material(&attestation, &foreign_key, at).is_err()
         );
         // Replaying later uses the immutable response's signing instant, not wall time.
-        super::verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
+        verify_device_projection_with_key_material(&attestation, &material, at).unwrap();
     }
 }

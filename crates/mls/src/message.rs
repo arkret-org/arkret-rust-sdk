@@ -12,7 +12,7 @@ pub struct EncryptedMessage {
 
 pub use arkret_models_crypto::parse_and_validate_encrypted_envelope;
 
-/// Assemble the encrypted envelope for an already-sealed payload.
+/// Assemble the encrypted envelope for an already-encrypted payload.
 pub fn encrypted_envelope_from_payload(payload: &EncryptedPayload) -> Result<EncryptedEnvelope> {
     payload.to_envelope().map_err(Into::into)
 }

@@ -1,6 +1,6 @@
 use arkret_wire::{
-    AccountId, ActorId, Audience, CriticalExtension, DidCoreId, DidUrl, FeatureRef, Hash, Hlc,
-    ProducerEventProof, ProfileRef, ProofBindingRequirements, RealmId,
+    AccountId, ActorId, Audience, CriticalExtension, DidCoreId, DidUrl, Hash, ProducerEventProof,
+    ProofBindingRequirements, RealmId,
 };
 use chrono::Utc;
 use serde_json::json;
@@ -24,13 +24,6 @@ fn valid_proof() -> ProducerEventProof {
             "sha256:0000000000000000000000000000000000000000000000000000000000000000",
         )
         .unwrap(),
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "6".repeat(64)
-            ))
-            .unwrap(),
-        ),
         created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
         domain: None,
         audience: None,
@@ -210,8 +203,6 @@ fn event_validate_proof_bindings_checks_digest_match() {
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-        1,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -225,13 +216,6 @@ fn event_validate_proof_bindings_checks_digest_match() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest,
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "6".repeat(64)
-            ))
-            .unwrap(),
-        ),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -257,8 +241,6 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-        1,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -271,13 +253,6 @@ fn event_validate_proof_bindings_rejects_mismatched_digest() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest,
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "6".repeat(64)
-            ))
-            .unwrap(),
-        ),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -303,8 +278,6 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         },
         DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
         DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-        1,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
         json!({ "body": "hello" }),
     )
     .unwrap();
@@ -318,13 +291,6 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
         kind: "detached_jws".to_owned(),
         verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
         event_digest,
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "6".repeat(64)
-            ))
-            .unwrap(),
-        ),
         created_at: Utc::now(),
         domain: None,
         audience: Some(Audience::Single(
@@ -362,68 +328,6 @@ fn event_validate_proof_bindings_with_context_requires_cross_domain_binding() {
             )
             .is_ok()
     );
-}
-
-#[test]
-fn event_digest_includes_schema_profiles_features_and_critical_extensions() {
-    let mut event = arkret_wire::test_support::raw_event(
-        "ak.message.create",
-        arkret_wire::ScopeRef::Realm {
-            realm_id: test_realm_id(),
-        },
-        DidCoreId::new("ak:did_core:webvh:z6mkfixture").unwrap(),
-        DidCoreId::new("ak:did_core:webvh:z6mkfixtureps").unwrap(),
-        1,
-        Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-        json!({ "body": "hello" }),
-    )
-    .unwrap();
-    let base_digest = event
-        .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-        .unwrap();
-
-    event
-        .requirements
-        .schema_profile_refs
-        .push(ProfileRef::new("ak.schema.core_event.v1").unwrap());
-    event
-        .requirements
-        .required_features
-        .push(FeatureRef::new("ak.feature.event_extensions.v1").unwrap());
-    event
-        .requirements
-        .critical_extensions
-        .push(CriticalExtension {
-            id: "ak.feature.policy_gate.v1".to_owned(),
-            extension_scope: "authz".to_owned(),
-            schema_ref: Some("ak.schema.policy.v1".to_owned()),
-            profile_ref: None,
-            parameters: None,
-            material_digest: None,
-            evidence_ref: None,
-            fail_closed: true,
-        });
-
-    assert_ne!(
-        base_digest,
-        event
-            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap()
-    );
-    let value = serde_json::to_value(&event).unwrap();
-    assert!(value.get("schema_profile_refs").is_none());
-    assert_eq!(
-        value["requirements"]["schema"][0],
-        "ak.schema.core_event.v1"
-    );
-    assert!(value["requirements"].get("reducer").is_none());
-    assert_eq!(
-        value["requirements"]["features"][0],
-        "ak.feature.event_extensions.v1"
-    );
-
-    event.requirements.critical_extensions[0].fail_closed = false;
-    assert!(event.validate_for_submit_structural().is_err());
 }
 
 #[test]

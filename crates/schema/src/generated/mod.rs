@@ -7,5 +7,3 @@ pub use event_runtime_contracts::*;
 pub use openapi_query::*;
 pub use registry_descriptors::*;
 pub use runtime_contracts::*;
-
-pub mod current_result_schemas;

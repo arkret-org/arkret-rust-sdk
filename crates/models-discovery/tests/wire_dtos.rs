@@ -10,6 +10,7 @@ use arkret_wire::{Did, RealmId, ServiceKind, TrustDomainId};
 #[test]
 fn announce_origin_is_carried_only_by_the_signed_event_actor() {
     let realm_id = "ak:realm:ATH75ame6bMfYpXtcoLOVb7FKmgpWVniZZqVBz1dUdQa";
+    let commit_id = arkret_wire::RealmCommitId::from_digest([7; 32]);
     let mut value = serde_json::json!({
         "discovery_event": {
             "event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
@@ -18,8 +19,8 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
             "actor_id": {"kind": "account", "account_id": {
                 "principal_id": "ak:did_core:web:author.example",
                 "station_id": "ak:did_core:web:station.example"}},
-            "actor_seq": 1, "created_at": "2026-08-31T00:00:00.000Z",
-            "prev_refs": [], "payload": {"value": {}}, "proofs": []
+            "created_at": "2026-08-31T00:00:00.000Z",
+            "payload": {"value": {}}, "proofs": []
         },
         "source_ref_access": {
             "kind": "directory_announce",
@@ -27,7 +28,12 @@ fn announce_origin_is_carried_only_by_the_signed_event_actor() {
             "directory_id": "ak:did_core:web:directory.example",
             "realm_id": realm_id,
             "discovery_event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
-            "source_refs": ["ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2"],
+            "source_refs": [{
+                "event_id": "ak:event:ASWGTju1AH5ri82iFC0b-lZTclyFRuOI8TagaYiq5ZD2",
+                "commit_id": commit_id,
+                "stream_ref": {"kind": "realm", "realm_id": realm_id},
+                "stream_position": 1
+            }],
             "as_of": "2026-08-31T00:00:00.000Z",
             "expires_at": "2026-08-31T00:05:00.000Z",
             "proof": {

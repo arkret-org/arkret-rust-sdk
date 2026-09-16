@@ -1,6 +1,5 @@
 //! Agent Event materialization.
 
-use arkret_models_collaboration::agent_operations::AgentLifecycleState;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentDeactivatePayload, AgentKeyAuthorizePayload, AgentKeyRevokePayload, AgentPausePayload,
     AgentResumePayload,
@@ -10,15 +9,17 @@ use chrono::{DateTime, Utc};
 
 use crate::{EventIntent, EventSpec, Result, TypedEventDraft};
 
-/// Draft a controller-executed `ak.agent.key.authorize`.
-///
-/// An [`EventIntent`], not an authored Event: the agent signing-key binding
-/// commits to this Event's `event_id`, so the caller has to author it through
-/// its submit path — with a real actor frontier and HLC — before it can bind
-/// anything to that identity.
-// Every parameter is a distinct protocol-required binding on the authorize
-// Event; collapsing them into one input struct would hide which of them the
-// caller may omit.
+/// Local authoring state used to choose the legal source of a lifecycle
+/// transition. It is not a shared Event payload or a replicated state record.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AgentLifecycleState {
+    Active,
+    Paused,
+    Deactivated,
+}
+
+/// Draft a controller-executed `ak.agent.key.authorize`. The current Station
+/// assigns authority-stream position only after the producer Event is signed.
 pub fn build_agent_key_authorize_intent(
     payload: &AgentKeyAuthorizePayload,
     scope_ref: ScopeRef,
@@ -37,7 +38,6 @@ pub fn build_agent_key_authorize_intent(
     .into_intent(created_at)
 }
 
-/// Build the controller-executed `ak.agent.key.revoke` write.
 pub fn build_agent_key_revoke_intent(
     payload: &AgentKeyRevokePayload,
     scope_ref: ScopeRef,
@@ -79,7 +79,6 @@ fn build_agent_lifecycle_intent<K: EventSpec>(
     .into_intent(input.status_changed_at)
 }
 
-/// Build the controller-executed `ak.self.agent.pause` write.
 pub fn build_agent_pause_intent(
     agent_actor_id: ActorId,
     controller_actor_id: ActorId,
@@ -104,7 +103,6 @@ pub fn build_agent_pause_intent(
     })
 }
 
-/// Build the controller-executed `ak.self.agent.resume` write.
 pub fn build_agent_resume_intent(
     agent_actor_id: ActorId,
     controller_actor_id: ActorId,
@@ -128,8 +126,6 @@ pub fn build_agent_resume_intent(
     })
 }
 
-/// Build the controller-executed `ak.self.agent.deactivate` write.
-/// Deactivation may start from either active or paused and is terminal.
 #[allow(clippy::too_many_arguments)]
 pub fn build_agent_deactivate_intent(
     agent_actor_id: ActorId,
@@ -163,415 +159,4 @@ pub fn build_agent_deactivate_intent(
         controller_authorization_ref,
         status_changed_at,
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use arkret_identifiers::{Did, project_did_to_core_id};
-    use arkret_models_collaboration::events_payloads::agent::{
-        AgentKeyApprovalEvidence, AgentKeyApprovalEvidenceKind, AgentKeyScope, AgentKeySupersession,
-    };
-    use arkret_schema::{or_set_dot, project_registered_cell_writes};
-    use arkret_wire::cell::composite_subject;
-    use arkret_wire::{
-        AccountId, AuthoredEvent, CellRef, DidCoreId, Event, EventId, EventKind, Hlc, LatticeOp,
-        LatticeOpType, ProjectedCellWrite, ProjectedOp, RealmId,
-    };
-    use chrono::TimeZone;
-    use serde_json::{Value, json};
-
-    use super::*;
-
-    fn core_id(name: &str) -> DidCoreId {
-        project_did_to_core_id(&did(name)).unwrap()
-    }
-
-    fn did(name: &str) -> Did {
-        Did::new(format!("did:webvh:z6mkfixture:{name}.example")).unwrap()
-    }
-
-    fn account_actor(principal_id: DidCoreId) -> ActorId {
-        ActorId::account(AccountId::new(principal_id, core_id("agent-station")))
-    }
-
-    fn realm() -> RealmId {
-        RealmId::from_event_id(&EventId::from_digest(
-            arkret_canonical::DigestSuite::Sha256,
-            [0x41; 32],
-        ))
-    }
-
-    fn scope() -> ScopeRef {
-        ScopeRef::Realm { realm_id: realm() }
-    }
-
-    /// Every cell write the registry derives for `event`.
-    ///
-    /// A v1 producer stamps no reducer instruction on the wire, so this
-    /// projection — not an `effects[]` array — is what the assertions below are
-    /// about.
-    fn project(event: &Event) -> Vec<ProjectedCellWrite> {
-        project_registered_cell_writes(event, arkret_canonical::DigestSuite::Sha256)
-            .expect("the registered contract must be evaluable")
-    }
-
-    fn agent_key_cell(agent_id: &DidCoreId, key_id: &str) -> CellRef {
-        let subject = composite_subject(&[agent_id.as_str(), key_id]).unwrap();
-        CellRef::new(format!("ak:cell:ak.component.agent.key.v1:{subject}")).unwrap()
-    }
-
-    fn agent_status_cell(agent_actor_id: &ActorId) -> CellRef {
-        let subject = composite_subject(&[agent_actor_id.canonical_key().unwrap()]).unwrap();
-        CellRef::new(format!("ak:cell:ak.component.agent.status.v1:{subject}")).unwrap()
-    }
-
-    fn payload_object(event: &Event) -> Value {
-        Value::Object(event.payload.clone().into_iter().collect())
-    }
-
-    /// Finalize an intent at a pinned chain position.
-    ///
-    /// The projections below are keyed by the Event's own dot, which exists only
-    /// after the identity is derived. Production positions the write from the
-    /// accepted actor frontier and the durable signing stamp; a unit test has
-    /// neither, so it pins both.
-    fn authored(intent: EventIntent, actor_seq: u64) -> AuthoredEvent {
-        intent
-            .author_with_digest_suite(
-                actor_seq,
-                Hlc::new(format!("01970e589d21-{actor_seq:04}-a13f9c2e")).unwrap(),
-                arkret_canonical::DigestSuite::Sha256,
-            )
-            .expect("a test intent finalizes")
-    }
-
-    fn transition_write(cell: CellRef, from: Value, to: Value) -> ProjectedCellWrite {
-        let mut op = LatticeOp::empty();
-        op.op_type = LatticeOpType::Transition;
-        op.from = Some(from);
-        op.to = Some(to);
-        ProjectedCellWrite {
-            cell_id: cell,
-            op: ProjectedOp::Direct(op),
-        }
-    }
-
-    fn key_authorize_payload(
-        agent_id: DidCoreId,
-        agent_did: &Did,
-        controller_principal_id: DidCoreId,
-    ) -> AgentKeyAuthorizePayload {
-        AgentKeyAuthorizePayload {
-            agent_id,
-            key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
-            verification_method: DidUrl::new(format!("{agent_did}#runtime-key-1")).unwrap(),
-            public_key: serde_json::from_value(serde_json::json!({
-                "kty": "OKP", "kid": format!("{agent_did}#runtime-key-1"),
-                "algorithm": "Ed25519", "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-            }))
-            .unwrap(),
-            accountable_principal_id: controller_principal_id.clone(),
-            agent_key_scope: AgentKeyScope {
-                actions: vec!["ak.message.create".to_owned()],
-                resources: vec![],
-                constraints: vec![],
-            },
-            audience: vec!["https://arkret.example".to_owned()],
-            issued_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 0, 0).unwrap(),
-            expires_at: Some(Utc.with_ymd_and_hms(2026, 5, 26, 10, 15, 0).unwrap()),
-            approval_evidence: AgentKeyApprovalEvidence {
-                kind: AgentKeyApprovalEvidenceKind::ApprovalEvent,
-                evidence_ref: Some(
-                    "ak:event:AV97PI2Y6Qum1pZ62jB1P6M_I7KjPy5KVQxs3bDBUkws".to_owned(),
-                ),
-                request_canonical_digest: None,
-                pairing_request_id: None,
-                approved_by: Some(controller_principal_id),
-            },
-            supersedes: vec![],
-            revocation_check_ref: None,
-            runtime_attestation: None,
-        }
-    }
-
-    #[test]
-    fn key_authorize_event_binds_controller_execution() {
-        let agent_id = core_id("agent");
-        let agent_did = did("agent");
-        let controller_principal_id = core_id("controller");
-        let event = authored(
-            build_agent_key_authorize_intent(
-                &key_authorize_payload(
-                    agent_id.clone(),
-                    &agent_did,
-                    controller_principal_id.clone(),
-                ),
-                scope(),
-                account_actor(agent_id.clone()),
-                account_actor(controller_principal_id.clone()),
-                DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
-                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-            )
-            .unwrap(),
-            7,
-        );
-
-        assert_eq!(event.kind, EventKind::AgentKeyAuthorize);
-        assert_eq!(event.actor_id, account_actor(agent_id));
-        assert_eq!(
-            event.executed_by,
-            Some(account_actor(controller_principal_id))
-        );
-        assert_eq!(event.payload["key_id"], "runtime-key-1");
-    }
-
-    /// A first authorization projects exactly one add. The registry's
-    /// `cell_writes[0]` is the bounded `for_each` expansion over
-    /// `payload.supersedes` (`zh/models/event-and-patch.md` §2.4.2, "Agent
-    /// replacement 的有界旧 cell 展开"): with the set omitted it expands to zero
-    /// removals, and the add keeps `write_index` 1 regardless of how many old
-    /// authorizations a later Event names.
-    #[test]
-    fn key_authorize_first_authorization_projects_single_add_at_dot_one() {
-        let agent_id = core_id("agent");
-        let agent_did = did("agent");
-        let controller_principal_id = core_id("controller");
-        let event = authored(
-            build_agent_key_authorize_intent(
-                &key_authorize_payload(
-                    agent_id.clone(),
-                    &agent_did,
-                    controller_principal_id.clone(),
-                ),
-                scope(),
-                account_actor(agent_id.clone()),
-                account_actor(controller_principal_id),
-                DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
-                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-            )
-            .unwrap(),
-            7,
-        );
-
-        let cell = agent_key_cell(&agent_id, "runtime-key-1");
-        let mut add = LatticeOp::empty();
-        add.op_type = LatticeOpType::Add;
-        // `event-and-patch.md` §2.4.2: the tag is the canonical dot
-        // `"ak:event:" + event_id + ":" + write_index`, never a bare event_id.
-        add.tag = Some(or_set_dot(event.event_id.as_str(), 1));
-        add.value = Some(payload_object(&event));
-        assert_eq!(
-            project(&event),
-            vec![ProjectedCellWrite {
-                cell_id: cell,
-                op: ProjectedOp::Direct(add),
-            }]
-        );
-    }
-
-    /// Re-authorization names the exact old authorization set
-    /// (`zh/identity/key-management.md` §3.6). Each `supersedes[]` entry expands
-    /// to one explicit `remove` of `canonical_event_dot(authorized_event_ref, 1)`
-    /// on the old `(agent_id, key_id)` cell — never an observed remove of the
-    /// whole cell — and the replacement add follows at dot index 1.
-    #[test]
-    fn key_authorize_projects_exact_supersedes_removal_then_add() {
-        let agent_id = core_id("agent");
-        let agent_did = did("agent");
-        let controller_principal_id = core_id("controller");
-        let old = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [11; 32]);
-        let mut payload = key_authorize_payload(
-            agent_id.clone(),
-            &agent_did,
-            controller_principal_id.clone(),
-        );
-        payload.supersedes = vec![AgentKeySupersession {
-            key_id: arkret_wire::NonEmptyString::new("runtime-key-0").unwrap(),
-            authorized_event_ref: old.clone(),
-        }];
-        let event = authored(
-            build_agent_key_authorize_intent(
-                &payload,
-                scope(),
-                account_actor(agent_id.clone()),
-                account_actor(controller_principal_id),
-                DidUrl::new(format!("{agent_did}#managed-controller")).unwrap(),
-                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-            )
-            .unwrap(),
-            7,
-        );
-
-        let mut remove = LatticeOp::empty();
-        remove.op_type = LatticeOpType::Remove;
-        remove.tag = Some(or_set_dot(old.as_str(), 1));
-        let mut add = LatticeOp::empty();
-        add.op_type = LatticeOpType::Add;
-        add.tag = Some(or_set_dot(event.event_id.as_str(), 1));
-        add.value = Some(payload_object(&event));
-        assert_eq!(
-            project(&event),
-            vec![
-                ProjectedCellWrite {
-                    cell_id: agent_key_cell(&agent_id, "runtime-key-0"),
-                    op: ProjectedOp::Direct(remove),
-                },
-                ProjectedCellWrite {
-                    cell_id: agent_key_cell(&agent_id, "runtime-key-1"),
-                    op: ProjectedOp::Direct(add),
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn key_revoke_projects_remove_and_revocation_fact() {
-        let agent_id = core_id("agent");
-        let controller_principal_id = core_id("controller");
-        let event = authored(
-            build_agent_key_revoke_intent(
-                &AgentKeyRevokePayload {
-                    agent_id: agent_id.clone(),
-                    key_id: arkret_wire::NonEmptyString::new("runtime-key-1").unwrap(),
-                    revoked_by: controller_principal_id.clone(),
-                    revoked_at: Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-                    reason: Some(
-                        arkret_wire::AuditReasonText::new("controller_deactivated").unwrap(),
-                    ),
-                },
-                scope(),
-                account_actor(agent_id.clone()),
-                account_actor(controller_principal_id),
-                DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
-                Utc.with_ymd_and_hms(2026, 5, 26, 10, 30, 0).unwrap(),
-            )
-            .unwrap(),
-            8,
-        );
-
-        // The first write clears every active authorization dot observed in the
-        // frozen pre-state. The second records the revocation payload under the
-        // canonical write-index dot so the accepted reason and cutoff remain
-        // auditable without reviving the removed authorization.
-        let cell = agent_key_cell(&agent_id, "runtime-key-1");
-        let mut add = LatticeOp::empty();
-        add.op_type = LatticeOpType::Add;
-        add.tag = Some(or_set_dot(event.event_id.as_str(), 1));
-        add.value = Some(payload_object(&event));
-        assert_eq!(
-            project(&event),
-            vec![
-                ProjectedCellWrite {
-                    cell_id: cell.clone(),
-                    op: ProjectedOp::RemoveObserved {
-                        element_match: None
-                    },
-                },
-                ProjectedCellWrite {
-                    cell_id: cell,
-                    op: ProjectedOp::Direct(add),
-                },
-            ]
-        );
-    }
-
-    #[test]
-    fn lifecycle_events_bind_payload_and_status_transition() {
-        let agent_id = core_id("agent");
-        let agent_did = did("agent");
-        let agent_actor_id = ActorId::account(AccountId::new(agent_id, core_id("agent-station")));
-        let controller_principal_id = core_id("controller");
-        let changed_at = Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap();
-        let authorization_ref = DidUrl::new(format!("{agent_did}#managed-controller")).unwrap();
-
-        let status_cell = agent_status_cell(&agent_actor_id);
-
-        let pause = authored(
-            build_agent_pause_intent(
-                agent_actor_id.clone(),
-                account_actor(controller_principal_id.clone()),
-                scope(),
-                authorization_ref.clone(),
-                Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
-                changed_at,
-            )
-            .unwrap(),
-            8,
-        );
-        assert_eq!(pause.kind, EventKind::SelfAgentPause);
-        assert_eq!(
-            project(&pause),
-            vec![transition_write(
-                status_cell.clone(),
-                json!("active"),
-                json!("paused")
-            )]
-        );
-        // The registered `transition` projection declares only `from` and `to`,
-        // so the lattice op carries no `reason` (`event-and-patch.md` §2.4.2:
-        // members the projection does not declare MUST stay absent). The
-        // operator's reason survives as a signed payload field instead.
-        assert_eq!(pause.payload["reason"], "user_requested");
-
-        let resume = authored(
-            build_agent_resume_intent(
-                agent_actor_id,
-                account_actor(controller_principal_id),
-                scope(),
-                authorization_ref,
-                changed_at,
-            )
-            .unwrap(),
-            9,
-        );
-        assert_eq!(resume.kind, EventKind::SelfAgentResume);
-        assert_eq!(
-            project(&resume),
-            vec![transition_write(
-                status_cell.clone(),
-                json!("paused"),
-                json!("active")
-            )]
-        );
-
-        let deactivate = authored(
-            build_agent_deactivate_intent(
-                resume.actor_id.clone(),
-                resume.executed_by.clone().unwrap(),
-                scope(),
-                DidUrl::new(resume.authorization_ref.clone().unwrap()).unwrap(),
-                AgentLifecycleState::Paused,
-                Some(arkret_wire::AuditReasonText::new("user_requested").unwrap()),
-                changed_at,
-            )
-            .unwrap(),
-            10,
-        );
-        assert_eq!(deactivate.kind, EventKind::SelfAgentDeactivate);
-        assert_eq!(
-            project(&deactivate),
-            vec![transition_write(
-                status_cell,
-                json!("paused"),
-                json!("deactivated")
-            )]
-        );
-        assert_eq!(deactivate.payload["reason"], "user_requested");
-    }
-
-    #[test]
-    fn lifecycle_event_rejects_service_actor_identity() {
-        let agent_id = core_id("agent");
-        let error = build_agent_pause_intent(
-            ActorId::service(agent_id),
-            ActorId::service(core_id("controller")),
-            scope(),
-            DidUrl::new("did:webvh:z6mkfixture:agent.example#managed-controller").unwrap(),
-            None,
-            Utc.with_ymd_and_hms(2026, 7, 19, 8, 0, 0).unwrap(),
-        )
-        .unwrap_err();
-
-        assert!(error.to_string().contains("complete Account ActorId"));
-    }
 }

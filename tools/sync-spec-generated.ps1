@@ -47,13 +47,9 @@ $targetRoot = $temporaryRoot
 try {
     $eventOutput = Join-Path $targetRoot 'crates/wire/src/generated/event_kinds.rs'
     $requirementsOutput = Join-Path $targetRoot 'crates/wire/src/generated/profile_requirements.rs'
-    $stateModelBindingsOutput = Join-Path $targetRoot 'crates/lattice-registry/src/generated/state_model_bindings.rs'
-    $mlsSecurityFrontierOutput = Join-Path $targetRoot 'crates/state/src/generated/mls_security_frontier.rs'
     @(
         $eventOutput,
-        $requirementsOutput,
-        $stateModelBindingsOutput
-        $mlsSecurityFrontierOutput
+        $requirementsOutput
     ) | ForEach-Object {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $_) | Out-Null
     }
@@ -63,19 +59,6 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'profile requirement generation failed'
     }
-    & python (Join-Path $PSScriptRoot 'generate-sdk-state-model-bindings.py') --artifacts-dir $artifacts --output $stateModelBindingsOutput
-    if ($LASTEXITCODE -ne 0) {
-        throw 'lattice binding generation failed'
-    }
-
-    & python (Join-Path $PSScriptRoot 'generate-mls-security-frontier.py') --artifacts-dir $artifacts --output $mlsSecurityFrontierOutput
-    if ($LASTEXITCODE -ne 0) {
-        throw 'MLS security-frontier generation failed'
-    }
-
-    & python (Join-Path $PSScriptRoot 'generate-current-result-schemas.py') --artifacts-dir $artifacts --output (Join-Path $targetRoot 'crates/schema/src/generated/current_result_schemas.rs')
-    if ($LASTEXITCODE -ne 0) { throw 'Current-result schema generation failed' }
-
     & cargo run --quiet --manifest-path (Join-Path $PSScriptRoot 'spec-codegen/Cargo.toml') -- --artifacts-dir $artifacts --output-root $targetRoot
     if ($LASTEXITCODE -ne 0) {
         throw 'Rust spec code generation failed'
@@ -133,7 +116,7 @@ try {
         'crates/wire/src/generated',
         'crates/wire/src/error_codes',
         'crates/schema/src/generated',
-        'crates/lattice-registry/src/generated'
+        'crates/lattice-registry/src/generated',
         'crates/state/src/generated'
     )
     # Directories a generator actually writes into are derived from the manifest

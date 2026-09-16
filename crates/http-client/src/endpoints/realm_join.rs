@@ -12,14 +12,10 @@
 //! Move.
 
 use arkret_models_collaboration::governance::realm_join_intake::{
-    RealmJoinBootstrapOutcome, RealmJoinBootstrapRequestBody,
-    RealmJoinPeerApplicationStatusOutcome, RealmJoinPeerApplicationStatusRequestBody,
-    RealmJoinPrepareOutcome, RealmJoinPrepareRequestBody, RealmJoinSelfApplicationStatusOutcome,
-    RealmJoinSelfApplicationStatusRequestBody,
-};
-use arkret_models_discovery::realm_join_preview::{
-    RealmJoinPeerPreviewOutcome, RealmJoinPeerPreviewRequestBody, RealmJoinSelfPreviewOutcome,
-    RealmJoinSelfPreviewRequestBody,
+    PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody, PeerRealmJoinPreviewOutcome,
+    PeerRealmJoinPreviewRequestBody, RealmJoinApplicationStatusOutcome,
+    RealmJoinApplicationStatusRequest, SelfRealmJoinPrepareOutcome, SelfRealmJoinPrepareRequestBody,
+    SelfRealmJoinPreviewOutcome, SelfRealmJoinPreviewRequestBody,
 };
 
 use crate::{Client, Result};
@@ -32,13 +28,12 @@ impl Client {
     /// discovery input surface otherwise; the client never contacts either.
     pub async fn self_realm_join_preview(
         &self,
-        request: &RealmJoinSelfPreviewRequestBody,
-    ) -> Result<RealmJoinSelfPreviewOutcome> {
-        request.validate()?;
-        let outcome: RealmJoinSelfPreviewOutcome = self
+        request: &SelfRealmJoinPreviewRequestBody,
+    ) -> Result<SelfRealmJoinPreviewOutcome> {
+        request.target.validate()?;
+        let outcome: SelfRealmJoinPreviewOutcome = self
             .post("/_arkret/self/realm-joins/preview", request)
             .await?;
-        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -51,13 +46,12 @@ impl Client {
     /// endpoint or runs a reducer.
     pub async fn self_realm_join_prepare(
         &self,
-        request: &RealmJoinPrepareRequestBody,
-    ) -> Result<RealmJoinPrepareOutcome> {
-        request.validate()?;
-        let outcome: RealmJoinPrepareOutcome = self
+        request: &SelfRealmJoinPrepareRequestBody,
+    ) -> Result<SelfRealmJoinPrepareOutcome> {
+        request.target.validate()?;
+        let outcome: SelfRealmJoinPrepareOutcome = self
             .post_protocol_replay_safe("/_arkret/self/realm-joins/prepare", request)
             .await?;
-        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -65,13 +59,12 @@ impl Client {
     /// exists.
     pub async fn self_realm_join_application_status(
         &self,
-        request: &RealmJoinSelfApplicationStatusRequestBody,
-    ) -> Result<RealmJoinSelfApplicationStatusOutcome> {
-        request.validate()?;
-        let outcome: RealmJoinSelfApplicationStatusOutcome = self
+        request: &RealmJoinApplicationStatusRequest,
+    ) -> Result<RealmJoinApplicationStatusOutcome> {
+        let outcome: RealmJoinApplicationStatusOutcome = self
             .post("/_arkret/self/realm-joins/application-status", request)
             .await?;
-        outcome.validate_for_request(request)?;
+        outcome.validate()?;
         Ok(outcome)
     }
 
@@ -82,13 +75,11 @@ impl Client {
     /// invitee's local bearer or session credential is never forwarded.
     pub async fn peer_realm_join_preview(
         &self,
-        request: &RealmJoinPeerPreviewRequestBody,
-    ) -> Result<RealmJoinPeerPreviewOutcome> {
-        request.validate()?;
-        let outcome: RealmJoinPeerPreviewOutcome = self
+        request: &PeerRealmJoinPreviewRequestBody,
+    ) -> Result<PeerRealmJoinPreviewOutcome> {
+        let outcome: PeerRealmJoinPreviewOutcome = self
             .post("/_arkret/peer/realm-joins/preview", request)
             .await?;
-        outcome.validate_for_request(request)?;
         Ok(outcome)
     }
 
@@ -100,31 +91,11 @@ impl Client {
     /// preparing anything from them.
     pub async fn peer_realm_join_bootstrap(
         &self,
-        request: &RealmJoinBootstrapRequestBody,
-    ) -> Result<RealmJoinBootstrapOutcome> {
-        request.validate()?;
-        let outcome: RealmJoinBootstrapOutcome = self
+        request: &PeerRealmJoinBootstrapRequestBody,
+    ) -> Result<PeerRealmJoinBootstrapOutcome> {
+        let outcome: PeerRealmJoinBootstrapOutcome = self
             .post("/_arkret/peer/realm-joins/bootstrap", request)
             .await?;
-        outcome.validate_for_request(request)?;
-        Ok(outcome)
-    }
-
-    pub async fn peer_realm_join_bootstrap_continue(
-        &self,
-        cursor: &str,
-    ) -> Result<RealmJoinBootstrapOutcome> {
-        use arkret_models_collaboration::governance::realm_join_bootstrap::{
-            RealmJoinBootstrapContinuation, RealmJoinBootstrapReadRequest,
-        };
-        let request = RealmJoinBootstrapReadRequest::Continue(RealmJoinBootstrapContinuation {
-            cursor: cursor.to_owned(),
-        });
-        request.validate()?;
-        let outcome: RealmJoinBootstrapOutcome = self
-            .post("/_arkret/peer/realm-joins/bootstrap", &request)
-            .await?;
-        outcome.validate_structural()?;
         Ok(outcome)
     }
 
@@ -132,13 +103,12 @@ impl Client {
     /// member Station that accepted it.
     pub async fn peer_realm_join_application_status(
         &self,
-        request: &RealmJoinPeerApplicationStatusRequestBody,
-    ) -> Result<RealmJoinPeerApplicationStatusOutcome> {
-        request.validate()?;
-        let outcome: RealmJoinPeerApplicationStatusOutcome = self
+        request: &RealmJoinApplicationStatusRequest,
+    ) -> Result<RealmJoinApplicationStatusOutcome> {
+        let outcome: RealmJoinApplicationStatusOutcome = self
             .post("/_arkret/peer/realm-joins/application-status", request)
             .await?;
-        outcome.validate_for_request(request)?;
+        outcome.validate()?;
         Ok(outcome)
     }
 }

@@ -21,6 +21,7 @@ arkret-wire = { workspace = true, features = ["test-support"] }
 chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 arkret-canonical = { workspace = true }

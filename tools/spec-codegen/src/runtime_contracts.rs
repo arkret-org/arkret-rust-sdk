@@ -2,8 +2,7 @@ use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, bail};
-use serde_json::Value;
+use anyhow::{Result, bail};
 
 use crate::model::{RealmBootstrapProfile, SpecInputs};
 use crate::render::{
@@ -175,162 +174,8 @@ fn validate(inputs: &SpecInputs) -> Result<()> {
                 bail!("{} references unknown id kind {id_kind}", event.event_kind);
             }
         }
-        for requirement in &event.pre_state_requirements {
-            if !matches!(
-                requirement.predicate.kind.as_str(),
-                PRE_STATE_PRESENT | PRE_STATE_EQUALS_PAYLOAD | PRE_STATE_MATCHES_PAYLOAD
-            ) {
-                bail!(
-                    "{} uses unsupported pre-state predicate {}",
-                    event.event_kind,
-                    requirement.predicate.kind
-                );
-            }
-            if matches!(
-                requirement.predicate.kind.as_str(),
-                PRE_STATE_EQUALS_PAYLOAD | PRE_STATE_MATCHES_PAYLOAD
-            ) && requirement.predicate.payload_field.is_none()
-            {
-                bail!(
-                    "{} omits payload_field for {}",
-                    event.event_kind,
-                    requirement.predicate.kind
-                );
-            }
-            if let Some(condition) = &requirement.condition {
-                validate_pre_state_condition(&event.event_kind, condition)?;
-            }
-        }
     }
     Ok(())
-}
-
-/// The closed stored-field predicates of `zh/models/event-and-patch.md`
-/// section 2.4.2. `stored_field_matches_payload` is the weakest of the three:
-/// it holds when the stored field and the payload field are both absent, or
-/// both present and byte-identical. That closes both directions at once for a
-/// payload field that is optional on the wire, so a forged value cannot enter
-/// a branch that belongs to another object class and an omitted value cannot
-/// skip a registered write.
-const PRE_STATE_PRESENT: &str = "stored_field_present";
-const PRE_STATE_EQUALS_PAYLOAD: &str = "stored_field_equals_payload";
-const PRE_STATE_MATCHES_PAYLOAD: &str = "stored_field_matches_payload";
-
-/// Validate one `pre_state_requirements[].condition` against the closed
-/// payload-condition grammar it shares verbatim with `cell_writes[].condition`.
-///
-/// The condition decides whether the requirement is evaluated at all, so an
-/// unknown operator, a missing member or a source path that is not an explicit
-/// `payload.<path>` fails the generation run instead of being dropped: a
-/// silently ignored condition turns a conditional requirement into an
-/// unconditional one and rejects Events the registry admits.
-fn validate_pre_state_condition(event_kind: &str, condition: &Value) -> Result<()> {
-    let object = condition
-        .as_object()
-        .with_context(|| format!("{event_kind} pre-state condition is not an object"))?;
-    let kind = object
-        .get("kind")
-        .and_then(Value::as_str)
-        .with_context(|| format!("{event_kind} pre-state condition omits kind"))?;
-    let members: &[&str] = match kind {
-        "field_present" | "field_absent" => &["kind", "field"],
-        "field_equals" => &["kind", "field", "const"],
-        "any_field_present" => &["kind", "fields"],
-        other => bail!("{event_kind} uses unsupported pre-state condition {other}"),
-    };
-    for member in object.keys() {
-        if !members.contains(&member.as_str()) {
-            bail!("{event_kind} pre-state condition {kind} carries unsupported member {member}");
-        }
-    }
-    for member in members {
-        if !object.contains_key(*member) {
-            bail!("{event_kind} pre-state condition {kind} omits {member}");
-        }
-    }
-    if let Some(field) = object.get("field") {
-        require_payload_path(event_kind, kind, field)?;
-    }
-    if let Some(fields) = object.get("fields") {
-        let fields = fields.as_array().with_context(|| {
-            format!("{event_kind} pre-state condition {kind} fields is not an array")
-        })?;
-        if fields.len() < 2 {
-            bail!("{event_kind} pre-state condition {kind} needs at least two fields");
-        }
-        for field in fields {
-            require_payload_path(event_kind, kind, field)?;
-        }
-    }
-    if let Some(constant) = object.get("const")
-        && !matches!(
-            constant,
-            Value::String(_) | Value::Number(_) | Value::Bool(_)
-        )
-    {
-        bail!("{event_kind} pre-state condition {kind} const is not a scalar");
-    }
-    Ok(())
-}
-
-fn require_payload_path(event_kind: &str, kind: &str, field: &Value) -> Result<()> {
-    let path = field.as_str().with_context(|| {
-        format!("{event_kind} pre-state condition {kind} field is not a string")
-    })?;
-    if !path.starts_with("payload.") || path.ends_with('.') {
-        bail!(
-            "{event_kind} pre-state condition {kind} field {path} is not an explicit payload path"
-        );
-    }
-    Ok(())
-}
-
-/// Render a registry rule node as the closed `arkret_wire::EventCellRule` AST.
-///
-/// The pre-state condition grammar is the cell-write condition grammar, so it
-/// travels in the same parse-free AST and is evaluated by the same code rather
-/// than being duplicated into a second closed enum that could drift from it.
-fn cell_rule_expression(value: &Value, is_operator: bool) -> Result<String> {
-    if is_operator {
-        let operator = value
-            .as_str()
-            .context("a cell rule kind must be a string operator")?;
-        return Ok(format!(
-            "EventCellRule::Operator(EventCellRuleOperator::{})",
-            variant(operator, &[])
-        ));
-    }
-    Ok(match value {
-        Value::Null => "EventCellRule::Null".to_owned(),
-        Value::Bool(value) => format!("EventCellRule::Bool({value})"),
-        Value::Number(number) => {
-            let value = number
-                .as_i64()
-                .context("a cell rule number must fit in an i64")?;
-            format!("EventCellRule::Integer({value})")
-        }
-        Value::String(value) => format!("EventCellRule::String({})", rust_string(value)),
-        Value::Array(items) => {
-            let items = items
-                .iter()
-                .map(|item| cell_rule_expression(item, false))
-                .collect::<Result<Vec<_>>>()?;
-            format!("EventCellRule::Array(&[{}])", items.join(", "))
-        }
-        Value::Object(fields) => {
-            let fields = fields
-                .iter()
-                .map(|(key, value)| {
-                    Ok(format!(
-                        "EventCellRuleField {{ key: EventCellRuleKey::{}, value: {} }}",
-                        variant(key, &[]),
-                        cell_rule_expression(value, key == "kind")?
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            format!("EventCellRule::Object(&[{}])", fields.join(", "))
-        }
-    })
 }
 
 fn bootstrap_profiles(inputs: &SpecInputs) -> [(&'static str, &RealmBootstrapProfile); 2] {
@@ -440,7 +285,6 @@ pub struct CapabilityActionDescriptor {
     pub profile: Option<&'static str>,
     pub root_control_only: bool,
     pub subject_only: bool,
-    pub reducer_only: bool,
     pub event_mapping_kind: &'static str,
 }
 
@@ -491,7 +335,7 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
     for row in actions {
         writeln!(
             output,
-            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, reducer_only: {}, event_mapping_kind: {} }},",
+            "    CapabilityActionDescriptor {{ action: CapabilityActionId::{}, category: {}, risk_tier: CapabilityRiskTier::{}, required_constraints: {}, required_evaluator_checks: {}, target_event_kinds: {}, grant_authority_actions: {}, profile: {}, root_control_only: {}, subject_only: {}, event_mapping_kind: {} }},",
             variant(&row.action, &["ak."]),
             rust_string(&row.category),
             variant(&row.risk_tier, &[]),
@@ -502,7 +346,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
             option_string(row.profile.as_deref()),
             row.root_control_only,
             row.subject_only,
-            row.reducer_only,
             rust_string(&row.event_mapping_kind),
         )
         .expect("write to String");
@@ -918,92 +761,25 @@ fn generate_event_runtime_contracts(inputs: &SpecInputs) -> Result<String> {
         .filter(|event| event.status == "active")
         .collect::<Vec<_>>();
     events.sort_by_key(|event| &event.event_kind);
-    let requirement_count = events
-        .iter()
-        .map(|event| event.pre_state_requirements.len())
-        .sum::<usize>();
     let mut output = header(
         &[&inputs.event_kinds_source, &inputs.id_kinds_source],
-        &format!(
-            "active_events={}, pre_state_requirements={requirement_count}",
-            events.len()
-        ),
+        &format!("active_events={}", events.len()),
     );
-    // A conditional requirement carries the registry's own rule AST, so the
-    // vocabulary types are imported only when the registry actually declares a
-    // condition. Importing them unconditionally would leave the generated file
-    // with unused imports on a registry that declares none.
-    let conditional = events
-        .iter()
-        .flat_map(|event| event.pre_state_requirements.iter())
-        .any(|requirement| requirement.condition.is_some());
-    let rule_imports = if conditional {
-        "CellFamilyId, EventCellRule, EventCellRuleField, EventCellRuleKey, EventCellRuleOperator, event_kind_str"
-    } else {
-        "CellFamilyId, EventCellRule, event_kind_str"
-    };
-    writeln!(output, "use arkret_wire::{{{rule_imports}}};").expect("write to String");
+    writeln!(output, "use arkret_wire::event_kind_str;").expect("write to String");
     output.push_str(
         r#"
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EventIdSource { EventDerived }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum EventPreStatePredicateKind { StoredFieldPresent, StoredFieldEqualsPayload, StoredFieldMatchesPayload }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EventPreStateRequirementDescriptor {
-    pub cell_family: CellFamilyId,
-    pub subject_field: &'static str,
-    pub condition: Option<EventCellRule>,
-    pub predicate: EventPreStatePredicateKind,
-    pub stored_field: &'static str,
-    pub payload_field: Option<&'static str>,
-    pub failure_code: &'static str,
-    pub failure_reason_code: &'static str,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct EventRuntimeContractDescriptor {
     pub event_kind: &'static str,
-    pub reducer_input: bool,
     pub id_source: Option<EventIdSource>,
     pub derived_id_kinds: &'static [&'static str],
-    pub pre_state_requirements: &'static [EventPreStateRequirementDescriptor],
 }
 
 "#,
     );
-    for event in &events {
-        if event.pre_state_requirements.is_empty() {
-            continue;
-        }
-        writeln!(
-            output,
-            "const {}_PRE_STATE_REQUIREMENTS: &[EventPreStateRequirementDescriptor] = &[",
-            associated_name(&event.event_kind, &["ak."])
-        )
-        .expect("write to String");
-        for requirement in &event.pre_state_requirements {
-            let condition = match &requirement.condition {
-                None => "None".to_owned(),
-                Some(condition) => format!("Some({})", cell_rule_expression(condition, false)?),
-            };
-            writeln!(
-                output,
-                "    EventPreStateRequirementDescriptor {{ cell_family: CellFamilyId::{}, subject_field: {}, condition: {condition}, predicate: EventPreStatePredicateKind::{}, stored_field: {}, payload_field: {}, failure_code: {}, failure_reason_code: {} }},",
-                variant(&requirement.cell_family, &["ak.component."]),
-                rust_string(&requirement.subject.field),
-                variant(&requirement.predicate.kind, &[]),
-                rust_string(&requirement.predicate.field),
-                option_string(requirement.predicate.payload_field.as_deref()),
-                rust_string(&requirement.failure.code),
-                rust_string(&requirement.failure.reason_code),
-            )
-            .expect("write to String");
-        }
-        output.push_str("];\n\n");
-    }
     output.push_str("pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[\n");
     for event in events {
         let mut derived_id_kinds = event.id_kind.iter().cloned().collect::<Vec<_>>();
@@ -1013,19 +789,10 @@ pub struct EventRuntimeContractDescriptor {
         } else {
             "None"
         };
-        let requirements = if event.pre_state_requirements.is_empty() {
-            "&[]".to_owned()
-        } else {
-            format!(
-                "{}_PRE_STATE_REQUIREMENTS",
-                associated_name(&event.event_kind, &["ak."])
-            )
-        };
         writeln!(
             output,
-            "    EventRuntimeContractDescriptor {{ event_kind: event_kind_str::{}, reducer_input: {}, id_source: {id_source}, derived_id_kinds: {}, pre_state_requirements: {requirements} }},",
+            "    EventRuntimeContractDescriptor {{ event_kind: event_kind_str::{}, id_source: {id_source}, derived_id_kinds: {} }},",
             associated_name(&event.event_kind, &["ak."]),
-            event.reducer_input,
             string_slice(&derived_id_kinds),
         )
         .expect("write to String");

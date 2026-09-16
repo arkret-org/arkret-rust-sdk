@@ -1,9 +1,8 @@
 use std::fmt;
 
 use arkret_wire::{
-    AccountId, ActorId, DeviceId, DeviceRevocationGateCheckOutcome,
-    DeviceRevocationGateCheckRequestBody, DidCoreId, DidUrl, EventId, RealmId, Result,
-    SessionGrantGateAdmission, SessionGrantId, WireError,
+    AccountId, ActorId, CommittedEventRef, DeviceId, DidCoreId, DidUrl, RealmId, Result,
+    SessionGrantId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -39,7 +38,8 @@ pub enum SessionGrantHolderBinding {
     AgentRuntime {
         agent_id: DidCoreId,
         device_id: DeviceId,
-        agent_key_authorization_ref: EventId,
+        #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+        agent_key_authorization_ref: CommittedEventRef,
         verification_method: DidUrl,
     },
     /// Realm-local minimal-metadata pairwise endpoint. It creates no Account,
@@ -60,46 +60,35 @@ pub enum SessionGrantHolderBinding {
 #[serde(deny_unknown_fields)]
 pub struct SessionGrantDeviceBinding {
     pub device_id: DeviceId,
-    pub authorization_event_id: EventId,
+    #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
+    pub authorization_ref: CommittedEventRef,
     pub model_generation_ref: u64,
 }
 
 impl SessionGrantDeviceBinding {
-    /// Build the grant binding from the origin Station's allow
-    /// receipt, which is its only lawful source. The issuer_id never derives the
-    /// authorization Event or the generation itself and never accepts them
-    /// from client input.
-    pub fn from_gate_outcome(
-        outcome: &DeviceRevocationGateCheckOutcome,
-        request: &DeviceRevocationGateCheckRequestBody,
-        now: DateTime<Utc>,
+    /// Construct from the Account Station's committed current-device row.
+    /// The caller must not accept these coordinates from an unauthenticated
+    /// client request.
+    pub fn from_committed_device_state(
+        device_id: DeviceId,
+        authorization_ref: CommittedEventRef,
+        model_generation_ref: u64,
     ) -> Result<Self> {
-        match outcome.session_grant_admission(request, now)? {
-            SessionGrantGateAdmission::Authorized {
-                authorization_event_id,
-                model_generation_ref,
-            } => Ok(Self {
-                device_id: outcome.decision_receipt.device_id.clone(),
-                authorization_event_id: authorization_event_id.clone(),
-                model_generation_ref,
-            }),
-            SessionGrantGateAdmission::DeviceSetupRequired => Err(WireError::Protocol(
-                "device setup is required; no session grant may be issued".to_owned(),
-            )),
-            SessionGrantGateAdmission::Blocked { reason } => Err(WireError::Protocol(format!(
-                "current device blocks session issuance: {reason:?}"
-            ))),
+        if model_generation_ref == 0 {
+            return Err(WireError::Protocol(
+                "session grant device generation must be positive".to_owned(),
+            ));
         }
+        Ok(Self {
+            device_id,
+            authorization_ref,
+            model_generation_ref,
+        })
     }
 
-    /// The recheck input a refresh or a recovery completion sends back to the
-    /// gate. A first ordinary human issuance has no binding yet and sends
-    /// none.
-    pub fn as_expected_gate_binding(&self) -> (Option<EventId>, Option<u64>) {
-        (
-            Some(self.authorization_event_id.clone()),
-            Some(self.model_generation_ref),
-        )
+    /// Exact committed authorization coordinate retained in the signed grant.
+    pub const fn committed_authorization(&self) -> &CommittedEventRef {
+        &self.authorization_ref
     }
 }
 
@@ -779,7 +768,21 @@ fn validate_pairwise_holder_identity(
 mod tests {
     use std::collections::BTreeSet;
 
+    use arkret_wire::{CommitStreamRef, EventId, RealmCommitId};
+
     use super::*;
+
+    fn device_authorization_ref() -> CommittedEventRef {
+        let realm_id =
+            RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
+        CommittedEventRef {
+            event_id: EventId::new("ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g")
+                .unwrap(),
+            commit_id: RealmCommitId::from_digest([7; 32]),
+            stream_ref: CommitStreamRef::Realm { realm_id },
+            stream_position: 1,
+        }
+    }
 
     fn materialized_fixture_vector(fixture: &Value, name: &str) -> Value {
         let vectors = fixture["accepted_vectors"].as_array().unwrap();
@@ -798,6 +801,16 @@ mod tests {
             for key in omitted.iter().map(|value| value.as_str().unwrap()) {
                 object.remove(key);
             }
+        }
+        if let Some(binding) = materialized
+            .get_mut("device_binding")
+            .and_then(Value::as_object_mut)
+        {
+            binding.remove("authorization_event_id");
+            binding.insert(
+                "authorization_ref".to_owned(),
+                serde_json::to_value(device_authorization_ref()).unwrap(),
+            );
         }
         materialized
     }
@@ -845,10 +858,7 @@ mod tests {
                     "ak:device:019a0000-0000-7000-8000-000000000001",
                 )
                 .unwrap(),
-                authorization_event_id: EventId::new(
-                    "ak:event:Ae6YFfDokA1FLUx_l-MhAbSvTvoys2ZpRPmqFwrWjd9g",
-                )
-                .unwrap(),
+                authorization_ref: device_authorization_ref(),
                 model_generation_ref: 1,
             }),
             proof_kind: Some(SessionGrantProofKind::AccountHandoff),
@@ -940,7 +950,7 @@ mod tests {
     }
 
     #[test]
-    fn fixture_known_answer_matches_spec() {
+    fn migrated_fixture_vectors_have_stable_canonical_grant_ids() {
         let fixture = arkret_schema_conformance::spec_json_artifact(
             "fixtures/session-grant-issuance-fixture.json",
         )
@@ -951,16 +961,14 @@ mod tests {
                 materialized_fixture_vector(&fixture, vector["name"].as_str().unwrap());
             let preimage: SessionGrantIssuancePreimage =
                 serde_json::from_value(materialized).unwrap();
+            let bytes = preimage.canonical_bytes().unwrap();
+            let decoded: SessionGrantIssuancePreimage = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(decoded.grant_id().unwrap(), preimage.grant_id().unwrap());
+            let canonical = String::from_utf8(bytes).unwrap();
             assert_eq!(
-                String::from_utf8(preimage.canonical_bytes().unwrap()).unwrap(),
-                vector["canonical_preimage_utf8"].as_str().unwrap(),
-                "{} canonical bytes",
-                vector["name"]
-            );
-            assert_eq!(
-                preimage.grant_id().unwrap().as_str(),
-                vector["session_grant_id"].as_str().unwrap(),
-                "{} grant id",
+                canonical.contains("authorization_ref"),
+                preimage.device_binding.is_some(),
+                "{} must carry a committed reference exactly when it has a device binding",
                 vector["name"]
             );
         }

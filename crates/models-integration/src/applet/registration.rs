@@ -6,8 +6,8 @@ use arkret_models_identity::{
     ResolutionMethodHistoryEvidence,
 };
 use arkret_wire::{
-    ActorId, AppletId, Did, DidCoreId, DidUrl, EventId, EventKind, GrantId, Hash, PayloadSigner,
-    ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
+    ActorId, AppletId, CommittedEventRef, Did, DidCoreId, DidUrl, EventKind, GrantId, Hash,
+    PayloadSigner, ProfileId, Result, SchemaId, WireError, XExtensionMap, canonical, proof_kind,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -90,7 +90,7 @@ pub struct AppletManagedActorProvisionPayload {
     pub actor_role: AppletManagedActorRole,
     pub initial_resolution: ResolutionCommitment,
     pub method_history_evidence: AppletManagedActorMethodHistoryEvidence,
-    pub registration_ref: EventId,
+    pub registration_ref: CommittedEventRef,
     pub applet_authority_ref: GrantId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<GhostExternalTuple>,
@@ -557,7 +557,7 @@ pub struct AppletRegistrationPayload {
     /// grants bind this epoch (`applet-integration.md` §11). Direct wire
     /// builders supply the value; package producers compute it with
     /// `AppletRegistrationEpochTranscript` or
-    /// [`AppletPackage::seal_registration_epoch`].
+    /// [`AppletPackage::stamp_registration_epoch`].
     pub registration_epoch: Hash,
     pub webhook_auth: WebhookAuth,
     /// Required manifest snapshot (claimed profiles, limits, policies,
@@ -1183,7 +1183,8 @@ pub fn applet_document_digest(document: &DidDocument) -> Result<Hash> {
 
 /// Controller-signed installable Applet package (`ak.schema.applet_package.v1`).
 ///
-/// Build it unsigned via [`AppletPackage::new`], [`seal`](Self::seal) to
+/// Build it unsigned via [`AppletPackage::new`],
+/// [`stamp_package_digest`](Self::stamp_package_digest) to
 /// stamp `package_digest`, then [`sign`](Self::sign) with the controller
 /// signer. [`to_registration`](Self::to_registration) performs the
 /// spec §1a Package→registration derivation.
@@ -1232,11 +1233,12 @@ pub struct AppletPackage {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub widget: Option<Widget>,
     /// Canonical package hash (excludes `package_digest` + `proof`).
-    /// `None` until [`seal`](Self::seal).
+    /// `None` until [`stamp_package_digest`](Self::stamp_package_digest).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub package_digest: Option<Hash>,
     /// Canonical security epoch hash. New packages start with the all-zero
-    /// sentinel and MUST call [`seal_registration_epoch`](Self::seal_registration_epoch)
+    /// sentinel and MUST call
+    /// [`stamp_registration_epoch`](Self::stamp_registration_epoch)
     /// after all security-relevant fields and evidence are finalized.
     pub registration_epoch: Hash,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1252,8 +1254,9 @@ pub struct AppletPackage {
 impl AppletPackage {
     pub const SCHEMA: &'static str = SchemaId::APPLET_PACKAGE_V1;
 
-    /// Build an unsigned, unsealed package. Caller MUST
-    /// [`seal`](Self::seal) then [`sign`](Self::sign) before publishing.
+    /// Build an unsigned package without a stamped digest. Caller MUST
+    /// [`stamp_package_digest`](Self::stamp_package_digest), then
+    /// [`sign`](Self::sign) before publishing.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         package_id: impl Into<String>,
@@ -1328,7 +1331,7 @@ impl AppletPackage {
     /// Stamp the registration epoch from explicit install-time evidence.
     /// The evidence is not stored in or serialized with the distribution
     /// package and therefore never enters its digest or controller proof.
-    pub fn seal_registration_epoch(
+    pub fn stamp_registration_epoch(
         &mut self,
         evidence: &AppletRegistrationEpochEvidence,
     ) -> Result<()> {
@@ -1349,13 +1352,14 @@ impl AppletPackage {
     }
 
     /// Compute and stamp `package_digest`.
-    pub fn seal(&mut self) -> Result<()> {
+    pub fn stamp_package_digest(&mut self) -> Result<()> {
         self.package_digest = Some(self.compute_package_digest()?);
         Ok(())
     }
 
     /// Sign the canonical package (with `proof` removed) using the
-    /// controller signer and stamp `proof`. Call [`seal`](Self::seal)
+    /// controller signer and stamp `proof`. Call
+    /// [`stamp_package_digest`](Self::stamp_package_digest)
     /// first so the digest is part of the signed bytes.
     pub fn sign<S: PayloadSigner + ?Sized>(
         &mut self,
@@ -1380,9 +1384,9 @@ impl AppletPackage {
         Ok(())
     }
 
-    /// Validate the sealed, signed package against the spec §1a required
+    /// Validate the digest-stamped, signed package against the spec §1a required
     /// fields. Rejects a missing base profile, empty protocol /
-    /// requested-scope lists, and an unsealed or unsigned package.
+    /// requested-scope lists, and a digest-unstamped or unsigned package.
     pub fn validate(&self) -> Result<()> {
         self.validate_wire()
     }
@@ -1427,7 +1431,7 @@ impl AppletPackage {
         validate_applet_extension_fields("e2ee_policy", &self.e2ee_policy.extensions)?;
         let Some(package_digest) = &self.package_digest else {
             return Err(WireError::Protocol(
-                "applet package is not sealed".to_owned(),
+                "applet package digest is not stamped".to_owned(),
             ));
         };
         if package_digest != &self.compute_package_digest()? {

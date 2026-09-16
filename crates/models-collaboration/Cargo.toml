@@ -21,7 +21,6 @@ openapi = [
     "dep:salvo-oapi",
     "arkret-models-crypto/openapi",
     "arkret-models-identity/openapi",
-    "arkret-models-integration/openapi",
     "arkret-wire/openapi",
     "arkret-identifiers/openapi",
     "salvo-oapi/chrono",
@@ -33,7 +32,6 @@ arkret-canonical = { workspace = true }
 arkret-identifiers = { workspace = true }
 arkret-models-crypto = { workspace = true }
 arkret-models-identity = { workspace = true }
-arkret-models-integration = { workspace = true }
 arkret-wire = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz = { workspace = true }

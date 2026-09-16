@@ -3,11 +3,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::SchemaId;
-use arkret_wire::events::kinds::EventKind;
 use serde::{Deserialize, Serialize};
 
-use crate::operation::OperationEnvelope;
-use crate::{EventDraftError, Result};
+use crate::{EVENT_PAYLOAD_BINDINGS, EventDraftError, Result};
 
 /// Registry entry for one event draft kind.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,27 +56,6 @@ impl EventDraftKindRegistry {
         )))
     }
 
-    /// Validate an operation envelope against the registered kind surface.
-    ///
-    /// Payload field requirements belong to the spec-backed payload schema
-    /// catalog. Keeping a second hand-written field table here caused the two
-    /// validators to drift.
-    pub fn validate_envelope(
-        &self,
-        envelope: &OperationEnvelope,
-    ) -> Result<EventDraftKindValidation> {
-        let validation = self.canonicalize(envelope.kind.as_str())?;
-        self.specs.get(&validation.canonical_kind).ok_or_else(|| {
-            EventDraftError::Protocol("event draft kind registry is inconsistent".to_owned())
-        })?;
-        if !envelope.payload.is_object() {
-            return Err(EventDraftError::Protocol(
-                "operation envelope payload must be a JSON object".to_owned(),
-            ));
-        }
-        Ok(validation)
-    }
-
     /// Iterate registered canonical event draft kinds.
     pub fn kinds(&self) -> impl Iterator<Item = &str> {
         self.specs.keys().map(String::as_str)
@@ -88,9 +65,9 @@ impl EventDraftKindRegistry {
 impl Default for EventDraftKindRegistry {
     fn default() -> Self {
         let mut registry = Self::new();
-        for kind in EventKind::ALL {
+        for binding in EVENT_PAYLOAD_BINDINGS {
             registry.register(EventDraftKindSpec {
-                kind: kind.as_str().to_owned(),
+                kind: binding.kind.as_str().to_owned(),
                 schema: SchemaId::EVENT_V1.to_owned(),
             });
         }
@@ -107,11 +84,11 @@ pub struct EventDraftKindConformanceVector {
 
 /// Conformance vectors for every registered event draft kind.
 pub fn event_draft_kind_conformance_vectors() -> Vec<EventDraftKindConformanceVector> {
-    EventKind::ALL
+    EVENT_PAYLOAD_BINDINGS
         .iter()
-        .map(|kind| EventDraftKindConformanceVector {
-            input_kind: kind.as_str().to_owned(),
-            canonical_kind: kind.as_str().to_owned(),
+        .map(|binding| EventDraftKindConformanceVector {
+            input_kind: binding.kind.as_str().to_owned(),
+            canonical_kind: binding.kind.as_str().to_owned(),
         })
         .collect()
 }

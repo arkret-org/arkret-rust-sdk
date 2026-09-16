@@ -11,8 +11,9 @@ pub use arkret_models_collaboration::sync_frames::account_subscribe::{
     AccountSubscribeReconnectAfter, AccountSubscribeSnapshotResult,
     DEFAULT_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS, MAX_ACCOUNT_SUBSCRIBE_RECONNECT_AFTER_MS,
 };
-use arkret_models_collaboration::sync_frames::client_sync::SyncRequestBody;
-use arkret_models_collaboration::sync_frames::stream_trace::StreamTraceValidator;
+use arkret_models_collaboration::sync_frames::account_subscribe::{
+    AccountSyncRoundBudget, StreamTraceValidator, SyncRequestBody,
+};
 
 use crate::{Error, Result};
 
@@ -26,7 +27,7 @@ pub struct AccountSubscribeFolder {
     done: Option<AccountSubscribeSnapshotResult>,
     failed: bool,
     trace: StreamTraceValidator,
-    round_budget: arkret_models_collaboration::sync_frames::demand_sync::AccountSyncRoundBudget,
+    round_budget: AccountSyncRoundBudget,
 }
 
 impl AccountSubscribeFolder {
@@ -113,7 +114,7 @@ impl AccountSubscribeFolder {
 
 #[cfg(test)]
 mod tests {
-    use arkret_models_collaboration::sync_frames::account_sync::NotificationDeltaAction;
+    use arkret_models_collaboration::sync_frames::account_subscribe::NotificationDeltaAction;
     use serde_json::Value;
 
     use super::*;

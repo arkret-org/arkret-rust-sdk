@@ -30,16 +30,10 @@ blob-aead = ["dep:chacha20poly1305", "dep:getrandom", "dep:arkret-models-collabo
 # Only needs zeroize for the returned key material; the MLS exporter impl lives
 # in `arkret-mls`.
 sframe = ["dep:zeroize"]
-# HPKE base-mode secret-share sealing (`secret_share` module): RFC 9180
-# single-shot seal/open + the typed `ak.secret.*` to-device content bodies.
-# Pulls in the `hpke` stack (`hpke`, `getrandom`) only when enabled.
-secret-share = [
-    "dep:arkret-models-collaboration",
-    "dep:hpke",
-    "dep:getrandom",
-]
-# Client-side key-backup helpers: Argon2id KDF + XChaCha20-Poly1305 AEAD +
-# typed `ak.schema.key_backup.v1` envelope builder + recovery-key codec.
+# RFC 9180 X25519 base-mode seal/open helpers used by backup protocols.
+hpke = ["dep:hpke", "dep:getrandom"]
+# Client-side key-backup primitives: Argon2id KDF + XChaCha20-Poly1305 AEAD +
+# recovery-key codec. Envelope assembly remains in the authorization layer.
 # Spec: crypto-media/key-management.md §7. Pulls in `argon2`,
 # `chacha20poly1305`, `getrandom`, and HKDF/HMAC only when enabled
 # so the bare `arkret-crypto` types crate stays light.

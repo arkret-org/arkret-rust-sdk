@@ -9,6 +9,17 @@ use crate::events_payloads::join_policy::JoinPolicyPayload;
 use crate::governance::agent_participation::AgentParticipationPolicy;
 use crate::internal_prelude::*;
 
+/// `ak.realm.governance_station.change` payload. The accepted change Event is
+/// committed in the Realm stream before the dual-signed authority handoff is
+/// usable by any other stream.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RealmGovernanceStationChangePayload {
+    pub expected_authority_generation: u64,
+    pub expected_realm_stream_commit_id: RealmCommitId,
+    pub new_governance_station_id: DidCoreId,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/inheritance_policy_status`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -110,7 +121,7 @@ pub struct RealmPreauthPolicy {
     /// When true, every invite into this Realm MUST pass the holder consent
     /// admission gate in `identity/consent-model.md` §6.1 before the invite
     /// Control Move is submitted. It MUST NOT be read as permission for a
-    /// cross-Realm CBS precondition.
+    /// cross-Realm authority-commit condition.
     pub consent_required: bool,
 }
 
@@ -128,9 +139,8 @@ pub const RELAXED_WINDOW_MAX_MS_CEILING: u64 = 300_000;
 ///
 /// Payload of `ak.realm.policy_bundle`: the payload **is** this flat closed
 /// object, not a `state_payload` wrapper. Every revision restates the complete
-/// enabled component set, because the bundle is written wholesale into the
-/// `ak.component.realm.policy_bundle.v1` sequenced-state cell and the Realm
-/// object's derived policy fields re-derive from the latest accepted bundle.
+/// enabled component set. The governance Station commits each replacement as
+/// one Realm-stream Event and projections use the latest committed revision.
 ///
 /// The closed property set is exactly the Realm policy components that have
 /// **no** independent facet Event kind. Components that own their own kind and
@@ -186,22 +196,6 @@ pub struct RealmPolicyBundlePayload {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_deactivation: Option<RealmAccountDeactivationPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub availability_policy: Option<RealmAvailabilityPolicy>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_intake_sla_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_decision_window_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub proposal_absolute_deadline_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_proposal_defers: Option<u8>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_compaction_max_interval_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_authority_lifetime_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bottom_escalation_after_ms: Option<u64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preauth: Option<RealmPreauthPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_third_party_invite_verification_ids: Option<Vec<DidCoreId>>,
@@ -228,14 +222,6 @@ impl RealmPolicyBundlePayload {
             handle_issuer_policies: None,
             agent_participation: None,
             account_deactivation: None,
-            availability_policy: None,
-            proposal_intake_sla_ms: None,
-            proposal_decision_window_ms: None,
-            proposal_absolute_deadline_ms: None,
-            max_proposal_defers: None,
-            seal_compaction_max_interval_ms: None,
-            max_authority_lifetime_ms: None,
-            bottom_escalation_after_ms: None,
             preauth: None,
             allowed_third_party_invite_verification_ids: None,
         }
@@ -298,43 +284,7 @@ impl RealmPolicyBundlePayload {
                 ));
             }
         }
-        self.control_proposal_decision_policy()?;
         Ok(())
-    }
-
-    /// Resolve the Control Proposal timing policy carried by this complete
-    /// policy-bundle revision, applying the protocol defaults for omitted
-    /// fields.
-    pub fn control_proposal_decision_policy(&self) -> Result<ControlProposalDecisionPolicy> {
-        let defaults = ControlProposalDecisionPolicy::default();
-        let duration_ms =
-            |value: Option<u64>, fallback: chrono::Duration| -> Result<chrono::Duration> {
-                let millis = value.unwrap_or_else(|| fallback.num_milliseconds() as u64);
-                let millis = i64::try_from(millis).map_err(|_| {
-                    WireError::Protocol(
-                    "Realm proposal decision duration exceeds i64 milliseconds (schema_violation)"
-                        .to_owned(),
-                )
-                })?;
-                Ok(chrono::Duration::milliseconds(millis))
-            };
-        let policy = ControlProposalDecisionPolicy {
-            proposal_intake_sla: duration_ms(
-                self.proposal_intake_sla_ms,
-                defaults.proposal_intake_sla,
-            )?,
-            decision_window: duration_ms(
-                self.proposal_decision_window_ms,
-                defaults.decision_window,
-            )?,
-            absolute_horizon: duration_ms(
-                self.proposal_absolute_deadline_ms,
-                defaults.absolute_horizon,
-            )?,
-            max_defers: self.max_proposal_defers.unwrap_or(defaults.max_defers),
-        };
-        policy.validate()?;
-        Ok(policy)
     }
 
     /// Components declared beside `policy_revision`.
@@ -466,8 +416,7 @@ impl FoundingDeviceDescriptor {
     }
 }
 
-/// Minimal immutable identity and security interpretation root carried by
-/// `ak.realm.create`.
+/// Minimal immutable identity and authority root carried by `ak.realm.create`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmGenesis {
@@ -479,159 +428,55 @@ pub struct RealmGenesis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub initial_resolution: Option<arkret_models_identity::ResolutionCommitment>,
     pub trust_domain: TrustDomainId,
-    pub schema_refs: Vec<String>,
-    pub reducer_profile: String,
-    pub digest_algorithm: canonical::DigestSuite,
     pub security_class: SecurityClass,
-    pub encryption_profile: EncryptionProfile,
-    pub notary: NotaryValue,
+    pub governance_station_id: DidCoreId,
+    pub initial_join_rule: JoinRule,
+    pub initial_history_access: HistoryAccess,
+    pub initial_discoverability: Discoverability,
 }
 
 impl RealmGenesis {
     #[allow(clippy::too_many_arguments)]
-    pub fn event_derived(
+    pub fn new(
         purpose: RealmPurpose,
         genesis_salt: GenesisSalt,
         trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
         security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
+        governance_station_id: DidCoreId,
+        initial_join_rule: JoinRule,
+        initial_history_access: HistoryAccess,
+        initial_discoverability: Discoverability,
+        founding_device_descriptor: Option<FoundingDeviceDescriptor>,
+        initial_resolution: Option<arkret_models_identity::ResolutionCommitment>,
     ) -> Result<Self> {
         let value = Self {
             schema: SchemaId::REALM_GENESIS_V1.to_owned(),
             purpose,
             genesis_salt,
-            founding_device_descriptor: None,
-            initial_resolution: None,
-            trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
-            security_class,
-            encryption_profile,
-            notary,
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn principal_control(
-        genesis_salt: GenesisSalt,
-        founding_device_descriptor: Option<FoundingDeviceDescriptor>,
-        initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
-        security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
-    ) -> Result<Self> {
-        let value = Self {
-            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::PrincipalControl,
-            genesis_salt,
             founding_device_descriptor,
-            initial_resolution: Some(initial_resolution),
+            initial_resolution,
             trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
             security_class,
-            encryption_profile,
-            notary,
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn agent_control(
-        genesis_salt: GenesisSalt,
-        initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
-        security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
-    ) -> Result<Self> {
-        let value = Self {
-            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::AgentControl,
-            genesis_salt,
-            founding_device_descriptor: None,
-            initial_resolution: Some(initial_resolution),
-            trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
-            security_class,
-            encryption_profile,
-            notary,
-        };
-        value.validate()?;
-        Ok(value)
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn applet_managed_control(
-        genesis_salt: GenesisSalt,
-        initial_resolution: arkret_models_identity::ResolutionCommitment,
-        trust_domain: TrustDomainId,
-        schema_refs: Vec<String>,
-        reducer_profile: impl Into<String>,
-        digest_algorithm: canonical::DigestSuite,
-        security_class: SecurityClass,
-        encryption_profile: EncryptionProfile,
-        notary: NotaryValue,
-    ) -> Result<Self> {
-        let value = Self {
-            schema: SchemaId::REALM_GENESIS_V1.to_owned(),
-            purpose: RealmPurpose::AppletManagedControl,
-            genesis_salt,
-            founding_device_descriptor: None,
-            initial_resolution: Some(initial_resolution),
-            trust_domain,
-            schema_refs,
-            reducer_profile: reducer_profile.into(),
-            digest_algorithm,
-            security_class,
-            encryption_profile,
-            notary,
+            governance_station_id,
+            initial_join_rule,
+            initial_history_access,
+            initial_discoverability,
         };
         value.validate()?;
         Ok(value)
     }
 
     pub fn validate(&self) -> Result<()> {
+        let identity_control = matches!(
+            self.purpose,
+            RealmPurpose::PrincipalControl
+                | RealmPurpose::AgentControl
+                | RealmPurpose::AppletManagedControl
+        );
         if self.schema != SchemaId::REALM_GENESIS_V1
-            || self.schema_refs.is_empty()
-            || self.reducer_profile.is_empty()
-            || (!matches!(self.purpose, RealmPurpose::PrincipalControl)
-                && self.founding_device_descriptor.is_some())
-            || (self.purpose == RealmPurpose::PrincipalControl && self.initial_resolution.is_none())
-            || (!matches!(
-                self.purpose,
-                RealmPurpose::PrincipalControl
-                    | RealmPurpose::AgentControl
-                    | RealmPurpose::AppletManagedControl
-            ) && self.initial_resolution.is_some())
-            || (matches!(
-                self.purpose,
-                RealmPurpose::AgentControl | RealmPurpose::AppletManagedControl
-            ) && self.founding_device_descriptor.is_some())
-            || (matches!(
-                self.purpose,
-                RealmPurpose::PrincipalControl
-                    | RealmPurpose::AgentControl
-                    | RealmPurpose::AppletManagedControl
-            ) != self.initial_resolution.is_some())
+            || identity_control != self.initial_resolution.is_some()
+            || (self.purpose == RealmPurpose::PrincipalControl)
+                != self.founding_device_descriptor.is_some()
         {
             return Err(WireError::Protocol(
                 "schema_violation: invalid Realm genesis identity branch".to_owned(),
@@ -649,11 +494,9 @@ impl RealmGenesis {
                 "schema_violation: invalid initial identity resolution".to_owned(),
             ));
         }
-        self.notary.validate()?;
         Ok(())
     }
 }
-
 /// Complete value of the Realm display-profile singleton cell.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -690,57 +533,6 @@ impl RealmProfile {
         }
         serde_json::to_value(self)
             .map_err(|error| WireError::Protocol(format!("Realm profile serialize: {error}")))
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/realm_notary_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmNotaryPayload {
-    pub realm_id: RealmId,
-    pub notary: NotaryValue,
-}
-
-impl RealmNotaryPayload {
-    pub fn validate(&self) -> Result<()> {
-        self.notary.validate()
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/
-/// realm_digest_suite_transition_payload`.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RealmDigestSuiteTransitionPayload {
-    pub from_digest_algorithm: canonical::DigestSuite,
-    pub to_digest_algorithm: canonical::DigestSuite,
-    pub transition_realm_state_snapshot_ref: RealmStateSnapshotId,
-    pub realm_state_snapshot_commitment: Hash,
-}
-
-impl RealmDigestSuiteTransitionPayload {
-    pub fn validate(&self) -> Result<()> {
-        if self.from_digest_algorithm == self.to_digest_algorithm {
-            return Err(WireError::Protocol(
-                "realm digest suite transition must change digest_algorithm (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        if matches!(
-            (&self.from_digest_algorithm, &self.to_digest_algorithm),
-            (
-                canonical::DigestSuite::Blake3,
-                canonical::DigestSuite::Sha256
-            )
-        ) {
-            return Err(WireError::Protocol(
-                "realm digest suite transition must not downgrade hash strength (schema_violation)"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
     }
 }
 
@@ -802,20 +594,6 @@ pub struct RealmInheritancePolicyPayload {
     pub status: Option<InheritancePolicyStatus>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-}
-
-#[cfg(test)]
-mod inheritance_policy_status_tests {
-    use super::InheritancePolicyStatus;
-
-    #[test]
-    fn status_is_the_closed_schema_enum() {
-        assert_eq!(
-            serde_json::to_value(InheritancePolicyStatus::Active).unwrap(),
-            "active"
-        );
-        assert!(serde_json::from_str::<InheritancePolicyStatus>(r#""retired""#).is_err());
-    }
 }
 
 /// `relationship` discriminator for [`RealmOrganizationPayload`]
@@ -1077,219 +855,4 @@ pub fn realm_organization_statement_signing_bytes(
         executed_by: authorization.executed_by.as_ref(),
     };
     Ok(canonical::canonical_json_bytes(&transcript)?)
-}
-#[cfg(test)]
-mod realm_control_payload_tests {
-    use serde_json::json;
-
-    use super::*;
-
-    #[test]
-    fn realm_notary_payload_is_closed_and_validated() {
-        let value = json!({
-            "realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
-            "notary": {
-                "signer": {
-                    "actor_id": {
-                        "kind": "service",
-                        "service_id": "ak:did_core:web:notary.example"
-                    },
-                    "verification_method": "did:web:notary.example#key-1",
-                    "key_kind": "ed25519_raw32",
-                    "jose_algorithm": "Ed25519",
-                    "frozen_public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-
-                },
-                "max_clock_error_ms": 0
-            }
-        });
-        let payload: RealmNotaryPayload = serde_json::from_value(value.clone()).unwrap();
-        payload.validate().unwrap();
-
-        let mut unknown = value;
-        unknown["notary"]["endpoint"] = json!("https://notary.example");
-        assert!(serde_json::from_value::<RealmNotaryPayload>(unknown).is_err());
-    }
-
-    #[test]
-    fn digest_suite_transition_rejects_noop_and_downgrade() {
-        let value = json!({
-            "from_digest_algorithm": "sha256",
-            "to_digest_algorithm": "blake3",
-            "transition_realm_state_snapshot_ref": "ak:realm_state_snapshot:01904100-0000-7000-8000-000000000002",
-            "realm_state_snapshot_commitment": format!("sha256:{}", "a".repeat(64))
-        });
-        let payload: RealmDigestSuiteTransitionPayload =
-            serde_json::from_value(value.clone()).unwrap();
-        payload.validate().unwrap();
-
-        let mut noop = value.clone();
-        noop["to_digest_algorithm"] = json!("sha256");
-        let noop: RealmDigestSuiteTransitionPayload = serde_json::from_value(noop).unwrap();
-        assert!(noop.validate().is_err());
-
-        let mut downgrade = value;
-        downgrade["from_digest_algorithm"] = json!("blake3");
-        downgrade["to_digest_algorithm"] = json!("sha256");
-        let downgrade: RealmDigestSuiteTransitionPayload =
-            serde_json::from_value(downgrade).unwrap();
-        assert!(downgrade.validate().is_err());
-    }
-}
-#[cfg(test)]
-mod realm_organization_tests {
-    use serde_json::json;
-
-    use super::*;
-
-    fn active_value() -> Value {
-        json!({
-            "statement_id": "org-stmt-1",
-            "realm_id": "ak:realm:AVFSR4O2uTcP6zGsyewp0OdaGeDZBXQAUZ9VIEKLSXYo",
-            "organization_id": "ak:did_core:webvh:example.test",
-            "relationship": "owner",
-            "status": "active",
-            "control_scopes": ["official_badge", "realm_admin"],
-            "issued_at": "2026-06-25T00:00:00.000Z",
-            "authorization": {
-                "issuer_id": "ak:did_core:webvh:example.test",
-                "issuer_role": "organization",
-                "verification_method": "did:webvh:example.test:orgs:01J0000000000000000000000A#k1",
-                "signed_at": "2026-06-25T00:00:00.000Z",
-                "proof": "c2ln"
-            }
-        })
-    }
-
-    #[test]
-    fn active_payload_round_trips_and_enum_renames_match_spec() {
-        let value = active_value();
-        let payload: RealmOrganizationPayload = serde_json::from_value(value).unwrap();
-        assert!(payload.is_active_status());
-        assert_eq!(payload.relationship, RealmOrganizationRelationship::Owner);
-        assert_eq!(
-            payload.control_scopes,
-            vec![
-                RealmOrganizationControlScope::OfficialBadge,
-                RealmOrganizationControlScope::RealmAdmin
-            ]
-        );
-        let reserialized = serde_json::to_value(&payload).unwrap();
-        assert_eq!(reserialized["status"], json!("active"));
-        assert_eq!(reserialized["relationship"], json!("owner"));
-        assert_eq!(
-            reserialized["authorization"]["issuer_role"],
-            json!("organization")
-        );
-        // Optional/absent fields must not be emitted.
-        assert!(reserialized.get("expires_at").is_none());
-        assert!(reserialized.get("revokes_statement_id").is_none());
-    }
-
-    #[test]
-    fn validity_window_helpers() {
-        let now = DateTime::parse_from_rfc3339("2026-06-25T12:00:00.000Z")
-            .unwrap()
-            .with_timezone(&Utc);
-        let mut payload: RealmOrganizationPayload = serde_json::from_value(active_value()).unwrap();
-        assert!(payload.is_effective_active(now));
-
-        payload.not_before = Some(
-            DateTime::parse_from_rfc3339("2026-06-26T00:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
-        assert!(payload.is_not_yet_valid(now));
-        assert!(!payload.is_effective_active(now));
-
-        payload.not_before = None;
-        payload.expires_at = Some(
-            DateTime::parse_from_rfc3339("2026-06-25T06:00:00.000Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
-        assert!(payload.is_expired(now));
-        assert!(!payload.is_effective_active(now));
-    }
-
-    #[test]
-    fn issuer_role_delegation_requirement() {
-        assert!(RealmOrganizationIssuerRole::GovernanceService.requires_delegation_ref());
-        assert!(RealmOrganizationIssuerRole::AccountAuthority.requires_delegation_ref());
-        assert!(!RealmOrganizationIssuerRole::Organization.requires_delegation_ref());
-        assert!(!RealmOrganizationIssuerRole::ThresholdQuorum.requires_delegation_ref());
-    }
-}
-
-#[cfg(test)]
-mod realm_policy_bundle_tests {
-    use super::*;
-
-    fn declared_bundle() -> RealmPolicyBundlePayload {
-        let mut bundle = RealmPolicyBundlePayload::new(3);
-        bundle.media_service_decrypts = Some(true);
-        bundle
-    }
-
-    #[test]
-    fn restating_a_revision_carries_every_component_forward() {
-        // A sequenced revision that only writes what it
-        // changes clears everything else. `restate` is the safe author path.
-        let accepted = declared_bundle();
-        let next = accepted.restate(4);
-        assert_eq!(next.policy_revision, 4);
-        assert!(next.media_service_decrypts());
-    }
-
-    #[test]
-    fn an_over_ceiling_relaxed_window_survives_the_type_and_is_flagged() {
-        // 300001 MUST reach the reducer as relaxed_window_exceeds_ceiling, so
-        // the type neither rejects nor clamps it.
-        let mut bundle = RealmPolicyBundlePayload::new(2);
-        bundle.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING + 1);
-        bundle
-            .validate()
-            .expect("an over-ceiling window is not a schema_violation");
-        assert_eq!(
-            bundle.relaxed_window_max_ms,
-            Some(RELAXED_WINDOW_MAX_MS_CEILING + 1),
-            "the value must not be truncated to the ceiling"
-        );
-        assert!(bundle.relaxed_window_exceeds_ceiling());
-
-        let mut at_ceiling = RealmPolicyBundlePayload::new(2);
-        at_ceiling.relaxed_window_max_ms = Some(RELAXED_WINDOW_MAX_MS_CEILING);
-        assert!(!at_ceiling.relaxed_window_exceeds_ceiling());
-    }
-
-    #[test]
-    fn a_revision_that_enables_nothing_is_a_schema_violation() {
-        assert!(RealmPolicyBundlePayload::new(1).validate().is_err());
-        assert!(RealmPolicyBundlePayload::new(0).validate().is_err());
-        // The min-properties count is derived from the serialized object, so a
-        // component added later is counted without editing `validate`.
-        let mut only_preauth = RealmPolicyBundlePayload::new(1);
-        only_preauth.preauth = Some(RealmPreauthPolicy {
-            consent_required: true,
-        });
-        only_preauth.validate().unwrap();
-    }
-
-    #[test]
-    fn governance_timing_fields_have_one_typed_policy_bundle_carrier() {
-        let mut bundle = RealmPolicyBundlePayload::new(1);
-        bundle.proposal_intake_sla_ms = Some(5_000);
-        bundle.proposal_decision_window_ms = Some(30_000);
-        bundle.proposal_absolute_deadline_ms = Some(90_000);
-        bundle.max_proposal_defers = Some(2);
-        bundle.max_authority_lifetime_ms = Some(120_000);
-        let value = bundle.to_value().unwrap();
-        assert_eq!(value["proposal_decision_window_ms"], Value::from(30_000));
-        assert_eq!(value["max_authority_lifetime_ms"], Value::from(120_000));
-
-        bundle.proposal_decision_window_ms = Some(90_000);
-        bundle.proposal_absolute_deadline_ms = Some(90_000);
-        bundle.max_proposal_defers = Some(1);
-        assert!(bundle.validate().is_err());
-    }
 }

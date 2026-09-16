@@ -2,7 +2,7 @@
 //!
 //! A source service mints the carrier on the Directory announce face
 //! (`ak.directory.announce.v1`) and replays it unchanged on the federation
-//! resolve face (`ak.peer.events.read.resolve.v1`), so it is written by
+//! resolve face (`ak.peer.events.read.resolve_committed.v1`), so it is written by
 //! `arkret-models-discovery` and read by `arkret-models-collaboration`. Those
 //! two model crates are siblings, so the shared carrier lives below both — in
 //! the wire vocabulary that already owns every type it is built from.
@@ -11,8 +11,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Audience, DidCoreId, EventId, Hash, PayloadProof, ProofContextId, RealmId, Result, WireError,
-    canonical,
+    Audience, CommittedEventRef, DidCoreId, EventId, Hash, PayloadProof, ProofContextId, RealmId,
+    Result, WireError, canonical,
 };
 
 /// Source-signed, bounded Directory authorization for exact Event resolve.
@@ -25,7 +25,7 @@ pub struct DirectorySourceRefAccess {
     pub directory_id: DidCoreId,
     pub realm_id: RealmId,
     pub discovery_event_id: EventId,
-    pub source_refs: Vec<EventId>,
+    pub source_refs: Vec<CommittedEventRef>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
     pub as_of: DateTime<Utc>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -42,18 +42,33 @@ pub enum DirectorySourceRefAccessKind {
 
 impl DirectorySourceRefAccess {
     pub fn validate(&self) -> Result<()> {
-        if self.source_refs.is_empty() || self.source_refs.len() > 1_024 {
+        if self.source_refs.is_empty() || self.source_refs.len() > 100 {
             return Err(WireError::Protocol(
-                "directory source-ref access requires 1..=1024 refs".to_owned(),
+                "directory source-ref access requires 1..=100 committed refs".to_owned(),
             ));
         }
-        for pair in self.source_refs.windows(2) {
-            if pair[0].as_str() >= pair[1].as_str() {
-                return Err(WireError::Protocol(
-                    "directory source-ref access refs must be canonical-bytewise sorted and unique"
-                        .to_owned(),
-                ));
-            }
+        if !self.source_refs.windows(2).all(|pair| pair[0] < pair[1]) {
+            return Err(WireError::Protocol(
+                "directory source refs must be sorted and unique".to_owned(),
+            ));
+        }
+        if self
+            .source_refs
+            .iter()
+            .any(|reference| reference.stream_ref.realm_id() != &self.realm_id)
+        {
+            return Err(WireError::Protocol(
+                "directory source refs must belong to the carrier realm".to_owned(),
+            ));
+        }
+        if !self
+            .source_refs
+            .iter()
+            .any(|reference| reference.event_id == self.discovery_event_id)
+        {
+            return Err(WireError::Protocol(
+                "directory source refs must include the discovery Event's committed ref".to_owned(),
+            ));
         }
         if self.as_of >= self.expires_at {
             return Err(WireError::Protocol(
@@ -129,7 +144,10 @@ impl DirectorySourceRefAccess {
 #[cfg(test)]
 mod directory_source_ref_access_tests {
     use super::{DirectorySourceRefAccess, DirectorySourceRefAccessKind};
-    use crate::{Audience, DidCoreId, DidUrl, EventId, Hash, PayloadProof, RealmId, proof_kind};
+    use crate::{
+        Audience, CommitStreamRef, CommittedEventRef, DidCoreId, DidUrl, EventId, Hash,
+        PayloadProof, RealmCommitId, RealmId, proof_kind,
+    };
 
     fn event_id(seed: &[u8]) -> EventId {
         EventId::from_event_digest(
@@ -138,19 +156,35 @@ mod directory_source_ref_access_tests {
         .expect("event id")
     }
 
+    fn committed_ref(seed: &[u8], position: u64, realm_id: &RealmId) -> CommittedEventRef {
+        let digest = arkret_canonical::sha256_bytes(seed);
+        CommittedEventRef {
+            event_id: event_id(seed),
+            commit_id: RealmCommitId::from_digest(digest),
+            stream_ref: CommitStreamRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            stream_position: position,
+        }
+    }
+
     fn access() -> DirectorySourceRefAccess {
         let as_of = "2026-09-01T00:00:00Z".parse().unwrap();
         let directory_id = DidCoreId::new("ak:did_core:web:directory.example").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI".to_owned())
+                .unwrap();
+        let discovery_event_id = event_id(b"discovery");
         let mut access = DirectorySourceRefAccess {
             kind: DirectorySourceRefAccessKind::DirectoryAnnounce,
             source_id: DidCoreId::new("ak:did_core:web:station.example").unwrap(),
             directory_id: directory_id.clone(),
-            realm_id: RealmId::new(
-                "ak:realm:AY789mrKRCQEVlbVgiTgLdjVO5oCMJiUCrF-D-JlRNxI".to_owned(),
-            )
-            .unwrap(),
-            discovery_event_id: event_id(b"discovery"),
-            source_refs: vec![event_id(b"discovery"), event_id(b"policy")],
+            realm_id: realm_id.clone(),
+            discovery_event_id,
+            source_refs: vec![
+                committed_ref(b"discovery", 0, &realm_id),
+                committed_ref(b"policy", 1, &realm_id),
+            ],
             as_of,
             expires_at: as_of + chrono::Duration::minutes(5),
             proof: PayloadProof {
@@ -164,9 +198,7 @@ mod directory_source_ref_access_tests {
                 jws: "e30..c2ln".to_owned(),
             },
         };
-        access
-            .source_refs
-            .sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        access.source_refs.sort();
         access.proof.payload_digest = access.payload_digest().unwrap();
         access
     }

@@ -38,6 +38,17 @@ fn invalid(error: impl ToString) -> ContactAuthorizationError {
     ContactAuthorizationError::InvalidEvidence(error.to_string())
 }
 
+const CONTACT_ROUND_DOMAIN: &[u8] = b"ak.contact.round.v1\n";
+
+fn compute_contact_round_id(round: &ContactRound) -> Result<Hash> {
+    round.validate_canonical_order().map_err(invalid)?;
+    let canonical = arkret_canonical::canonical_json_bytes(round).map_err(invalid)?;
+    let mut transcript = Vec::with_capacity(CONTACT_ROUND_DOMAIN.len() + canonical.len());
+    transcript.extend_from_slice(CONTACT_ROUND_DOMAIN);
+    transcript.extend_from_slice(&canonical);
+    Hash::new(arkret_canonical::sha256_digest(transcript)).map_err(invalid)
+}
+
 /// An exact open interval, or its authenticated closing transition. Fields are
 /// immutable and instances are produced only from verified source evidence.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -389,7 +400,7 @@ fn verify_agent_holder_binding(
         }
         if arkret_wire::DidUrl::new(reference.as_str()).is_err()
             && arkret_wire::GrantId::new(reference.as_str()).is_err()
-            && arkret_wire::EventId::new(reference.as_str()).is_err()
+            && EventId::new(reference.as_str()).is_err()
         {
             return Err(invalid(
                 "controller authorization is not the accepted delegation or a materialized grant",
@@ -898,10 +909,7 @@ pub fn verify_contact_round_origins(
     if events.iter().any(|e| e.observed_at > observed_at) {
         return Err(invalid("round evidence predates its producer observation"));
     }
-    let round = arkret_models_collaboration::direct_conversation_ops::contact_round_id(
-        &bundle.contact_round,
-    )
-    .map_err(invalid)?;
+    let round = compute_contact_round_id(&bundle.contact_round)?;
     if round != bundle.contact_round_id {
         return Err(invalid("round id differs from its canonical core"));
     }

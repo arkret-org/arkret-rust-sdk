@@ -1,8 +1,7 @@
 //! Arkret v1 crypto domain wire models.
 //!
-//! Owner of the crypto-domain wire shapes: key backup envelopes and
-//! recovery policy chains, key claim and distribution DTOs, recovery
-//! session artifact counterparts, encrypted event envelopes, and
+//! Owner of the crypto-domain wire shapes: secret-storage backup envelopes,
+//! key claim and distribution DTOs, encrypted event envelopes, and
 //! encrypted blob attachment descriptors. Behavior that needs key
 //! derivation, signature verification, schema validation, or state
 //! reduction lives in the behavior crates; this crate holds data shapes and
@@ -17,16 +16,11 @@ pub mod key_transparency;
 pub mod keypackage_capabilities;
 pub mod keys;
 pub mod mls_envelopes;
-pub mod mls_governance_proof;
-pub mod mls_governance_result;
 pub mod mls_payloads;
 pub mod mls_records;
 pub mod mls_store_ports;
-pub mod mls_welcome_refs;
 pub mod protected_payload;
-pub mod secret_share;
 pub mod security_transaction;
-pub mod security_transaction_resilience;
 
 pub use artifacts_keys::*;
 pub use encrypted_attachment::*;
@@ -37,22 +31,8 @@ pub use key_transparency::*;
 pub use keypackage_capabilities::*;
 pub use keys::*;
 pub use mls_envelopes::*;
-pub use mls_governance_proof::*;
-pub use mls_governance_result::*;
 pub use mls_payloads::*;
 pub use mls_records::*;
 pub use mls_store_ports::*;
-pub use mls_welcome_refs::*;
 pub use protected_payload::*;
-pub use secret_share::*;
 pub use security_transaction::*;
-pub use security_transaction_resilience::{
-    SecurityTransactionResilienceProjection, run_security_transaction_resilience_fixture,
-};
-
-mod serde_absence;
-
-pub use artifacts_keys::{
-    KeyBackupUnlockAuthority, KeysBackupsIssueUnlockChallengeRequestBody,
-    KeysBackupsUnlockChallenge,
-};

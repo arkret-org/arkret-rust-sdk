@@ -325,8 +325,7 @@ validated_wire_string!(
 );
 
 fn is_authorization_ref(value: &str) -> bool {
-    value == crate::REALM_AUTHORITY_ROOT_CELL
-        || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
+    value == crate::AuthoritySourceId::DIRECT_CONVERSATION_BOOTSTRAP_PARTICIPANT_V1
         || value == crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1
         || crate::MembershipCompensationDelegationRef::new(value).is_ok()
         || GrantId::new(value).is_ok()
@@ -743,12 +742,6 @@ impl MimiRoomUri {
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    /// Canonical `ak:cell:ak.component.mimi.room_binding.v1:<subject>` subject
-    /// segment for this room (`conformance/encoding.md` §4, `uri` kind).
-    pub fn cell_subject(&self) -> String {
-        crate::cell::uri_cell_subject(&self.0)
     }
 }
 
@@ -1174,13 +1167,13 @@ mod tests {
             "ak:grant:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
             "ak:event:AdIAmf-J5rIPxEomGXwJblJdhNg-TllVN8uRTI85EUIM",
             "did:web:alice.example#managed-controller",
-            crate::REALM_AUTHORITY_ROOT_CELL,
             crate::AuthoritySourceId::DIRECT_CONVERSATION_PARTICIPANT_V1,
         ] {
             assert!(AuthorizationRef::new(value).is_ok(), "{value}");
         }
         for value in [
-            crate::REALM_GENESIS_CELL,
+            "state-slot:ak.component.realm.genesis.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
+            "state-slot:ak.component.realm.authority_root.v1:ak:realm:550e8400-e29b-41d4-a716-446655440000",
             crate::AuthoritySourceId::DIRECT_CONVERSATION_REPAIR_V1,
             crate::AuthoritySourceId::SIDECAR_PARENT_BOOTSTRAP_V1,
             "ak:grant:not-a-uuid",
@@ -1276,21 +1269,6 @@ mod tests {
         let long = format!("mimi://mimi.example.com/{}", "a".repeat(500));
         assert!(long.len() > 512);
         assert!(MimiRoomUri::new(long).is_err());
-    }
-
-    /// The escaped and the unescaped separator address different rooms, so the
-    /// subject transform must keep them apart — that is why `%` is encoded.
-    #[test]
-    fn mimi_room_uri_cell_subject_is_injective_over_the_separator() {
-        let escaped = MimiRoomUri::new("mimi://mimi.example.com/rooms/a%2Fb").unwrap();
-        let split = MimiRoomUri::new("mimi://mimi.example.com/rooms/a/b").unwrap();
-        assert_ne!(escaped.cell_subject(), split.cell_subject());
-        assert_eq!(
-            MimiRoomUri::new("mimi://mimi.example.com/rooms/01JSMIMI")
-                .unwrap()
-                .cell_subject(),
-            "mimi%3A%2F%2Fmimi.example.com%2Frooms%2F01JSMIMI"
-        );
     }
 
     #[test]

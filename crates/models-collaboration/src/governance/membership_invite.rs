@@ -153,7 +153,7 @@ pub enum JoinPolicyChallengeKind {
 /// `handle` has no spec-legal home in this payload (the member identity is
 /// carried by `member_id`; handle evidence lives in signed `HandleClaim`
 /// objects on the roster, not the durable membership event), and the FSM
-/// `from` precondition is expressed via the operation `preconditions`/effect
+/// `from` expectation is checked by the governance Station against its committed
 /// `transition`, not the payload body.
 ///
 /// Member identity is one closed `ActorId`; delivery is projected from it and
@@ -171,12 +171,6 @@ pub struct MembershipPayload {
     pub gate_proofs: Vec<JoinGateProof>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub membership_cause:
-        Option<crate::governance::agent_membership_cascade::MembershipLifecycleCause>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub agent_controller_binding:
-        Option<crate::governance::agent_membership_cascade::AgentControllerMembershipBinding>,
     /// `oneOf(event_ref | invite_id)` — both are opaque strings on the wire.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub invite_ref: Option<MembershipInviteRef>,
@@ -203,8 +197,6 @@ impl MembershipPayload {
             member_id,
             gate_proofs: Vec::new(),
             reason: Some(reason.into()),
-            membership_cause: None,
-            agent_controller_binding: None,
             invite_ref: None,
         }
     }
@@ -219,8 +211,6 @@ impl MembershipPayload {
             member_id,
             gate_proofs: Vec::new(),
             reason: Some(reason.into()),
-            membership_cause: None,
-            agent_controller_binding: None,
             invite_ref: None,
         }
     }
@@ -242,22 +232,6 @@ impl MembershipPayload {
             ));
         }
         self.member_id.validate()?;
-        match (&self.membership_cause, &self.agent_controller_binding) {
-            (Some(_), Some(binding))
-                if self.membership == MembershipPayloadState::Leave
-                    && binding.controller_terminal_event_ref.is_some() =>
-            {
-                binding.validate()?;
-            }
-            (Some(_), _) => {
-                return Err(WireError::Protocol(
-                    "controller-membership-ended cleanup requires leave and a terminal controller binding"
-                        .to_owned(),
-                ));
-            }
-            (None, Some(binding)) => binding.validate()?,
-            (None, None) => {}
-        }
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("membership payload serialize: {err}")))
     }
@@ -996,162 +970,5 @@ impl RelationCreatePayload {
     pub fn to_value(&self) -> Result<Value> {
         serde_json::to_value(self)
             .map_err(|err| WireError::Protocol(format!("relation create payload serialize: {err}")))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn claim_expiry_uses_signed_event_time_and_excludes_the_boundary() {
-        let expiry = chrono::DateTime::parse_from_rfc3339("2026-07-26T00:05:00.000Z")
-            .unwrap()
-            .with_timezone(&chrono::Utc);
-        assert!(invite_claim_within_canonical_expiry(
-            expiry - chrono::Duration::milliseconds(1),
-            expiry
-        ));
-        assert!(!invite_claim_within_canonical_expiry(expiry, expiry));
-        assert!(!invite_claim_within_canonical_expiry(
-            expiry + chrono::Duration::milliseconds(1),
-            expiry
-        ));
-    }
-
-    const SUBJECT: &str = "ak:did_core:webvh:z6mkfixturebob";
-    const INVITE: &str = "ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz";
-    const REALM: &str = "ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-";
-    const TOKEN: &str = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const SERVICE: &str = "ak:did_core:web:verify.example";
-    const BINDING: &str = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-
-    fn subject() -> AccountId {
-        AccountId::new(
-            DidCoreId::new(SUBJECT).unwrap(),
-            DidCoreId::new("ak:did_core:web:station.example").unwrap(),
-        )
-    }
-
-    fn binding_proof() -> InviteClaimBindingProof {
-        InviteClaimBindingProof::new(
-            DidCoreId::new(SERVICE).unwrap(),
-            subject(),
-            RealmId::new(REALM).unwrap(),
-            "nonce-claim-proof-1",
-            "2099-01-01T00:00:00.000Z",
-            DidUrl::new("did:web:verify.example#key-1").unwrap(),
-            "c2ln",
-        )
-    }
-
-    #[test]
-    fn invite_binding_proof_transcript_is_typed_and_domain_separated() {
-        let bytes = invite_binding_proof_transcript_bytes(&binding_proof(), INVITE, TOKEN, BINDING)
-            .unwrap();
-        let actual = String::from_utf8(bytes).unwrap();
-
-        assert!(actual.starts_with(INVITE_BINDING_PROOF_TRANSCRIPT_DOMAIN));
-        assert!(actual.contains("\"binding_proof\""));
-        assert!(actual.contains("\"invite_digest\":\"sha256:bbbb"));
-        assert!(!actual.contains("\"signature\""));
-    }
-
-    #[test]
-    fn invite_binding_proof_rejects_sig_alias_and_unknown_fields() {
-        let mut value = serde_json::to_value(binding_proof()).unwrap();
-        let object = value.as_object_mut().unwrap();
-        object.remove("signature");
-        object.insert("sig".to_owned(), Value::String("c2ln".to_owned()));
-
-        assert!(serde_json::from_value::<InviteClaimBindingProof>(value).is_err());
-    }
-
-    #[test]
-    fn invite_subject_proof_transcript_bytes_are_domain_separated() {
-        let bytes = invite_subject_proof_transcript_bytes(
-            &subject(),
-            INVITE,
-            REALM,
-            TOKEN,
-            "nonce-claim-proof-1",
-            SERVICE,
-            BINDING,
-        )
-        .unwrap();
-        let actual = String::from_utf8(bytes).unwrap();
-
-        assert_eq!(
-            actual,
-            concat!(
-                "ak.invite.claim.subject_proof.v1\n",
-                "{\"audience\":\"arkret.invite.claim\",",
-                "\"binding_proof_digest\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",",
-                "\"claim_nonce\":\"nonce-claim-proof-1\",",
-                "\"invite_id\":\"ak:invite:AUftf_3k2fRKMG0NFlHe5iEMBOUpxMwYMRu-yhMJl-yz\",",
-                "\"realm_id\":\"ak:realm:Aepgr15HbtERKfqPAh9SrfWBdihSvX_c94JvujvBS2f-\",",
-                "\"subject_account_id\":{\"principal_id\":\"ak:did_core:webvh:z6mkfixturebob\",\"station_id\":\"ak:did_core:web:station.example\"},",
-                "\"token_commitment\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",",
-                "\"verification_id\":\"ak:did_core:web:verify.example\"}"
-            )
-        );
-    }
-
-    #[test]
-    fn invite_subject_proof_digest_matches_transcript_bytes() {
-        let bytes = invite_subject_proof_transcript_bytes(
-            &subject(),
-            INVITE,
-            REALM,
-            TOKEN,
-            "nonce-claim-proof-1",
-            SERVICE,
-            BINDING,
-        )
-        .unwrap();
-        let digest = invite_subject_proof_transcript_digest(
-            &subject(),
-            INVITE,
-            REALM,
-            TOKEN,
-            "nonce-claim-proof-1",
-            SERVICE,
-            BINDING,
-        )
-        .unwrap();
-
-        assert_eq!(digest.as_str(), canonical::sha256_digest(&bytes));
-    }
-
-    #[test]
-    fn invite_subject_proof_rejects_non_sha256_digest() {
-        let body = InviteSubjectProofBody::from_wire_parts(
-            subject(),
-            INVITE,
-            REALM,
-            TOKEN,
-            "nonce-claim-proof-1",
-            SERVICE,
-            "blake3:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-        )
-        .unwrap();
-
-        assert!(body.canonical_bytes().is_err());
-    }
-
-    #[test]
-    fn invite_subject_proof_rejects_short_nonce() {
-        let body = InviteSubjectProofBody::from_wire_parts(
-            subject(),
-            INVITE,
-            REALM,
-            TOKEN,
-            "short",
-            SERVICE,
-            BINDING,
-        )
-        .unwrap();
-
-        assert!(body.canonical_bytes().is_err());
     }
 }

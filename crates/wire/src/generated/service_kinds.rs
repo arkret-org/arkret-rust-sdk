@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/service-kind-registry.json; version=2026-08-30.5;
-//! sha256=3ba6fc77e9034642544b6077a69f5c38210c14117c0c010ad3ffe9af243abf04 Entries: active=16
+//! Input: registry/service-kind-registry.json; version=2026-09-16.4;
+//! sha256=1e0599ae9b2151024eb4f229277dccac4759d6375df1e79bf4da971675bcdaaa Entries: active=16
 
 use serde::{Deserialize, Serialize};
 
@@ -139,7 +139,7 @@ pub const SERVICE_KIND_DESCRIPTORS: &[ServiceKindDescriptor] = &[
     ServiceKindDescriptor {
         service_kind: ServiceKind::Notary,
         valid_in: &["service_describe"],
-        description: "Seal and state-attestation notary surface.",
+        description: "Authority commit and current-state attestation surface.",
     },
     ServiceKindDescriptor {
         service_kind: ServiceKind::PushGateway,

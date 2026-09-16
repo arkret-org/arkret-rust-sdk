@@ -1,6 +1,6 @@
 //! Encrypted-only Signal send and live-subscribe endpoint methods.
 
-use arkret_models_collaboration::http_bodies::SignalSubmitOutcome;
+use arkret_models_collaboration::signal_operations::SignalSubmitOutcome;
 use arkret_wire::{SignalEnvelope, SignalStreamFrame};
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, Response};

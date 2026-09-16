@@ -148,7 +148,6 @@ pub struct ApiConventionMetadata {
 pub struct ServiceRequirements {
     service_kind: Option<ServiceKind>,
     profiles: Vec<String>,
-    reducer_profiles: Vec<String>,
     operation_pairs: Vec<(ServiceOperationId, BindingKind)>,
 }
 
@@ -164,11 +163,6 @@ impl ServiceRequirements {
 
     pub fn profile(mut self, profile: impl Into<String>) -> Self {
         self.profiles.push(profile.into());
-        self
-    }
-
-    pub fn reducer_profile(mut self, profile: impl Into<String>) -> Self {
-        self.reducer_profiles.push(profile.into());
         self
     }
 
@@ -201,18 +195,6 @@ impl ServiceRequirements {
             {
                 return Err(WireError::Protocol(format!(
                     "service does not support profile {profile}"
-                )));
-            }
-        }
-
-        for profile in &self.reducer_profiles {
-            if !description
-                .supported_reducer_profiles
-                .iter()
-                .any(|actual| actual == profile)
-            {
-                return Err(WireError::Protocol(format!(
-                    "service does not support reducer profile {profile}"
                 )));
             }
         }
@@ -299,13 +281,11 @@ mod tests {
             accepted_did_methods: vec!["did:web".to_owned(), "did:webvh".to_owned()],
             takedown_contact: None,
             rate_limits: Some(BTreeMap::new()),
-            supported_reducer_profiles: vec![arkret_wire::CORE_REDUCER_PROFILE.to_owned()],
             extensions: Default::default(),
         };
 
         ServiceRequirements::new()
             .service_kind(ServiceKind::DirectoryService)
-            .reducer_profile(arkret_wire::CORE_REDUCER_PROFILE)
             .operation_binding(
                 ServiceOperationId::FindDirectoryReadSearchRealmsV1,
                 BindingKind::HttpJson,

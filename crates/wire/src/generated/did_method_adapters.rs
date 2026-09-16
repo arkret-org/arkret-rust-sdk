@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/did-method-adapter-registry.json; version=2026-09-14.2;
-//! sha256=b8760db65b140233e15461dacfae8fe23c0cca46b655d40e9f17777305e849c3 Entries: registered=3
+//! Input: registry/did-method-adapter-registry.json; version=2026-09-16.6;
+//! sha256=8094725186c73abb05435978ff3e393fe1890cd3c13a877f93ca7329f1b2233b Entries: registered=3
 
 /// Method-history evidence kinds, keyed the way the registry keys them.
 ///

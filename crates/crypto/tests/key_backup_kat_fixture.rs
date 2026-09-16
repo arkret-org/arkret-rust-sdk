@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 const FIXTURE_PATH: &str = "fixtures/key-backup-hardening-fixture.json";
+const UNLOCK_PROOF_VECTOR_ID: &str = "ak.vector.key_backup.unlock_proof.v1";
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
@@ -28,10 +29,7 @@ fn unlock_proof_kat_opens_to_the_declared_canonical_plaintext() {
         .iter()
         .find(|case| case["name"].as_str() == Some("unlock_proof"))
         .expect("unlock_proof case present");
-    assert_eq!(
-        case["vector_id"].as_str(),
-        Some(arkret_models_crypto::key_backup::VECTOR_ID_KEY_BACKUP_UNLOCK_PROOF)
-    );
+    assert_eq!(case["vector_id"].as_str(), Some(UNLOCK_PROOF_VECTOR_ID));
 
     let envelope = &case["envelope"];
     let transcript = &case["crypto_transcript"];

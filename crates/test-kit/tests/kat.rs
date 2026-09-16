@@ -13,7 +13,7 @@ use arkret_test_kit::negative::wire_negative_from_sdk;
 use arkret_test_kit::proof::{ProofFidelity, StructuralOnlyPayloadSigner};
 use arkret_test_kit::signed_event::SignedEventFixtureBuilder;
 use arkret_test_kit::subjects;
-use arkret_wire::{ActorId, ScopeRef, SignerEvidenceRef};
+use arkret_wire::{ActorId, EventRef, ScopeRef};
 use chrono::{DateTime, Utc};
 use serde_json::json;
 
@@ -81,7 +81,6 @@ fn the_standard_signed_event_identity_is_pinned() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_verifiable(&seeded_signer(
         subjects::alice_did(),
         subjects::alice_verification_method(),
@@ -92,7 +91,7 @@ fn the_standard_signed_event_identity_is_pinned() {
     let event = signed.event();
     assert_eq!(
         event.event_id.as_str(),
-        "ak:event:AW-5fxFMfgN58Oexz8peEZ3_FQr3yyP4l2Yfuk6Nd1Ot"
+        "ak:event:AeZlbBfFlhs4ObtXms3ev-RJ-yXkEdeVYmx5EV5IOKde"
     );
     assert_eq!(event.proofs.len(), 1);
 }
@@ -107,7 +106,6 @@ fn a_placeholder_proof_is_never_reported_as_verifiable() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_structural_only(&StructuralOnlyPayloadSigner::new(
         subjects::alice_did(),
         subjects::alice_verification_method(),
@@ -141,7 +139,6 @@ fn a_verifiable_proof_really_verifies_and_one_changed_byte_breaks_it() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_verifiable(&signer)
     .expect("the standard fixture Event signs")
     .expect_verifiable();
@@ -179,7 +176,6 @@ fn a_placeholder_proof_never_verifies() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_hlc(pinned_hlc(1))
     .sign_structural_only(&StructuralOnlyPayloadSigner::new(
         subjects::alice_did(),
         subjects::alice_verification_method(),
@@ -210,7 +206,7 @@ fn a_placeholder_proof_never_verifies() {
 fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
     use arkret_canonical::DigestSuite;
     use arkret_signatures::{SignEventOptions, sign_event};
-    use arkret_wire::{AuthoredEvent, Hash};
+    use arkret_wire::AuthoredEvent;
 
     let signer = seeded_signer(subjects::alice_did(), subjects::alice_verification_method());
     let created_at = "2026-08-17T12:34:56.789Z".parse::<DateTime<Utc>>().unwrap();
@@ -222,30 +218,20 @@ fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
         ActorId::account(subjects::alice_account_id()),
         json!({"track_name": subjects::DISCUSSION_TRACK}),
     )
-    .with_actor_seq(23)
-    .with_hlc(pinned_hlc(23))
     .with_created_at(created_at)
     .build_unsigned()
     .unwrap();
-    event
-        .causal_refs
-        .push(Hash::new(format!("sha256:{}", "ab".repeat(32))).unwrap());
-    event.unsigned.insert(
-        "local_operation_idempotency_alias".to_owned(),
-        json!("local-fixture"),
-    );
+    event.refs.push(EventRef::new(
+        "ak:event:AYWFNfF8FDwLazsD2l4T6VYTFaH_DSzEOh9I05VjH0_l",
+        "fixture_dependency",
+    ));
     let before = event.clone();
     let mut direct =
         AuthoredEvent::finalize_with_digest_suite(event.clone(), DigestSuite::Sha256).unwrap();
     sign_event(
         &mut direct,
         &signer,
-        &subjects::alice_verification_method(),
-        SignEventOptions::new(
-            SignerEvidenceRef::new(format!("ak:signer_evidence:sha256:{}", "5a".repeat(32)))
-                .unwrap(),
-        )
-        .with_created_at(created_at),
+        SignEventOptions::new().with_created_at(created_at),
     )
     .unwrap();
     let shared = arkret_test_kit::sign_verifiable_event(event, &signer, DigestSuite::Sha256)
@@ -255,9 +241,9 @@ fn complete_event_signing_preserves_inputs_and_matches_direct_sdk_bytes() {
         serde_json::to_vec(&shared).unwrap(),
         serde_json::to_vec(&direct.into_event()).unwrap()
     );
-    assert_eq!(shared.causal_refs, before.causal_refs);
-    assert_eq!(shared.auth_context, before.auth_context);
-    assert_eq!(shared.unsigned, before.unsigned);
+    assert_eq!(shared.refs, before.refs);
+    assert_eq!(shared.scope_ref, before.scope_ref);
+    assert_eq!(shared.payload, before.payload);
     assert_eq!(shared.created_at, created_at);
     assert_eq!(shared.proofs[0].created_at, created_at);
 }

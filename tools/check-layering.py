@@ -188,7 +188,7 @@ ALLOWED_EDGES: dict[str, set[str]] = {
         "arkret-signatures",
         "arkret-crypto",
     },
-    # R4 (frozen): no crypto -> state edge. The optional secret-share machine
+    # R4 (frozen): no crypto -> state edge.
     # consumes the history response capability and envelope data owned by the
     # collaboration model crate. This remains a cycle-free behavior -> data
     # edge and does not give crypto access to collaboration behavior.

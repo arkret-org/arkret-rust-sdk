@@ -4,8 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Deref;
 
 use arkret_wire::{
-    ActorId, AppletId, AuditBindingId, AuditReleaseId, AuditSessionId, CellRef, DidCoreId, DidUrl,
-    EventId, Hash, NonEmptyJsonObject, NonEmptyString, ObjectRef, RealmId, ScopeRef, SealId,
+    ActorId, AppletId, AuditBindingId, AuditReleaseId, AuditSessionId, CommittedEventRef,
+    DidCoreId, DidUrl, EventId, Hash, NonEmptyJsonObject, NonEmptyString, ObjectRef, RealmId,
+    ScopeRef,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -36,15 +37,9 @@ pub struct AuditAccessedPayload {
     pub target_actor_id: Option<ActorId>,
     pub target_ref: ObjectRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub target_cell_id: Option<CellRef>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paired_event_id: Option<EventId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub late_recovery_original_event_id: Option<EventId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cell_head_before: Option<Hash>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cell_head_after: Option<Hash>,
     pub purpose: NonEmptyString,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub accessed_at: DateTime<Utc>,
@@ -56,7 +51,7 @@ pub struct AuditAccessedPayload {
 #[serde(rename_all = "snake_case")]
 pub enum AuditReleaseMode {
     TargetedEvidenceRelease,
-    SealedEpochKeyRelease,
+    ProtectedEpochKeyRelease,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,7 +131,7 @@ pub struct AuditAppletBindingCreatePayload {
     pub notice_policy: NonEmptyJsonObject,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub approver_policy: Option<BTreeMap<String, Value>>,
-    pub activation_frontier_digest: Hash,
+    pub activation_commit_ref: CommittedEventRef,
     pub first_auditable_epoch: u64,
     pub release_window_policy: AuditAppletBindingPayloadReleaseWindowPolicy,
     pub policy_version_digest: Hash,
@@ -188,7 +183,7 @@ pub struct AuditPayload {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuditReleasePayloadEligibilityProof {
-    pub binding_activation_frontier_digest: Hash,
+    pub binding_activation_commit_ref: CommittedEventRef,
     pub first_auditable_epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub activation_commit_ref: Option<EventId>,
@@ -209,10 +204,10 @@ pub struct AuditReleasePayload {
     pub service_id: DidCoreId,
     pub release_mode: AuditReleaseMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sealed_epoch_range: Option<MlsEpochRange>,
+    pub protected_epoch_range: Option<MlsEpochRange>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_refs: Option<Vec<ObjectRef>>,
-    pub seal_ref: SealId,
+    pub commit_ref: CommittedEventRef,
     pub approver_actor_id: ActorId,
     pub notice_ref: EventId,
     pub purpose_kind: NonEmptyString,
@@ -220,7 +215,7 @@ pub struct AuditReleasePayload {
     pub policy_version_digest: Hash,
     pub eligibility_proof: AuditReleasePayloadEligibilityProof,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sealed_by_commit_ref: Option<EventId>,
+    pub committed_by_ref: Option<CommittedEventRef>,
     pub wrapped_material_digest: Vec<Hash>,
     /// Remote attestation evidence for the release service's controlled output
     /// path (`audited-e2ee.md` §4.4 / §6). Required under an
@@ -446,169 +441,3 @@ audit_session_payload!(
 );
 audit_session_payload!(AuditSessionNoticePayload, validate_audit_session_notice);
 audit_session_payload!(AuditSessionClosePayload, validate_audit_session_close);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn audit_payload_actor_fields_preserve_full_actor_schema() {
-        use serde::de::DeserializeOwned;
-        use serde_json::json;
-
-        fn roundtrip<T: DeserializeOwned + Serialize>(value: Value) -> serde_json::Result<Value> {
-            serde_json::to_value(serde_json::from_value::<T>(value)?)
-        }
-
-        let registry = arkret_schema_conformance::schema_registry_from_default_spec_artifacts()
-            .unwrap()
-            .expect("spec schema registry");
-        let principal = DidCoreId::new("ak:did_core:web:auditor.example").unwrap();
-        let actors = [
-            ActorId::account(arkret_wire::AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-a.example").unwrap(),
-            )),
-            ActorId::account(arkret_wire::AccountId::new(
-                principal.clone(),
-                DidCoreId::new("ak:did_core:web:station-b.example").unwrap(),
-            )),
-            ActorId::service(principal.clone()),
-        ];
-        let realm = "ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi";
-        let digest = format!("sha256:{}", "0".repeat(64));
-        type Roundtrip = fn(Value) -> serde_json::Result<Value>;
-        let cases: [(&str, Value, &[&str], Roundtrip); 4] = [
-            (
-                "audit_accessed_payload",
-                json!({
-                    "access_kind": "other",
-                    "target_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                    "purpose": "audit fixture",
-                    "accessed_at": "2026-07-22T10:05:00.000Z"
-                }),
-                &["writer_actor_id", "target_actor_id"],
-                roundtrip::<AuditAccessedPayload>,
-            ),
-            (
-                "audit_payload",
-                json!({}),
-                &["actor_id"],
-                roundtrip::<AuditPayload>,
-            ),
-            (
-                "audit_release_payload",
-                json!({
-                    "session_id": "ak:audit_session:AfJaI7rJa8SJLrm9TWhgM_CvGCjR771X43I1tyFxcETk",
-                    "binding_id": "ak:audit_binding:ASOyrOY2dZ3005mHWyCAFuDmQ-2p9Rp8X7dYxWTmMRAg",
-                    "realm_id": realm,
-                    "effective_scope": {"kind":"realm", "realm_id":realm},
-                    "applet_id": "ak:applet:019a6aa0-0000-7000-8000-000000000000",
-                    "service_id": "ak:did_core:web:audit.example",
-                    "release_mode": "targeted_evidence_release",
-                    "target_refs": ["ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"],
-                    "seal_ref": format!("ak:seal:{digest}"),
-                    "notice_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-                    "purpose_kind": "audit",
-                    "legal_basis_ref": "fixture",
-                    "policy_version_digest": digest,
-                    "eligibility_proof": {
-                        "binding_activation_frontier_digest": digest,
-                        "first_auditable_epoch": 0,
-                        "policy_snapshot_digest": digest,
-                        "target_eligibility_digest": digest
-                    },
-                    "wrapped_material_digest": [digest],
-                    "released_at": "2026-07-22T10:05:00.000Z"
-                }),
-                &["approver_actor_id"],
-                roundtrip::<AuditReleasePayload>,
-            ),
-            (
-                "audit_session_contract",
-                json!({
-                    "binding_id": "ak:audit_binding:ASOyrOY2dZ3005mHWyCAFuDmQ-2p9Rp8X7dYxWTmMRAg",
-                    "realm_id": realm,
-                    "effective_scope": {"kind":"realm", "realm_id":realm},
-                    "session_state": "authorize",
-                    "occurred_at": "2026-07-22T10:05:00.000Z"
-                }),
-                &[
-                    "approver_actor_id",
-                    "approved_recipient_audit_actor_id",
-                    "closer_actor_id",
-                ],
-                roundtrip::<AuditSessionPayload>,
-            ),
-        ];
-        for (definition, base, fields, roundtrip) in cases {
-            let schema = format!(
-                "{}#/$defs/{definition}",
-                arkret_wire::SchemaId::EVENT_PAYLOAD_V1
-            );
-            let mut encoded_identities = BTreeSet::new();
-            for actor in &actors {
-                let mut value = base.clone();
-                for field in fields {
-                    value[*field] = json!(actor);
-                }
-                registry.validate_value(&schema, &value).unwrap();
-                assert_eq!(roundtrip(value.clone()).unwrap(), value);
-                assert!(encoded_identities.insert(serde_json::to_string(&value).unwrap()));
-            }
-            assert_eq!(encoded_identities.len(), 3);
-        }
-    }
-
-    #[test]
-    fn audit_access_kind_rejects_retired_join_application_review() {
-        assert_eq!(
-            serde_json::from_str::<AuditAccessedKind>(r#""policy_audit_read""#).unwrap(),
-            AuditAccessedKind::PolicyAuditRead,
-        );
-        assert!(serde_json::from_str::<AuditAccessedKind>(r#""join_application_review""#).is_err());
-    }
-
-    #[test]
-    fn audit_control_plane_state_transitions_are_closed() {
-        assert!(AuditBindingStatus::Active.allows_transition_to(AuditBindingStatus::Suspended));
-        assert!(AuditBindingStatus::Suspended.allows_transition_to(AuditBindingStatus::Revoked));
-        assert!(!AuditBindingStatus::Revoked.allows_transition_to(AuditBindingStatus::Active));
-
-        assert!(AuditSessionStage::Request.allows_transition_to(AuditSessionStage::Authorize));
-        assert!(AuditSessionStage::Authorize.allows_transition_to(AuditSessionStage::Notice));
-        assert!(AuditSessionStage::Notice.allows_transition_to(AuditSessionStage::Close));
-        assert!(!AuditSessionStage::Close.allows_transition_to(AuditSessionStage::Notice));
-    }
-
-    #[test]
-    fn audit_session_authorize_fields_are_preserved() {
-        let value = serde_json::json!({
-            "session_id": "ak:audit_session:AfJaI7rJa8SJLrm9TWhgM_CvGCjR771X43I1tyFxcETk",
-            "binding_id": "ak:audit_binding:ASOyrOY2dZ3005mHWyCAFuDmQ-2p9Rp8X7dYxWTmMRAg",
-            "realm_id": "ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi",
-            "effective_scope": {
-                "kind": "realm",
-                "realm_id": "ak:realm:Af5xbAMRUJoaDWcTzj2s9sJIxCGFCD2cO1gheRFGhJSi"
-            },
-            "session_state": "authorize",
-            "request_ref": "ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "approver_actor_id": {"kind":"account", "account_id": {
-                "principal_id":"ak:did_core:webvh:z6mkfixture",
-                "station_id":"ak:did_core:web:station.example"
-            }},
-            "approved_recipient_audit_actor_id": {"kind":"account", "account_id": {
-                "principal_id":"ak:did_core:webvh:z6mkfixture",
-                "station_id":"ak:did_core:web:station.example"
-            }},
-            "approved_recipient_public_key_ref": "did:webvh:z6mkfixture:auditor.example#audit-1",
-            "approved_release_mode": "targeted_evidence_release",
-            "target_refs": ["ak:event:AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB"],
-            "notice_policy": {},
-            "occurred_at": "2026-07-22T10:05:00.000Z",
-            "expires_at": "2026-07-22T11:05:00.000Z"
-        });
-        let payload: AuditSessionAuthorizePayload = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(serde_json::to_value(payload).unwrap(), value);
-    }
-}

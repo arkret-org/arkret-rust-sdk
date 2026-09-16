@@ -189,8 +189,8 @@ pub struct DeviceAuthorizationWindow {
 /// account's current accepted one.
 ///
 /// This is the whole verification closure of the cross-principal `keys/query`
-/// surface. It replaced the PCR genesis receipt / authorization chain / accepted
-/// Seal the prose used to demand: that material is account-internal governance,
+/// surface. It replaces replaying the PCR genesis and authorization history:
+/// that material is account-internal governance,
 /// a relationship-gated third party has no business holding it, and the schema
 /// never carried it in the first place, so the old closure was unexecutable on
 /// the wire. Mirrors

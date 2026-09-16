@@ -17,9 +17,11 @@
 //! this signer reaches through the `PayloadSigner` boundary.
 
 use arkret_canonical::canonical;
+use arkret_signatures::{EventSigner, SignerError};
 use arkret_wire::test_support::structural_only_detached_jws;
 use arkret_wire::{Did, DidUrl, Hash, PayloadSignature, PayloadSigner, Result};
 use chrono::Utc;
+use sha2::Digest as _;
 
 /// What a fixture's proof actually establishes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,18 +85,19 @@ impl PayloadSigner for StructuralOnlyPayloadSigner {
             created_at: Utc::now(),
         })
     }
+}
 
-    fn sign_notary_payload_with_digest_suite(
-        &self,
-        canonical_bytes: &[u8],
-        digest_suite: arkret_canonical::DigestSuite,
-    ) -> Result<PayloadSignature> {
-        let payload_digest = Hash::new(canonical::digest(digest_suite, canonical_bytes))?;
-        Ok(PayloadSignature {
-            verification_method: self.verification_method.clone(),
-            jws: structural_only_detached_jws(&payload_digest),
-            payload_digest,
-            created_at: Utc::now(),
-        })
+impl EventSigner for StructuralOnlyPayloadSigner {
+    fn sign(&self, bytes: &[u8]) -> std::result::Result<Vec<u8>, SignerError> {
+        let digest = sha2::Sha256::digest(bytes);
+        Ok(digest.into_iter().chain(digest).collect())
+    }
+
+    fn algorithm(&self) -> &str {
+        "Ed25519"
+    }
+
+    fn verification_method(&self) -> &str {
+        self.verification_method.as_str()
     }
 }

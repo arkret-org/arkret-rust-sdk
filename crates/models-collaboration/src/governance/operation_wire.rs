@@ -261,10 +261,7 @@ impl PolicyRule {
                     .enumerate()
                     .all(|(index, value)| !values[..index].contains(value))
         }
-        require(
-            crate::events_payloads::state::PolicyRuleId::new(self.rule_id.clone()).is_ok(),
-            "rule_id",
-        )?;
+        require(!self.rule_id.trim().is_empty(), "rule_id")?;
         if let Some(actions) = &self.actions {
             require(
                 unique_nonempty(actions) && actions.iter().all(|value| ACTION.is_match(value)),
@@ -335,7 +332,7 @@ impl PolicyRule {
 /// `realm_id`, `inviter`, `state`, `expires_at`, `created_at`).
 ///
 /// There is deliberately no materialized join-rule snapshot: the admission
-/// basis is the create Event's own CBS governance basis, reachable by retyping
+/// basis is the create Event's own authority-committed governance basis, reachable by retyping
 /// the Invite id back to that Event (`governance-objects.md` §5.3). Private
 /// delivery material never reaches this object either — only the
 /// `introduction_evidence_digest` commitment.

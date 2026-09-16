@@ -2,9 +2,7 @@ use serde::{Deserialize, Serialize};
 
 pub use crate::generated::EventWireScope;
 pub use crate::generated::event_kinds::{
-    CbsEffectPlane, EVENT_KIND_COUNT, EventCellExecution, EventCellStateModel, EventCellValueShape,
-    EventCellWriteDescriptor, EventKind, EventKindDescriptor, EventRegistryCategory,
-    cbs_cell_family_plane,
+    EVENT_KIND_COUNT, EventKind, EventKindDescriptor, EventRegistryCategory,
 };
 
 /// Object-only schema id; this is not an Event.kind.
@@ -83,8 +81,6 @@ pub enum EventProductClass {
     Sidecar,
     Sovereign,
     Space,
-    /// Governance state and fork-evidence resolution.
-    State,
     View,
     Custom(String),
 }
@@ -98,7 +94,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
     match kind {
         EventKind::AccountBlocklist | EventKind::AccountDataSet => EventProductClass::Account,
         EventKind::ActorDiscovery => EventProductClass::Actor,
-        EventKind::ForkResolution => EventProductClass::State,
         EventKind::AgentActionApprove
         | EventKind::AgentActionReject
         | EventKind::AgentActionRequest
@@ -131,7 +126,6 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::CapabilityGrant
         | EventKind::CapabilityRelinquish
         | EventKind::CapabilityRevoke
-        | EventKind::RealmAuthorityReset
         | EventKind::RealmOwnerTransfer => EventProductClass::Authz,
         EventKind::CallCreate
         | EventKind::CallRecordingStart
@@ -157,12 +151,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::DeviceReanchor
         | EventKind::DeviceRevoke
         | EventKind::KeyBackupActiveSeries => EventProductClass::Device,
-        EventKind::MlsCommit
-        | EventKind::MlsCommitFailed
-        | EventKind::MlsGenesis
-        | EventKind::MlsKeypackage
-        | EventKind::MlsProposal
-        | EventKind::MlsWelcome => EventProductClass::E2ee,
+        EventKind::MlsCommit | EventKind::MlsGenesis => EventProductClass::E2ee,
         EventKind::StrandArchive
         | EventKind::StrandCreate
         | EventKind::StrandMove
@@ -217,19 +206,16 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmDestroy
         | EventKind::RealmDiscovery
         | EventKind::RealmFreeze
+        | EventKind::RealmGovernanceStationChange
         | EventKind::RealmUnfreeze
         | EventKind::RealmAlias
         | EventKind::RealmHistoryAccess
         | EventKind::RealmInheritancePolicy
         | EventKind::RealmJoinRule
         | EventKind::RealmSetDefaultStrand
-        | EventKind::RealmNotary
-        | EventKind::RealmDigestSuiteTransition
         | EventKind::RealmLink
         | EventKind::RealmMediaService
         | EventKind::RealmOrganization
-        | EventKind::RealmOrganizationRecoveryKeyRegister
-        | EventKind::RealmOrganizationRecoveryKeyRotate
         | EventKind::RealmPlaintextVisibleServices
         | EventKind::RealmPolicy
         | EventKind::RealmPolicyBundle
@@ -238,10 +224,7 @@ pub fn event_product_class(kind: &EventKind) -> EventProductClass {
         | EventKind::RealmSchema
         | EventKind::RealmSearchPolicy
         | EventKind::RealmTombstone
-        | EventKind::RealmProfile
-        | EventKind::RealmUpgrade
-        | EventKind::NotaryFaultCensorship
-        | EventKind::NotaryFaultEquivocation => EventProductClass::Realm,
+        | EventKind::RealmProfile => EventProductClass::Realm,
         EventKind::ContainerMoveItem
         | EventKind::ContainerRebalance
         | EventKind::RelationCreate
@@ -342,11 +325,7 @@ mod tests {
             EventProductClass::Custom("vendor.example.widget".to_owned())
         );
         assert_eq!(
-            EventKind::RealmNotary.product_class(),
-            EventProductClass::Realm
-        );
-        assert_eq!(
-            EventKind::RealmDigestSuiteTransition.product_class(),
+            EventKind::RealmGovernanceStationChange.product_class(),
             EventProductClass::Realm
         );
     }
@@ -356,7 +335,7 @@ mod tests {
         let kind = EventKind::MessageCreate;
         assert_eq!(kind, EventKind::MessageCreate);
         assert_eq!(kind.product_class(), EventProductClass::Message);
-        assert!(kind.is_reducer_input());
+        assert!(kind.is_standard());
     }
 
     #[test]

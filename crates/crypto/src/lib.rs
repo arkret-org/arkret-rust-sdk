@@ -3,10 +3,8 @@
 //! ## Feature flags
 //!
 //! * `backup` — pulls in the [`backup`] module, which provides client-side Argon2id KDF,
-//!   XChaCha20-Poly1305 AEAD, a recovery-key codec, and a typed
-//!   [`arkret_models_crypto::key_backup::KeyBackup`] envelope builder (spec:
-//!   `crypto-media/key-management.md` §7). When the feature is off, the bare types crate stays free
-//!   of heavyweight crypto deps.
+//!   XChaCha20-Poly1305 AEAD, and a recovery-key codec. Envelope assembly and authorization remain
+//!   with the calling protocol layer.
 
 #[cfg(feature = "account-data")]
 pub mod account_data_crypto;
@@ -18,12 +16,12 @@ pub mod backup;
 pub mod blob_aead;
 #[cfg(feature = "blob-aead")]
 pub mod file_transfer_aead;
+#[cfg(feature = "hpke")]
+pub mod hpke;
 #[cfg(feature = "identity-root")]
 pub mod identity_root;
 #[cfg(feature = "aead")]
 pub mod mls_exporter;
-#[cfg(feature = "secret-share")]
-pub mod secret_share;
 #[cfg(feature = "sframe")]
 pub mod sframe;
 

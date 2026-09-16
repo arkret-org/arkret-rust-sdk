@@ -1,366 +1,171 @@
-//! The closed self-principal PCR bootstrap unit: the unsigned genesis builder,
-//! the two-slot submit request, and the validators both sides run.
+//! Self-principal Realm bootstrap Event authoring.
 
-use arkret_event_draft::EventPayloadExt;
-use arkret_models_collaboration::events_payloads::device_identity::{
-    DeviceAuthorizationBindingKind, DeviceAuthorizePayload, DeviceOrPrincipalRef,
-    validate_root_anchored_authorize_payload_digest,
-};
 use arkret_models_collaboration::events_payloads::{
-    FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis,
+    FoundingDeviceDescriptor, RealmCreatePayload, RealmGenesis, RealmPurpose,
 };
-use arkret_models_identity::ResolutionCommitment;
+use arkret_models_identity::{IdentityCreationEvents, ResolutionCommitment};
 use arkret_wire::{
-    AccountId, ActorId, CellRef, Did, DidCoreId, EncryptionProfile, Event, EventKind, EventRef,
-    GenesisSalt, Hlc, NotaryValue, PcrGenesisUnit, ProfileId, Result, SchemaId, ScopeRef,
-    SecurityClass, TrustDomainId, WireError, composite_subject, event_spec, project_did_to_core_id,
-    proof_kind,
+    AccountId, ActorId, Did, DidCoreId, Discoverability, Event, EventKind, EventRef, GenesisSalt,
+    HistoryAccess, JoinRule, ScopeRef, SecurityClass, TrustDomainId, WireError,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
-use serde_json::Value;
 
 use crate::DID_INCEPTION_REF_ROLE;
-use crate::projection::{CellWriteProjector, direct_projection, validate_realm_create_projection};
 
-/// Public inputs required to construct the unsigned, root-anchored first
-/// Event of a self-principal PCR bootstrap unit.
+/// Producer-selected content for the self-principal Realm-create Event.
+///
+/// The Station assigns stream order only after accepting the producer-signed
+/// Event; producer input contains no authority ordering coordinates.
 #[derive(Clone, Debug)]
 pub struct SelfPrincipalPcrCreateInput {
     pub principal_id: DidCoreId,
-    /// Station that admits this genesis Event and owns the public
-    /// account-authority coordinate paired with `principal_id`.
-    pub station_id: DidCoreId,
-    /// Resolvable DID admitted for the principal and published as Realm notary.
+    pub governance_station_id: DidCoreId,
     pub principal_did: Did,
-    pub notary: NotaryValue,
     pub genesis_salt: GenesisSalt,
     pub trust_domain: TrustDomainId,
     pub did_inception_ref: EventRef,
-    /// Initial owner-published DID resolution state committed by PCR genesis.
     pub initial_resolution: ResolutionCommitment,
     pub founding_device_descriptor: FoundingDeviceDescriptor,
+    pub initial_join_rule: JoinRule,
+    pub initial_history_access: HistoryAccess,
+    pub initial_discoverability: Discoverability,
     pub created_at: DateTime<Utc>,
-    pub hlc: Hlc,
 }
 
-/// Construct the only unsigned `ak.realm.create` shape that an identity root
-/// may sign. Signing material remains entirely with the caller.
+/// Build the unsigned, content-bound self-principal Realm-create Event.
+///
+/// The returned [`arkret_wire::AuthoredEvent`] is ready for the producer proof
+/// to be attached. It is not committed or ordered by this crate.
 pub fn build_self_principal_pcr_create(
     input: SelfPrincipalPcrCreateInput,
-    project: CellWriteProjector<'_>,
-) -> Result<arkret_wire::AuthoredEvent> {
-    let created_at = arkret_canonical::canonical::normalize_timestamp_canonical(input.created_at);
-    let actor_id = ActorId::account(AccountId::new(
-        input.principal_id.clone(),
-        input.station_id.clone(),
-    ));
-    if project_did_to_core_id(&input.principal_did)? != input.principal_id {
-        return Err(WireError::Protocol(
-            "self principal DID does not project to principal_id".to_owned(),
-        ));
-    }
-    if input.initial_resolution.did != input.principal_did {
-        return Err(WireError::Protocol(
-            "self principal initial_resolution does not match principal_did".to_owned(),
-        ));
-    }
-    if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE
-        || !input.did_inception_ref.critical
-        || input.did_inception_ref.proof.is_some()
+) -> arkret_wire::Result<arkret_wire::AuthoredEvent> {
+    if project_did_to_core_id(&input.principal_did)? != input.principal_id
+        || input.initial_resolution.did != input.principal_did
+        || input.initial_resolution.method_history_head.is_empty()
+        || input.initial_resolution.version_id.is_empty()
     {
         return Err(WireError::Protocol(
-            "self principal PCR requires one direct critical did_inception ref".to_owned(),
+            "self-principal identity resolution does not match principal_id".to_owned(),
+        ));
+    }
+    if input.did_inception_ref.role != DID_INCEPTION_REF_ROLE || !input.did_inception_ref.critical {
+        return Err(WireError::Protocol(
+            "self-principal bootstrap requires one critical did_inception reference".to_owned(),
         ));
     }
 
-    let genesis = RealmGenesis::principal_control(
+    let genesis = RealmGenesis::new(
+        RealmPurpose::PrincipalControl,
         input.genesis_salt,
-        Some(input.founding_device_descriptor),
-        input.initial_resolution,
         input.trust_domain,
-        vec![
-            SchemaId::REALM_V1.to_owned(),
-            ProfileId::PRINCIPAL_CONTROL_REALM_V1.to_owned(),
-        ],
-        arkret_wire::CORE_REDUCER_PROFILE,
-        arkret_canonical::DigestSuite::Sha256,
         SecurityClass::HighAssurance,
-        EncryptionProfile::MlsRfc9420,
-        input.notary,
+        input.governance_station_id.clone(),
+        input.initial_join_rule,
+        input.initial_history_access,
+        input.initial_discoverability,
+        Some(input.founding_device_descriptor),
+        Some(input.initial_resolution),
     )?;
-
-    let payload = RealmCreatePayload::new(genesis);
-    let event = arkret_event_draft::TypedEventDraft::<event_spec::RealmCreate>::new(
-        // zh/models/realm-and-space.md section 2.5.0: a Realm genesis scope
-        // carries no realm_id. Every Realm id, including a PCR, is derived
-        // from the authored create Event.
+    let actor_id = ActorId::account(AccountId::new(
+        input.principal_id,
+        input.governance_station_id,
+    ));
+    let event = crate::author_event(
+        EventKind::RealmCreate,
         ScopeRef::RealmGenesis,
         actor_id,
-        payload,
-    )
-    .map_err(|error| WireError::Protocol(error.to_string()))?
-    .with_ref(input.did_inception_ref)
-    .author_with_digest_suite(
-        0,
-        input.hlc,
-        created_at,
-        arkret_canonical::DigestSuite::Sha256,
-    )
-    .map_err(|error| WireError::Protocol(error.to_string()))?;
-    validate_self_principal_pcr_create(&event, false, project)?;
+        None,
+        None,
+        input.created_at,
+        vec![input.did_inception_ref],
+        RealmCreatePayload::new(genesis).to_value()?,
+    )?;
+    validate_self_principal_pcr_create(&event, false)?;
     Ok(event)
 }
 
-/// Validate and package the closed two-slot self-principal PCR genesis unit.
-/// Authorization leases do not exist before the PCR. The root proof on
-/// `ak.realm.create`, the device-possession signature in
-/// `ak.device.authorize`, and the descriptor's one-way payload commitment are
-/// the complete genesis authorization chain.
-pub fn build_self_principal_pcr_genesis_unit(
-    create: Event,
-    authorize: Event,
-    project: CellWriteProjector<'_>,
-) -> Result<PcrGenesisUnit> {
-    validate_self_principal_pcr_genesis_unit(&create, &authorize, project)?;
-    PcrGenesisUnit::new(create, authorize)
-}
-
-pub fn validate_self_principal_pcr_genesis_unit(
-    create: &Event,
-    authorize: &Event,
-    project: CellWriteProjector<'_>,
-) -> Result<()> {
-    validate_self_principal_pcr_create(create, true, project)?;
-    if authorize.kind != EventKind::DeviceAuthorize
-        || authorize.realm_id != create.realm_id
-        || authorize.actor_id != create.actor_id
-        || authorize.actor_seq != 1
-        || authorize.prev_refs != vec![create.event_id.clone()]
-        || authorize.event_id == create.event_id
-        || authorize.auth_context.is_some()
-        || authorize.seal_basis.is_some()
-        || !authorize.preconditions.is_empty()
-        || authorize.executed_by.is_some()
-        || authorize.authorization_ref.is_some()
-        || authorize.applet_id.is_some()
-        || authorize.external_ref.is_some()
-        || !authorize.unsigned.is_empty()
-        || authorize.refs.iter().any(|reference| {
-            matches!(
-                reference.role.as_str(),
-                "did_inception" | "did_recovery_anchor" | "bootstrap_binding"
-            )
-        })
-    {
-        return Err(WireError::Protocol(
-            "second self principal bootstrap slot is not the closed device authorize shape"
-                .to_owned(),
-        ));
-    }
-    validate_pcr_native_unit_authoring_checkpoint(create, authorize)?;
-    let authorize_proof = validate_event_proof_digests(authorize)?;
-    let payload: DeviceAuthorizePayload =
-        authorize.typed_payload::<event_spec::DeviceAuthorize>()?;
-    if payload.authorization_binding_kind != DeviceAuthorizationBindingKind::RegistrationAnchor
-        || payload.recovery_session_id.is_some()
-    {
-        return Err(WireError::Protocol(
-            "founding device authorize must be root-anchored".to_owned(),
-        ));
-    }
-    let authorized_by_matches = match &payload.authorized_by {
-        DeviceOrPrincipalRef::Principal(principal_id) => {
-            principal_id.as_core_id() == create.actor_id.signing_principal_id().as_core_id()
-        }
-        DeviceOrPrincipalRef::DeviceId(_) => false,
-    };
-    let create_payload: RealmCreatePayload = create.typed_payload::<event_spec::RealmCreate>()?;
-    let signer = &create_payload.object.notary.signer;
-    let descriptor = create_payload
-        .object
-        .founding_device_descriptor
-        .as_ref()
-        .ok_or_else(|| {
-            WireError::Protocol("PCR genesis omits founding device descriptor".to_owned())
-        })?;
-    let initial_resolution = create_payload
-        .object
-        .initial_resolution
-        .as_ref()
-        .ok_or_else(|| WireError::Protocol("PCR genesis omits initial resolution".to_owned()))?;
-    validate_root_anchored_authorize_payload_digest(
-        &descriptor.founding_authorize_payload_digest,
-        &Value::Object(authorize.payload.clone().into_iter().collect()),
-        arkret_canonical::DigestSuite::Sha256,
-    )?;
-    let (verification_controller, verification_fragment) = authorize_proof
-        .verification_method
-        .as_str()
-        .split_once('#')
-        .ok_or_else(|| {
-            WireError::Protocol("founding device proof requires a DID URL".to_owned())
-        })?;
-    let verification_controller = Did::new(verification_controller.to_owned())?;
-    let verification_principal = project_did_to_core_id(&verification_controller)?;
-    if !authorized_by_matches
-        || signer.actor_id.signing_principal_id() != create.actor_id.signing_principal_id()
-        || verification_principal != *create.actor_id.signing_principal_id()
-        || verification_controller != initial_resolution.did
-        || verification_fragment != descriptor.device_id.as_str()
-        || descriptor.device_id != payload.device_id
-        || descriptor.device_public_key_did != payload.device_public_key_did
-        || descriptor.hpke_key != payload.hpke_key
-        || descriptor.algorithms != payload.algorithms
-    {
-        return Err(WireError::Protocol(
-            "founding device authorize does not match its committed descriptor".to_owned(),
-        ));
-    }
-    // The second slot used to be pinned by requiring an empty producer-written
-    // effect array. v1 has no such array, so the equivalent statement is that
-    // the registered contract derives exactly the one device-authorization
-    // cell for this principal and device -- an authoritative claim the old
-    // emptiness check could never make.
-    let authorize_effects = direct_projection(authorize, project)?;
-    let actor_subject =
-        String::from_utf8(arkret_canonical::canonical_json_bytes(&create.actor_id)?)
-            .map_err(|_| WireError::Protocol("device actor subject is not UTF-8".to_owned()))?;
-    let device_cell = CellRef::new(format!(
-        "ak:cell:ak.component.device.authorization.v1:{}",
-        composite_subject(&[actor_subject.as_str(), payload.device_id.as_str()])?
-    ))?;
-    if authorize_effects.len() != 1 || authorize_effects[0].cell_id != device_cell {
-        return Err(WireError::Protocol(
-            "bootstrap device authorize does not derive its single device authorization cell"
-                .to_owned(),
-        ));
-    }
-    Ok(())
-}
-
-/// Validate the single frozen authoring checkpoint shared by one of the two
-/// closed human PCR native units. Callers must still validate the unit's exact
-/// kind, order, payload binding and producer keys.
-pub fn validate_pcr_native_unit_authoring_checkpoint(
-    first: &Event,
-    authorize: &Event,
-) -> Result<()> {
-    let recognized = matches!(
-        first.kind,
-        EventKind::RealmCreate | EventKind::DeviceReanchor
-    ) && authorize.kind == EventKind::DeviceAuthorize;
-    if !recognized {
-        return Err(WireError::Protocol(
-            "PCR native authoring checkpoint requires a genesis or recovery unit".to_owned(),
-        ));
-    }
-    let first_proof = validate_event_proof_digests(first)?;
-    let authorize_proof = validate_event_proof_digests(authorize)?;
-    if first.created_at != authorize.created_at
-        || first_proof.created_at != first.created_at
-        || authorize_proof.created_at != first.created_at
-    {
-        return Err(WireError::Protocol(
-            "PCR native unit Events and producer proofs must share one authoring checkpoint"
-                .to_owned(),
-        ));
-    }
-    Ok(())
-}
-
-pub(crate) fn validate_self_principal_pcr_create(
+/// Validate the closed producer-owned portion of a self-principal create.
+///
+/// `require_proof` is used at the acceptance boundary. Commit ancestry is
+/// intentionally not checked here: it belongs to the RealmCommit stream.
+pub fn validate_self_principal_pcr_create(
     event: &Event,
     require_proof: bool,
-    project: CellWriteProjector<'_>,
-) -> Result<()> {
-    let expected_realm_id = arkret_wire::RealmId::from_event_id(&event.event_id);
+) -> arkret_wire::Result<()> {
     if event.kind != EventKind::RealmCreate
-        || event.realm_id != expected_realm_id
-        || event.actor_seq != 0
-        || !event.prev_refs.is_empty()
-        || event.refs.len() != 1
-        || event.refs[0].role != DID_INCEPTION_REF_ROLE
-        || !event.refs[0].critical
-        || event.refs[0].proof.is_some()
-        || !event.preconditions.is_empty()
-        || event.auth_context.is_some()
-        || event.seal_basis.is_some()
+        || event.scope_ref != ScopeRef::RealmGenesis
+        || event.realm_id != arkret_wire::RealmId::from_event_id(&event.event_id)
         || event.executed_by.is_some()
         || event.authorization_ref.is_some()
         || event.applet_id.is_some()
         || event.external_ref.is_some()
-        || !event.unsigned.is_empty()
+        || event.refs.len() != 1
+        || event.refs[0].role != DID_INCEPTION_REF_ROLE
+        || !event.refs[0].critical
     {
         return Err(WireError::Protocol(
-            "identity root may sign only the closed self principal PCR genesis shape".to_owned(),
+            "invalid self-principal Realm-create Event shape".to_owned(),
         ));
     }
+    event
+        .verify_event_id_matches_content_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
     if require_proof {
-        let proof = validate_event_proof_digests(event)?;
-        if !proof.verification_method.starts_with("did:key:") {
-            return Err(WireError::Protocol(
-                "self principal PCR genesis requires exactly one identity-root proof".to_owned(),
-            ));
-        }
+        event.validate_for_submit_structural()?;
+        event.validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
     } else if !event.proofs.is_empty() {
         return Err(WireError::Protocol(
-            "unsigned self principal PCR builder output must not contain proofs".to_owned(),
+            "self-principal Event builder must return an unsigned Event".to_owned(),
         ));
     }
 
-    validate_principal_control_realm_payload(event)?;
-    validate_realm_create_projection(event, &direct_projection(event, project)?)
-}
-
-fn validate_principal_control_realm_payload(event: &Event) -> Result<()> {
-    let payload: RealmCreatePayload = event.typed_payload::<event_spec::RealmCreate>()?;
-    let genesis = payload.object;
-    let profile_count = genesis
-        .schema_refs
-        .iter()
-        .filter(|profile| profile.as_str() == ProfileId::PRINCIPAL_CONTROL_REALM_V1)
-        .count();
-    let notary_matches = genesis.notary.signer.actor_id.signing_principal_id()
-        == event.actor_id.signing_principal_id();
-    let resolution_matches = genesis
+    let payload: RealmCreatePayload = serde_json::from_value(serde_json::Value::Object(
+        event.payload.clone().into_iter().collect(),
+    ))?;
+    payload.object.validate()?;
+    let resolution_matches = payload
+        .object
         .initial_resolution
         .as_ref()
         .is_some_and(|resolution| {
             project_did_to_core_id(&resolution.did)
                 .is_ok_and(|principal_id| principal_id == *event.actor_id.signing_principal_id())
-                && !resolution.method_history_head.is_empty()
-                && !resolution.version_id.is_empty()
         });
-    if genesis.schema != SchemaId::REALM_GENESIS_V1
-        || genesis.purpose
-            != arkret_models_collaboration::events_payloads::RealmPurpose::PrincipalControl
-        || genesis.security_class != SecurityClass::HighAssurance
-        || profile_count != 1
-        || genesis.encryption_profile != EncryptionProfile::MlsRfc9420
-        || !notary_matches
+    if payload.object.purpose != RealmPurpose::PrincipalControl
+        || payload.object.governance_station_id != *event.actor_id.route_service_id()
         || !resolution_matches
     {
         return Err(WireError::Protocol(
-            "self principal PCR create payload violates create-locked profile".to_owned(),
+            "self-principal Realm-create payload is inconsistent with its producer".to_owned(),
         ));
     }
-    genesis.validate()
+    Ok(())
 }
 
-fn validate_event_proof_digests(event: &Event) -> Result<&arkret_wire::ProducerEventProof> {
-    let [producer] = event.proofs.as_slice() else {
+/// Package the two independently producer-signed identity creation Events.
+///
+/// The Account Authority submits them to the current governance Station in
+/// this order, and the Station produces one RealmCommit for each Event in the
+/// Realm stream.
+pub fn build_identity_creation_events(
+    realm_create: Event,
+    founding_device_authorize: Event,
+) -> arkret_wire::Result<IdentityCreationEvents> {
+    validate_self_principal_pcr_create(&realm_create, true)?;
+    if founding_device_authorize.actor_id != realm_create.actor_id {
         return Err(WireError::Protocol(
-            "bootstrap event must carry exactly one producer proof".to_owned(),
-        ));
-    };
-    let digest = event.event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
-    if producer.kind != proof_kind::DETACHED_JWS
-        || producer.event_digest.as_str() != digest
-        || producer.jws.is_empty()
-    {
-        return Err(WireError::Protocol(
-            "bootstrap event carries an invalid proof envelope".to_owned(),
+            "founding device authorization must have the same producer as Realm creation"
+                .to_owned(),
         ));
     }
-    Ok(producer)
+    founding_device_authorize
+        .verify_event_id_matches_content_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
+    founding_device_authorize
+        .validate_proof_bindings_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
+    let events = IdentityCreationEvents {
+        realm_create,
+        founding_device_authorize,
+    };
+    events.validate()?;
+    Ok(events)
 }

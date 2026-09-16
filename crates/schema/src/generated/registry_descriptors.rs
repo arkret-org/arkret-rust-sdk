@@ -1,14 +1,14 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/id-kind-registry.json; version=2026-09-15.1;
-//! sha256=5f1ee8b848d7e3154faf9bf40ed84a621cda8325c1d8e1a8d9b6b65a5fafefc9 Input: registry/
-//! capability-action-registry.json; version=2026-09-12.5;
-//! sha256=0ff4b5f67c136f690448e8bfd8ca45bdd4e79653d21865fe09ea3a9ab8bbfc72 Input: registry/
-//! schema-registry.json; version=2026-09-15.3;
-//! sha256=56e5212dd9818fa6fe0ae858cf7cbafc8ba324115ea0c0770125ccdae1cfbe4f Input: registry/
-//! account-data-key-registry.json; version=2026-09-12.6;
-//! sha256=75b0317727cd9bd4d8605c90c3710629a3c1120faec9877d6a12598c488bafbb Entries: id_kinds=57,
-//! special_forms=14, actions=162, schemas=228, account_data_patterns=24
+//! Input: registry/id-kind-registry.json; version=2026-09-16.6;
+//! sha256=fd180fd34aaeccce51b21ee4720c5819901e15993f2ea7a5d9ae9e1292ddd629 Input: registry/
+//! capability-action-registry.json; version=2026-09-16.6;
+//! sha256=13c96ab4d78bc99611786aea6e71606e64c88f57ad50ee8c0f94707409a6452a Input: registry/
+//! schema-registry.json; version=2026-09-16.6;
+//! sha256=e5d775203aa3b0c087c1f2be599c615cf71a102df39bd379bf09eb0aa895da58 Input: registry/
+//! account-data-key-registry.json; version=2026-09-16.6;
+//! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04 Entries: id_kinds=54,
+//! special_forms=15, actions=156, schemas=216, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,6 @@ pub struct CapabilityActionDescriptor {
     pub profile: Option<&'static str>,
     pub root_control_only: bool,
     pub subject_only: bool,
-    pub reducer_only: bool,
     pub event_mapping_kind: &'static str,
 }
 
@@ -176,11 +175,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:claim:<uuidv7>",
     },
     IdKindDescriptor {
-        kind: "collision_variant_record",
-        category: "audit",
-        wire_form: "ak:collision_variant_record:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "consent",
         category: "identity_authz",
         wire_form: "ak:consent:<uuidv7>",
@@ -216,16 +210,6 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:grant:<44-char-event-token>",
     },
     IdKindDescriptor {
-        kind: "history_request",
-        category: "scope_private",
-        wire_form: "ak:history_request:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "history_response",
-        category: "scope_private",
-        wire_form: "ak:history_response:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "invite",
         category: "authz",
         wire_form: "ak:invite:<44-char-event-token>",
@@ -236,6 +220,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:invite_locator:<uuidv7>",
     },
     IdKindDescriptor {
+        kind: "keypackage_claim",
+        category: "mls",
+        wire_form: "ak:keypackage_claim:<uuidv7>",
+    },
+    IdKindDescriptor {
         kind: "message",
         category: "core_object",
         wire_form: "ak:message:<44-char-event-token>",
@@ -244,6 +233,11 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         kind: "message_stream",
         category: "sync",
         wire_form: "ak:message_stream:<uuidv7>",
+    },
+    IdKindDescriptor {
+        kind: "mls_welcome_delivery",
+        category: "mls",
+        wire_form: "ak:mls_welcome_delivery:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "moderation_queue_item",
@@ -286,19 +280,9 @@ pub const REGISTERED_ID_KINDS: &[IdKindDescriptor] = &[
         wire_form: "ak:realm:<44-char-event-token>",
     },
     IdKindDescriptor {
-        kind: "realm_state_snapshot",
-        category: "realm_state_snapshot",
-        wire_form: "ak:realm_state_snapshot:<uuidv7>",
-    },
-    IdKindDescriptor {
         kind: "receipt",
         category: "receipt",
         wire_form: "ak:receipt:<uuidv7>",
-    },
-    IdKindDescriptor {
-        kind: "recovery_key",
-        category: "identity",
-        wire_form: "ak:recovery_key:<uuidv7>",
     },
     IdKindDescriptor {
         kind: "recovery_session",
@@ -374,11 +358,6 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
         payload_pattern: "(?:sha256|blake3):[0-9a-f]{64}",
     },
     SpecialFormIdKindDescriptor {
-        kind: "cell",
-        wire_form: "ak:cell:ak.component.<facet-path>.v<n>:<subject>",
-        payload_pattern: "ak\\.component\\.[a-z0-9_]+(?:\\.[a-z0-9_]+)*\\.v[0-9]+:(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})*(?::(?:[A-Za-z0-9._~=-]|%[0-9A-Fa-f]{2})+)*",
-    },
-    SpecialFormIdKindDescriptor {
         kind: "cursor",
         wire_form: "ak:cursor:<base64url>",
         payload_pattern: "[A-Za-z0-9_-]+",
@@ -419,9 +398,19 @@ pub const REGISTERED_SPECIAL_FORM_ID_KINDS: &[SpecialFormIdKindDescriptor] = &[
         payload_pattern: "[a-z0-9_]+:[A-Za-z0-9_-]+",
     },
     SpecialFormIdKindDescriptor {
-        kind: "seal",
-        wire_form: "ak:seal:<digest-suite>:<digest>",
-        payload_pattern: "(?:sha256|blake3):[0-9a-f]{64}",
+        kind: "realm_authority_handoff",
+        wire_form: "ak:realm_authority_handoff:<44-char-base64url-no-pad>",
+        payload_pattern: "[A-Za-z0-9_-]{44}",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "realm_commit",
+        wire_form: "ak:realm_commit:<44-char-base64url-no-pad>",
+        payload_pattern: "[A-Za-z0-9_-]{44}",
+    },
+    SpecialFormIdKindDescriptor {
+        kind: "realm_snapshot",
+        wire_form: "ak:realm_snapshot:<44-char-base64url-no-pad>",
+        payload_pattern: "[A-Za-z0-9_-]{44}",
     },
     SpecialFormIdKindDescriptor {
         kind: "service_registration_receipt",
@@ -452,7 +441,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -466,7 +454,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -480,7 +467,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -494,7 +480,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -508,7 +493,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -522,7 +506,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -536,7 +519,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -550,7 +532,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -564,7 +545,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -578,7 +558,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -592,7 +571,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -610,7 +588,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.applet_bridge.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -624,7 +601,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -638,7 +614,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -655,7 +630,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -669,7 +643,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -683,7 +656,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -697,7 +669,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -711,7 +682,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -725,7 +695,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -739,7 +708,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -753,7 +721,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -771,7 +738,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -785,7 +751,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -802,7 +767,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -816,7 +780,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -830,7 +793,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -844,7 +806,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -858,7 +819,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: true,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -872,7 +832,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -886,7 +845,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: true,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -900,7 +858,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -914,7 +871,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -928,7 +884,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -948,7 +903,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -962,7 +916,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -976,7 +929,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -990,7 +942,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1004,7 +955,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.principal_control_realm.v1"),
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1018,7 +968,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.principal_control_realm.v1"),
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1036,7 +985,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.direct_conversation_realm.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1050,7 +998,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1064,7 +1011,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1078,22 +1024,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::ForkResolution,
-        category: "general",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::FORK_RESOLUTION],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::InviteAccept,
@@ -1106,7 +1037,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1120,7 +1050,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1134,7 +1063,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1148,7 +1076,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1162,7 +1089,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1176,7 +1102,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1194,7 +1119,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.membership_join_compensation.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1212,7 +1136,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.membership_join_compensation.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1229,7 +1152,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.direct_conversation_realm.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1246,7 +1168,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.direct_conversation_repair.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1260,7 +1181,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1281,7 +1201,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1295,7 +1214,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
@@ -1309,7 +1227,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
@@ -1323,7 +1240,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1337,7 +1253,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -1354,7 +1269,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.signal_message_stream.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1363,16 +1277,12 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         risk_tier: CapabilityRiskTier::High,
         required_constraints: &[],
         required_evaluator_checks: &[],
-        target_event_kinds: &[
-            event_kind_str::MLS_COMMIT,
-            event_kind_str::MLS_COMMIT_FAILED,
-        ],
+        target_event_kinds: &[event_kind_str::MLS_COMMIT],
         grant_authority_actions: &[],
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "aggregate_admin",
+        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::MlsGenesis,
@@ -1385,67 +1295,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsKeypackage,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MLS_KEYPACKAGE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsProposal,
-        category: "service",
-        risk_tier: CapabilityRiskTier::Medium,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MLS_PROPOSAL],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsWelcome,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::MLS_WELCOME],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::MlsWelcomeOwnDevice,
-        category: "service",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[
-            "welcome_recipient_is_active_device_of_same_participant",
-            "mls_group_matches_current_active_direct_conversation_generation",
-        ],
-        target_event_kinds: &[event_kind_str::MLS_WELCOME],
-        grant_authority_actions: &[],
-        profile: Some("ak.profile.direct_conversation_realm.v1"),
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::ModerationDecision,
@@ -1458,7 +1308,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1472,7 +1321,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1486,7 +1334,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1500,7 +1347,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1514,7 +1360,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1528,7 +1373,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1542,7 +1386,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1556,7 +1399,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1570,7 +1412,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1584,7 +1425,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1601,7 +1441,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "polymorphic_object",
     },
     CapabilityActionDescriptor {
@@ -1615,7 +1454,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1629,7 +1467,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1643,7 +1480,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1657,7 +1493,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1675,7 +1510,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "polymorphic_object",
     },
     CapabilityActionDescriptor {
@@ -1692,7 +1526,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "polymorphic_object",
     },
     CapabilityActionDescriptor {
@@ -1706,7 +1539,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.pinned_items.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1720,7 +1552,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.pinned_items.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1734,7 +1565,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.pinned_items.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1748,7 +1578,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1774,7 +1603,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -1788,7 +1616,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1802,7 +1629,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1816,7 +1642,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1830,7 +1655,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1844,7 +1668,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1858,7 +1681,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1874,11 +1696,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_HISTORY_ACCESS,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_ROTATE,
             event_kind_str::REALM_DISCOVERY,
-            event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
-            event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_PREVIEW_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
@@ -1896,7 +1714,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -1910,7 +1727,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1924,22 +1740,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmAuthorityReset,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::REALM_AUTHORITY_RESET],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: true,
-        subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmCreate,
@@ -1952,7 +1753,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1966,7 +1766,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -1980,7 +1779,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -1994,8 +1792,20 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
+    },
+    CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmGovernanceStationChange,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::REALM_GOVERNANCE_STATION_CHANGE],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: true,
+        subject_only: false,
+        event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
         action: CapabilityActionId::RealmLink,
@@ -2008,7 +1818,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2022,7 +1831,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2036,7 +1844,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2072,7 +1879,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::CIRCLE_UPDATE,
             event_kind_str::CONTAINER_MOVE_ITEM,
             event_kind_str::CONTAINER_REBALANCE,
-            event_kind_str::FORK_RESOLUTION,
             event_kind_str::INVITE_CANCEL,
             event_kind_str::INVITE_CLAIM,
             event_kind_str::INVITE_CREATE,
@@ -2084,11 +1890,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::MESSAGE_REVISE,
             event_kind_str::MIMI_ROOM_BINDING,
             event_kind_str::MLS_COMMIT,
-            event_kind_str::MLS_COMMIT_FAILED,
             event_kind_str::MLS_GENESIS,
-            event_kind_str::MLS_KEYPACKAGE,
-            event_kind_str::MLS_PROPOSAL,
-            event_kind_str::MLS_WELCOME,
             event_kind_str::MODERATION_DECISION,
             event_kind_str::MODERATION_DECISION_LIFT,
             event_kind_str::MORPH_ARCHIVE,
@@ -2105,7 +1907,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_ALIAS,
             event_kind_str::REALM_ARCHIVE,
             event_kind_str::REALM_ASSET_PRIVACY_POLICY,
-            event_kind_str::REALM_DIGEST_SUITE_TRANSITION,
             event_kind_str::REALM_DISCOVERY,
             event_kind_str::REALM_FREEZE,
             event_kind_str::REALM_HISTORY_ACCESS,
@@ -2113,10 +1914,7 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_JOIN_RULE,
             event_kind_str::REALM_LINK,
             event_kind_str::REALM_MEDIA_SERVICE,
-            event_kind_str::REALM_NOTARY,
             event_kind_str::REALM_ORGANIZATION,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_REGISTER,
-            event_kind_str::REALM_ORGANIZATION_RECOVERY_KEY_ROTATE,
             event_kind_str::REALM_PLAINTEXT_VISIBLE_SERVICES,
             event_kind_str::REALM_POLICY,
             event_kind_str::REALM_POLICY_BUNDLE,
@@ -2128,7 +1926,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             event_kind_str::REALM_SEARCH_POLICY,
             event_kind_str::REALM_SET_DEFAULT_STRAND,
             event_kind_str::REALM_UNFREEZE,
-            event_kind_str::REALM_UPGRADE,
             event_kind_str::REDACTION,
             event_kind_str::RELATION_CREATE,
             event_kind_str::RELATION_RESOLVE,
@@ -2184,7 +1981,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.container.move_item",
             "ak.container.rebalance",
             "ak.event.read",
-            "ak.fork.resolution",
             "ak.invite.cancel",
             "ak.invite.claim",
             "ak.invite.create",
@@ -2198,9 +1994,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.message.revise.own",
             "ak.mls.commit",
             "ak.mls.genesis",
-            "ak.mls.keypackage",
-            "ak.mls.proposal",
-            "ak.mls.welcome",
             "ak.moderation.decision",
             "ak.moderation.decision.lift",
             "ak.morph.archive",
@@ -2236,7 +2029,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
             "ak.realm.preview_policy",
             "ak.realm.profile",
             "ak.realm.set_default_strand",
-            "ak.realm.upgrade",
             "ak.receipt.broadcast",
             "ak.relation.create",
             "ak.relation.resolve",
@@ -2270,7 +2062,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -2284,7 +2075,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2298,7 +2088,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2312,7 +2101,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2326,7 +2114,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2340,7 +2127,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.search.blind_index.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2354,7 +2140,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2368,21 +2153,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: true,
         subject_only: false,
-        reducer_only: false,
-        event_mapping_kind: "same_name",
-    },
-    CapabilityActionDescriptor {
-        action: CapabilityActionId::RealmUpgrade,
-        category: "management",
-        risk_tier: CapabilityRiskTier::High,
-        required_constraints: &[],
-        required_evaluator_checks: &[],
-        target_event_kinds: &[event_kind_str::REALM_UPGRADE],
-        grant_authority_actions: &[],
-        profile: None,
-        root_control_only: false,
-        subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2396,7 +2166,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2410,7 +2179,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2424,7 +2192,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2438,7 +2205,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2452,7 +2218,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2466,7 +2231,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.calendar_event.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2480,7 +2244,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2494,7 +2257,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2508,7 +2270,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2522,7 +2283,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
@@ -2536,7 +2296,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
@@ -2550,7 +2309,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -2564,7 +2322,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2578,7 +2335,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_provisioning.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
@@ -2595,7 +2351,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_participation_policy.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -2612,7 +2367,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: Some("ak.profile.agent_sidecar.v1"),
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "aggregate_admin",
     },
     CapabilityActionDescriptor {
@@ -2626,7 +2380,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2640,7 +2393,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2654,7 +2406,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2668,7 +2419,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2682,7 +2432,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2696,7 +2445,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2710,7 +2458,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2724,7 +2471,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2738,7 +2484,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2752,7 +2497,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2766,7 +2510,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2780,7 +2523,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2794,7 +2536,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2808,7 +2549,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2822,7 +2562,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2836,7 +2575,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2850,7 +2588,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2864,7 +2601,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2878,7 +2614,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -2892,7 +2627,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2906,7 +2640,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2920,7 +2653,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2934,7 +2666,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2948,7 +2679,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2962,7 +2692,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -2976,7 +2705,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "scope_suffix_variant",
     },
     CapabilityActionDescriptor {
@@ -2990,7 +2718,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "non_event_surface",
     },
     CapabilityActionDescriptor {
@@ -3004,7 +2731,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -3018,7 +2744,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
     CapabilityActionDescriptor {
@@ -3032,7 +2757,6 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         profile: None,
         root_control_only: false,
         subject_only: false,
-        reducer_only: false,
         event_mapping_kind: "same_name",
     },
 ];
@@ -3119,10 +2843,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/agent-sidecar-view-state.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::AGENT_SIGNER_EVIDENCE_V1,
-        file: "schemas/agent-signer-evidence.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::APPLET_V1,
         file: "schemas/applet.schema.json",
     },
@@ -3195,16 +2915,16 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/authenticated-signer-resolution-evidence.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AUTHORITY_COMMIT_OPERATIONS_V1,
+        file: "schemas/authority-commit-operations.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AUTHORITY_SET_POLICY_V1,
         file: "schemas/authority-set-policy.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::AUTHZ_OPERATIONS_V1,
         file: "schemas/authz-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::AVAILABILITY_RECEIPT_V1,
-        file: "schemas/availability-receipt.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::BACKUP_SERIES_ERASE_CONFIRMATION_V1,
@@ -3217,10 +2937,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::BLOB_OPERATIONS_V1,
         file: "schemas/blob-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::BOTTOM_V1,
-        file: "schemas/bottom.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CALENDAR_EVENT_V1,
@@ -3239,20 +2955,12 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/capability-grant.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CBS_PROOF_BUNDLE_V1,
-        file: "schemas/cbs-proof-bundle.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CIRCLE_V1,
         file: "schemas/circle.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CIRCLE_OPERATIONS_V1,
         file: "schemas/circle-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::COLLISION_VARIANT_RECORD_V1,
-        file: "schemas/collision-variant-record.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::COMMON_IDS_V1,
@@ -3279,22 +2987,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/content-block-poll.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::CONTROL_PROPOSAL_DECISION_V1,
-        file: "schemas/control-proposal-decision.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1,
-        file: "schemas/agent-signer-evidence.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_V1,
-        file: "schemas/agent-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::CURRENT_PRINCIPAL_OUTCOME_V1,
         file: "schemas/identity-resolution.schema.json",
     },
@@ -3305,6 +2997,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CURSOR_V1,
         file: "schemas/cursor.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::DETACHED_OBJECT_SIGNATURE_V1,
+        file: "schemas/detached-object-signature.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::DEVICE_MESSAGE_V1,
@@ -3391,14 +3087,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/file-transfer.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::GENESIS_NOTARY_OUTCOME_V1,
-        file: "schemas/genesis-notary-binding.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::GENESIS_NOTARY_REQUEST_V1,
-        file: "schemas/genesis-notary-binding.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::GRANT_CONSTRAINT_V1,
         file: "schemas/grant-constraint.schema.json",
     },
@@ -3417,10 +3105,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::HIGH_RISK_AUTHORITY_PROOF_V1,
         file: "schemas/high-risk-authority-proof.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::HISTORY_KEY_V1,
-        file: "schemas/history-key.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::HOLDER_QUARANTINE_V1,
@@ -3547,12 +3231,12 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/mimi-operations.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::MLS_GOVERNANCE_PROOF_BUNDLE_V1,
-        file: "schemas/mls-governance-proof-bundle.schema.json",
+        schema_id: SchemaId::MLS_COMMIT_SUBMISSION_V1,
+        file: "schemas/mls-commit-submission.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::MLS_WELCOME_REFS_V1,
-        file: "schemas/mls-welcome-refs.schema.json",
+        schema_id: SchemaId::MLS_WELCOME_DELIVERY_V1,
+        file: "schemas/mls-welcome-delivery.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::MODERATION_EVIDENCE_V1,
@@ -3583,20 +3267,8 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/object-addressing.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::OFFLINE_PUBLICATION_V1,
-        file: "schemas/offline-publication.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::PATCH_V1,
         file: "schemas/patch.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_OUTCOME_V1,
-        file: "schemas/current-signer-evidence-operations.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::PEER_CURRENT_SIGNER_EVIDENCE_QUERY_REQUEST_V1,
-        file: "schemas/current-signer-evidence-operations.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::PERSONAL_PRODUCTIVITY_V1,
@@ -3661,6 +3333,18 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_V1,
         file: "schemas/realm.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_AUTHORITY_BUNDLE_V1,
+        file: "schemas/realm-authority-bundle.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_AUTHORITY_HANDOFF_V1,
+        file: "schemas/realm-authority-handoff.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_COMMIT_V1,
+        file: "schemas/realm-commit.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_GENESIS_V1,
@@ -3739,10 +3423,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/realm-state-snapshot.schema.json",
     },
     SchemaDescriptor {
-        schema_id: SchemaId::REALM_STATE_SNAPSHOT_CHUNK_V1,
-        file: "schemas/realm-state-snapshot-chunk.schema.json",
-    },
-    SchemaDescriptor {
         schema_id: SchemaId::RECOVERY_COMPLETION_ATTESTATION_V1,
         file: "schemas/recovery-authority.schema.json",
     },
@@ -3779,20 +3459,16 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/resource-selector.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::RESULT_PROJECTION_V1,
+        file: "schemas/typed-current-result.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::RSVP_V1,
         file: "schemas/rsvp.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SDK_CONFORMANCE_CLAIM_V1,
         file: "schemas/sdk-conformance-claim.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SEAL_V1,
-        file: "schemas/seal.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::SEAL_CONCLUSION_V1,
-        file: "schemas/seal-conclusion.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::SEARCH_SERVICE_V1,

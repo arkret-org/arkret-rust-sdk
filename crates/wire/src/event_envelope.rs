@@ -29,26 +29,22 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_identifiers::{
-    AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, Hlc, RealmId, SealId, SidecarId,
+    AppletId, CircleId, Did, DidCoreId, EventId, GrantId, Hash, RealmId, SidecarId,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::cbs::{Precondition, SealBasis};
 use crate::error::{Result, WireError};
 use crate::events::kinds::EventKind;
 use crate::primitives::{
-    ActorId, Audience, CriticalExtension, ProducerEventProof, ProofBindingRequirements,
-    SignatureBindingPayload,
+    ActorId, Audience, ProducerEventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{
-    AuthorizationRef, Base64UrlString, DidUrl, FeatureRef, ProfileRef, SchemaId, canonical,
-};
+use crate::{AuthorizationRef, Base64UrlString, DidUrl, SchemaId, canonical};
 
 /// Full canonical Event Envelope bound, measured over the accepted envelope including every
-/// producer proof, excluding the read-view `unsigned`.
+/// producer proof.
 ///
 /// See `zh/conformance/scalability-constraints.md` section 2.1.1.
 pub const MAX_EVENT_ENVELOPE_BYTES: usize = 1024 * 1024;
@@ -61,19 +57,10 @@ pub const MAX_OPERATION_CANONICAL_BODY_BYTES: usize = 8 * 1024 * 1024;
 /// (`scalability-constraints.md` section 2.1.3).
 pub const MAX_HTTP_MESSAGE_CONTENT_BYTES: usize = 16 * 1024 * 1024;
 
-/// Bound on the service-added read-view `unsigned` object of a single Event
-/// (`scalability-constraints.md` section 2.1.1). Submit paths MUST reject `unsigned` outright.
-pub const MAX_READ_VIEW_UNSIGNED_CANONICAL_BYTES: usize = 16 * 1024;
-
 pub const MAX_EVENT_SUBMIT_BATCH: usize = 1_000;
 pub const MAX_EVENT_RESOLVE: usize = 100;
-pub const MAX_EVENT_PREV_REFS: usize = 128;
 pub const MAX_EVENT_REFS: usize = 128;
 pub const MAX_AUTHORIZED_BY_REFS: usize = 64;
-pub const MAX_ACTOR_SEQ_SIBLINGS: usize = 16;
-pub const MAX_ACTOR_SEQ_TOTAL_SIBLINGS: usize = 64;
-pub const MAX_AUTHORITY_CHAIN_DEPTH: usize = 4;
-pub const MAX_AUTHORITY_CONTROL_DEPTH: u32 = 4;
 
 pub const EVENT_REF_ROLE_AUTHORIZED_BY: &str = "authorized_by";
 
@@ -90,15 +77,6 @@ pub fn validate_event_submit_batch_count(count: usize) -> Result<()> {
     if count > MAX_EVENT_SUBMIT_BATCH {
         return Err(WireError::Protocol(format!(
             "event submit batch exceeds v1 maximum of {MAX_EVENT_SUBMIT_BATCH} events"
-        )));
-    }
-    Ok(())
-}
-
-pub fn validate_event_prev_ref_count(count: usize) -> Result<()> {
-    if count > MAX_EVENT_PREV_REFS {
-        return Err(WireError::Protocol(format!(
-            "prev_refs exceeds v1 maximum of {MAX_EVENT_PREV_REFS} entries"
         )));
     }
     Ok(())
@@ -122,90 +100,6 @@ pub fn validate_authorized_by_ref_count(count: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn prev_frontier_digest(prev_refs: &[EventId]) -> Result<String> {
-    let mut sorted = prev_refs.to_vec();
-    sorted.sort();
-    sorted.dedup();
-    Ok(canonical::canonical_sha256(&Value::Array(
-        sorted
-            .into_iter()
-            .map(|id| Value::String(id.into_string()))
-            .collect(),
-    ))?)
-}
-
-/// RFC 6962 inclusion proof for one leaf under a Seal-signed root.
-///
-/// `event-envelope.schema.json#/$defs/semantic_ref_merkle_proof`. The proof
-/// names which of the two Seal roots it resolves against and carries the
-/// leaf's canonical preimage, so a receiver that holds neither the Realm's
-/// accepted state nor a dependency read face can recompute the leaf digest and
-/// the root from the proof alone. That is the only shape available to an
-/// `invite-addressing.md` §7 step 4 receiver, whose authority-root branch
-/// `capabilities.md` §3.2 requires to run off this proof rather than off a
-/// replayed Control Move.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SemanticRefProof {
-    pub kind: SemanticRefProofKind,
-    pub root_field: SemanticRefProofRootField,
-    pub root_digest: Hash,
-    pub leaf_canonical_preimage_b64u: Base64UrlString,
-    pub leaf_digest: Hash,
-    pub audit_path: Vec<Hash>,
-    pub leaf_index: u64,
-    pub leaf_count: u64,
-}
-
-/// Maximum `audit_path` length (`semantic_ref_merkle_proof.audit_path.maxItems`).
-pub const MAX_SEMANTIC_REF_PROOF_AUDIT_PATH: usize = 64;
-
-impl SemanticRefProof {
-    /// Bounds and index/count coherence. Digest recomputation is the receiver's
-    /// step, not this one.
-    pub fn validate_structural(&self) -> Result<()> {
-        if self.audit_path.len() > MAX_SEMANTIC_REF_PROOF_AUDIT_PATH {
-            return Err(WireError::Protocol(format!(
-                "semantic ref proof audit_path exceeds {MAX_SEMANTIC_REF_PROOF_AUDIT_PATH} entries"
-            )));
-        }
-        if self.leaf_count == 0 {
-            return Err(WireError::Protocol(
-                "semantic ref proof leaf_count MUST be at least 1".to_owned(),
-            ));
-        }
-        if self.leaf_index >= self.leaf_count {
-            return Err(WireError::Protocol(
-                "semantic ref proof leaf_index MUST be inside leaf_count".to_owned(),
-            ));
-        }
-        if self.leaf_canonical_preimage_b64u.as_str().is_empty() {
-            return Err(WireError::Protocol(
-                "semantic ref proof requires a leaf preimage".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SemanticRefProofKind {
-    #[serde(rename = "rfc6962_merkle")]
-    Rfc6962Merkle,
-}
-
-/// The Seal-signed root a [`SemanticRefProof`] resolves against.
-///
-/// A proof that does not say which root it is under can be replayed from the
-/// covered-event tree into the governance state tree, so the field is part of
-/// the signed shape rather than context the receiver supplies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SemanticRefProofRootField {
-    StateRoot,
-    ControlEventSetRoot,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventRef {
@@ -213,8 +107,6 @@ pub struct EventRef {
     pub role: String,
     #[serde(default = "default_event_ref_critical")]
     pub critical: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub proof: Option<SemanticRefProof>,
 }
 
 impl EventRef {
@@ -223,7 +115,6 @@ impl EventRef {
             id: id.into(),
             role: role.into(),
             critical: true,
-            proof: None,
         }
     }
 
@@ -234,55 +125,6 @@ impl EventRef {
 
 fn default_event_ref_critical() -> bool {
     true
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EventRequirements {
-    #[serde(default, rename = "schema", skip_serializing_if = "Vec::is_empty")]
-    pub schema_profile_refs: Vec<ProfileRef>,
-    #[serde(default, rename = "features", skip_serializing_if = "Vec::is_empty")]
-    pub required_features: Vec<FeatureRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub critical_extensions: Vec<CriticalExtension>,
-}
-
-/// Signed immutable authority references for an ordinary Event.
-///
-/// `authority_refs` names already accepted safety decisions. It is immutable,
-/// sorted, and has no freshness lease. A receiver resolves and verifies those
-/// decisions independently; no origin callback or newly advanced Seal is part
-/// of ordinary admission. The unique producer proof separately binds the exact
-/// historical signer evidence; this object does not identify a signing key.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AuthContext {
-    pub authority_refs: Vec<SealId>,
-}
-
-impl AuthContext {
-    pub fn validate(&self) -> Result<()> {
-        if self.authority_refs.is_empty() || self.authority_refs.len() > 64 {
-            return Err(WireError::Protocol(
-                "auth_context.authority_refs must contain 1..=64 references".to_owned(),
-            ));
-        }
-        if !self.authority_refs.windows(2).all(|pair| pair[0] < pair[1]) {
-            return Err(WireError::Protocol(
-                "auth_context.authority_refs must be canonical sorted and unique".to_owned(),
-            ));
-        }
-        Ok(())
-    }
-}
-
-impl EventRequirements {
-    pub fn is_empty(&self) -> bool {
-        self.schema_profile_refs.is_empty()
-            && self.required_features.is_empty()
-            && self.critical_extensions.is_empty()
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -312,38 +154,18 @@ pub struct Event {
     pub applet_id: Option<AppletId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub external_ref: Option<BTreeMap<String, Value>>,
-    pub actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<Hlc>,
-    pub prev_refs: Vec<EventId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub refs: Vec<EventRef>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub causal_refs: Vec<Hash>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub preconditions: Vec<Precondition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub auth_context: Option<AuthContext>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub data_basis: Option<SealId>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
-    /// Reducer/client-local extension data that is not part of the signed
-    /// canonical Event Envelope transcript.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<ProducerEventProof>,
-    #[serde(default, skip_serializing_if = "EventRequirements::is_empty")]
-    pub requirements: EventRequirements,
 }
 
 /// Minimal accepted-Event facts needed by the registry effect projector.
 ///
-/// This is deliberately not an authorable Event and carries no proofs,
-/// requirements, or unsigned data. It preserves the accepted authorization
+/// This is deliberately not an authorable Event and carries no proofs. It
+/// preserves the accepted authorization
 /// reference needed by registry effects without fabricating a new signed
 /// [`Event`].
 #[derive(Clone, Debug, PartialEq)]
@@ -352,14 +174,10 @@ pub struct ProjectedEventInput {
     pub event_id: EventId,
     pub actor_id: ActorId,
     pub authorization_ref: Option<AuthorizationRef>,
-    pub actor_seq: u64,
     pub realm_id: RealmId,
     pub created_at: DateTime<Utc>,
     pub payload: BTreeMap<String, Value>,
     pub refs: Vec<EventRef>,
-    pub preconditions: Vec<Precondition>,
-    pub data_basis: Option<SealId>,
-    pub seal_basis: Option<SealBasis>,
 }
 
 impl From<&Event> for ProjectedEventInput {
@@ -369,14 +187,10 @@ impl From<&Event> for ProjectedEventInput {
             event_id: event.event_id.clone(),
             actor_id: event.actor_id.clone(),
             authorization_ref: event.authorization_ref.clone(),
-            actor_seq: event.actor_seq,
             realm_id: event.realm_id.clone(),
             created_at: event.created_at,
             payload: event.payload.clone(),
             refs: event.refs.clone(),
-            preconditions: event.preconditions.clone(),
-            data_basis: event.data_basis.clone(),
-            seal_basis: event.seal_basis.clone(),
         }
     }
 }
@@ -642,7 +456,6 @@ pub fn derive_genesis_realm_id(event_id: &EventId) -> RealmId {
 /// The excluded set and the reason each field is in it:
 ///
 /// * `proofs` — the signature cannot cover itself.
-/// * `unsigned` — receiver-local projection context, attached after signing.
 /// * `event_id` — §4.0 derives the id *from this digest*, so leaving it in would put a function of
 ///   the digest inside the digest's own input.
 ///
@@ -656,7 +469,6 @@ pub fn event_digest_preimage(envelope: &Value) -> Result<Value> {
     let mut map = map.clone();
     map.remove("event_id");
     map.remove("proofs");
-    map.remove("unsigned");
     Ok(Value::Object(map))
 }
 
@@ -687,30 +499,12 @@ struct EventSer<'a> {
     applet_id: &'a Option<AppletId>,
     #[serde(skip_serializing_if = "Option::is_none")]
     external_ref: &'a Option<BTreeMap<String, Value>>,
-    actor_seq: u64,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     created_at: DateTime<Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    hlc: &'a Option<Hlc>,
-    prev_refs: &'a Vec<EventId>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     refs: &'a Vec<EventRef>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    causal_refs: &'a Vec<Hash>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    preconditions: &'a Vec<Precondition>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    auth_context: &'a Option<AuthContext>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data_basis: &'a Option<SealId>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    seal_basis: &'a Option<SealBasis>,
     payload: &'a BTreeMap<String, Value>,
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    unsigned: &'a BTreeMap<String, Value>,
     proofs: &'a Vec<ProducerEventProof>,
-    #[serde(skip_serializing_if = "EventRequirements::is_empty")]
-    requirements: &'a EventRequirements,
 }
 
 impl<'a> From<&'a Event> for EventSer<'a> {
@@ -725,20 +519,10 @@ impl<'a> From<&'a Event> for EventSer<'a> {
             authorization_ref: &event.authorization_ref,
             applet_id: &event.applet_id,
             external_ref: &event.external_ref,
-            actor_seq: event.actor_seq,
             created_at: event.created_at,
-            hlc: &event.hlc,
-            prev_refs: &event.prev_refs,
             refs: &event.refs,
-            causal_refs: &event.causal_refs,
-            preconditions: &event.preconditions,
-            auth_context: &event.auth_context,
-            data_basis: &event.data_basis,
-            seal_basis: &event.seal_basis,
             payload: &event.payload,
-            unsigned: &event.unsigned,
             proofs: &event.proofs,
-            requirements: &event.requirements,
         }
     }
 }
@@ -770,30 +554,12 @@ struct EventWire {
     pub applet_id: Option<AppletId>,
     #[serde(default)]
     pub external_ref: Option<BTreeMap<String, Value>>,
-    pub actor_seq: u64,
     #[serde(deserialize_with = "crate::serde_helpers::deserialize_canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default)]
-    pub hlc: Option<Hlc>,
-    pub prev_refs: Vec<EventId>,
-    #[serde(default)]
     pub refs: Option<Vec<EventRef>>,
-    #[serde(default)]
-    pub causal_refs: Option<Vec<Hash>>,
-    #[serde(default)]
-    pub preconditions: Vec<Precondition>,
-    #[serde(default)]
-    pub auth_context: Option<AuthContext>,
-    #[serde(default)]
-    pub data_basis: Option<SealId>,
-    #[serde(default)]
-    pub seal_basis: Option<SealBasis>,
     pub payload: BTreeMap<String, Value>,
-    #[serde(default)]
-    pub unsigned: BTreeMap<String, Value>,
     pub proofs: Vec<ProducerEventProof>,
-    #[serde(default)]
-    pub requirements: EventRequirements,
 }
 
 impl TryFrom<EventWire> for Event {
@@ -807,13 +573,6 @@ impl TryFrom<EventWire> for Event {
                 return Err("refs must be omitted when empty".to_owned());
             }
             Some(refs) => refs,
-        };
-        let causal_refs = match wire.causal_refs {
-            None => Vec::new(),
-            Some(causal_refs) if causal_refs.is_empty() => {
-                return Err("causal_refs must be omitted when empty".to_owned());
-            }
-            Some(causal_refs) => causal_refs,
         };
         // zh/models/realm-and-space.md section 2.5.0: the genesis envelope
         // omits realm_id and receivers derive it from the Event's own id.
@@ -843,31 +602,11 @@ impl TryFrom<EventWire> for Event {
             authorization_ref: wire.authorization_ref,
             applet_id: wire.applet_id,
             external_ref: wire.external_ref,
-            actor_seq: wire.actor_seq,
             created_at: wire.created_at,
-            hlc: wire.hlc,
-            prev_refs: wire.prev_refs,
             refs,
-            causal_refs,
-            preconditions: wire.preconditions,
-            auth_context: wire.auth_context,
-            data_basis: wire.data_basis,
-            seal_basis: wire.seal_basis,
             payload: wire.payload,
-            unsigned: wire.unsigned,
             proofs: wire.proofs,
-            requirements: wire.requirements,
         };
-        if event.causal_refs.len() > 128
-            || event.causal_refs.iter().collect::<BTreeSet<_>>().len() != event.causal_refs.len()
-        {
-            return Err("causal_refs must contain at most 128 unique hashes".to_owned());
-        }
-        if let Some(basis) = &event.seal_basis {
-            basis
-                .validate_protocol_bounds()
-                .map_err(|error| error.to_string())?;
-        }
         event.validate_applet_provenance_invariants()?;
         Ok(event)
     }
@@ -957,23 +696,6 @@ impl ScopeRef {
         ))
     }
 
-    /// The scope's own id, as selected by the registered composite
-    /// `cell_subject` of the MLS component cells.
-    ///
-    /// `event-kind-registry.json` selects on `effective_scope.kind` and takes
-    /// `realm_id` / `circle_id` / `sidecar_id` respectively - never the parent
-    /// Realm id of a Circle or Sidecar. `RealmGenesis` has no MLS scope.
-    pub fn cell_subject_scope_id(&self) -> Result<&str> {
-        match self {
-            Self::RealmGenesis => Err(WireError::Protocol(
-                "RealmGenesis has no executable MLS security scope".to_owned(),
-            )),
-            Self::Realm { realm_id } => Ok(realm_id.as_str()),
-            Self::Circle { circle_id, .. } => Ok(circle_id.as_str()),
-            Self::Sidecar { sidecar_id, .. } => Ok(sidecar_id.as_str()),
-        }
-    }
-
     /// The parent Realm of this scope when the scope names one.
     ///
     /// `RealmGenesis` returns `None`: the Realm id is receiver-derived, not
@@ -1010,84 +732,6 @@ impl ScopeRef {
         match self {
             Self::Sidecar { sidecar_id, .. } => Some(sidecar_id),
             Self::RealmGenesis | Self::Realm { .. } | Self::Circle { .. } => None,
-        }
-    }
-}
-
-/// Counterpart for
-/// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/history_effective_scope`.
-///
-/// The closed subset of [`ScopeRef`] admitted by the private history-key
-/// request/response, history-only backup and organization-recovery archive
-/// contracts. `RealmGenesis` has no executable MLS scope and Sidecar is
-/// deliberately excluded: its profile fixes `mls_rfc9420` and defines neither
-/// `history_access` nor a deliverable history secret.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum HistoryEffectiveScope {
-    Realm {
-        realm_id: RealmId,
-    },
-    Circle {
-        realm_id: RealmId,
-        circle_id: CircleId,
-    },
-}
-
-impl HistoryEffectiveScope {
-    /// The parent Realm of this scope.
-    pub fn realm_id(&self) -> &RealmId {
-        match self {
-            Self::Realm { realm_id } | Self::Circle { realm_id, .. } => realm_id,
-        }
-    }
-
-    /// The Circle id when this scope is a Circle, otherwise `None`.
-    pub fn circle_id(&self) -> Option<&CircleId> {
-        match self {
-            Self::Realm { .. } => None,
-            Self::Circle { circle_id, .. } => Some(circle_id),
-        }
-    }
-
-    /// Deterministic MLS `group_id` for this effective security scope.
-    pub fn canonical_mls_group_id(&self) -> Result<String> {
-        ScopeRef::from(self.clone()).canonical_mls_group_id()
-    }
-}
-
-impl From<HistoryEffectiveScope> for ScopeRef {
-    fn from(scope: HistoryEffectiveScope) -> Self {
-        match scope {
-            HistoryEffectiveScope::Realm { realm_id } => Self::Realm { realm_id },
-            HistoryEffectiveScope::Circle {
-                realm_id,
-                circle_id,
-            } => Self::Circle {
-                realm_id,
-                circle_id,
-            },
-        }
-    }
-}
-
-impl TryFrom<ScopeRef> for HistoryEffectiveScope {
-    type Error = WireError;
-
-    fn try_from(scope: ScopeRef) -> Result<Self> {
-        match scope {
-            ScopeRef::Realm { realm_id } => Ok(Self::Realm { realm_id }),
-            ScopeRef::Circle {
-                realm_id,
-                circle_id,
-            } => Ok(Self::Circle {
-                realm_id,
-                circle_id,
-            }),
-            ScopeRef::RealmGenesis | ScopeRef::Sidecar { .. } => Err(WireError::Protocol(
-                "scope is not an admitted history effective scope".to_owned(),
-            )),
         }
     }
 }
@@ -1143,36 +787,6 @@ mod scope_mls_group_id_tests {
     }
 }
 
-/// CBS context a structural submit check runs under.
-///
-/// `Standard` is the fail-closed default: every reducer-input Event must be an
-/// ordinary Event or a Control Move. `RealmBootstrap` admits the closed,
-/// basis-free ordinary Realm bootstrap while retaining the normal portable
-/// signer-evidence requirement. `AnchorUnit` is reserved for the two native
-/// signer-material units whose proofs deliberately omit that evidence.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum EventSubmitContext {
-    #[default]
-    Standard,
-    RealmBootstrap,
-    AnchorUnit,
-}
-
-impl EventSubmitContext {
-    /// Whether this context admits reducer Events without `auth_context` or
-    /// `seal_basis` after the caller has validated the complete closed unit.
-    pub const fn is_basis_free_unit(self) -> bool {
-        !matches!(self, Self::Standard)
-    }
-}
-
-#[derive(Clone, Copy)]
-enum SignerMaterialSource {
-    Referenced,
-    NativeUnit,
-    ContactProjection,
-}
-
 /// A canonical-shaped `event_id` that stands in while the real one is being
 /// derived. It never enters a digest preimage, so its value is arbitrary — it
 /// only has to parse.
@@ -1186,7 +800,7 @@ impl Event {
         Ok(canonical::from_canonical_json_slice(bytes)?)
     }
 
-    /// Reconstruct the unsigned Event represented by canonical digest-payload
+    /// Reconstruct the Event represented by canonical digest-payload
     /// bytes returned by a protocol prepare operation.
     ///
     /// Prepare drafts intentionally omit fields outside the producer-signed
@@ -1201,7 +815,7 @@ impl Event {
         let object = value.as_object_mut().ok_or_else(|| {
             WireError::Protocol("Event digest payload must be a JSON object".to_owned())
         })?;
-        for forbidden in ["event_id", "proofs", "unsigned"] {
+        for forbidden in ["event_id", "proofs"] {
             if object.contains_key(forbidden) {
                 return Err(WireError::Protocol(format!(
                     "Event digest payload must omit {forbidden}"
@@ -1234,11 +848,9 @@ impl Event {
 
     /// Refresh the content-bound Event id after authoring has finished.
     ///
-    /// Producers commonly have to attach actor-chain, HLC, CBS and requirement
-    /// fields after constructing the initial typed payload. All of those fields
-    /// are in the Event digest preimage, so the id must be derived only after
-    /// they are final. A Realm genesis additionally keeps its in-memory derived
-    /// Realm id in sync with the refreshed Event id.
+    /// Producers call this after the closed business payload and optional
+    /// semantic references are final. Authority ordering is not part of an
+    /// Event and is assigned later by the current governance Station.
     /// Refresh the content-bound identity under the trusted Realm digest suite.
     pub fn refresh_content_bound_identity_with_digest_suite(
         &mut self,
@@ -1318,7 +930,7 @@ impl Event {
     ///
     /// Covers every wire-level check that does not need a schema registry:
     /// applet provenance invariants, proof
-    /// presence, critical-extension fail-closed flags, and CBS field shape.
+    /// presence and scope/provenance invariants.
     /// It deliberately does NOT run event-payload schema validation — the
     /// submit gate for callers is `arkret_schema::validate_event_for_submit`,
     /// which layers registry-backed schema validation on top of this check.
@@ -1326,75 +938,34 @@ impl Event {
     /// deserialization path) is what prevents an arkret-schema dependency
     /// cycle; do not reintroduce it here.
     pub fn validate_for_submit_structural(&self) -> Result<()> {
-        self.validate_for_submit_structural_in_context(EventSubmitContext::Standard)
+        self.validate_structural()
     }
 
-    /// Validate a retained direct-regime Event that has no Station
-    /// admission proof. Its sole producer proof must carry the matching
-    /// content-addressed historical signer-resolution evidence locator.
+    /// Validate a retained Event using the same producer-proof shape as a new
+    /// submission. Historical signer resolution is attested by RealmCommit.
     pub fn validate_for_direct_history_structural(&self) -> Result<()> {
-        self.validate_for_direct_history_structural_in_context(EventSubmitContext::Standard)
-    }
-
-    pub fn validate_for_direct_history_structural_in_context(
-        &self,
-        context: EventSubmitContext,
-    ) -> Result<()> {
-        self.validate_structural_in_context(context)?;
-        let [producer] = self.proofs.as_slice() else {
-            unreachable!("producer proof set was validated above")
-        };
-        match context {
-            EventSubmitContext::Standard | EventSubmitContext::RealmBootstrap => {
-                producer.validate_direct_signer_resolution_evidence()
-            }
-            EventSubmitContext::AnchorUnit => Ok(()),
-        }
-    }
-
-    /// [`Event::validate_for_submit_structural`] under an explicit CBS context.
-    ///
-    /// Use [`EventSubmitContext::RealmBootstrap`] only after validating the
-    /// complete ordinary `ak.realm.create` bootstrap and its closed follow-up
-    /// whitelist. Use [`EventSubmitContext::AnchorUnit`] only for the two
-    /// native signer-material units: human PCR genesis and the B-model
-    /// `ak.device.reanchor` + replacement-authorize recovery unit.
-    ///
-    /// Deciding whether an Event *is* one of those needs the closed kind
-    /// whitelist, which lives in the registry; this crate does not hold it by
-    /// layering. So the context is a claim by the caller, and the caller owes
-    /// the whitelist check — `arkret_policy::validate_realm_bootstrap_unit` is
-    /// the one that owns it for the ordinary Realm branch. Passing
-    /// `AnchorUnit` for anything else opens a hole this crate cannot see.
-    pub fn validate_for_submit_structural_in_context(
-        &self,
-        context: EventSubmitContext,
-    ) -> Result<()> {
-        self.validate_structural_in_context(context)
+        self.validate_structural()
     }
 
     /// Validate the wire-level shape of a federated Event.
     ///
     /// Federation preserves the same sole producer proof. Receiver-local
     /// admission receipts are transport state and never mutate Event bytes.
-    pub fn validate_for_federation_structural_in_context(
+    pub fn validate_for_federation_structural(
         &self,
-        context: EventSubmitContext,
         digest_suite: arkret_canonical::DigestSuite,
     ) -> Result<()> {
-        self.validate_structural_in_context(context)?;
+        self.validate_structural()?;
         self.validate_proof_bindings_with_digest_suite(digest_suite)
     }
 
     /// Shape of an already-accepted Event carried as evidence rather than as a
     /// submission, without the admission-binding digest step.
     ///
-    /// `cbs-profiles.md` §5 fixes the receiver's order as «structure, Realm,
-    /// count and canonical order → object id/digest/signature → ...», so the
     /// The container-level pass owns the exact single producer-proof shape;
     /// recomputing its binding digest belongs to the next verification step.
     pub fn validate_for_accepted_structural(&self) -> Result<()> {
-        self.validate_structural_in_context(EventSubmitContext::Standard)
+        self.validate_structural()
     }
 
     /// Validate an original Event carried by one of the five Contact source
@@ -1402,42 +973,22 @@ impl Event {
     /// the source projection and must independently verify the producer JWS with
     /// its exact projected key. It grants no generic Event admission exception.
     pub fn validate_for_contact_history_structural(&self) -> Result<()> {
-        self.validate_structural_with_signer_material(
-            EventSubmitContext::Standard,
-            SignerMaterialSource::ContactProjection,
-        )
-    }
-
-    fn validate_structural_in_context(&self, context: EventSubmitContext) -> Result<()> {
-        let source = match context {
-            EventSubmitContext::Standard | EventSubmitContext::RealmBootstrap => {
-                SignerMaterialSource::Referenced
-            }
-            EventSubmitContext::AnchorUnit => SignerMaterialSource::NativeUnit,
-        };
-        self.validate_structural_with_signer_material(context, source)
-    }
-
-    fn validate_structural_with_signer_material(
-        &self,
-        context: EventSubmitContext,
-        signer_source: SignerMaterialSource,
-    ) -> Result<()> {
-        if matches!(signer_source, SignerMaterialSource::ContactProjection)
-            && (!matches!(
-                self.kind,
-                EventKind::ContactRequested
-                    | EventKind::ContactAccepted
-                    | EventKind::ContactRejected
-                    | EventKind::ContactScopeUpdate
-                    | EventKind::ContactTombstone
-            ) || self.seal_basis.is_none()
-                || self.auth_context.is_some()
-                || !self.unsigned.is_empty())
-        {
-            return Err(WireError::Protocol("Contact source projection requires an original Contact Control Event with normal seal_basis".into()));
+        if !matches!(
+            self.kind,
+            EventKind::ContactRequested
+                | EventKind::ContactAccepted
+                | EventKind::ContactRejected
+                | EventKind::ContactScopeUpdate
+                | EventKind::ContactTombstone
+        ) {
+            return Err(WireError::Protocol(
+                "Contact source projection requires an original Contact Event".into(),
+            ));
         }
+        self.validate_structural()
+    }
 
+    fn validate_structural(&self) -> Result<()> {
         // zh/models/realm-and-space.md section 2.5.0: the genesis scope carries
         // no realm_id, so the equality check applies to every other kind and
         // the genesis branch instead pins the closed scope shape.
@@ -1452,11 +1003,7 @@ impl Event {
                 "event scope_ref.realm_id must equal the envelope realm_id".to_owned(),
             ));
         }
-        for reference in &self.refs {
-            if let Some(proof) = &reference.proof {
-                proof.validate_structural()?;
-            }
-        }
+        validate_event_ref_count(self.refs.len())?;
         self.validate_applet_provenance_invariants()
             .map_err(WireError::Protocol)?;
         let [producer] = self.proofs.as_slice() else {
@@ -1464,65 +1011,7 @@ impl Event {
                 "Event must carry exactly one producer proof".to_owned(),
             ));
         };
-        match signer_source {
-            SignerMaterialSource::Referenced => {
-                producer.validate_signer_resolution_evidence_ref()?
-            }
-            SignerMaterialSource::NativeUnit => producer.validate_unit_local_signer_resolution()?,
-            SignerMaterialSource::ContactProjection => {
-                if producer.signer_resolution_evidence_ref.is_some() {
-                    producer.validate_signer_resolution_evidence_ref()?;
-                } else {
-                    producer.validate_unit_local_signer_resolution()?;
-                }
-            }
-        }
-        if let Some(auth_context) = &self.auth_context {
-            auth_context.validate()?;
-        }
-        if self
-            .requirements
-            .critical_extensions
-            .iter()
-            .any(|extension| !extension.fail_closed)
-        {
-            return Err(WireError::Protocol(
-                "event critical extensions must declare fail_closed=true".to_owned(),
-            ));
-        }
-        if let Some(basis) = &self.seal_basis {
-            basis.validate_protocol_bounds()?;
-        }
-        if self.kind.is_reducer_input() {
-            let is_ordinary_event = self.auth_context.is_some() && self.seal_basis.is_none();
-            let is_control_move = self.auth_context.is_none() && self.seal_basis.is_some();
-            // The §5 anchor units carry no basis field at all: bootstrap has no
-            // accepted Seal to point at, and the B-model re-anchor fixes its
-            // frontier in the payload's `pre_fence_seal_frontier`. A bootstrap Event
-            // may still carry a precondition, which is evaluated against the
-            // unit's empty frozen predecessor state; only the three mutually
-            // exclusive CBS basis fields participate in this shape test.
-            let is_anchor_unit = context.is_basis_free_unit()
-                && self.auth_context.is_none()
-                && self.seal_basis.is_none();
-            // This leaf layer validates only the mutually exclusive envelope
-            // shape. Schema admission derives the actual execution plane from
-            // registered payload predicates; a kind can select data, security
-            // or both. Structural validity alone grants no execution lane.
-            if !is_ordinary_event && !is_control_move && !is_anchor_unit {
-                return Err(WireError::Protocol(format!(
-                    "reducer Event {} requires exactly one auth_context or seal_basis, except in an explicit anchor unit",
-                    self.kind
-                )));
-            }
-        } else if self.auth_context.is_some()
-            || self.seal_basis.is_some()
-            || !self.preconditions.is_empty()
-        {
-            return Err(WireError::Protocol(
-                "non-reducer events must not carry CBS reducer fields".to_owned(),
-            ));
-        }
+        producer.validate()?;
         Ok(())
     }
 
@@ -1595,19 +1084,9 @@ impl Event {
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
     ) -> Result<Self> {
-        Self::new_at(
-            kind,
-            scope_ref,
-            actor_id,
-            actor_seq,
-            hlc,
-            payload,
-            Utc::now(),
-        )
+        Self::new_at(kind, scope_ref, actor_id, payload, Utc::now())
     }
 
     /// Construct an Event at a caller-supplied instant.
@@ -1617,19 +1096,14 @@ impl Event {
     /// is the deterministic authoring entry point for callers that need an
     /// object timestamp and its containing Event to share one exact instant.
     #[cfg(any(test, feature = "test-support"))]
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
-        Self::new_with_derived_id_at(
-            kind, scope_ref, actor_id, actor_seq, hlc, payload, created_at,
-        )
+        Self::new_with_derived_id_at(kind, scope_ref, actor_id, payload, created_at)
     }
 
     /// Construct an Event whose `event_id` is derived from its own content.
@@ -1638,14 +1112,11 @@ impl Event {
     /// not a caller choice (`encoding.md` §4.0). It builds the envelope with a
     /// placeholder id, computes the digest over the preimage — which excludes
     /// `event_id` — and then stamps the derived id.
-    #[allow(clippy::too_many_arguments)]
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn new_with_derived_id_at(
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
@@ -1653,16 +1124,8 @@ impl Event {
         // works here; it is overwritten before the Event is observable.
         let placeholder = EventId::new(PLACEHOLDER_EVENT_ID)
             .expect("placeholder id is a canonical content-bound shape");
-        let mut event = Self::new_unstamped_at(
-            placeholder,
-            kind,
-            scope_ref,
-            actor_id,
-            actor_seq,
-            hlc,
-            payload,
-            created_at,
-        )?;
+        let mut event =
+            Self::new_unstamped_at(placeholder, kind, scope_ref, actor_id, payload, created_at)?;
         event.event_id =
             event.derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)?;
         // A genesis scope names no Realm, so `realm_id` was computed from the
@@ -1675,15 +1138,12 @@ impl Event {
 
     /// Internal first pass used only while deriving the content-bound id.
     /// No public API may expose an Event with this placeholder identity.
-    #[allow(clippy::too_many_arguments)]
     #[cfg(any(test, feature = "test-support"))]
     fn new_unstamped_at(
         event_id: EventId,
         kind: impl Into<String>,
         scope_ref: ScopeRef,
         actor_id: ActorId,
-        actor_seq: u64,
-        hlc: Hlc,
         payload: Value,
         created_at: DateTime<Utc>,
     ) -> Result<Self> {
@@ -1704,23 +1164,13 @@ impl Event {
             realm_id,
             scope_ref,
             actor_id,
-            actor_seq,
             created_at: canonical::normalize_timestamp_canonical(created_at),
-            hlc: Some(hlc),
-            prev_refs: Vec::new(),
             refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            auth_context: None,
-            data_basis: None,
-            seal_basis: None,
-            requirements: EventRequirements::default(),
             payload: payload.into_iter().collect(),
             executed_by: None,
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            unsigned: BTreeMap::new(),
             proofs: Vec::new(),
         })
     }
@@ -1728,7 +1178,8 @@ impl Event {
 
 #[cfg(test)]
 mod event_wire_surface_tests {
-    //! Guard the Event Envelope wire surface against removed non-spec fields.
+    //! Guard the compact producer Event surface. Authority ordering lives in
+    //! `RealmCommit`, independently for Realm, Circle and Sidecar streams.
 
     use serde_json::json;
 
@@ -1753,53 +1204,11 @@ mod event_wire_surface_tests {
         ))
     }
 
-    fn base_event() -> Event {
-        let seed_event = EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0xa0; 32]);
-        let strand_id = arkret_identifiers::StrandId::from_event_id(&seed_event);
-        Event {
-            event_id: seed_event,
-            kind: "ak.message.create".into(),
-            realm_id: realm(),
-            scope_ref: realm_scope(),
-            actor_id: alice(),
-            actor_seq: 1,
-            created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
-            prev_refs: Vec::new(),
-            refs: Vec::new(),
-            causal_refs: Vec::new(),
-            preconditions: Vec::new(),
-            auth_context: None,
-            data_basis: None,
-            seal_basis: None,
-            requirements: EventRequirements::default(),
-            payload: serde_json::from_value(json!({
-                "strand_id": strand_id,
-                "track_name": "discussion",
-                "content": {"kind": "ak.content.text", "body": "hello"}
-            }))
-            .unwrap(),
-            executed_by: None,
-            authorization_ref: None,
-            applet_id: None,
-            external_ref: None,
-            unsigned: BTreeMap::new(),
-            proofs: Vec::new(),
-        }
-    }
-
     fn producer_proof() -> ProducerEventProof {
         ProducerEventProof {
             kind: "detached_jws".to_owned(),
             verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
             event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: Some(
-                crate::SignerEvidenceRef::new(format!(
-                    "ak:signer_evidence:sha256:{}",
-                    "1".repeat(64)
-                ))
-                .unwrap(),
-            ),
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
             domain: None,
             audience: None,
@@ -1808,15 +1217,20 @@ mod event_wire_surface_tests {
         }
     }
 
+    fn base_event() -> Event {
+        Event::new_at(
+            "ak.message.create",
+            realm_scope(),
+            alice(),
+            json!({"body": "hello"}),
+            "2026-04-26T00:00:00.000Z".parse().unwrap(),
+        )
+        .unwrap()
+    }
+
     #[test]
-    fn prepared_digest_payload_reconstructs_only_the_unsigned_event() {
-        // The round-trip is only total for an Event that carries its own
-        // derived id — which every wire Event must (section 4.0). Stamp it, so
-        // the fixture is a legal Event rather than one with a made-up id.
-        let mut event = base_event();
-        event.event_id = event
-            .derive_event_id_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
+    fn digest_payload_round_trips_without_proofs() {
+        let event = base_event();
         let bytes = canonical::canonical_json_bytes(&event.digest_payload().unwrap()).unwrap();
         let reconstructed =
             Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256)
@@ -1824,88 +1238,36 @@ mod event_wire_surface_tests {
 
         assert_eq!(reconstructed, event);
         assert!(reconstructed.proofs.is_empty());
-        assert!(reconstructed.unsigned.is_empty());
     }
 
     #[test]
-    fn prepared_digest_payload_rejects_out_of_transcript_fields_and_noncanonical_json() {
+    fn digest_payload_rejects_proofs_and_noncanonical_json() {
         let mut with_proofs = base_event().digest_payload().unwrap();
         with_proofs["proofs"] = json!([]);
         let bytes = canonical::canonical_json_bytes(&with_proofs).unwrap();
         assert!(
-            Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256,)
+            Event::from_digest_payload_bytes(&bytes, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
         );
 
         let canonical =
             canonical::canonical_json_bytes(&base_event().digest_payload().unwrap()).unwrap();
-        let mut spaced = Vec::with_capacity(canonical.len() + 1);
-        spaced.extend_from_slice(b" ");
+        let mut spaced = b" ".to_vec();
         spaced.extend_from_slice(&canonical);
         assert!(
-            Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256,)
+            Event::from_digest_payload_bytes(&spaced, arkret_canonical::DigestSuite::Sha256)
                 .is_err()
         );
     }
 
     #[test]
-    fn event_new_serializes_created_at_in_canonical_utc_millisecond_form() {
-        let mut event = Event::new(
-            "ak.message.create",
-            realm_scope(),
-            alice(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            json!({"body": "hello"}),
-        )
-        .unwrap();
-        let whole_second = "2026-06-03T12:34:56.000Z".parse().unwrap();
-        event.created_at = whole_second;
-        event.proofs.push(ProducerEventProof {
-            kind: "detached_jws".to_owned(),
-            verification_method: DidUrl::new("did:webvh:z6mkfixture:alice.example#key-1").unwrap(),
-            event_digest: Hash::new(format!("sha256:{}", "a".repeat(64))).unwrap(),
-            signer_resolution_evidence_ref: Some(
-                crate::SignerEvidenceRef::new(format!(
-                    "ak:signer_evidence:sha256:{}",
-                    "2".repeat(64)
-                ))
-                .unwrap(),
-            ),
-            created_at: whole_second,
-            domain: None,
-            audience: None,
-            proof_purpose: None,
-            jws: "a..b".to_owned(),
-        });
-        let value = serde_json::to_value(&event).unwrap();
-        let created_at = value["created_at"].as_str().unwrap();
-
-        assert_eq!(created_at, "2026-06-03T12:34:56.000Z");
-        assert_eq!(value["proofs"][0]["created_at"], created_at);
-        canonical::validate_timestamp_canonical(created_at).unwrap();
-        serde_json::from_value::<Event>(value.clone()).unwrap();
-
-        let mut seconds = value.clone();
-        seconds["created_at"] = json!("2026-06-03T12:34:56Z");
-        assert!(serde_json::from_value::<Event>(seconds).is_err());
-
-        let mut micros = value;
-        micros["proofs"][0]["created_at"] = json!("2026-06-03T12:34:56.000123Z");
-        assert!(serde_json::from_value::<Event>(micros).is_err());
-    }
-
-    #[test]
-    fn event_new_at_normalizes_the_supplied_instant_before_serialization() {
-        let created_at = "2026-06-03T12:34:56.987654Z".parse().unwrap();
+    fn event_new_at_normalizes_and_binds_the_timestamp() {
         let event = Event::new_at(
             "ak.message.create",
             realm_scope(),
             alice(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
             json!({"body": "hello"}),
-            created_at,
+            "2026-06-03T12:34:56.987654Z".parse().unwrap(),
         )
         .unwrap();
 
@@ -1913,69 +1275,70 @@ mod event_wire_surface_tests {
             event.created_at,
             "2026-06-03T12:34:56.987Z".parse::<DateTime<Utc>>().unwrap()
         );
-        assert_eq!(
-            serde_json::to_value(event).unwrap()["created_at"],
-            json!("2026-06-03T12:34:56.987Z")
-        );
-    }
-
-    #[test]
-    fn event_new_at_derives_and_verifies_the_identifier() {
-        let event = Event::new_at(
-            "ak.message.create",
-            realm_scope(),
-            alice(),
-            1,
-            Hlc::new("01970e589d21-0004-a13f9c2e").unwrap(),
-            json!({"body": "hello"}),
-            "2026-06-03T12:34:56.000Z".parse().unwrap(),
-        )
-        .unwrap();
-
         event
             .verify_event_id_matches_content_with_digest_suite(
                 arkret_canonical::DigestSuite::Sha256,
             )
             .unwrap();
-        assert_eq!(
-            serde_json::to_value(event).unwrap()["created_at"],
-            json!("2026-06-03T12:34:56.000Z")
+    }
+
+    #[test]
+    fn refs_are_optional_but_explicit_empty_is_rejected() {
+        let value = serde_json::to_value(base_event()).unwrap();
+        assert!(value.get("refs").is_none());
+
+        let mut invalid = value;
+        invalid["refs"] = json!([]);
+        let err = serde_json::from_value::<Event>(invalid).unwrap_err();
+        assert!(
+            err.to_string().contains("must be omitted when empty"),
+            "{err}"
         );
     }
 
     #[test]
-    fn event_ingress_enforces_causal_ref_uniqueness_and_bound() {
-        let mut duplicate = serde_json::to_value(base_event()).unwrap();
-        let digest = format!("sha256:{}", "a".repeat(64));
-        duplicate["causal_refs"] = json!([digest.clone(), digest]);
-        let error = serde_json::from_value::<Event>(duplicate).unwrap_err();
-        assert!(error.to_string().contains("causal_refs"), "{error}");
-
-        let refs = (0_u64..=128)
-            .map(|index| format!("sha256:{index:064x}"))
-            .collect::<Vec<_>>();
-        let mut at_limit = serde_json::to_value(base_event()).unwrap();
-        at_limit["causal_refs"] = json!(refs[..128]);
-        serde_json::from_value::<Event>(at_limit).unwrap();
-
-        let mut over_limit = serde_json::to_value(base_event()).unwrap();
-        over_limit["causal_refs"] = json!(refs);
-        let error = serde_json::from_value::<Event>(over_limit).unwrap_err();
-        assert!(error.to_string().contains("causal_refs"), "{error}");
-    }
-
-    #[test]
-    fn event_serialization_omits_applet_surface_when_absent() {
+    fn signed_scope_ref_is_covered_and_must_match_the_realm() {
         let event = base_event();
-        let serialized = serde_json::to_value(&event).unwrap();
-        assert!(serialized.get("applet_id").is_none());
-        assert!(serialized.get("external_ref").is_none());
+        let baseline = event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap();
+        let mut rescoped = event;
+        rescoped.scope_ref = ScopeRef::Circle {
+            realm_id: realm(),
+            circle_id: CircleId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0x1c; 32],
+            )),
+        };
+        assert_ne!(
+            baseline,
+            rescoped
+                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .unwrap()
+        );
+
+        rescoped.scope_ref = ScopeRef::Realm {
+            realm_id: RealmId::from_event_id(&EventId::from_digest(
+                arkret_canonical::DigestSuite::Sha256,
+                [0xff; 32],
+            )),
+        };
+        let err = rescoped.validate_for_submit_structural().unwrap_err();
+        assert!(err.to_string().contains("scope_ref.realm_id"), "{err}");
     }
 
     #[test]
-    fn event_accepts_top_level_applet_provenance_and_round_trips() {
-        // Applet-originated write: applet_id + external_ref, with the
-        // authorization_ref the schema invariant requires.
+    fn structural_validation_requires_exactly_one_producer_proof() {
+        let mut event = base_event();
+        assert!(event.validate_for_submit_structural().is_err());
+        event.proofs.push(producer_proof());
+        event.validate_for_submit_structural().unwrap();
+        event.proofs.push(producer_proof());
+        assert!(event.validate_for_submit_structural().is_err());
+    }
+
+    #[test]
+    fn applet_provenance_round_trips_and_is_digest_bound() {
         let mut event = base_event();
         event.applet_id =
             Some(AppletId::new("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb").unwrap());
@@ -1986,246 +1349,18 @@ mod event_wire_surface_tests {
             ("protocol".to_owned(), json!("slack")),
             ("external_id".to_owned(), json!("1234567890.0001")),
         ]));
-
         let value = serde_json::to_value(&event).unwrap();
-        // Both fields serialize at the top level (so they enter canonical bytes).
-        assert_eq!(
-            value.get("applet_id").and_then(Value::as_str),
-            Some("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb")
-        );
-        assert!(value.get("external_ref").unwrap().is_object());
-
-        // Round-trips through the wire deserializer (deny_unknown_fields).
-        let round_tripped: Event = serde_json::from_value(value).unwrap();
-        assert_eq!(round_tripped, event);
-
-        // Both fields enter the digest payload (proofs/unsigned removed only).
-        let digest_payload = event.digest_payload().unwrap();
-        assert!(digest_payload.get("applet_id").is_some());
-        assert!(digest_payload.get("external_ref").is_some());
-        // Mutating external_ref changes the event digest (it is covered).
-        let mut mutated = event.clone();
-        mutated.external_ref = Some(BTreeMap::from([
-            ("protocol".to_owned(), json!("slack")),
-            ("external_id".to_owned(), json!("different")),
-        ]));
-        assert_ne!(
+        assert_eq!(serde_json::from_value::<Event>(value).unwrap(), event);
+        assert!(
             event
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap(),
-            mutated
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+                .digest_payload()
                 .unwrap()
+                .get("external_ref")
+                .is_some()
         );
-    }
 
-    #[test]
-    fn empty_optional_reference_sets_are_omitted_and_explicit_empty_is_rejected() {
-        let event = base_event();
-        let value = serde_json::to_value(&event).unwrap();
-        assert!(value.get("refs").is_none());
-        assert!(value.get("causal_refs").is_none());
-        assert_eq!(value.get("prev_refs"), Some(&json!([])));
-
-        for field in ["refs", "causal_refs"] {
-            let mut invalid = value.clone();
-            invalid[field] = json!([]);
-            let err = serde_json::from_value::<Event>(invalid).unwrap_err();
-            assert!(
-                err.to_string().contains("must be omitted when empty"),
-                "{field}: {err}"
-            );
-        }
-    }
-
-    #[test]
-    fn signed_scope_ref_is_covered_by_the_event_digest() {
-        let event = base_event();
-        let baseline = event
-            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-            .unwrap();
-        assert!(event.digest_payload().unwrap().get("scope_ref").is_some());
-
-        let mut rescoped = event;
-        rescoped.scope_ref = ScopeRef::Circle {
-            realm_id: realm(),
-            circle_id: CircleId::from_event_id(&EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [0x1c; 32],
-            )),
-        };
-
-        assert_ne!(
-            baseline,
-            rescoped
-                .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn event_wire_rejects_a_missing_scope_ref() {
-        let mut value = serde_json::to_value(base_event()).unwrap();
-        value.as_object_mut().unwrap().remove("scope_ref");
-
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(err.to_string().contains("scope_ref"), "{err}");
-    }
-
-    #[test]
-    fn event_wire_rejects_the_deleted_producer_reducer_instruction_fields() {
-        for field in [
-            "effects",
-            "conflict_keys_digest",
-            "effective_scope",
-            "actor_kind",
-        ] {
-            let mut value = serde_json::to_value(base_event()).unwrap();
-            value
-                .as_object_mut()
-                .unwrap()
-                .insert(field.to_owned(), json!([]));
-            let err = serde_json::from_value::<Event>(value)
-                .expect_err("removed wire field must fail deserialization");
-            assert!(err.to_string().contains(field), "{field}: {err}");
-        }
-    }
-
-    #[test]
-    fn event_rejects_external_ref_without_applet_id() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert(
-            "external_ref".to_owned(),
-            json!({ "protocol": "slack", "external_id": "1234567890.0001" }),
-        );
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("external_ref requires a signed applet_id"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn event_rejects_applet_id_without_authorization_ref() {
-        let event = base_event();
-        let mut value = serde_json::to_value(&event).unwrap();
-        value.as_object_mut().unwrap().insert(
-            "applet_id".to_owned(),
-            json!("ak:applet:01904100-0000-7000-8000-bbbbbbbbbbbb"),
-        );
-        let err = serde_json::from_value::<Event>(value).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("applet_id requires authorization_ref"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn submit_rejects_a_scope_ref_that_disagrees_with_the_envelope_realm() {
-        let mut event = base_event();
-        event.scope_ref = ScopeRef::Realm {
-            realm_id: RealmId::from_event_id(&EventId::from_digest(
-                arkret_canonical::DigestSuite::Sha256,
-                [0xff; 32],
-            )),
-        };
-
-        let err = event.validate_for_submit_structural().unwrap_err();
-        assert!(
-            err.to_string().contains("scope_ref.realm_id"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn realm_bootstrap_allows_basis_free_preconditions_but_requires_signer_evidence() {
-        let mut event = base_event();
-        event.kind = EventKind::RealmCreate;
-        // A Realm genesis carries the closed `realm_genesis` scope and no
-        // `realm_id` (spec `zh/models/realm-and-space.md` section 2.5.0).
-        event.scope_ref = ScopeRef::RealmGenesis;
-        event.preconditions.push(Precondition {
-            cell_id: crate::CellRef::new("ak:cell:ak.component.realm.create.v1:null".to_owned())
-                .unwrap(),
-            predicate: crate::cbs::Predicate {
-                op: crate::cbs::PredicateOp::HeadEq,
-                value: Some(Value::Null),
-                values: None,
-                predicate_id: None,
-            },
-        });
-        event.proofs.push(producer_proof());
-
-        event
-            .validate_for_submit_structural_in_context(EventSubmitContext::RealmBootstrap)
-            .expect("Realm bootstrap precondition is evaluated against the frozen predecessor");
-        event
-            .validate_for_direct_history_structural_in_context(EventSubmitContext::RealmBootstrap)
-            .expect("retained Realm bootstrap keeps its portable producer evidence");
-
-        event.proofs[0].signer_resolution_evidence_ref = None;
-        assert!(
-            event
-                .validate_for_submit_structural_in_context(EventSubmitContext::RealmBootstrap)
-                .is_err(),
-            "ordinary Realm bootstrap cannot select native unit-local signer material"
-        );
-        assert!(
-            event
-                .validate_for_submit_structural_in_context(EventSubmitContext::Standard)
-                .is_err(),
-            "the same basis-less Event is not a non-anchor Control Move"
-        );
-    }
-
-    #[test]
-    fn native_reanchor_unit_requires_unit_local_signer_material() {
-        let mut event = base_event();
-        event.kind = EventKind::DeviceReanchor;
-        event.auth_context = None;
-        event.seal_basis = None;
-        let mut proof = producer_proof();
-        proof.signer_resolution_evidence_ref = None;
-        event.proofs.push(proof);
-
-        event
-            .validate_for_submit_structural_in_context(EventSubmitContext::AnchorUnit)
-            .expect("native re-anchor accepts its unit-local producer proof");
-        assert!(
-            event
-                .validate_for_submit_structural_in_context(EventSubmitContext::RealmBootstrap)
-                .is_err(),
-            "ordinary Realm bootstrap context cannot admit native proof shape"
-        );
-    }
-
-    #[test]
-    fn ordinary_event_allows_signed_domain_preconditions() {
-        let mut event = base_event();
-        event.auth_context = Some(AuthContext {
-            authority_refs: vec![
-                SealId::new(format!("ak:seal:sha256:{}", "1".repeat(64))).unwrap(),
-            ],
-        });
-        event.preconditions.push(Precondition {
-            cell_id: crate::CellRef::new(
-                "ak:cell:ak.component.strand.object.v1:fixture".to_owned(),
-            )
-            .unwrap(),
-            predicate: crate::cbs::Predicate {
-                op: crate::cbs::PredicateOp::HeadEq,
-                value: Some(Value::Null),
-                values: None,
-                predicate_id: None,
-            },
-        });
-        event.proofs.push(producer_proof());
-
-        event
-            .validate_for_submit_structural()
-            .expect("ordinary Event may carry signed reducer preconditions");
+        let mut invalid = serde_json::to_value(base_event()).unwrap();
+        invalid["external_ref"] = json!({"protocol": "slack"});
+        assert!(serde_json::from_value::<Event>(invalid).is_err());
     }
 }

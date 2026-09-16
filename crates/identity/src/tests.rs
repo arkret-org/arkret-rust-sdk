@@ -1,4 +1,4 @@
-use arkret_wire::{Did, Hlc, RealmId, project_did_to_core_id};
+use arkret_wire::{Did, RealmId, project_did_to_core_id};
 
 use super::*;
 use crate::helpers::{encode_base58btc, try_did_webvh_url};
@@ -16,10 +16,6 @@ fn did_web(name: &str) -> Did {
 
 fn realm() -> RealmId {
     RealmId::new("ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs").unwrap()
-}
-
-fn hlc() -> Hlc {
-    Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()
 }
 
 fn assertion_document(
@@ -714,8 +710,6 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         arkret_wire::ScopeRef::Realm { realm_id: realm() },
         actor_id.clone(),
         actor_id,
-        1,
-        hlc(),
         json!({"ok": true}),
     )
     .unwrap();
@@ -726,13 +720,6 @@ fn did_resolver_verifies_event_proof_from_did_document_key() {
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "1".repeat(64)
-            ))
-            .unwrap(),
-        ),
         created_at: Utc::now(),
         domain: None,
         audience: None,
@@ -775,8 +762,6 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         arkret_wire::ScopeRef::Realm { realm_id: realm() },
         controller.clone(),
         controller,
-        1,
-        hlc(),
         json!({"ok": true}),
     )
     .unwrap();
@@ -792,13 +777,6 @@ fn did_resolver_binds_event_proof_to_executed_by_when_present() {
         verification_method,
         event_digest: Hash::new(arkret_canonical::canonical::sha256_digest(&canonical_bytes))
             .unwrap(),
-        signer_resolution_evidence_ref: Some(
-            arkret_wire::SignerEvidenceRef::new(format!(
-                "ak:signer_evidence:sha256:{}",
-                "2".repeat(64)
-            ))
-            .unwrap(),
-        ),
         created_at: Utc::now(),
         domain: None,
         audience: None,

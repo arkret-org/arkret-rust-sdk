@@ -7,7 +7,6 @@
 
 pub mod accountability;
 pub mod agent_artifacts;
-pub mod agent_membership_cascade;
 pub mod agent_participation;
 pub mod audit;
 pub mod authorization;

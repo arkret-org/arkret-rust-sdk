@@ -3,8 +3,9 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, Cursor, Facet, FilterOp, NullsOrder, RealmId, RelationDirection, RelationKind, Result,
-    SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer, ViewVisibility, WireError,
+    ActorId, CommitStreamHead, Cursor, Facet, FilterOp, NullsOrder, RealmId, RelationDirection,
+    RelationKind, Result, SchemaId, SortDirection, SpaceId, ViewId, ViewKind, ViewRenderer,
+    ViewVisibility, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -87,8 +88,8 @@ pub struct ViewQuery {
     pub morph_kinds: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub facets: Vec<Facet>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub seal_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stream_heads: Vec<CommitStreamHead>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub filters: Vec<Filter>,
     #[serde(skip_serializing_if = "Option::is_none")]

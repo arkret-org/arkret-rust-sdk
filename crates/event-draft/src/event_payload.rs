@@ -1,6 +1,5 @@
 //! Typed read-only projections over the payload-agnostic wire [`Event`].
 
-use arkret_models_collaboration::agent_operations::AgentSidecarExchangeControlPayload;
 use arkret_models_collaboration::contact_operations::ContactScopeUpdatePayload;
 use arkret_models_collaboration::events_payloads::agent::{
     AgentActionApprovePayload, AgentActionRejectPayload, AgentActionRequestPayload,
@@ -39,7 +38,6 @@ use arkret_models_collaboration::objects::productivity::{
     AccountBlocklistPayload, PinAddPayload, PinRemovePayload, PinReorderPayload, RsvpSetPayload,
 };
 use arkret_models_collaboration::objects::read_receipts::ReadCursor;
-use arkret_models_collaboration::sidecar_operations::SidecarContextAttachPayload;
 use arkret_models_crypto::MlsCommitPayload;
 use arkret_models_identity::claim_presentation::AgentSelectorClaim;
 use arkret_models_identity::device_push_route::DevicePushRoutePayload;
@@ -84,18 +82,6 @@ pub struct EventPayloadBinding {
     pub kind: arkret_wire::EventKind,
     pub payload_type: &'static str,
 }
-
-/// Phase-1 ratchet for active kinds whose dedicated SDK payload binding has
-/// not landed yet. This number may only decrease; a new registry kind changes
-/// the computed gap and fails the binding coverage test.
-pub const EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT: usize = 0;
-
-/// Active kinds whose dedicated Rust payload model has not landed yet.
-///
-/// Entries may only be removed. A newly registered kind is first caught by
-/// [`EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT`] and requires an explicit type
-/// and binding decision rather than silently joining this list.
-pub const EVENT_KINDS_WITHOUT_RUST_PAYLOAD: &[arkret_wire::EventKind] = &[];
 
 macro_rules! event_payload_accessors {
     ($($marker:ty => ($name:ident, $ty:ty $(, $validate:expr)?)),+ $(,)?) => {
@@ -209,27 +195,22 @@ macro_rules! event_payload_accessors {
 event_payload_accessors! {
     event_spec::IdentityResolutionUpdate => (as_identity_resolution_update, PrincipalResolutionUpdatePayload),
     event_spec::RealmCreate => (as_realm_create, RealmCreatePayload, |payload: &RealmCreatePayload| payload.object.validate()),
+    event_spec::RealmGovernanceStationChange => (as_realm_governance_station_change, RealmGovernanceStationChangePayload),
     event_spec::RealmProfile => (as_realm_profile, RealmProfile),
     event_spec::RealmAlias => (as_realm_alias, RealmAliasPayload),
-    event_spec::RealmUpgrade => (as_realm_upgrade, RealmUpgradeStatePayload),
     event_spec::RealmOrganization => (as_realm_organization, RealmOrganizationPayload),
     event_spec::RealmLink => (as_realm_link, RealmLinkPayload),
     event_spec::RealmPolicy => (as_realm_policy, RealmPolicyPayload),
     event_spec::RealmJoinRule => (as_realm_join_rule, RealmJoinRulePayload),
     event_spec::RealmHistoryAccess => (as_realm_history_access, HistoryAccessPayload, HistoryAccessPayload::validate),
-    event_spec::RealmOrganizationRecoveryKeyRegister => (as_realm_organization_recovery_key_register, OrganizationRecoveryKeyRegisterPayload, OrganizationRecoveryKeyRegisterPayload::validate),
-    event_spec::RealmOrganizationRecoveryKeyRotate => (as_realm_organization_recovery_key_rotate, OrganizationRecoveryKeyRotatePayload, OrganizationRecoveryKeyRotatePayload::validate),
     event_spec::RealmDiscovery => (as_realm_discovery, RealmDiscoveryPayload),
     event_spec::RealmPreviewPolicy => (as_realm_preview_policy, PreviewPolicyPayload),
     event_spec::RealmSearchPolicy => (as_realm_search_policy, RealmSearchPolicyPayload),
     event_spec::RealmSetDefaultStrand => (as_realm_set_default_strand, RealmSetDefaultStrandPayload),
-    event_spec::RealmNotary => (as_realm_notary, RealmNotaryPayload, RealmNotaryPayload::validate),
-    event_spec::RealmDigestSuiteTransition => (as_realm_digest_suite_transition, RealmDigestSuiteTransitionPayload, RealmDigestSuiteTransitionPayload::validate),
     event_spec::RealmPolicyBundle => (as_realm_policy_bundle, RealmPolicyBundlePayload),
     event_spec::RealmAssetPrivacyPolicy => (as_realm_asset_privacy_policy, RealmAssetPrivacyPolicyPayload),
     event_spec::RealmReadReceiptPolicy => (as_realm_read_receipt_policy, ReadReceiptPolicyPayload),
     event_spec::RealmPlaintextVisibleServices => (as_realm_plaintext_visible_services, PlaintextVisibleServicesPayload),
-    event_spec::RealmMediaService => (as_realm_media_service, RealmMediaServicePayload, RealmMediaServicePayload::validate),
     event_spec::RealmSchema => (as_realm_schema, RealmSchemaPayload),
     event_spec::RealmInheritancePolicy => (as_realm_inheritance_policy, RealmInheritancePolicyPayload),
     event_spec::RealmArchive => (as_realm_archive, RealmArchivePayload),
@@ -240,26 +221,13 @@ event_payload_accessors! {
     event_spec::RealmDestroy => (as_realm_destroy, RealmDestroyPayload),
     event_spec::CircleCreate => (as_circle_create, CircleCreatePayload),
     event_spec::SidecarCreate => (as_sidecar_create, SidecarCreatePayload),
-    event_spec::SidecarContextAttach => (as_sidecar_context_attach, SidecarContextAttachPayload, SidecarContextAttachPayload::validate),
     event_spec::CircleUpdate => (as_circle_update, CirclePatchPayload),
     event_spec::CircleHistoryAccess => (as_circle_history_access, CircleHistoryAccessPayload, CircleHistoryAccessPayload::validate),
     event_spec::CircleArchive => (as_circle_archive, ObjectLifecyclePayload),
     event_spec::CircleRestore => (as_circle_restore, ObjectLifecyclePayload),
     event_spec::CircleTombstone => (as_circle_tombstone, ObjectLifecyclePayload),
     event_spec::CircleMemberState => (as_circle_member_state, CircleMemberStatePayload),
-    event_spec::OrganizationDiscovery => (as_organization_discovery, OrganizationDiscoveryStatePayload),
-    event_spec::ActorDiscovery => (as_actor_discovery, ResourceDiscoveryStatePayload),
-    event_spec::AppletDiscovery => (as_applet_discovery, ResourceDiscoveryStatePayload),
-    event_spec::HandleDiscovery => (as_handle_discovery, ResourceDiscoveryStatePayload),
-    event_spec::OrganizationModerationPolicy => (as_organization_moderation_policy, OrganizationModerationPolicyStatePayload, OrganizationModerationPolicyStatePayload::validate),
     event_spec::IdentityAccountabilityGrant => (as_identity_accountability_grant, AccountabilityGrantPayload),
-    event_spec::SchemaDefine => (as_schema_define, SchemaDefineStatePayload, SchemaDefineStatePayload::validate),
-    event_spec::PolicySet => (as_policy_set, PolicySetStatePayload, PolicySetStatePayload::validate),
-    event_spec::PolicyRule => (as_policy_rule, PolicyRuleStatePayload),
-    event_spec::PolicyAction => (as_policy_action, PolicyActionStatePayload, PolicyActionStatePayload::validate),
-    event_spec::ForkResolution => (as_fork_resolution, ForkResolutionPayload, ForkResolutionPayload::validate),
-    event_spec::NotaryFaultEquivocation => (as_notary_fault_equivocation, NotaryFaultEquivocationPayload),
-    event_spec::NotaryFaultCensorship => (as_notary_fault_censorship, NotaryFaultCensorshipPayload),
     event_spec::MemberState => (as_member_state, MembershipPayload),
     event_spec::MemberIdentityUpdate => (as_member_identity_update, MemberIdentityUpdatePayload),
     event_spec::MessageCreate => (as_message_create, MessageCreatePayload),
@@ -282,7 +250,6 @@ event_payload_accessors! {
     event_spec::SpaceArchive => (as_space_archive, SpaceStateTransitionPayload),
     event_spec::SpaceRestore => (as_space_restore, SpaceStateTransitionPayload),
     event_spec::SpaceTombstone => (as_space_tombstone, SpaceObjectTombstonePayload),
-    event_spec::AgentSidecarExchangeControl => (as_agent_sidecar_exchange_control, AgentSidecarExchangeControlPayload),
     event_spec::RsvpSet => (as_rsvp_set, RsvpSetPayload),
     event_spec::PinAdd => (as_pin_add, PinAddPayload),
     event_spec::PinRemove => (as_pin_remove, PinRemovePayload),
@@ -323,24 +290,15 @@ event_payload_accessors! {
     event_spec::ContactRejected => (as_contact_rejected, ContactRejectedPayload),
     event_spec::ContactTombstone => (as_contact_tombstoned, ContactTombstonedPayload),
     event_spec::ContactScopeUpdate => (as_contact_scope_update, ContactScopeUpdatePayload),
-    event_spec::DirectConversationBound => (as_direct_conversation_bound, DirectConversationBoundPayload),
     event_spec::AccountBlocklist => (as_account_blocklist, AccountBlocklistPayload),
     event_spec::AccountDataSet => (as_account_data_set, AccountDataSetPayload),
     event_spec::ProfileCreate => (as_profile_create, ActorProfileCreatePayload),
     event_spec::ProfileUpdate => (as_profile_update, ActorProfileUpdatePayload),
     event_spec::ProfileRealmOverride => (as_profile_realm_override, ProfileRealmOverridePayload),
-    event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| WireError::Protocol(reason.to_owned()))),
-    event_spec::DeviceReanchor => (as_device_reanchor, DeviceReanchorPayload, |payload: &DeviceReanchorPayload| payload.validate().map_err(|reason| WireError::Protocol(reason.to_owned()))),
-    event_spec::DeviceRevoke => (as_device_revoke, DeviceRevokePayload),
-    event_spec::DeviceListUpdate => (as_device_list_update, DeviceListUpdatePayload),
     event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeries),
     event_spec::DevicePushRoute => (as_device_push_route, DevicePushRoutePayload),
-    event_spec::MlsProposal => (as_mls_proposal, MlsProposalPayload),
-    event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload),
-    event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload),
-    event_spec::MlsCommitFailed => (as_mls_commit_failed, MlsCommitFailedPayload),
-    event_spec::MlsWelcome => (as_mls_welcome, MlsWelcomePayload),
-    event_spec::MlsKeypackage => (as_mls_keypackage, MlsKeypackagePayload),
+    event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload, MlsGenesisPayload::validate),
+    event_spec::MlsCommit => (as_mls_commit, MlsCommitPayload, MlsCommitPayload::validate),
     event_spec::AuditAccessed => (as_audit_accessed, AuditAccessedPayload),
     event_spec::AuditAppletBindingCreate => (as_audit_applet_binding_create, AuditAppletBindingCreatePayload),
     event_spec::AuditAppletBindingState => (as_audit_applet_binding_state, AuditAppletBindingStatePayload),
@@ -370,50 +328,13 @@ event_payload_accessors! {
     event_spec::CallState => (as_call_state, CallStatePayload),
     event_spec::CallRecordingStart => (as_call_recording_start, CallRecordingStartPayload),
     event_spec::CallSummary => (as_call_summary, CallSummaryPayload),
-    event_spec::SovereignDidPolicy => (as_sovereign_did_policy, SovereignDidPolicyStatePayload),
     event_spec::RealmOwnerTransfer => (as_realm_owner_transfer, RealmOwnerTransferPayload),
-    event_spec::RealmAuthorityReset => (as_realm_authority_reset, RealmAuthorityResetPayload),
     event_spec::CapabilityRelinquish => (as_capability_relinquish, CapabilityRelinquishPayload),
-}
-
-/// Marker-checked payload projection for reducer-resolved state records.
-///
-/// The resolved record remains an erased storage/projection boundary, while
-/// domain readers must name the exact Event marker before accessing content.
-pub trait ResolvedStateEventPayloadExt {
-    fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload>;
-}
-
-impl ResolvedStateEventPayloadExt for arkret_models_collaboration::ResolvedStateEvent {
-    fn typed_payload<K: EventSpec>(&self) -> Result<K::Payload> {
-        if self.kind != K::KIND {
-            return Err(WireError::PayloadKindMismatch {
-                expected: K::KIND_STR,
-                actual: self.kind.as_str().to_owned(),
-            });
-        }
-        let payload = serde_json::from_value(self.content.clone()).map_err(|source| {
-            WireError::PayloadInvalid {
-                kind: K::KIND_STR,
-                reason: source.to_string(),
-            }
-        })?;
-        K::validate_payload(&payload).map_err(|error| WireError::PayloadInvalid {
-            kind: K::KIND_STR,
-            reason: error.to_string(),
-        })?;
-        Ok(payload)
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
-    use arkret_wire::{
-        DidCoreId, EventId, EventKind, EventRequirements, Hlc, MessageId, RealmId, ScopeRef,
-        StrandId,
-    };
+    use arkret_wire::{DidCoreId, EventId, EventKind, MessageId, RealmId, ScopeRef, StrandId};
     use serde_json::json;
 
     use super::*;
@@ -442,16 +363,8 @@ mod tests {
             realm_id: realm(),
             scope_ref: scope(),
             actor_id: arkret_wire::ActorId::account(arkret_wire::AccountId::new(alice(), alice())),
-            actor_seq: 1,
             created_at: "2026-04-26T00:00:00.000Z".parse().unwrap(),
-            hlc: Some(Hlc::new("01970e589d21-0004-a13f9c2e").unwrap()),
-            prev_refs: Vec::new(),
             refs: Vec::new(),
-            preconditions: Vec::new(),
-            auth_context: None,
-            data_basis: None,
-            seal_basis: None,
-            requirements: EventRequirements::default(),
             payload: serde_json::from_value(json!({
                 "strand_id": strand_id,
                 "track_name": "discussion",
@@ -462,8 +375,6 @@ mod tests {
             authorization_ref: None,
             applet_id: None,
             external_ref: None,
-            unsigned: BTreeMap::new(),
-            causal_refs: Vec::new(),
             proofs: Vec::new(),
         }
     }
@@ -604,96 +515,6 @@ mod tests {
         ));
     }
 
-    fn generic_policy_value(policy_id: &str) -> Value {
-        json!({
-            "schema": "ak.schema.policy.v1",
-            "id": policy_id,
-            "policy_kind": "access",
-            "rules": [{
-                "rule_id": "allow_messages",
-                "kind": "action",
-                "effect": "allow",
-                "actions": ["ak.message.send"]
-            }],
-            "default_effect": "deny",
-            "created_by": arkret_wire::ActorId::account(arkret_wire::AccountId::new(
-                alice(),
-                alice(),
-            )),
-            "created_at": "2026-04-26T00:00:00.000Z"
-        })
-    }
-
-    #[test]
-    fn policy_set_typed_adapter_enforces_selected_document_identity() {
-        let policy_id = "ak:policy:01970000-0000-7000-8000-000000000001";
-        let mut event = base_event();
-        event.kind = EventKind::PolicySet;
-        event.payload = serde_json::from_value(json!({
-            "policy_id": policy_id,
-            "value": generic_policy_value(policy_id)
-        }))
-        .unwrap();
-        assert!(event.as_policy_set().is_ok());
-
-        event.payload = serde_json::from_value(json!({
-            "policy_id": "ak:policy:01970000-0000-7000-8000-000000000002",
-            "value": generic_policy_value(policy_id)
-        }))
-        .unwrap();
-        assert!(matches!(
-            event.as_policy_set(),
-            Err(WireError::PayloadInvalid {
-                kind: event_spec::PolicySet::KIND_STR,
-                ..
-            })
-        ));
-    }
-
-    #[test]
-    fn closed_state_payload_adapters_accept_final_v1_shapes() {
-        let mut event = base_event();
-
-        event.kind = EventKind::OrganizationModerationPolicy;
-        event.payload = serde_json::from_value(json!({
-            "organization_id": "ak:did_core:webvh:z6mkfixtureorganization",
-            "value": {
-                "policy_id": "ak:policy:0198f1a2-4c3d-7e56-8a90-1b2c3d4e5f60",
-                "policy_scope": {"applies_to_owned_realms": true},
-                "rules": [{
-                    "target": {"kind": "content_label", "label": "spam"},
-                    "action": "require_review"
-                }]
-            }
-        }))
-        .unwrap();
-        assert!(event.as_organization_moderation_policy().is_ok());
-
-        event.kind = EventKind::PolicyAction;
-        event.payload = serde_json::from_value(json!({
-            "action_id": "approval-realm-admin-001",
-            "value": {
-                "action": "ak.realm.admin",
-                "approval_required": true,
-                "approval_quorum": 2,
-                "policy_scope": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
-            }
-        }))
-        .unwrap();
-        assert!(event.as_policy_action().is_ok());
-
-        event.kind = EventKind::SchemaDefine;
-        event.payload = serde_json::from_value(json!({
-            "value": {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "$id": "ak.schema.example.v1",
-                "$ref": "https://schemas.example.invalid/not-installed.json"
-            }
-        }))
-        .unwrap();
-        assert!(event.as_schema_define().is_ok());
-    }
-
     #[test]
     fn payload_accessor_does_not_change_digest_input() {
         let event = base_event();
@@ -713,18 +534,13 @@ mod tests {
     }
 
     #[test]
-    fn event_payload_binding_gap_is_an_explicit_decreasing_ratchet() {
+    fn active_event_payload_bindings_are_unique_and_schema_backed() {
         let kinds = EVENT_PAYLOAD_BINDINGS
             .iter()
             .map(|binding| binding.kind.clone())
             .collect::<std::collections::HashSet<_>>();
         assert_eq!(kinds.len(), EVENT_PAYLOAD_BINDINGS.len());
-        assert_eq!(
-            arkret_wire::EVENT_KIND_COUNT - EVENT_PAYLOAD_BINDINGS.len(),
-            EVENT_SPECS_WITHOUT_TYPED_BINDING_COUNT,
-            "a standard kind was added or a payload binding changed without updating the explicit gap ratchet"
-        );
-        let mut payload_type_by_schema_ref = BTreeMap::new();
+        let mut payload_type_by_schema_ref = std::collections::BTreeMap::new();
         for binding in EVENT_PAYLOAD_BINDINGS {
             let descriptor = binding
                 .kind
@@ -744,23 +560,6 @@ mod tests {
                     "kinds sharing payload schema ref {schema_ref} use different Rust payload types"
                 );
             }
-        }
-
-        let missing_types = EVENT_KINDS_WITHOUT_RUST_PAYLOAD
-            .iter()
-            .cloned()
-            .collect::<std::collections::HashSet<_>>();
-        assert_eq!(missing_types.len(), EVENT_KINDS_WITHOUT_RUST_PAYLOAD.len());
-        assert!(
-            missing_types.is_disjoint(&kinds),
-            "a kind with a typed binding remains in EVENT_KINDS_WITHOUT_RUST_PAYLOAD"
-        );
-        for kind in missing_types {
-            assert!(
-                kind.descriptor()
-                    .is_some_and(|descriptor| descriptor.payload_schema_ref.is_some()),
-                "missing-payload ratchet contains unknown or unbound kind {kind}"
-            );
         }
     }
 }

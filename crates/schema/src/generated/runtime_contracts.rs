@@ -1,20 +1,20 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/agent-runtime-scope-registry.json; version=2026-08-31.2;
-//! sha256=4423e87f24e4c8b5967a2851163f446a33858f45fcdce9eaf52f41126c68d23c Input: registry/
-//! contract-registry.json; version=2026-09-15.20;
-//! sha256=29b33fe95bc12da5434f688ca11f405f7364b2cf5a2add1ed0abe12d53357f8b Input: registry/
-//! operation-registry.json; version=2026-09-15.11;
-//! sha256=939efa24cbdece280e91efe0788867ca3219dd20338307e87ff7b6c891f932c0 Input: registry/
-//! event-kind-registry.json; version=2026-09-15.2;
-//! sha256=5235c508009ce8de69bb9b03593674e399ba5ba205e24d677e3bedfaa0c9f576 Input: registry/
-//! schema-registry.json; version=2026-09-15.3;
-//! sha256=56e5212dd9818fa6fe0ae858cf7cbafc8ba324115ea0c0770125ccdae1cfbe4f Input: registry/
-//! id-kind-registry.json; version=2026-09-15.1;
-//! sha256=5f1ee8b848d7e3154faf9bf40ed84a621cda8325c1d8e1a8d9b6b65a5fafefc9
+//! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1;
+//! sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264 Input: registry/
+//! contract-registry.json; version=2026-09-16.6;
+//! sha256=3dbb92f282770b35b527993542d084461151b1864c7f176641405b416e84a03b Input: registry/
+//! operation-registry.json; version=2026-09-16.4;
+//! sha256=98b209626efdc5ef9bf20ad4f8b2cb38ee977f8d2a1bab1908534d7f0bcec3cc Input: registry/
+//! event-kind-registry.json; version=2026-09-16.4;
+//! sha256=80beac2a491c71ed41204f5ca5785d1a0f64136a9492d8e225248b381acf4e75 Input: registry/
+//! schema-registry.json; version=2026-09-16.6;
+//! sha256=e5d775203aa3b0c087c1f2be599c615cf71a102df39bd379bf09eb0aa895da58 Input: registry/
+//! id-kind-registry.json; version=2026-09-16.6;
+//! sha256=fd180fd34aaeccce51b21ee4720c5819901e15993f2ea7a5d9ae9e1292ddd629
 //! Input: deployment-probes.json; version=2026-06-19;
 //! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
-//! Entries: capability_sets=2, layers=3, feature_additions=2, bootstrap_profiles=2,
+//! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
 //! operation_surface_groups=33
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
@@ -40,7 +40,7 @@ pub struct AgentRuntimeCapabilityDescriptor {
 
 pub const AGENT_RUNTIME_CAPABILITIES: &[AgentRuntimeCapabilityDescriptor] = &[
     AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::E2ee, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1, ServiceOperationId::SelfKeysKeypackagesCommandConsumeV1, ServiceOperationId::SelfKeysKeypackagesCommandRevokeV1], mandatory_operations: &[ServiceOperationId::SelfKeysKeypackagesUploadCreateV1] },
-    AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::InteractiveChat, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfEventsStreamSubscribeV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsReadFrontierV1, ServiceOperationId::SelfSealsReadFrontierV1, ServiceOperationId::SelfEventsCommandSubmitV1], mandatory_operations: &[ServiceOperationId::SelfEventsStreamSubscribeV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsReadFrontierV1, ServiceOperationId::SelfSealsReadFrontierV1, ServiceOperationId::SelfEventsCommandSubmitV1] },
+    AgentRuntimeCapabilityDescriptor { capability: AgentRuntimeCapability::InteractiveChat, selection_rule: AgentRuntimeCapabilitySelectionRule::AnyActivationOperationPresentInImmutableProvisionActions, activation_operations: &[ServiceOperationId::SelfEventsCommandSubmitV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsStreamSubscribeV1], mandatory_operations: &[ServiceOperationId::SelfEventsCommandSubmitV1, ServiceOperationId::SelfEventsReadScanV1, ServiceOperationId::SelfEventsStreamSubscribeV1] },
 ];
 
 pub const fn agent_runtime_capability_descriptor(
@@ -96,21 +96,17 @@ pub const fn agent_runtime_scope_layer_descriptor(
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum AgentRuntimeFeature {
-    DelayedOrOfflinePublish,
     OnlinePresence,
 }
 
-pub const AGENT_RUNTIME_FEATURE_OPERATIONS: &[&[ServiceOperationId]] = &[
-    &[ServiceOperationId::SelfAuthorizationLeasesCommandIssueV1],
-    &[ServiceOperationId::SelfSignalCommandSendV1],
-];
+pub const AGENT_RUNTIME_FEATURE_OPERATIONS: &[&[ServiceOperationId]] =
+    &[&[ServiceOperationId::SelfSignalCommandSendV1]];
 
 pub const fn agent_runtime_feature_operations(
     feature: AgentRuntimeFeature,
 ) -> &'static [ServiceOperationId] {
     match feature {
-        AgentRuntimeFeature::DelayedOrOfflinePublish => AGENT_RUNTIME_FEATURE_OPERATIONS[0],
-        AgentRuntimeFeature::OnlinePresence => AGENT_RUNTIME_FEATURE_OPERATIONS[1],
+        AgentRuntimeFeature::OnlinePresence => AGENT_RUNTIME_FEATURE_OPERATIONS[0],
     }
 }
 
@@ -365,29 +361,10 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         surface_class: "core",
         profile: None,
         operations: &[
-            ServiceOperationId::SelfControlProposalAcksCommandIssueV1,
-            ServiceOperationId::SelfControlProposalDecisionsCommandSubmitV1,
-            ServiceOperationId::SelfControlProposalDecisionsReadGetV1,
-            ServiceOperationId::SelfAuthorizationLeasesCommandIssueV1,
-            ServiceOperationId::SelfEventsReadDescribeV1,
-            ServiceOperationId::SelfEventsReadDeliveryStatusV1,
             ServiceOperationId::SelfEventsCommandSubmitV1,
-            ServiceOperationId::SelfSealsCommandPrepareV1,
-            ServiceOperationId::SelfSealsReadPrepareFenceResultV1,
-            ServiceOperationId::SelfSealsCommandSubmitV1,
             ServiceOperationId::SelfEventsResourceGetV1,
-            ServiceOperationId::SelfEventsReadResolveV1,
             ServiceOperationId::SelfEventsReadScanV1,
             ServiceOperationId::SelfEventsStreamSubscribeV1,
-            ServiceOperationId::SelfEventsReadFrontierV1,
-            ServiceOperationId::SelfSealsReadFrontierV1,
-            ServiceOperationId::SelfSealsReadResolveV1,
-            ServiceOperationId::SelfSealsReadMlsGovernanceProofV1,
-            ServiceOperationId::SelfSealsReadMlsAcceptedArtifactV1,
-            ServiceOperationId::SelfSealsReadMlsWelcomeRefsV1,
-            ServiceOperationId::SelfSealsReadMlsMembershipRemovalV1,
-            ServiceOperationId::SelfSealsReadHistoryAuthorityV1,
-            ServiceOperationId::SelfSealsReadGovernanceDependenciesV1,
             ServiceOperationId::SelfAccountReadDescribeV1,
             ServiceOperationId::SelfAccountReadViewerV1,
             ServiceOperationId::SelfAccountCommandUpdateProfileV1,
@@ -395,27 +372,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfAccountStreamSubscribeV1,
             ServiceOperationId::SelfAccountCommandRevokeCursorV1,
             ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
-            ServiceOperationId::SelfSealsReadPendingControlV1,
             ServiceOperationId::SelfCurrentPrincipalReadResolveV1,
-            ServiceOperationId::SelfGenesisNotaryReadResolveV1,
-        ],
-    },
-    OperationSurfaceGroupDescriptor {
-        surface: "history_key_recovery",
-        surface_class: "extension",
-        profile: None,
-        operations: &[
-            ServiceOperationId::SelfHistoryKeyRequestsCommandCreateV1,
-            ServiceOperationId::SelfHistoryKeyRequestsReadListV1,
-            ServiceOperationId::SelfHistoryKeyResponsesCommandSendV1,
-            ServiceOperationId::SelfHistoryKeyResponsesReadListV1,
-            ServiceOperationId::SelfHistoryKeyResponsesCommandAckV1,
-            ServiceOperationId::SelfOrganizationRecoveryArchivesReadListV1,
-            ServiceOperationId::PeerHistoryKeyRequestsCommandReplicateV1,
-            ServiceOperationId::PeerHistoryKeyResponsesCommandRelayV1,
-            ServiceOperationId::PeerSealsReadMlsGovernanceProofV1,
-            ServiceOperationId::PeerSealsReadGovernanceDependenciesV1,
-            ServiceOperationId::PeerOrganizationRecoveryArchivesCommandReplicateV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -430,15 +387,9 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::PeerErasureReceiptCommandSubmitV1,
             ServiceOperationId::PeerErasureReceiptResourceGetV1,
             ServiceOperationId::PeerMlsReadGroupStateMaterialV1,
-            ServiceOperationId::PeerEventsReadResolveV1,
             ServiceOperationId::PeerEventsReadScanV1,
-            ServiceOperationId::PeerEventsReadSiblingPositionsV1,
-            ServiceOperationId::PeerEventsReadFrontierV1,
-            ServiceOperationId::PeerSealsReadFrontierV1,
-            ServiceOperationId::PeerSealsReadResolveV1,
             ServiceOperationId::PeerInvitesCommandSubmitV1,
             ServiceOperationId::PeerContactsCommandSubmitV1,
-            ServiceOperationId::PeerCurrentSignerEvidenceReadResolveV1,
             ServiceOperationId::PeerKeysKeypackagesCommandClaimV1,
             ServiceOperationId::PeerKeysKeypackagesReadClaimV1,
             ServiceOperationId::PeerKeysReadLookupV1,
@@ -493,7 +444,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfContactCommandScopeUpdateV1,
             ServiceOperationId::SelfContactReadListV1,
             ServiceOperationId::SelfContactCommandTombstoneV1,
-            ServiceOperationId::SelfInvitesCommandDispatchV1,
             ServiceOperationId::SelfInviteReceivePolicyResourceGetV1,
             ServiceOperationId::SelfInviteReceivePolicyResourceReplaceV1,
             ServiceOperationId::SelfInviteLocatorCommandIssueV1,
@@ -603,10 +553,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         surface: "moderation_reports",
         surface_class: "extension",
         profile: None,
-        operations: &[
-            ServiceOperationId::SelfModerationCommandReportV1,
-            ServiceOperationId::SelfModerationReadFrankingSealObservationV1,
-        ],
+        operations: &[ServiceOperationId::SelfModerationCommandReportV1],
     },
     OperationSurfaceGroupDescriptor {
         surface: "device_and_keys",
@@ -764,7 +711,6 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         operations: &[
             ServiceOperationId::GateAccountExchangeCreateHandoffV1,
             ServiceOperationId::GateAccountReadOnboardingV1,
-            ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
             ServiceOperationId::GateAccountCommandIssueIdentityBindingChallengeV1,
             ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
             ServiceOperationId::GateAccountCommandAbandonIdentityCreationV1,
@@ -802,16 +748,24 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfAgentParticipationResourceGetV1,
         ],
     },
+    OperationSurfaceGroupDescriptor {
+        surface: "authority_commit",
+        surface_class: "core",
+        profile: None,
+        operations: &[
+            ServiceOperationId::OpenRealmAuthorityReadBundleV1,
+            ServiceOperationId::PeerEventsReadResolveCommittedV1,
+            ServiceOperationId::PeerRealmAuthorityCommandHandoffV1,
+        ],
+    },
 ];
 
 pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
-pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] = &[
-    ServiceOperationId::SelfEventsReadDescribeV1,
-    ServiceOperationId::SelfAccountReadDescribeV1,
-];
+pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
+    &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-15.2";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-15.3";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-15.11";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-15.1";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-16.4";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-16.6";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-16.4";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-16.6";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

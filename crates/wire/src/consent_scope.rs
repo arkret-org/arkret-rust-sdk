@@ -1,7 +1,7 @@
 //! Contact consent-scope wire primitives.
 //!
 //! `ConsentScope` is a closed protocol vocabulary shared by the contact/directory
-//! operation DTOs (`arkret-models-discovery`) and the account consent-cell
+//! operation DTOs (`arkret-models-discovery`) and the account consent
 //! bodies (`arkret-models-collaboration`). It lives here in `arkret-wire` so
 //! both model domains reach it within their allowed layering edges.
 

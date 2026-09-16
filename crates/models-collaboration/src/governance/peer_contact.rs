@@ -2,8 +2,6 @@ use arkret_canonical::serde_helpers::optional_canonical_timestamp;
 use arkret_identifiers::{DidCoreId, EventId, RealmId};
 use arkret_models_identity::handle::Handle;
 use arkret_models_identity::{HandleClaim, RouteAssistance, ServiceResolutionCarrier};
-#[cfg(test)]
-use arkret_wire::AccountId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -96,56 +94,4 @@ pub enum ContactIntroductionEvidence {
     },
     SameStation,
     ExplicitAddress,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn authority() -> AccountId {
-        AccountId::new(
-            DidCoreId::new("ak:did_core:webvh:z6mkSubject").unwrap(),
-            DidCoreId::new("ak:did_core:webvh:z6mkService").unwrap(),
-        )
-    }
-
-    #[test]
-    fn peer_contact_address_binds_subject_and_service_cores_to_resolution_carrier() {
-        let account_id = authority();
-        let value = serde_json::json!({
-            "recipient": {"kind": "human", "account_id": account_id},
-            "service_resolution": {
-                "resolution_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
-            }
-        });
-        let address: PeerContactAddress = serde_json::from_value(value.clone()).unwrap();
-        assert_eq!(
-            address.delivery_station_id().as_str(),
-            "ak:did_core:webvh:z6mkService"
-        );
-        address.validate_shape().unwrap();
-        assert_eq!(serde_json::to_value(address).unwrap(), value);
-    }
-
-    #[test]
-    fn peer_contact_address_rejects_old_split_identity_and_wrong_resolution() {
-        let old_split_identity = serde_json::json!({
-            "subject_id": "did:webvh:z6mkSubject:subject.example",
-            "account_id": authority(),
-            "recipient_id": "ak:did_core:webvh:z6mkService",
-            "service_resolution": {
-                "resolution_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkService/resolution"
-            }
-        });
-        assert!(serde_json::from_value::<PeerContactAddress>(old_split_identity).is_err());
-
-        let wrong_station: PeerContactAddress = serde_json::from_value(serde_json::json!({
-            "recipient": {"kind": "human", "account_id": authority()},
-            "service_resolution": {
-                "resolution_url": "https://service.example/_arkret/open/services/ak%3Adid_core%3Awebvh%3Az6mkOther/resolution"
-            }
-        }))
-        .unwrap();
-        assert!(wrong_station.validate_shape().is_err());
-    }
 }

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{ActorId, EventId, Hash, Hlc, MorphId, RealmId};
+use arkret_wire::{ActorId, CommitStreamHead, MorphId, RealmId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -18,21 +18,7 @@ pub enum ReferenceProjectionState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StateFrontier {
-    pub state_digest: Hash,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub event_ids: Vec<EventId>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub actor_frontiers: Vec<StateFrontierActor>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct StateFrontierActor {
-    pub actor_id: ActorId,
-    pub actor_seq: u64,
-    pub event_id: EventId,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hlc: Option<Hlc>,
+    pub stream_heads: Vec<CommitStreamHead>,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
