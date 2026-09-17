@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/reducer-managed-path-registry.json; version=2026-09-16.8;
-//! sha256=ec57af0ef51098807a2e10b97a979a04f27a40795d6283f8c8d68cd4d8039922 Entries: objects=7,
+//! Input: registry/reducer-managed-path-registry.json; version=2026-09-18.1;
+//! sha256=72de5cf8662ca9192f72e6ec9dd3d79a76b54991a821c2bb9820af6c52603d04 Entries: objects=7,
 //! effective_paths=71, universal_paths=9
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -382,7 +382,7 @@ pub const REDUCER_MANAGED_PATCH_OBJECTS: &[ReducerManagedPatchObject] = &[
                 path: "scope_circle_id",
                 basis: "create_locked",
                 reason_code: "patch_path_reducer_managed",
-                owner_kind: "result_family",
+                owner_kind: "event_kind",
                 schema_enforced: Some(true),
             },
             ReducerManagedPatchPath {

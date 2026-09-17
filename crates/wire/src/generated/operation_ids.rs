@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-17.3;
-//! sha256=c93fceaf9cdd4ab489b4ae7c53d7c97ccdde98bca5a395a9443533d4a97179dd Entries: registered=220
+//! Input: registry/operation-registry.json; version=2026-09-18.1;
+//! sha256=5121ee9dca431155f78761dfded879cc4a8c05e81b850f5df212af522dbe1ff2 Entries: registered=220
 
 use serde::{Deserialize, Serialize};
 
@@ -3941,7 +3941,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "installs_only_the_verified_authority_generation_snapshot_and_private_stream_heads",
+                "installs_only_the_verified_governance_generation_snapshot_and_private_stream_heads",
             ),
             branch_contract_json: None,
         }),

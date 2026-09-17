@@ -2,13 +2,13 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/id-kind-registry.json; version=2026-09-16.10;
 //! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854 Input: registry/
-//! capability-action-registry.json; version=2026-09-16.10;
-//! sha256=36a98f202fc0109b8cfdfae6db12530c7f30ee7dde26a8affa6b29a11d2d57f9 Input: registry/
-//! schema-registry.json; version=2026-09-16.12;
-//! sha256=918716d1c0678425c86c9d1b6427b85e36e6fe45b166054a55aab87e6839bd9e Input: registry/
+//! capability-action-registry.json; version=2026-09-18.1;
+//! sha256=095b04c097380e02d210ea6e49e777e0d8e51fdc01b9fe10a37abc1a0c6b3f0c Input: registry/
+//! schema-registry.json; version=2026-09-18.1;
+//! sha256=e90fd18d04d2581f73714a8d2948922cd617eed3e311fe7fc6d17f09489d4ada Input: registry/
 //! account-data-key-registry.json; version=2026-09-16.6;
 //! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04 Entries: id_kinds=50,
-//! special_forms=15, actions=150, schemas=220, account_data_patterns=24
+//! special_forms=15, actions=151, schemas=219, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -1642,6 +1642,19 @@ pub const REGISTERED_CAPABILITY_ACTIONS: &[CapabilityActionDescriptor] = &[
         event_mapping_kind: "operation_verb",
     },
     CapabilityActionDescriptor {
+        action: CapabilityActionId::RealmAuthorityReset,
+        category: "management",
+        risk_tier: CapabilityRiskTier::High,
+        required_constraints: &[],
+        required_evaluator_checks: &[],
+        target_event_kinds: &[event_kind_str::REALM_AUTHORITY_RESET],
+        grant_authority_actions: &[],
+        profile: None,
+        root_control_only: true,
+        subject_only: false,
+        event_mapping_kind: "same_name",
+    },
+    CapabilityActionDescriptor {
         action: CapabilityActionId::RealmCreate,
         category: "general",
         risk_tier: CapabilityRiskTier::Medium,
@@ -3239,10 +3252,6 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_AUTHORITY_HANDOFF_V1,
         file: "schemas/realm-authority-handoff.schema.json",
-    },
-    SchemaDescriptor {
-        schema_id: SchemaId::REALM_AUTHORITY_ROOT_VALUE_V1,
-        file: "schemas/typed-current-result.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_COMMIT_V1,

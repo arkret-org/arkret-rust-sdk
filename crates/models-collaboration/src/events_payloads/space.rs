@@ -31,8 +31,15 @@ impl SpaceCreatePayload {
 #[serde(deny_unknown_fields)]
 pub struct SpaceParentPayload {
     pub space_id: SpaceId,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Required and nullable. Explicit `null` is the one spelling of "no
+    /// parent" on this payload, so the `space_parent` register stays total and
+    /// an omitted member can never mean the root by accident. Never skipped on
+    /// serialization, never defaulted on deserialization.
     pub parent_space_id: Option<SpaceId>,
+    /// Required and nullable. It is a declared `pre_state` requirement on the
+    /// `space_parent` family, not an optional compare-and-set: making it
+    /// optional would give one Event kind two admission semantics selected by
+    /// a member's presence.
     pub expected_parent_space_id: Option<SpaceId>,
 }
 

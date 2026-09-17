@@ -17,7 +17,7 @@ use crate::serde_absence::deserialize_non_null_optional;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RealmGovernanceStationChangePayload {
-    pub expected_authority_generation: u64,
+    pub expected_governance_generation: u64,
     pub expected_realm_stream_commit_id: RealmCommitId,
     pub new_governance_station_id: DidCoreId,
 }
@@ -67,7 +67,6 @@ impl RealmOwnerTransferPayload {
 pub struct RealmAuthorityResetPayload {
     pub realm_id: RealmId,
     pub expected_state_digest: Hash,
-    pub destructive_confirmation: String,
 }
 
 impl RealmAuthorityResetPayload {

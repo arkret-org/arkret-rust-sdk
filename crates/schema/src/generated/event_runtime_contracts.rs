@@ -1,10 +1,10 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/event-kind-registry.json; version=2026-09-17.1;
-//! sha256=70eb4a4c727733e9219907acc2bec6e8540a455245b009da84f3a74009a2191b Input: registry/
+//! Input: registry/event-kind-registry.json; version=2026-09-18.5;
+//! sha256=7e727be8faa463543688e7536f5fef5548e0b2cfdcc0c3d7064d7c418c1ff13c Input: registry/
 //! id-kind-registry.json; version=2026-09-16.10;
 //! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854
-//! Entries: active_events=147
+//! Entries: active_events=148
 
 use arkret_wire::event_kind_str;
 
@@ -473,6 +473,11 @@ pub const EVENT_RUNTIME_CONTRACTS: &[EventRuntimeContractDescriptor] = &[
     },
     EventRuntimeContractDescriptor {
         event_kind: event_kind_str::REALM_ASSET_PRIVACY_POLICY,
+        id_source: None,
+        derived_id_kinds: &[],
+    },
+    EventRuntimeContractDescriptor {
+        event_kind: event_kind_str::REALM_AUTHORITY_RESET,
         id_source: None,
         derived_id_kinds: &[],
     },

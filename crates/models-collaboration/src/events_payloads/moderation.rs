@@ -1,7 +1,8 @@
 //! Moderation event payloads.
 
 use arkret_wire::{
-    DidCoreId, DidUrl, EventId, Hash, ObjectRef, RealmId, Result, ScopeRef, WireError,
+    CurrentRevision, DidCoreId, DidUrl, EventId, Hash, ObjectRef, RealmId, Result, ScopeRef,
+    WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -72,6 +73,9 @@ impl FrankingProof {
 pub struct ModerationDecisionLiftPayload {
     pub target_ref: ObjectRef,
     pub decision_ref: EventId,
+    /// Typed revision of the moderation-target value the producer read. The
+    /// compare is field-for-field.
+    pub expected_revision: CurrentRevision,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

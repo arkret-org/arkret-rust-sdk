@@ -1,6 +1,6 @@
 //! Capability event payloads.
 
-use arkret_wire::ActorId;
+use arkret_wire::{ActorId, CurrentRevision};
 
 use crate::internal_prelude::*;
 
@@ -37,7 +37,7 @@ pub struct CapabilityGrantPayload {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRevokePayload {
     pub grant_id: GrantId,
-    pub expected_revision: u64,
+    pub expected_revision: CurrentRevision,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }
@@ -48,7 +48,7 @@ pub struct CapabilityRevokePayload {
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRelinquishPayload {
     pub grant_id: GrantId,
-    pub expected_revision: u64,
+    pub expected_revision: CurrentRevision,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
 }

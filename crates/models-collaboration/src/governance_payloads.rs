@@ -2,7 +2,7 @@
 //!
 //! The `arkret` umbrella re-exports these owner-defined shapes at its root.
 
-use arkret_wire::{ConsentId, Result, WireError};
+use arkret_wire::{ConsentId, CurrentRevision, Result, WireError};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct ConsentRevokePayload {
     pub consent_id: ConsentId,
-    pub expected_revision: u64,
+    pub expected_revision: CurrentRevision,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(with = "arkret_canonical::serde_helpers::optional_canonical_timestamp")]
     pub revoked_at: Option<DateTime<Utc>>,

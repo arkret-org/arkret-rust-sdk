@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-16.12;
-//! sha256=918716d1c0678425c86c9d1b6427b85e36e6fe45b166054a55aab87e6839bd9e Entries: schema_ids=220,
-//! active=220
+//! Input: registry/schema-registry.json; version=2026-09-18.1;
+//! sha256=e90fd18d04d2581f73714a8d2948922cd617eed3e311fe7fc6d17f09489d4ada Entries: schema_ids=219,
+//! active=219
 
 use serde::{Deserialize, Serialize};
 
@@ -160,7 +160,6 @@ pub enum SchemaId {
     RealmV1,
     RealmAuthorityBundleV1,
     RealmAuthorityHandoffV1,
-    RealmAuthorityRootValueV1,
     RealmCommitV1,
     RealmGenesisV1,
     RealmJoinBootstrapOutcomeV1,
@@ -384,7 +383,6 @@ impl SchemaId {
         Self::RealmV1,
         Self::RealmAuthorityBundleV1,
         Self::RealmAuthorityHandoffV1,
-        Self::RealmAuthorityRootValueV1,
         Self::RealmCommitV1,
         Self::RealmGenesisV1,
         Self::RealmJoinBootstrapOutcomeV1,
@@ -608,7 +606,6 @@ impl SchemaId {
         Self::RealmV1,
         Self::RealmAuthorityBundleV1,
         Self::RealmAuthorityHandoffV1,
-        Self::RealmAuthorityRootValueV1,
         Self::RealmCommitV1,
         Self::RealmGenesisV1,
         Self::RealmJoinBootstrapOutcomeV1,
@@ -1097,11 +1094,6 @@ impl SchemaId {
     pub const REALM_AUTHORITY_BUNDLE_V1: &'static str = "ak.schema.realm_authority_bundle.v1";
     /// Dual-signed planned authority generation transfer.
     pub const REALM_AUTHORITY_HANDOFF_V1: &'static str = "ak.schema.realm_authority_handoff.v1";
-    /// Closed value of the lifetime-stable Realm authority root: current root controller,
-    /// controller epoch and authority generation, all derived by the registered ak.realm.create
-    /// value_projection.
-    pub const REALM_AUTHORITY_ROOT_VALUE_V1: &'static str =
-        "ak.schema.realm_authority_root_value.v1";
     /// Authority-signed finality record for one Realm, Circle or Sidecar stream.
     pub const REALM_COMMIT_V1: &'static str = "ak.schema.realm_commit.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
@@ -1476,7 +1468,6 @@ impl SchemaId {
             Self::RealmV1 => Self::REALM_V1,
             Self::RealmAuthorityBundleV1 => Self::REALM_AUTHORITY_BUNDLE_V1,
             Self::RealmAuthorityHandoffV1 => Self::REALM_AUTHORITY_HANDOFF_V1,
-            Self::RealmAuthorityRootValueV1 => Self::REALM_AUTHORITY_ROOT_VALUE_V1,
             Self::RealmCommitV1 => Self::REALM_COMMIT_V1,
             Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
             Self::RealmJoinBootstrapOutcomeV1 => Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
@@ -1751,7 +1742,6 @@ impl SchemaId {
             Self::RealmV1 => "schemas/realm.schema.json",
             Self::RealmAuthorityBundleV1 => "schemas/realm-authority-bundle.schema.json",
             Self::RealmAuthorityHandoffV1 => "schemas/realm-authority-handoff.schema.json",
-            Self::RealmAuthorityRootValueV1 => "schemas/typed-current-result.schema.json",
             Self::RealmCommitV1 => "schemas/realm-commit.schema.json",
             Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
             Self::RealmJoinBootstrapOutcomeV1 => "schemas/realm-join-intake.schema.json",
@@ -2018,7 +2008,6 @@ impl SchemaId {
             Self::REALM_V1 => Some(Self::RealmV1),
             Self::REALM_AUTHORITY_BUNDLE_V1 => Some(Self::RealmAuthorityBundleV1),
             Self::REALM_AUTHORITY_HANDOFF_V1 => Some(Self::RealmAuthorityHandoffV1),
-            Self::REALM_AUTHORITY_ROOT_VALUE_V1 => Some(Self::RealmAuthorityRootValueV1),
             Self::REALM_COMMIT_V1 => Some(Self::RealmCommitV1),
             Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),
             Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1 => Some(Self::RealmJoinBootstrapOutcomeV1),

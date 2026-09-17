@@ -1,6 +1,6 @@
 //! Call-state and call-participant payloads.
 
-use arkret_wire::{ActorId, DidCoreId, ExporterLabelId, SchemaId};
+use arkret_wire::{ActorId, CurrentRevision, DidCoreId, ExporterLabelId, SchemaId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -147,9 +147,11 @@ pub enum CallRosterDelta {
         participant: CallParticipant,
     },
     Leave {
-        observed_tag: EventId,
         actor_id: DidCoreId,
         device_id: String,
+        /// Typed revision of the roster value the producer read. The compare is
+        /// field-for-field, not a bare Commit ID and not a counter.
+        expected_revision: CurrentRevision,
     },
 }
 
@@ -160,11 +162,13 @@ pub enum CallModerationDelta {
         removal: CallParticipantRemoval,
     },
     RestoreParticipant {
-        observed_tag: EventId,
         actor_id: DidCoreId,
         restored_by: DidCoreId,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         restored_at: DateTime<Utc>,
+        /// Typed revision of this participant's moderation value the producer
+        /// read. The compare is field-for-field.
+        expected_revision: CurrentRevision,
     },
 }
 

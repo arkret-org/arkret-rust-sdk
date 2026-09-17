@@ -24,7 +24,7 @@ pub struct DevicePushRouteActivePayload {
     pub account_id: AccountId,
     pub device_id: DeviceId,
     pub push_route: String,
-    pub expected_revision: u64,
+    pub expected_server_revision: u64,
     pub push_target_id: PushTargetId,
     pub push_gateway_id: DidCoreId,
     pub encryption_key: String,
@@ -49,7 +49,7 @@ pub struct DevicePushRouteRevokedPayload {
     pub account_id: AccountId,
     pub device_id: DeviceId,
     pub push_route: String,
-    pub expected_revision: u64,
+    pub expected_server_revision: u64,
     pub revoked: PushRouteRevokedMarker,
     #[serde(
         default,
@@ -97,10 +97,10 @@ impl DevicePushRoutePayload {
         }
     }
 
-    pub const fn expected_revision(&self) -> u64 {
+    pub const fn expected_server_revision(&self) -> u64 {
         match self {
-            Self::Active(value) => value.expected_revision,
-            Self::Revoked(value) => value.expected_revision,
+            Self::Active(value) => value.expected_server_revision,
+            Self::Revoked(value) => value.expected_server_revision,
         }
     }
 }

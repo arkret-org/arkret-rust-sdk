@@ -102,8 +102,8 @@ impl<'de> Deserialize<'de> for AccountDataBody {
 pub struct AccountDataSetPayload {
     pub key: NonEmptyString,
     /// Compare-and-set precondition. `0` creates a key that has never been
-    /// written; every accepted write stores `expected_revision + 1`.
-    pub expected_revision: u64,
+    /// written; every accepted write stores `expected_server_revision + 1`.
+    pub expected_server_revision: u64,
     /// Caller-supplied opaque value. Unlike the encrypted branch, this may be
     /// any JSON value, including a scalar, array, or null.
     #[serde(default, skip_serializing_if = "AccountDataBody::is_absent")]
@@ -126,7 +126,7 @@ pub struct AccountDataSetPayload {
 #[serde(deny_unknown_fields)]
 struct AccountDataSetPayloadWire {
     key: NonEmptyString,
-    expected_revision: u64,
+    expected_server_revision: u64,
     #[serde(default)]
     body: AccountDataBody,
     #[serde(default)]
@@ -153,7 +153,7 @@ impl<'de> Deserialize<'de> for AccountDataSetPayload {
         }
         let payload = Self {
             key: wire.key,
-            expected_revision: wire.expected_revision,
+            expected_server_revision: wire.expected_server_revision,
             body: wire.body,
             encrypted_payload: wire.encrypted_payload,
             tombstone: wire.tombstone.unwrap_or(false),

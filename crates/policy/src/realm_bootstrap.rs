@@ -94,7 +94,7 @@ pub fn build_governance_station_change_intent(
     payload: RealmGovernanceStationChangePayload,
 ) -> Result<EventIntent> {
     if !matches!(scope_ref, ScopeRef::Realm { .. })
-        || payload.expected_authority_generation == u64::MAX
+        || payload.expected_governance_generation == u64::MAX
     {
         return Err(WireError::Protocol(
             "schema_violation: invalid governance Station change payload".to_owned(),
