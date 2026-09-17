@@ -1229,7 +1229,6 @@ mod directory_actor_identity_tests {
 
 #[cfg(test)]
 mod agent_selector_outcome_tests {
-    use std::collections::BTreeMap;
 
     use arkret_models_identity::claim_presentation::AgentSelectorClaim;
     use arkret_models_identity::handle::HandleVisibility;
@@ -1263,7 +1262,6 @@ mod agent_selector_outcome_tests {
             vouching_id: Some(service("did:webvh:z6mkfixture:example.com")),
             visibility: HandleVisibility::Restricted,
             audience: Some("ak:realm:ASOikrLmQRDmUfDmMaw1Bx-NCkNptz9Sw2olIhr_M_23".to_owned()),
-            claim_scope: BTreeMap::new(),
             expires_at: None,
             created_at: Utc::now(),
             verified_at: None,

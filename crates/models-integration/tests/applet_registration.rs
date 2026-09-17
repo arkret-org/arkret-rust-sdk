@@ -1,20 +1,31 @@
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::PathBuf;
+
 use arkret_canonical as canonical;
 use arkret_models_identity::DidDocument;
+use arkret_models_identity::authenticated_signer_resolution_evidence::{
+    AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
+    build_principal_signer_evidence, build_service_signer_evidence,
+};
 use arkret_models_integration::{
-    AppletAuthoringAuthority, AppletDidMethodVersionEvidence, AppletEndpointAuth,
-    AppletEndpointEntry, AppletEndpointMethod, AppletInstallAuthoringRequestBasis,
-    AppletInstallCreateRequestBody, AppletInstallPlan, AppletInstallPreviewRequestBody,
-    AppletInstallRequestBody, AppletManagedActorAuthoringBundle,
-    AppletManagedActorAuthoringRequest, AppletManagedActorProof, AppletManagedActorPurpose,
+    AppletDidMethodVersionEvidence, AppletEndpointAuth, AppletEndpointEntry, AppletEndpointMethod,
+    AppletInstallAuthoringRequestBasis, AppletInstallCreateRequestBody, AppletInstallPlan,
+    AppletInstallPreviewRequestBody, AppletInstallRequestBody, AppletManagedActorAuthoringBundle,
+    AppletManagedActorAuthoringContext, AppletManagedActorAuthoringRequest,
+    AppletManagedActorCommittedRequest, AppletManagedActorProof, AppletManagedActorPurpose,
     AppletNamespaceDomain, AppletNamespaceEntry, AppletPackage, AppletPingOutcome,
     AppletRegistrationEpochEvidence, AppletRegistrationEpochTranscript, AppletRegistrationPayload,
-    AppletTransactionOutcome, AppletWireNamespaces, DetachedProof, E2eeEffect,
-    HttpMessageSignatureAlgorithm, WebhookAuth, WidgetEffect,
+    AppletServiceSignerEvidence, AppletTransactionOutcome, AppletWireNamespaces, DetachedProof,
+    E2eeEffect, HttpMessageSignatureAlgorithm, ManagedActorPrincipalSignerEvidence, WebhookAuth,
+    WidgetEffect,
 };
+use arkret_schema::ProtocolSchemaRegistry;
 use arkret_wire::{
-    ActorId, AppletId, CircleId, CommitStreamRef, CommittedEventRef, Did, DidCoreId, DidUrl,
-    EventId, Hash, PayloadSignature, PayloadSigner, PlanId, RealmCommitId, RealmId,
-    Result as WireResult, ScopeRef, SidecarId,
+    ActorId, AppletId, CircleId, CommitStreamHead, CommitStreamRef, CommittedEventRef, Did,
+    DidCoreId, DidUrl, Event, EventId, Hash, NonEmptyJsonObject, PayloadSignature, PayloadSigner,
+    PlanId, ProducerEventProof, RealmCommitId, RealmId, Result as WireResult, ScopeRef, SidecarId,
+    SignerEvidenceRef,
 };
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -72,12 +83,31 @@ fn canonical_now() -> DateTime<Utc> {
     DateTime::from_timestamp_millis(Utc::now().timestamp_millis()).unwrap()
 }
 
-fn authoring_authority() -> AppletAuthoringAuthority {
-    AppletAuthoringAuthority {
-        service_id: actor("station"),
-        governance_generation: 1,
-        verification_method: DidUrl::new(format!("{}#authority-key", did("station"))).unwrap(),
-    }
+/// Attach the one structural-only producer proof the wire contract requires of
+/// every caller-signed Event embedded in an authoring basis or bundle.
+fn with_caller_proof(mut event: Event, verification_method: &DidUrl) -> Event {
+    let event_digest = Hash::new(
+        event
+            .event_digest_with_digest_suite(arkret_canonical::DigestSuite::Sha256)
+            .unwrap(),
+    )
+    .unwrap();
+    let jws = arkret_wire::test_support::structural_only_detached_jws(&event_digest);
+    event.proofs.push(ProducerEventProof {
+        kind: arkret_wire::proof_kind::DETACHED_JWS.to_owned(),
+        verification_method: verification_method.clone(),
+        event_digest,
+        created_at: event.created_at,
+        domain: None,
+        audience: None,
+        proof_purpose: None,
+        jws,
+    });
+    event
+}
+
+fn governance_station_id() -> DidCoreId {
+    actor("station")
 }
 
 fn committed_ref(stream_ref: CommitStreamRef, seed: u8, stream_position: u64) -> CommittedEventRef {
@@ -635,40 +665,74 @@ fn committed_applet_refs_preserve_independent_circle_and_sidecar_streams() {
     );
 }
 
-#[test]
-fn install_commit_uses_each_signed_event_carrier_once() {
+/// One fully signed `Create` install request, plus the managed-actor bundle
+/// beside it.
+///
+/// Two suites need the byte-identical committed request: the carrier test
+/// below, and the authoring-context conformance test that replays it as the
+/// `committed_request` an Applet persists.
+fn sample_install_request_body() -> (AppletInstallRequestBody, AppletManagedActorAuthoringBundle) {
+    let admin_key = DidUrl::new(format!("{}#admin-key", did("admin"))).unwrap();
+    let bot_key = DidUrl::new(format!("{}#actor-key", did("applet-bot"))).unwrap();
     let scope = ScopeRef::Realm { realm_id: realm() };
     let package = finalized_package_with_required_fields();
+    let install_actor_id = ActorId::account(arkret_wire::AccountId::new(
+        actor("admin"),
+        actor("station"),
+    ));
     let requested_at = canonical_now();
     let requested_expires_at = requested_at + chrono::Duration::minutes(5);
     let registration_epoch_evidence = sample_epoch_evidence(&package.service_id);
-    let registration_event = arkret_wire::test_support::raw_event(
-        "ak.applet.registration",
-        scope.clone(),
-        actor("admin"),
-        actor("station"),
-        json!({
-            "applet_id": "ak:applet:01904100-0000-7000-8000-aaaaaaaaaaaa",
-            "manifest": {"registration_epoch_evidence": registration_epoch_evidence}
-        }),
-    )
-    .unwrap();
-    let capability_grant_event = arkret_wire::test_support::raw_event(
-        "ak.capability.grant",
-        scope.clone(),
-        actor("admin"),
-        actor("station"),
-        json!({"grant_id": "ak:grant:AUiSHUfqumU5_UtRrOIga2jjSmucw5MpSQdam3TtzPQu"}),
-    )
-    .unwrap();
+    let registration_event = with_caller_proof(
+        arkret_wire::test_support::raw_event(
+            "ak.applet.registration",
+            scope.clone(),
+            actor("admin"),
+            actor("station"),
+            // The spec binds this payload to the package-derived registration
+            // payload byte for byte, so the fixture derives it rather than
+            // hand-rolling a second spelling.
+            serde_json::to_value(
+                package
+                    .to_registration(&registration_epoch_evidence)
+                    .unwrap(),
+            )
+            .unwrap(),
+        )
+        .unwrap(),
+        &admin_key,
+    );
+    let capability_grant_event = with_caller_proof(
+        arkret_wire::test_support::raw_event(
+            "ak.capability.grant",
+            scope.clone(),
+            actor("admin"),
+            actor("station"),
+            json!({"grant": {
+                "schema": "ak.schema.capability.v1",
+                "realm_id": realm(),
+                "issuer_id": install_actor_id,
+                "subject": package.bot_actor_id,
+                "actions": ["ak.message.create"],
+                "resources": [{"kind": "*"}],
+                "issued_at": arkret_canonical::format_timestamp_canonical(requested_at),
+                "issuer_authority_refs": [{
+                    "kind": "realm_root",
+                    "realm_id": realm(),
+                    "authority_event_ref":
+                        EventId::from_digest(arkret_canonical::DigestSuite::Sha256, [0x11; 32]),
+                    "authority_generation": 1
+                }]
+            }}),
+        )
+        .unwrap(),
+        &admin_key,
+    );
     let basis = AppletInstallAuthoringRequestBasis {
         schema: "ak.schema.applet_install_authoring_request_basis.v1".to_owned(),
         purpose: AppletManagedActorPurpose::InstallBot,
         target_station_id: actor("station"),
-        install_actor_id: ActorId::account(arkret_wire::AccountId::new(
-            actor("admin"),
-            actor("station"),
-        )),
+        install_actor_id: install_actor_id.clone(),
         applet_id: package.applet_id.clone(),
         service_id: package.service_id.clone(),
         package_digest: package.package_digest.clone().unwrap(),
@@ -693,46 +757,58 @@ fn install_commit_uses_each_signed_event_carrier_once() {
     let authoring_request = AppletManagedActorAuthoringRequest::sign(
         basis,
         package.registration_epoch.clone(),
-        authoring_authority(),
+        governance_station_id(),
         requested_at,
         requested_expires_at,
         &signer,
     )
     .unwrap();
-    let bot_actor_provision_event = arkret_wire::test_support::raw_event_at(
-        "ak.applet.managed_actor.provision",
-        scope.clone(),
-        service("slackbridge"),
-        actor("station"),
-        json!({"actor_id": package.bot_actor_id, "actor_station_id": actor("station")}),
-        requested_at,
-    )
-    .unwrap();
-    let bot_pcr_genesis_event = arkret_wire::test_support::raw_event_for_actor_at(
-        "ak.realm.create",
-        ScopeRef::RealmGenesis,
-        package.bot_actor_id.clone(),
-        json!({"realm_kind": "pcr"}),
-        requested_at,
-    )
-    .unwrap();
-    let bot_accountability_grant_event = arkret_wire::test_support::raw_event_at(
-        "ak.identity.accountability_grant",
-        scope.clone(),
-        service("slackbridge"),
-        actor("station"),
-        json!({"accountable_principal_id": package.bot_actor_id}),
-        requested_at,
-    )
-    .unwrap();
-    let bot_profile_event = arkret_wire::test_support::raw_event_for_actor_at(
-        "ak.profile.create",
-        scope,
-        package.bot_actor_id.clone(),
-        json!({"display_name": "Applet Bot"}),
-        requested_at,
-    )
-    .unwrap();
+    let bot_actor_provision_event = with_caller_proof(
+        arkret_wire::test_support::raw_event_at(
+            "ak.applet.managed_actor.provision",
+            scope.clone(),
+            service("slackbridge"),
+            actor("station"),
+            json!({"actor_id": package.bot_actor_id, "actor_station_id": actor("station")}),
+            requested_at,
+        )
+        .unwrap(),
+        &admin_key,
+    );
+    let bot_pcr_genesis_event = with_caller_proof(
+        arkret_wire::test_support::raw_event_for_actor_at(
+            "ak.realm.create",
+            ScopeRef::RealmGenesis,
+            package.bot_actor_id.clone(),
+            json!({"realm_kind": "pcr"}),
+            requested_at,
+        )
+        .unwrap(),
+        &bot_key,
+    );
+    let bot_accountability_grant_event = with_caller_proof(
+        arkret_wire::test_support::raw_event_at(
+            "ak.identity.accountability_grant",
+            scope.clone(),
+            service("slackbridge"),
+            actor("station"),
+            json!({"accountable_principal_id": package.bot_actor_id}),
+            requested_at,
+        )
+        .unwrap(),
+        &admin_key,
+    );
+    let bot_profile_event = with_caller_proof(
+        arkret_wire::test_support::raw_event_for_actor_at(
+            "ak.profile.create",
+            scope,
+            package.bot_actor_id.clone(),
+            json!({"display_name": "Applet Bot"}),
+            requested_at,
+        )
+        .unwrap(),
+        &bot_key,
+    );
     let mut managed_actor_bundle = AppletManagedActorAuthoringBundle {
         schema: AppletManagedActorAuthoringBundle::SCHEMA.to_owned(),
         authoring_request_digest: authoring_request.canonical_digest().unwrap(),
@@ -755,6 +831,18 @@ fn install_commit_uses_each_signed_event_carrier_once() {
         authoring_request,
         managed_actor_bundle: managed_actor_bundle.clone(),
     }));
+    (request, managed_actor_bundle)
+}
+
+#[test]
+fn install_commit_uses_each_signed_event_carrier_once() {
+    let (request, managed_actor_bundle) = sample_install_request_body();
+    let registration_epoch_evidence = match &request {
+        AppletInstallRequestBody::Create(body) => {
+            sample_epoch_evidence(&body.applet_package.service_id)
+        }
+        AppletInstallRequestBody::Reuse(_) => unreachable!(),
+    };
     let value = serde_json::to_value(&request).unwrap();
     let binding: Value =
         serde_json::from_slice(&managed_actor_bundle.proof_binding_bytes().unwrap()).unwrap();
@@ -974,7 +1062,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     let first = AppletManagedActorAuthoringRequest::sign(
         basis.clone(),
         package.registration_epoch.clone(),
-        authoring_authority(),
+        governance_station_id(),
         requested_at,
         expires_at,
         &signer,
@@ -984,7 +1072,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
         AppletManagedActorAuthoringRequest::sign(
             basis.clone(),
             package.registration_epoch.clone(),
-            authoring_authority(),
+            governance_station_id(),
             requested_at,
             requested_at + chrono::Duration::minutes(6),
             &signer,
@@ -994,7 +1082,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     let second = AppletManagedActorAuthoringRequest::sign(
         basis,
         package.registration_epoch,
-        authoring_authority(),
+        governance_station_id(),
         requested_at,
         expires_at,
         &signer,
@@ -1014,7 +1102,8 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     assert_eq!(wire["proof"]["audience_id"], json!(service("slackbridge")));
     assert_eq!(binding["audience_id"], wire["proof"]["audience_id"]);
     assert!(wire["proof"].get("audience").is_none());
-    assert_eq!(wire["authoring_authority"]["governance_generation"], 1);
+    assert_eq!(wire["governance_station_id"], json!(actor("station")));
+    assert!(wire.get("authoring_authority").is_none());
     assert!(binding.get("audience").is_none());
     let mut rejected = wire;
     let proof = rejected["proof"].as_object_mut().unwrap();
@@ -1025,7 +1114,374 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     wrong_audience_id.proof.audience_id = actor("station");
     assert!(wrong_audience_id.validate_bindings().is_err());
 
-    let mut stale_generation = second;
-    stale_generation.authoring_authority.governance_generation = 0;
-    assert!(stale_generation.validate_bindings().is_err());
+    // A request that names a Station other than the one whose key signed it is
+    // rejected: the identity is the whole binding, so nothing else can carry it.
+    let mut borrowed_station = second;
+    borrowed_station.governance_station_id = service("slackbridge");
+    assert!(borrowed_station.validate_bindings().is_err());
+}
+
+// ---------------------------------------------------------------------------
+// Applet-managed Actor authoring context
+//
+// The context is the one artifact an Applet persists before it may return
+// `accepted`, so it is checked three ways: against the published schema
+// fragment, byte-for-byte through a serde round trip, and against every
+// closure rule a schema cannot express (a ref is a content address, a root has
+// one exact signer kind, an attester is pinned to one commit).
+// ---------------------------------------------------------------------------
+
+fn artifacts_dir() -> PathBuf {
+    arkret_schema_conformance::default_spec_artifacts_dir()
+        .expect("the arkret-spec artifacts checkout must be reachable for conformance")
+}
+
+fn schema_text(file: &str) -> String {
+    let path = artifacts_dir().join("schemas").join(file);
+    fs::read_to_string(&path)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()))
+}
+
+fn registry() -> ProtocolSchemaRegistry {
+    arkret_schema_conformance::schema_registry_from_spec_artifacts(artifacts_dir())
+        .expect("the spec artifacts must produce a schema registry")
+}
+
+/// Validate `value` against one `$defs` fragment of a published schema file.
+fn validate_fragment(file: &str, fragment: &str, value: &Value) {
+    let mut registry = registry();
+    let schema: Value = serde_json::from_str(&schema_text(file)).expect("schema artifact is JSON");
+    registry
+        .register_reference_document(schema.clone())
+        .expect("schema document declares an absolute $id");
+    // The registry splits a schema id on `#`, so the lookup key must not
+    // contain one; the fragment is stored beside the id, not inside it.
+    let schema_id = format!("test:{file}{}", fragment.replace('#', "@"));
+    registry
+        .register_fragment(schema_id.clone(), schema, fragment)
+        .unwrap_or_else(|error| panic!("{file}{fragment}: {error}"));
+    registry
+        .validate_value(&schema_id, value)
+        .unwrap_or_else(|error| panic!("{file}{fragment} rejected the document: {error}"));
+}
+
+/// Top-level member names of a serialized JSON object, in source order.
+///
+/// `serde_json` parses objects into a sorted map, which destroys the very
+/// ordering the caller below exists to assert, so the names are read off the
+/// raw text instead. serde emits struct fields in declaration order.
+fn declared_member_names(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    assert_eq!(bytes[0], b'{', "expected a JSON object");
+    let mut members = Vec::new();
+    let mut index = 1usize;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut key_start = None;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                in_string = false;
+                let start = key_start.take().expect("a string always has a start");
+                if depth == 0 && bytes.get(index + 1) == Some(&b':') {
+                    members
+                        .push(serde_json::from_str::<String>(&text[start..=index]).expect("key"));
+                }
+            }
+        } else {
+            match byte {
+                b'"' => {
+                    in_string = true;
+                    key_start = Some(index);
+                }
+                b'{' | b'[' => depth += 1,
+                b'}' | b']' => {
+                    if depth == 0 {
+                        break;
+                    }
+                    depth -= 1;
+                }
+                _ => {}
+            }
+        }
+        index += 1;
+    }
+    members
+}
+
+/// Member names of one `$defs` entry's `properties`, in published order.
+fn published_property_order(file: &str, def: &str) -> Vec<String> {
+    let text = schema_text(file);
+    let start = text
+        .find(&format!("\n    \"{def}\": {{"))
+        .unwrap_or_else(|| panic!("{file} has no $defs entry `{def}`"));
+    let rest = &text[start + 1..];
+    // Every `$defs` entry is published at one exact indent, so the next line
+    // that opens a quoted member there ends this one.
+    let end = rest[1..]
+        .find("\n    \"")
+        .map_or(rest.len(), |offset| offset + 1);
+    let marker = "\"properties\": ";
+    let at = rest[..end]
+        .find(marker)
+        .unwrap_or_else(|| panic!("{def} declares no `properties`"));
+    declared_member_names(&rest[at + marker.len()..end])
+}
+
+/// Member names one `$defs` entry lists as `required`, in published order.
+fn published_required(file: &str, def: &str) -> Vec<String> {
+    let schema: Value = serde_json::from_str(&schema_text(file)).expect("schema artifact is JSON");
+    serde_json::from_value(schema["$defs"][def]["required"].clone())
+        .unwrap_or_else(|error| panic!("{def} has no `required` list: {error}"))
+}
+
+/// Assert that a struct's members are exactly its `$defs` entry's members, in
+/// the published order, with nothing optional on either side.
+///
+/// The SDK convention is that field declaration order equals the schema's
+/// `properties` order byte-for-byte, and `required` is read separately so a
+/// member that exists in the schema but not in the struct fails too.
+fn assert_matches_published_shape<T: serde::Serialize>(file: &str, def: &str, value: &T) {
+    let declared = declared_member_names(&serde_json::to_string(value).expect("value serializes"));
+    assert_eq!(
+        declared,
+        published_property_order(file, def),
+        "{def}: field declaration order must equal the published `properties` order"
+    );
+    assert_eq!(
+        declared,
+        published_required(file, def),
+        "{def}: every published member is required, and the struct carries all of them"
+    );
+}
+fn sample_jwk() -> NonEmptyJsonObject {
+    NonEmptyJsonObject::new(BTreeMap::from([
+        ("kty".to_owned(), json!("OKP")),
+        ("crv".to_owned(), json!("Ed25519")),
+        (
+            "x".to_owned(),
+            json!("11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"),
+        ),
+    ]))
+    .unwrap()
+}
+
+fn authority_commit(seed: u8) -> RealmCommitId {
+    RealmCommitId::from_digest([seed; 32])
+}
+
+fn service_root(commit: &RealmCommitId) -> AppletServiceSignerEvidence {
+    let evidence = build_service_signer_evidence(
+        service("slackbridge"),
+        DidUrl::new(format!("{}#service-key", did("slackbridge"))).unwrap(),
+        sample_jwk(),
+        commit.clone(),
+        DateTime::from_timestamp_millis(1_756_000_000_000).unwrap(),
+    )
+    .unwrap();
+    AppletServiceSignerEvidence {
+        signer_resolution_evidence_ref: evidence.signer_evidence_ref().unwrap(),
+        authenticated_signer_evidence: evidence,
+    }
+}
+
+fn station_attester(commit: &RealmCommitId) -> AuthenticatedSignerResolutionEvidence {
+    build_service_signer_evidence(
+        service("station"),
+        DidUrl::new(format!("{}#authority-key", did("station"))).unwrap(),
+        sample_jwk(),
+        commit.clone(),
+        DateTime::from_timestamp_millis(1_756_000_001_000).unwrap(),
+    )
+    .unwrap()
+}
+
+fn managed_actor_root(commit: &RealmCommitId) -> ManagedActorPrincipalSignerEvidence {
+    let evidence = build_principal_signer_evidence(
+        principal("applet-bot"),
+        DidUrl::new(format!("{}#actor-key", did("applet-bot"))).unwrap(),
+        sample_jwk(),
+        commit.clone(),
+        DateTime::from_timestamp_millis(1_756_000_002_000).unwrap(),
+    )
+    .unwrap();
+    ManagedActorPrincipalSignerEvidence {
+        signer_resolution_evidence_ref: evidence.signer_evidence_ref().unwrap(),
+        authenticated_signer_evidence: evidence,
+        attester_signer_evidence: station_attester(commit),
+    }
+}
+
+fn sample_authoring_context() -> AppletManagedActorAuthoringContext {
+    let commit = authority_commit(0x2c);
+    let (request, _) = sample_install_request_body();
+    AppletManagedActorAuthoringContext {
+        committed_request: AppletManagedActorCommittedRequest::Install(Box::new(request)),
+        realm_stream_head: CommitStreamHead {
+            stream_ref: CommitStreamRef::Realm { realm_id: realm() },
+            stream_position: 41,
+            commit_id: commit.clone(),
+        },
+        applet_service_signer_evidence: service_root(&commit),
+        managed_actor_signer_evidence: managed_actor_root(&commit),
+    }
+}
+
+const EDGE_SCHEMA: &str = "applet-edge-operations.schema.json";
+
+#[test]
+fn the_authoring_context_matches_the_published_fragment_and_round_trips() {
+    let context = sample_authoring_context();
+    context.validate().unwrap();
+
+    let wire = serde_json::to_value(&context).unwrap();
+    validate_fragment(
+        EDGE_SCHEMA,
+        "#/$defs/applet_service_signer_evidence",
+        &wire["applet_service_signer_evidence"],
+    );
+    validate_fragment(
+        EDGE_SCHEMA,
+        "#/$defs/managed_actor_principal_signer_evidence",
+        &wire["managed_actor_signer_evidence"],
+    );
+    validate_fragment(
+        "realm-commit.schema.json",
+        "#/$defs/stream_head",
+        &wire["realm_stream_head"],
+    );
+
+    // The whole context is not handed to
+    // `#/$defs/applet_managed_actor_authoring_context` yet: through
+    // `committed_request` that fragment reaches the entire install request
+    // body, whose four bundle Events need conformant `ak.realm.create`,
+    // `ak.identity.accountability_grant`, `ak.profile.create` and
+    // `ak.applet.managed_actor.provision` payloads that this repository has no
+    // fixture for. The context's own shape is therefore pinned against the
+    // published member lists instead, and the install body has its own task.
+    assert_matches_published_shape(
+        EDGE_SCHEMA,
+        "applet_managed_actor_authoring_context",
+        &context,
+    );
+    assert_matches_published_shape(
+        EDGE_SCHEMA,
+        "applet_service_signer_evidence",
+        &context.applet_service_signer_evidence,
+    );
+    assert_matches_published_shape(
+        EDGE_SCHEMA,
+        "managed_actor_principal_signer_evidence",
+        &context.managed_actor_signer_evidence,
+    );
+
+    let parsed: AppletManagedActorAuthoringContext = serde_json::from_value(wire).unwrap();
+    assert_eq!(
+        serde_json::to_string(&parsed).unwrap(),
+        serde_json::to_string(&context).unwrap(),
+        "the context must survive a round trip byte for byte"
+    );
+}
+#[test]
+fn every_authoring_context_member_is_required() {
+    let wire = serde_json::to_value(sample_authoring_context()).unwrap();
+    for member in [
+        "committed_request",
+        "realm_stream_head",
+        "applet_service_signer_evidence",
+        "managed_actor_signer_evidence",
+    ] {
+        let mut missing = wire.clone();
+        missing.as_object_mut().unwrap().remove(member).unwrap();
+        assert!(
+            serde_json::from_value::<AppletManagedActorAuthoringContext>(missing).is_err(),
+            "`{member}` must not be droppable from an authoring context"
+        );
+    }
+
+    let mut unknown = wire;
+    unknown["attester_signer_evidence"] = json!({});
+    assert!(serde_json::from_value::<AppletManagedActorAuthoringContext>(unknown).is_err());
+}
+
+#[test]
+fn a_signer_root_ref_that_is_not_its_own_content_address_is_rejected() {
+    let mut borrowed_ref = sample_authoring_context();
+    borrowed_ref
+        .applet_service_signer_evidence
+        .signer_resolution_evidence_ref = borrowed_ref
+        .managed_actor_signer_evidence
+        .signer_resolution_evidence_ref
+        .clone();
+    assert!(borrowed_ref.validate().is_err());
+
+    // A ref that is well formed but addresses nothing at all fails the same
+    // way: the consumer recomputes, it never trusts the reported sibling.
+    let mut empty_ref = sample_authoring_context();
+    empty_ref
+        .managed_actor_signer_evidence
+        .signer_resolution_evidence_ref =
+        SignerEvidenceRef::new(format!("ak:signer_evidence:sha256:{}", "0".repeat(64))).unwrap();
+    assert!(empty_ref.validate().is_err());
+}
+
+#[test]
+fn each_signer_root_carries_its_own_signer_kind() {
+    let principal_evidence = build_principal_signer_evidence(
+        service("slackbridge"),
+        DidUrl::new(format!("{}#service-key", did("slackbridge"))).unwrap(),
+        sample_jwk(),
+        authority_commit(0x2c),
+        DateTime::from_timestamp_millis(1_756_000_000_000).unwrap(),
+    )
+    .unwrap();
+    let mut wrong_service_kind = sample_authoring_context();
+    wrong_service_kind.applet_service_signer_evidence = AppletServiceSignerEvidence {
+        signer_resolution_evidence_ref: principal_evidence.signer_evidence_ref().unwrap(),
+        authenticated_signer_evidence: principal_evidence,
+    };
+    assert!(wrong_service_kind.validate().is_err());
+
+    let mut wrong_attester_kind = sample_authoring_context();
+    wrong_attester_kind
+        .managed_actor_signer_evidence
+        .attester_signer_evidence
+        .signer_kind = AuthenticatedSignerKind::Agent;
+    assert!(
+        wrong_attester_kind.validate().is_err(),
+        "the attester leaf must be the Station Service that signed the resolution"
+    );
+}
+
+#[test]
+fn the_attester_leaf_is_pinned_to_the_commit_the_context_froze() {
+    let mut drifted_attester = sample_authoring_context();
+    drifted_attester
+        .managed_actor_signer_evidence
+        .attester_signer_evidence
+        .authority_commit_id = authority_commit(0x5d);
+    assert!(drifted_attester.validate().is_err());
+
+    // The Applet Service root is resolved against its own registration epoch,
+    // so it is deliberately not pinned to the managed Actor's commit.
+    let evidence = build_service_signer_evidence(
+        service("slackbridge"),
+        DidUrl::new(format!("{}#service-key", did("slackbridge"))).unwrap(),
+        sample_jwk(),
+        authority_commit(0x5d),
+        DateTime::from_timestamp_millis(1_756_000_000_000).unwrap(),
+    )
+    .unwrap();
+    let mut independent_service_commit = sample_authoring_context();
+    independent_service_commit.applet_service_signer_evidence = AppletServiceSignerEvidence {
+        signer_resolution_evidence_ref: evidence.signer_evidence_ref().unwrap(),
+        authenticated_signer_evidence: evidence,
+    };
+    independent_service_commit.validate().unwrap();
 }

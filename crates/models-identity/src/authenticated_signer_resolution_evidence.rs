@@ -101,6 +101,96 @@ impl AuthenticatedSignerResolutionEvidence {
     }
 }
 
+/// Assemble one signer-resolution evidence object without signing anything.
+///
+/// Every input is supplied by the caller, including `resolved_at`: the helper
+/// reads no clock, holds no key and consults no service, so the same inputs
+/// always produce the same bytes and therefore the same
+/// [`SignerEvidenceRef`]. A resolving Station calls it after it has already
+/// resolved the key against `authority_commit_id`; the evidence records that
+/// resolution, it does not perform one.
+///
+/// It is deliberately not a trait or a builder: an evidence object with a
+/// field left to a default is an evidence object that asserts something its
+/// producer never checked.
+pub fn build_signer_resolution_evidence(
+    signer_kind: AuthenticatedSignerKind,
+    subject_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    let evidence = AuthenticatedSignerResolutionEvidence {
+        signer_kind,
+        subject_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    };
+    evidence.validate()?;
+    Ok(evidence)
+}
+
+/// [`build_signer_resolution_evidence`] for an Agent runtime key.
+///
+/// An Agent key never stands in for its controller, so the kind is fixed here
+/// rather than passed in: a caller that holds an Agent key has no way to spell
+/// the principal or service branch by accident.
+pub fn build_agent_signer_evidence(
+    agent_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    build_signer_resolution_evidence(
+        AuthenticatedSignerKind::Agent,
+        agent_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    )
+}
+
+/// [`build_signer_resolution_evidence`] for an account principal key.
+pub fn build_principal_signer_evidence(
+    principal_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    build_signer_resolution_evidence(
+        AuthenticatedSignerKind::Principal,
+        principal_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    )
+}
+
+/// [`build_signer_resolution_evidence`] for a Station Service key.
+pub fn build_service_signer_evidence(
+    service_id: DidCoreId,
+    verification_method: DidUrl,
+    public_key_jwk: NonEmptyJsonObject,
+    authority_commit_id: RealmCommitId,
+    resolved_at: DateTime<Utc>,
+) -> Result<AuthenticatedSignerResolutionEvidence> {
+    build_signer_resolution_evidence(
+        AuthenticatedSignerKind::Service,
+        service_id,
+        verification_method,
+        public_key_jwk,
+        authority_commit_id,
+        resolved_at,
+    )
+}
+
 fn evidence_error(message: &str) -> WireError {
     WireError::ProtocolCode {
         code: ErrorCode::SchemaViolation,
@@ -214,5 +304,92 @@ mod tests {
             RealmCommitId::new("ak:realm_commit:AdA0TA9zF1BPiudM7qe4WqKZLjMn0r7--gKAHqstAWDZ")
                 .unwrap();
         assert!(!rebound.matches_ref(&reference).unwrap());
+    }
+
+    /// The builder takes `resolved_at` rather than reading a clock, so calling
+    /// it twice for the same resolution yields the same content address. A
+    /// helper that stamped its own time would mint a new ref on every call and
+    /// silently break every carrier that commits to these bytes.
+    #[test]
+    fn the_builders_are_deterministic_and_stamp_no_time_of_their_own() {
+        let template = evidence();
+        let built = build_agent_signer_evidence(
+            template.subject_id.clone(),
+            template.verification_method.clone(),
+            template.public_key_jwk.clone(),
+            template.authority_commit_id.clone(),
+            template.resolved_at,
+        )
+        .unwrap();
+        assert_eq!(built, template);
+        assert_eq!(
+            built.signer_evidence_ref().unwrap(),
+            build_agent_signer_evidence(
+                template.subject_id.clone(),
+                template.verification_method.clone(),
+                template.public_key_jwk.clone(),
+                template.authority_commit_id.clone(),
+                template.resolved_at,
+            )
+            .unwrap()
+            .signer_evidence_ref()
+            .unwrap()
+        );
+    }
+
+    /// Each named builder fixes its own `signer_kind`: the three classes are
+    /// distinct authorities, never fallbacks for one another.
+    #[test]
+    fn each_named_builder_fixes_its_own_signer_kind() {
+        let template = evidence();
+        let cases: [(
+            fn(
+                DidCoreId,
+                DidUrl,
+                NonEmptyJsonObject,
+                RealmCommitId,
+                DateTime<Utc>,
+            ) -> Result<AuthenticatedSignerResolutionEvidence>,
+            AuthenticatedSignerKind,
+        ); 3] = [
+            (build_agent_signer_evidence, AuthenticatedSignerKind::Agent),
+            (
+                build_principal_signer_evidence,
+                AuthenticatedSignerKind::Principal,
+            ),
+            (
+                build_service_signer_evidence,
+                AuthenticatedSignerKind::Service,
+            ),
+        ];
+        for (build, expected) in cases {
+            let built = build(
+                template.subject_id.clone(),
+                template.verification_method.clone(),
+                template.public_key_jwk.clone(),
+                template.authority_commit_id.clone(),
+                template.resolved_at,
+            )
+            .unwrap();
+            assert_eq!(built.signer_kind, expected);
+        }
+    }
+
+    /// The builder validates, so an unusable key never reaches a content
+    /// address at all.
+    #[test]
+    fn the_builder_refuses_a_jwk_that_cannot_name_a_key() {
+        let template = evidence();
+        let mut json = evidence_json();
+        json["public_key_jwk"] = serde_json::json!({ "kty": "OKP" });
+        let thin: AuthenticatedSignerResolutionEvidence = serde_json::from_value(json).unwrap();
+        build_agent_signer_evidence(
+            template.subject_id,
+            template.verification_method,
+            thin.public_key_jwk,
+            template.authority_commit_id,
+            template.resolved_at,
+        )
+        .expect_err("a one-member JWK is not a usable key");
     }
 }

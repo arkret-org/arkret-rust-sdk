@@ -8,11 +8,14 @@
 use std::collections::BTreeMap;
 
 use arkret_models_identity::account::AccountLifecycleProof;
+use arkret_models_identity::authenticated_signer_resolution_evidence::{
+    AuthenticatedSignerKind, AuthenticatedSignerResolutionEvidence,
+};
 use arkret_wire::{
     ActorId, AppletId, AppletRevokeMode, BlobRef, CommitStreamHead, CommittedEventRef, Did,
     DidCoreId, DidUrl, Event, EventCommitSubmission, GrantId, Hash, PayloadSigner,
-    ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, WireError,
-    canonical,
+    ProtocolOperationId, RealmId, ReasonCode, Result, ScopeRef, SignalEnvelope, SignerEvidenceRef,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -84,7 +87,7 @@ impl AppletTransactionRequestBody {
     pub fn validate(&self) -> Result<()> {
         match self {
             Self::Events(body) => body.validate(),
-            Self::Authoring(_) => Ok(()),
+            Self::Authoring(body) => body.authoring_context.validate(),
         }
     }
 }
@@ -122,6 +125,108 @@ pub struct AppletAuthoringTransactionRequestBody {
     pub authoring_context: AppletManagedActorAuthoringContext,
 }
 
+/// Complete content-addressed Service signer root selected by the accepted
+/// registration epoch.
+///
+/// The Service branch is a leaf: it carries no recursive dependency array,
+/// because a Service key is resolved against its own registration epoch and
+/// has nothing further to close over.
+// Field declaration order is byte-for-byte the `properties` order of
+// `applet-edge-operations.schema.json#/$defs/applet_service_signer_evidence`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppletServiceSignerEvidence {
+    pub signer_resolution_evidence_ref: SignerEvidenceRef,
+    pub authenticated_signer_evidence: AuthenticatedSignerResolutionEvidence,
+}
+
+impl AppletServiceSignerEvidence {
+    pub fn validate(&self) -> Result<()> {
+        validate_signer_root(
+            &self.authenticated_signer_evidence,
+            &self.signer_resolution_evidence_ref,
+            AuthenticatedSignerKind::Service,
+            "Applet Service signer root",
+        )
+    }
+}
+
+/// Complete content-addressed Principal signer root for the accepted managed
+/// Actor resolution, plus its one exact Station Service attester leaf.
+///
+/// Signer-resolution evidence carries no attester ref of its own, so the leaf
+/// is bound positionally here and by equality of `authority_commit_id` with
+/// `authenticated_signer_evidence`. Omitted, surplus or mismatched closure is
+/// invalid — an attester resolved at a different commit attests a different
+/// state than the one this context froze.
+// Field declaration order is byte-for-byte the `properties` order of
+// `applet-edge-operations.schema.json#/$defs/managed_actor_principal_signer_evidence`.
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ManagedActorPrincipalSignerEvidence {
+    pub signer_resolution_evidence_ref: SignerEvidenceRef,
+    pub authenticated_signer_evidence: AuthenticatedSignerResolutionEvidence,
+    pub attester_signer_evidence: AuthenticatedSignerResolutionEvidence,
+}
+
+impl ManagedActorPrincipalSignerEvidence {
+    pub fn validate(&self) -> Result<()> {
+        validate_signer_root(
+            &self.authenticated_signer_evidence,
+            &self.signer_resolution_evidence_ref,
+            AuthenticatedSignerKind::Principal,
+            "managed Actor Principal signer root",
+        )?;
+        self.attester_signer_evidence.validate()?;
+        if self.attester_signer_evidence.signer_kind != AuthenticatedSignerKind::Service {
+            return Err(WireError::Protocol(
+                "managed Actor attester leaf must be the Station Service that signed the resolution"
+                    .to_owned(),
+            ));
+        }
+        if self.attester_signer_evidence.authority_commit_id
+            != self.authenticated_signer_evidence.authority_commit_id
+        {
+            return Err(WireError::Protocol(
+                "managed Actor attester leaf was resolved at a different authority commit"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+fn validate_signer_root(
+    evidence: &AuthenticatedSignerResolutionEvidence,
+    reported_ref: &SignerEvidenceRef,
+    expected_kind: AuthenticatedSignerKind,
+    role: &str,
+) -> Result<()> {
+    evidence.validate()?;
+    if evidence.signer_kind != expected_kind {
+        return Err(WireError::Protocol(format!(
+            "{role} carries the wrong signer_kind"
+        )));
+    }
+    if !evidence.matches_ref(reported_ref)? {
+        return Err(WireError::Protocol(format!(
+            "{role} ref is not the content address of the evidence beside it"
+        )));
+    }
+    Ok(())
+}
+
+/// Current authority context for an Applet-managed Actor.
+///
+/// All four members are required: an accepted authoring result is conditional
+/// on both signer roots having been verified and frozen inside the one
+/// recoverable atomic commit, so a context without them could never have been
+/// accepted in the first place. Authorization is checked again when the
+/// governance Station commits the authored Event.
+// Field declaration order is byte-for-byte the `properties` order of
+// `applet-edge-operations.schema.json#/$defs/applet_managed_actor_authoring_context`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -129,6 +234,15 @@ pub struct AppletManagedActorAuthoringContext {
     pub committed_request: AppletManagedActorCommittedRequest,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_stream_head: CommitStreamHead,
+    pub applet_service_signer_evidence: AppletServiceSignerEvidence,
+    pub managed_actor_signer_evidence: ManagedActorPrincipalSignerEvidence,
+}
+
+impl AppletManagedActorAuthoringContext {
+    pub fn validate(&self) -> Result<()> {
+        self.applet_service_signer_evidence.validate()?;
+        self.managed_actor_signer_evidence.validate()
+    }
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -698,43 +812,23 @@ pub struct AppletManagedActorProof {
     pub jws: String,
 }
 
-/// Current Realm authority identity used to issue a short-lived Applet
-/// managed-actor authoring request.
+/// Core id of the DID that controls `method`.
 ///
-/// This is an identity binding, not a frozen signer set or quorum.
-/// Callers resolve `service_id` and `governance_generation` through the current
-/// Realm authority bundle before accepting the request. Circle and Sidecar
-/// Events still commit to their own independent streams.
-#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AppletAuthoringAuthority {
-    pub service_id: DidCoreId,
-    pub governance_generation: u64,
-    pub verification_method: DidUrl,
-}
-
-impl AppletAuthoringAuthority {
-    pub fn validate(&self) -> Result<()> {
-        let controller = self
-            .verification_method
-            .as_str()
-            .split_once('#')
-            .map(|(controller, _)| controller)
-            .ok_or_else(|| {
-                WireError::Protocol(
-                    "Applet authoring authority verification_method has no fragment".to_owned(),
-                )
-            })?;
-        let controller = Did::new(controller.to_owned())?;
-        if arkret_wire::project_did_to_core_id(&controller)? != self.service_id {
-            return Err(WireError::Protocol(
-                "Applet authoring authority verification_method controller does not match service_id"
-                    .to_owned(),
-            ));
-        }
-        Ok(())
-    }
+/// An authoring request names its governance Station by core id alone, so the
+/// only thing tying the proof to that Station on the wire is the controller of
+/// the verification method. A consumer recomputes it here rather than trusting
+/// a second copy of the identity travelling beside it.
+fn verification_method_controller(method: &DidUrl) -> Result<DidCoreId> {
+    let controller = method
+        .as_str()
+        .split_once('#')
+        .map(|(controller, _)| controller)
+        .ok_or_else(|| {
+            WireError::Protocol(
+                "Applet authoring request verification_method has no fragment".to_owned(),
+            )
+        })?;
+    arkret_wire::project_did_to_core_id(&Did::new(controller.to_owned())?).map_err(Into::into)
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -746,7 +840,13 @@ pub struct AppletManagedActorAuthoringRequest {
     pub basis: AppletManagedActorAuthoringBasis,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plan_digest: Option<Hash>,
-    pub authoring_authority: AppletAuthoringAuthority,
+    /// Current governance Station service identity for the target Realm.
+    ///
+    /// The Station signs the resulting RealmCommit after revalidating this
+    /// request at the stream head, so the request binds the identity and
+    /// nothing else: a frozen generation or signer set here would be a second,
+    /// staler answer to a question the commit re-asks.
+    pub governance_station_id: DidCoreId,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub issued_at: DateTime<Utc>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -764,7 +864,7 @@ impl AppletManagedActorAuthoringRequest {
             "purpose": self.purpose,
             "basis": self.basis,
             "plan_digest": self.plan_digest,
-            "authoring_authority": self.authoring_authority,
+            "governance_station_id": self.governance_station_id,
             "issued_at": arkret_canonical::format_timestamp_canonical(self.issued_at),
             "expires_at": arkret_canonical::format_timestamp_canonical(self.expires_at),
         })
@@ -791,14 +891,14 @@ impl AppletManagedActorAuthoringRequest {
 
     pub fn validate_bindings(&self) -> Result<()> {
         self.basis.validate()?;
-        self.authoring_authority.validate()?;
         if self.schema != Self::SCHEMA
             || self.purpose != self.basis.purpose()
             || (self.purpose == AppletManagedActorPurpose::InstallBot) != self.plan_digest.is_some()
             || self.proof.payload_digest != self.payload_digest()?
             || &self.proof.audience_id != self.basis.service_id()
-            || self.proof.verification_method != self.authoring_authority.verification_method
-            || &self.authoring_authority.service_id != self.basis.target_station_id()
+            || verification_method_controller(&self.proof.verification_method)?
+                != self.governance_station_id
+            || self.governance_station_id != *self.basis.target_station_id()
             || self.proof.kind != arkret_wire::proof_kind::DETACHED_JWS
             || self.issued_at >= self.expires_at
             || self.expires_at - self.issued_at > chrono::Duration::minutes(5)
@@ -815,20 +915,19 @@ impl AppletManagedActorAuthoringRequest {
     pub fn sign<S: PayloadSigner + ?Sized>(
         basis: AppletInstallAuthoringRequestBasis,
         plan_digest: Hash,
-        authoring_authority: AppletAuthoringAuthority,
+        governance_station_id: DidCoreId,
         issued_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
         signer: &S,
     ) -> Result<Self> {
         basis.validate()?;
-        authoring_authority.validate()?;
-        if authoring_authority.service_id != basis.target_station_id
-            || authoring_authority.verification_method != *signer.verification_method_id()
-            || arkret_wire::project_did_to_core_id(signer.signer_did())?
-                != authoring_authority.service_id
+        if governance_station_id != basis.target_station_id
+            || verification_method_controller(signer.verification_method_id())?
+                != governance_station_id
+            || arkret_wire::project_did_to_core_id(signer.signer_did())? != governance_station_id
         {
             return Err(WireError::Protocol(
-                "authoring authority does not match the install authoring signer".to_owned(),
+                "governance Station does not match the install authoring signer".to_owned(),
             ));
         }
         let issued_at = arkret_canonical::canonical::normalize_timestamp_canonical(issued_at);
@@ -839,7 +938,7 @@ impl AppletManagedActorAuthoringRequest {
             purpose: AppletManagedActorPurpose::InstallBot,
             basis: AppletManagedActorAuthoringBasis::InstallBot(Box::new(basis)),
             plan_digest: Some(plan_digest),
-            authoring_authority,
+            governance_station_id,
             issued_at,
             expires_at,
             proof: AppletManagedActorProof {
@@ -859,20 +958,19 @@ impl AppletManagedActorAuthoringRequest {
 
     pub fn sign_ghost<S: PayloadSigner + ?Sized>(
         basis: AppletGhostAuthoringRequestBasis,
-        authoring_authority: AppletAuthoringAuthority,
+        governance_station_id: DidCoreId,
         issued_at: DateTime<Utc>,
         expires_at: DateTime<Utc>,
         signer: &S,
     ) -> Result<Self> {
         basis.validate()?;
-        authoring_authority.validate()?;
-        if authoring_authority.service_id != basis.target_station_id
-            || authoring_authority.verification_method != *signer.verification_method_id()
-            || arkret_wire::project_did_to_core_id(signer.signer_did())?
-                != authoring_authority.service_id
+        if governance_station_id != basis.target_station_id
+            || verification_method_controller(signer.verification_method_id())?
+                != governance_station_id
+            || arkret_wire::project_did_to_core_id(signer.signer_did())? != governance_station_id
         {
             return Err(WireError::Protocol(
-                "authoring authority does not match the Ghost authoring signer".to_owned(),
+                "governance Station does not match the Ghost authoring signer".to_owned(),
             ));
         }
         let issued_at = arkret_canonical::canonical::normalize_timestamp_canonical(issued_at);
@@ -883,7 +981,7 @@ impl AppletManagedActorAuthoringRequest {
             purpose: AppletManagedActorPurpose::ProvisionGhost,
             basis: AppletManagedActorAuthoringBasis::ProvisionGhost(Box::new(basis)),
             plan_digest: None,
-            authoring_authority,
+            governance_station_id,
             issued_at,
             expires_at,
             proof: AppletManagedActorProof {

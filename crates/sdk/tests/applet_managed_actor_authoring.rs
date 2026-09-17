@@ -7,7 +7,7 @@
 
 use arkret::{
     APPLET_MANAGED_ACTOR_ACCOUNTABILITY_REF_ROLE, APPLET_MANAGED_ACTOR_PROVISION_REF_ROLE,
-    AppletAuthoringAuthority, AppletDidMethodVersionEvidence, AppletGhostAuthoringRequestBasis,
+    AppletDidMethodVersionEvidence, AppletGhostAuthoringRequestBasis,
     AppletManagedActorAuthoringBundle, AppletManagedActorAuthoringRequest,
     AppletManagedActorBundleAuthoringInput, AppletManagedActorPurpose,
     AppletRegistrationEpochEvidence, GhostExternalTuple, applet_managed_actor_unit_event_kinds,
@@ -155,14 +155,9 @@ fn ghost_authoring_request() -> AppletManagedActorAuthoringRequest {
         registration_epoch_evidence: registration_epoch_evidence(),
         package_digest: hash(0x77),
     };
-    let authority = AppletAuthoringAuthority {
-        service_id: core_id(STATION_DID),
-        governance_generation: 1,
-        verification_method: DidUrl::new(format!("{STATION_DID}#key-1")).unwrap(),
-    };
     AppletManagedActorAuthoringRequest::sign_ghost(
         basis,
-        authority,
+        core_id(STATION_DID),
         issued_at(),
         issued_at() + chrono::Duration::minutes(2),
         &station,
