@@ -494,7 +494,7 @@ pub enum SidecarAccessProvisioningPhase {
 }
 
 // Field declaration order is byte-for-byte the properties order of
-// agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_item.
+// agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

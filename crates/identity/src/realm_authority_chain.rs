@@ -42,7 +42,7 @@ use arkret_signatures::detached_object::verify_detached_object_signature;
 use arkret_wire::{
     Base64UrlString, DetachedObjectSignature, DetachedSignatureContext, Did, DidCoreId, DidUrl,
     Event, EventId, RealmAuthorityBundle, RealmAuthorityHandoffId, RealmCommit,
-    RealmCommitAuthorityRef, RealmId, StreamItem, project_did_to_core_id,
+    RealmCommitAuthorityRef, RealmId, StreamRow, project_did_to_core_id,
 };
 use chrono::{DateTime, Duration, Utc};
 
@@ -302,7 +302,7 @@ impl VerifiedRealmAuthority {
     /// and the Event's own content binding.
     pub fn verify_committed_item(
         &self,
-        item: &StreamItem,
+        item: &StreamRow,
         keys: &dyn RealmAuthorityKeyDirectory,
     ) -> ChainResult<()> {
         item.validate_shape()

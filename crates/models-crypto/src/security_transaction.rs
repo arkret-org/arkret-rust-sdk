@@ -271,7 +271,7 @@ pub enum SecurityTransactionPreparedPlan {
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "result", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "outcome", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SecurityTransactionTerminalOutcome {
     Completed {
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -321,7 +321,7 @@ pub struct SecurityTransaction {
     pub prepared_plan_digest: Hash,
     pub accepted_steps: Vec<AcceptedSecurityTransactionStep>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub terminal_result: Option<SecurityTransactionTerminalOutcome>,
+    pub terminal_outcome: Option<SecurityTransactionTerminalOutcome>,
 }
 
 impl SecurityTransaction {
@@ -339,7 +339,7 @@ impl SecurityTransaction {
     }
 
     pub fn next_required_step(&self) -> Result<Option<SecurityTransactionStep>> {
-        if self.terminal_result.is_some() {
+        if self.terminal_outcome.is_some() {
             return Ok(None);
         }
         Ok(self.step_order()?.get(self.accepted_steps.len()).copied())
@@ -387,7 +387,7 @@ impl SecurityTransaction {
             validate_step_output_ref(&step.output_ref)?;
         }
 
-        match &self.terminal_result {
+        match &self.terminal_outcome {
             None if self.accepted_steps.len() == order.len() => {
                 protocol("non-terminal transaction exhausted its fixed step order")
             }
@@ -645,7 +645,7 @@ impl SecurityTransactionCreateRequest {
             prepared_plan,
             prepared_plan_digest,
             accepted_steps: Vec::new(),
-            terminal_result: None,
+            terminal_outcome: None,
         };
         resource.validate_structural()?;
         Ok((resource, canonical_request))

@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/schema-registry.json; version=2026-09-16.10;
-//! sha256=2ac78a68533abaf1590b9b85f7279ccafddea53736383bb8f4444b368438f0d2 Entries: schema_ids=214,
-//! active=214
+//! Input: registry/schema-registry.json; version=2026-09-16.12;
+//! sha256=918716d1c0678425c86c9d1b6427b85e36e6fe45b166054a55aab87e6839bd9e Entries: schema_ids=220,
+//! active=220
 
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,8 @@ pub enum SchemaId {
     AccountabilityGrantV1,
     ActorProfileV1,
     ActorProfileOperationsV1,
+    AgentAuthorityStateAttestationV1,
+    AgentAuthorityStateEvidenceV1,
     AgentMembershipCascadeV1,
     AgentOperationsV1,
     AgentPairingBootstrapV1,
@@ -66,6 +68,9 @@ pub enum SchemaId {
     ContactRemarkV1,
     ContactScopeUpdateV1,
     ContentBlockPollV1,
+    ControllerAccountGateAttestationV1,
+    ControllerAccountGateAttestationIssueOutcomeV1,
+    ControllerAccountGateAttestationIssueRequestBodyV1,
     CurrentPrincipalOutcomeV1,
     CurrentPrincipalRequestV1,
     CursorV1,
@@ -155,6 +160,7 @@ pub enum SchemaId {
     RealmV1,
     RealmAuthorityBundleV1,
     RealmAuthorityHandoffV1,
+    RealmAuthorityRootValueV1,
     RealmCommitV1,
     RealmGenesisV1,
     RealmJoinBootstrapOutcomeV1,
@@ -239,6 +245,8 @@ impl SchemaId {
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
         Self::ActorProfileOperationsV1,
+        Self::AgentAuthorityStateAttestationV1,
+        Self::AgentAuthorityStateEvidenceV1,
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
@@ -284,6 +292,9 @@ impl SchemaId {
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ControllerAccountGateAttestationV1,
+        Self::ControllerAccountGateAttestationIssueOutcomeV1,
+        Self::ControllerAccountGateAttestationIssueRequestBodyV1,
         Self::CurrentPrincipalOutcomeV1,
         Self::CurrentPrincipalRequestV1,
         Self::CursorV1,
@@ -373,6 +384,7 @@ impl SchemaId {
         Self::RealmV1,
         Self::RealmAuthorityBundleV1,
         Self::RealmAuthorityHandoffV1,
+        Self::RealmAuthorityRootValueV1,
         Self::RealmCommitV1,
         Self::RealmGenesisV1,
         Self::RealmJoinBootstrapOutcomeV1,
@@ -457,6 +469,8 @@ impl SchemaId {
         Self::AccountabilityGrantV1,
         Self::ActorProfileV1,
         Self::ActorProfileOperationsV1,
+        Self::AgentAuthorityStateAttestationV1,
+        Self::AgentAuthorityStateEvidenceV1,
         Self::AgentMembershipCascadeV1,
         Self::AgentOperationsV1,
         Self::AgentPairingBootstrapV1,
@@ -502,6 +516,9 @@ impl SchemaId {
         Self::ContactRemarkV1,
         Self::ContactScopeUpdateV1,
         Self::ContentBlockPollV1,
+        Self::ControllerAccountGateAttestationV1,
+        Self::ControllerAccountGateAttestationIssueOutcomeV1,
+        Self::ControllerAccountGateAttestationIssueRequestBodyV1,
         Self::CurrentPrincipalOutcomeV1,
         Self::CurrentPrincipalRequestV1,
         Self::CursorV1,
@@ -591,6 +608,7 @@ impl SchemaId {
         Self::RealmV1,
         Self::RealmAuthorityBundleV1,
         Self::RealmAuthorityHandoffV1,
+        Self::RealmAuthorityRootValueV1,
         Self::RealmCommitV1,
         Self::RealmGenesisV1,
         Self::RealmJoinBootstrapOutcomeV1,
@@ -687,6 +705,14 @@ impl SchemaId {
     /// Authorized shared-Realm projection of another principal's global Actor Profile. It is the
     /// only outward carrier for the PCR-resident ak.profile.create / ak.profile.update facts.
     pub const ACTOR_PROFILE_OPERATIONS_V1: &'static str = "ak.schema.actor_profile_operations.v1";
+    /// The single Agent Authority state signature under ak.agent_authority_state_evidence.v1,
+    /// binding authority, verification method, state digest and observation window.
+    pub const AGENT_AUTHORITY_STATE_ATTESTATION_V1: &'static str =
+        "ak.schema.agent_authority_state_attestation.v1";
+    /// Portable Agent Authority state evidence: one exact confirmed RealmCommit state, its JCS
+    /// SHA-256 digest and the single Agent Authority attestation over that digest.
+    pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
+        "ak.schema.agent_authority_state_evidence.v1";
     /// Closed Agent controller-membership binding and durable exact-set emergency cleanup state.
     pub const AGENT_MEMBERSHIP_CASCADE_V1: &'static str = "ak.schema.agent_membership_cascade.v1";
     /// Closed request/response DTO bundle for account pairing and Agent management operations.
@@ -837,6 +863,17 @@ impl SchemaId {
     pub const CONTACT_SCOPE_UPDATE_V1: &'static str = "ak.schema.contact_scope_update.v1";
     /// Canonical content-block schema for ak.content.poll and ak.content.poll.response.
     pub const CONTENT_BLOCK_POLL_V1: &'static str = "ak.schema.content_block_poll.v1";
+    /// Account Authority controller-account eligibility gate signed under
+    /// ak.controller_account_gate.v1; privacy minimised and valid for at most 300 seconds.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation.v1";
+    /// Byte-stable controller gate issuance outcome; an exact replay returns the original bytes.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation_issue_outcome.v1";
+    /// Deployment-authenticated controller gate issuance request; carries no service resolution
+    /// carrier.
+    pub const CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1: &'static str =
+        "ak.schema.controller_account_gate_attestation_issue_request_body.v1";
     /// Own-Station accepted current principal projection and unique PCR; observation is not an
     /// authorization lease.
     pub const CURRENT_PRINCIPAL_OUTCOME_V1: &'static str = "ak.schema.current_principal_outcome.v1";
@@ -1060,6 +1097,11 @@ impl SchemaId {
     pub const REALM_AUTHORITY_BUNDLE_V1: &'static str = "ak.schema.realm_authority_bundle.v1";
     /// Dual-signed planned authority generation transfer.
     pub const REALM_AUTHORITY_HANDOFF_V1: &'static str = "ak.schema.realm_authority_handoff.v1";
+    /// Closed value of the lifetime-stable Realm authority root: current root controller,
+    /// controller epoch and authority generation, all derived by the registered ak.realm.create
+    /// value_projection.
+    pub const REALM_AUTHORITY_ROOT_VALUE_V1: &'static str =
+        "ak.schema.realm_authority_root_value.v1";
     /// Authority-signed finality record for one Realm, Circle or Sidecar stream.
     pub const REALM_COMMIT_V1: &'static str = "ak.schema.realm_commit.v1";
     pub const REALM_GENESIS_V1: &'static str = "ak.schema.realm_genesis.v1";
@@ -1275,6 +1317,8 @@ impl SchemaId {
             Self::AccountabilityGrantV1 => Self::ACCOUNTABILITY_GRANT_V1,
             Self::ActorProfileV1 => Self::ACTOR_PROFILE_V1,
             Self::ActorProfileOperationsV1 => Self::ACTOR_PROFILE_OPERATIONS_V1,
+            Self::AgentAuthorityStateAttestationV1 => Self::AGENT_AUTHORITY_STATE_ATTESTATION_V1,
+            Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
             Self::AgentMembershipCascadeV1 => Self::AGENT_MEMBERSHIP_CASCADE_V1,
             Self::AgentOperationsV1 => Self::AGENT_OPERATIONS_V1,
             Self::AgentPairingBootstrapV1 => Self::AGENT_PAIRING_BOOTSTRAP_V1,
@@ -1334,6 +1378,15 @@ impl SchemaId {
             Self::ContactRemarkV1 => Self::CONTACT_REMARK_V1,
             Self::ContactScopeUpdateV1 => Self::CONTACT_SCOPE_UPDATE_V1,
             Self::ContentBlockPollV1 => Self::CONTENT_BLOCK_POLL_V1,
+            Self::ControllerAccountGateAttestationV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1
+            }
+            Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1
+            }
+            Self::ControllerAccountGateAttestationIssueRequestBodyV1 => {
+                Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1
+            }
             Self::CurrentPrincipalOutcomeV1 => Self::CURRENT_PRINCIPAL_OUTCOME_V1,
             Self::CurrentPrincipalRequestV1 => Self::CURRENT_PRINCIPAL_REQUEST_V1,
             Self::CursorV1 => Self::CURSOR_V1,
@@ -1423,6 +1476,7 @@ impl SchemaId {
             Self::RealmV1 => Self::REALM_V1,
             Self::RealmAuthorityBundleV1 => Self::REALM_AUTHORITY_BUNDLE_V1,
             Self::RealmAuthorityHandoffV1 => Self::REALM_AUTHORITY_HANDOFF_V1,
+            Self::RealmAuthorityRootValueV1 => Self::REALM_AUTHORITY_ROOT_VALUE_V1,
             Self::RealmCommitV1 => Self::REALM_COMMIT_V1,
             Self::RealmGenesisV1 => Self::REALM_GENESIS_V1,
             Self::RealmJoinBootstrapOutcomeV1 => Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1,
@@ -1518,6 +1572,10 @@ impl SchemaId {
             Self::AccountabilityGrantV1 => "schemas/accountability-grant.schema.json",
             Self::ActorProfileV1 => "schemas/actor-profile.schema.json",
             Self::ActorProfileOperationsV1 => "schemas/actor-profile-operations.schema.json",
+            Self::AgentAuthorityStateAttestationV1 => {
+                "schemas/agent-authority-evidence.schema.json"
+            }
+            Self::AgentAuthorityStateEvidenceV1 => "schemas/agent-authority-evidence.schema.json",
             Self::AgentMembershipCascadeV1 => "schemas/agent-membership-cascade.schema.json",
             Self::AgentOperationsV1 => "schemas/agent-operations.schema.json",
             Self::AgentPairingBootstrapV1 => "schemas/agent-operations.schema.json",
@@ -1585,6 +1643,15 @@ impl SchemaId {
             Self::ContactRemarkV1 => "schemas/contact-remark.schema.json",
             Self::ContactScopeUpdateV1 => "schemas/contact-operations.schema.json",
             Self::ContentBlockPollV1 => "schemas/content-block-poll.schema.json",
+            Self::ControllerAccountGateAttestationV1 => {
+                "schemas/agent-authority-evidence.schema.json"
+            }
+            Self::ControllerAccountGateAttestationIssueOutcomeV1 => {
+                "schemas/agent-authority-evidence.schema.json"
+            }
+            Self::ControllerAccountGateAttestationIssueRequestBodyV1 => {
+                "schemas/agent-authority-evidence.schema.json"
+            }
             Self::CurrentPrincipalOutcomeV1 => "schemas/identity-resolution.schema.json",
             Self::CurrentPrincipalRequestV1 => "schemas/identity-resolution.schema.json",
             Self::CursorV1 => "schemas/cursor.schema.json",
@@ -1684,6 +1751,7 @@ impl SchemaId {
             Self::RealmV1 => "schemas/realm.schema.json",
             Self::RealmAuthorityBundleV1 => "schemas/realm-authority-bundle.schema.json",
             Self::RealmAuthorityHandoffV1 => "schemas/realm-authority-handoff.schema.json",
+            Self::RealmAuthorityRootValueV1 => "schemas/typed-current-result.schema.json",
             Self::RealmCommitV1 => "schemas/realm-commit.schema.json",
             Self::RealmGenesisV1 => "schemas/realm-genesis.schema.json",
             Self::RealmJoinBootstrapOutcomeV1 => "schemas/realm-join-intake.schema.json",
@@ -1779,6 +1847,10 @@ impl SchemaId {
             Self::ACCOUNTABILITY_GRANT_V1 => Some(Self::AccountabilityGrantV1),
             Self::ACTOR_PROFILE_V1 => Some(Self::ActorProfileV1),
             Self::ACTOR_PROFILE_OPERATIONS_V1 => Some(Self::ActorProfileOperationsV1),
+            Self::AGENT_AUTHORITY_STATE_ATTESTATION_V1 => {
+                Some(Self::AgentAuthorityStateAttestationV1)
+            }
+            Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
             Self::AGENT_MEMBERSHIP_CASCADE_V1 => Some(Self::AgentMembershipCascadeV1),
             Self::AGENT_OPERATIONS_V1 => Some(Self::AgentOperationsV1),
             Self::AGENT_PAIRING_BOOTSTRAP_V1 => Some(Self::AgentPairingBootstrapV1),
@@ -1846,6 +1918,15 @@ impl SchemaId {
             Self::CONTACT_REMARK_V1 => Some(Self::ContactRemarkV1),
             Self::CONTACT_SCOPE_UPDATE_V1 => Some(Self::ContactScopeUpdateV1),
             Self::CONTENT_BLOCK_POLL_V1 => Some(Self::ContentBlockPollV1),
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1 => {
+                Some(Self::ControllerAccountGateAttestationV1)
+            }
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1 => {
+                Some(Self::ControllerAccountGateAttestationIssueOutcomeV1)
+            }
+            Self::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1 => {
+                Some(Self::ControllerAccountGateAttestationIssueRequestBodyV1)
+            }
             Self::CURRENT_PRINCIPAL_OUTCOME_V1 => Some(Self::CurrentPrincipalOutcomeV1),
             Self::CURRENT_PRINCIPAL_REQUEST_V1 => Some(Self::CurrentPrincipalRequestV1),
             Self::CURSOR_V1 => Some(Self::CursorV1),
@@ -1937,6 +2018,7 @@ impl SchemaId {
             Self::REALM_V1 => Some(Self::RealmV1),
             Self::REALM_AUTHORITY_BUNDLE_V1 => Some(Self::RealmAuthorityBundleV1),
             Self::REALM_AUTHORITY_HANDOFF_V1 => Some(Self::RealmAuthorityHandoffV1),
+            Self::REALM_AUTHORITY_ROOT_VALUE_V1 => Some(Self::RealmAuthorityRootValueV1),
             Self::REALM_COMMIT_V1 => Some(Self::RealmCommitV1),
             Self::REALM_GENESIS_V1 => Some(Self::RealmGenesisV1),
             Self::REALM_JOIN_BOOTSTRAP_OUTCOME_V1 => Some(Self::RealmJoinBootstrapOutcomeV1),

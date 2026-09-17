@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-16.10;
-//! sha256=4de4a6e089a9dff644879b0f72669f2d71b1b4a5e2615a8e177cf2a665ebbaa7 Entries: registered=219
+//! Input: registry/operation-registry.json; version=2026-09-17.3;
+//! sha256=c93fceaf9cdd4ab489b4ae7c53d7c97ccdde98bca5a395a9443533d4a97179dd Entries: registered=220
 
 use serde::{Deserialize, Serialize};
 
@@ -38,6 +38,7 @@ pub enum ServiceOperationId {
     GateAccountCommandAbandonIdentityCreationV1,
     GateAccountCommandFinalizeDevicePairingV1,
     GateAccountCommandIntrospectSessionGrantV1,
+    GateAccountCommandIssueControllerGateAttestationV1,
     GateAccountCommandIssueDidBindingChallengeV1,
     GateAccountCommandIssueIdentityBindingChallengeV1,
     GateAccountCommandIssueRecoveryCompletionGrantV1,
@@ -260,6 +261,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ABANDON_IDENTITY_CREATION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_FINALIZE_DEVICE_PAIRING_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_ISSUE_RECOVERY_COMPLETION_GRANT_V1,
@@ -524,6 +526,7 @@ impl ServiceOperationId {
         Self::GateAccountCommandAbandonIdentityCreationV1,
         Self::GateAccountCommandFinalizeDevicePairingV1,
         Self::GateAccountCommandIntrospectSessionGrantV1,
+        Self::GateAccountCommandIssueControllerGateAttestationV1,
         Self::GateAccountCommandIssueDidBindingChallengeV1,
         Self::GateAccountCommandIssueIdentityBindingChallengeV1,
         Self::GateAccountCommandIssueRecoveryCompletionGrantV1,
@@ -771,6 +774,8 @@ impl ServiceOperationId {
         "ak.gate.account.command.finalize_device_pairing.v1";
     pub const GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1: &'static str =
         "ak.gate.account.command.introspect_session_grant.v1";
+    pub const GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1: &'static str =
+        "ak.gate.account.command.issue_controller_gate_attestation.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1: &'static str =
         "ak.gate.account.command.issue_did_binding_challenge.v1";
     pub const GATE_ACCOUNT_COMMAND_ISSUE_IDENTITY_BINDING_CHALLENGE_V1: &'static str =
@@ -1141,6 +1146,9 @@ impl ServiceOperationId {
             }
             Self::GateAccountCommandIntrospectSessionGrantV1 => {
                 Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1
+            }
+            Self::GateAccountCommandIssueControllerGateAttestationV1 => {
+                Self::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1
             }
             Self::GateAccountCommandIssueDidBindingChallengeV1 => {
                 Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1
@@ -1513,6 +1521,9 @@ impl ServiceOperationId {
             }
             Self::GATE_ACCOUNT_COMMAND_INTROSPECT_SESSION_GRANT_V1 => {
                 Some(Self::GateAccountCommandIntrospectSessionGrantV1)
+            }
+            Self::GATE_ACCOUNT_COMMAND_ISSUE_CONTROLLER_GATE_ATTESTATION_V1 => {
+                Some(Self::GateAccountCommandIssueControllerGateAttestationV1)
             }
             Self::GATE_ACCOUNT_COMMAND_ISSUE_DID_BINDING_CHALLENGE_V1 => {
                 Some(Self::GateAccountCommandIssueDidBindingChallengeV1)
@@ -2603,6 +2614,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/controller-gate-attestations",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("request_id"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/agent-authority-evidence.schema.json#/$defs/controller_account_gate_attestation_issue_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/agent-authority-evidence.schema.json#/$defs/controller_account_gate_attestation_issue_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "records_only_a_service_local_replay_ledger_row_so_the_same_request_id_and_canonical_intent_returns_the_original_bytes_no_event_is_authored",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountCommandIssueDidBindingChallengeV1,
         http_method: "POST",
         http_path: "/_arkret/gate/account/did-binding-challenges",
@@ -3657,7 +3695,7 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             kind: DurableEffectKind::None,
             target: None,
             rationale: Some(
-                "accepts_a_signed_terminal_result_and_never_triggers_erasure_or_authors_an_event",
+                "accepts_a_signed_terminal_outcome_and_never_triggers_erasure_or_authors_an_event",
             ),
             branch_contract_json: None,
         }),

@@ -847,12 +847,12 @@ impl StreamScanRequest {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct StreamItem {
+pub struct StreamRow {
     pub commit: RealmCommit,
     pub event: Event,
 }
 
-impl StreamItem {
+impl StreamRow {
     pub fn validate_shape(&self) -> Result<()> {
         self.commit.validate_shape()?;
         let expected_stream =
@@ -883,7 +883,7 @@ pub struct CommittedEventRef {
 }
 
 impl CommittedEventRef {
-    pub fn matches(&self, item: &StreamItem) -> bool {
+    pub fn matches(&self, item: &StreamRow) -> bool {
         item.validate_shape().is_ok()
             && self.event_id == item.event.event_id
             && self.commit_id == item.commit.commit_id
@@ -946,7 +946,7 @@ impl CommittedEventResolveRequest {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommittedEventResolveOutcome {
-    pub items: Vec<StreamItem>,
+    pub items: Vec<StreamRow>,
 }
 
 impl CommittedEventResolveOutcome {
@@ -974,7 +974,7 @@ impl CommittedEventResolveOutcome {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StreamScanOutcome {
-    pub commits: Vec<StreamItem>,
+    pub commits: Vec<StreamRow>,
     pub truncated: bool,
 }
 
@@ -1135,7 +1135,7 @@ mod tests {
         }
     }
 
-    fn circle_item(realm_id: RealmId, stream_position: u64) -> StreamItem {
+    fn circle_item(realm_id: RealmId, stream_position: u64) -> StreamRow {
         let circle_id = CircleId::from_event_id(&EventId::from_digest(
             arkret_canonical::DigestSuite::Sha256,
             [0x22; 32],
@@ -1162,7 +1162,7 @@ mod tests {
             Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
         )
         .unwrap();
-        StreamItem {
+        StreamRow {
             commit: RealmCommit {
                 commit_id: RealmCommitId::from_digest([stream_position as u8 + 1; 32]),
                 realm_id,
@@ -1184,7 +1184,7 @@ mod tests {
     }
 
     #[test]
-    fn stream_item_rejects_a_commit_bound_to_another_independent_stream() {
+    fn stream_row_rejects_a_commit_bound_to_another_independent_stream() {
         let realm_id = realm(0x10);
         let mut item = circle_item(realm_id.clone(), 0);
         item.commit.stream_ref = CommitStreamRef::Realm { realm_id };

@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::{
     AccountId, ActorId, Cursor, DidCoreId, Event, EventId, OpaqueLocalId, RealmId, Result,
-    SchemaId, StrandId, StreamItem, WireError, canonical,
+    SchemaId, StrandId, StreamRow, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -497,7 +497,7 @@ impl RealmDetailBaseline {
 #[serde(deny_unknown_fields)]
 pub struct RealmTimeline {
     #[serde(default)]
-    pub commits: Vec<StreamItem>,
+    pub commits: Vec<StreamRow>,
     pub limited: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prev_cursor: Option<String>,

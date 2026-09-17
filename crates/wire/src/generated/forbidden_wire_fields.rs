@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
 //! Input: registry/forbidden-wire-fields.json; version=unversioned;
-//! sha256=3f65b197f481740a5b509202642ca63fa7feef396801f339cbf3fda4ed11ce2e
+//! sha256=af1fda206430fe95459d33c119cca8a83c5d68f1ae0c6b461f2bbfd3421428db
 //! Entries: forbidden_wire_fields=248
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -3225,11 +3225,11 @@ pub const FORBIDDEN_WIRE_FIELDS: &[ForbiddenWireFieldDescriptor] = &[
     },
     ForbiddenWireFieldDescriptor {
         id: "stage",
-        context: "pending_sidecar_access_reconciliation_item",
+        context: "pending_sidecar_access_reconciliation_row",
         rejection_level: "hard_reject",
         selectors: &[ForbiddenWireSelector {
             document_kind: "schema_instance",
-            schema_ref: "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_item",
+            schema_ref: "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row",
             instance_pointer: "",
             match_scope: "root",
         }],

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-16.17;
-//! sha256=f3622a8c9eac9f7841d7b63b3a55509c4972a7636c8fa0105ed79ee99755ddf9 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-16.18;
+//! sha256=ca139b2dccff19b1c83c06d2de79f2dc485ce7ac0220ff66a3fa0e8b77ead1b2 Input: registry/
 //! exporter-label-registry.json; version=2026-09-16.10;
 //! sha256=676cbb1dbfa467f97c46247cb79818affc3e236100fb54ee70498a0736b8a939 Input: registry/
 //! digest-suite-registry.json; version=2026-09-16.11;
@@ -373,6 +373,7 @@ impl ProofContextId {
 #[repr(usize)]
 pub enum DomainSeparationId {
     AccountabilityScopeSetV1,
+    AgentAuthorityStateEvidenceV1,
     AppletDeliveryAuthenticationRecordDigestV1,
     AppletManagedActorAuthoringRequestProofV1,
     AppletManagedActorBundleProofV1,
@@ -393,7 +394,6 @@ pub enum DomainSeparationId {
     EventsCheckpointLeafV1,
     EventsCheckpointNodeV1,
     EventsCheckpointRootV1,
-    FederationVerifyActorSignatureV1,
     FrankingProofSignatureV1,
     HttpMessageSignatureV1,
     IdentityRecoveryDevicePossessionV1,
@@ -415,6 +415,7 @@ pub enum DomainSeparationId {
 impl DomainSeparationId {
     pub const ALL: &'static [Self] = &[
         Self::AccountabilityScopeSetV1,
+        Self::AgentAuthorityStateEvidenceV1,
         Self::AppletDeliveryAuthenticationRecordDigestV1,
         Self::AppletManagedActorAuthoringRequestProofV1,
         Self::AppletManagedActorBundleProofV1,
@@ -435,7 +436,6 @@ impl DomainSeparationId {
         Self::EventsCheckpointLeafV1,
         Self::EventsCheckpointNodeV1,
         Self::EventsCheckpointRootV1,
-        Self::FederationVerifyActorSignatureV1,
         Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
         Self::IdentityRecoveryDevicePossessionV1,
@@ -455,6 +455,8 @@ impl DomainSeparationId {
     ];
 
     pub const ACCOUNTABILITY_SCOPE_SET_V1: &'static str = "ak.accountability_scope_set.v1";
+    pub const AGENT_AUTHORITY_STATE_EVIDENCE_V1: &'static str =
+        "ak.agent_authority_state_evidence.v1";
     pub const APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1: &'static str =
         "ak.applet.delivery_authentication_record_digest.v1";
     pub const APPLET_MANAGED_ACTOR_AUTHORING_REQUEST_PROOF_V1: &'static str =
@@ -490,8 +492,6 @@ impl DomainSeparationId {
     pub const EVENTS_CHECKPOINT_LEAF_V1: &'static str = "ak.events.checkpoint.leaf.v1";
     pub const EVENTS_CHECKPOINT_NODE_V1: &'static str = "ak.events.checkpoint.node.v1";
     pub const EVENTS_CHECKPOINT_ROOT_V1: &'static str = "ak.events.checkpoint.root.v1";
-    pub const FEDERATION_VERIFY_ACTOR_SIGNATURE_V1: &'static str =
-        "ak.federation.verify_actor.signature.v1";
     pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http_message_signature.v1";
     pub const IDENTITY_RECOVERY_DEVICE_POSSESSION_V1: &'static str =
@@ -520,6 +520,7 @@ impl DomainSeparationId {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::AccountabilityScopeSetV1 => Self::ACCOUNTABILITY_SCOPE_SET_V1,
+            Self::AgentAuthorityStateEvidenceV1 => Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
             Self::AppletDeliveryAuthenticationRecordDigestV1 => {
                 Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1
             }
@@ -560,7 +561,6 @@ impl DomainSeparationId {
             Self::EventsCheckpointLeafV1 => Self::EVENTS_CHECKPOINT_LEAF_V1,
             Self::EventsCheckpointNodeV1 => Self::EVENTS_CHECKPOINT_NODE_V1,
             Self::EventsCheckpointRootV1 => Self::EVENTS_CHECKPOINT_ROOT_V1,
-            Self::FederationVerifyActorSignatureV1 => Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1,
             Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
             Self::IdentityRecoveryDevicePossessionV1 => {
@@ -591,6 +591,7 @@ impl DomainSeparationId {
     pub fn from_wire(value: &str) -> Option<Self> {
         match value {
             Self::ACCOUNTABILITY_SCOPE_SET_V1 => Some(Self::AccountabilityScopeSetV1),
+            Self::AGENT_AUTHORITY_STATE_EVIDENCE_V1 => Some(Self::AgentAuthorityStateEvidenceV1),
             Self::APPLET_DELIVERY_AUTHENTICATION_RECORD_DIGEST_V1 => {
                 Some(Self::AppletDeliveryAuthenticationRecordDigestV1)
             }
@@ -637,9 +638,6 @@ impl DomainSeparationId {
             Self::EVENTS_CHECKPOINT_LEAF_V1 => Some(Self::EventsCheckpointLeafV1),
             Self::EVENTS_CHECKPOINT_NODE_V1 => Some(Self::EventsCheckpointNodeV1),
             Self::EVENTS_CHECKPOINT_ROOT_V1 => Some(Self::EventsCheckpointRootV1),
-            Self::FEDERATION_VERIFY_ACTOR_SIGNATURE_V1 => {
-                Some(Self::FederationVerifyActorSignatureV1)
-            }
             Self::FRANKING_PROOF_SIGNATURE_V1 => Some(Self::FrankingProofSignatureV1),
             Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
             Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1 => {

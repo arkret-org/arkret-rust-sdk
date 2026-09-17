@@ -64,7 +64,7 @@ pub struct DeviceMessagesSendRequestBody {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessageDeliveredResult {
+pub struct DeviceMessageDeliveredRow {
     pub device_message_id: DeviceMessageId,
     pub status: DeviceMessageDeliveredStatus,
 }
@@ -77,7 +77,7 @@ pub enum DeviceMessageDeliveredStatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DeviceMessageUnknownResult {
+pub struct DeviceMessageUnknownRow {
     pub device_message_id: DeviceMessageId,
     pub status: DeviceMessageUnknownStatus,
     pub reason_code: String,
@@ -92,8 +92,8 @@ pub enum DeviceMessageUnknownStatus {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DeviceMessagesSendOutcome {
-    pub delivered: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageDeliveredResult>>,
-    pub unknown_devices: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageUnknownResult>>,
+    pub delivered: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageDeliveredRow>>,
+    pub unknown_devices: BTreeMap<DidCoreId, BTreeMap<DeviceId, DeviceMessageUnknownRow>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

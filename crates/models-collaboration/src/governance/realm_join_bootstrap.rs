@@ -14,7 +14,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    CommitStreamHead, CommitStreamRef, RealmCommitId, Result, StreamItem, WireError,
+    CommitStreamHead, CommitStreamRef, RealmCommitId, Result, StreamRow, WireError,
 };
 
 pub use super::realm_join_intake::{
@@ -155,7 +155,7 @@ impl RealmJoinBootstrapAssembly {
     /// scan's own next position with the previous commit it names. An item for
     /// an unadvertised stream, a gap, a repeat, or a position past the
     /// advertised head is rejected rather than buffered.
-    pub fn append(&mut self, item: &StreamItem) -> Result<()> {
+    pub fn append(&mut self, item: &StreamRow) -> Result<()> {
         item.validate_shape()?;
         if item.commit.realm_id != self.outcome.snapshot.realm_id {
             return Err(invalid(
@@ -304,9 +304,9 @@ mod tests {
         stream_position: u64,
         previous: Option<u8>,
         seed: u8,
-    ) -> StreamItem {
+    ) -> StreamRow {
         let event = fixture_event(stream_ref);
-        StreamItem {
+        StreamRow {
             commit: RealmCommit {
                 commit_id: commit_id(seed),
                 realm_id: stream_ref.realm_id().clone(),

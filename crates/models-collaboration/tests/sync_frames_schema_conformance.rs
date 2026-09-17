@@ -29,7 +29,7 @@ use arkret_models_collaboration::sync_frames::current_results::{
 };
 use arkret_models_collaboration::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
-    RealmListItem, RealmListPage, RealmListRemoval, RealmTimelineBaseline,
+    RealmListRow, RealmListPage, RealmListRemoval, RealmTimelineBaseline,
 };
 use arkret_models_collaboration::sync_frames::events_subscribe::{
     EpochRotationPayload, EventsStreamTrace, EventsSubscribeFrame, EventsSubscribeFrameKind,
@@ -267,7 +267,7 @@ fn realm_stream_head(realm: &str) -> Value {
     })
 }
 
-fn realm_list_item(realm: &str) -> Value {
+fn realm_list_row(realm: &str) -> Value {
     json!({
         "realm_id": realm,
         "revision": 9,
@@ -305,13 +305,13 @@ const ACCOUNT_CURRENT: &str = "account-current-result.schema.json";
 
 #[test]
 fn realm_list_item_matches_its_schema_shape_and_order() {
-    let item: RealmListItem = round_trip(
+    let item: RealmListRow = round_trip(
         ACCOUNT_FRAME,
-        "#/$defs/realm_list_item",
-        realm_list_item(REALM_A),
+        "#/$defs/realm_list_row",
+        realm_list_row(REALM_A),
     );
     item.validate().unwrap();
-    assert_field_order(&item, ACCOUNT_FRAME, &["$defs", "realm_list_item"]);
+    assert_field_order(&item, ACCOUNT_FRAME, &["$defs", "realm_list_row"]);
 }
 
 #[test]
@@ -322,7 +322,7 @@ fn realm_list_page_matches_its_schema_shape_and_order() {
         json!({
             "snapshot_cursor": "ak:cursor:abc",
             "snapshot_revision": 31,
-            "items": [realm_list_item(REALM_A)],
+            "items": [realm_list_row(REALM_A)],
             "next_cursor": "ak:cursor:def",
         }),
     );
@@ -343,7 +343,7 @@ fn realm_list_changes_and_removal_match_their_schema_shapes() {
         ACCOUNT_FRAME,
         "#/$defs/realm_list_changes",
         json!({
-            "upserts": [realm_list_item(REALM_A)],
+            "upserts": [realm_list_row(REALM_A)],
             "removals": [{"realm_id": REALM_B, "revision": 3}],
         }),
     );

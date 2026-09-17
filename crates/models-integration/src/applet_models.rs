@@ -119,13 +119,13 @@ impl AppletEventTransactionRequestBody {
 pub struct AppletAuthoringTransactionRequestBody {
     pub applet_id: AppletId,
     pub source_id: DidCoreId,
-    pub authoring_result: AppletManagedActorAuthoringResult,
+    pub authoring_context: AppletManagedActorAuthoringContext,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AppletManagedActorAuthoringResult {
+pub struct AppletManagedActorAuthoringContext {
     pub committed_request: AppletManagedActorCommittedRequest,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub realm_stream_head: CommitStreamHead,

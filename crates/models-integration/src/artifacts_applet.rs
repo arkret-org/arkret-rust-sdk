@@ -60,7 +60,7 @@ pub struct ProtocolInstance {
 }
 
 /// Counterpart for
-/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_item`.
+/// `spec/v1/artifacts/schemas/applet-edge-operations.schema.json#/$defs/rejected_event_row`.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

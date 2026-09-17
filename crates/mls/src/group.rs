@@ -14,7 +14,7 @@ use arkret_models_crypto::{
 use arkret_wire::{
     ActorId, Base64UrlString, CommitStreamRef, DidCoreId, EncryptedPayloadScheme, EventId,
     EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES, MlsWelcomeDelivery,
-    MlsWelcomeRecipientEndpoint, ReasonCode, StreamItem, canonical,
+    MlsWelcomeRecipientEndpoint, ReasonCode, StreamRow, canonical,
 };
 use chrono::Utc;
 use openmls::prelude::{
@@ -1333,7 +1333,7 @@ impl ArkretMlsGroup {
     pub fn join_from_verified_welcome_delivery(
         identity: ArkretMlsIdentity,
         delivery: &MlsWelcomeDelivery,
-        accepted_commit: &StreamItem,
+        accepted_commit: &StreamRow,
     ) -> Result<Self> {
         delivery.validate_shape()?;
         accepted_commit.validate_shape()?;
@@ -1554,7 +1554,7 @@ impl ArkretMlsGroup {
 
     /// Install an MLS Commit only after the containing Event has an accepted
     /// `RealmCommit` in the same independent Realm/Circle/Sidecar stream.
-    pub fn install_accepted_commit(&mut self, item: &StreamItem) -> Result<u64> {
+    pub fn install_accepted_commit(&mut self, item: &StreamRow) -> Result<u64> {
         item.validate_shape()?;
         if item.event.kind != EventKind::MlsCommit {
             return Err(Error::Protocol(

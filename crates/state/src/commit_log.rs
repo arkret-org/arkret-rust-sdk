@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use arkret_identifiers::{EventId, RealmCommitId};
 use arkret_wire::{
     CommitStreamHead, CommitStreamRef, CommittedEventResolveOutcome, CommittedEventResolveRequest,
-    Event, RealmCommit, StreamItem, StreamScanOutcome, StreamScanRequest,
+    Event, RealmCommit, StreamRow, StreamScanOutcome, StreamScanRequest,
 };
 use thiserror::Error;
 
@@ -199,7 +199,7 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
                 .get(&commit.event_ref)
                 .expect("commit points to an existing event")
                 .clone();
-            commits.push(StreamItem { commit, event });
+            commits.push(StreamRow { commit, event });
         }
         Ok(StreamScanOutcome {
             commits,
@@ -223,7 +223,7 @@ impl AuthorityCommitStore for MemoryAuthorityCommitStore {
             let Some(event) = inner.events.get(&commit.event_ref) else {
                 continue;
             };
-            let item = StreamItem {
+            let item = StreamRow {
                 commit: commit.clone(),
                 event: event.clone(),
             };

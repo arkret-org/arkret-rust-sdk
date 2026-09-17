@@ -615,7 +615,7 @@
     },
     {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::AppletEventRejection",
-      "schema": "applet-edge-operations.schema.json#/$defs/rejected_item"
+      "schema": "applet-edge-operations.schema.json#/$defs/rejected_event_row"
     },
     {
       "rust_type": "crates/models-integration/src/artifacts_applet.rs::E2eePolicy",
@@ -871,7 +871,7 @@
     },
     {
       "rust_type": "crates/models-collaboration/src/agent_sidecar.rs::PendingSidecarAccessReconciliation",
-      "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_item"
+      "schema": "agent-operations.schema.json#/$defs/pending_sidecar_access_reconciliation_row"
     },
     {
       "rust_type": "crates/models-collaboration/src/sidecar_operations.rs::SidecarStreamHead",

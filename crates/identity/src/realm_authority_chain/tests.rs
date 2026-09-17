@@ -16,7 +16,7 @@ use arkret_wire::{
     DetachedSignatureAlgorithm, DetachedSignatureContext, Did, DidCoreId, DidUrl, Event, EventId,
     EventKind, Hash, RealmAuthorityBundle, RealmAuthorityCurrentAssertion, RealmAuthorityHandoff,
     RealmAuthorityHandoffId, RealmAuthorityTransition, RealmCommit, RealmCommitAuthorityRef,
-    RealmCommitId, RealmId, RealmSnapshotId, ScopeRef, StreamItem,
+    RealmCommitId, RealmId, RealmSnapshotId, ScopeRef, StreamRow,
 };
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use ed25519_dalek::SigningKey;
@@ -221,7 +221,7 @@ struct Chain {
     bundle: RealmAuthorityBundle,
     keys: RealmAuthorityKeyMap,
     /// A later ordinary Realm-stream commit made under generation 1.
-    item: StreamItem,
+    item: StreamRow,
 }
 
 /// Genesis under Station A, one planned handoff to Station B, and a live
@@ -342,7 +342,7 @@ fn chain() -> Chain {
     Chain {
         bundle,
         keys,
-        item: StreamItem {
+        item: StreamRow {
             commit: item_commit,
             event: item_event,
         },
