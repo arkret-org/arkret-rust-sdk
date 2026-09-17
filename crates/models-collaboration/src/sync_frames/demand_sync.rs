@@ -330,8 +330,12 @@ mod tests {
         "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"
     }
 
+    // A Realm id is not free-form: its first byte carries the derivation class
+    // and digest suite nibbles, so flipping the leading character invalidates
+    // the whole token. This differs from `realm_a` in the digest tail instead,
+    // which keeps it decodable and keeps it sorting after `realm_a`.
     fn realm_b() -> &'static str {
-        "ak:realm:BVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbs"
+        "ak:realm:AVxu7KCm9qmiOqakDKBXUia9rbZ3NBurP875XbqG1rbt"
     }
 
     #[test]

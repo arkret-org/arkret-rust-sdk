@@ -1,8 +1,8 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-16.11;
-//! sha256=745a4aa77c463b97d6848f06bbcf0613da78faeb6bc2d768352b8d355f7ff3f2
-//! Entries: reason_codes=390
+//! Input: registry/error-code-registry.json; version=2026-09-16.14;
+//! sha256=c9a7428c71b34e849a81b122a80b6e65279d0a76c26d283e3515ab1da7464b67
+//! Entries: reason_codes=387
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -143,7 +143,6 @@ pub enum ReasonCode {
     HandleSubjectMismatch,
     Harassment,
     HateSpeech,
-    HistoryTraversalAnchorUnreachable,
     HumanApprovalRequired,
     IdentityCreationAlreadyAccepted,
     IdentityCreationChallengeAlreadyConsumed,
@@ -179,7 +178,6 @@ pub enum ReasonCode {
     LastResortNotSupported,
     LastResortRealmAffinityViolation,
     LastResortRotationRequired,
-    LateRecoveryRejectedMembership,
     LegalHoldActive,
     MediaNegotiationTimeout,
     MediaPlaintextServiceNotAuthorised,
@@ -233,7 +231,6 @@ pub enum ReasonCode {
     PcrGenesisUnitInvalid,
     PermissionDenied,
     PinTargetNotPinned,
-    PlaneCrossWrite,
     PolicyDenied,
     PolicyRevisionGap,
     PolicyRevoked,
@@ -307,9 +304,8 @@ pub enum ReasonCode {
     RelationKindWatchesDerived,
     ResolutionHistoryAncestorUnknown,
     RevocationFreshnessUnknown,
-    RevokeUndoInvalidSignature,
     RiskPolicy,
-    RsvpBasisNotCausal,
+    RsvpBasisMalformed,
     RsvpOccurrenceNotCanonical,
     RuntimeKeyMissing,
     ScopeIncomparable,
@@ -352,6 +348,7 @@ pub enum ReasonCode {
     StrandAlreadyTerminal,
     StrandNotActive,
     StrandNotArchived,
+    StreamTailMissing,
     StructureDepthExceeded,
     Superseded,
     SupersededByRepairing,
@@ -578,8 +575,6 @@ impl ReasonCode {
     pub const HANDLE_SUBJECT_MISMATCH: &'static str = "handle_subject_mismatch";
     pub const HARASSMENT: &'static str = "harassment";
     pub const HATE_SPEECH: &'static str = "hate_speech";
-    pub const HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE: &'static str =
-        "history_traversal_anchor_unreachable";
     pub const HUMAN_APPROVAL_REQUIRED: &'static str = "human_approval_required";
     pub const IDENTITY_CREATION_ALREADY_ACCEPTED: &'static str =
         "identity_creation_already_accepted";
@@ -620,7 +615,6 @@ impl ReasonCode {
     pub const LAST_RESORT_REALM_AFFINITY_VIOLATION: &'static str =
         "last_resort_realm_affinity_violation";
     pub const LAST_RESORT_ROTATION_REQUIRED: &'static str = "last_resort_rotation_required";
-    pub const LATE_RECOVERY_REJECTED_MEMBERSHIP: &'static str = "late_recovery_rejected_membership";
     pub const LEGAL_HOLD_ACTIVE: &'static str = "legal_hold_active";
     pub const MEDIA_NEGOTIATION_TIMEOUT: &'static str = "media_negotiation_timeout";
     pub const MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED: &'static str =
@@ -679,7 +673,6 @@ impl ReasonCode {
     pub const PCR_GENESIS_UNIT_INVALID: &'static str = "pcr_genesis_unit_invalid";
     pub const PERMISSION_DENIED: &'static str = "permission_denied";
     pub const PIN_TARGET_NOT_PINNED: &'static str = "pin_target_not_pinned";
-    pub const PLANE_CROSS_WRITE: &'static str = "plane_cross_write";
     pub const POLICY_DENIED: &'static str = "policy_denied";
     pub const POLICY_REVISION_GAP: &'static str = "policy_revision_gap";
     pub const POLICY_REVOKED: &'static str = "policy_revoked";
@@ -771,9 +764,8 @@ impl ReasonCode {
     pub const RESOLUTION_HISTORY_ANCESTOR_UNKNOWN: &'static str =
         "resolution_history_ancestor_unknown";
     pub const REVOCATION_FRESHNESS_UNKNOWN: &'static str = "revocation_freshness_unknown";
-    pub const REVOKE_UNDO_INVALID_SIGNATURE: &'static str = "revoke_undo_invalid_signature";
     pub const RISK_POLICY: &'static str = "risk_policy";
-    pub const RSVP_BASIS_NOT_CAUSAL: &'static str = "rsvp_basis_not_causal";
+    pub const RSVP_BASIS_MALFORMED: &'static str = "rsvp_basis_malformed";
     pub const RSVP_OCCURRENCE_NOT_CANONICAL: &'static str = "rsvp_occurrence_not_canonical";
     pub const RUNTIME_KEY_MISSING: &'static str = "runtime_key_missing";
     pub const SCOPE_INCOMPARABLE: &'static str = "scope_incomparable";
@@ -817,6 +809,7 @@ impl ReasonCode {
     pub const STRAND_ALREADY_TERMINAL: &'static str = "strand_already_terminal";
     pub const STRAND_NOT_ACTIVE: &'static str = "strand_not_active";
     pub const STRAND_NOT_ARCHIVED: &'static str = "strand_not_archived";
+    pub const STREAM_TAIL_MISSING: &'static str = "stream_tail_missing";
     pub const STRUCTURE_DEPTH_EXCEEDED: &'static str = "structure_depth_exceeded";
     pub const SUPERSEDED: &'static str = "superseded";
     pub const SUPERSEDED_BY_REPAIRING: &'static str = "superseded_by_repairing";
@@ -1043,7 +1036,6 @@ impl ReasonCode {
             Self::HandleSubjectMismatch => Self::HANDLE_SUBJECT_MISMATCH,
             Self::Harassment => Self::HARASSMENT,
             Self::HateSpeech => Self::HATE_SPEECH,
-            Self::HistoryTraversalAnchorUnreachable => Self::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE,
             Self::HumanApprovalRequired => Self::HUMAN_APPROVAL_REQUIRED,
             Self::IdentityCreationAlreadyAccepted => Self::IDENTITY_CREATION_ALREADY_ACCEPTED,
             Self::IdentityCreationChallengeAlreadyConsumed => {
@@ -1081,7 +1073,6 @@ impl ReasonCode {
             Self::LastResortNotSupported => Self::LAST_RESORT_NOT_SUPPORTED,
             Self::LastResortRealmAffinityViolation => Self::LAST_RESORT_REALM_AFFINITY_VIOLATION,
             Self::LastResortRotationRequired => Self::LAST_RESORT_ROTATION_REQUIRED,
-            Self::LateRecoveryRejectedMembership => Self::LATE_RECOVERY_REJECTED_MEMBERSHIP,
             Self::LegalHoldActive => Self::LEGAL_HOLD_ACTIVE,
             Self::MediaNegotiationTimeout => Self::MEDIA_NEGOTIATION_TIMEOUT,
             Self::MediaPlaintextServiceNotAuthorised => {
@@ -1143,7 +1134,6 @@ impl ReasonCode {
             Self::PcrGenesisUnitInvalid => Self::PCR_GENESIS_UNIT_INVALID,
             Self::PermissionDenied => Self::PERMISSION_DENIED,
             Self::PinTargetNotPinned => Self::PIN_TARGET_NOT_PINNED,
-            Self::PlaneCrossWrite => Self::PLANE_CROSS_WRITE,
             Self::PolicyDenied => Self::POLICY_DENIED,
             Self::PolicyRevisionGap => Self::POLICY_REVISION_GAP,
             Self::PolicyRevoked => Self::POLICY_REVOKED,
@@ -1227,9 +1217,8 @@ impl ReasonCode {
             Self::RelationKindWatchesDerived => Self::RELATION_KIND_WATCHES_DERIVED,
             Self::ResolutionHistoryAncestorUnknown => Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN,
             Self::RevocationFreshnessUnknown => Self::REVOCATION_FRESHNESS_UNKNOWN,
-            Self::RevokeUndoInvalidSignature => Self::REVOKE_UNDO_INVALID_SIGNATURE,
             Self::RiskPolicy => Self::RISK_POLICY,
-            Self::RsvpBasisNotCausal => Self::RSVP_BASIS_NOT_CAUSAL,
+            Self::RsvpBasisMalformed => Self::RSVP_BASIS_MALFORMED,
             Self::RsvpOccurrenceNotCanonical => Self::RSVP_OCCURRENCE_NOT_CANONICAL,
             Self::RuntimeKeyMissing => Self::RUNTIME_KEY_MISSING,
             Self::ScopeIncomparable => Self::SCOPE_INCOMPARABLE,
@@ -1274,6 +1263,7 @@ impl ReasonCode {
             Self::StrandAlreadyTerminal => Self::STRAND_ALREADY_TERMINAL,
             Self::StrandNotActive => Self::STRAND_NOT_ACTIVE,
             Self::StrandNotArchived => Self::STRAND_NOT_ARCHIVED,
+            Self::StreamTailMissing => Self::STREAM_TAIL_MISSING,
             Self::StructureDepthExceeded => Self::STRUCTURE_DEPTH_EXCEEDED,
             Self::Superseded => Self::SUPERSEDED,
             Self::SupersededByRepairing => Self::SUPERSEDED_BY_REPAIRING,
@@ -1505,7 +1495,6 @@ impl ReasonCode {
             Self::HANDLE_SUBJECT_MISMATCH => Self::HandleSubjectMismatch,
             Self::HARASSMENT => Self::Harassment,
             Self::HATE_SPEECH => Self::HateSpeech,
-            Self::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE => Self::HistoryTraversalAnchorUnreachable,
             Self::HUMAN_APPROVAL_REQUIRED => Self::HumanApprovalRequired,
             Self::IDENTITY_CREATION_ALREADY_ACCEPTED => Self::IdentityCreationAlreadyAccepted,
             Self::IDENTITY_CREATION_CHALLENGE_ALREADY_CONSUMED => {
@@ -1543,7 +1532,6 @@ impl ReasonCode {
             Self::LAST_RESORT_NOT_SUPPORTED => Self::LastResortNotSupported,
             Self::LAST_RESORT_REALM_AFFINITY_VIOLATION => Self::LastResortRealmAffinityViolation,
             Self::LAST_RESORT_ROTATION_REQUIRED => Self::LastResortRotationRequired,
-            Self::LATE_RECOVERY_REJECTED_MEMBERSHIP => Self::LateRecoveryRejectedMembership,
             Self::LEGAL_HOLD_ACTIVE => Self::LegalHoldActive,
             Self::MEDIA_NEGOTIATION_TIMEOUT => Self::MediaNegotiationTimeout,
             Self::MEDIA_PLAINTEXT_SERVICE_NOT_AUTHORISED => {
@@ -1605,7 +1593,6 @@ impl ReasonCode {
             Self::PCR_GENESIS_UNIT_INVALID => Self::PcrGenesisUnitInvalid,
             Self::PERMISSION_DENIED => Self::PermissionDenied,
             Self::PIN_TARGET_NOT_PINNED => Self::PinTargetNotPinned,
-            Self::PLANE_CROSS_WRITE => Self::PlaneCrossWrite,
             Self::POLICY_DENIED => Self::PolicyDenied,
             Self::POLICY_REVISION_GAP => Self::PolicyRevisionGap,
             Self::POLICY_REVOKED => Self::PolicyRevoked,
@@ -1689,9 +1676,8 @@ impl ReasonCode {
             Self::RELATION_KIND_WATCHES_DERIVED => Self::RelationKindWatchesDerived,
             Self::RESOLUTION_HISTORY_ANCESTOR_UNKNOWN => Self::ResolutionHistoryAncestorUnknown,
             Self::REVOCATION_FRESHNESS_UNKNOWN => Self::RevocationFreshnessUnknown,
-            Self::REVOKE_UNDO_INVALID_SIGNATURE => Self::RevokeUndoInvalidSignature,
             Self::RISK_POLICY => Self::RiskPolicy,
-            Self::RSVP_BASIS_NOT_CAUSAL => Self::RsvpBasisNotCausal,
+            Self::RSVP_BASIS_MALFORMED => Self::RsvpBasisMalformed,
             Self::RSVP_OCCURRENCE_NOT_CANONICAL => Self::RsvpOccurrenceNotCanonical,
             Self::RUNTIME_KEY_MISSING => Self::RuntimeKeyMissing,
             Self::SCOPE_INCOMPARABLE => Self::ScopeIncomparable,
@@ -1736,6 +1722,7 @@ impl ReasonCode {
             Self::STRAND_ALREADY_TERMINAL => Self::StrandAlreadyTerminal,
             Self::STRAND_NOT_ACTIVE => Self::StrandNotActive,
             Self::STRAND_NOT_ARCHIVED => Self::StrandNotArchived,
+            Self::STREAM_TAIL_MISSING => Self::StreamTailMissing,
             Self::STRUCTURE_DEPTH_EXCEEDED => Self::StructureDepthExceeded,
             Self::SUPERSEDED => Self::Superseded,
             Self::SUPERSEDED_BY_REPAIRING => Self::SupersededByRepairing,
@@ -2547,11 +2534,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Standard moderation reason: hate speech / targeted attacks against a protected group.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::HISTORY_TRAVERSAL_ANCHOR_UNREACHABLE,
-        applies_to: &[],
-        description: "The exact retained direct-traversal target AuthorityRevision does not dominate every leaf of the caller-pinned trusted_history_base_basis or trusted_current_basis. The service MUST NOT substitute a head, common descendant or different basis. Missing material that prevents the decision is revision_unavailable instead.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::HUMAN_APPROVAL_REQUIRED,
         applies_to: &["auth_decision", "service_call"],
         description: "An agent runtime requested a high-risk session scope that requires out-of-band controller approval. The top-level service error is claim_required; error.details carries this reason_code and an opaque approval_request_id. The runtime MUST NOT receive a CAPTCHA, OTP, or browser challenge. See zh/identity/key-management.md Â§3.2.",
@@ -2725,11 +2707,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::LAST_RESORT_ROTATION_REQUIRED,
         applies_to: &["service_call", "crypto"],
         description: "A holder that joined groups via a last-resort KeyPackage came online but has not rotated the package and performed the required group self-updates. Those updates do not retroactively restore old Welcome confidentiality. See zh/crypto-media/encryption-and-audit.md Â§2.6.2.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::LATE_RECOVERY_REJECTED_MEMBERSHIP,
-        applies_to: &["audit_decision"],
-        description: "A late-arriving key tried to upgrade a decryption_failed event to late_recovered, but the receiver was not a member of the Realm at the original causal time Tâ‚€ (or has since been banned/removed). Client MUST NOT admit the recovered plaintext to verified timeline; audit log records this code. See zh/crypto-media/encryption-and-audit.md Â§2.3.5.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::LEGAL_HOLD_ACTIVE,
@@ -2995,11 +2972,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::PIN_TARGET_NOT_PINNED,
         applies_to: &["event_envelope", "state_resolution"],
         description: "Sub-reason for failed_precondition when ak.pin.reorder addresses a (pin_scope, target_ref) that has no causally earlier surviving ak.pin.add assertion to inherit note and the remaining entry fields from. Reducers MUST NOT synthesize a rank-only entry that would put the target back into the roster. See zh/models/pins.md section 4.",
-    },
-    ReasonCodeDescriptor {
-        code: ReasonCode::PLANE_CROSS_WRITE,
-        applies_to: &["event_envelope", "schema_validation"],
-        description: "Sub-reason for schema_violation when a Event's registered reducer projection targets a control-plane typed current result. Data-plane events MUST only project writes to data-plane typed current result families; the receiver MUST reject the envelope instead of applying a cross-plane write. See zh/authz/event-auth-state-resolution.md Â§4.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::POLICY_DENIED,
@@ -3376,19 +3348,14 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         description: "Revocation / grant freshness cannot be established for a high-risk, cross-domain, or delegated action. Receiver MUST fail closed and return freshness diagnostics instead of treating missing revoke evidence as allow.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::REVOKE_UNDO_INVALID_SIGNATURE,
-        applies_to: &["authz", "auth_decision"],
-        description: "A capability revoke-undo (rollback) references a revoke whose signature does not verify. The undo MUST fail closed and the original revoke stays in effect. See authz/capabilities.md and fixtures/capability-fixture.json.",
-    },
-    ReasonCodeDescriptor {
         code: ReasonCode::RISK_POLICY,
         applies_to: &["device_recovery"],
         description: "Recovery-session `rejection_reason_code` value: a server-side risk policy rejected the session. Closed value set defined in artifacts/schemas/recovery-session.schema.json; completion ownership is defined in zh/identity/security-transactions.md Â§2.",
     },
     ReasonCodeDescriptor {
-        code: ReasonCode::RSVP_BASIS_NOT_CAUSAL,
+        code: ReasonCode::RSVP_BASIS_MALFORMED,
         applies_to: &["event_envelope", "schema_validation"],
-        description: "entry.schedule_basis_refs is not a subset of the envelope domain_refs[], or is empty, duplicated, or not sorted in ascending canonical byte order. This shape admission is decidable without resolving the referenced Events and MUST reject rather than pend. See zh/models/calendar-event.md.",
+        description: "entry.schedule_basis_refs does not carry exactly one well-formed ak:event: typed id: it is empty, holds more than one item, repeats an item, or the item is not a valid typed Event id. This shape admission is decidable from the payload field alone, without resolving the referenced Event, and MUST reject rather than pend. See zh/models/calendar-event.md section 8.1.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::RSVP_OCCURRENCE_NOT_CANONICAL,
@@ -3599,6 +3566,11 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
         code: ReasonCode::STRAND_NOT_ARCHIVED,
         applies_to: &["event_envelope", "auth_decision"],
         description: "`ak.strand.restore` rejected because the target Strand is not in `archived` state.",
+    },
+    ReasonCodeDescriptor {
+        code: ReasonCode::STREAM_TAIL_MISSING,
+        applies_to: &["client_sync"],
+        description: "One authorized commit stream cannot be continued from the caller's durable cursor: the tail range between that cursor and the stream's current head is unavailable to this service (retention or history floor reached, or the durable range is otherwise not servable). It is per-stream and scoped to exactly one stream_ref, so the client re-acquires the snapshot and tail for that stream alone and MUST NOT reset other Realm / Circle / Sidecar streams, the account baseline or to-device ACKs. It is NOT the same as an empty tail: an authorized stream that is simply at its head returns zero items and `accepted`. It is also NOT interchangeable with the absence bucket of ak.peer.events.read.resolve_committed.v1, whose contract returns only exact matches with zero return and zero side effects so that non-existence, lost authorization and a hidden scope stay indistinguishable; emitting this code for a stream the caller may not read, or for one that does not exist, would turn that anti-enumeration bucket into an oracle. Only a stream the caller is currently authorized to read may be reported with it. See zh/sync/client-sync.md section 3.",
     },
     ReasonCodeDescriptor {
         code: ReasonCode::STRUCTURE_DEPTH_EXCEEDED,

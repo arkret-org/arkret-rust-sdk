@@ -29,7 +29,7 @@ use arkret_models_collaboration::sync_frames::current_results::{
 };
 use arkret_models_collaboration::sync_frames::demand_sync::{
     AccountBaselineSegment, RealmDetailUnavailable, RealmInvalidation, RealmListChanges,
-    RealmListRow, RealmListPage, RealmListRemoval, RealmTimelineBaseline,
+    RealmListPage, RealmListRemoval, RealmListRow, RealmTimelineBaseline,
 };
 use arkret_models_collaboration::sync_frames::events_subscribe::{
     EpochRotationPayload, EventsStreamTrace, EventsSubscribeFrame, EventsSubscribeFrameKind,
@@ -200,8 +200,30 @@ fn object_members(text: &[u8], start: usize) -> Vec<(String, usize)> {
     }
 }
 
+/// Element start offsets of the array at `start`, in source order.
+fn array_elements(text: &[u8], start: usize) -> Vec<usize> {
+    assert_eq!(text[start], b'[', "expected a JSON array");
+    let mut elements = Vec::new();
+    let mut index = start + 1;
+    loop {
+        while index < text.len() && text[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if index >= text.len() || text[index] == b']' {
+            return elements;
+        }
+        elements.push(index);
+        index = value_end(text, index);
+        while index < text.len() && (text[index].is_ascii_whitespace() || text[index] == b',') {
+            index += 1;
+        }
+    }
+}
+
 /// Walk `path` from the document root and return that object's member names in
-/// source order. Each path element is a member name.
+/// source order. A path element is a member name, or a decimal index when the
+/// node at that point is an array -- a schema that expresses a nullable object
+/// as a `oneOf` keeps the branch this SDK mirrors behind such an index.
 fn members_at(text: &str, path: &[&str]) -> Vec<String> {
     let bytes = text.as_bytes();
     let mut start = bytes
@@ -209,12 +231,20 @@ fn members_at(text: &str, path: &[&str]) -> Vec<String> {
         .position(|byte| *byte == b'{')
         .expect("document must be a JSON object");
     for segment in path {
-        let members = object_members(bytes, start);
-        start = members
-            .into_iter()
-            .find(|(key, _)| key == segment)
-            .unwrap_or_else(|| panic!("no member `{segment}` at this level"))
-            .1;
+        start = if bytes[start] == b'[' {
+            let index: usize = segment
+                .parse()
+                .unwrap_or_else(|_| panic!("`{segment}` indexes an array, so it must be a number"));
+            *array_elements(bytes, start)
+                .get(index)
+                .unwrap_or_else(|| panic!("no element {index} at this level"))
+        } else {
+            object_members(bytes, start)
+                .into_iter()
+                .find(|(key, _)| key == segment)
+                .unwrap_or_else(|| panic!("no member `{segment}` at this level"))
+                .1
+        };
     }
     object_members(bytes, start)
         .into_iter()
@@ -250,12 +280,15 @@ const REALM_A: &str = "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19";
 const REALM_B: &str = "ak:realm:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
 const STRAND: &str = "ak:strand:AdP2S6y0Ms7yp9-GNvXZ3sVfvTEo8mtnV3G_RfApIOn0";
 const EVENT_A: &str = "ak:event:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq";
-const COMMIT_A: &str = "ak:realm_commit:0199ad0e-6d5a-7f31-8c2e-4c5f1a2b3c4d";
+const COMMIT_A: &str = "ak:realm_commit:AT33EWBTXdTx5CjY-ogbIIF2T4vh-v7jCMCQ80Fss2Rq";
 
 fn actor(principal: &str) -> Value {
     json!({
-        "principal_id": principal,
-        "station_id": "ak:did_core:web:station.example",
+        "kind": "account",
+        "account_id": {
+            "principal_id": principal,
+            "station_id": "ak:did_core:web:station.example",
+        },
     })
 }
 
@@ -508,12 +541,20 @@ fn window_start_e2ee_epoch_matches_its_schema_order() {
         key_ref: "ak:mls:epoch:4".to_owned(),
     };
     epoch.validate().unwrap();
-    // The `oneOf` puts the object branch second; its `properties` order is the
+    // `e2ee_epoch` is nullable, so the schema spells it as a `oneOf` whose
+    // second branch is the object; that branch's `properties` order is the
     // declaration order this type must match.
     assert_field_order(
         &epoch,
         ACCOUNT_FRAME,
-        &["$defs", "state_at_window_start", "properties", "e2ee_epoch"],
+        &[
+            "$defs",
+            "state_at_window_start",
+            "properties",
+            "e2ee_epoch",
+            "oneOf",
+            "1",
+        ],
     );
 }
 
@@ -575,9 +616,9 @@ fn account_current_result_matches_its_schema_shape_and_order() {
             "authority_generation": 2,
             "stream_heads": [realm_stream_head(REALM_A)],
             "entries": [{
-                "selector": {"kind": "realm_profile", "realm_id": REALM_A},
+                "selector": {"kind": "realm_profile"},
                 "revision": {"commit_id": COMMIT_A, "stream_position": 12},
-                "value": {"title": "Design"},
+                "value": {"schema": "ak.schema.realm_profile.v1", "title": "Design"},
             }],
         }),
     );
@@ -588,9 +629,9 @@ fn account_current_result_matches_its_schema_shape_and_order() {
 #[test]
 fn account_current_result_refuses_two_values_for_one_selector() {
     let entry = json!({
-        "selector": {"kind": "realm_profile", "realm_id": REALM_A},
+        "selector": {"kind": "realm_profile"},
         "revision": {"commit_id": COMMIT_A, "stream_position": 12},
-        "value": {"title": "Design"},
+        "value": {"schema": "ak.schema.realm_profile.v1", "title": "Design"},
     });
     let current: AccountCurrentResult = serde_json::from_value(json!({
         "realm_id": REALM_A,
@@ -939,7 +980,7 @@ fn websocket_welcome_limits_match_the_schema_order() {
 fn websocket_welcome_frame_validates_against_the_schema() {
     let value = json!({
         "kind": "welcome",
-        "connection_id": "conn-0000000000000001",
+        "connection_id": "conn-00000000000000000001",
         "max_frame_bytes": 65536,
         "max_channels": 4,
         "max_connection_pending_bytes": 1048576,

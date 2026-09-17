@@ -4,11 +4,11 @@
 //! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854 Input: registry/
 //! capability-action-registry.json; version=2026-09-16.10;
 //! sha256=36a98f202fc0109b8cfdfae6db12530c7f30ee7dde26a8affa6b29a11d2d57f9 Input: registry/
-//! schema-registry.json; version=2026-09-16.10;
-//! sha256=2ac78a68533abaf1590b9b85f7279ccafddea53736383bb8f4444b368438f0d2 Input: registry/
+//! schema-registry.json; version=2026-09-16.12;
+//! sha256=918716d1c0678425c86c9d1b6427b85e36e6fe45b166054a55aab87e6839bd9e Input: registry/
 //! account-data-key-registry.json; version=2026-09-16.6;
 //! sha256=de368343b50e385243ea87a1b80f5dc75bf102b8b7320744fc8961406dab7f04 Entries: id_kinds=50,
-//! special_forms=15, actions=150, schemas=214, account_data_patterns=24
+//! special_forms=15, actions=150, schemas=220, account_data_patterns=24
 
 use arkret_wire::{CapabilityActionId, SchemaId, event_kind_str};
 use serde::{Deserialize, Serialize};
@@ -2685,6 +2685,14 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
         file: "schemas/actor-profile-operations.schema.json",
     },
     SchemaDescriptor {
+        schema_id: SchemaId::AGENT_AUTHORITY_STATE_ATTESTATION_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::AGENT_AUTHORITY_STATE_EVIDENCE_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
         schema_id: SchemaId::AGENT_MEMBERSHIP_CASCADE_V1,
         file: "schemas/agent-membership-cascade.schema.json",
     },
@@ -2863,6 +2871,18 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::CONTENT_BLOCK_POLL_V1,
         file: "schemas/content-block-poll.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_OUTCOME_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_ISSUE_REQUEST_BODY_V1,
+        file: "schemas/agent-authority-evidence.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::CURRENT_PRINCIPAL_OUTCOME_V1,
@@ -3219,6 +3239,10 @@ pub const REGISTERED_SCHEMA_IDS: &[SchemaDescriptor] = &[
     SchemaDescriptor {
         schema_id: SchemaId::REALM_AUTHORITY_HANDOFF_V1,
         file: "schemas/realm-authority-handoff.schema.json",
+    },
+    SchemaDescriptor {
+        schema_id: SchemaId::REALM_AUTHORITY_ROOT_VALUE_V1,
+        file: "schemas/typed-current-result.schema.json",
     },
     SchemaDescriptor {
         schema_id: SchemaId::REALM_COMMIT_V1,

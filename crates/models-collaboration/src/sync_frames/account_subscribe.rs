@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::{
-    AccountId, ActorId, Cursor, DidCoreId, Event, EventId, OpaqueLocalId, RealmId, Result,
-    SchemaId, StrandId, StreamRow, WireError, canonical,
+    AccountId, ActorId, Cursor, Event, EventId, RealmId, Result, SchemaId, StrandId, StreamRow,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -844,7 +844,9 @@ impl<'de> Deserialize<'de> for NotificationDelta {
 
 #[cfg(test)]
 mod notification_delta_tests {
-    use arkret_wire::OrdinaryNotificationKind;
+    // `DidCoreId` only builds fixtures, so it belongs to the test module rather
+    // than to the module's own imports.
+    use arkret_wire::{DidCoreId, OrdinaryNotificationKind};
     use serde_json::json;
 
     use super::*;

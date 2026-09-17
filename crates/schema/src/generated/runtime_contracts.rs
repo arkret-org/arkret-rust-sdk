@@ -2,14 +2,14 @@
 //! Generator: tools/spec-codegen
 //! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1;
 //! sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264 Input: registry/
-//! contract-registry.json; version=2026-09-16.17;
-//! sha256=baaf72e4a5cbb47eaeb45a1d4ff2e95ac86f11efbb8a75cc5dbc0450f627f7fa Input: registry/
-//! operation-registry.json; version=2026-09-16.10;
-//! sha256=4de4a6e089a9dff644879b0f72669f2d71b1b4a5e2615a8e177cf2a665ebbaa7 Input: registry/
-//! event-kind-registry.json; version=2026-09-16.8;
-//! sha256=10480c08b1142cc3f6e6fecbd84d8e12c38af09182ba0577464e7f306a94f140 Input: registry/
-//! schema-registry.json; version=2026-09-16.10;
-//! sha256=2ac78a68533abaf1590b9b85f7279ccafddea53736383bb8f4444b368438f0d2 Input: registry/
+//! contract-registry.json; version=2026-09-17.3;
+//! sha256=63979e460bd503957db2f66a1a59c0ca21804b71044f07b89e6a6a6e6c959cfb Input: registry/
+//! operation-registry.json; version=2026-09-17.3;
+//! sha256=c93fceaf9cdd4ab489b4ae7c53d7c97ccdde98bca5a395a9443533d4a97179dd Input: registry/
+//! event-kind-registry.json; version=2026-09-17.1;
+//! sha256=70eb4a4c727733e9219907acc2bec6e8540a455245b009da84f3a74009a2191b Input: registry/
+//! schema-registry.json; version=2026-09-16.12;
+//! sha256=918716d1c0678425c86c9d1b6427b85e36e6fe45b166054a55aab87e6839bd9e Input: registry/
 //! id-kind-registry.json; version=2026-09-16.10;
 //! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854
 //! Input: deployment-probes.json; version=2026-06-19;
@@ -727,6 +727,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::GateAccountCommandLogoutV1,
             ServiceOperationId::GateAccountCommandRequestErasureV1,
             ServiceOperationId::GateAccountCommandRevokeSessionV1,
+            ServiceOperationId::GateAccountCommandIssueControllerGateAttestationV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -765,8 +766,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-16.8";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-16.10";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-16.10";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-17.1";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-16.12";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-17.3";
 pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-16.10";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

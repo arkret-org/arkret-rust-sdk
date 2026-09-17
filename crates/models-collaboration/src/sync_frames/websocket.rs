@@ -222,6 +222,31 @@ pub enum WebSocketOpenParameters {
 }
 
 impl WebSocketOpenParameters {
+    /// Decode the `parameters` member of an `open` frame under the shape its
+    /// sibling `operation_id` selects.
+    ///
+    /// The three shapes overlap on the wire -- `{}` satisfies the Signal shape
+    /// and equally the all-optional branch of the account shape -- so the
+    /// operation is the only discriminator, exactly as
+    /// `websocket-frame.schema.json` pins one `operation_id` const per `open`
+    /// branch.
+    pub fn from_value_for(
+        operation_id: WebSocketOperationId,
+        value: serde_json::Value,
+    ) -> serde_json::Result<Self> {
+        Ok(match operation_id {
+            WebSocketOperationId::AccountStreamSubscribe => {
+                Self::Account(serde_json::from_value(value)?)
+            }
+            WebSocketOperationId::EventsStreamSubscribe => {
+                Self::Events(serde_json::from_value(value)?)
+            }
+            WebSocketOperationId::SignalStreamSubscribe => {
+                Self::Signal(serde_json::from_value(value)?)
+            }
+        })
+    }
+
     /// Parameters and operation must agree: opening the events channel with
     /// account parameters would authorize one thing and deliver another.
     pub fn validate_for(&self, operation_id: WebSocketOperationId) -> Result<()> {
@@ -826,7 +851,12 @@ impl WebSocketServerFrame {
 /// One frame the client may send.
 // Variant order is the `client_frame` `oneOf` order of
 // `websocket-frame.schema.json`.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+//
+// Decoding goes through `ClientFrameWire` below rather than a `Deserialize`
+// derive: `open` selects its `parameters` shape from the sibling
+// `operation_id`, and an untagged decode of the parameters alone would resolve
+// an empty object to the account shape and make the Signal channel unopenable.
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WebSocketClientFrame {
     Authenticate {
@@ -846,6 +876,63 @@ pub enum WebSocketClientFrame {
     Pong {
         ping_id: String,
     },
+}
+
+/// Deserialization mirror for [`WebSocketClientFrame`].
+///
+/// `open` holds its `parameters` undecoded so the sibling `operation_id` can
+/// select the shape; every other variant mirrors the public one field for
+/// field.
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum ClientFrameWire {
+    Authenticate {
+        connection_id: String,
+        session_grant: String,
+        dpop_proof: String,
+    },
+    Open {
+        channel_id: String,
+        operation_id: WebSocketOperationId,
+        parameters: serde_json::Value,
+    },
+    Close {
+        channel_id: String,
+        reason: WebSocketCloseReason,
+    },
+    Pong {
+        ping_id: String,
+    },
+}
+
+impl<'de> Deserialize<'de> for WebSocketClientFrame {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        Ok(match ClientFrameWire::deserialize(deserializer)? {
+            ClientFrameWire::Authenticate {
+                connection_id,
+                session_grant,
+                dpop_proof,
+            } => Self::Authenticate {
+                connection_id,
+                session_grant,
+                dpop_proof,
+            },
+            ClientFrameWire::Open {
+                channel_id,
+                operation_id,
+                parameters,
+            } => Self::Open {
+                channel_id,
+                operation_id,
+                parameters: WebSocketOpenParameters::from_value_for(operation_id, parameters)
+                    .map_err(serde::de::Error::custom)?,
+            },
+            ClientFrameWire::Close { channel_id, reason } => Self::Close { channel_id, reason },
+            ClientFrameWire::Pong { ping_id } => Self::Pong { ping_id },
+        })
+    }
 }
 
 impl WebSocketClientFrame {
@@ -1341,6 +1428,50 @@ mod tests {
         assert!(
             serde_json::from_value::<WebSocketSignalOpenParameters>(json!({"after": "x"})).is_err()
         );
+    }
+
+    #[test]
+    fn an_empty_parameters_object_follows_its_operation_id() {
+        // `{}` is legal for both the Signal channel and the account channel, so
+        // the shape the frame decodes to must come from `operation_id` alone.
+        for (operation_id, expected) in [
+            (
+                "ak.self.signal.stream.subscribe.v1",
+                WebSocketOpenParameters::Signal(WebSocketSignalOpenParameters {}),
+            ),
+            (
+                "ak.self.account.stream.subscribe.v1",
+                WebSocketOpenParameters::Account(WebSocketAccountOpenParameters::default()),
+            ),
+        ] {
+            let value = json!({
+                "kind": "open",
+                "channel_id": "channel-1",
+                "operation_id": operation_id,
+                "parameters": {},
+            });
+            let frame: WebSocketClientFrame = serde_json::from_value(value.clone()).unwrap();
+            let WebSocketClientFrame::Open { parameters, .. } = &frame else {
+                panic!("expected an open frame");
+            };
+            assert_eq!(parameters, &expected);
+            frame.validate().unwrap();
+            assert_eq!(serde_json::to_value(&frame).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn open_parameters_of_the_wrong_shape_are_rejected_at_decode() {
+        // An events selector offered to the Signal channel must not survive as
+        // some other channel's parameters.
+        let error = serde_json::from_value::<WebSocketClientFrame>(json!({
+            "kind": "open",
+            "channel_id": "channel-1",
+            "operation_id": "ak.self.signal.stream.subscribe.v1",
+            "parameters": {"realm_ids": []},
+        }))
+        .expect_err("the Signal channel takes no members");
+        assert!(error.to_string().contains("realm_ids"), "{error}");
     }
 
     #[test]

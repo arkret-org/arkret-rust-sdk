@@ -271,7 +271,7 @@ mod tests {
         let catalog = event_payload_validator_catalog().unwrap();
         let entry = json!({
             "schedule_basis_refs": [
-                "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
             ],
             "response": {"status": "accepted"}
         });
@@ -321,7 +321,7 @@ mod tests {
                         "event_ref": "ak:strand:AQVC6IqFkbYCve-UUUa0ciJb36fBVkZWvlnEwgTs3Q15",
                         "occurrence": null,
                         "entry": {"schedule_basis_refs": [
-                            "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                            "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
                         ]}
                     }),
                 )
@@ -339,10 +339,7 @@ mod tests {
                     "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                     "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                    "rank": {
-                        "depth": 0,
-                        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
-                    }
+                    "rank": "U"
                 }),
             )
             .unwrap();
@@ -352,10 +349,7 @@ mod tests {
                 &json!({
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                     "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                    "rank": {
-                        "depth": 0,
-                        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
-                    }
+                    "rank": "U"
                 })
             ),
             Err(SchemaError::Protocol(_))
@@ -375,10 +369,7 @@ mod tests {
                     "board_space_id": "ak:space:ATqrupSFYozzL7O90hPaSlvHmLnxxSRiRUZA4RgeuZpD",
                     "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                     "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                    "rank": {
-                        "depth": 0,
-                        "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
-                    }
+                    "rank": "U"
                 }),
             )
             .unwrap();
@@ -390,10 +381,7 @@ mod tests {
                         "board_space_id": "not-a-space-id",
                         "strand_id": "ak:strand:AT3ARBdH1FM6GjXK9ulTx-YMvQOXys39dlUzZV6KyID9",
                         "target_space_id": "ak:space:AUl4PuPYccbXn1G6ELp6eIIBxEMjcgAj8cXBfX9KLb1G",
-                        "rank": {
-                            "depth": 0,
-                            "event_id": "ak:event:AWnAqJ5-2jBzaey4VIckTGtKAtXIQYxWPNXLYnqGCMmg"
-                        }
+                        "rank": "U"
                     }),
                 )
                 .is_err()
