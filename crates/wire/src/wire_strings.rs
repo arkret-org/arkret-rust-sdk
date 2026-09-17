@@ -728,8 +728,8 @@ impl<'de> Deserialize<'de> for NonEmptyJsonObject {
 /// it is a closed canonical form rather than a free URI
 /// (`zh/extensions/mimi-interop.md` §4). Two spellings of one room would
 /// otherwise each own a "first accepted binding" and the `revoked` terminal
-/// state could be bypassed by respelling, because the subject is both the
-/// `state_root` leaf preimage and the leaf sort key. A non-canonical value is
+/// state could be bypassed by respelling, because the subject is what names
+/// the typed current result the binding writes to. A non-canonical value is
 /// rejected here; it is never normalized and then accepted.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
