@@ -256,7 +256,9 @@ mod tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .unwrap();
             let mut request = [0; 4096];
-            connection.read(&mut request).unwrap();
+            // The mock only needs the request off the socket before it replies,
+            // so a short read is fine and the count is deliberately dropped.
+            let _request_bytes = connection.read(&mut request).unwrap();
             connection.write_all(
                 b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\nConnection: close\r\n\r\n{\"kind\":\"checkpoint\"}\n{\"kind\":",
             ).unwrap();
