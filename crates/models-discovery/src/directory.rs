@@ -680,7 +680,7 @@ pub struct DirectoryAgentSelectorResolutionOutcome {
     pub controller_subject_id: DidCoreId,
     /// Exact Agent account, a projection of the verified claim rather than a
     /// second choice. Ruling:
-    /// review/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md.
+    /// tasks/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md.
     pub subject_account_id: AccountId,
     pub agent_slug: String,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
@@ -1301,7 +1301,7 @@ mod agent_selector_outcome_tests {
 
     /// Ruling:
     ///
-    /// review/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md
+    /// tasks/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md
     ///
     /// The outcome is a
     /// projection of the signed claim, so a Directory that keeps the agent principal and

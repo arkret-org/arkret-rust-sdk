@@ -494,12 +494,10 @@ fn decrypt_key_backup_envelope_bytes(
             "passphrase_kdf envelopes use the XChaCha20-Poly1305 AEAD profile".to_owned(),
         ));
     }
-    let nonce = envelope
-        .encryption
-        .aead
-        .nonce
-        .as_ref()
-        .ok_or_else(|| KeyBackupError::InvalidInput("key backup is missing nonce".to_owned()))?;
+    let nonce =
+        envelope.encryption.aead.nonce.as_ref().ok_or_else(|| {
+            KeyBackupError::InvalidInput("key backup is missing nonce".to_owned())
+        })?;
     let nonce_salt = envelope
         .encryption
         .aead
@@ -738,10 +736,10 @@ fn build_key_backup_envelope_in_series(
     plaintext
         .validate_against(&contents)
         .map_err(|error| KeyBackupError::InvalidInput(error.to_string()))?;
-    let plaintext_bytes = Zeroizing::new(
-        canonical_json_bytes(&plaintext)
-            .map_err(|error| KeyBackupError::Canonical(format!("key backup plaintext: {error}")))?,
-    );
+    let plaintext_bytes =
+        Zeroizing::new(canonical_json_bytes(&plaintext).map_err(|error| {
+            KeyBackupError::Canonical(format!("key backup plaintext: {error}"))
+        })?);
 
     // Truncate to the canonical timestamp resolution so the AAD binding
     // round-trips byte-for-byte through the persisted `created_at`.
@@ -935,7 +933,9 @@ mod tests {
 
     /// Stand-in for the caller's device key: it records the exact transcript
     /// the module asked it to sign, so tests can assert what was covered.
-    fn recording_signer(seen: &std::cell::RefCell<Vec<Vec<u8>>>) -> impl Fn(&[u8]) -> Result<Vec<u8>> {
+    fn recording_signer(
+        seen: &std::cell::RefCell<Vec<Vec<u8>>>,
+    ) -> impl Fn(&[u8]) -> Result<Vec<u8>> {
         move |transcript: &[u8]| {
             seen.borrow_mut().push(transcript.to_vec());
             Ok(arkret_canonical::canonical::sha256_bytes(transcript).to_vec())
@@ -1145,7 +1145,12 @@ mod tests {
         let seen = std::cell::RefCell::new(Vec::new());
         let envelope = genesis(&kek, &seen);
         assert_eq!(
-            envelope.encryption.key_commitment.as_ref().unwrap().as_str(),
+            envelope
+                .encryption
+                .key_commitment
+                .as_ref()
+                .unwrap()
+                .as_str(),
             format!(
                 "sha256:{}",
                 hex::encode(commitment_digest(&kek.key, BackupKind::SecretStorage))
@@ -1183,7 +1188,10 @@ mod tests {
 
         assert_eq!(successor.series_id, predecessor.series_id);
         assert_eq!(successor.series_seq, predecessor.series_seq + 1);
-        assert_eq!(successor.supersedes_id.as_ref(), Some(&predecessor.backup_id));
+        assert_eq!(
+            successor.supersedes_id.as_ref(),
+            Some(&predecessor.backup_id)
+        );
         assert_eq!(
             successor.supersedes_digest.as_ref().unwrap().as_str(),
             sha256_digest(predecessor.signing_payload_bytes().unwrap())

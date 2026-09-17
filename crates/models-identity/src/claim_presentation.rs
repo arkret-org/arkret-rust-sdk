@@ -86,7 +86,7 @@ pub struct AgentSelectorClaim {
     /// copies this value verbatim into the mention node: it must not be
     /// rebuilt from a bare principal, the controller handle's Station, a DID
     /// default Station or the resolving facade. Ruling:
-    /// review/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md.
+    /// tasks/spec-done/2026-09-05-1310-agent-selector-mention-has-no-normative-station-source.md.
     #[serde(deserialize_with = "required_nullable_account")]
     pub subject_account_id: Option<AccountId>,
     pub issuer_id: DidCoreId,

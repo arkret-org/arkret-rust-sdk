@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_for": "work/active/2026-09-04-1552-cross-repo-dependency-and-test-kit-convergence.md",
+  "generated_for": "tasks/impl-active/2026-09-04-1552-cross-repo-dependency-and-test-kit-convergence.md",
   "note": "Every entry must name an owner and an expiry condition that some other party can observe. A permanent exemption is not allowed: if a split cannot expire, the correct outcome is a code change, not an entry here. `majors` lists the compatibility buckets observed inside the core protocol repositories; a NEW major outside this list re-opens the finding.",
   "families": {
     "openmls-0.9-rustcrypto-generation": {

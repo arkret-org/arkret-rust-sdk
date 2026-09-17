@@ -40,7 +40,7 @@ use crate::binding_digest::EvidenceDependencies;
 /// Adding a variant MUST first be checked against `did-usage-and-verification.md`
 /// §4 (closed authority trigger table) and §5 (binding fields); when the new
 /// purpose is not covered by an existing trigger row, follow
-/// `arkret-work/review/spec-open/README-status.md` and file a dated finding
+/// `arkret-work/tasks/spec-open/README-status.md` and file a dated finding
 /// before implementing it.
 ///
 /// Provenance of the current variants:
