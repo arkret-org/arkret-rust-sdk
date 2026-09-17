@@ -17,7 +17,7 @@
 
 use arkret_wire::{
     Base64UrlString, DidCoreId, DidUrl, ErrorCode, Event, EventId, EventKind, Hash, NonEmptyString,
-    RequestId, Result, WireError,
+    RequestId, Result, SchemaId, WireError,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -128,14 +128,15 @@ pub struct ControllerAccountGateAttestation {
 impl ControllerAccountGateAttestation {
     /// The one schema id a controller gate may carry.
     ///
-    /// It is spelled here rather than read from the generated
-    /// [`arkret_wire::SchemaId`] table because the Spec schema registry has no
-    /// `controller_account_gate_attestation` row yet: the object is normative
-    /// in `identity/key-management.md` but no schema file declares it. When
-    /// that row lands, this constant becomes
-    /// `SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1` and every call site
-    /// below keeps working unchanged.
-    pub const SCHEMA_ID: &'static str = "ak.schema.controller_account_gate_attestation.v1";
+    /// Read from the generated table rather than spelled out here. The Spec
+    /// declares the object in
+    /// `artifacts/schemas/agent-authority-evidence.schema.json` as
+    /// `$defs.controller_account_gate_attestation`, alongside the rest of the
+    /// Agent authority portable evidence family, and the registry row
+    /// generates into [`arkret_wire::SchemaId`]. An earlier comment here said
+    /// no schema file declared it and hardcoded the literal; both were true
+    /// once and are not now.
+    pub const SCHEMA_ID: &'static str = SchemaId::CONTROLLER_ACCOUNT_GATE_ATTESTATION_V1;
 
     /// Structural invariants an issuer must satisfy and a consumer must
     /// re-check before the detached proof is worth verifying.

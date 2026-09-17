@@ -283,6 +283,7 @@ pub use arkret_models_identity::actor_profile_operations::*;
 pub use arkret_models_identity::admin_grant::{
     SessionGrantAdminIntrospectionStatus, SessionGrantIntrospection, admin_scopes,
 };
+pub use arkret_models_identity::agent_signer_evidence::*;
 pub use arkret_models_identity::agent_signer_state::*;
 pub use arkret_models_identity::artifacts_account::*;
 pub use arkret_models_identity::artifacts_device_identity::*;
