@@ -10,6 +10,6 @@ pub use arkret_wire::{
     CommitStreamRef, CommittedEventRef, CommittedEventResolveOutcome, CommittedEventResolveRequest,
     EventCommitSubmission, RealmAuthorityBundle, RealmAuthorityCurrentAssertion,
     RealmAuthorityHandoff, RealmAuthorityTransition, RealmCommit, RealmCommitAuthorityRef,
-    RealmStateSnapshot, RetentionAndHistoryFloor, StreamHistoryFloor, StreamRow,
-    StreamScanOutcome, StreamScanRequest,
+    RealmStateSnapshot, RetentionAndHistoryFloor, StreamHistoryFloor, StreamRow, StreamScanOutcome,
+    StreamScanRequest,
 };

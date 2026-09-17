@@ -439,20 +439,22 @@ impl WebSocketConnectionLimits {
 /// One frame the server may send.
 // Variant order is the `server_frame` `oneOf` order of
 // `websocket-frame.schema.json`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+//
+// The wire format lives on `ServerFrameWire` below rather than on a derive
+// here: `control` and `error` each tag two schema shapes, and an internally
+// tagged derive resolves a tag to exactly one variant, which left every
+// connection-scoped control and error frame undecodable. Keeping the four
+// scoped variants public means callers still match on the scope directly.
+#[derive(Clone, Debug)]
 pub enum WebSocketServerFrame {
     Challenge {
         connection_id: String,
         nonce: String,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         expires_at: DateTime<Utc>,
     },
     Welcome {
         connection_id: String,
-        #[serde(flatten)]
         limits: WebSocketConnectionLimits,
-        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         auth_expires_at: DateTime<Utc>,
     },
     Opened {
@@ -487,6 +489,53 @@ pub enum WebSocketServerFrame {
     },
     Ping {
         ping_id: String,
+        sent_at: DateTime<Utc>,
+    },
+    ReauthRequired {
+        connection_id: String,
+        nonce: String,
+        expires_at: DateTime<Utc>,
+        reason: WebSocketReauthReason,
+    },
+}
+
+/// Serialization mirror for [`WebSocketServerFrame`].
+///
+/// One variant per `kind` on the wire. The two tags the schema shares across
+/// scopes carry an untagged body whose arms are told apart by `frame_scope`,
+/// exactly as `websocket-frame.schema.json` tells them apart.
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum ServerFrameWire {
+    Challenge {
+        connection_id: String,
+        nonce: String,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        expires_at: DateTime<Utc>,
+    },
+    Welcome {
+        connection_id: String,
+        #[serde(flatten)]
+        limits: WebSocketConnectionLimits,
+        #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+        auth_expires_at: DateTime<Utc>,
+    },
+    Opened {
+        channel_id: String,
+        operation_id: WebSocketOperationId,
+    },
+    Data {
+        channel_id: String,
+        payload: WebSocketDataPayload,
+    },
+    Control(ControlBodyWire),
+    Error(ErrorBodyWire),
+    Closed {
+        channel_id: String,
+        reason: WebSocketClosedReason,
+    },
+    Ping {
+        ping_id: String,
         #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
         sent_at: DateTime<Utc>,
     },
@@ -497,6 +546,216 @@ pub enum WebSocketServerFrame {
         expires_at: DateTime<Utc>,
         reason: WebSocketReauthReason,
     },
+}
+
+// Both `frame_scope` types are single-valued string markers, so neither arm can
+// absorb the other scope, and the channel arm additionally requires its
+// `channel_id`.
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum ControlBodyWire {
+    Channel {
+        frame_scope: WebSocketChannelScope,
+        channel_id: String,
+        payload: WebSocketChannelControlPayload,
+    },
+    Connection {
+        frame_scope: WebSocketConnectionScope,
+        payload: WebSocketConnectionDrainPayload,
+    },
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum ErrorBodyWire {
+    Channel {
+        frame_scope: WebSocketChannelScope,
+        channel_id: String,
+        error: WebSocketTransportError,
+    },
+    Connection {
+        frame_scope: WebSocketConnectionScope,
+        error: WebSocketTransportError,
+    },
+}
+
+impl From<WebSocketServerFrame> for ServerFrameWire {
+    fn from(frame: WebSocketServerFrame) -> Self {
+        match frame {
+            WebSocketServerFrame::Challenge {
+                connection_id,
+                nonce,
+                expires_at,
+            } => Self::Challenge {
+                connection_id,
+                nonce,
+                expires_at,
+            },
+            WebSocketServerFrame::Welcome {
+                connection_id,
+                limits,
+                auth_expires_at,
+            } => Self::Welcome {
+                connection_id,
+                limits,
+                auth_expires_at,
+            },
+            WebSocketServerFrame::Opened {
+                channel_id,
+                operation_id,
+            } => Self::Opened {
+                channel_id,
+                operation_id,
+            },
+            WebSocketServerFrame::Data {
+                channel_id,
+                payload,
+            } => Self::Data {
+                channel_id,
+                payload,
+            },
+            WebSocketServerFrame::ChannelControl {
+                frame_scope,
+                channel_id,
+                payload,
+            } => Self::Control(ControlBodyWire::Channel {
+                frame_scope,
+                channel_id,
+                payload,
+            }),
+            WebSocketServerFrame::ConnectionControl {
+                frame_scope,
+                payload,
+            } => Self::Control(ControlBodyWire::Connection {
+                frame_scope,
+                payload,
+            }),
+            WebSocketServerFrame::ChannelError {
+                frame_scope,
+                channel_id,
+                error,
+            } => Self::Error(ErrorBodyWire::Channel {
+                frame_scope,
+                channel_id,
+                error,
+            }),
+            WebSocketServerFrame::ConnectionError { frame_scope, error } => {
+                Self::Error(ErrorBodyWire::Connection { frame_scope, error })
+            }
+            WebSocketServerFrame::Closed { channel_id, reason } => {
+                Self::Closed { channel_id, reason }
+            }
+            WebSocketServerFrame::Ping { ping_id, sent_at } => Self::Ping { ping_id, sent_at },
+            WebSocketServerFrame::ReauthRequired {
+                connection_id,
+                nonce,
+                expires_at,
+                reason,
+            } => Self::ReauthRequired {
+                connection_id,
+                nonce,
+                expires_at,
+                reason,
+            },
+        }
+    }
+}
+
+impl From<ServerFrameWire> for WebSocketServerFrame {
+    fn from(wire: ServerFrameWire) -> Self {
+        match wire {
+            ServerFrameWire::Challenge {
+                connection_id,
+                nonce,
+                expires_at,
+            } => Self::Challenge {
+                connection_id,
+                nonce,
+                expires_at,
+            },
+            ServerFrameWire::Welcome {
+                connection_id,
+                limits,
+                auth_expires_at,
+            } => Self::Welcome {
+                connection_id,
+                limits,
+                auth_expires_at,
+            },
+            ServerFrameWire::Opened {
+                channel_id,
+                operation_id,
+            } => Self::Opened {
+                channel_id,
+                operation_id,
+            },
+            ServerFrameWire::Data {
+                channel_id,
+                payload,
+            } => Self::Data {
+                channel_id,
+                payload,
+            },
+            ServerFrameWire::Control(ControlBodyWire::Channel {
+                frame_scope,
+                channel_id,
+                payload,
+            }) => Self::ChannelControl {
+                frame_scope,
+                channel_id,
+                payload,
+            },
+            ServerFrameWire::Control(ControlBodyWire::Connection {
+                frame_scope,
+                payload,
+            }) => Self::ConnectionControl {
+                frame_scope,
+                payload,
+            },
+            ServerFrameWire::Error(ErrorBodyWire::Channel {
+                frame_scope,
+                channel_id,
+                error,
+            }) => Self::ChannelError {
+                frame_scope,
+                channel_id,
+                error,
+            },
+            ServerFrameWire::Error(ErrorBodyWire::Connection { frame_scope, error }) => {
+                Self::ConnectionError { frame_scope, error }
+            }
+            ServerFrameWire::Closed { channel_id, reason } => Self::Closed { channel_id, reason },
+            ServerFrameWire::Ping { ping_id, sent_at } => Self::Ping { ping_id, sent_at },
+            ServerFrameWire::ReauthRequired {
+                connection_id,
+                nonce,
+                expires_at,
+                reason,
+            } => Self::ReauthRequired {
+                connection_id,
+                nonce,
+                expires_at,
+                reason,
+            },
+        }
+    }
+}
+
+impl Serialize for WebSocketServerFrame {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        ServerFrameWire::from(self.clone()).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for WebSocketServerFrame {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        ServerFrameWire::deserialize(deserializer).map(Self::from)
+    }
 }
 
 impl WebSocketServerFrame {
@@ -967,11 +1226,11 @@ mod tests {
     }
 
     fn connection_id() -> String {
-        "conn-0000000000000001".to_owned()
+        "conn-00000000000000000001".to_owned()
     }
 
     fn nonce() -> String {
-        "nonce-000000000000001".to_owned()
+        "nonce-0000000000000000001".to_owned()
     }
 
     fn challenge() -> WebSocketServerFrame {
@@ -1185,6 +1444,31 @@ mod tests {
         assert_eq!(control["kind"], json!("control"));
         assert_eq!(control["frame_scope"], json!("connection"));
         assert_eq!(control["payload"]["kind"], json!("drain"));
+    }
+
+    /// `control` and `error` each tag two variants in the schema, and
+    /// `frame_scope` -- not `kind` -- says which. A reader that resolves on the
+    /// tag alone routes every connection-scoped drain into the channel arm,
+    /// where it fails for a missing `channel_id` that was never meant to be
+    /// there, so the connection scope is round-tripped explicitly.
+    #[test]
+    fn a_shared_kind_tag_is_disambiguated_by_frame_scope() {
+        let frame = WebSocketServerFrame::ConnectionControl {
+            frame_scope: WebSocketConnectionScope::Connection,
+            payload: WebSocketConnectionDrainPayload {
+                kind: WebSocketDrainMarker::Drain,
+                reconnect_after_ms: 0,
+                deadline: instant(),
+                reason: None,
+            },
+        };
+        let encoded = serde_json::to_value(&frame).unwrap();
+        let decoded: WebSocketServerFrame = serde_json::from_value(encoded.clone()).unwrap();
+        assert!(matches!(
+            decoded,
+            WebSocketServerFrame::ConnectionControl { .. }
+        ));
+        assert_eq!(serde_json::to_value(&decoded).unwrap(), encoded);
     }
 
     #[test]

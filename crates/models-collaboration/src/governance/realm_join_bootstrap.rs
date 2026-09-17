@@ -13,9 +13,7 @@
 
 use std::collections::BTreeMap;
 
-use arkret_wire::{
-    CommitStreamHead, CommitStreamRef, RealmCommitId, Result, StreamRow, WireError,
-};
+use arkret_wire::{CommitStreamHead, CommitStreamRef, RealmCommitId, Result, StreamRow, WireError};
 
 pub use super::realm_join_intake::{
     PeerRealmJoinBootstrapOutcome, PeerRealmJoinBootstrapRequestBody,

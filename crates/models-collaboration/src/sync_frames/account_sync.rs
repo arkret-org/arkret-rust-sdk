@@ -236,8 +236,16 @@ mod tests {
 
     use super::*;
 
+    // `common-ids.schema.json#/$defs/actor_id` is a discriminated identity, not a
+    // bare AccountId: an account carries its whole AccountId under the tag.
     fn actor(seed: &str) -> serde_json::Value {
-        json!({"principal_id": seed, "station_id": "ak:did_core:web:alice.example"})
+        json!({
+            "kind": "account",
+            "account_id": {
+                "principal_id": seed,
+                "station_id": "ak:did_core:web:alice.example",
+            },
+        })
     }
 
     fn window_start(profiles: serde_json::Value) -> serde_json::Value {
