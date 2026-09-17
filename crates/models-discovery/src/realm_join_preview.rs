@@ -83,7 +83,7 @@ pub struct RealmPublicPreview {
     pub realm_id: RealmId,
     pub join_rule: JoinRule,
     pub history_access: HistoryAccess,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
 }
@@ -116,7 +116,7 @@ impl RealmJoinSelfPreviewOutcome {
         if self.request_id != request.request_id
             || self.preview.realm_id != request.target.realm_id
             || self.authority_bundle.realm_id != request.target.realm_id
-            || self.preview.authority_generation != self.authority_bundle.current_generation
+            || self.preview.governance_generation != self.authority_bundle.current_generation
         {
             return Err(WireError::Protocol(
                 "Realm preview does not bind the request and authority bundle".to_owned(),
@@ -165,7 +165,7 @@ impl RealmJoinPeerPreviewOutcome {
         if self.request_id != request.request_id
             || self.preview.realm_id != request.realm_id
             || self.authority_bundle.realm_id != request.realm_id
-            || self.preview.authority_generation != self.authority_bundle.current_generation
+            || self.preview.governance_generation != self.authority_bundle.current_generation
         {
             return Err(WireError::Protocol(
                 "peer Realm preview does not bind the request and authority bundle".to_owned(),

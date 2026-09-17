@@ -28,7 +28,7 @@ pub fn verify_ordinary_agent_mls_binding(
     claim: &AgentMlsSignerClaim<'_>,
 ) -> Result<u32, AgentMlsLeafBindingError> {
     let reject = || Err(AgentMlsLeafBindingError);
-    if view.group_state.group_id != claim.group_id
+    if view.group_state.group_id.as_str() != claim.group_id
         || view.group_state.epoch != claim.epoch
         || view.group_state.group_state_ref != claim.group_state_ref
     {
@@ -62,6 +62,8 @@ pub fn verify_ordinary_agent_mls_binding(
 
 #[cfg(test)]
 mod tests {
+    use arkret_wire::MlsGroupId;
+
     use super::*;
     use crate::AuthorLeaf;
 
@@ -72,7 +74,7 @@ mod tests {
         let key = vec![7; 32];
         let view = AgentMlsSignerView {
             group_state: AuthorGroupStateView {
-                group_id: "group".to_owned(),
+                group_id: MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4").unwrap(),
                 epoch: 4,
                 group_state_ref: "ak:event:ATrYU3cGlcWkAcHXWgJ8sIYfraoV9pIwEHNNStEqHvFh".to_owned(),
                 active_leaves: vec![AuthorLeaf {
@@ -98,7 +100,7 @@ mod tests {
         verify_ordinary_agent_mls_binding(
             view,
             &AgentMlsSignerClaim {
-                group_id: "group",
+                group_id: "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
                 epoch: 4,
                 group_state_ref: "ak:event:ATrYU3cGlcWkAcHXWgJ8sIYfraoV9pIwEHNNStEqHvFh",
                 signer_id: signer,
@@ -133,7 +135,8 @@ mod tests {
         assert!(verify_fixture(&duplicate_lineage, &signer, &authorization, &key).is_err());
 
         let mut wrong_group = view.clone();
-        wrong_group.group_state.group_id = "other-group".to_owned();
+        wrong_group.group_state.group_id =
+            MlsGroupId::new("mnoZ_saVPf3fDTNZYVjrFGJxJwRL6QkkU1EzZRYPzm4").unwrap();
         assert!(verify_fixture(&wrong_group, &signer, &authorization, &key).is_err());
 
         let mut wrong_epoch = view.clone();
@@ -162,7 +165,7 @@ mod tests {
         };
         let view = AgentMlsSignerView {
             group_state: AuthorGroupStateView {
-                group_id: "group".to_owned(),
+                group_id: MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4").unwrap(),
                 epoch: 4,
                 group_state_ref: authorization.to_string(),
                 active_leaves: vec![leaf(1), leaf(2)],
@@ -173,7 +176,7 @@ mod tests {
             verify_ordinary_agent_mls_binding(
                 &view,
                 &AgentMlsSignerClaim {
-                    group_id: "group",
+                    group_id: "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
                     epoch: 4,
                     group_state_ref: authorization.as_str(),
                     signer_id: &signer,

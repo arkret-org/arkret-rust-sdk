@@ -312,7 +312,7 @@ mod tests {
                 stream_position,
                 previous_commit_ref: previous.map(commit_id),
                 event_ref: event.event_id.clone(),
-                authority_generation: 0,
+                governance_generation: 0,
                 authority_ref: RealmCommitAuthorityRef::GenesisOrChangeEvent(EventId::from_digest(
                     arkret_canonical::DigestSuite::Sha256,
                     [0x33; 32],
@@ -338,7 +338,7 @@ mod tests {
                 stream_position: 0,
                 previous_commit_ref: None,
                 event_ref: genesis_event.event_id.clone(),
-                authority_generation: 0,
+                governance_generation: 0,
                 authority_ref: RealmCommitAuthorityRef::GenesisOrChangeEvent(
                     genesis_event.event_id.clone(),
                 ),
@@ -369,7 +369,7 @@ mod tests {
         RealmStateSnapshot {
             snapshot_id: RealmSnapshotId::from_digest([0x44; 32]),
             realm_id: realm.clone(),
-            authority_generation: 0,
+            governance_generation: 0,
             visible_stream_heads: floors,
             current_state_entries: Vec::new(),
             retention_and_history_floor: RetentionAndHistoryFloor {

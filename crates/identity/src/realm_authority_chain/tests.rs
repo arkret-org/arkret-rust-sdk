@@ -137,7 +137,7 @@ fn commit(
             stream_position,
             previous_commit_ref: previous.map(|byte| RealmCommitId::from_digest([byte; 32])),
             event_ref: event_ref.clone(),
-            authority_generation: generation,
+            governance_generation: generation,
             authority_ref,
             committed_at: issued_at(),
             signature: placeholder_signature(DetachedSignatureContext::RealmCommit),
@@ -601,7 +601,7 @@ fn a_commit_from_an_uncovered_generation_is_refused() {
     let chain = chain();
     let verified = verify(&chain).unwrap();
     let mut item = chain.item.clone();
-    item.commit.authority_generation = 7;
+    item.commit.governance_generation = 7;
     item.commit = seal_commit(item.commit, STATION_B, &signing_key(0xB2));
 
     let error = verified

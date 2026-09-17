@@ -182,7 +182,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
                     "principal_id": "ak:did_core:webvh:z6mkfixture",
                     "station_id": "ak:did_core:webvh:z6mkfixtureservice"
                 },
-                "mls_group_id": "mls-group-fixture",
+                "mls_group_id": "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
                 "claim_purpose": "realm_membership",
                 "required_capabilities": ["ak.mls.profile.full"],
                 "target_device_ids": ["ak:device:01904100-0000-7000-8000-000000000001"],

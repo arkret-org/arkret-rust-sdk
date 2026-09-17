@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, NonEmptyString, RealmId,
+    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
@@ -153,7 +153,7 @@ pub struct RealmPairwiseAuthorState {
     pub verification_method: DidUrl,
     /// Opaque handle into the platform secure signer; never private material.
     pub local_signing_key_ref: NonEmptyString,
-    pub mls_group_id: NonEmptyString,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub accepted_group_state_ref: EventId,
     pub leaf_index: u32,
@@ -171,7 +171,7 @@ pub struct RealmPairwiseAcceptedLeaf {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RealmPairwiseAcceptedGroupState {
     pub realm_id: RealmId,
-    pub mls_group_id: NonEmptyString,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub accepted_group_state_ref: EventId,
     pub active_leaves: Vec<RealmPairwiseAcceptedLeaf>,
@@ -407,7 +407,8 @@ mod tests {
             last_resort: false,
         };
         let group = MlsGroupStateRecord {
-            group_id: "group-1".to_owned(),
+            group_id: arkret_wire::MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4")
+                .unwrap(),
             endpoint: MlsEndpointIdentity::human_device(principal_id, device_id),
             epoch: 1,
             serialized_state: vec![1, 2, 3],
@@ -442,7 +443,7 @@ mod tests {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsGroupStateRecord {
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub endpoint: MlsEndpointIdentity,
     pub epoch: u64,
     pub serialized_state: Vec<u8>,

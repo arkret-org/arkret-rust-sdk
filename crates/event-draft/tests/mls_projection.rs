@@ -16,7 +16,8 @@ fn hash(byte: char) -> Hash {
 
 fn commit_envelope() -> MlsCommitEnvelope {
     MlsCommitEnvelope {
-        group_id: "Zml4dHVyZS1yZWFsbQ".to_owned(),
+        group_id: arkret_wire::MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4")
+            .unwrap(),
         epoch: 7,
         commit: "AQIDBA".to_owned(),
         commit_digest: hash('c'),
@@ -26,7 +27,8 @@ fn commit_envelope() -> MlsCommitEnvelope {
 
 fn proposal_envelope() -> MlsProposalEnvelope {
     MlsProposalEnvelope {
-        group_id: "Zml4dHVyZS1yZWFsbQ".to_owned(),
+        group_id: arkret_wire::MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4")
+            .unwrap(),
         epoch: 6,
         proposal_type: "add".to_owned(),
         proposal: "UFJPUE9TQUw".to_owned(),
@@ -45,9 +47,13 @@ fn commit_envelope_projects_to_mls_commit_operation() {
         .unwrap();
 
     assert_eq!(op.object_kind, "mls_commit");
-    let object_id = op.object_id.as_deref().unwrap();
-    assert!(object_id.contains("Zml4dHVyZS1yZWFsbQ"));
-    assert_eq!(object_id, "Zml4dHVyZS1yZWFsbQ:7");
+    // The object id is the wire group id and the epoch, nothing else. Since the
+    // group id became a one-way digest of the effective scope it no longer
+    // spells the Realm out, so this pins the derived id verbatim.
+    assert_eq!(
+        op.object_id.as_deref().unwrap(),
+        "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4:7"
+    );
     assert_eq!(op.payload.epoch, 7);
 }
 

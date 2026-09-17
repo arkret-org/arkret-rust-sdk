@@ -6,7 +6,7 @@
 //! extension trait — this crate holds the data shapes and the deterministic
 //! CBOR codec only.
 
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, Hash};
+use arkret_wire::{DeviceId, DidCoreId, DidUrl, EventId, Hash, MlsGroupId};
 use serde::{Deserialize, Serialize};
 
 use crate::MlsEndpointIdentity;
@@ -14,7 +14,7 @@ use crate::MlsEndpointIdentity;
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsProposalEnvelope {
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub epoch: u64,
     pub proposal_type: String,
     pub proposal: String,
@@ -26,7 +26,7 @@ pub struct MlsProposalEnvelope {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MlsCommitEnvelope {
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub epoch: u64,
     pub commit: String,
     pub commit_digest: Hash,
@@ -37,7 +37,7 @@ pub struct MlsCommitEnvelope {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MlsWelcomeEnvelope {
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub epoch: u64,
     pub recipient: MlsEndpointIdentity,
     pub welcome: String,
@@ -48,7 +48,7 @@ pub struct MlsWelcomeEnvelope {
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MlsWelcomeEnvelopeWire {
-    group_id: String,
+    group_id: MlsGroupId,
     epoch: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_principal_id: Option<DidCoreId>,

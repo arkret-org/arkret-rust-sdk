@@ -37,7 +37,7 @@ impl AccountCurrentCoverage {
 
 /// The Account Station's view of one Realm's authority-committed current state.
 ///
-/// `authority_generation` names which governance generation materialized these
+/// `governance_generation` names which governance generation materialized these
 /// entries, and `stream_heads` is the per-stream position each entry was
 /// materialized at. There is deliberately no single "Realm position" here: a
 /// Realm's own stream, its Circles and its Sidecars advance independently, and
@@ -52,7 +52,7 @@ impl AccountCurrentCoverage {
 // `account-current-result.schema.json#/$defs/current`.
 pub struct AccountCurrentResult {
     pub realm_id: RealmId,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     pub stream_heads: Vec<CommitStreamHead>,
     pub entries: Vec<TypedCurrentResult>,
 }

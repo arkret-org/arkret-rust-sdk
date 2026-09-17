@@ -153,7 +153,7 @@ pub struct RealmCommit {
     pub stream_position: u64,
     pub previous_commit_ref: Option<RealmCommitId>,
     pub event_ref: EventId,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     pub authority_ref: RealmCommitAuthorityRef,
     #[serde(serialize_with = "crate::serde_helpers::serialize_canonical_timestamp")]
     pub committed_at: DateTime<Utc>,
@@ -298,7 +298,7 @@ impl RealmAuthorityTransition {
             || self.change_commit.event_ref != self.change_event.event_id
             || self.handoff.change_event_ref != self.change_event.event_id
             || self.handoff.change_commit_id != self.change_commit.commit_id
-            || self.change_commit.authority_generation != self.handoff.from_generation
+            || self.change_commit.governance_generation != self.handoff.from_generation
         {
             return Err(WireError::Protocol(
                 "authority transition change Event, RealmCommit, and handoff disagree".to_owned(),
@@ -381,7 +381,7 @@ impl RealmAuthorityBundle {
                 })
             || self.genesis_commit.stream_position != 0
             || self.genesis_commit.event_ref != self.genesis_event.event_id
-            || self.genesis_commit.authority_generation != 0
+            || self.genesis_commit.governance_generation != 0
             || self.genesis_commit.authority_ref
                 != RealmCommitAuthorityRef::GenesisOrChangeEvent(
                     self.genesis_event.event_id.clone(),
@@ -474,7 +474,7 @@ pub struct RetentionAndHistoryFloor {
 pub struct RealmStateSnapshot {
     pub snapshot_id: RealmSnapshotId,
     pub realm_id: RealmId,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     pub visible_stream_heads: Vec<CommitStreamHead>,
     pub current_state_entries: Vec<TypedCurrentResult>,
     pub retention_and_history_floor: RetentionAndHistoryFloor,
@@ -1081,7 +1081,7 @@ impl AuthorityHandoffRequest {
             || final_realm_head.commit_id != self.handoff.change_commit_id
             || self.snapshot.snapshot_id != self.handoff.snapshot_ref
             || self.snapshot.realm_id != self.handoff.realm_id
-            || self.snapshot.authority_generation != self.handoff.from_generation
+            || self.snapshot.governance_generation != self.handoff.from_generation
             || self.snapshot.visible_stream_heads != self.final_stream_heads
             || self.snapshot.signature.context != DetachedSignatureContext::RealmSnapshot
             || self.snapshot.signature.signed_digest != self.handoff.snapshot_digest
@@ -1171,7 +1171,7 @@ mod tests {
                 previous_commit_ref: (stream_position > 0)
                     .then(|| RealmCommitId::from_digest([stream_position as u8; 32])),
                 event_ref: event.event_id.clone(),
-                authority_generation: 0,
+                governance_generation: 0,
                 authority_ref: RealmCommitAuthorityRef::GenesisOrChangeEvent(EventId::from_digest(
                     arkret_canonical::DigestSuite::Sha256,
                     [0x33; 32],

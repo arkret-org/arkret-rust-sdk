@@ -27,7 +27,7 @@ pub struct Realm {
     pub security_class: Option<SecurityClass>,
     pub trust_domain: TrustDomainId,
     pub governance_station_id: DidCoreId,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owning_organization_ids: Vec<DidCoreId>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -80,7 +80,7 @@ impl Realm {
             security_class: None,
             trust_domain,
             governance_station_id,
-            authority_generation: 0,
+            governance_generation: 0,
             owning_organization_ids: Vec::new(),
             schema_refs: Vec::new(),
             fields: BTreeMap::new(),

@@ -6,7 +6,8 @@
 
 use arkret_canonical::canonical;
 use arkret_wire::{
-    EncryptedPayloadScheme, EventId, Hash, Result, SchemaId, ScopeRef, WireError, event_kind_str,
+    EncryptedPayloadScheme, EventId, Hash, MlsGroupId, Result, SchemaId, ScopeRef, WireError,
+    event_kind_str,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -84,7 +85,7 @@ pub struct EventContentPreEncryptionHeader {
     pub scheme: EncryptedPayloadScheme,
     pub effective_scope: ScopeRef,
     pub event_kind: String,
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
     pub group_state_ref: EventId,
     pub sender_domain: String,
@@ -429,7 +430,7 @@ pub fn content_type_byte(byte: u8) -> bool {
 pub struct EncryptedPayload {
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = String)))]
     pub scheme: EncryptedPayloadScheme,
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub epoch: u64,
     pub content_type: String,
     pub ciphertext: String,

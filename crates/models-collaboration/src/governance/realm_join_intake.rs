@@ -90,7 +90,7 @@ pub struct RealmPublicPreview {
     pub realm_id: RealmId,
     pub join_rule: JoinRule,
     pub history_access: HistoryAccess,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
 }

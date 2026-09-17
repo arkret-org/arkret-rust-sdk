@@ -10,9 +10,9 @@ use std::collections::HashSet;
 
 use arkret_wire::{
     AccountId, ActorId, BackupId, BackupSeriesId, Base64UrlString, CanonicalPublicMaterial,
-    CommitStreamRef, DeviceId, DidCoreId, DidUrl, Event, EventId, EventKind, Hash, PolicyId,
-    RealmCommitId, RealmId, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId, Result,
-    SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
+    CommitStreamRef, DeviceId, DidCoreId, DidUrl, Event, EventId, EventKind, Hash, MlsGroupId,
+    PolicyId, RealmCommitId, RealmId, ReceiptId, RecoveryCompletionAttestation, RecoverySessionId,
+    Result, SchemaId, ScopeRef, TransactionId, TrustDomainId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -886,7 +886,7 @@ pub struct RecoveryBackupUnlocked {
 #[serde(deny_unknown_fields)]
 pub struct RecoveryWelcomeRealmSummary {
     pub realm_id: RealmId,
-    pub mls_group_id: String,
+    pub mls_group_id: MlsGroupId,
     pub epoch: u64,
 }
 

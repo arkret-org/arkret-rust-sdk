@@ -157,7 +157,7 @@ fn ghost_authoring_request() -> AppletManagedActorAuthoringRequest {
     };
     let authority = AppletAuthoringAuthority {
         service_id: core_id(STATION_DID),
-        authority_generation: 1,
+        governance_generation: 1,
         verification_method: DidUrl::new(format!("{STATION_DID}#key-1")).unwrap(),
     };
     AppletManagedActorAuthoringRequest::sign_ghost(

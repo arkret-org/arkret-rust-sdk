@@ -791,7 +791,7 @@ impl Default for ProtocolSchemaRegistry {
                 &[
                     "snapshot_id",
                     "realm_id",
-                    "authority_generation",
+                    "governance_generation",
                     "visible_stream_heads",
                     "current_state_entries",
                     "retention_and_history_floor",
@@ -801,7 +801,7 @@ impl Default for ProtocolSchemaRegistry {
                 &[
                     ("snapshot_id", "string"),
                     ("realm_id", "string"),
-                    ("authority_generation", "integer"),
+                    ("governance_generation", "integer"),
                     ("visible_stream_heads", "array"),
                     ("current_state_entries", "array"),
                     ("retention_and_history_floor", "object"),

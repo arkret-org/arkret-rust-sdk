@@ -420,9 +420,32 @@ macro_rules! non_empty_wire_string {
     };
 }
 
-non_empty_wire_string!(
-    /// Non-empty MLS group identifier carried by event payloads and governance bindings.
-    MlsGroupId
+/// `common-ids.schema.json#/$defs/mls_group_id`: `^[A-Za-z0-9_-]{43}$`.
+///
+/// 43 characters is not a style choice — it is base64url without padding of a
+/// 32-byte SHA-256 digest, so any other length means the value did not come out
+/// of the v1 derivation. Checking it here is what stops the pre-2218 reversible
+/// encoding (a variable-length base64url of the scope key bytes) from being
+/// accepted as a second spelling of the same field.
+fn is_mls_group_id(value: &str) -> bool {
+    value.len() == 43
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+}
+
+validated_wire_string!(
+    /// MLS group identifier carried by event payloads and governance bindings.
+    ///
+    /// Always `base64url_no_pad(SHA-256(UTF8("ak.mls.group_id.v1") || 0x00 ||
+    /// canonical_effective_scope_key_bytes(effective_scope)))`, derived by the
+    /// reducer and the SDK from the effective scope alone — actors never submit
+    /// it. Derive it with [`crate::ScopeRef::canonical_mls_group_id`]; this type
+    /// only guarantees the shape, not that the value belongs to any particular
+    /// scope, and by design nothing can recover the scope from it.
+    MlsGroupId,
+    is_mls_group_id,
+    "mls group id must be 43 base64url characters (SHA-256 of the scope key)"
 );
 
 non_empty_wire_string!(
@@ -1273,12 +1296,31 @@ mod tests {
 
     #[test]
     fn non_empty_wire_strings_round_trip_as_strings() {
-        let group_id = MlsGroupId::new("Z3JvdXA").unwrap();
-        assert_eq!(serde_json::to_string(&group_id).unwrap(), r#""Z3JvdXA""#);
+        const GROUP_ID: &str = "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4";
+        let group_id = MlsGroupId::new(GROUP_ID).unwrap();
         assert_eq!(
-            serde_json::from_str::<MlsGroupId>(r#""Z3JvdXA""#).unwrap(),
+            serde_json::to_string(&group_id).unwrap(),
+            format!("\"{GROUP_ID}\"")
+        );
+        assert_eq!(
+            serde_json::from_str::<MlsGroupId>(&format!("\"{GROUP_ID}\"")).unwrap(),
             group_id
         );
+        // The pre-2218 reversible encoding and every other length fail closed.
+        for rejected in [
+            "",
+            "Z3JvdXA",
+            "YWs6cmVhbG06QWMxYUNLOGFRZG5rWUltdmRIM0RGanE0akRDUDE5OHBYWVdDR3pHdVZ5ajU",
+            "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R",
+            "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4=",
+            "QjKOSorlqs3IquY7OikTUTy/Z0mMiL0X2mK4jAOT4R4",
+        ] {
+            assert!(MlsGroupId::new(rejected).is_err(), "{rejected}");
+            assert!(
+                serde_json::from_str::<MlsGroupId>(&format!("\"{rejected}\"")).is_err(),
+                "{rejected}"
+            );
+        }
         let local_id = OpaqueLocalId::new("agent_pairing_request:request-1").unwrap();
         assert_eq!(
             serde_json::from_str::<OpaqueLocalId>(&serde_json::to_string(&local_id).unwrap())

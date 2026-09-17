@@ -41,7 +41,7 @@ use crate::events::kinds::EventKind;
 use crate::primitives::{
     ActorId, Audience, ProducerEventProof, ProofBindingRequirements, SignatureBindingPayload,
 };
-use crate::{AuthorizationRef, Base64UrlString, DidUrl, SchemaId, canonical};
+use crate::{AuthorizationRef, Base64UrlString, DidUrl, MlsGroupId, SchemaId, canonical};
 
 /// Full canonical Event Envelope bound, measured over the accepted envelope including every
 /// producer proof.
@@ -663,11 +663,25 @@ pub enum ScopeRef {
 }
 
 impl ScopeRef {
+    /// MLS `group_id` derivation domain separator, `zh/models/realm-and-space.md`
+    /// section 2.2. The trailing `0x00` separates it from the scope key bytes,
+    /// which are printable ASCII and therefore cannot contain it.
+    pub const MLS_GROUP_ID_DOMAIN: &'static str = "ak.mls.group_id.v1";
+
     /// Byte-exact v1 MLS security-scope key.
     ///
-    /// Realm and Circle identifiers are already type-separated canonical IDs.
-    /// A Sidecar group additionally binds its parent Realm, separated by the
-    /// ASCII Unit Separator byte. Genesis has no executable MLS scope.
+    /// Realm and Circle identifiers are already type-separated canonical IDs:
+    /// each is globally unique, self-prefixed with its own kind and fixed
+    /// length, so the id alone determines the scope and a `realm_id` prefix
+    /// would add no separation. A Sidecar group additionally binds its parent
+    /// Realm, separated by the ASCII Unit Separator byte, because its scope key
+    /// was defined that way before this derivation existed. Genesis has no
+    /// executable MLS scope.
+    ///
+    /// The same byte string is the MLS-Exporter context in
+    /// `registry/exporter-label-registry.json`, so prefixing the Circle branch,
+    /// dropping the Sidecar prefix or reordering the Sidecar components is not
+    /// a `group_id`-only change — it silently re-keys every exported secret.
     pub fn canonical_effective_scope_key_bytes(&self) -> Result<Vec<u8>> {
         match self {
             Self::RealmGenesis => Err(WireError::Protocol(
@@ -689,11 +703,61 @@ impl ScopeRef {
         }
     }
 
-    /// Deterministic MLS `group_id` for this effective security scope.
-    pub fn canonical_mls_group_id(&self) -> Result<String> {
-        Ok(crate::base64url::base64url_encode(
-            self.canonical_effective_scope_key_bytes()?,
+    /// Raw RFC 9420 `group_id` bytes for this effective security scope.
+    ///
+    /// `SHA-256(UTF8("ak.mls.group_id.v1") || 0x00 || scope_key_bytes)`, always
+    /// 32 bytes. This is what an MLS group is actually created with; the
+    /// base64url spelling below is only how the same value is carried on the
+    /// wire.
+    ///
+    /// The digest is one-way by design (`zh/models/realm-and-space.md` section
+    /// 2.2): a `group_id` observed on the delivery path MUST NOT reveal which
+    /// Realm, Circle or Sidecar it belongs to. Nothing may recover the scope
+    /// from it — a consumer that needs the scope has to be told, not decode.
+    /// SHA-256 is fixed here and does **not** follow the Realm
+    /// `digest_algorithm`.
+    pub fn canonical_mls_group_id_bytes(&self) -> Result<[u8; 32]> {
+        let scope_key = self.canonical_effective_scope_key_bytes()?;
+        Ok(arkret_canonical::sha256_bytes_from_slices(&[
+            Self::MLS_GROUP_ID_DOMAIN.as_bytes(),
+            &[0x00],
+            &scope_key,
+        ]))
+    }
+
+    /// Deterministic MLS `group_id` for this effective security scope, in the
+    /// wire spelling: base64url without padding, therefore always exactly 43
+    /// characters (`common-ids.schema.json#/$defs/mls_group_id`).
+    ///
+    /// This is the only accepted formula. The pre-2218 reversible encoding —
+    /// base64url of the scope key bytes themselves — is not a second spelling
+    /// of the same field, and a verifier MUST NOT pick between the two by
+    /// string length, group epoch or local state: it recomputes this and
+    /// rejects anything else.
+    pub fn canonical_mls_group_id(&self) -> Result<MlsGroupId> {
+        MlsGroupId::new(crate::base64url::base64url_encode(
+            self.canonical_mls_group_id_bytes()?,
         ))
+        .map_err(|message| WireError::Protocol(message.to_owned()))
+    }
+
+    /// Whether this scope's MLS group carries handshake messages as
+    /// `PublicMessage`.
+    ///
+    /// Realm and Circle groups do; a Sidecar group keeps its own policy and
+    /// encrypts them. Before 2218 this was read back out of the `group_id`
+    /// bytes, which only worked because those bytes were the scope id in
+    /// clear — exactly the leak 2218 closed. It is a property of the scope, so
+    /// it is answered here and passed down, never re-derived from a
+    /// `group_id`.
+    pub fn requires_public_mls_handshake(&self) -> Result<bool> {
+        match self {
+            Self::RealmGenesis => Err(WireError::Protocol(
+                "RealmGenesis has no executable MLS security scope".to_owned(),
+            )),
+            Self::Realm { .. } | Self::Circle { .. } => Ok(true),
+            Self::Sidecar { .. } => Ok(false),
+        }
     }
 
     /// The parent Realm of this scope when the scope names one.
@@ -740,50 +804,131 @@ impl ScopeRef {
 mod scope_mls_group_id_tests {
     use super::*;
 
-    #[test]
-    fn effective_scope_keys_are_byte_exact_and_genesis_is_rejected() {
+    /// The three scopes of `fixtures/mls-group-id-derivation-fixture.json`.
+    ///
+    /// The Circle and Sidecar cases deliberately share one 44-character
+    /// payload under two different kind prefixes: the typed IDs are
+    /// self-describing and fixed length, so the two scopes must not collide
+    /// even though only the Sidecar branch carries a `realm_id`.
+    fn kat_scopes() -> (ScopeRef, ScopeRef, ScopeRef) {
         let realm_id =
             RealmId::new("ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5").unwrap();
         let circle_id =
-            CircleId::new("ak:circle:AXy9G1HY-05VpUDBKqm77h_Vu7DiFOJ3sduNSXuFewp_").unwrap();
+            CircleId::new("ak:circle:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
         let sidecar_id =
-            SidecarId::new("ak:sidecar:Ae0kN-KHls3vjqQ9FHo4P_2uAhcMVu8dI8qHcFsqGn5d").unwrap();
+            SidecarId::new("ak:sidecar:AUD2WOhX-Xh47vBHtRJPMRfXRQXGiOWQqOrJGJnE8CaI").unwrap();
+        (
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            ScopeRef::Circle {
+                realm_id: realm_id.clone(),
+                circle_id,
+            },
+            ScopeRef::Sidecar {
+                realm_id,
+                sidecar_id,
+            },
+        )
+    }
 
-        let realm = ScopeRef::Realm {
-            realm_id: realm_id.clone(),
-        };
-        assert_eq!(
-            realm.canonical_effective_scope_key_bytes().unwrap(),
-            realm_id.as_str().as_bytes()
-        );
-        assert_eq!(
-            realm.canonical_mls_group_id().unwrap(),
-            crate::base64url::base64url_encode(realm_id.as_str().as_bytes())
-        );
+    /// `ak.vector.mls.group_id_derivation_kat.v1`, pinned to the expected
+    /// values of `fixtures/mls-group-id-derivation-fixture.json` rather than to
+    /// a second copy of the formula, so a drift in either direction shows up as
+    /// a changed constant instead of passing silently.
+    #[test]
+    fn group_id_derivation_matches_the_spec_known_answer_tests() {
+        let (realm, circle, sidecar) = kat_scopes();
 
-        let circle = ScopeRef::Circle {
-            realm_id: realm_id.clone(),
-            circle_id: circle_id.clone(),
-        };
-        assert_eq!(
-            circle.canonical_effective_scope_key_bytes().unwrap(),
-            circle_id.as_str().as_bytes()
-        );
+        for (scope, scope_key_hex, group_id) in [
+            (
+                &realm,
+                "616b3a7265616c6d3a41633161434b386151646e6b59496d7664483344466a71346a4443503139387058595743477a477556796a35",
+                "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
+            ),
+            (
+                &circle,
+                "616b3a636972636c653a41554432574f68582d5868343776424874524a504d52665852515847694f5751714f724a474a6e4538436149",
+                "mnoZ_saVPf3fDTNZYVjrFGJxJwRL6QkkU1EzZRYPzm4",
+            ),
+            (
+                &sidecar,
+                "616b3a7265616c6d3a41633161434b386151646e6b59496d7664483344466a71346a4443503139387058595743477a477556796a351f616b3a736964656361723a41554432574f68582d5868343776424874524a504d52665852515847694f5751714f724a474a6e4538436149",
+                "YCyHuyYfqfioJ1HN4_laYDdRX02bSwSKseeujcVRPgU",
+            ),
+        ] {
+            assert_eq!(
+                hex::encode(scope.canonical_effective_scope_key_bytes().unwrap()),
+                scope_key_hex,
+                "{scope:?}"
+            );
+            assert_eq!(
+                scope.canonical_mls_group_id().unwrap().as_str(),
+                group_id,
+                "{scope:?}"
+            );
+            // The wire spelling is exactly the base64url of the raw bytes an
+            // MLS group is created with; the two never diverge.
+            assert_eq!(
+                crate::base64url::base64url_encode(scope.canonical_mls_group_id_bytes().unwrap()),
+                group_id
+            );
+            assert_eq!(scope.canonical_mls_group_id().unwrap().as_str().len(), 43);
+        }
 
-        let sidecar = ScopeRef::Sidecar {
-            realm_id: realm_id.clone(),
-            sidecar_id: sidecar_id.clone(),
-        };
-        let expected = format!("{}\u{1f}{}", realm_id.as_str(), sidecar_id.as_str());
-        assert_eq!(
-            sidecar.canonical_effective_scope_key_bytes().unwrap(),
-            expected.as_bytes()
-        );
+        // One 44-character payload, two kind prefixes, two distinct groups.
         assert_ne!(
-            sidecar.canonical_mls_group_id().unwrap(),
-            realm.canonical_mls_group_id().unwrap()
+            circle.canonical_mls_group_id().unwrap(),
+            sidecar.canonical_mls_group_id().unwrap()
         );
+    }
+
+    /// `ak.vector.mls.group_id_reversible_formula_rejected.v1`: the pre-2218
+    /// encoding decodes straight back to the scope id, and is not a second
+    /// accepted spelling of the same field.
+    #[test]
+    fn the_reversible_pre_2218_encoding_is_not_a_second_spelling() {
+        let (realm, ..) = kat_scopes();
+        let offered = "YWs6cmVhbG06QWMxYUNLOGFRZG5rWUltdmRIM0RGanE0akRDUDE5OHBYWVdDR3pHdVZ5ajU";
+        assert_eq!(
+            offered,
+            crate::base64url::base64url_encode(
+                realm.canonical_effective_scope_key_bytes().unwrap()
+            ),
+            "the negative case must really be the old formula"
+        );
+        assert_ne!(realm.canonical_mls_group_id().unwrap().as_str(), offered);
+        // It is not even a well-formed mls_group_id, so it fails closed at the
+        // type boundary before any comparison is reached.
+        assert!(MlsGroupId::new(offered).is_err());
+    }
+
+    #[test]
+    fn handshake_visibility_is_a_property_of_the_scope_not_of_the_group_id() {
+        let (realm, circle, sidecar) = kat_scopes();
+        assert!(realm.requires_public_mls_handshake().unwrap());
+        assert!(circle.requires_public_mls_handshake().unwrap());
+        assert!(!sidecar.requires_public_mls_handshake().unwrap());
+        assert!(
+            ScopeRef::RealmGenesis
+                .requires_public_mls_handshake()
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn genesis_has_no_executable_mls_scope() {
         assert!(ScopeRef::RealmGenesis.canonical_mls_group_id().is_err());
+        assert!(
+            ScopeRef::RealmGenesis
+                .canonical_mls_group_id_bytes()
+                .is_err()
+        );
+        assert!(
+            ScopeRef::RealmGenesis
+                .canonical_effective_scope_key_bytes()
+                .is_err()
+        );
     }
 }
 

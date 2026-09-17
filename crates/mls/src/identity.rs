@@ -10,7 +10,9 @@ use arkret_models_crypto::{
     keypackages_consume_signing_input, keypackages_upload_signing_input,
     mls_key_package_record_upload_entry, validate_advertised_keypackage_capabilities,
 };
-use arkret_wire::{DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, canonical};
+use arkret_wire::{
+    DeviceId, DidCoreId, DidUrl, Hash, NonEmptyString, RealmId, ScopeRef, canonical,
+};
 use chrono::{Duration, Utc};
 use openmls::prelude::{
     BasicCredential, Ciphersuite, CredentialWithKey, GroupId, KeyPackage, KeyPackageIn, MlsGroup,
@@ -599,9 +601,17 @@ impl ArkretMlsIdentity {
         })
     }
 
-    pub fn create_group(self, group_id: impl AsRef<[u8]>) -> Result<ArkretMlsGroup> {
+    /// Create the MLS group for an effective security scope.
+    ///
+    /// The `group_id` is derived here and only here, from the scope, so no
+    /// caller can seed a group with bytes of its own choosing — that is what
+    /// made the pre-2218 reversible `group_id` possible. The scope also decides
+    /// the handshake wire-format policy and is kept on the group, because the
+    /// digest cannot be read back.
+    pub fn create_group(self, scope: &ScopeRef) -> Result<ArkretMlsGroup> {
+        let group_id_bytes = scope.canonical_mls_group_id_bytes()?;
         let config = MlsGroupCreateConfig::builder()
-            .wire_format_policy(crate::group::handshake_policy(group_id.as_ref()))
+            .wire_format_policy(crate::group::handshake_policy(scope)?)
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(arkret_openmls_capabilities())
             .with_group_context_extensions(arkret_group_context_extensions()?)
@@ -613,7 +623,7 @@ impl ArkretMlsIdentity {
             &self.provider,
             &self.signer,
             &config,
-            GroupId::from_slice(group_id.as_ref()),
+            GroupId::from_slice(&group_id_bytes),
             self.credential.clone(),
         )
         .map_err(mls_error)?;
@@ -622,6 +632,8 @@ impl ArkretMlsIdentity {
         let mut result = ArkretMlsGroup {
             identity: self,
             group,
+            scope: scope.clone(),
+            group_id: scope.canonical_mls_group_id()?,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
         };
@@ -632,12 +644,18 @@ impl ArkretMlsIdentity {
 
     pub fn create_group_with_governance_binding(
         self,
-        group_id: impl AsRef<[u8]>,
+        scope: &ScopeRef,
         binding: &MlsGovernanceBindingPayload,
     ) -> Result<ArkretMlsGroup> {
-        let group_id_bytes = group_id.as_ref();
+        let group_id_bytes = scope.canonical_mls_group_id_bytes()?;
         binding.validate()?;
-        if binding.mls_group_id()? != base64url_encode(group_id_bytes) {
+        if binding.effective_scope() != scope {
+            return Err(Error::Protocol(
+                "mls_governance_binding.effective_scope does not match the new MLS group"
+                    .to_owned(),
+            ));
+        }
+        if binding.mls_group_id()?.as_str() != base64url_encode(group_id_bytes) {
             return Err(Error::Protocol(
                 "mls_governance_binding.mls_group_id does not match new MLS group".to_owned(),
             ));
@@ -649,7 +667,7 @@ impl ArkretMlsIdentity {
         }
 
         let config = MlsGroupCreateConfig::builder()
-            .wire_format_policy(crate::group::handshake_policy(group_id_bytes))
+            .wire_format_policy(crate::group::handshake_policy(scope)?)
             .ciphersuite(ARKRET_MLS_CIPHERSUITE)
             .capabilities(arkret_openmls_capabilities())
             .with_group_context_extensions(arkret_group_context_extensions()?)
@@ -661,7 +679,7 @@ impl ArkretMlsIdentity {
             &self.provider,
             &self.signer,
             &config,
-            GroupId::from_slice(group_id_bytes),
+            GroupId::from_slice(&group_id_bytes),
             self.credential.clone(),
         )
         .map_err(mls_error)?;
@@ -670,6 +688,8 @@ impl ArkretMlsIdentity {
         let mut result = ArkretMlsGroup {
             identity: self,
             group,
+            scope: scope.clone(),
+            group_id: scope.canonical_mls_group_id()?,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
         };

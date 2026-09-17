@@ -91,7 +91,7 @@ impl MlsGenesisPayload {
         self.governance_binding.effective_scope()
     }
 
-    pub fn mls_group_id(&self) -> Result<String> {
+    pub fn mls_group_id(&self) -> Result<MlsGroupId> {
         self.governance_binding.mls_group_id()
     }
 }

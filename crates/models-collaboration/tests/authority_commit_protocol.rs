@@ -59,5 +59,5 @@ fn realm_projection_exposes_current_authority_coordinates() {
         value["governance_station_id"],
         "ak:did_core:web:station.example"
     );
-    assert_eq!(value["authority_generation"], 0);
+    assert_eq!(value["governance_generation"], 0);
 }

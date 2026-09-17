@@ -13,8 +13,8 @@ use arkret_models_crypto::{
 };
 use arkret_wire::{
     ActorId, Base64UrlString, CommitStreamRef, DidCoreId, EncryptedPayloadScheme, EventId,
-    EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES, MlsWelcomeDelivery,
-    MlsWelcomeRecipientEndpoint, ReasonCode, StreamRow, canonical,
+    EventKind, Hash, KeypackageClaimId, MLS_CIPHERSUITES, MlsGroupId, MlsWelcomeDelivery,
+    MlsWelcomeRecipientEndpoint, ReasonCode, ScopeRef, StreamRow, canonical,
 };
 use chrono::Utc;
 use openmls::prelude::{
@@ -37,22 +37,22 @@ use crate::{MlsError as Error, Result};
 
 const ARKRET_OPENMLS_STATE_SNAPSHOT: &str = "arkret-openmls-provider-state-v1";
 
-/// Only canonical Realm and Circle group identities use public handshakes.
-/// Sidecar identities are composite and retain their independent policy.
-pub(super) fn requires_public_handshake(group_id: &[u8]) -> bool {
-    let Ok(text) = std::str::from_utf8(group_id) else {
-        return false;
-    };
-    arkret_wire::RealmId::new(text).is_ok_and(|id| id.as_str().as_bytes() == group_id)
-        || arkret_wire::CircleId::new(text).is_ok_and(|id| id.as_str().as_bytes() == group_id)
-}
-
-pub(super) fn handshake_policy(group_id: &[u8]) -> openmls::prelude::WireFormatPolicy {
-    if requires_public_handshake(group_id) {
+/// Realm and Circle groups carry handshakes as `PublicMessage`; a Sidecar group
+/// keeps its own policy and encrypts them.
+///
+/// This takes the scope, never a `group_id`. Before the 2218 ruling the policy
+/// was recovered by parsing the `group_id` bytes back into a `RealmId` or
+/// `CircleId`, which only worked because those bytes *were* the scope id in
+/// clear. Since `group_id` is now a SHA-256 digest, that parse can only ever
+/// fail — it would have silently downgraded every Realm and Circle group to
+/// `PURE_CIPHERTEXT` instead of failing loudly. The scope is therefore threaded
+/// down from the caller and persisted with the group.
+pub(super) fn handshake_policy(scope: &ScopeRef) -> Result<openmls::prelude::WireFormatPolicy> {
+    Ok(if scope.requires_public_mls_handshake()? {
         openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
     } else {
         openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY
-    }
+    })
 }
 
 /// AEAD parameters fixed by the MLS ciphersuite for the live Signal rail.
@@ -197,6 +197,20 @@ fn aes_gcm_nonce(nonce: &[u8]) -> Result<[u8; 12]> {
 pub struct ArkretMlsGroup {
     pub(super) identity: ArkretMlsIdentity,
     pub(super) group: MlsGroup,
+    /// The effective security scope this group serves.
+    ///
+    /// Held explicitly because the `group_id` is a one-way digest of it: after
+    /// the 2218 ruling nothing can recover the scope from the group, so the
+    /// only way to keep knowing it is to carry it. It also pins the handshake
+    /// wire-format policy, which used to be re-derived from the `group_id`
+    /// bytes.
+    pub(super) scope: ScopeRef,
+    /// The scope's derived `group_id`, in its wire spelling.
+    ///
+    /// Held rather than recomputed per call so the accessor stays infallible.
+    /// Every constructor checks it against the raw bytes the OpenMLS group
+    /// actually carries, so the two can never disagree.
+    pub(super) group_id: MlsGroupId,
     /// Accepted-transition-derived member attribution. It is persisted inside
     /// the same opaque T3 snapshot as the RFC 9420 state and is never inferred
     /// from BasicCredential bytes alone.
@@ -273,7 +287,12 @@ pub struct MlsVerifiedLeafBinding {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct OpenMlsStateSnapshot {
     context: String,
-    group_id: String,
+    group_id: MlsGroupId,
+    /// The effective security scope, persisted because the `group_id` above is
+    /// a one-way digest of it. Without this the restored group could not tell
+    /// whether its own handshakes are public, and no amount of parsing the
+    /// `group_id` would bring it back.
+    scope: ScopeRef,
     epoch: u64,
     endpoint: MlsEndpointIdentity,
     profile: ArkretMlsIdentityProfile,
@@ -538,8 +557,18 @@ impl ArkretMlsGroup {
         self.group.epoch().as_u64()
     }
 
-    pub fn group_id(&self) -> String {
-        encode(self.group.group_id().as_slice())
+    /// The effective security scope this group serves.
+    pub fn scope(&self) -> &ScopeRef {
+        &self.scope
+    }
+
+    /// The RFC 9420 `group_id` in its wire spelling, always 43 characters.
+    ///
+    /// Equal by construction to `self.scope().canonical_mls_group_id()` and to
+    /// the raw bytes the OpenMLS group carries; every constructor checks that
+    /// before handing out an `ArkretMlsGroup`.
+    pub fn group_id(&self) -> MlsGroupId {
+        self.group_id.clone()
     }
 
     pub fn ratchet_tree(&self) -> Result<String> {
@@ -774,7 +803,8 @@ impl ArkretMlsGroup {
         self.require_complete_leaf_bindings()?;
         let snapshot = OpenMlsStateSnapshot {
             context: ARKRET_OPENMLS_STATE_SNAPSHOT.to_owned(),
-            group_id: self.group_id(),
+            group_id: self.group_id.clone(),
+            scope: self.scope.clone(),
             epoch: self.epoch(),
             endpoint: self.identity.endpoint.clone(),
             profile: self.identity.profile().clone(),
@@ -813,6 +843,15 @@ impl ArkretMlsGroup {
                 "OpenMLS state snapshot metadata mismatch".to_owned(),
             ));
         }
+        // The persisted scope is what decides the handshake policy below, so a
+        // snapshot whose scope does not derive its own group_id is rejected
+        // here rather than quietly serving the wrong policy.
+        let group_id = snapshot.scope.canonical_mls_group_id()?;
+        if group_id != snapshot.group_id {
+            return Err(Error::Protocol(
+                "OpenMLS state snapshot scope does not derive its own group_id".to_owned(),
+            ));
+        }
 
         let provider = OpenMlsRustCrypto::default();
         restore_provider_storage(&provider, &snapshot.storage_entries)?;
@@ -829,15 +868,15 @@ impl ArkretMlsGroup {
                 .into(),
             signature_key: signer.public().into(),
         };
-        let group_id = GroupId::from_slice(&decode(&record.group_id)?);
-        let group = MlsGroup::load(provider.storage(), &group_id)
+        let raw_group_id = GroupId::from_slice(&decode(record.group_id.as_str())?);
+        let group = MlsGroup::load(provider.storage(), &raw_group_id)
             .map_err(mls_error)?
             .ok_or_else(|| Error::Protocol("OpenMLS group state is missing".to_owned()))?;
-        if requires_public_handshake(group_id.as_slice())
-            && group.configuration().wire_format_policy()
-                != openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
-        {
-            return Err(Error::Protocol("Realm/Circle MLS snapshot does not enforce the required PublicMessage handshake policy".to_owned()));
+        if group.configuration().wire_format_policy() != handshake_policy(&snapshot.scope)? {
+            return Err(Error::Protocol(
+                "OpenMLS snapshot does not enforce the handshake wire-format policy its scope requires"
+                    .to_owned(),
+            ));
         }
         if group.epoch().as_u64() != record.epoch {
             return Err(Error::Protocol(
@@ -855,6 +894,8 @@ impl ArkretMlsGroup {
                 credential,
             },
             group,
+            scope: snapshot.scope,
+            group_id,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: snapshot.signal_nonce_counter,
         };
@@ -1411,23 +1452,35 @@ impl ArkretMlsGroup {
         )
         .map_err(mls_error)?;
         let context = staged_welcome.group_context();
-        if encode(context.group_id().as_slice()) != commit_payload.mls_group_id()?
+        if encode(context.group_id().as_slice()) != commit_payload.mls_group_id()?.as_str()
             || context.epoch().as_u64() != commit_payload.next_epoch()
         {
             return Err(Error::Protocol(
                 "MLS Welcome authenticated group state differs from the accepted Commit".to_owned(),
             ));
         }
-        Self::join_staged_welcome(identity, staged_welcome)
+        Self::join_staged_welcome(identity, &delivery.effective_scope, staged_welcome)
     }
 
     fn join_staged_welcome(
         identity: ArkretMlsIdentity,
+        scope: &ScopeRef,
         staged_welcome: StagedWelcome,
     ) -> Result<Self> {
         let context = staged_welcome.group_context();
+        // The joiner is told which scope it is joining; it cannot read that
+        // back out of the authenticated group_id, so it checks the two agree
+        // instead. A Welcome whose group_id is not this scope's derivation is
+        // a Welcome into a different group.
+        let group_id = scope.canonical_mls_group_id()?;
+        if encode(context.group_id().as_slice()) != group_id.as_str() {
+            return Err(Error::Protocol(
+                "MLS Welcome group_id is not the derivation of the named effective scope"
+                    .to_owned(),
+            ));
+        }
         let join_config = MlsGroupJoinConfig::builder()
-            .wire_format_policy(handshake_policy(context.group_id().as_slice()))
+            .wire_format_policy(handshake_policy(scope)?)
             .build();
         let required_extension = context
             .extensions()
@@ -1461,6 +1514,8 @@ impl ArkretMlsGroup {
         Ok(Self {
             identity,
             group,
+            scope: scope.clone(),
+            group_id,
             leaf_bindings: BTreeMap::new(),
             signal_nonce_counter: 0,
         })
@@ -1733,32 +1788,67 @@ mod tests {
         .unwrap()
     }
 
+    fn realm_scope() -> ScopeRef {
+        ScopeRef::Realm {
+            realm_id: arkret_wire::RealmId::new(
+                "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            )
+            .unwrap(),
+        }
+    }
+
+    /// The policy follows the scope kind, which is what the group is created
+    /// and restored with. It is no longer recoverable from the `group_id`, and
+    /// the point of this test is that nothing tries.
     #[test]
     fn scope_groups_keep_independent_handshake_policies() {
-        for group_id in [
-            "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
-            "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+        let realm_id =
+            arkret_wire::RealmId::new("ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
+                .unwrap();
+        for scope in [
+            realm_scope(),
+            ScopeRef::Circle {
+                realm_id: realm_id.clone(),
+                circle_id: arkret_wire::CircleId::new(
+                    "ak:circle:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+                )
+                .unwrap(),
+            },
         ] {
-            assert!(requires_public_handshake(group_id.as_bytes()));
             assert_eq!(
-                handshake_policy(group_id.as_bytes()),
+                handshake_policy(&scope).unwrap(),
                 openmls::prelude::PURE_PLAINTEXT_WIRE_FORMAT_POLICY
             );
         }
 
-        let sidecar_group = b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV\x1fak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV";
-        assert!(!requires_public_handshake(sidecar_group));
+        let sidecar = ScopeRef::Sidecar {
+            realm_id,
+            sidecar_id: arkret_wire::SidecarId::new(
+                "ak:sidecar:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
+            )
+            .unwrap(),
+        };
         assert_eq!(
-            handshake_policy(sidecar_group),
+            handshake_policy(&sidecar).unwrap(),
             openmls::prelude::PURE_CIPHERTEXT_WIRE_FORMAT_POLICY
         );
+        assert!(handshake_policy(&ScopeRef::RealmGenesis).is_err());
+    }
+
+    /// The group is seeded with the scope's digest, never with scope bytes, so
+    /// the 43-character wire id is what `group_id()` reports.
+    #[test]
+    fn group_is_created_under_the_scope_derived_group_id() {
+        let scope = realm_scope();
+        let group = identity().create_group(&scope).unwrap();
+        assert_eq!(group.group_id(), scope.canonical_mls_group_id().unwrap());
+        assert_eq!(group.group_id().as_str().len(), 43);
+        assert_eq!(group.scope(), &scope);
     }
 
     #[test]
     fn outbound_commit_stays_pending_until_authority_acceptance() {
-        let mut group = identity()
-            .create_group(b"ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV")
-            .unwrap();
+        let mut group = identity().create_group(&realm_scope()).unwrap();
         let base_epoch = group.epoch();
 
         let commit = group.self_update_commit().unwrap();

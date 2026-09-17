@@ -1,7 +1,7 @@
 //! MLS governance and Commit Event payloads for the authority-commit protocol.
 
 use arkret_wire::{
-    BlobRef, CircleId, EventId, Hash, RealmId, Result, ScopeRef, SidecarId, WireError,
+    BlobRef, CircleId, EventId, Hash, MlsGroupId, RealmId, Result, ScopeRef, SidecarId, WireError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -141,7 +141,7 @@ impl MlsGovernanceBindingPayload {
         self.key_access_revision
     }
 
-    pub fn mls_group_id(&self) -> Result<String> {
+    pub fn mls_group_id(&self) -> Result<MlsGroupId> {
         self.effective_scope.canonical_mls_group_id()
     }
 }
@@ -281,7 +281,7 @@ impl MlsCommitPayload {
     pub fn governance_binding(&self) -> &MlsGovernanceBindingPayload {
         &self.governance_binding
     }
-    pub fn mls_group_id(&self) -> Result<String> {
+    pub fn mls_group_id(&self) -> Result<MlsGroupId> {
         self.governance_binding.mls_group_id()
     }
 

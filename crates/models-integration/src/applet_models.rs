@@ -702,7 +702,7 @@ pub struct AppletManagedActorProof {
 /// managed-actor authoring request.
 ///
 /// This is an identity binding, not a frozen signer set or quorum.
-/// Callers resolve `service_id` and `authority_generation` through the current
+/// Callers resolve `service_id` and `governance_generation` through the current
 /// Realm authority bundle before accepting the request. Circle and Sidecar
 /// Events still commit to their own independent streams.
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -710,7 +710,7 @@ pub struct AppletManagedActorProof {
 #[serde(deny_unknown_fields)]
 pub struct AppletAuthoringAuthority {
     pub service_id: DidCoreId,
-    pub authority_generation: u64,
+    pub governance_generation: u64,
     pub verification_method: DidUrl,
 }
 

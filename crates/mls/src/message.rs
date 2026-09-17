@@ -1,4 +1,5 @@
 use arkret_models_crypto::{EncryptedEnvelope, EncryptedPayload, EventContentPreEncryptionHeader};
+use arkret_wire::MlsGroupId;
 use serde::{Deserialize, Serialize};
 
 use crate::group::ArkretMlsGroup;
@@ -68,8 +69,8 @@ pub enum MessageCryptoUnavailable {
     NoSession,
     Removed,
     WrongGroup {
-        expected: String,
-        actual: String,
+        expected: MlsGroupId,
+        actual: MlsGroupId,
     },
     EpochUnavailable {
         local_epoch: u64,

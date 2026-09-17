@@ -5,8 +5,9 @@ use std::collections::BTreeMap;
 use arkret_wire::serde_helpers::canonical_timestamp;
 use arkret_wire::{
     AccountId, ActorId, AuditReasonText, CommittedEventRef, ConsentId, DeviceId, DidCoreId,
-    EventCommitSubmission, EventId, EventKind, Hash, NonEmptyString, PayloadProof, ProofContextId,
-    ReportId, Result, ServiceOperationId, StrandId, UnsignedPayloadProof, WireError, canonical,
+    EventCommitSubmission, EventId, EventKind, Hash, MlsGroupId, NonEmptyString, PayloadProof,
+    ProofContextId, ReportId, Result, ServiceOperationId, StrandId, UnsignedPayloadProof,
+    WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -556,30 +557,16 @@ pub struct MimiSubmitMessageRequestBody {
     pub sender_actor_id: ActorId,
     pub device_id: DeviceId,
     pub ciphertext: MimiCiphertext,
-    /// Foreign MLS group identifier. It belongs to the MIMI provider's name
-    /// space, so the schema's `non_typed_identifier_floor` forbids the `ak:`
-    /// prefix outright rather than trying to bound it by length.
+    /// The Arkret-derived group id of the room's MLS group, present only for
+    /// an E2EE room. `mimi-operations.schema.json` binds it to the shared
+    /// `mls_group_id` definition, so it is the scope digest and never a
+    /// provider-chosen name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<NonEmptyString>,
+    pub mls_group_id: Option<MlsGroupId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub epoch: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub associated_data: Option<MimiOpaquePayload>,
-}
-
-impl MimiSubmitMessageRequestBody {
-    pub fn validate(&self) -> Result<()> {
-        if self
-            .mls_group_id
-            .as_ref()
-            .is_some_and(|value| value.as_str().starts_with("ak:"))
-        {
-            return Err(WireError::Protocol(
-                "MIMI mls_group_id must not use the ak: typed identifier namespace".to_owned(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 /// Counterpart for
@@ -718,7 +705,7 @@ mod mimi_relay_tests {
                 "ciphertext_digest": DIGEST,
                 "payload": "Y2lwaGVydGV4dA"
             },
-            "mls_group_id": "mimi-group-1",
+            "mls_group_id": "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
             "epoch": 7,
             "associated_data": {
                 "content_type": "application/octet-stream",
@@ -748,7 +735,6 @@ mod mimi_relay_tests {
             serde_json::from_value(submit_body_value()).unwrap();
         assert_eq!(body.device_id.as_str(), DEVICE);
         assert_eq!(body.epoch, Some(7));
-        body.validate().unwrap();
         assert_eq!(serde_json::to_value(&body).unwrap(), submit_body_value());
     }
 
@@ -768,19 +754,25 @@ mod mimi_relay_tests {
             object.remove(member);
         }
         let body: MimiSubmitMessageRequestBody = serde_json::from_value(minimal.clone()).unwrap();
-        body.validate().unwrap();
         assert_eq!(serde_json::to_value(&body).unwrap(), minimal);
     }
 
+    /// The room's group id is the Arkret scope derivation, so a
+    /// provider-chosen name has no spelling that parses at all -- there is
+    /// nothing left for a runtime guard to catch.
     #[test]
-    fn a_foreign_group_id_never_borrows_the_ak_namespace() {
-        let mut typed = submit_body_value();
-        typed
-            .as_object_mut()
-            .unwrap()
-            .insert("mls_group_id".to_owned(), json!("ak:realm:borrowed"));
-        let body: MimiSubmitMessageRequestBody = serde_json::from_value(typed).unwrap();
-        assert!(body.validate().is_err());
+    fn a_provider_chosen_group_name_does_not_parse() {
+        for offered in ["mimi-group-1", "ak:realm:borrowed", ""] {
+            let mut foreign = submit_body_value();
+            foreign
+                .as_object_mut()
+                .unwrap()
+                .insert("mls_group_id".to_owned(), json!(offered));
+            assert!(
+                serde_json::from_value::<MimiSubmitMessageRequestBody>(foreign).is_err(),
+                "{offered} must not parse as an mls_group_id"
+            );
+        }
     }
 
     #[test]

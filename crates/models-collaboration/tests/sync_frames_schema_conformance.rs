@@ -613,7 +613,7 @@ fn account_current_result_matches_its_schema_shape_and_order() {
         "#/$defs/current",
         json!({
             "realm_id": REALM_A,
-            "authority_generation": 2,
+            "governance_generation": 2,
             "stream_heads": [realm_stream_head(REALM_A)],
             "entries": [{
                 "selector": {"kind": "realm_profile"},
@@ -635,7 +635,7 @@ fn account_current_result_refuses_two_values_for_one_selector() {
     });
     let current: AccountCurrentResult = serde_json::from_value(json!({
         "realm_id": REALM_A,
-        "authority_generation": 2,
+        "governance_generation": 2,
         "stream_heads": [],
         "entries": [entry.clone(), entry],
     }))
@@ -752,7 +752,7 @@ fn realm_sync_entry_field_order_matches_the_schema() {
         current: Some(
             serde_json::from_value(json!({
                 "realm_id": REALM_A,
-                "authority_generation": 1,
+                "governance_generation": 1,
                 "stream_heads": [],
                 "entries": [],
             }))

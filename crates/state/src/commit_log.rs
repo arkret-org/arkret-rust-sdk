@@ -285,7 +285,7 @@ mod tests {
             stream_position: position,
             previous_commit_ref: previous,
             event_ref: event.event_id.clone(),
-            authority_generation: 0,
+            governance_generation: 0,
             authority_ref: RealmCommitAuthorityRef::GenesisOrChangeEvent(EventId::from_digest(
                 DigestSuite::Sha256,
                 [9; 32],

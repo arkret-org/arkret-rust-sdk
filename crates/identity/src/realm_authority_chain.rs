@@ -274,17 +274,17 @@ impl VerifiedRealmAuthority {
         }
         let authority = self
             .generations
-            .get(&commit.authority_generation)
+            .get(&commit.governance_generation)
             .ok_or_else(|| {
                 E::GenerationMismatch(format!(
                     "commit claims authority generation {} but the bundle only covers 0..={}",
-                    commit.authority_generation, self.current_generation
+                    commit.governance_generation, self.current_generation
                 ))
             })?;
         if !authority.admits(&commit.authority_ref) {
             return Err(E::GenerationMismatch(format!(
                 "commit authority_ref does not name the record that installed generation {}",
-                commit.authority_generation
+                commit.governance_generation
             )));
         }
         let signer = signature_service_id(&commit.signature)?;
@@ -292,7 +292,7 @@ impl VerifiedRealmAuthority {
             return Err(E::StationMismatch(format!(
                 "commit at generation {} is signed by {signer}, not by that generation's \
                  governance Station {}",
-                commit.authority_generation, authority.service_id
+                commit.governance_generation, authority.service_id
             )));
         }
         verify_commit_signature(commit, keys)
@@ -387,7 +387,7 @@ fn walk_chain_shape(
             "genesis commit signature is not in the realm-commit domain".to_owned(),
         ));
     }
-    if bundle.genesis_commit.authority_generation != 0 {
+    if bundle.genesis_commit.governance_generation != 0 {
         return Err(E::GenerationMismatch(
             "the genesis commit must carry authority generation 0".to_owned(),
         ));
@@ -488,10 +488,10 @@ fn walk_chain_shape(
                 "authority change commit signature is not in the realm-commit domain".to_owned(),
             ));
         }
-        if transition.change_commit.authority_generation != handoff.from_generation {
+        if transition.change_commit.governance_generation != handoff.from_generation {
             return Err(E::GenerationMismatch(format!(
                 "the change commit is at generation {} but its handoff leaves generation {}",
-                transition.change_commit.authority_generation, handoff.from_generation
+                transition.change_commit.governance_generation, handoff.from_generation
             )));
         }
         if transition.change_commit.event_ref != transition.change_event.event_id

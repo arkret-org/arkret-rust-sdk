@@ -75,7 +75,7 @@ fn canonical_now() -> DateTime<Utc> {
 fn authoring_authority() -> AppletAuthoringAuthority {
     AppletAuthoringAuthority {
         service_id: actor("station"),
-        authority_generation: 1,
+        governance_generation: 1,
         verification_method: DidUrl::new(format!("{}#authority-key", did("station"))).unwrap(),
     }
 }
@@ -1014,7 +1014,7 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     assert_eq!(wire["proof"]["audience_id"], json!(service("slackbridge")));
     assert_eq!(binding["audience_id"], wire["proof"]["audience_id"]);
     assert!(wire["proof"].get("audience").is_none());
-    assert_eq!(wire["authoring_authority"]["authority_generation"], 1);
+    assert_eq!(wire["authoring_authority"]["governance_generation"], 1);
     assert!(binding.get("audience").is_none());
     let mut rejected = wire;
     let proof = rejected["proof"].as_object_mut().unwrap();
@@ -1026,6 +1026,6 @@ fn authoring_request_signing_is_byte_identical_for_exact_basis_replay() {
     assert!(wrong_audience_id.validate_bindings().is_err());
 
     let mut stale_generation = second;
-    stale_generation.authoring_authority.authority_generation = 0;
+    stale_generation.authoring_authority.governance_generation = 0;
     assert!(stale_generation.validate_bindings().is_err());
 }

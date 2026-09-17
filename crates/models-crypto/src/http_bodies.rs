@@ -8,7 +8,8 @@ use std::collections::BTreeSet;
 
 use arkret_wire::{
     AccountId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId,
-    EventId, Hash, KeyPackageRef, MlsWelcomeDeliveryId, NonEmptyString, RealmId, StrandId,
+    EventId, Hash, KeyPackageRef, MlsGroupId, MlsWelcomeDeliveryId, NonEmptyString, RealmId,
+    StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -46,7 +47,7 @@ pub struct KeyPackagesUploadRequestBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
+    pub mls_group_id: Option<MlsGroupId>,
 }
 
 /// Canonical unsigned projection for
@@ -76,7 +77,7 @@ pub struct KeyPackagesUploadUnsignedRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strand_id: Option<StrandId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mls_group_id: Option<String>,
+    pub mls_group_id: Option<MlsGroupId>,
 }
 
 impl KeyPackagesUploadRequestBody {
@@ -274,7 +275,7 @@ pub struct PeerKeyPackagesClaimUnsignedRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
-    pub mls_group_id: NonEmptyString,
+    pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     pub required_capabilities: Vec<NonEmptyString>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -319,7 +320,7 @@ pub struct PeerKeyPackagesClaimRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
-    pub mls_group_id: NonEmptyString,
+    pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     pub required_capabilities: Vec<NonEmptyString>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -390,7 +391,7 @@ pub struct KeyPackagesClaimRequestBody {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub requester_account_id: Option<AccountId>,
     pub intended_realm_id: RealmId,
-    pub mls_group_id: NonEmptyString,
+    pub mls_group_id: MlsGroupId,
     pub claim_purpose: PeerKeyPackageClaimPurpose,
     pub required_capabilities: Vec<NonEmptyString>,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
@@ -1215,7 +1216,7 @@ pub struct RecipientMlsDurableReceipt {
     pub recipient: RecipientMlsDurableSigner,
     pub recipient_id: DidCoreId,
     pub realm_id: RealmId,
-    pub mls_group_id: NonEmptyString,
+    pub mls_group_id: MlsGroupId,
     pub mls_epoch: u64,
     /// The delivery is not an Event and has no independent RealmCommit
     /// (`keypackage-operations.schema.json#/$defs/recipient_mls_durable_receipt`).
@@ -1267,7 +1268,7 @@ struct RecipientMlsDurableReceiptWire {
     recipient_pairwise_verification_method: Option<DidUrl>,
     recipient_id: DidCoreId,
     realm_id: RealmId,
-    mls_group_id: NonEmptyString,
+    mls_group_id: MlsGroupId,
     mls_epoch: u64,
     welcome_ref: MlsWelcomeDeliveryId,
     welcome_digest: Hash,

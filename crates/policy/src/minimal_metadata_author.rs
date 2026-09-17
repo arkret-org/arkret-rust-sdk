@@ -12,7 +12,7 @@
 //! already-authenticated historical group-state view and never accepts a
 //! directory client or resolver callback, so a caller cannot accidentally
 //! wire a network fallback through it.
-use arkret_wire::{Did, DidCoreId, DidUrl, project_did_to_core_id};
+use arkret_wire::{Did, DidCoreId, DidUrl, MlsGroupId, project_did_to_core_id};
 
 /// Credential carried by an active leaf in an [`AuthorGroupStateView`].
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,7 +43,7 @@ pub struct AuthorLeaf {
 /// leaf set of that state — removed leaves MUST NOT appear here.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AuthorGroupStateView {
-    pub group_id: String,
+    pub group_id: MlsGroupId,
     pub epoch: u64,
     /// The winning `group_state_ref` for `epoch`, as verified by the caller.
     pub group_state_ref: String,
@@ -221,7 +221,7 @@ mod tests {
 
     fn view(leaves: Vec<AuthorLeaf>) -> AuthorGroupStateView {
         AuthorGroupStateView {
-            group_id: "Zml4dHVyZS1yZWFsbQ".to_owned(),
+            group_id: MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4").unwrap(),
             epoch: 7,
             group_state_ref: "ak:event:AYJ6k4yNe3sgr_7Xr3OYBCsTpcHMbdQAogrCDJGM0fh9".to_owned(),
             active_leaves: leaves,
@@ -233,7 +233,7 @@ mod tests {
             DidUrl::new("did:key:z6MkpairwiseAlice#z6MkpairwiseAlice").unwrap()
         });
         MinimalMetadataAuthorClaim {
-            group_id: "Zml4dHVyZS1yZWFsbQ",
+            group_id: "QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4",
             epoch: 7,
             group_state_ref: "ak:event:AYJ6k4yNe3sgr_7Xr3OYBCsTpcHMbdQAogrCDJGM0fh9",
             actor_id: actor,
@@ -326,7 +326,7 @@ mod tests {
         let proof_key = key(0xA1);
         let view = view(vec![basic_leaf(3, actor.as_str(), proof_key.clone())]);
         let mut wrong_group = claim(&actor, &proof_key);
-        wrong_group.group_id = "b3RoZXItcmVhbG0";
+        wrong_group.group_id = "mnoZ_saVPf3fDTNZYVjrFGJxJwRL6QkkU1EzZRYPzm4";
 
         let err = verify_minimal_metadata_author(&view, &wrong_group).unwrap_err();
         assert_eq!(
