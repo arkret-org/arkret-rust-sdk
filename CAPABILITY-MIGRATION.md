@@ -219,8 +219,19 @@ type locally.
   produces a `DetachedObjectSignature` at all.
 - `mls/src/exporter_kdf.rs`: the RFC 9420 exporter helpers are gone while the
   RTC (`ak.rtc-*-key/v1`) and blob exporter labels remain registered.
-- `models-collaboration/src/authenticated_signer_resolution_evidence.rs`
-  counterpart for `authenticated-signer-resolution-evidence.schema.json`.
+- ~~`models-collaboration/src/authenticated_signer_resolution_evidence.rs`
+  counterpart for `authenticated-signer-resolution-evidence.schema.json`.~~
+  **Closed (line was stale, corrected 2026-09-19).** The type exists and is
+  exported: `models-identity/src/authenticated_signer_resolution_evidence.rs:58`,
+  `models-identity/src/lib.rs:19,50`. It was restored by `9976f60e` and is
+  already consumed inside the SDK at
+  `models-collaboration/src/agent_operations.rs:7,289`. The gap line looked for
+  it under `models-collaboration` and so kept reporting a gap that had been
+  filled in a different crate. This matters downstream: soland-http has 36
+  references in 19 files to a local `governance_dependencies::GovernanceDependency
+  ::AuthenticatedSignerResolutionEvidence`, and they port onto
+  `arkret_models_identity::AuthenticatedSignerResolutionEvidence` rather than
+  waiting on the SDK.
 - `crates/models-collaboration/tests/**` and `crates/schema/tests/**`: the
   schema-conformance, DTO field-coverage and fixture/KAT consumers deleted by
   `e309b047` have not been re-pointed at the current artifacts.
