@@ -201,8 +201,13 @@ These are real spec `$defs` with no SDK counterpart yet. They are listed so a
 downstream repository can see the boundary instead of hand-rolling a protocol
 type locally.
 
-- `service-operation-dtos.schema.json`: `DirectConversationFoundingAuthorityEvidence`,
-  `DidWebvhIdentityMethodEvidence`.
+- ~~`service-operation-dtos.schema.json`: `DirectConversationFoundingAuthorityEvidence`~~
+  **Closed (line was stale, corrected 2026-09-19)**:
+  `models-collaboration/src/objects/direct_conversation.rs:330`, carrying the
+  `service-operation-dtos.schema.json#/$defs/DirectConversationFoundingAuthorityEvidence`
+  reference on line 325, reachable through `lib.rs:36 pub mod objects`.
+  soland-http has 11 references to it and was reading this line as blocked.
+  `DidWebvhIdentityMethodEvidence` is covered by its own entry below.
 - `account-subscribe-frame.schema.json` and `websocket-frame.schema.json`: the
   account-sync / client-sync / demand-sync / stream-trace and WebSocket session
   frame families (`models-collaboration/src/sync_frames/{account_sync,client_sync,
