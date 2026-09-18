@@ -273,6 +273,32 @@ type locally.
   `events_payloads/state.rs`, `state/src/consent.rs`, `wire/src/bottom.rs`).
   Neither file gates on those rows today, so they are stale evidence rather than
   a red gate.
+- **`crates/mls`: the `mls_governance_binding` GroupContext extension (`0xF1C0`)
+  is missing on both sides.** `e309b047` removed
+  `validate_public_group_state_with_governance_binding`; only the 4-arg
+  `validate_public_group_state` survives at `mls/src/public_group_state.rs:42`.
+  Diffed against `e309b047^`, the two shared one `_inner` and differed only in
+  the deleted half: an `Option<&MlsGovernanceBindingPayload>` threaded into
+  `build_public_tracker`, read back from the group context's
+  `unknown(MLS_GOVERNANCE_BINDING_EXTENSION_TYPE)` after
+  `PublicGroup::from_external`, failing closed when absent and required to equal
+  the binding in the accepted Event payload. The producer half is gone too:
+  `group.rs:1910 arkret_group_context_extensions()` emits only the two
+  capability extensions, and `MLS_GOVERNANCE_BINDING_EXTENSION_TYPE` has zero
+  occurrences in `crates/`. What the SDK does instead is validate a binding
+  carried in the Event payload (`group.rs:618`, `:1400`, `:1623`).
+  The spec still asks for the extension: `encryption-and-audit.md` §2.5.1 and
+  §5.1.1, `common-fields.md:54` (MUST use this spelling), and this repo's own
+  `wire/src/generated/security_strings.rs:1826`, which is generated from the
+  spec registry and lists it `status: "active"`.
+  **Downstream consequence:** soland cannot faithfully restore
+  `ak.peer.mls.read.group_state_material.v1`. Without the extension a peer gets
+  epoch-0 GroupInfo/tree bytes that are RFC 9420-valid but tied to no
+  governance checkpoint, and `normative-clause-registry.json:534` says the
+  epoch-0 leaf index they feed has no second source. soland left the route
+  unmounted rather than ship it (soland `531326a57`). Which carrier is
+  authoritative is an open spec question, filed as arkret-work
+  `tasks/spec-open/2026-09-19-0130-mls-governance-binding-has-two-carriers.md`.
 - `docs/move-anchor-runtime.md` documented the removed Move / anchor / cell
   runtime end to end with no surviving implementation, and was deleted on
   2026-09-16.
