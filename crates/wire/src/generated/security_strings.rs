@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/proof-context-registry.json; version=2026-09-16.18;
-//! sha256=ca139b2dccff19b1c83c06d2de79f2dc485ce7ac0220ff66a3fa0e8b77ead1b2 Input: registry/
+//! Input: registry/proof-context-registry.json; version=2026-09-18.1;
+//! sha256=e6f7f0fcd4d9a2b35bd20b1ce76556fb8eb5819cba9f93a01ea9ef05551f684a Input: registry/
 //! exporter-label-registry.json; version=2026-09-16.10;
 //! sha256=676cbb1dbfa467f97c46247cb79818affc3e236100fb54ee70498a0736b8a939 Input: registry/
 //! digest-suite-registry.json; version=2026-09-16.11;
@@ -17,7 +17,7 @@
 //! aead-profile-registry.json; version=2026-08-16.1;
 //! sha256=5cab256353caa112d59f4ba10390715eaa27a3c3b530ee1766f01d35a4ea72de
 //! Entries: proof_contexts=46, exporter_labels=7, digest_suites=3, signature_algorithms=4,
-//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=38, aead_profiles=2
+//! hpke_suites=4, mls_ciphersuites=4, mls_extensions=2, domain_separations=35, aead_profiles=2
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(usize)]
@@ -391,9 +391,6 @@ pub enum DomainSeparationId {
     DirectoryResolveHandleRequestProofV1,
     DirectoryResolveOrganizationRequestProofV1,
     DirectoryResolveTargetRequestProofV1,
-    EventsCheckpointLeafV1,
-    EventsCheckpointNodeV1,
-    EventsCheckpointRootV1,
     FrankingProofSignatureV1,
     HttpMessageSignatureV1,
     IdentityRecoveryDevicePossessionV1,
@@ -433,9 +430,6 @@ impl DomainSeparationId {
         Self::DirectoryResolveHandleRequestProofV1,
         Self::DirectoryResolveOrganizationRequestProofV1,
         Self::DirectoryResolveTargetRequestProofV1,
-        Self::EventsCheckpointLeafV1,
-        Self::EventsCheckpointNodeV1,
-        Self::EventsCheckpointRootV1,
         Self::FrankingProofSignatureV1,
         Self::HttpMessageSignatureV1,
         Self::IdentityRecoveryDevicePossessionV1,
@@ -489,9 +483,6 @@ impl DomainSeparationId {
         "ak.directory_resolve_organization_request_proof.v1";
     pub const DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1: &'static str =
         "ak.directory_resolve_target_request_proof.v1";
-    pub const EVENTS_CHECKPOINT_LEAF_V1: &'static str = "ak.events.checkpoint.leaf.v1";
-    pub const EVENTS_CHECKPOINT_NODE_V1: &'static str = "ak.events.checkpoint.node.v1";
-    pub const EVENTS_CHECKPOINT_ROOT_V1: &'static str = "ak.events.checkpoint.root.v1";
     pub const FRANKING_PROOF_SIGNATURE_V1: &'static str = "ak.franking_proof.signature.v1";
     pub const HTTP_MESSAGE_SIGNATURE_V1: &'static str = "ak.http_message_signature.v1";
     pub const IDENTITY_RECOVERY_DEVICE_POSSESSION_V1: &'static str =
@@ -558,9 +549,6 @@ impl DomainSeparationId {
             Self::DirectoryResolveTargetRequestProofV1 => {
                 Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1
             }
-            Self::EventsCheckpointLeafV1 => Self::EVENTS_CHECKPOINT_LEAF_V1,
-            Self::EventsCheckpointNodeV1 => Self::EVENTS_CHECKPOINT_NODE_V1,
-            Self::EventsCheckpointRootV1 => Self::EVENTS_CHECKPOINT_ROOT_V1,
             Self::FrankingProofSignatureV1 => Self::FRANKING_PROOF_SIGNATURE_V1,
             Self::HttpMessageSignatureV1 => Self::HTTP_MESSAGE_SIGNATURE_V1,
             Self::IdentityRecoveryDevicePossessionV1 => {
@@ -635,9 +623,6 @@ impl DomainSeparationId {
             Self::DIRECTORY_RESOLVE_TARGET_REQUEST_PROOF_V1 => {
                 Some(Self::DirectoryResolveTargetRequestProofV1)
             }
-            Self::EVENTS_CHECKPOINT_LEAF_V1 => Some(Self::EventsCheckpointLeafV1),
-            Self::EVENTS_CHECKPOINT_NODE_V1 => Some(Self::EventsCheckpointNodeV1),
-            Self::EVENTS_CHECKPOINT_ROOT_V1 => Some(Self::EventsCheckpointRootV1),
             Self::FRANKING_PROOF_SIGNATURE_V1 => Some(Self::FrankingProofSignatureV1),
             Self::HTTP_MESSAGE_SIGNATURE_V1 => Some(Self::HttpMessageSignatureV1),
             Self::IDENTITY_RECOVERY_DEVICE_POSSESSION_V1 => {

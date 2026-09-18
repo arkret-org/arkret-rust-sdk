@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/error-code-registry.json; version=2026-09-18.2;
-//! sha256=0e8b5ddc3a169d89051f90711f359f0759543ef3b6b8edafeee3e81aeff85fc7
+//! Input: registry/error-code-registry.json; version=2026-09-18.3;
+//! sha256=b5912915d66bea81fc0c669e80bd9cc0392cc4cfd5051a580ee7778a61a00db9
 //! Entries: reason_codes=390
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -3828,6 +3828,6 @@ pub const REASON_CODE_DESCRIPTORS: &[ReasonCodeDescriptor] = &[
     ReasonCodeDescriptor {
         code: ReasonCode::WITNESS_DISAGREEMENT,
         applies_to: &["state_resolution", "federation_transaction"],
-        description: "Confirmed fork evidence: two byte-distinct canonical Event preimages pass structure, suite and proof prerequisites and independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); two byte-distinct signed RealmCommit objects name the same (stream_ref, stream_position); or a profile declares the observed combination non-joinable. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Two different accepted Events by one actor are not by themselves disagreement: an actor may author any number of Events and event-and-patch.md section 2.6 gives ordering precedence to the RealmCommit alone, so only one stream position carrying two distinct commits is equivocation. Raw commit_prefix_root / heads differences across different replication or disclosure scopes also are not disagreement. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay plus an accepted operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
+        description: "Confirmed fork evidence: two byte-distinct canonical Event preimages pass structure, suite and proof prerequisites and independently recompute to the same complete suite-tagged event_id (full-hash collision evidence); two byte-distinct signed RealmCommit objects name the same (stream_ref, stream_position); or a profile declares the observed combination non-joinable. A carried event_id whose recomputed digest differs is only event_id_digest_mismatch and MUST be rejected before quarantine. Two different accepted Events by one actor are not by themselves disagreement: an actor may author any number of Events and event-and-patch.md section 2.6 gives ordering precedence to the RealmCommit alone, so only one stream position carrying two distinct commits is equivocation. Raw stream head differences observed across different replication or disclosure scopes also are not disagreement: a consumer only ever observes the heads of the streams it is granted. The verifier MUST quarantine only the affected evidence scope and fail closed; recovery requires raw replay plus an accepted operator-approved fork resolution. See zh/sync/operations-sync.md §12 and zh/sync/federation.md §4.5.1.",
     },
 ];
