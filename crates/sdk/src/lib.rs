@@ -244,6 +244,7 @@ pub use arkret_models_crypto::mls_records::{
     LocalMlsKeyPackageInventory, LocalMlsKeyPackageInventoryEntry, MlsEndpointIdentity,
     MlsKeyPackageRecord, MlsKeyPackageState, RealmPairwiseAcceptedGroupState,
     RealmPairwiseAcceptedLeaf, RealmPairwiseAuthorState, RealmPairwiseKeyScopeLedger,
+    decode_mls_basic_credential_identity, mls_basic_credential_identity,
 };
 pub use arkret_models_crypto::protected_payload::{
     MlsEncryptedPayload, MlsPayloadType, PlainPayload, ProtectedPayload,
