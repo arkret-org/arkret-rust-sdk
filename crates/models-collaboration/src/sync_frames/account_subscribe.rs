@@ -8,8 +8,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_models_identity::account::AccountDataRow;
 use arkret_wire::{
-    AccountId, ActorId, Cursor, Event, EventId, RealmId, Result, SchemaId, StrandId, StreamRow,
-    WireError, canonical,
+    AccountId, ActorId, Cursor, DidCoreId, Event, EventId, Hash, RealmId, Result, SchemaId,
+    StrandId, StreamRow, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -17,6 +17,8 @@ use serde_json::Value;
 
 use crate::account_subscribe_projections::AgentRuntimeApprovalNotificationData;
 use crate::device_messages::DeviceMessageEnvelope;
+use crate::events_payloads::account_data::parse_agent_draft_account_data_key;
+use crate::events_payloads::agent::{AgentActionTarget, AgentDraftContentHandoff};
 use crate::objects::read_receipts::{NotificationIdentity, OrdinaryProjectionContent};
 use crate::sync_frames::account_sync::{
     AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, StateAtWindowStart,
@@ -175,6 +177,8 @@ pub struct AccountSubscribeFrame {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_data: Option<AccountDataContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_draft_pending_intents: Option<AgentDraftPendingIntentContainer>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub notifications: Option<NotificationContainer>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub partial: Option<bool>,
@@ -255,6 +259,54 @@ impl AccountSubscribeFrame {
         if let Some(account_data) = &self.account_data {
             account_data.validate()?;
         }
+        if let Some(baseline) = &self.baseline {
+            baseline.validate()?;
+        }
+        if let Some(pending_intents) = &self.agent_draft_pending_intents {
+            pending_intents.validate()?;
+            let channel =
+                crate::sync_frames::demand_sync::AccountBaselineChannel::AgentDraftPendingIntents;
+            match pending_intents {
+                AgentDraftPendingIntentContainer::Delta { .. } => {
+                    if self.baseline.as_ref().is_some_and(|baseline| {
+                        baseline.channels.contains(&channel)
+                            || baseline.completed_channels.contains(&channel)
+                    }) {
+                        return Err(protocol_error(
+                            "pending-intent delta cannot be declared as a baseline channel",
+                        ));
+                    }
+                }
+                AgentDraftPendingIntentContainer::Baseline {
+                    next_page_offset, ..
+                } => {
+                    let baseline = self.baseline.as_ref().ok_or_else(|| {
+                        protocol_error(
+                            "pending-intent baseline requires an account baseline segment",
+                        )
+                    })?;
+                    if !baseline.channels.contains(&channel) {
+                        return Err(protocol_error(
+                            "pending-intent baseline must name its account baseline channel",
+                        ));
+                    }
+                    if next_page_offset.is_some() && baseline.completed_channels.contains(&channel)
+                    {
+                        return Err(protocol_error(
+                            "pending-intent baseline may complete only on its terminal page",
+                        ));
+                    }
+                }
+            }
+        } else if self.baseline.as_ref().is_some_and(|baseline| {
+            let channel =
+                crate::sync_frames::demand_sync::AccountBaselineChannel::AgentDraftPendingIntents;
+            baseline.channels.contains(&channel) || baseline.completed_channels.contains(&channel)
+        }) {
+            return Err(protocol_error(
+                "pending-intent baseline channel requires its private container",
+            ));
+        }
         if self
             .notifications
             .as_ref()
@@ -266,6 +318,7 @@ impl AccountSubscribeFrame {
             || self.to_device.is_some()
             || self.device_lists.is_some()
             || self.account_data.is_some()
+            || self.agent_draft_pending_intents.is_some()
             || self.notifications.is_some()
             || self.partial.is_some()
             || self.priority.is_some()
@@ -607,6 +660,405 @@ pub struct StationCasAccountDataRemoval {
     pub revision: u64,
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub updated_at: DateTime<Utc>,
+}
+
+const MAX_SAFE_JSON_INTEGER: u64 = 9_007_199_254_740_991;
+const AGENT_DRAFT_PENDING_INTENT_MAX_ITEMS: usize = 100;
+const AGENT_DRAFT_PENDING_INTENT_MAX_UPSERT_BYTES: usize = 1024 * 1024;
+
+/// Stable key of one controller-holder-private Agent draft pending row.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentKey {
+    pub controller_account_id: AccountId,
+    pub agent_id: DidCoreId,
+    pub draft_id: String,
+}
+
+/// Exact schema discriminator retained by both live and terminal rows.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum AgentDraftPendingIntentSchema {
+    #[default]
+    #[serde(rename = "ak.schema.agent_draft_pending_intent.v1")]
+    V1,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum AgentDraftPendingIntentAvailableState {
+    #[default]
+    #[serde(rename = "available")]
+    Available,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum AgentDraftPendingIntentConsumedState {
+    #[default]
+    #[serde(rename = "consumed")]
+    Consumed,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub enum AgentDraftPendingIntentExpiredState {
+    #[default]
+    #[serde(rename = "expired")]
+    Expired,
+}
+
+/// Metadata proving the unique revision-1 Account Data consumption.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentConsumption {
+    pub account_data_set_event_id: EventId,
+    pub account_data_key: String,
+    pub accepted_revision: AgentDraftPendingIntentAcceptedRevision,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub consumed_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AgentDraftPendingIntentAcceptedRevision;
+
+impl Serialize for AgentDraftPendingIntentAcceptedRevision {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_u8(1)
+    }
+}
+
+impl<'de> Deserialize<'de> for AgentDraftPendingIntentAcceptedRevision {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let revision = u8::deserialize(deserializer)?;
+        if revision == 1 {
+            Ok(Self)
+        } else {
+            Err(serde::de::Error::custom(
+                "pending-intent accepted_revision must be exactly 1",
+            ))
+        }
+    }
+}
+
+/// Live pending row. Ciphertext exists only in this `available` branch.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentLive {
+    pub schema: AgentDraftPendingIntentSchema,
+    pub controller_account_id: AccountId,
+    pub agent_id: DidCoreId,
+    pub draft_id: String,
+    pub proposed_action: String,
+    pub target: AgentActionTarget,
+    pub content_digest: Hash,
+    pub content_handoff: AgentDraftContentHandoff,
+    pub canonical_event_digest: Hash,
+    pub accepted_event_id: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub state: AgentDraftPendingIntentAvailableState,
+}
+
+/// Consumed terminal row. Its closed shape cannot carry ciphertext.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentConsumed {
+    pub schema: AgentDraftPendingIntentSchema,
+    pub controller_account_id: AccountId,
+    pub agent_id: DidCoreId,
+    pub draft_id: String,
+    pub proposed_action: String,
+    pub target: AgentActionTarget,
+    pub content_digest: Hash,
+    pub canonical_event_digest: Hash,
+    pub accepted_event_id: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub state: AgentDraftPendingIntentConsumedState,
+    pub consumption: AgentDraftPendingIntentConsumption,
+}
+
+/// Expired terminal row. Its closed shape cannot carry ciphertext.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentExpired {
+    pub schema: AgentDraftPendingIntentSchema,
+    pub controller_account_id: AccountId,
+    pub agent_id: DidCoreId,
+    pub draft_id: String,
+    pub proposed_action: String,
+    pub target: AgentActionTarget,
+    pub content_digest: Hash,
+    pub canonical_event_digest: Hash,
+    pub accepted_event_id: EventId,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub created_at: DateTime<Utc>,
+    pub state: AgentDraftPendingIntentExpiredState,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expired_at: DateTime<Utc>,
+}
+
+/// Closed terminal-redacted consumed | expired union.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AgentDraftPendingIntentTerminalRedacted {
+    Consumed(AgentDraftPendingIntentConsumed),
+    Expired(AgentDraftPendingIntentExpired),
+}
+
+/// Closed live | terminal-redacted pending-intent value.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AgentDraftPendingIntent {
+    Live(AgentDraftPendingIntentLive),
+    TerminalRedacted(AgentDraftPendingIntentTerminalRedacted),
+}
+
+/// Consumed removal tombstone retaining the exact terminal outcome.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentConsumedRemoval {
+    pub key: AgentDraftPendingIntentKey,
+    pub accepted_event_id: EventId,
+    pub canonical_event_digest: Hash,
+    pub content_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub state: AgentDraftPendingIntentConsumedState,
+    pub consumption: AgentDraftPendingIntentConsumption,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub removed_at: DateTime<Utc>,
+}
+
+/// Expired removal tombstone retaining the exact terminal outcome.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftPendingIntentExpiredRemoval {
+    pub key: AgentDraftPendingIntentKey,
+    pub accepted_event_id: EventId,
+    pub canonical_event_digest: Hash,
+    pub content_digest: Hash,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expires_at: DateTime<Utc>,
+    pub state: AgentDraftPendingIntentExpiredState,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub expired_at: DateTime<Utc>,
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
+    pub removed_at: DateTime<Utc>,
+}
+
+/// Closed consumed | expired removal union.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum AgentDraftPendingIntentRemoval {
+    Consumed(AgentDraftPendingIntentConsumedRemoval),
+    Expired(AgentDraftPendingIntentExpiredRemoval),
+}
+
+/// One ordered upsert or removal on the private pending-intent projection.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(
+    tag = "action",
+    content = "value",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum AgentDraftPendingIntentChange {
+    Upsert(AgentDraftPendingIntent),
+    Remove(AgentDraftPendingIntentRemoval),
+}
+
+/// Independent delta or frozen baseline page for pending intents.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AgentDraftPendingIntentContainer {
+    Delta {
+        projection_position: u64,
+        items: Vec<AgentDraftPendingIntentChange>,
+    },
+    Baseline {
+        snapshot_cut_position: u64,
+        page_offset: u64,
+        next_page_offset: Option<u64>,
+        items: Vec<AgentDraftPendingIntentChange>,
+    },
+}
+
+impl AgentDraftPendingIntentContainer {
+    pub fn validate(&self) -> Result<()> {
+        let (positions, items): (Vec<u64>, &[AgentDraftPendingIntentChange]) = match self {
+            Self::Delta {
+                projection_position,
+                items,
+            } => (vec![*projection_position], items),
+            Self::Baseline {
+                snapshot_cut_position,
+                page_offset,
+                next_page_offset,
+                items,
+            } => {
+                let mut positions = vec![*snapshot_cut_position, *page_offset];
+                positions.extend(*next_page_offset);
+                (positions, items)
+            }
+        };
+        if positions
+            .into_iter()
+            .any(|position| position > MAX_SAFE_JSON_INTEGER)
+        {
+            return Err(protocol_error(
+                "pending-intent projection position exceeds the safe JSON integer ceiling",
+            ));
+        }
+        if items.len() > AGENT_DRAFT_PENDING_INTENT_MAX_ITEMS {
+            return Err(protocol_error(
+                "pending-intent page exceeds 100 combined changes",
+            ));
+        }
+        for item in items {
+            match item {
+                AgentDraftPendingIntentChange::Upsert(value) => {
+                    if canonical::canonical_json_bytes(value)?.len()
+                        > AGENT_DRAFT_PENDING_INTENT_MAX_UPSERT_BYTES
+                    {
+                        return Err(protocol_error(
+                            "pending-intent upsert exceeds its canonical byte limit",
+                        ));
+                    }
+                    value.validate()?;
+                }
+                AgentDraftPendingIntentChange::Remove(value) => value.validate()?,
+            }
+        }
+        Ok(())
+    }
+}
+
+impl AgentDraftPendingIntent {
+    fn validate(&self) -> Result<()> {
+        match self {
+            Self::Live(value) => {
+                validate_agent_draft_pending_fields(
+                    &value.draft_id,
+                    &value.proposed_action,
+                    &value.target,
+                )?;
+                validate_agent_draft_content_handoff(&value.content_handoff)
+            }
+            Self::TerminalRedacted(AgentDraftPendingIntentTerminalRedacted::Consumed(value)) => {
+                validate_agent_draft_pending_fields(
+                    &value.draft_id,
+                    &value.proposed_action,
+                    &value.target,
+                )?;
+                value.consumption.validate()
+            }
+            Self::TerminalRedacted(AgentDraftPendingIntentTerminalRedacted::Expired(value)) => {
+                validate_agent_draft_pending_fields(
+                    &value.draft_id,
+                    &value.proposed_action,
+                    &value.target,
+                )
+            }
+        }
+    }
+}
+
+impl AgentDraftPendingIntentConsumption {
+    fn validate(&self) -> Result<()> {
+        parse_agent_draft_account_data_key(&self.account_data_key).map(|_| ())
+    }
+}
+
+impl AgentDraftPendingIntentRemoval {
+    fn validate(&self) -> Result<()> {
+        match self {
+            Self::Consumed(value) => {
+                value.key.validate()?;
+                value.consumption.validate()
+            }
+            Self::Expired(value) => value.key.validate(),
+        }
+    }
+}
+
+impl AgentDraftPendingIntentKey {
+    fn validate(&self) -> Result<()> {
+        validate_agent_draft_identifier(&self.draft_id)
+    }
+}
+
+fn validate_agent_draft_identifier(draft_id: &str) -> Result<()> {
+    if draft_id.is_empty() || draft_id.starts_with("ak:") {
+        return Err(protocol_error(
+            "pending-intent draft_id violates its identifier profile",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_agent_draft_pending_fields(
+    draft_id: &str,
+    proposed_action: &str,
+    target: &AgentActionTarget,
+) -> Result<()> {
+    validate_agent_draft_identifier(draft_id)?;
+    if proposed_action.is_empty() {
+        return Err(protocol_error(
+            "pending-intent proposed_action must be non-empty",
+        ));
+    }
+    if target.realm_id.is_none()
+        && target.object_ref.is_none()
+        && target.operation_id.is_none()
+        && target.account_data_key.is_none()
+    {
+        return Err(protocol_error(
+            "pending-intent target must name at least one selector",
+        ));
+    }
+    if !matches!(
+        target.kind.as_str(),
+        "realm" | "space" | "strand" | "message" | "object" | "service_operation" | "account_data"
+    ) || target.operation_id.as_deref() == Some("")
+        || target.account_data_key.as_deref() == Some("")
+    {
+        return Err(protocol_error(
+            "pending-intent target violates its closed schema",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_agent_draft_content_handoff(value: &AgentDraftContentHandoff) -> Result<()> {
+    if !(1..=32).contains(&value.recipients.len()) {
+        return Err(protocol_error(
+            "pending-intent content_handoff must have 1..=32 recipients",
+        ));
+    }
+    let is_base64url = |text: &str, minimum: usize| {
+        text.len() >= minimum
+            && text
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+    };
+    if value.recipients.iter().any(|recipient| {
+        !is_base64url(&recipient.enc, 43) || !is_base64url(&recipient.ciphertext, 22)
+    }) {
+        return Err(protocol_error(
+            "pending-intent content_handoff contains a non-canonical base64url member",
+        ));
+    }
+    Ok(())
 }
 
 /// Closed action set for account notification projection deltas.

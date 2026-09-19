@@ -18,7 +18,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use arkret_models_collaboration::sync_frames::account_subscribe::{
-    AccountSubscribeFrame, RealmDetailBaseline, RealmSyncEntry, RealmSyncEventState, RealmTimeline,
+    AccountSubscribeFrame, AgentDraftPendingIntent, AgentDraftPendingIntentChange,
+    AgentDraftPendingIntentContainer, AgentDraftPendingIntentRemoval, RealmDetailBaseline,
+    RealmSyncEntry, RealmSyncEventState, RealmTimeline,
 };
 use arkret_models_collaboration::sync_frames::account_sync::{
     AccountSubscribeRealmSummary, AccountSubscribeUnreadCounts, StateAtWindowStart,
@@ -84,6 +86,22 @@ fn validate_fragment(file: &str, fragment: &str, value: &Value) {
     registry
         .validate_value(&schema_id, value)
         .unwrap_or_else(|error| panic!("{file}{fragment} rejected the document: {error}"));
+}
+
+fn reject_fragment(file: &str, fragment: &str, value: &Value) {
+    let mut registry = registry();
+    let schema = schema_value(file);
+    registry
+        .register_reference_document(schema.clone())
+        .expect("schema document declares an absolute $id");
+    let schema_id = format!("reject:{file}{}", fragment.replace('#', "@"));
+    registry
+        .register_fragment(schema_id.clone(), schema, fragment)
+        .unwrap_or_else(|error| panic!("{file}{fragment}: {error}"));
+    assert!(
+        registry.validate_value(&schema_id, value).is_err(),
+        "{file}{fragment} unexpectedly accepted an invalid document",
+    );
 }
 
 fn validate_document(file: &str, value: &Value) {
@@ -332,9 +350,57 @@ where
 }
 
 const ACCOUNT_FRAME: &str = "account-subscribe-frame.schema.json";
+const AGENT_DRAFT_PRIVATE: &str = "agent-draft-private.schema.json";
 const EVENTS_FRAME: &str = "events-subscribe-frame.schema.json";
 const WEBSOCKET_FRAME: &str = "websocket-frame.schema.json";
 const ACCOUNT_CURRENT: &str = "account-current-result.schema.json";
+
+fn pending_intent_live() -> Value {
+    json!({
+        "schema": "ak.schema.agent_draft_pending_intent.v1",
+        "controller_account_id": {
+            "principal_id": "ak:did_core:web:controller.example",
+            "station_id": "ak:did_core:web:station.example",
+        },
+        "agent_id": "ak:did_core:web:agent.example",
+        "draft_id": "draft-001",
+        "proposed_action": "ak.message.create",
+        "target": {"kind": "realm", "realm_id": REALM_A},
+        "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "content_handoff": {
+            "scheme": "ak.hpke_x25519_aead_chacha20poly1305.v1",
+            "recipients": [{
+                "recipient_device_id": "ak:device:01964137-0000-7000-8000-000000000000",
+                "recipient_hpke_key_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+                "enc": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "ciphertext": "AAAAAAAAAAAAAAAAAAAAAA",
+                "ciphertext_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            }],
+        },
+        "canonical_event_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "accepted_event_id": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+        "expires_at": "2026-09-20T03:00:00.000Z",
+        "created_at": "2026-09-20T01:00:00.000Z",
+        "state": "available",
+    })
+}
+
+fn pending_intent_consumed() -> Value {
+    let mut value = pending_intent_live();
+    let object = value.as_object_mut().unwrap();
+    object.remove("content_handoff");
+    object.insert("state".to_owned(), json!("consumed"));
+    object.insert(
+        "consumption".to_owned(),
+        json!({
+            "account_data_set_event_id": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+            "account_data_key": "ak.agent.draft.v1:29zs6Yu_GblluGkdTEDf8gWy8fRlKv2Am4Ms91DB-U8:HpcHzfESu5dFt2Is2QQ2Tp_c7hfh4SZtz4pKrbxp0_s",
+            "accepted_revision": 1,
+            "consumed_at": "2026-09-20T01:30:00.000Z",
+        }),
+    );
+    value
+}
 
 #[test]
 fn realm_list_item_matches_its_schema_shape_and_order() {
@@ -400,6 +466,224 @@ fn account_baseline_segment_matches_its_schema_shape_and_order() {
         &segment,
         ACCOUNT_FRAME,
         &["$defs", "account_baseline_segment"],
+    );
+}
+
+#[test]
+fn agent_draft_pending_intent_values_match_the_closed_schema_union() {
+    let live: AgentDraftPendingIntent = round_trip(
+        AGENT_DRAFT_PRIVATE,
+        "#/$defs/agent_draft_pending_intent",
+        pending_intent_live(),
+    );
+    let AgentDraftPendingIntent::Live(live) = live else {
+        panic!("available value must select the live branch");
+    };
+    assert_field_order(
+        &live,
+        AGENT_DRAFT_PRIVATE,
+        &["$defs", "agent_draft_pending_intent_live"],
+    );
+
+    let consumed: AgentDraftPendingIntent = round_trip(
+        AGENT_DRAFT_PRIVATE,
+        "#/$defs/agent_draft_pending_intent",
+        pending_intent_consumed(),
+    );
+    let AgentDraftPendingIntent::TerminalRedacted(terminal) = consumed else {
+        panic!("consumed value must select the terminal-redacted branch");
+    };
+    assert!(matches!(
+        terminal,
+        arkret_models_collaboration::sync_frames::account_subscribe::AgentDraftPendingIntentTerminalRedacted::Consumed(_)
+    ));
+}
+
+#[test]
+fn pending_intent_containers_and_changes_match_the_schema() {
+    let delta_value = json!({
+        "mode": "delta",
+        "projection_position": 7,
+        "items": [{"action": "upsert", "value": pending_intent_live()}],
+    });
+    let delta: AgentDraftPendingIntentContainer = round_trip(
+        ACCOUNT_FRAME,
+        "#/$defs/agent_draft_pending_intent_container",
+        delta_value.clone(),
+    );
+    assert_eq!(
+        declaration_order(&delta),
+        vec!["mode", "projection_position", "items"]
+    );
+
+    let frame: AccountSubscribeFrame = serde_json::from_value(json!({
+        "kind": "delta",
+        "cursor": "ak:cursor:agent-draft-delta",
+        "agent_draft_pending_intents": delta_value,
+    }))
+    .unwrap();
+    frame.validate().unwrap();
+
+    let baseline_value = json!({
+        "mode": "baseline",
+        "snapshot_cut_position": 7,
+        "page_offset": 0,
+        "next_page_offset": null,
+        "items": [],
+    });
+    let baseline: AgentDraftPendingIntentContainer = round_trip(
+        ACCOUNT_FRAME,
+        "#/$defs/agent_draft_pending_intent_container",
+        baseline_value.clone(),
+    );
+    assert_eq!(
+        declaration_order(&baseline),
+        vec![
+            "mode",
+            "snapshot_cut_position",
+            "page_offset",
+            "next_page_offset",
+            "items",
+        ]
+    );
+    let frame: AccountSubscribeFrame = serde_json::from_value(json!({
+        "kind": "delta",
+        "cursor": "ak:cursor:agent-draft-baseline",
+        "agent_draft_pending_intents": baseline_value,
+        "baseline": {
+            "snapshot_cursor": "ak:cursor:agent-draft-snapshot",
+            "channels": ["agent_draft_pending_intents"],
+            "completed_channels": ["agent_draft_pending_intents"],
+        },
+    }))
+    .unwrap();
+    frame.validate().unwrap();
+}
+
+#[test]
+fn pending_intent_removal_retains_terminal_metadata() {
+    let removal_value = json!({
+        "key": {
+            "controller_account_id": {
+                "principal_id": "ak:did_core:web:controller.example",
+                "station_id": "ak:did_core:web:station.example",
+            },
+            "agent_id": "ak:did_core:web:agent.example",
+            "draft_id": "draft-001",
+        },
+        "accepted_event_id": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+        "canonical_event_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "expires_at": "2026-09-20T03:00:00.000Z",
+        "state": "consumed",
+        "consumption": {
+            "account_data_set_event_id": "ak:event:AQJmSg1s9QyzppFeJL40dN92YVHZeLdBBt3UWHa9XNOD",
+            "account_data_key": "ak.agent.draft.v1:29zs6Yu_GblluGkdTEDf8gWy8fRlKv2Am4Ms91DB-U8:HpcHzfESu5dFt2Is2QQ2Tp_c7hfh4SZtz4pKrbxp0_s",
+            "accepted_revision": 1,
+            "consumed_at": "2026-09-20T01:30:00.000Z",
+        },
+        "removed_at": "2026-09-20T04:00:00.000Z",
+    });
+    let removal: AgentDraftPendingIntentRemoval = round_trip(
+        ACCOUNT_FRAME,
+        "#/$defs/agent_draft_pending_intent_removal",
+        removal_value.clone(),
+    );
+    let change: AgentDraftPendingIntentChange = round_trip(
+        ACCOUNT_FRAME,
+        "#/$defs/agent_draft_pending_intent_change",
+        json!({"action": "remove", "value": removal_value}),
+    );
+    assert!(matches!(
+        removal,
+        AgentDraftPendingIntentRemoval::Consumed(_)
+    ));
+    assert!(matches!(change, AgentDraftPendingIntentChange::Remove(_)));
+}
+
+#[test]
+fn pending_intent_closed_shapes_and_shared_budget_reject_invalid_input() {
+    let mut terminal_with_ciphertext = pending_intent_consumed();
+    terminal_with_ciphertext["content_handoff"] = pending_intent_live()["content_handoff"].clone();
+    reject_fragment(
+        AGENT_DRAFT_PRIVATE,
+        "#/$defs/agent_draft_pending_intent",
+        &terminal_with_ciphertext,
+    );
+    assert!(
+        serde_json::from_value::<AgentDraftPendingIntent>(terminal_with_ciphertext).is_err(),
+        "terminal-redacted values must not accept ciphertext",
+    );
+
+    let mut consumed_without_metadata = pending_intent_consumed();
+    consumed_without_metadata
+        .as_object_mut()
+        .unwrap()
+        .remove("consumption");
+    reject_fragment(
+        AGENT_DRAFT_PRIVATE,
+        "#/$defs/agent_draft_pending_intent",
+        &consumed_without_metadata,
+    );
+    assert!(serde_json::from_value::<AgentDraftPendingIntent>(consumed_without_metadata).is_err());
+    assert!(
+        serde_json::from_value::<AgentDraftPendingIntentChange>(json!({
+            "action": "replace",
+            "value": pending_intent_live(),
+        }))
+        .is_err()
+    );
+
+    let item = json!({"action": "upsert", "value": pending_intent_live()});
+    let too_many = json!({
+        "mode": "delta",
+        "projection_position": 8,
+        "items": vec![item; 101],
+    });
+    reject_fragment(
+        ACCOUNT_FRAME,
+        "#/$defs/agent_draft_pending_intent_container",
+        &too_many,
+    );
+    let frame: AccountSubscribeFrame = serde_json::from_value(json!({
+        "kind": "delta",
+        "cursor": "ak:cursor:too-many-pending-items",
+        "agent_draft_pending_intents": too_many,
+    }))
+    .unwrap();
+    assert!(
+        frame.validate().is_err(),
+        "upserts and removals share one 100-item budget"
+    );
+
+    let nonterminal_complete: AccountSubscribeFrame = serde_json::from_value(json!({
+        "kind": "delta",
+        "cursor": "ak:cursor:premature-completion",
+        "agent_draft_pending_intents": {
+            "mode": "baseline",
+            "snapshot_cut_position": 7,
+            "page_offset": 0,
+            "next_page_offset": 1,
+            "items": [],
+        },
+        "baseline": {
+            "snapshot_cursor": "ak:cursor:agent-draft-snapshot",
+            "channels": ["agent_draft_pending_intents"],
+            "completed_channels": ["agent_draft_pending_intents"],
+        },
+    }))
+    .unwrap();
+    assert!(nonterminal_complete.validate().is_err());
+
+    assert!(
+        serde_json::from_value::<AccountBaselineSegment>(json!({
+            "snapshot_cursor": "ak:cursor:abc",
+            "channels": ["account_data_events"],
+            "completed_channels": [],
+            "page_offset": 0,
+        }))
+        .is_err(),
+        "old baseline channels must not gain generic offset members",
     );
 }
 
@@ -698,6 +982,11 @@ fn account_frame_field_order_matches_the_schema() {
         "to_device": {"messages": []},
         "device_lists": {"changed_ids": [], "left_ids": []},
         "account_data": {"events": []},
+        "agent_draft_pending_intents": {
+            "mode": "delta",
+            "projection_position": 1,
+            "items": [],
+        },
         "notifications": {"items": []},
         "partial": false,
         "priority": "high",

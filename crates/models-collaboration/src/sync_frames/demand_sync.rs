@@ -198,7 +198,7 @@ impl RealmListChanges {
     }
 }
 
-/// The four independent account-level baseline channels.
+/// The five independent account-level baseline channels.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AccountBaselineChannel {
@@ -206,6 +206,7 @@ pub enum AccountBaselineChannel {
     StationCas,
     DeviceLists,
     Notifications,
+    AgentDraftPendingIntents,
 }
 
 /// One segment of the account-level baseline cut.
@@ -236,7 +237,7 @@ impl AccountBaselineSegment {
             ("channels", &self.channels),
             ("completed_channels", &self.completed_channels),
         ] {
-            if values.len() > 4 || values.iter().collect::<BTreeSet<_>>().len() != values.len() {
+            if values.len() > 5 || values.iter().collect::<BTreeSet<_>>().len() != values.len() {
                 return Err(protocol_error(format!(
                     "account baseline {field} exceeds its bound or repeats a channel"
                 )));
