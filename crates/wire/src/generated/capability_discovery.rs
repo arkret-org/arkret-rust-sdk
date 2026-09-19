@@ -1,7 +1,6 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/contract-registry.json; version=2026-09-18.6;
-//! sha256=5ed5da7e532bc73dfe466ef5ac5280756a087550e34da5023377a2ff091fbc87
+//! Input: registry/contract-registry.json; version=2026-09-20.11; sha256=ddb8e90a310de941adcaac37fd619f7163870f72e758f82852915f8a1001841f
 //! Entries: operation_bundles=34 features=12
 
 use crate::{BindingKind, ServiceKind, ServiceOperationId};
@@ -588,7 +587,19 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountCommandStageDevicePairingV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountReadDevicePairingStatusV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
+                operation_id: ServiceOperationId::GateAccountReadResolveDevicePairingV1,
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
@@ -972,6 +983,10 @@ pub const OPERATION_BUNDLES: &[OperationBundleDescriptor] = &[
                 binding_kind: BindingKind::HttpJson,
             },
             OperationBindingPair {
+                operation_id: ServiceOperationId::SelfRealmReadStreamsV1,
+                binding_kind: BindingKind::HttpJson,
+            },
+            OperationBindingPair {
                 operation_id: ServiceOperationId::SelfRealmResourceGetV1,
                 binding_kind: BindingKind::HttpJson,
             },
@@ -1224,7 +1239,7 @@ pub const FEATURES: &[FeatureDescriptor] = &[
     FeatureDescriptor {
         feature_id: "ak.feature.cursor_revoke_high_assurance.v1",
         status: FeatureStatus::Active,
-        defined_in: "zh/sync/client-sync.md#1221-high-assurance-cursor-revoke",
+        defined_in: "zh/sync/client-sync.md#1221-cursor-revokehigh-assurance-optional",
         service_kinds: &[],
         required_operation_pairs: &[OperationBindingPair {
             operation_id: ServiceOperationId::SelfAccountCommandRevokeCursorV1,

@@ -1,7 +1,7 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/operation-registry.json; version=2026-09-18.1;
-//! sha256=5121ee9dca431155f78761dfded879cc4a8c05e81b850f5df212af522dbe1ff2 Entries: registered=220
+//! Input: registry/operation-registry.json; version=2026-09-20.4; sha256=71269d01d853cb607e38e2d71d9630db47e1e5b4f38ed021f8adb738eba6e94b
+//! Entries: registered=225
 
 use serde::{Deserialize, Serialize};
 
@@ -51,9 +51,12 @@ pub enum ServiceOperationId {
     GateAccountCommandRegisterV1,
     GateAccountCommandRequestErasureV1,
     GateAccountCommandRevokeSessionV1,
+    GateAccountCommandStageDevicePairingV1,
     GateAccountExchangeCreateHandoffV1,
     GateAccountReadClaimDevicePairingCodeV1,
+    GateAccountReadDevicePairingStatusV1,
     GateAccountReadOnboardingV1,
+    GateAccountReadResolveDevicePairingV1,
     OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
     OpenAgentPairingReadResolveV1,
     OpenAgentPairingReadRuntimeKeyRequestStatusV1,
@@ -176,6 +179,7 @@ pub enum ServiceOperationId {
     SelfDeviceMessagesReadListV1,
     SelfDirectConversationReadResolveV1,
     SelfEventsCommandSubmitV1,
+    SelfEventsReadDeliveryStatusV1,
     SelfEventsReadScanV1,
     SelfEventsResourceGetV1,
     SelfEventsStreamSubscribeV1,
@@ -209,6 +213,7 @@ pub enum ServiceOperationId {
     SelfReadCursorCommandAdvanceV1,
     SelfReadCursorReadListV1,
     SelfRealmReadExportV1,
+    SelfRealmReadStreamsV1,
     SelfRealmResourceGetV1,
     SelfRealmJoinCommandPrepareV1,
     SelfRealmJoinReadApplicationStatusV1,
@@ -274,9 +279,12 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REGISTER_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE_V1,
     ServiceOperationId::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
+    ServiceOperationId::GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1,
     ServiceOperationId::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1,
+    ServiceOperationId::GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1,
     ServiceOperationId::GATE_ACCOUNT_READ_ONBOARDING_V1,
+    ServiceOperationId::GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RESOLVE_V1,
     ServiceOperationId::OPEN_AGENT_PAIRING_READ_RUNTIME_KEY_REQUEST_STATUS_V1,
@@ -399,6 +407,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_DEVICE_MESSAGES_READ_LIST_V1,
     ServiceOperationId::SELF_DIRECT_CONVERSATION_READ_RESOLVE_V1,
     ServiceOperationId::SELF_EVENTS_COMMAND_SUBMIT_V1,
+    ServiceOperationId::SELF_EVENTS_READ_DELIVERY_STATUS_V1,
     ServiceOperationId::SELF_EVENTS_READ_SCAN_V1,
     ServiceOperationId::SELF_EVENTS_RESOURCE_GET_V1,
     ServiceOperationId::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
@@ -432,6 +441,7 @@ pub const REGISTERED_SERVICE_OPERATION_IDS: &[&str] = &[
     ServiceOperationId::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
     ServiceOperationId::SELF_READ_CURSOR_READ_LIST_V1,
     ServiceOperationId::SELF_REALM_READ_EXPORT_V1,
+    ServiceOperationId::SELF_REALM_READ_STREAMS_V1,
     ServiceOperationId::SELF_REALM_RESOURCE_GET_V1,
     ServiceOperationId::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
     ServiceOperationId::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1,
@@ -539,9 +549,12 @@ impl ServiceOperationId {
         Self::GateAccountCommandRegisterV1,
         Self::GateAccountCommandRequestErasureV1,
         Self::GateAccountCommandRevokeSessionV1,
+        Self::GateAccountCommandStageDevicePairingV1,
         Self::GateAccountExchangeCreateHandoffV1,
         Self::GateAccountReadClaimDevicePairingCodeV1,
+        Self::GateAccountReadDevicePairingStatusV1,
         Self::GateAccountReadOnboardingV1,
+        Self::GateAccountReadResolveDevicePairingV1,
         Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
         Self::OpenAgentPairingReadResolveV1,
         Self::OpenAgentPairingReadRuntimeKeyRequestStatusV1,
@@ -664,6 +677,7 @@ impl ServiceOperationId {
         Self::SelfDeviceMessagesReadListV1,
         Self::SelfDirectConversationReadResolveV1,
         Self::SelfEventsCommandSubmitV1,
+        Self::SelfEventsReadDeliveryStatusV1,
         Self::SelfEventsReadScanV1,
         Self::SelfEventsResourceGetV1,
         Self::SelfEventsStreamSubscribeV1,
@@ -697,6 +711,7 @@ impl ServiceOperationId {
         Self::SelfReadCursorCommandAdvanceV1,
         Self::SelfReadCursorReadListV1,
         Self::SelfRealmReadExportV1,
+        Self::SelfRealmReadStreamsV1,
         Self::SelfRealmResourceGetV1,
         Self::SelfRealmJoinCommandPrepareV1,
         Self::SelfRealmJoinReadApplicationStatusV1,
@@ -799,11 +814,17 @@ impl ServiceOperationId {
         "ak.gate.account.command.request_erasure.v1";
     pub const GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1: &'static str =
         "ak.gate.account.command.revoke_session.v1";
+    pub const GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1: &'static str =
+        "ak.gate.account.command.stage_device_pairing.v1";
     pub const GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1: &'static str =
         "ak.gate.account.exchange.create_handoff.v1";
     pub const GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1: &'static str =
         "ak.gate.account.read.claim_device_pairing_code.v1";
+    pub const GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1: &'static str =
+        "ak.gate.account.read.device_pairing_status.v1";
     pub const GATE_ACCOUNT_READ_ONBOARDING_V1: &'static str = "ak.gate.account.read.onboarding.v1";
+    pub const GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1: &'static str =
+        "ak.gate.account.read.resolve_device_pairing.v1";
     pub const OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1: &'static str =
         "ak.open.agent_pairing.command.submit_runtime_key_request.v1";
     pub const OPEN_AGENT_PAIRING_READ_RESOLVE_V1: &'static str =
@@ -1006,6 +1027,8 @@ impl ServiceOperationId {
     pub const SELF_DIRECT_CONVERSATION_READ_RESOLVE_V1: &'static str =
         "ak.self.direct_conversation.read.resolve.v1";
     pub const SELF_EVENTS_COMMAND_SUBMIT_V1: &'static str = "ak.self.events.command.submit.v1";
+    pub const SELF_EVENTS_READ_DELIVERY_STATUS_V1: &'static str =
+        "ak.self.events.read.delivery_status.v1";
     pub const SELF_EVENTS_READ_SCAN_V1: &'static str = "ak.self.events.read.scan.v1";
     pub const SELF_EVENTS_RESOURCE_GET_V1: &'static str = "ak.self.events.resource.get.v1";
     pub const SELF_EVENTS_STREAM_SUBSCRIBE_V1: &'static str = "ak.self.events.stream.subscribe.v1";
@@ -1060,6 +1083,7 @@ impl ServiceOperationId {
         "ak.self.read_cursor.command.advance.v1";
     pub const SELF_READ_CURSOR_READ_LIST_V1: &'static str = "ak.self.read_cursor.read.list.v1";
     pub const SELF_REALM_READ_EXPORT_V1: &'static str = "ak.self.realm.read.export.v1";
+    pub const SELF_REALM_READ_STREAMS_V1: &'static str = "ak.self.realm.read.streams.v1";
     pub const SELF_REALM_RESOURCE_GET_V1: &'static str = "ak.self.realm.resource.get.v1";
     pub const SELF_REALM_JOIN_COMMAND_PREPARE_V1: &'static str =
         "ak.self.realm_join.command.prepare.v1";
@@ -1176,13 +1200,22 @@ impl ServiceOperationId {
                 Self::GATE_ACCOUNT_COMMAND_REQUEST_ERASURE_V1
             }
             Self::GateAccountCommandRevokeSessionV1 => Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1,
+            Self::GateAccountCommandStageDevicePairingV1 => {
+                Self::GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1
+            }
             Self::GateAccountExchangeCreateHandoffV1 => {
                 Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1
             }
             Self::GateAccountReadClaimDevicePairingCodeV1 => {
                 Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1
             }
+            Self::GateAccountReadDevicePairingStatusV1 => {
+                Self::GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1
+            }
             Self::GateAccountReadOnboardingV1 => Self::GATE_ACCOUNT_READ_ONBOARDING_V1,
+            Self::GateAccountReadResolveDevicePairingV1 => {
+                Self::GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1
+            }
             Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1 => {
                 Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1
             }
@@ -1363,6 +1396,7 @@ impl ServiceOperationId {
                 Self::SELF_DIRECT_CONVERSATION_READ_RESOLVE_V1
             }
             Self::SelfEventsCommandSubmitV1 => Self::SELF_EVENTS_COMMAND_SUBMIT_V1,
+            Self::SelfEventsReadDeliveryStatusV1 => Self::SELF_EVENTS_READ_DELIVERY_STATUS_V1,
             Self::SelfEventsReadScanV1 => Self::SELF_EVENTS_READ_SCAN_V1,
             Self::SelfEventsResourceGetV1 => Self::SELF_EVENTS_RESOURCE_GET_V1,
             Self::SelfEventsStreamSubscribeV1 => Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1,
@@ -1412,6 +1446,7 @@ impl ServiceOperationId {
             Self::SelfReadCursorCommandAdvanceV1 => Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1,
             Self::SelfReadCursorReadListV1 => Self::SELF_READ_CURSOR_READ_LIST_V1,
             Self::SelfRealmReadExportV1 => Self::SELF_REALM_READ_EXPORT_V1,
+            Self::SelfRealmReadStreamsV1 => Self::SELF_REALM_READ_STREAMS_V1,
             Self::SelfRealmResourceGetV1 => Self::SELF_REALM_RESOURCE_GET_V1,
             Self::SelfRealmJoinCommandPrepareV1 => Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1,
             Self::SelfRealmJoinReadApplicationStatusV1 => {
@@ -1555,13 +1590,22 @@ impl ServiceOperationId {
             Self::GATE_ACCOUNT_COMMAND_REVOKE_SESSION_V1 => {
                 Some(Self::GateAccountCommandRevokeSessionV1)
             }
+            Self::GATE_ACCOUNT_COMMAND_STAGE_DEVICE_PAIRING_V1 => {
+                Some(Self::GateAccountCommandStageDevicePairingV1)
+            }
             Self::GATE_ACCOUNT_EXCHANGE_CREATE_HANDOFF_V1 => {
                 Some(Self::GateAccountExchangeCreateHandoffV1)
             }
             Self::GATE_ACCOUNT_READ_CLAIM_DEVICE_PAIRING_CODE_V1 => {
                 Some(Self::GateAccountReadClaimDevicePairingCodeV1)
             }
+            Self::GATE_ACCOUNT_READ_DEVICE_PAIRING_STATUS_V1 => {
+                Some(Self::GateAccountReadDevicePairingStatusV1)
+            }
             Self::GATE_ACCOUNT_READ_ONBOARDING_V1 => Some(Self::GateAccountReadOnboardingV1),
+            Self::GATE_ACCOUNT_READ_RESOLVE_DEVICE_PAIRING_V1 => {
+                Some(Self::GateAccountReadResolveDevicePairingV1)
+            }
             Self::OPEN_AGENT_PAIRING_COMMAND_SUBMIT_RUNTIME_KEY_REQUEST_V1 => {
                 Some(Self::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1)
             }
@@ -1788,6 +1832,7 @@ impl ServiceOperationId {
                 Some(Self::SelfDirectConversationReadResolveV1)
             }
             Self::SELF_EVENTS_COMMAND_SUBMIT_V1 => Some(Self::SelfEventsCommandSubmitV1),
+            Self::SELF_EVENTS_READ_DELIVERY_STATUS_V1 => Some(Self::SelfEventsReadDeliveryStatusV1),
             Self::SELF_EVENTS_READ_SCAN_V1 => Some(Self::SelfEventsReadScanV1),
             Self::SELF_EVENTS_RESOURCE_GET_V1 => Some(Self::SelfEventsResourceGetV1),
             Self::SELF_EVENTS_STREAM_SUBSCRIBE_V1 => Some(Self::SelfEventsStreamSubscribeV1),
@@ -1853,6 +1898,7 @@ impl ServiceOperationId {
             Self::SELF_READ_CURSOR_COMMAND_ADVANCE_V1 => Some(Self::SelfReadCursorCommandAdvanceV1),
             Self::SELF_READ_CURSOR_READ_LIST_V1 => Some(Self::SelfReadCursorReadListV1),
             Self::SELF_REALM_READ_EXPORT_V1 => Some(Self::SelfRealmReadExportV1),
+            Self::SELF_REALM_READ_STREAMS_V1 => Some(Self::SelfRealmReadStreamsV1),
             Self::SELF_REALM_RESOURCE_GET_V1 => Some(Self::SelfRealmResourceGetV1),
             Self::SELF_REALM_JOIN_COMMAND_PREPARE_V1 => Some(Self::SelfRealmJoinCommandPrepareV1),
             Self::SELF_REALM_JOIN_READ_APPLICATION_STATUS_V1 => {
@@ -2960,6 +3006,33 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         }),
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountCommandStageDevicePairingV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/device-pairing/stages",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: Some("idempotency_key"),
+        retry_safe: Some(true),
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_stage_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: Some(DurableEffectDescriptor {
+            kind: DurableEffectKind::None,
+            target: None,
+            rationale: Some(
+                "account_authority_single_pairing_ledger_stage_and_internal_dedup_only_no_event_is_authored",
+            ),
+            branch_contract_json: None,
+        }),
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountExchangeCreateHandoffV1,
         http_method: "POST",
         http_path: "/_arkret/gate/account/authentication-handoffs",
@@ -3007,6 +3080,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         durable_effect: None,
     },
     ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountReadDevicePairingStatusV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/device-pairing/status-queries",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_status_outcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
         id: ServiceOperationId::GateAccountReadOnboardingV1,
         http_method: "GET",
         http_path: "/_arkret/gate/account/onboarding",
@@ -3028,6 +3121,26 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
             rationale: Some("reads_only_the_current_service_local_account_onboarding_projection"),
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::GateAccountReadResolveDevicePairingV1,
+        http_method: "POST",
+        http_path: "/_arkret/gate/account/device-pairing/resolutions",
+        grpc: None,
+        mq: None,
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_resolve_request_body",
+        ),
+        response_schema_ref: Some(
+            "schemas/device-pairing.schema.json#/$defs/device_pairing_bootstrap",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::OpenAgentPairingCommandSubmitRuntimeKeyRequestV1,
@@ -3730,17 +3843,19 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/submit_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/peer_submit_request",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/submit_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/peer_submit_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
-            kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic("$request.event.kind")),
+            kind: DurableEffectKind::Branched,
+            target: None,
             rationale: None,
-            branch_contract_json: None,
+            branch_contract_json: Some(
+                "{\"discriminator\":{\"description\":\"Closed peer ingress semantic branch. Schema validation proves that final otherwise can only be registered_atomic_unit.\",\"request_path\":\"/branch\"},\"effect_branches\":[{\"effect\":{\"event_kind_sources\":[\"$request.event_submission.event.kind\",\"$request.mls_submission.commit_event.kind\"],\"event_submission_path\":\"/event_submission\",\"kind\":\"event_log\",\"rationale\":\"Only the verified current governance Station performs first admission and signs the new RealmCommit.\"},\"equals\":\"authority_forward\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"stores_exact_source_committed_replicas_without_new_event_finality_resigning_or_second_fanout\"},\"equals\":\"committed_replication\"},{\"effect\":{\"kind\":\"none\",\"rationale\":\"atomically_materializes_a_registered_source_committed_unit_without_new_event_finality_resigning_or_second_fanout\"},\"otherwise\":true}]}",
+            ),
         }),
     },
     ServiceOperationDescriptor {
@@ -5758,18 +5873,43 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         idempotency_mechanism: Some("canonical_hash"),
         retry_safe: Some(true),
         request_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/submit_request",
+            "schemas/authority-commit-operations.schema.json#/$defs/self_submit_request",
         ),
         response_schema_ref: Some(
-            "schemas/authority-commit-operations.schema.json#/$defs/submit_outcome",
+            "schemas/authority-commit-operations.schema.json#/$defs/self_submit_outcome",
         ),
         uncertain_outcome: None,
         durable_effect: Some(DurableEffectDescriptor {
             kind: DurableEffectKind::EventLog,
-            target: Some(DurableEventTarget::Dynamic("$request.event.kind")),
+            target: Some(DurableEventTarget::DynamicMany(&[
+                "$request.event.kind",
+                "$request.commit_event.kind",
+                "$request.events[*].event.kind",
+                "$request.event_submission.event.kind",
+            ])),
             rationale: None,
             branch_contract_json: None,
         }),
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfEventsReadDeliveryStatusV1,
+        http_method: "QUERY",
+        http_path: "/_arkret/self/events/delivery-status",
+        grpc: Some("SelfEvents/DeliveryStatus"),
+        mq: Some("self.events.read.delivery_status"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusRequestBody",
+        ),
+        response_schema_ref: Some(
+            "schemas/service-operation-dtos.schema.json#/$defs/EventDeliveryStatusOutcome",
+        ),
+        uncertain_outcome: None,
+        durable_effect: None,
     },
     ServiceOperationDescriptor {
         id: ServiceOperationId::SelfEventsReadScanV1,
@@ -6504,6 +6644,24 @@ pub const SERVICE_OPERATION_DESCRIPTORS: &[ServiceOperationDescriptor] = &[
         retry_safe: None,
         request_schema_ref: None,
         response_schema_ref: Some("schemas/realm-read-operations.schema.json#/$defs/realm_export"),
+        uncertain_outcome: None,
+        durable_effect: None,
+    },
+    ServiceOperationDescriptor {
+        id: ServiceOperationId::SelfRealmReadStreamsV1,
+        http_method: "GET",
+        http_path: "/_arkret/self/realms/{realm_id}/streams",
+        grpc: Some("SelfRealm/Streams"),
+        mq: Some("self.realm.query.streams"),
+        body_class: Some("non_streaming_json"),
+        max_canonical_body_bytes: None,
+        success_shape_kind: "typed_response",
+        idempotency_mechanism: None,
+        retry_safe: None,
+        request_schema_ref: None,
+        response_schema_ref: Some(
+            "schemas/realm-read-operations.schema.json#/$defs/realm_stream_list",
+        ),
         uncertain_outcome: None,
         durable_effect: None,
     },

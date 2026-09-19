@@ -227,6 +227,18 @@ impl Client {
             .await
     }
 
+    /// `POST /_arkret/gate/account/device-pairing/stages`
+    /// (`ak.gate.account.command.stage_device_pairing.v1`). This internal
+    /// Account Authority carrier is byte-identical to the public Station
+    /// staging request and outcome.
+    pub async fn internal_device_pairing_stage(
+        &self,
+        request: &DevicePairingStageRequestBody,
+    ) -> Result<DevicePairingStageOutcome> {
+        self.post("/_arkret/gate/account/device-pairing/stages", request)
+            .await
+    }
+
     /// `POST /_arkret/gate/account/device-pairing/finalizations`
     /// (`ak.gate.account.command.finalize_device_pairing.v1`). Authenticated
     /// with `Authorization: DPoP <account_handoff_grant>` and a matching DPoP
@@ -270,6 +282,18 @@ impl Client {
             .await
     }
 
+    /// `POST /_arkret/gate/account/device-pairing/resolutions`
+    /// (`ak.gate.account.read.resolve_device_pairing.v1`). This internal
+    /// Account Authority carrier uses the public resolve request and bootstrap
+    /// without a transport-private DTO.
+    pub async fn internal_device_pairing_resolve(
+        &self,
+        request: &DevicePairingResolveRequestBody,
+    ) -> Result<DevicePairingBootstrap> {
+        self.post("/_arkret/gate/account/device-pairing/resolutions", request)
+            .await
+    }
+
     /// `POST /_arkret/open/device-pairing/requests/status`
     /// (`ak.open.device_pairing.read.status.v1`). Unauthenticated, body-only: the
     /// new device polls whether a sibling has authorized its staged request.
@@ -282,6 +306,24 @@ impl Client {
             .await?;
         // The conditional members are the §5.4.1 pre-assembly entry point, so a
         // shape the schema rejects must not reach the caller as a usable state.
+        outcome.validate()?;
+        Ok(outcome)
+    }
+
+    /// `POST /_arkret/gate/account/device-pairing/status-queries`
+    /// (`ak.gate.account.read.device_pairing_status.v1`). This internal
+    /// Account Authority carrier uses the public status request and outcome
+    /// and preserves the same conditional-member validation.
+    pub async fn internal_device_pairing_status(
+        &self,
+        request: &DevicePairingStatusRequestBody,
+    ) -> Result<DevicePairingStatusOutcome> {
+        let outcome: DevicePairingStatusOutcome = self
+            .post(
+                "/_arkret/gate/account/device-pairing/status-queries",
+                request,
+            )
+            .await?;
         outcome.validate()?;
         Ok(outcome)
     }

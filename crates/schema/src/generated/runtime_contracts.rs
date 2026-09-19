@@ -1,21 +1,13 @@
 //! @generated; do not edit by hand.
 //! Generator: tools/spec-codegen
-//! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1;
-//! sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264 Input: registry/
-//! contract-registry.json; version=2026-09-18.6;
-//! sha256=5ed5da7e532bc73dfe466ef5ac5280756a087550e34da5023377a2ff091fbc87 Input: registry/
-//! operation-registry.json; version=2026-09-18.1;
-//! sha256=5121ee9dca431155f78761dfded879cc4a8c05e81b850f5df212af522dbe1ff2 Input: registry/
-//! event-kind-registry.json; version=2026-09-18.5;
-//! sha256=7e727be8faa463543688e7536f5fef5548e0b2cfdcc0c3d7064d7c418c1ff13c Input: registry/
-//! schema-registry.json; version=2026-09-18.1;
-//! sha256=e90fd18d04d2581f73714a8d2948922cd617eed3e311fe7fc6d17f09489d4ada Input: registry/
-//! id-kind-registry.json; version=2026-09-16.10;
-//! sha256=0ec10bf100aff2f54c5ea76a4cf1827da6b2429b6c87dccf748c89b4b4a9a854
-//! Input: deployment-probes.json; version=2026-06-19;
-//! sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
-//! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2,
-//! operation_surface_groups=33
+//! Input: registry/agent-runtime-scope-registry.json; version=2026-09-16.1; sha256=1b7577e4973a583295ee2b0a6129aaced5847eacc771d2d8722f40da3a6a6264
+//! Input: registry/contract-registry.json; version=2026-09-20.11; sha256=ddb8e90a310de941adcaac37fd619f7163870f72e758f82852915f8a1001841f
+//! Input: registry/operation-registry.json; version=2026-09-20.4; sha256=71269d01d853cb607e38e2d71d9630db47e1e5b4f38ed021f8adb738eba6e94b
+//! Input: registry/event-kind-registry.json; version=2026-09-20.12; sha256=83215a3ec575a781ff011675ac0662581ddfe5d705dae92ec6ea32ae1c3543a6
+//! Input: registry/schema-registry.json; version=2026-09-20.13; sha256=8506b2b92ecde50af52cd0b00410f2094bb63a67448fb083f648585ec708e188
+//! Input: registry/id-kind-registry.json; version=2026-09-19.1; sha256=67e08f1f70683f3333e21d704777ba677d07e9b5d866f0d865d5ccc5818bb065
+//! Input: deployment-probes.json; version=2026-06-19; sha256=3aaf7d76d6618e2ea0dcc211195cfc9ffe21b6233faeafd5c7df4aac0ac3054d
+//! Entries: capability_sets=2, layers=3, feature_additions=1, bootstrap_profiles=2, operation_surface_groups=33
 
 use arkret_wire::{ServiceOperationId, event_kind_str};
 
@@ -363,6 +355,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
         operations: &[
             ServiceOperationId::SelfEventsCommandSubmitV1,
             ServiceOperationId::SelfEventsResourceGetV1,
+            ServiceOperationId::SelfEventsReadDeliveryStatusV1,
             ServiceOperationId::SelfEventsReadScanV1,
             ServiceOperationId::SelfEventsStreamSubscribeV1,
             ServiceOperationId::SelfAccountReadDescribeV1,
@@ -373,6 +366,7 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::SelfAccountCommandRevokeCursorV1,
             ServiceOperationId::SelfRealmStateSnapshotReadManifestHeadV1,
             ServiceOperationId::SelfCurrentPrincipalReadResolveV1,
+            ServiceOperationId::SelfRealmReadStreamsV1,
         ],
     },
     OperationSurfaceGroupDescriptor {
@@ -718,7 +712,10 @@ pub const REGISTERED_OPERATION_SURFACE_GROUPS: &[OperationSurfaceGroupDescriptor
             ServiceOperationId::GateAccountCommandRegisterV1,
             ServiceOperationId::GateAccountCommandFinalizeDevicePairingV1,
             ServiceOperationId::GateAccountCommandPairDeviceV1,
+            ServiceOperationId::GateAccountCommandStageDevicePairingV1,
             ServiceOperationId::GateAccountReadClaimDevicePairingCodeV1,
+            ServiceOperationId::GateAccountReadDevicePairingStatusV1,
+            ServiceOperationId::GateAccountReadResolveDevicePairingV1,
             ServiceOperationId::GateAccountCommandIssueSessionGrantV1,
             ServiceOperationId::GateAccountCommandRefreshSessionGrantV1,
             ServiceOperationId::GateAccountCommandIssueRecoveryCompletionGrantV1,
@@ -766,8 +763,8 @@ pub const HIGH_SECURITY_SESSION_OPERATION_PREFIX: &str = "ak.self.";
 pub const UNAUTHENTICATED_PUBLIC_PROJECTION_OPERATIONS: &[ServiceOperationId] =
     &[ServiceOperationId::SelfAccountReadDescribeV1];
 
-pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-18.5";
-pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-18.1";
-pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-18.1";
-pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-16.10";
+pub const EVENT_KIND_REGISTRY_VERSION: &str = "2026-09-20.12";
+pub const SCHEMA_REGISTRY_VERSION: &str = "2026-09-20.13";
+pub const OPERATION_REGISTRY_VERSION: &str = "2026-09-20.4";
+pub const ID_KIND_REGISTRY_VERSION: &str = "2026-09-19.1";
 pub const PQ_HYBRID_TLS_REQUIRED_GROUP: &str = "X25519MLKEM768";

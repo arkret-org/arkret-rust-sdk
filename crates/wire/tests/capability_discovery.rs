@@ -73,3 +73,17 @@ fn station_device_pairing_handoff_bundle_closes_all_three_open_operations() {
         BindingKind::HttpJson,
     ));
 }
+
+#[test]
+fn station_http_core_advertises_all_three_internal_device_pairing_operations() {
+    let bundle = operation_bundle_descriptor("ak.operation_bundle.station.http_core.v1")
+        .expect("Station HTTP core bundle must be registered");
+
+    for operation_id in [
+        ServiceOperationId::GateAccountCommandStageDevicePairingV1,
+        ServiceOperationId::GateAccountReadResolveDevicePairingV1,
+        ServiceOperationId::GateAccountReadDevicePairingStatusV1,
+    ] {
+        assert!(bundle.contains(operation_id, BindingKind::HttpJson));
+    }
+}
