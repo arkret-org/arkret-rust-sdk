@@ -172,6 +172,8 @@ pub struct ResolvedSignerKey {
     pub authorization_ref: CommittedEventRef,
     #[cfg_attr(feature = "openapi", salvo(schema(value_type = serde_json::Value)))]
     pub revision: CurrentRevision,
+    /// Governance generation verified by `revision.commit_id`.
+    pub governance_generation: u64,
 }
 
 impl ResolvedSignerKey {
@@ -194,19 +196,23 @@ impl ResolvedSignerKey {
         Ok(())
     }
 
-    /// Check the key against the exact selector it answers.
+    /// Check the key and selector as two independent committed coordinates.
     ///
-    /// A historical selector names one accepted Event, and the answer is only
-    /// an answer to *that* selector when its authorization is that same Event.
-    pub fn validate_for_selector(&self, selector: &SignerKeyQuerySelector) -> Result<()> {
+    /// A historical selector names the Event whose producer signature is being
+    /// checked. `authorization_ref` independently names the accepted Event that
+    /// made this key valid there. They may be equal, but equality is neither
+    /// required nor sufficient: each reference is validated for its own role.
+    pub fn validate_for_selector(
+        &self,
+        selector: &SignerKeyQuerySelector,
+        realm_id: &RealmId,
+    ) -> Result<()> {
+        selector.validate(realm_id)?;
         self.validate()?;
-        if selector
-            .committed_event_ref()
-            .is_some_and(|reference| *reference != self.authorization_ref)
-        {
+        if self.authorization_ref.stream_ref.realm_id() != realm_id {
             return Err(self_signer_error(
                 ErrorCode::StateMismatch,
-                "historical signer answer does not carry the exact Event its selector names",
+                "signing-key authorization Event belongs to another Realm",
             ));
         }
         Ok(())
@@ -223,6 +229,7 @@ impl ResolvedSignerKey {
         key: StationSigningKey,
         authorization_ref: CommittedEventRef,
         revision: CurrentRevision,
+        governance_generation: u64,
         selector: &SignerKeyQuerySelector,
         realm_id: &RealmId,
     ) -> Result<Self> {
@@ -246,8 +253,9 @@ impl ResolvedSignerKey {
             public_key_b64u: key.public_key_b64u,
             authorization_ref,
             revision,
+            governance_generation,
         };
-        resolved.validate_for_selector(selector)?;
+        resolved.validate_for_selector(selector, realm_id)?;
         Ok(resolved)
     }
 }
@@ -291,7 +299,7 @@ impl SignerKeyQueryResult {
         validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
         self.selector().validate(realm_id)?;
         match self {
-            Self::Resolved { selector, key } => key.validate_for_selector(selector),
+            Self::Resolved { selector, key } => key.validate_for_selector(selector, realm_id),
             Self::Unavailable { .. } => Ok(()),
         }
     }
@@ -412,6 +420,7 @@ mod tests {
             },
             public_key_b64u: public_key(),
             authorization_ref: authorization,
+            governance_generation: 4,
         }
     }
 
@@ -477,24 +486,59 @@ mod tests {
     }
 
     #[test]
-    fn a_historical_answer_must_carry_the_exact_event_its_selector_names() {
-        let asked = committed_ref(4, 0x11);
-        let answered = committed_ref(4, 0x22);
-        let result = SignerKeyQueryResult::Resolved {
-            selector: historical_agent_selector(asked.clone()),
-            key: resolved_key(answered, 9),
-        };
-        let error = result
-            .validate(&realm_id())
-            .expect_err("a foreign authorization Event must fail closed");
-        assert!(error.to_string().contains("exact Event"), "{error}");
+    fn a_resolved_key_requires_its_verified_governance_generation() {
+        let mut value = serde_json::to_value(resolved_key(committed_ref(7, 0x22), 15)).unwrap();
+        value
+            .as_object_mut()
+            .unwrap()
+            .remove("governance_generation");
+        assert!(serde_json::from_value::<ResolvedSignerKey>(value).is_err());
+    }
 
-        SignerKeyQueryResult::Resolved {
-            selector: historical_agent_selector(asked.clone()),
-            key: resolved_key(asked, 9),
+    #[test]
+    fn historical_target_and_authorization_are_independent_complete_coordinates() {
+        let target = committed_ref(12, 0x11);
+        let authorization = committed_ref(7, 0x22);
+        let result = SignerKeyQueryResult::Resolved {
+            selector: historical_agent_selector(target),
+            key: resolved_key(authorization, 15),
+        };
+        result
+            .validate(&realm_id())
+            .expect("a target Event and its independently verified authorization may differ");
+    }
+
+    #[test]
+    fn target_and_authorization_coordinates_are_validated_separately() {
+        let foreign_realm =
+            RealmId::new("ak:realm:AQkDA7LFmM6XXBNpdAmM31bTMIpBgRDpMuNP9JKuT-JB").unwrap();
+        let mut foreign_target = committed_ref(12, 0x11);
+        foreign_target.stream_ref = CommitStreamRef::Realm {
+            realm_id: foreign_realm.clone(),
+        };
+        let target_error = SignerKeyQueryResult::Resolved {
+            selector: historical_agent_selector(foreign_target),
+            key: resolved_key(committed_ref(7, 0x22), 15),
         }
         .validate(&realm_id())
-        .unwrap();
+        .expect_err("a target coordinate from another Realm must fail closed");
+        assert!(target_error.to_string().contains("historical signer Event"));
+
+        let mut foreign_authorization = committed_ref(7, 0x22);
+        foreign_authorization.stream_ref = CommitStreamRef::Realm {
+            realm_id: foreign_realm,
+        };
+        let authorization_error = SignerKeyQueryResult::Resolved {
+            selector: historical_agent_selector(committed_ref(12, 0x11)),
+            key: resolved_key(foreign_authorization, 15),
+        }
+        .validate(&realm_id())
+        .expect_err("an authorization coordinate from another Realm must fail closed");
+        assert!(
+            authorization_error
+                .to_string()
+                .contains("authorization Event")
+        );
     }
 
     /// A Station key names its authorization by bare `event_id`. Lifting it
@@ -521,6 +565,7 @@ mod tests {
             station_key.clone(),
             committed_ref(4, 0x11),
             revision.clone(),
+            4,
             &device_selector(),
             &realm_id(),
         )
@@ -530,6 +575,7 @@ mod tests {
             station_key,
             committed_ref(4, 0x22),
             revision,
+            4,
             &device_selector(),
             &realm_id(),
         )
