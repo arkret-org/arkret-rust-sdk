@@ -287,6 +287,7 @@ pub enum DeviceRevocationGateActionClass {
     SessionGrantIssue,
     ReturningSessionGrantIssue,
     SessionGrantRefresh,
+    DevicePairingCodeClaim,
     KeypackageClaim,
     ToDeviceWrite,
     EventWrite,
@@ -312,13 +313,15 @@ pub struct DeviceRevocationGateCheckRequestBody {
     pub action_class: DeviceRevocationGateActionClass,
     /// Digest of the complete immutable issue or refresh intent, including the
     /// exact grant id, jti, subject, device, audience, scope, holder binding,
-    /// issued_at and expiry.
+    /// issued_at and expiry. For `DevicePairingCodeClaim`, the digest binds
+    /// the operation id, exact account, caller device and canonical claim
+    /// request without disclosing the plaintext pairing code to the origin.
     pub intent_digest: Hash,
     /// Accepted-device proof the origin verifies with the accepted device key
     /// from the same locked durable projection used to decide current
     /// authorization. Required only for returning account-handoff issue and
-    /// human refresh; registration/recovery issue and Agent runtime issuers
-    /// omit it.
+    /// human refresh; registration/recovery issue, device-pairing code claim
+    /// and Agent runtime issuers omit it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub accepted_device_possession_proof: Option<AcceptedDevicePossessionProof>,
     #[serde(with = "crate::serde_helpers::canonical_timestamp")]
@@ -972,6 +975,20 @@ mod tests {
         write.expected_device_authorize_event_id = Some(authorize_event());
         write.expected_device_generation_ref = Some(7);
         write.validate().unwrap();
+
+        let mut code_claim = request();
+        code_claim.action_class = DeviceRevocationGateActionClass::DevicePairingCodeClaim;
+        assert!(code_claim.validate().is_err());
+        code_claim.expected_device_authorize_event_id = Some(authorize_event());
+        code_claim.expected_device_generation_ref = Some(7);
+        code_claim.validate().unwrap();
+        assert_eq!(
+            serde_json::to_value(code_claim.action_class).unwrap(),
+            serde_json::json!("device_pairing_code_claim")
+        );
+        code_claim.accepted_device_possession_proof =
+            Some(issue_possession_proof(code_claim.intent_digest.clone()));
+        assert!(code_claim.validate().is_err());
 
         let mut half = request();
         half.expected_device_generation_ref = Some(7);
