@@ -32,13 +32,40 @@ pub enum DirectConversationSendBlocker {
     KeypackageEmpty,
     GrantMissing,
     PolicyStale,
-    ContactRevisionStale,
+    ContactScopeStale,
     MlsReconcileRequired,
     AgentRuntimeUnavailable,
     PeerNotJoinedMls,
+    MemberCountInvalid,
     PairMaterializationConflict,
     RealmTerminalFault,
-    CurrentAuthorityUnavailable,
+    GovernanceStationUnavailable,
+    UnsupportedProfile,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DirectConversationSendBlocker;
+
+    #[test]
+    fn direct_conversation_send_blockers_match_the_closed_wire_literals() {
+        let cases = [
+            (DirectConversationSendBlocker::MemberCountInvalid, "member_count_invalid"),
+            (DirectConversationSendBlocker::ContactScopeStale, "contact_scope_stale"),
+            (
+                DirectConversationSendBlocker::GovernanceStationUnavailable,
+                "governance_station_unavailable",
+            ),
+            (DirectConversationSendBlocker::UnsupportedProfile, "unsupported_profile"),
+        ];
+        for (blocker, expected) in cases {
+            assert_eq!(serde_json::to_value(blocker).unwrap(), expected);
+            assert_eq!(
+                serde_json::from_value::<DirectConversationSendBlocker>(expected.into()).unwrap(),
+                blocker
+            );
+        }
+    }
 }
 
 /// Holder-device-only blockers. This deliberately has no Serde surface.
