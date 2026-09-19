@@ -7,6 +7,7 @@ use arkret_wire::{
     AccountId, ActorId, Base64UrlString, CommittedEventRef, CurrentRevision, DeviceId, DidUrl,
     ErrorCode, RealmId, RequestId, Result,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::agent_signer_state::{
@@ -18,36 +19,57 @@ pub const MAX_SIGNER_KEY_QUERIES: usize = 64;
 
 /// One exact signer a query names.
 ///
-/// The four variants are the complete closed cross product of the two query
-/// axes: `current` admission versus one exact accepted historical Event, and a
-/// device-bound account sender versus an Agent sender. Encoding both axes in
-/// the variant is what keeps a device selector from losing its `device_id` and
-/// an Agent selector from carrying one; neither state is representable, so no
-/// runtime cross-field rule has to hold them together.
+/// The two nested enums are the complete closed cross product of the two query
+/// axes. The outer `verification_mode` tag selects current admission versus one
+/// exact accepted historical Event; the flattened inner `sender_kind` tag
+/// selects a device-bound account sender versus an Agent sender. Encoding both
+/// axes separately is part of the canonical wire contract.
 ///
 /// A historical selector addresses its Event by [`CommittedEventRef`]: under
 /// authority-commit only the authority-signed `RealmCommit` carries stream
 /// position, so a bare `event_id` cannot say which accepted position is meant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "selector_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "verification_mode", rename_all = "snake_case")]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum SignerKeyQuerySelector {
-    CurrentAccountDevice {
+    CurrentAdmission {
+        #[serde(flatten)]
+        sender: CurrentSignerKeyQuerySender,
+    },
+    HistoricalEvent {
+        #[serde(flatten)]
+        sender: HistoricalSignerKeyQuerySender,
+    },
+}
+
+/// Sender-specific fields for a current-admission query.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "sender_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum CurrentSignerKeyQuerySender {
+    AccountDevice {
         actor: ActorId,
         device_id: DeviceId,
         verification_method: DidUrl,
     },
-    CurrentAgent {
+    Agent {
         actor: ActorId,
         verification_method: DidUrl,
     },
-    HistoricalAccountDevice {
+}
+
+/// Sender-specific fields for an exact historical-Event query.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "sender_kind", rename_all = "snake_case", deny_unknown_fields)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
+pub enum HistoricalSignerKeyQuerySender {
+    AccountDevice {
         actor: ActorId,
         device_id: DeviceId,
         verification_method: DidUrl,
         committed_event_ref: CommittedEventRef,
     },
-    HistoricalAgent {
+    Agent {
         actor: ActorId,
         verification_method: DidUrl,
         committed_event_ref: CommittedEventRef,
@@ -57,56 +79,36 @@ pub enum SignerKeyQuerySelector {
 impl SignerKeyQuerySelector {
     pub fn actor(&self) -> &ActorId {
         match self {
-            Self::CurrentAccountDevice { actor, .. }
-            | Self::CurrentAgent { actor, .. }
-            | Self::HistoricalAccountDevice { actor, .. }
-            | Self::HistoricalAgent { actor, .. } => actor,
+            Self::CurrentAdmission { sender } => sender.actor(),
+            Self::HistoricalEvent { sender } => sender.actor(),
         }
     }
 
     pub fn verification_method(&self) -> &DidUrl {
         match self {
-            Self::CurrentAccountDevice {
-                verification_method,
-                ..
-            }
-            | Self::CurrentAgent {
-                verification_method,
-                ..
-            }
-            | Self::HistoricalAccountDevice {
-                verification_method,
-                ..
-            }
-            | Self::HistoricalAgent {
-                verification_method,
-                ..
-            } => verification_method,
+            Self::CurrentAdmission { sender } => sender.verification_method(),
+            Self::HistoricalEvent { sender } => sender.verification_method(),
         }
     }
 
     /// The device this selector is bound to, or `None` for an Agent selector.
     pub fn device_id(&self) -> Option<&DeviceId> {
         match self {
-            Self::CurrentAccountDevice { device_id, .. }
-            | Self::HistoricalAccountDevice { device_id, .. } => Some(device_id),
-            Self::CurrentAgent { .. } | Self::HistoricalAgent { .. } => None,
+            Self::CurrentAdmission { sender } => sender.device_id(),
+            Self::HistoricalEvent { sender } => sender.device_id(),
         }
     }
 
     /// The exact accepted Event a historical selector names.
     pub fn committed_event_ref(&self) -> Option<&CommittedEventRef> {
         match self {
-            Self::CurrentAccountDevice { .. } | Self::CurrentAgent { .. } => None,
-            Self::HistoricalAccountDevice {
-                committed_event_ref,
-                ..
-            }
-            | Self::HistoricalAgent {
-                committed_event_ref,
-                ..
-            } => Some(committed_event_ref),
+            Self::CurrentAdmission { .. } => None,
+            Self::HistoricalEvent { sender } => Some(sender.committed_event_ref()),
         }
+    }
+
+    pub const fn is_historical(&self) -> bool {
+        matches!(self, Self::HistoricalEvent { .. })
     }
 
     pub fn validate(&self, realm_id: &RealmId) -> Result<()> {
@@ -127,6 +129,75 @@ impl SignerKeyQuerySelector {
             ));
         }
         Ok(())
+    }
+}
+
+impl CurrentSignerKeyQuerySender {
+    fn actor(&self) -> &ActorId {
+        match self {
+            Self::AccountDevice { actor, .. } | Self::Agent { actor, .. } => actor,
+        }
+    }
+
+    fn verification_method(&self) -> &DidUrl {
+        match self {
+            Self::AccountDevice {
+                verification_method,
+                ..
+            }
+            | Self::Agent {
+                verification_method,
+                ..
+            } => verification_method,
+        }
+    }
+
+    fn device_id(&self) -> Option<&DeviceId> {
+        match self {
+            Self::AccountDevice { device_id, .. } => Some(device_id),
+            Self::Agent { .. } => None,
+        }
+    }
+}
+
+impl HistoricalSignerKeyQuerySender {
+    fn actor(&self) -> &ActorId {
+        match self {
+            Self::AccountDevice { actor, .. } | Self::Agent { actor, .. } => actor,
+        }
+    }
+
+    fn verification_method(&self) -> &DidUrl {
+        match self {
+            Self::AccountDevice {
+                verification_method,
+                ..
+            }
+            | Self::Agent {
+                verification_method,
+                ..
+            } => verification_method,
+        }
+    }
+
+    fn device_id(&self) -> Option<&DeviceId> {
+        match self {
+            Self::AccountDevice { device_id, .. } => Some(device_id),
+            Self::Agent { .. } => None,
+        }
+    }
+
+    fn committed_event_ref(&self) -> &CommittedEventRef {
+        match self {
+            Self::AccountDevice {
+                committed_event_ref,
+                ..
+            }
+            | Self::Agent {
+                committed_event_ref,
+                ..
+            } => committed_event_ref,
+        }
     }
 }
 
@@ -262,16 +333,22 @@ impl ResolvedSignerKey {
 
 /// One answer to one exact selector.
 ///
-/// `resolved` carries key material and `unavailable` carries none; the status
-/// and the presence of a key are the same fact, so a resolved answer without a
-/// key is not representable.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+/// `resolved` carries key material and `unavailable` carries none. Historical
+/// resolved answers additionally carry the authorization-effective
+/// `accepted_at`; current answers cannot carry that member. The enum therefore
+/// mirrors the schema's closed outcome branches instead of treating the time as
+/// a nullable or reusable current-result field.
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 pub enum SignerKeyQueryResult {
-    Resolved {
+    CurrentResolved {
         selector: SignerKeyQuerySelector,
         key: ResolvedSignerKey,
+    },
+    HistoricalResolved {
+        selector: SignerKeyQuerySelector,
+        key: ResolvedSignerKey,
+        accepted_at: DateTime<Utc>,
     },
     /// The Station holds no answer it may give for this exact selector.
     ///
@@ -284,14 +361,24 @@ pub enum SignerKeyQueryResult {
 impl SignerKeyQueryResult {
     pub fn selector(&self) -> &SignerKeyQuerySelector {
         match self {
-            Self::Resolved { selector, .. } | Self::Unavailable { selector } => selector,
+            Self::CurrentResolved { selector, .. }
+            | Self::HistoricalResolved { selector, .. }
+            | Self::Unavailable { selector } => selector,
         }
     }
 
     pub fn key(&self) -> Option<&ResolvedSignerKey> {
         match self {
-            Self::Resolved { key, .. } => Some(key),
+            Self::CurrentResolved { key, .. } | Self::HistoricalResolved { key, .. } => Some(key),
             Self::Unavailable { .. } => None,
+        }
+    }
+
+    /// Effective time of a historical authorization fact.
+    pub fn accepted_at(&self) -> Option<DateTime<Utc>> {
+        match self {
+            Self::HistoricalResolved { accepted_at, .. } => Some(*accepted_at),
+            Self::CurrentResolved { .. } | Self::Unavailable { .. } => None,
         }
     }
 
@@ -299,8 +386,173 @@ impl SignerKeyQueryResult {
         validate_self_signer_bytes(self, SELF_SIGNER_RESULT_MAX_BYTES, false)?;
         self.selector().validate(realm_id)?;
         match self {
-            Self::Resolved { selector, key } => key.validate_for_selector(selector, realm_id),
+            Self::CurrentResolved { selector, key } => {
+                if selector.is_historical() {
+                    return Err(self_signer_error(
+                        ErrorCode::SchemaViolation,
+                        "current signer-key result requires a current_admission selector",
+                    ));
+                }
+                key.validate_for_selector(selector, realm_id)
+            }
+            Self::HistoricalResolved { selector, key, .. } => {
+                if !selector.is_historical() {
+                    return Err(self_signer_error(
+                        ErrorCode::SchemaViolation,
+                        "historical signer-key result requires a historical_event selector",
+                    ));
+                }
+                key.validate_for_selector(selector, realm_id)
+            }
             Self::Unavailable { .. } => Ok(()),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SignerKeyQueryStatus {
+    Resolved,
+    Unavailable,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SignerKeyQueryResultWire {
+    selector: SignerKeyQuerySelector,
+    status: SignerKeyQueryStatus,
+    #[serde(default)]
+    key: WireField<ResolvedSignerKey>,
+    #[serde(default)]
+    accepted_at: WireField<CanonicalAcceptedAt>,
+}
+
+/// Distinguish an absent member from an explicit JSON `null`. Every optional
+/// member in the schema is optional-by-absence; `null` is never an alias.
+enum WireField<T> {
+    Missing,
+    Present(T),
+}
+
+impl<T> Default for WireField<T> {
+    fn default() -> Self {
+        Self::Missing
+    }
+}
+
+impl<'de, T> Deserialize<'de> for WireField<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        T::deserialize(deserializer).map(Self::Present)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct CanonicalAcceptedAt(
+    #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")] DateTime<Utc>,
+);
+
+#[derive(Serialize)]
+struct SignerKeyQueryResultWireRef<'a> {
+    selector: &'a SignerKeyQuerySelector,
+    status: SignerKeyQueryStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    key: Option<&'a ResolvedSignerKey>,
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        with = "arkret_canonical::serde_helpers::optional_canonical_timestamp"
+    )]
+    accepted_at: Option<DateTime<Utc>>,
+}
+
+impl Serialize for SignerKeyQueryResult {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let wire = match self {
+            Self::CurrentResolved { selector, key } => {
+                if selector.is_historical() {
+                    return Err(serde::ser::Error::custom(
+                        "current signer-key result requires a current_admission selector",
+                    ));
+                }
+                SignerKeyQueryResultWireRef {
+                    selector,
+                    status: SignerKeyQueryStatus::Resolved,
+                    key: Some(key),
+                    accepted_at: None,
+                }
+            }
+            Self::HistoricalResolved {
+                selector,
+                key,
+                accepted_at,
+            } => {
+                if !selector.is_historical() {
+                    return Err(serde::ser::Error::custom(
+                        "historical signer-key result requires a historical_event selector",
+                    ));
+                }
+                SignerKeyQueryResultWireRef {
+                    selector,
+                    status: SignerKeyQueryStatus::Resolved,
+                    key: Some(key),
+                    accepted_at: Some(*accepted_at),
+                }
+            }
+            Self::Unavailable { selector } => SignerKeyQueryResultWireRef {
+                selector,
+                status: SignerKeyQueryStatus::Unavailable,
+                key: None,
+                accepted_at: None,
+            },
+        };
+        wire.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for SignerKeyQueryResult {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = SignerKeyQueryResultWire::deserialize(deserializer)?;
+        match (wire.status, wire.key, wire.accepted_at) {
+            (SignerKeyQueryStatus::Resolved, WireField::Present(key), WireField::Missing)
+                if !wire.selector.is_historical() =>
+            {
+                Ok(Self::CurrentResolved {
+                    selector: wire.selector,
+                    key,
+                })
+            }
+            (
+                SignerKeyQueryStatus::Resolved,
+                WireField::Present(key),
+                WireField::Present(CanonicalAcceptedAt(accepted_at)),
+            ) if wire.selector.is_historical() => Ok(Self::HistoricalResolved {
+                selector: wire.selector,
+                key,
+                accepted_at,
+            }),
+            (SignerKeyQueryStatus::Unavailable, WireField::Missing, WireField::Missing) => {
+                Ok(Self::Unavailable {
+                    selector: wire.selector,
+                })
+            }
+            (SignerKeyQueryStatus::Resolved, _, _) => Err(serde::de::Error::custom(
+                "resolved signer-key result has fields inconsistent with verification_mode",
+            )),
+            (SignerKeyQueryStatus::Unavailable, _, _) => Err(serde::de::Error::custom(
+                "unavailable signer-key result must not carry key or accepted_at",
+            )),
         }
     }
 }
@@ -425,25 +677,34 @@ mod tests {
     }
 
     fn device_selector() -> SignerKeyQuerySelector {
-        SignerKeyQuerySelector::CurrentAccountDevice {
-            actor: actor(),
-            device_id: DeviceId::new(DEVICE).unwrap(),
-            verification_method: DidUrl::new(METHOD).unwrap(),
+        SignerKeyQuerySelector::CurrentAdmission {
+            sender: CurrentSignerKeyQuerySender::AccountDevice {
+                actor: actor(),
+                device_id: DeviceId::new(DEVICE).unwrap(),
+                verification_method: DidUrl::new(METHOD).unwrap(),
+            },
         }
     }
 
     fn historical_agent_selector(reference: CommittedEventRef) -> SignerKeyQuerySelector {
-        SignerKeyQuerySelector::HistoricalAgent {
-            actor: actor(),
-            verification_method: DidUrl::new(METHOD).unwrap(),
-            committed_event_ref: reference,
+        SignerKeyQuerySelector::HistoricalEvent {
+            sender: HistoricalSignerKeyQuerySender::Agent {
+                actor: actor(),
+                verification_method: DidUrl::new(METHOD).unwrap(),
+                committed_event_ref: reference,
+            },
         }
+    }
+
+    fn accepted_at() -> DateTime<Utc> {
+        "2026-09-20T00:00:00.000Z".parse().unwrap()
     }
 
     #[test]
     fn a_device_selector_without_its_device_id_is_not_representable() {
         let value = json!({
-            "selector_kind": "current_account_device",
+            "verification_mode": "current_admission",
+            "sender_kind": "account_device",
             "actor": actor(),
             "verification_method": METHOD,
         });
@@ -453,7 +714,8 @@ mod tests {
     #[test]
     fn an_agent_selector_carrying_a_device_id_is_not_representable() {
         let value = json!({
-            "selector_kind": "current_agent",
+            "verification_mode": "current_admission",
+            "sender_kind": "agent",
             "actor": actor(),
             "device_id": DEVICE,
             "verification_method": METHOD,
@@ -464,12 +726,29 @@ mod tests {
     #[test]
     fn a_historical_selector_without_its_commit_coordinate_is_not_representable() {
         let value = json!({
-            "selector_kind": "historical_agent",
+            "verification_mode": "historical_event",
+            "sender_kind": "agent",
             "actor": actor(),
             "verification_method": METHOD,
             "event_id": "ak:event:sha256:00",
         });
         assert!(serde_json::from_value::<SignerKeyQuerySelector>(value).is_err());
+    }
+
+    #[test]
+    fn selector_wire_uses_the_two_registered_axes_and_rejects_the_old_tag() {
+        let value = serde_json::to_value(device_selector()).unwrap();
+        assert_eq!(value["verification_mode"], "current_admission");
+        assert_eq!(value["sender_kind"], "account_device");
+        assert!(value.get("selector_kind").is_none());
+
+        let old = json!({
+            "selector_kind": "current_account_device",
+            "actor": actor(),
+            "device_id": DEVICE,
+            "verification_method": METHOD,
+        });
+        assert!(serde_json::from_value::<SignerKeyQuerySelector>(old).is_err());
     }
 
     #[test]
@@ -486,6 +765,51 @@ mod tests {
     }
 
     #[test]
+    fn historical_resolved_result_requires_only_its_registered_timestamp_shape() {
+        let selector = historical_agent_selector(committed_ref(12, 0x11));
+        let key = resolved_key(committed_ref(7, 0x22), 15);
+        let value = json!({
+            "selector": selector,
+            "status": "resolved",
+            "key": key,
+            "accepted_at": "2026-09-20T00:00:00.000Z",
+        });
+        let result: SignerKeyQueryResult = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(result).unwrap(), value);
+
+        let mut missing = value.clone();
+        missing.as_object_mut().unwrap().remove("accepted_at");
+        assert!(serde_json::from_value::<SignerKeyQueryResult>(missing).is_err());
+
+        let mut noncanonical = value;
+        noncanonical["accepted_at"] = json!("2026-09-20T00:00:00Z");
+        assert!(serde_json::from_value::<SignerKeyQueryResult>(noncanonical).is_err());
+
+        let explicit_null = json!({
+            "selector": historical_agent_selector(committed_ref(12, 0x11)),
+            "status": "resolved",
+            "key": resolved_key(committed_ref(7, 0x22), 15),
+            "accepted_at": null,
+        });
+        assert!(serde_json::from_value::<SignerKeyQueryResult>(explicit_null).is_err());
+
+        let current_with_timestamp = json!({
+            "selector": device_selector(),
+            "status": "resolved",
+            "key": resolved_key(committed_ref(7, 0x22), 15),
+            "accepted_at": "2026-09-20T00:00:00.000Z",
+        });
+        assert!(serde_json::from_value::<SignerKeyQueryResult>(current_with_timestamp).is_err());
+
+        let unavailable_with_null_key = json!({
+            "selector": device_selector(),
+            "status": "unavailable",
+            "key": null,
+        });
+        assert!(serde_json::from_value::<SignerKeyQueryResult>(unavailable_with_null_key).is_err());
+    }
+
+    #[test]
     fn a_resolved_key_requires_its_verified_governance_generation() {
         let mut value = serde_json::to_value(resolved_key(committed_ref(7, 0x22), 15)).unwrap();
         value
@@ -499,9 +823,10 @@ mod tests {
     fn historical_target_and_authorization_are_independent_complete_coordinates() {
         let target = committed_ref(12, 0x11);
         let authorization = committed_ref(7, 0x22);
-        let result = SignerKeyQueryResult::Resolved {
+        let result = SignerKeyQueryResult::HistoricalResolved {
             selector: historical_agent_selector(target),
             key: resolved_key(authorization, 15),
+            accepted_at: accepted_at(),
         };
         result
             .validate(&realm_id())
@@ -516,9 +841,10 @@ mod tests {
         foreign_target.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm.clone(),
         };
-        let target_error = SignerKeyQueryResult::Resolved {
+        let target_error = SignerKeyQueryResult::HistoricalResolved {
             selector: historical_agent_selector(foreign_target),
             key: resolved_key(committed_ref(7, 0x22), 15),
+            accepted_at: accepted_at(),
         }
         .validate(&realm_id())
         .expect_err("a target coordinate from another Realm must fail closed");
@@ -528,9 +854,10 @@ mod tests {
         foreign_authorization.stream_ref = CommitStreamRef::Realm {
             realm_id: foreign_realm,
         };
-        let authorization_error = SignerKeyQueryResult::Resolved {
+        let authorization_error = SignerKeyQueryResult::HistoricalResolved {
             selector: historical_agent_selector(committed_ref(12, 0x11)),
             key: resolved_key(foreign_authorization, 15),
+            accepted_at: accepted_at(),
         }
         .validate(&realm_id())
         .expect_err("an authorization coordinate from another Realm must fail closed");

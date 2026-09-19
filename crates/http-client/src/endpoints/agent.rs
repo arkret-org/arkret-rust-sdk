@@ -34,6 +34,9 @@ impl Client {
     /// key is currently admitted for a sender, and which key signed one exact
     /// locally accepted historical Event. Device and Agent senders share it, so
     /// a caller no longer has to know which of two operations to reach for.
+    /// Selectors carry the independent `verification_mode` and `sender_kind`
+    /// discriminators; a resolved historical result additionally requires its
+    /// canonical `accepted_at` authorization-effective time.
     ///
     /// The result is not portable evidence and not a reusable current grant: a
     /// `unavailable` answer means only that this Station cannot answer that
@@ -224,6 +227,7 @@ fn agent_path_component(value: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn agent_path_component_percent_encodes_did_and_grant_id() {
@@ -265,5 +269,74 @@ mod tests {
         .unwrap_err();
 
         assert!(error.to_string().contains("has_more"));
+    }
+
+    #[test]
+    fn formal_historical_signer_key_response_decodes_for_the_client() {
+        let outcome: SignerKeysQueryOutcome = serde_json::from_value(json!({
+            "request_id": "ak:request:01904100-0000-7000-8000-000000000001",
+            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5",
+            "recipient_account_id": {
+                "principal_id": "ak:did_core:web:recipient.example",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "results": [{
+                "selector": {
+                    "verification_mode": "historical_event",
+                    "sender_kind": "agent",
+                    "actor": {
+                        "kind": "account",
+                        "account_id": {
+                            "principal_id": "ak:did_core:web:agent.example",
+                            "station_id": "ak:did_core:web:station.example"
+                        }
+                    },
+                    "verification_method": "did:web:agent.example#runtime-1",
+                    "committed_event_ref": {
+                        "event_id": "ak:event:ARTzU1T6HTPffn8VGBicK6XWx4KIC4PXvv0NX-EMSj4G",
+                        "commit_id": "ak:realm_commit:ARNRmzDi2r78zveOLmoHOb6AephFMwVuGE1fwXmCoeo4",
+                        "stream_ref": {
+                            "kind": "realm",
+                            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+                        },
+                        "stream_position": 12
+                    }
+                },
+                "status": "resolved",
+                "key": {
+                    "public_key_b64u": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                    "authorization_ref": {
+                        "event_id": "ak:event:Aao964Xuq1Q7PmnLt9I97ih00Qs2N6qMkBgKgYCvUFFe",
+                        "commit_id": "ak:realm_commit:AdA0TA9zF1BPiudM7qe4WqKZLjMn0r7--gKAHqstAWDZ",
+                        "stream_ref": {
+                            "kind": "realm",
+                            "realm_id": "ak:realm:Ac1aCK8aQdnkYImvdH3DFjq4jDCP198pXYWCGzGuVyj5"
+                        },
+                        "stream_position": 7
+                    },
+                    "revision": {
+                        "commit_id": "ak:realm_commit:AQPhm6Di_JMyu-JM932ww_EvyQU0dIIEO2ykFmYb9nD5",
+                        "stream_position": 15
+                    },
+                    "governance_generation": 4
+                },
+                "accepted_at": "2026-09-20T00:00:00.000Z"
+            }]
+        }))
+        .expect("the formal Station response must decode before endpoint validation");
+
+        assert_eq!(outcome.results.len(), 1);
+        assert!(outcome.results[0].selector().is_historical());
+        assert!(outcome.results[0].accepted_at().is_some());
+
+        let request = SignerKeysQueryRequestBody {
+            request_id: outcome.request_id.clone(),
+            realm_id: outcome.realm_id.clone(),
+            recipient_account_id: outcome.recipient_account_id.clone(),
+            queries: vec![outcome.results[0].selector().clone()],
+        };
+        outcome
+            .validate_for_request(&request)
+            .expect("the HTTP client must accept the schema-valid response for its exact request");
     }
 }
