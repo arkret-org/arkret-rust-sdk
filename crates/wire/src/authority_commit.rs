@@ -132,6 +132,7 @@ pub struct DetachedObjectSignature {
     pub sig: Base64UrlString,
 }
 
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DetachedSignatureAlgorithm {
     Ed25519,
