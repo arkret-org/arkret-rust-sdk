@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_canonical::base64url_encode;
 use arkret_models_collaboration::events_payloads::mls_proposal_admission::MlsProposalSenderClass;
-use arkret_wire::{Base64UrlString, DeviceId, DidCoreId, NonEmptyString};
+use arkret_wire::{ActorId, Base64UrlString};
 use openmls::prelude::{
     GroupId, LeafNodeIndex, MlsMessageBodyIn, MlsMessageIn, OpenMlsProvider,
     ProcessedMessageContent, ProposalStore, ProtocolMessage, PublicGroup, RatchetTreeIn, Sender,
@@ -16,18 +16,10 @@ use crate::identity::decode_leaf_credential;
 use crate::{MlsError as Error, Result};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum MlsPublicLeafEndpointCredential {
-    HumanDevice { device_id: DeviceId },
-    Actor { actor_id: DidCoreId },
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MlsPublicEndpointLeaf {
     pub leaf_index: u32,
-    pub endpoint_credential: MlsPublicLeafEndpointCredential,
-    pub credential_ref: NonEmptyString,
+    pub actor_id: ActorId,
     pub signature_key: Base64UrlString,
 }
 
@@ -112,19 +104,10 @@ fn public_leaves(public_group: &PublicGroup) -> Result<Vec<MlsPublicEndpointLeaf
     let mut leaves = public_group
         .members()
         .map(|member| {
-            let credential_ref = decode_leaf_credential(member.credential.serialized_content())?;
-            let endpoint_credential = if let Ok(device_id) = DeviceId::new(credential_ref.as_str())
-            {
-                MlsPublicLeafEndpointCredential::HumanDevice { device_id }
-            } else {
-                MlsPublicLeafEndpointCredential::Actor {
-                    actor_id: DidCoreId::new(credential_ref.as_str().to_owned())?,
-                }
-            };
+            let actor_id = decode_leaf_credential(member.credential.serialized_content())?;
             Ok(MlsPublicEndpointLeaf {
                 leaf_index: member.index.u32(),
-                endpoint_credential,
-                credential_ref,
+                actor_id,
                 signature_key: Base64UrlString::new(base64url_encode(
                     member.signature_key.as_slice(),
                 ))
@@ -456,8 +439,7 @@ impl MlsPublicGroupTracker {
                         && previous_leaves
                             .get(&leaf.leaf_index)
                             .is_some_and(|previous| {
-                                previous.endpoint_credential != leaf.endpoint_credential
-                                    || previous.credential_ref != leaf.credential_ref
+                                previous.actor_id != leaf.actor_id
                                     || previous.signature_key != leaf.signature_key
                             })
                     {

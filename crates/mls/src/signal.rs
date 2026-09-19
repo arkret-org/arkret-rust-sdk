@@ -259,12 +259,8 @@ impl ArkretMlsGroup {
     }
 
     fn verified_signal_sender_domain(&self, binding: &SignalAeadBinding<'_>) -> Result<Vec<u8>> {
-        Ok(self
-            .verified_signal_sender_leaf(binding)?
-            .credential_ref
-            .as_str()
-            .as_bytes()
-            .to_vec())
+        let leaf = self.verified_signal_sender_leaf(binding)?;
+        arkret_models_crypto::mls_basic_credential_identity(&leaf.actor_id).map_err(Into::into)
     }
 
     fn verified_signal_sender_leaf(

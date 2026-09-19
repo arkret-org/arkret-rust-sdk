@@ -8,11 +8,40 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
+    ActorId, DeviceId, Did, DidCoreId, DidUrl, EventId, Hash, MlsGroupId, NonEmptyString, RealmId,
     project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+
+/// Encode the only Arkret v1 RFC 9420 BasicCredential identity.
+///
+/// The credential is the UTF-8 RFC 8785/JCS serialization of the complete
+/// closed [`ActorId`]. Callers must not substitute an endpoint selector,
+/// display string, DID projection, or digest.
+pub fn mls_basic_credential_identity(actor_id: &ActorId) -> arkret_wire::Result<Vec<u8>> {
+    actor_id.validate()?;
+    arkret_canonical::canonical_json_bytes(actor_id)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))
+}
+
+/// Decode and validate an Arkret v1 RFC 9420 BasicCredential identity.
+///
+/// Besides requiring a closed [`ActorId`], this rejects any byte sequence that
+/// is valid JSON but is not already its RFC 8785/JCS representation. A
+/// receiver must validate the exact credential bytes, not normalize an
+/// alternate spelling and then accept it.
+pub fn decode_mls_basic_credential_identity(bytes: &[u8]) -> arkret_wire::Result<ActorId> {
+    let actor_id: ActorId = serde_json::from_slice(bytes)
+        .map_err(|error| arkret_wire::WireError::Protocol(error.to_string()))?;
+    actor_id.validate()?;
+    if mls_basic_credential_identity(&actor_id)?.as_slice() != bytes {
+        return Err(arkret_wire::WireError::Protocol(
+            "MLS BasicCredential identity is not canonical ActorId JCS".to_owned(),
+        ));
+    }
+    Ok(actor_id)
+}
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,7 +135,7 @@ impl MlsEndpointIdentity {
         })
     }
 
-    pub fn actor_id(&self) -> &DidCoreId {
+    pub fn principal_id(&self) -> &DidCoreId {
         match self {
             Self::HumanDevice { principal_id, .. } => principal_id,
             Self::AgentRuntime { agent_id, .. } => agent_id,
@@ -244,7 +273,8 @@ impl RealmPairwiseAuthorState {
             .collect::<Vec<_>>();
         if matching.len() != 1
             || matching[0].basic_credential_identity.as_slice()
-                != self.pairwise_actor_id.as_str().as_bytes()
+                != mls_basic_credential_identity(&ActorId::service(self.pairwise_actor_id.clone()))?
+                    .as_slice()
             || matching[0].signature_key != self.leaf_signature_key
         {
             return Err(arkret_wire::WireError::Protocol(
@@ -277,6 +307,8 @@ pub enum MlsKeyPackageState {
 pub struct MlsKeyPackageRecord {
     /// Globally unique typed identifier (`ak:mls:kp:<uuid>`, RFC 9562 UUIDv7).
     pub keypackage_id: String,
+    /// Complete holder identity carried byte-for-byte by the BasicCredential.
+    pub actor_id: ActorId,
     /// Exact MLS endpoint that owns the BasicCredential and LeafNode key.
     /// Human devices and Agent runtimes are mutually exclusive; callers
     /// must not infer one from the other or synthesize a placeholder device.
@@ -370,12 +402,46 @@ impl LocalMlsKeyPackageInventory {
 
 #[cfg(test)]
 mod tests {
-    use arkret_wire::{DeviceId, DidCoreId, Hash};
+    use arkret_wire::{ActorId, DeviceId, DidCoreId, Hash};
     use chrono::{DateTime, Utc};
 
     use super::{
         MlsEndpointIdentity, MlsGroupStateRecord, MlsKeyPackageRecord, MlsKeyPackageState,
+        decode_mls_basic_credential_identity, mls_basic_credential_identity,
     };
+
+    fn fixture_actor() -> ActorId {
+        ActorId::account(arkret_wire::AccountId::new(
+            DidCoreId::new("ak:did_core:webvh:z6mkkatordinary".to_owned()).unwrap(),
+            DidCoreId::new("ak:did_core:webvh:z6mkfixturestationa".to_owned()).unwrap(),
+        ))
+    }
+
+    #[test]
+    fn basic_credential_is_exact_complete_actor_jcs() {
+        let actor = fixture_actor();
+        let expected = br#"{"account_id":{"principal_id":"ak:did_core:webvh:z6mkkatordinary","station_id":"ak:did_core:webvh:z6mkfixturestationa"},"kind":"account"}"#;
+        assert_eq!(mls_basic_credential_identity(&actor).unwrap(), expected);
+        assert_eq!(
+            decode_mls_basic_credential_identity(expected).unwrap(),
+            actor
+        );
+    }
+
+    #[test]
+    fn basic_credential_rejects_noncanonical_and_projected_identities() {
+        let reordered = br#"{"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkkatordinary","station_id":"ak:did_core:webvh:z6mkfixturestationa"}}"#;
+        let padded = br#" {"account_id":{"principal_id":"ak:did_core:webvh:z6mkkatordinary","station_id":"ak:did_core:webvh:z6mkfixturestationa"},"kind":"account"}"#;
+        for rejected in [
+            reordered.as_slice(),
+            padded.as_slice(),
+            b"ak:did_core:webvh:z6mkkatordinary".as_slice(),
+            b"ak:device:01904100-0000-7000-8000-00000000aa11".as_slice(),
+            b"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".as_slice(),
+        ] {
+            assert!(decode_mls_basic_credential_identity(rejected).is_err());
+        }
+    }
 
     #[test]
     fn keypackage_wire_state_accepts_retired_and_rejects_expired() {
@@ -393,8 +459,13 @@ mod tests {
         let updated_at = DateTime::parse_from_rfc3339("2026-08-25T00:00:00.000Z")
             .unwrap()
             .with_timezone(&Utc);
+        let actor_id = ActorId::account(arkret_wire::AccountId::new(
+            principal_id.clone(),
+            DidCoreId::new("ak:did_core:web:station.example".to_owned()).unwrap(),
+        ));
         let key_package = MlsKeyPackageRecord {
             keypackage_id: "ak:mls:kp:01904100-0000-7000-8000-000000000001".to_owned(),
+            actor_id: actor_id.clone(),
             endpoint: MlsEndpointIdentity::human_device(principal_id.clone(), device_id.clone()),
             keypackage: "AQ".to_owned(),
             keypackage_ref: Hash::new(format!("sha256:{}", "1".repeat(64))).unwrap(),
@@ -409,6 +480,7 @@ mod tests {
         let group = MlsGroupStateRecord {
             group_id: arkret_wire::MlsGroupId::new("QjKOSorlqs3IquY7OikTUTy_Z0mMiL0X2mK4jAOT4R4")
                 .unwrap(),
+            actor_id,
             endpoint: MlsEndpointIdentity::human_device(principal_id, device_id),
             epoch: 1,
             serialized_state: vec![1, 2, 3],
@@ -444,6 +516,7 @@ mod tests {
 #[serde(deny_unknown_fields)]
 pub struct MlsGroupStateRecord {
     pub group_id: MlsGroupId,
+    pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
     pub epoch: u64,
     pub serialized_state: Vec<u8>,
@@ -458,6 +531,7 @@ impl std::fmt::Debug for MlsGroupStateRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MlsGroupStateRecord")
             .field("group_id", &self.group_id)
+            .field("actor_id", &self.actor_id)
             .field("endpoint", &self.endpoint)
             .field("epoch", &self.epoch)
             .field(

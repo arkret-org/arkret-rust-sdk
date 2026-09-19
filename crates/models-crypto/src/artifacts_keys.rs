@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use arkret_wire::{
-    AccountId, Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash, NonEmptyString,
-    ReasonCode, Result, WireError, XExtensionMap,
+    AccountId, ActorId, Base64UrlString, DeviceId, DidCoreId, DidUrl, EventId, Hash,
+    NonEmptyString, ReasonCode, Result, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -105,6 +105,7 @@ pub struct Failure {
 pub struct KeyPackageClaimRecord {
     pub claim_id: String,
     pub keypackage_ref: String,
+    pub actor_id: ActorId,
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -133,6 +134,7 @@ pub struct KeyPackageClaimRecord {
 struct KeyPackageClaimRecordWire {
     claim_id: String,
     keypackage_ref: String,
+    actor_id: ActorId,
     principal_id: DidCoreId,
     #[serde(default)]
     device_id: Option<DeviceId>,
@@ -165,6 +167,7 @@ impl<'de> Deserialize<'de> for KeyPackageClaimRecord {
         let record = Self {
             claim_id: wire.claim_id,
             keypackage_ref: wire.keypackage_ref,
+            actor_id: wire.actor_id,
             principal_id: wire.principal_id,
             device_id: wire.device_id,
             agent_id: wire.agent_id,
@@ -191,6 +194,15 @@ impl KeyPackageClaimRecord {
         }
         NonEmptyString::new(self.keypackage_ref.clone())?;
         Base64UrlString::new(self.keypackage.clone())?;
+        self.actor_id
+            .validate()
+            .map_err(|_| "KeyPackage claim actor_id is invalid")?;
+        let Some(account_id) = self.actor_id.as_account_id() else {
+            return Err("KeyPackage claim actor_id must be an account ActorId");
+        };
+        if account_id.principal_id != self.principal_id {
+            return Err("KeyPackage claim actor_id principal differs from principal_id");
+        }
         let capabilities = self.capabilities.iter().collect::<BTreeSet<_>>();
         if capabilities.is_empty()
             || capabilities.len() != self.capabilities.len()

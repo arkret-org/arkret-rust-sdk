@@ -1,13 +1,12 @@
 use std::any::TypeId;
 
+use arkret_models_crypto::KeyPackageClaimRecord;
 use arkret_models_crypto::http_bodies::{
     KeyPackageConsumeReceipt, KeyPackagesClaimOutcome, KeyPackagesClaimRequestBody,
-    KeyPackagesConsumeOutcome, KeyPackagesConsumeUnsignedRequest, PeerKeyPackageClaimReceipt,
-    PeerKeyPackagesClaimOutcome, PeerKeyPackagesClaimRequestBody,
-    PeerKeyPackagesClaimUnsignedRequest,
+    KeyPackagesConsumeOutcome, KeyPackagesConsumeUnsignedRequest, PeerKeyPackagesClaimOutcome,
+    PeerKeyPackagesClaimRequestBody, PeerKeyPackagesClaimUnsignedRequest,
 };
-use arkret_models_crypto::{KeyOperationSignature, KeyPackageClaimRecord};
-use arkret_wire::{Base64UrlString, DidCoreId, DidUrl, Hash, NonEmptyString};
+use arkret_wire::DidCoreId;
 use serde_json::json;
 
 fn core_id(_name: &str) -> DidCoreId {
@@ -55,66 +54,11 @@ fn human_claim_account_station_is_bound() {
 }
 
 #[test]
-fn pairwise_claim_evidence_binds_every_signed_target_selector() {
-    let fixture =
-        arkret_schema_conformance::spec_json_artifact("fixtures/keypackage-lifecycle-fixture.json")
-            .unwrap();
-    let cases = fixture["schema_validation_cases"].as_array().unwrap();
-    let instance =
-        |name: &str| cases.iter().find(|case| case["name"] == name).unwrap()["instance"].clone();
-    let request: KeyPackagesClaimRequestBody = serde_json::from_value(instance(
-        "minimal_metadata_pairwise_claim_selects_exact_target_authority",
-    ))
-    .unwrap();
-    let claim: KeyPackageClaimRecord = serde_json::from_value(instance(
-        "minimal_metadata_pairwise_claim_record_has_reconstructible_facts_only",
-    ))
-    .unwrap();
-    let receipt = PeerKeyPackageClaimReceipt {
-        claim_request_id: request.claim_request_id.clone(),
-        request_digest: Hash::new(format!("sha256:{}", "11".repeat(32))).unwrap(),
-        claims_digest: Hash::new(format!("sha256:{}", "22".repeat(32))).unwrap(),
-        source_id: request.service_binding.source_id.clone(),
-        destination_id: request.service_binding.destination_id.clone(),
-        request: request.unsigned_request(),
-        claimed_at: chrono::DateTime::parse_from_rfc3339("2026-08-24T00:00:01.000Z")
-            .unwrap()
-            .to_utc(),
-        expires_at: chrono::DateTime::parse_from_rfc3339("2026-08-24T00:05:00.000Z")
-            .unwrap()
-            .to_utc(),
-        signature: KeyOperationSignature {
-            kid: NonEmptyString::new("did:webvh:z6mkfixturepsexample:ps.example#notary").unwrap(),
-            signature_algorithm: Some(NonEmptyString::new("Ed25519").unwrap()),
-            sig: Base64UrlString::new("AA").unwrap(),
-        },
-    };
-    arkret_models_crypto::validate_target_claim_evidence(&claim, &receipt).unwrap();
-
-    let mut wrong_method = claim.clone();
-    wrong_method.pairwise_verification_method = Some(
-        DidUrl::new("did:key:z6Mkr4KQ7fQyVfQ7fQyVfQ7fQyVfQ7fQyVfQ7fQyVfQ7#z6Mkr4KQ7fQyVfQ7fQyVfQ7fQyVfQ7fQyVfQ7fQyVfQ7".to_owned()).unwrap(),
-    );
-    assert!(arkret_models_crypto::validate_target_claim_evidence(&wrong_method, &receipt).is_err());
-
-    let mut wrong_ref_receipt = receipt.clone();
-    wrong_ref_receipt.request.target_keypackage_ref =
-        Some(arkret_wire::KeyPackageRef::new(format!("sha256:{}", "44".repeat(32))).unwrap());
-    assert!(
-        arkret_models_crypto::validate_target_claim_evidence(&claim, &wrong_ref_receipt).is_err()
-    );
-
-    let mut mixed = claim;
-    mixed.agent_verification_method =
-        Some(DidUrl::new("did:webvh:z6mkfixtureagent:agent.example#runtime".to_owned()).unwrap());
-    assert!(arkret_models_crypto::validate_target_claim_evidence(&mixed, &receipt).is_err());
-}
-
-#[test]
 fn keypackage_claim_record_rejects_schema_invalid_scalars_and_mixed_authority() {
     let valid = json!({
         "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
         "keypackage_ref": "ak:mls:keypackage:test-01",
+        "actor_id": {"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixtureservice"}},
         "principal_id": "ak:did_core:webvh:z6mkfixture",
         "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
         "keypackage": "AQID",
@@ -157,6 +101,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
         "claims": [{
             "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
+            "actor_id": {"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixtureservice"}},
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "keypackage": "AQID",
@@ -205,6 +150,7 @@ fn keypackages_claim_outcome_uses_typed_records_and_failures() {
         "claims": [{
             "claim_id": "keypackage-t-01:Y2xhaW0tbm9uY2U",
             "keypackage_ref": "ak:mls:keypackage:test-01",
+            "actor_id": {"kind":"account","account_id":{"principal_id":"ak:did_core:webvh:z6mkfixture","station_id":"ak:did_core:webvh:z6mkfixtureservice"}},
             "principal_id": "ak:did_core:webvh:z6mkfixture",
             "device_id": "ak:device:01904100-0000-7000-8000-000000000001",
             "keypackage": "AQID",

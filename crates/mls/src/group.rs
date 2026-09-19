@@ -271,7 +271,6 @@ pub struct MlsVerifiedLeafBinding {
     /// Full accepted member identity; the endpoint is only signing evidence.
     pub actor_id: ActorId,
     pub endpoint: MlsEndpointIdentity,
-    pub credential_ref: arkret_wire::NonEmptyString,
     pub signature_key: Base64UrlString,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_authorize_event_id: Option<EventId>,
@@ -294,6 +293,7 @@ struct OpenMlsStateSnapshot {
     /// `group_id` would bring it back.
     scope: ScopeRef,
     epoch: u64,
+    actor_id: ActorId,
     endpoint: MlsEndpointIdentity,
     profile: ArkretMlsIdentityProfile,
     signer_public_key: String,
@@ -311,25 +311,6 @@ struct OpenMlsStateSnapshot {
 
 fn is_zero_u64(value: &u64) -> bool {
     *value == 0
-}
-
-/// Explicit test-only identities. Production callers must supply the accepted
-/// membership ActorId and must never infer its Station from signing evidence.
-#[cfg(any(test, feature = "test-utils"))]
-pub(crate) fn test_actor_for_endpoint(endpoint: &MlsEndpointIdentity) -> ActorId {
-    let station =
-        DidCoreId::new("ak:did_core:web:mls-fixture-station.example").expect("fixture Station");
-    match endpoint {
-        MlsEndpointIdentity::HumanDevice { principal_id, .. } => {
-            ActorId::account(arkret_wire::AccountId::new(principal_id.clone(), station))
-        }
-        MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
-            ActorId::account(arkret_wire::AccountId::new(agent_id.clone(), station))
-        }
-        MlsEndpointIdentity::MinimalMetadataPairwise {
-            pairwise_actor_id, ..
-        } => ActorId::service(pairwise_actor_id.clone()),
-    }
 }
 
 impl ArkretMlsGroup {
@@ -373,28 +354,33 @@ impl ArkretMlsGroup {
                 ));
             }
             binding.actor_id.validate()?;
-            if binding.endpoint.actor_id() != binding.actor_id.signing_principal_id() {
+            if binding.endpoint.principal_id() != binding.actor_id.signing_principal_id() {
                 return Err(Error::Protocol(
                     "verified MLS binding principal differs from endpoint actor".to_owned(),
                 ));
             }
-            let expected_credential = match &binding.endpoint {
-                MlsEndpointIdentity::HumanDevice { device_id, .. } => {
+            match &binding.endpoint {
+                MlsEndpointIdentity::HumanDevice { .. } => {
                     if binding.device_authorize_event_id.is_none() {
                         return Err(Error::Protocol(
                             "ordinary MLS leaf binding omits device authorization Event".to_owned(),
                         ));
                     }
-                    device_id.as_str()
                 }
-                MlsEndpointIdentity::AgentRuntime { agent_id, .. } => agent_id.as_str(),
+                MlsEndpointIdentity::AgentRuntime { .. } => {}
                 MlsEndpointIdentity::MinimalMetadataPairwise {
                     pairwise_actor_id, ..
-                } => pairwise_actor_id.as_str(),
-            };
-            if binding.credential_ref.as_str() != expected_credential
-                || member.credential.serialized_content() != expected_credential.as_bytes()
-            {
+                } if matches!(&binding.actor_id, ActorId::Service { service_id } if service_id == pairwise_actor_id) =>
+                    {}
+                MlsEndpointIdentity::MinimalMetadataPairwise { .. } => {
+                    return Err(Error::Protocol(
+                        "pairwise MLS endpoint requires the exact service ActorId".to_owned(),
+                    ));
+                }
+            }
+            let expected_credential =
+                arkret_models_crypto::mls_basic_credential_identity(&binding.actor_id)?;
+            if member.credential.serialized_content() != expected_credential.as_slice() {
                 return Err(Error::Protocol(
                     "verified MLS binding credential differs from the occupied leaf".to_owned(),
                 ));
@@ -423,19 +409,20 @@ impl ArkretMlsGroup {
             ));
         }
         let member = &members[0];
-        let credential_ref = arkret_wire::NonEmptyString::new(
-            std::str::from_utf8(member.credential.serialized_content())
-                .map_err(|_| Error::Protocol("creator credential is not UTF-8".to_owned()))?
-                .to_owned(),
-        )
-        .map_err(|error| Error::Protocol(error.to_owned()))?;
+        let credential_actor_id = arkret_models_crypto::decode_mls_basic_credential_identity(
+            member.credential.serialized_content(),
+        )?;
+        if credential_actor_id != actor_id {
+            return Err(Error::Protocol(
+                "creator BasicCredential differs from the supplied ActorId".to_owned(),
+            ));
+        }
         let signature_key = Base64UrlString::new(base64url_encode(member.signature_key.as_slice()))
             .map_err(|error| Error::Protocol(error.to_owned()))?;
         self.install_verified_leaf_bindings(vec![MlsVerifiedLeafBinding {
             leaf_index: 0,
             actor_id,
             endpoint: self.identity.endpoint.clone(),
-            credential_ref,
             signature_key,
             device_authorize_event_id,
         }])
@@ -455,28 +442,24 @@ impl ArkretMlsGroup {
                     "test MLS leaf is not BasicCredential".to_owned(),
                 ));
             };
+            let actor_id = arkret_models_crypto::decode_mls_basic_credential_identity(&identity)?;
             let position = remaining
                 .iter()
                 .position(|endpoint| match endpoint {
-                    MlsEndpointIdentity::HumanDevice { device_id, .. } => {
-                        identity.as_slice() == device_id.as_str().as_bytes()
+                    MlsEndpointIdentity::HumanDevice { principal_id, .. } => {
+                        actor_id.signing_principal_id() == principal_id
                     }
                     MlsEndpointIdentity::AgentRuntime { agent_id, .. } => {
-                        identity.as_slice() == agent_id.as_str().as_bytes()
+                        actor_id.signing_principal_id() == agent_id
                     }
                     MlsEndpointIdentity::MinimalMetadataPairwise {
                         pairwise_actor_id, ..
-                    } => identity.as_slice() == pairwise_actor_id.as_str().as_bytes(),
+                    } => matches!(&actor_id, ActorId::Service { service_id } if service_id == pairwise_actor_id),
                 })
                 .ok_or_else(|| {
                     Error::Protocol("test MLS endpoint does not match a leaf".to_owned())
                 })?;
             let endpoint = remaining.remove(position);
-            let credential_ref = arkret_wire::NonEmptyString::new(
-                String::from_utf8(identity)
-                    .map_err(|_| Error::Protocol("test MLS credential is not UTF-8".to_owned()))?,
-            )
-            .map_err(|error| Error::Protocol(error.to_owned()))?;
             let device_authorize_event_id =
                 matches!(endpoint, MlsEndpointIdentity::HumanDevice { .. }).then(|| {
                     EventId::new("ak:event:ASeIBHNVQyeIcU4aBIt2t2BF_ikuVMH0kNru_HgO_gG1".to_owned())
@@ -484,9 +467,8 @@ impl ArkretMlsGroup {
                 });
             bindings.push(MlsVerifiedLeafBinding {
                 leaf_index: leaf.leaf_index,
-                actor_id: test_actor_for_endpoint(&endpoint),
+                actor_id,
                 endpoint,
-                credential_ref,
                 signature_key: Base64UrlString::new(base64url_encode(&leaf.signature_key))
                     .map_err(|error| Error::Protocol(error.to_owned()))?,
                 device_authorize_event_id,
@@ -521,7 +503,9 @@ impl ArkretMlsGroup {
             let Some(member) = members.get(&binding.leaf_index) else {
                 continue;
             };
-            if member.credential.serialized_content() != binding.credential_ref.as_bytes()
+            if member.credential.serialized_content()
+                != arkret_models_crypto::mls_basic_credential_identity(&binding.actor_id)?
+                    .as_slice()
                 || member.signature_key.as_slice()
                     != base64url_decode(binding.signature_key.as_str())?.as_slice()
             {
@@ -806,6 +790,7 @@ impl ArkretMlsGroup {
             group_id: self.group_id.clone(),
             scope: self.scope.clone(),
             epoch: self.epoch(),
+            actor_id: self.identity.actor_id.clone(),
             endpoint: self.identity.endpoint.clone(),
             profile: self.identity.profile().clone(),
             signer_public_key: encode(self.identity.signer.public()),
@@ -815,6 +800,7 @@ impl ArkretMlsGroup {
         };
         Ok(MlsGroupStateRecord {
             group_id: snapshot.group_id.clone(),
+            actor_id: snapshot.actor_id.clone(),
             endpoint: snapshot.endpoint.clone(),
             epoch: snapshot.epoch,
             serialized_state: serde_json::to_vec(&snapshot)?,
@@ -837,6 +823,7 @@ impl ArkretMlsGroup {
         }
         if snapshot.group_id != record.group_id
             || snapshot.epoch != record.epoch
+            || snapshot.actor_id != record.actor_id
             || snapshot.endpoint != record.endpoint
         {
             return Err(Error::Protocol(
@@ -864,7 +851,7 @@ impl ArkretMlsGroup {
         .ok_or_else(|| Error::Protocol("OpenMLS signer is missing from snapshot".to_owned()))?;
         snapshot.profile.validate_signer(signer.public())?;
         let credential = CredentialWithKey {
-            credential: BasicCredential::new(snapshot.profile.credential_bytes(&record.endpoint))
+            credential: BasicCredential::new(snapshot.profile.credential_bytes(&record.actor_id)?)
                 .into(),
             signature_key: signer.public().into(),
         };
@@ -887,6 +874,7 @@ impl ArkretMlsGroup {
         let bindings = snapshot.leaf_bindings;
         let mut restored = Self {
             identity: ArkretMlsIdentity {
+                actor_id: record.actor_id.clone(),
                 endpoint: record.endpoint.clone(),
                 profile: snapshot.profile,
                 provider,
@@ -1782,7 +1770,10 @@ mod tests {
 
     fn identity() -> ArkretMlsIdentity {
         ArkretMlsIdentity::new_test_human_device(
-            DidCoreId::new("ak:did_core:web:mls.example").unwrap(),
+            ActorId::account(arkret_wire::AccountId::new(
+                DidCoreId::new("ak:did_core:web:mls.example").unwrap(),
+                DidCoreId::new("ak:did_core:web:mls-fixture-station.example").unwrap(),
+            )),
             DeviceId::new("ak:device:01904100-0000-7000-8000-000000000071").unwrap(),
         )
         .unwrap()
@@ -1794,6 +1785,36 @@ mod tests {
                 "ak:realm:AQdmOQIzsGDs6LjeW5Icy92GXh1n9_6SGgVCJJ_2a3FV",
             )
             .unwrap(),
+        }
+    }
+
+    #[test]
+    fn keypackage_fixture_credentials_decode_to_the_exact_actor() {
+        let fixture = arkret_schema_conformance::spec_json_artifact(
+            "fixtures/mls-keypackage-endpoint-kat-fixture.json",
+        )
+        .unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let keypackage =
+                base64url_decode(case["keypackage"].as_str().unwrap().as_bytes()).unwrap();
+            let leaf = crate::identity::author_leaf_from_key_package_bytes(&keypackage, 0).unwrap();
+            let crate::AuthorLeafCredential::Basic { identity } = leaf.credential else {
+                panic!("fixture KeyPackage must carry BasicCredential");
+            };
+            let actor: ActorId =
+                serde_json::from_value(case["endpoint"]["actor_id"].clone()).unwrap();
+            assert_eq!(
+                arkret_models_crypto::decode_mls_basic_credential_identity(&identity).unwrap(),
+                actor
+            );
+            assert_eq!(
+                identity,
+                base64url_decode(case["leaf_credential"].as_str().unwrap().as_bytes()).unwrap()
+            );
+            assert_eq!(
+                std::str::from_utf8(&identity).unwrap(),
+                case["leaf_credential_jcs"].as_str().unwrap()
+            );
         }
     }
 

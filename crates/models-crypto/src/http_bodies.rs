@@ -7,9 +7,9 @@
 use std::collections::BTreeSet;
 
 use arkret_wire::{
-    AccountId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl, DomainSeparationId,
-    EventId, Hash, KeyPackageRef, MlsGroupId, MlsWelcomeDeliveryId, NonEmptyString, RealmId,
-    StrandId,
+    AccountId, ActorId, AuditReasonText, Base64UrlString, DeviceId, DidCoreId, DidUrl,
+    DomainSeparationId, EventId, Hash, KeyPackageRef, MlsGroupId, MlsWelcomeDeliveryId,
+    NonEmptyString, RealmId, StrandId,
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,7 @@ use crate::mls_records::{MlsEndpointIdentity, MlsKeyPackageRecord};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadRequestBody {
+    pub actor_id: ActorId,
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -59,6 +60,7 @@ pub struct KeyPackagesUploadRequestBody {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KeyPackagesUploadUnsignedRequest {
+    pub actor_id: ActorId,
     pub principal_id: DidCoreId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub device_id: Option<DeviceId>,
@@ -82,6 +84,7 @@ pub struct KeyPackagesUploadUnsignedRequest {
 
 impl KeyPackagesUploadRequestBody {
     pub fn validate_shape(&self) -> Result<(), &'static str> {
+        validate_keypackage_account_actor(&self.actor_id, &self.principal_id)?;
         match (
             &self.device_id,
             &self.pairwise_verification_method,
@@ -110,6 +113,7 @@ impl KeyPackagesUploadRequestBody {
     #[must_use]
     pub fn unsigned(&self) -> KeyPackagesUploadUnsignedRequest {
         KeyPackagesUploadUnsignedRequest {
+            actor_id: self.actor_id.clone(),
             principal_id: self.principal_id.clone(),
             device_id: self.device_id.clone(),
             pairwise_verification_method: self.pairwise_verification_method.clone(),
@@ -126,6 +130,7 @@ impl KeyPackagesUploadRequestBody {
 
 impl KeyPackagesUploadUnsignedRequest {
     pub fn validate_shape(&self) -> Result<(), &'static str> {
+        validate_keypackage_account_actor(&self.actor_id, &self.principal_id)?;
         match (
             &self.device_id,
             &self.pairwise_verification_method,
@@ -152,6 +157,7 @@ impl KeyPackagesUploadUnsignedRequest {
         endpoint_signature: KeyOperationSignature,
     ) -> KeyPackagesUploadRequestBody {
         KeyPackagesUploadRequestBody {
+            actor_id: self.actor_id,
             principal_id: self.principal_id,
             device_id: self.device_id,
             pairwise_verification_method: self.pairwise_verification_method,
@@ -1045,6 +1051,22 @@ fn validate_peer_claim_fields(
 
 fn valid_pairwise_binding(actor_id: &DidCoreId, method: &DidUrl) -> bool {
     MlsEndpointIdentity::minimal_metadata_pairwise(actor_id.clone(), method.clone()).is_ok()
+}
+
+fn validate_keypackage_account_actor(
+    actor_id: &ActorId,
+    principal_id: &DidCoreId,
+) -> Result<(), &'static str> {
+    actor_id
+        .validate()
+        .map_err(|_| "KeyPackage actor_id is invalid")?;
+    let Some(account_id) = actor_id.as_account_id() else {
+        return Err("KeyPackage actor_id must be an account ActorId");
+    };
+    if &account_id.principal_id != principal_id {
+        return Err("KeyPackage actor_id principal differs from principal_id");
+    }
+    Ok(())
 }
 
 fn pairwise_actor_from_method(method: &DidUrl) -> Option<DidCoreId> {
