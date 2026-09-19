@@ -2,7 +2,7 @@
 
 use arkret_models_identity::handle::HandleVisibility;
 use arkret_wire::serde_helpers::{canonical_timestamp, optional_canonical_timestamp};
-use arkret_wire::{AccountId, AuditReasonText, DidCoreId};
+use arkret_wire::{AccountId, AuditReasonText, DeviceId, DidCoreId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -197,6 +197,33 @@ pub struct AgentActionTarget {
     pub account_data_key: Option<String>,
 }
 
+/// One accepted controller device's HPKE delivery of an Agent draft body.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftContentHandoffRecipient {
+    pub recipient_device_id: DeviceId,
+    pub recipient_hpke_key_digest: Hash,
+    pub enc: String,
+    pub ciphertext: String,
+    pub ciphertext_digest: Hash,
+}
+
+/// Closed HPKE handoff carried by `ak.agent.draft.propose`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AgentDraftContentHandoff {
+    pub scheme: AgentDraftContentHandoffScheme,
+    pub recipients: Vec<AgentDraftContentHandoffRecipient>,
+}
+
+/// The sole v1 HPKE suite permitted for Agent draft handoff.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AgentDraftContentHandoffScheme {
+    #[default]
+    #[serde(rename = "ak.hpke_x25519_aead_chacha20poly1305.v1")]
+    V1,
+}
+
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_deactivate_payload`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -221,14 +248,13 @@ pub struct AgentDraftProposePayload {
     pub proposed_action: String,
     pub target: AgentActionTarget,
     pub content_digest: Hash,
+    pub content_handoff: AgentDraftContentHandoff,
     #[serde(with = "canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     #[serde(with = "canonical_timestamp")]
     pub created_at: DateTime<Utc>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub account_data_key: Option<String>,
 }
 /// Counterpart for
 /// `spec/v1/artifacts/schemas/event-payload.schema.json#/$defs/agent_key_approval_evidence`

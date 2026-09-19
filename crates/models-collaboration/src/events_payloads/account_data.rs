@@ -120,6 +120,10 @@ pub struct AccountDataSetPayload {
         serialize_with = "arkret_canonical::serde_helpers::serialize_optional_canonical_timestamp"
     )]
     pub updated_at: Option<DateTime<Utc>>,
+    /// Selects the Station-private proposal intent consumed by the initial
+    /// `ak.agent.draft.v1:<agent_id>:<draft_id>` create.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_pending_event_id: Option<EventId>,
 }
 
 #[derive(Deserialize)]
@@ -138,6 +142,8 @@ struct AccountDataSetPayloadWire {
         deserialize_with = "arkret_canonical::serde_helpers::deserialize_optional_canonical_timestamp"
     )]
     updated_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    source_pending_event_id: Option<EventId>,
 }
 
 impl<'de> Deserialize<'de> for AccountDataSetPayload {
@@ -158,6 +164,7 @@ impl<'de> Deserialize<'de> for AccountDataSetPayload {
             encrypted_payload: wire.encrypted_payload,
             tombstone: wire.tombstone.unwrap_or(false),
             updated_at: wire.updated_at,
+            source_pending_event_id: wire.source_pending_event_id,
         };
         payload.validate().map_err(de::Error::custom)?;
         Ok(payload)
@@ -171,6 +178,24 @@ impl AccountDataSetPayload {
         if self.body.is_absent() && self.encrypted_payload.is_none() && !self.tombstone {
             return Err(WireError::Protocol(
                 "account_data_set_payload requires body, encrypted_payload, or tombstone=true"
+                    .to_owned(),
+            ));
+        }
+        let initial_agent_draft = self.key.as_str().starts_with("ak.agent.draft.v1:")
+            && self.expected_server_revision == 0;
+        if initial_agent_draft
+            && (self.encrypted_payload.is_none() || self.source_pending_event_id.is_none())
+        {
+            return Err(WireError::Protocol(
+                "initial agent draft account data requires encrypted_payload and source_pending_event_id"
+                    .to_owned(),
+            ));
+        }
+        if self.source_pending_event_id.is_some()
+            && (!initial_agent_draft || self.encrypted_payload.is_none())
+        {
+            return Err(WireError::Protocol(
+                "source_pending_event_id is only valid on an initial encrypted agent draft create"
                     .to_owned(),
             ));
         }
