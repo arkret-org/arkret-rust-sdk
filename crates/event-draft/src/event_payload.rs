@@ -297,6 +297,7 @@ event_payload_accessors! {
     event_spec::ProfileRealmOverride => (as_profile_realm_override, ProfileRealmOverridePayload),
     event_spec::KeyBackupActiveSeries => (as_key_backup_active_series, KeyBackupActiveSeries),
     event_spec::DeviceAuthorize => (as_device_authorize, DeviceAuthorizePayload, |payload: &DeviceAuthorizePayload| payload.validate_wire_constraints().map_err(|reason| WireError::Protocol(reason.to_owned()))),
+    event_spec::DeviceReanchor => (as_device_reanchor, DeviceReanchorPayload, DeviceReanchorPayload::validate),
     event_spec::DeviceRevoke => (as_device_revoke, DeviceRevokePayload, DeviceRevokePayload::validate),
     event_spec::DevicePushRoute => (as_device_push_route, DevicePushRoutePayload),
     event_spec::MlsGenesis => (as_mls_genesis, MlsGenesisPayload, MlsGenesisPayload::validate),

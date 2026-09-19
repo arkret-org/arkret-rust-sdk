@@ -215,13 +215,15 @@ impl ValidatedExtensionPayload {
 
 #[cfg(test)]
 mod tests {
+    use arkret_models_collaboration::events_payloads::DeviceReanchorPayload;
     use arkret_wire::{
-        ConfidentialityClass, DidCoreId, ExtensionManifest, Hash, ManifestResourceLimits,
-        ProtocolLayerKind, RegistryContentRef,
+        AccountId, ConfidentialityClass, DidCoreId, ExtensionManifest, Hash,
+        ManifestResourceLimits, ProtocolLayerKind, RealmId, RegistryContentRef, event_spec,
     };
     use serde_json::json;
 
     use super::*;
+    use crate::EventPayloadExt;
 
     fn hash(byte: char) -> Hash {
         Hash::new(format!("sha256:{}", byte.to_string().repeat(64))).unwrap()
@@ -256,6 +258,49 @@ mod tests {
             resource_limits: ManifestResourceLimits::default(),
             proofs: Vec::new(),
         }
+    }
+
+    #[test]
+    fn device_reanchor_typed_draft_authors_the_registered_event() {
+        let payload: DeviceReanchorPayload = serde_json::from_value(json!({
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkholder",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "recovery_authority_kind": "pcr_policy",
+            "recovery_policy_id": "ak:policy:0198ff00-0000-7000-8000-000000000001",
+            "recovery_policy_version": 3,
+            "recovery_session_id": "ak:recovery_session:0198ff00-0000-7000-8000-00000000000c",
+            "previous_device_generation": 7,
+            "new_device_generation": 8,
+            "replacement_authorize_payload_digest": format!("sha256:{}", "a".repeat(64))
+        }))
+        .unwrap();
+        let principal = DidCoreId::new("ak:did_core:webvh:z6mkholder").unwrap();
+        let station = DidCoreId::new("ak:did_core:web:station.example").unwrap();
+        let realm_id =
+            RealmId::new("ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19").unwrap();
+
+        let event = TypedEventDraft::<event_spec::DeviceReanchor>::new(
+            ScopeRef::Realm {
+                realm_id: realm_id.clone(),
+            },
+            ActorId::account(AccountId::new(principal, station)),
+            payload.clone(),
+        )
+        .unwrap()
+        .author_with_digest_suite("2026-09-19T00:00:00Z".parse().unwrap(), DigestSuite::Sha256)
+        .unwrap();
+
+        assert_eq!(event.event().kind, event_spec::DeviceReanchor::KIND);
+        assert_eq!(event.event().realm_id, realm_id);
+        assert_eq!(
+            event
+                .event()
+                .typed_payload::<event_spec::DeviceReanchor>()
+                .unwrap(),
+            payload
+        );
     }
 
     #[test]

@@ -2,15 +2,204 @@
 
 use std::collections::BTreeSet;
 
+use arkret_models_crypto::RecoveryAuthorityKind;
 use arkret_wire::{
     AccountId, AppletId, DeviceId, DidCoreId, DomainSeparationId, Event, EventKind, Hash,
-    NonEmptyString, RecoverySessionId, Result, WireError, canonical,
+    NonEmptyString, PolicyId, RecoverySessionId, Result, WireError, canonical,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::SignatureMaterial;
+
+/// Counterpart for
+/// `event-payload.schema.json#/$defs/device_reanchor_payload`.
+///
+/// The payload fixes the account-local recovery decision and the exact
+/// replacement authorization payload. Ordering and commit identifiers are
+/// assigned later by the governance Station, so no `RealmCommit` or producer
+/// ordering coordinate is accepted here.
+// Field declaration order is byte-for-byte the properties order of
+// event-payload.schema.json#/$defs/device_reanchor_payload.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeviceReanchorPayload {
+    pub account_id: AccountId,
+    pub recovery_authority_kind: RecoveryAuthorityKind,
+    pub recovery_policy_id: PolicyId,
+    pub recovery_policy_version: u64,
+    pub recovery_session_id: RecoverySessionId,
+    pub previous_device_generation: u64,
+    pub new_device_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub did_root_evidence_digest: Option<Hash>,
+    pub replacement_authorize_payload_digest: Hash,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeviceReanchorPayloadWire {
+    account_id: AccountId,
+    recovery_authority_kind: RecoveryAuthorityKind,
+    recovery_policy_id: PolicyId,
+    recovery_policy_version: u64,
+    recovery_session_id: RecoverySessionId,
+    previous_device_generation: u64,
+    new_device_generation: u64,
+    #[serde(default)]
+    did_root_evidence_digest: Option<Hash>,
+    replacement_authorize_payload_digest: Hash,
+}
+
+impl<'de> Deserialize<'de> for DeviceReanchorPayload {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = DeviceReanchorPayloadWire::deserialize(deserializer)?;
+        let payload = Self {
+            account_id: wire.account_id,
+            recovery_authority_kind: wire.recovery_authority_kind,
+            recovery_policy_id: wire.recovery_policy_id,
+            recovery_policy_version: wire.recovery_policy_version,
+            recovery_session_id: wire.recovery_session_id,
+            previous_device_generation: wire.previous_device_generation,
+            new_device_generation: wire.new_device_generation,
+            did_root_evidence_digest: wire.did_root_evidence_digest,
+            replacement_authorize_payload_digest: wire.replacement_authorize_payload_digest,
+        };
+        payload.validate().map_err(serde::de::Error::custom)?;
+        Ok(payload)
+    }
+}
+
+impl DeviceReanchorPayload {
+    pub fn validate(&self) -> Result<()> {
+        if self.recovery_policy_version == 0 {
+            return Err(WireError::Protocol(
+                "device reanchor recovery_policy_version must be at least 1".to_owned(),
+            ));
+        }
+        if self.previous_device_generation == 0
+            || Some(self.new_device_generation) != self.previous_device_generation.checked_add(1)
+        {
+            return Err(WireError::Protocol(
+                "device reanchor generation must be one immediate monotonic successor".to_owned(),
+            ));
+        }
+        if (self.recovery_authority_kind == RecoveryAuthorityKind::DidRoot)
+            != self.did_root_evidence_digest.is_some()
+        {
+            return Err(WireError::Protocol(
+                "device reanchor did_root evidence presence must match recovery authority kind"
+                    .to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod device_reanchor_tests {
+    use arkret_schema_conformance::event_payload_validator_catalog;
+    use serde_json::json;
+
+    use super::*;
+
+    fn payload_value(authority_kind: &str) -> Value {
+        let mut value = json!({
+            "account_id": {
+                "principal_id": "ak:did_core:webvh:z6mkholder",
+                "station_id": "ak:did_core:web:station.example"
+            },
+            "recovery_authority_kind": authority_kind,
+            "recovery_policy_id": "ak:policy:0198ff00-0000-7000-8000-000000000001",
+            "recovery_policy_version": 3,
+            "recovery_session_id": "ak:recovery_session:0198ff00-0000-7000-8000-00000000000c",
+            "previous_device_generation": 7,
+            "new_device_generation": 8,
+            "replacement_authorize_payload_digest": format!("sha256:{}", "a".repeat(64))
+        });
+        if authority_kind == "did_root" {
+            value.as_object_mut().unwrap().insert(
+                "did_root_evidence_digest".to_owned(),
+                json!(format!("sha256:{}", "b".repeat(64))),
+            );
+        }
+        value
+    }
+
+    #[test]
+    fn payload_round_trips_and_matches_the_registered_schema() {
+        for authority_kind in ["pcr_policy", "did_root"] {
+            let value = payload_value(authority_kind);
+            event_payload_validator_catalog()
+                .unwrap()
+                .validate_payload("ak.device.reanchor", &value)
+                .unwrap();
+            let payload: DeviceReanchorPayload = serde_json::from_value(value.clone()).unwrap();
+            payload.validate().unwrap();
+            assert_eq!(serde_json::to_value(payload).unwrap(), value);
+        }
+    }
+
+    #[test]
+    fn payload_requires_exactly_one_monotonic_generation_step() {
+        for (previous, next) in [(0, 1), (7, 7), (7, 9), (u64::MAX, u64::MAX)] {
+            let mut value = payload_value("pcr_policy");
+            value["previous_device_generation"] = json!(previous);
+            value["new_device_generation"] = json!(next);
+            assert!(serde_json::from_value::<DeviceReanchorPayload>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn did_root_evidence_is_closed_by_the_authority_branch() {
+        let mut pcr_with_did_root_evidence = payload_value("pcr_policy");
+        pcr_with_did_root_evidence.as_object_mut().unwrap().insert(
+            "did_root_evidence_digest".to_owned(),
+            json!(format!("sha256:{}", "b".repeat(64))),
+        );
+        assert!(
+            serde_json::from_value::<DeviceReanchorPayload>(pcr_with_did_root_evidence).is_err()
+        );
+
+        let mut did_root_without_evidence = payload_value("did_root");
+        did_root_without_evidence
+            .as_object_mut()
+            .unwrap()
+            .remove("did_root_evidence_digest");
+        assert!(
+            serde_json::from_value::<DeviceReanchorPayload>(did_root_without_evidence).is_err()
+        );
+    }
+
+    #[test]
+    fn unknown_or_missing_members_are_rejected() {
+        for member in [
+            "account_id",
+            "recovery_authority_kind",
+            "recovery_policy_id",
+            "recovery_policy_version",
+            "recovery_session_id",
+            "previous_device_generation",
+            "new_device_generation",
+            "replacement_authorize_payload_digest",
+        ] {
+            let mut value = payload_value("pcr_policy");
+            value.as_object_mut().unwrap().remove(member);
+            assert!(
+                serde_json::from_value::<DeviceReanchorPayload>(value).is_err(),
+                "{member} must be required"
+            );
+        }
+
+        let mut value = payload_value("pcr_policy");
+        value["realm_commit_id"] = json!(format!("sha256:{}", "c".repeat(64)));
+        assert!(serde_json::from_value::<DeviceReanchorPayload>(value).is_err());
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
