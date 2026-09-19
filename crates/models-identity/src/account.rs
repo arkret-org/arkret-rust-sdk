@@ -1,7 +1,8 @@
 use arkret_wire::{
-    AppletId, CommittedEventRef, DeviceId, Did, DidCoreId, DidUrl, Hash, PayloadProof,
-    PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId, ScopeRef, ServiceOperationId,
-    SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical, project_did_to_core_id,
+    AppletId, CommittedEventRef, DetachedSignatureAlgorithm, DeviceId, Did, DidCoreId, DidUrl,
+    Hash, PayloadProof, PcrGenesisUnit, RealmId, ReasonCode, RequestId, Result, SchemaId, ScopeRef,
+    ServiceOperationId, SessionGrantId, TrustDomainId, WebOrigin, WireError, canonical,
+    project_did_to_core_id,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -1287,15 +1288,21 @@ pub struct IdentityCreationControlProof {
     #[serde(with = "arkret_canonical::serde_helpers::canonical_timestamp")]
     pub expires_at: DateTime<Utc>,
     pub verification_key_multibase: String,
+    pub signature_algorithm: DetachedSignatureAlgorithm,
     pub signature: String,
 }
 
 impl IdentityCreationControlProof {
     pub fn validate_shape(&self) -> Result<()> {
         validate_identity_creation_control_proof_body(&self.unsigned_body())?;
-        arkret_wire::Base64UrlString::new(self.signature.clone())
-            .map(|_| ())
-            .map_err(|error| WireError::Protocol(error.to_owned()))
+        let signature = arkret_canonical::base64url_decode(&self.signature)
+            .map_err(|error| WireError::Protocol(error.to_string()))?;
+        if signature.len() != 64 {
+            return Err(WireError::Protocol(
+                "identity creation control proof signature must be 64-byte Ed25519".to_owned(),
+            ));
+        }
+        Ok(())
     }
 
     pub fn canonical_signing_bytes(&self) -> Result<Vec<u8>> {
@@ -1328,6 +1335,7 @@ impl IdentityCreationControlProof {
             issued_at: self.issued_at,
             expires_at: self.expires_at,
             verification_key_multibase: self.verification_key_multibase.clone(),
+            signature_algorithm: self.signature_algorithm,
         }
     }
 }
@@ -1359,6 +1367,7 @@ pub struct UnsignedIdentityCreationControlProofBody {
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub verification_key_multibase: String,
+    pub signature_algorithm: DetachedSignatureAlgorithm,
 }
 
 /// Non-serializable cold-root authoring state.
@@ -1407,6 +1416,7 @@ impl UnsignedIdentityCreationControlProof {
             issued_at: body.issued_at,
             expires_at: body.expires_at,
             verification_key_multibase: body.verification_key_multibase,
+            signature_algorithm: body.signature_algorithm,
             signature: signature.into_string(),
         };
         proof.validate_shape()?;
@@ -1422,6 +1432,7 @@ fn validate_identity_creation_control_proof_body(
         || body.lease_fence == 0
         || body.did_version_id.is_empty()
         || body.expires_at <= body.issued_at
+        || body.signature_algorithm != DetachedSignatureAlgorithm::Ed25519
         || project_did_to_core_id(&body.did)?.as_str() != body.principal_id.as_str()
     {
         return Err(WireError::Protocol(
@@ -1460,6 +1471,7 @@ fn identity_creation_control_proof_signing_bytes(
         "issued_at": canonical::format_timestamp_canonical(body.issued_at),
         "expires_at": canonical::format_timestamp_canonical(body.expires_at),
         "verification_key_multibase": &body.verification_key_multibase,
+        "signature_algorithm": body.signature_algorithm,
     });
     let mut bytes = IDENTITY_CREATION_CONTROL_PROOF_DOMAIN.as_bytes().to_vec();
     bytes.extend(canonical::canonical_json_bytes(&value)?);
@@ -1762,6 +1774,51 @@ mod account_data_tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn identity_creation_control_signature_covers_algorithm_and_excludes_signature() {
+        let value = json!({
+            "proof_kind": "did_webvh_inception_update_key",
+            "challenge_id": "challenge-identity-creation-1",
+            "challenge": "challenge-material-0123456789",
+            "purpose": "account_binding_and_pcr_genesis",
+            "account_subject": format!("sha256:{}", "1".repeat(64)),
+            "principal_id": "ak:did_core:web:alice.example",
+            "did": "did:web:alice.example",
+            "registration_anchor_digest": format!("sha256:{}", "2".repeat(64)),
+            "did_version_id": "1-fixture",
+            "control_key_digest": format!("sha256:{}", "3".repeat(64)),
+            "pcr_realm_id": "ak:realm:AdkQ-RmB1a8zyc52yl9GWAsodQ_EUle1WAVZqbO7pc19",
+            "realm_create_payload_digest": format!("sha256:{}", "4".repeat(64)),
+            "founding_authorize_payload_digest": format!("sha256:{}", "5".repeat(64)),
+            "initial_session_request_digest": format!("sha256:{}", "6".repeat(64)),
+            "genesis_unit_kinds": ["ak.realm.create", "ak.device.authorize"],
+            "identity_creation_lease_id": "lease-identity-creation-1",
+            "lease_fence": 1,
+            "dpop_jkt": "A".repeat(43),
+            "audience_id": "ak:did_core:web:authority.example",
+            "origin": "https://client.example",
+            "trust_domain": "ak:trust_domain:example.net",
+            "issued_at": "2026-09-19T00:00:00.000Z",
+            "expires_at": "2026-09-19T00:05:00.000Z",
+            "verification_key_multibase": "z6Mkh6h1dMiHWPXNm45oJZhVjZVZJHhZ8cQSRg2WQ2Yh8wXH",
+            "signature_algorithm": "Ed25519",
+            "signature": "A".repeat(86)
+        });
+        let proof: IdentityCreationControlProof = serde_json::from_value(value.clone()).unwrap();
+        proof.validate_shape().unwrap();
+        let signing_bytes = String::from_utf8(proof.canonical_signing_bytes().unwrap()).unwrap();
+        assert!(signing_bytes.starts_with(IDENTITY_CREATION_CONTROL_PROOF_DOMAIN));
+        assert!(signing_bytes.contains("\"signature_algorithm\":\"Ed25519\""));
+        assert!(!signing_bytes.contains("\"signature\":"));
+
+        let mut missing_algorithm = value;
+        missing_algorithm
+            .as_object_mut()
+            .unwrap()
+            .remove("signature_algorithm");
+        assert!(serde_json::from_value::<IdentityCreationControlProof>(missing_algorithm).is_err());
+    }
 
     #[test]
     fn cas_conflict_details_preserve_revision_without_live_entry() {

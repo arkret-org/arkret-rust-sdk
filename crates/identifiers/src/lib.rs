@@ -15,9 +15,38 @@ use thiserror::Error;
 
 pub mod generated {
     pub mod digest_suite_codes;
+    pub mod protocol_time_tolerances;
 }
 
 pub use generated::digest_suite_codes::DigestSuiteCode;
+pub use generated::protocol_time_tolerances::{
+    ProtocolTimeToleranceDescriptor, ProtocolTimeToleranceDirection,
+    ProtocolTimeToleranceScenarioDescriptor, protocol_time_tolerance,
+    protocol_time_tolerance_scenario,
+};
+
+impl ProtocolTimeToleranceScenarioDescriptor {
+    /// Registry-selected tolerance magnitude for this scenario.
+    pub fn tolerance_ms(self) -> i64 {
+        protocol_time_tolerance(self.tolerance_id)
+            .expect("generated scenario references a generated tolerance")
+            .value_ms
+    }
+
+    /// Whether a timestamp this many milliseconds after verification time is
+    /// accepted. Equality at the registered bound is accepted.
+    pub fn accepts_future_offset_ms(self, offset_ms: i64) -> bool {
+        offset_ms <= 0 || offset_ms <= self.tolerance_ms()
+    }
+
+    /// Whether an expiry this many milliseconds before verification time is
+    /// accepted. A future-only scenario has no past-expiry grace.
+    pub fn accepts_past_expiry_offset_ms(self, offset_ms: i64) -> bool {
+        offset_ms <= 0
+            || (self.direction == ProtocolTimeToleranceDirection::SymmetricNotBeforeAndExpiry
+                && offset_ms <= self.tolerance_ms())
+    }
+}
 
 pub type Result<T> = std::result::Result<T, IdentifierError>;
 

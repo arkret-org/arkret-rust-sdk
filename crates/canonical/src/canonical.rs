@@ -811,6 +811,26 @@ pub fn canonical_sha256<T: Serialize>(value: &T) -> Result<String> {
     Ok(sha256_digest(canonical_json_bytes(value)?))
 }
 
+/// SHA-256 over `UTF8(domain || LF) || RFC8785_JCS(value)`.
+///
+/// This is the single implementation of the `domain_prefixed_jcs_sha256`
+/// construction registered by `proof-context-registry.json`. The domain is a
+/// prefix, not a transcript member. Newline-bearing or empty domains are
+/// rejected so a caller cannot manufacture an ambiguous prefix.
+pub fn domain_prefixed_canonical_sha256<T: Serialize>(domain: &str, value: &T) -> Result<String> {
+    if domain.is_empty() || domain.contains(['\r', '\n']) {
+        return Err(Error::Protocol(
+            "canonical JSON digest domain must be non-empty and contain no newline".to_owned(),
+        ));
+    }
+    let canonical = canonical_json_bytes(value)?;
+    Ok(sha256_digest_from_slices(&[
+        domain.as_bytes(),
+        b"\n",
+        &canonical,
+    ]))
+}
+
 pub fn canonical_digest_with_suite(bytes: &[u8], suite: &str) -> Result<String> {
     digest_with_suite(suite, bytes)
 }
@@ -1627,5 +1647,34 @@ mod tests {
         let b = canonical_json_bytes(&json!({ "b": 2, "a": 1 })).unwrap();
         assert_eq!(canonical_digest(&a), canonical_digest(&b));
         assert!(canonical_digest(&a).starts_with("sha256:"));
+    }
+
+    #[test]
+    fn domain_prefixed_canonical_digest_matches_registry_known_answer() {
+        let transcript = serde_json::json!({
+            "scopes": ["agent_operator", "contracted_service", "employment"]
+        });
+        assert_eq!(
+            domain_prefixed_canonical_sha256("ak.accountability_scope_set.v1", &transcript)
+                .unwrap(),
+            "sha256:3b184e4d6501c2b36ae5c19cfb652d5b203ebd3732e76081ba818b5ad066a9cf"
+        );
+    }
+
+    #[test]
+    fn domain_prefixed_canonical_digest_is_order_stable_and_domain_bound() {
+        let first = serde_json::json!({"b": 2, "a": 1});
+        let reordered = serde_json::json!({"a": 1, "b": 2});
+        let digest = domain_prefixed_canonical_sha256("ak.example.v1", &first).unwrap();
+        assert_eq!(
+            digest,
+            domain_prefixed_canonical_sha256("ak.example.v1", &reordered).unwrap()
+        );
+        assert_ne!(
+            digest,
+            domain_prefixed_canonical_sha256("ak.other.v1", &first).unwrap()
+        );
+        assert!(domain_prefixed_canonical_sha256("", &first).is_err());
+        assert!(domain_prefixed_canonical_sha256("ak.example.v1\n", &first).is_err());
     }
 }

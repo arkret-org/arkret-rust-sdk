@@ -18,6 +18,10 @@ pub fn generate(inputs: &SpecInputs) -> Result<Vec<GeneratedOutput>> {
     validate(inputs)?;
     Ok(vec![
         GeneratedOutput {
+            relative_path: "crates/identifiers/src/generated/protocol_time_tolerances.rs".into(),
+            contents: generate_protocol_time_tolerances(inputs)?,
+        },
+        GeneratedOutput {
             relative_path: "crates/schema/src/generated/registry_descriptors.rs".into(),
             contents: generate_registry_descriptors(inputs),
         },
@@ -30,6 +34,113 @@ pub fn generate(inputs: &SpecInputs) -> Result<Vec<GeneratedOutput>> {
             contents: generate_event_runtime_contracts(inputs)?,
         },
     ])
+}
+
+fn generate_protocol_time_tolerances(inputs: &SpecInputs) -> Result<String> {
+    let registry = &inputs.contracts.protocol_time_tolerance_registry;
+    let mut tolerance_ids = BTreeSet::new();
+    let mut tolerance_names = BTreeSet::new();
+    for tolerance in &registry.tolerances {
+        if !tolerance_ids.insert(tolerance.tolerance_id.as_str()) {
+            bail!("duplicate protocol time tolerance id {}", tolerance.tolerance_id);
+        }
+        if !tolerance_names.insert(tolerance.name.as_str()) {
+            bail!("duplicate protocol time tolerance name {}", tolerance.name);
+        }
+        if tolerance.unit != "milliseconds" || tolerance.value < 0 {
+            bail!(
+                "protocol time tolerance {} must be a non-negative millisecond value",
+                tolerance.tolerance_id
+            );
+        }
+    }
+    let mut scenario_ids = BTreeSet::new();
+    for scenario in &registry.scenarios {
+        if !scenario_ids.insert(scenario.scenario_id.as_str()) {
+            bail!("duplicate protocol time tolerance scenario {}", scenario.scenario_id);
+        }
+        if !tolerance_ids.contains(scenario.tolerance_id.as_str()) {
+            bail!(
+                "protocol time tolerance scenario {} references unknown tolerance {}",
+                scenario.scenario_id,
+                scenario.tolerance_id
+            );
+        }
+        if !matches!(
+            scenario.direction.as_str(),
+            "future_only" | "symmetric_not_before_and_expiry"
+        ) {
+            bail!(
+                "protocol time tolerance scenario {} uses unsupported direction {}",
+                scenario.scenario_id,
+                scenario.direction
+            );
+        }
+    }
+
+    let mut output = header(
+        &[&inputs.contracts_source],
+        &format!(
+            "protocol_time_tolerances={}, protocol_time_tolerance_scenarios={}",
+            registry.tolerances.len(),
+            registry.scenarios.len()
+        ),
+    );
+    output.push_str(
+        "#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub enum ProtocolTimeToleranceDirection {\n\
+    FutureOnly,\n\
+    SymmetricNotBeforeAndExpiry,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct ProtocolTimeToleranceDescriptor {\n\
+    pub tolerance_id: &'static str,\n\
+    pub name: &'static str,\n\
+    pub value_ms: i64,\n\
+}\n\n\
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]\n\
+pub struct ProtocolTimeToleranceScenarioDescriptor {\n\
+    pub scenario_id: &'static str,\n\
+    pub tolerance_id: &'static str,\n\
+    pub direction: ProtocolTimeToleranceDirection,\n\
+    pub comparison: &'static str,\n\
+}\n\n",
+    );
+
+    for tolerance in &registry.tolerances {
+        writeln!(
+            output,
+            "pub const {}: i64 = {};",
+            associated_name(&tolerance.name, &[]),
+            tolerance.value
+        )
+        .expect("write to String");
+    }
+    output.push_str("\npub const PROTOCOL_TIME_TOLERANCES: &[ProtocolTimeToleranceDescriptor] = &[\n");
+    for tolerance in &registry.tolerances {
+        writeln!(
+            output,
+            "    ProtocolTimeToleranceDescriptor {{ tolerance_id: {}, name: {}, value_ms: {} }},",
+            rust_string(&tolerance.tolerance_id),
+            rust_string(&tolerance.name),
+            associated_name(&tolerance.name, &[])
+        )
+        .expect("write to String");
+    }
+    output.push_str("];\n\npub const PROTOCOL_TIME_TOLERANCE_SCENARIOS: &[ProtocolTimeToleranceScenarioDescriptor] = &[\n");
+    for scenario in &registry.scenarios {
+        writeln!(
+            output,
+            "    ProtocolTimeToleranceScenarioDescriptor {{ scenario_id: {}, tolerance_id: {}, direction: ProtocolTimeToleranceDirection::{}, comparison: {} }},",
+            rust_string(&scenario.scenario_id),
+            rust_string(&scenario.tolerance_id),
+            variant(&scenario.direction, &[]),
+            rust_string(&scenario.comparison)
+        )
+        .expect("write to String");
+    }
+    output.push_str("];\n\npub fn protocol_time_tolerance(value: &str) -> Option<&'static ProtocolTimeToleranceDescriptor> {\n    PROTOCOL_TIME_TOLERANCES.iter().find(|row| row.tolerance_id == value)\n}\n\npub fn protocol_time_tolerance_scenario(value: &str) -> Option<&'static ProtocolTimeToleranceScenarioDescriptor> {\n    PROTOCOL_TIME_TOLERANCE_SCENARIOS.iter().find(|row| row.scenario_id == value)\n}\n");
+    Ok(output)
 }
 
 fn validate(inputs: &SpecInputs) -> Result<()> {

@@ -213,6 +213,29 @@ pub struct AgentCapabilitySet {
 #[derive(Debug, Deserialize)]
 pub struct ContractRegistry {
     pub realm_bootstrap_registry: RealmBootstrapRegistry,
+    pub protocol_time_tolerance_registry: ProtocolTimeToleranceRegistry,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProtocolTimeToleranceRegistry {
+    pub tolerances: Vec<ProtocolTimeTolerance>,
+    pub scenarios: Vec<ProtocolTimeToleranceScenario>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProtocolTimeTolerance {
+    pub tolerance_id: String,
+    pub name: String,
+    pub value: i64,
+    pub unit: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProtocolTimeToleranceScenario {
+    pub scenario_id: String,
+    pub tolerance_id: String,
+    pub direction: String,
+    pub comparison: String,
 }
 
 #[derive(Debug, Deserialize)]

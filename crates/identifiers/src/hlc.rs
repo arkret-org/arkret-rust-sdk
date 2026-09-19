@@ -10,11 +10,11 @@ use std::time::Duration;
 
 use crate::{Hlc, IdentifierError, Result};
 
-/// Soft future-drift threshold from encoding.md §7.2.
-pub const EXPECTED_FUTURE_SKEW_MS: i64 = 30 * 1000;
+/// Soft future-drift threshold generated from the protocol time-tolerance registry.
+pub use crate::generated::protocol_time_tolerances::EXPECTED_FUTURE_SKEW_MS;
 
-/// Hard future-drift cap from encoding.md §7.2.
-pub const HARD_FUTURE_SKEW_MS: i64 = 5 * 60 * 1000;
+/// Hard future-drift cap generated from the protocol time-tolerance registry.
+pub use crate::generated::protocol_time_tolerances::HARD_FUTURE_SKEW_MS;
 
 /// Physical time maximum value (48-bit: 0xffffffffffff ms ≈ 8,925 years)
 pub const HLC_MAX_PHYSICAL_MS: u64 = 0xffffffffffff;
@@ -218,6 +218,52 @@ mod tests {
             HlcFutureDrift::SoftFail
         );
         assert!(validate_hlc_future_drift(&hard_reject, current).is_err());
+    }
+
+    #[test]
+    fn generated_time_tolerance_scenarios_preserve_registry_direction() {
+        use crate::{
+            ProtocolTimeToleranceDirection, protocol_time_tolerance,
+            protocol_time_tolerance_scenario,
+        };
+
+        assert_eq!(
+            protocol_time_tolerance("ak.time_tolerance.hard_future_skew.v1")
+                .unwrap()
+                .value_ms,
+            HARD_FUTURE_SKEW_MS
+        );
+        assert_eq!(
+            protocol_time_tolerance("ak.time_tolerance.expected_future_skew.v1")
+                .unwrap()
+                .value_ms,
+            EXPECTED_FUTURE_SKEW_MS
+        );
+        assert_eq!(
+            protocol_time_tolerance_scenario("ak.time_tolerance.approval_approved_at.v1")
+                .unwrap()
+                .direction,
+            ProtocolTimeToleranceDirection::FutureOnly
+        );
+        assert_eq!(
+            protocol_time_tolerance_scenario("ak.time_tolerance.temporal_constraint.v1")
+                .unwrap()
+                .direction,
+            ProtocolTimeToleranceDirection::SymmetricNotBeforeAndExpiry
+        );
+
+        let approval =
+            *protocol_time_tolerance_scenario("ak.time_tolerance.approval_approved_at.v1").unwrap();
+        assert!(approval.accepts_future_offset_ms(300_000));
+        assert!(!approval.accepts_future_offset_ms(300_001));
+        assert!(!approval.accepts_past_expiry_offset_ms(1));
+
+        let presign =
+            *protocol_time_tolerance_scenario("ak.time_tolerance.blob_presign_ttl.v1").unwrap();
+        assert!(presign.accepts_future_offset_ms(30_000));
+        assert!(!presign.accepts_future_offset_ms(30_001));
+        assert!(presign.accepts_past_expiry_offset_ms(30_000));
+        assert!(!presign.accepts_past_expiry_offset_ms(30_001));
     }
 
     #[test]

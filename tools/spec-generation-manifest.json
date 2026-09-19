@@ -29,6 +29,17 @@
     {
       "generator": "spec-codegen",
       "outputs": [
+        "crates/identifiers/src/generated/protocol_time_tolerances.rs"
+      ],
+      "owner": "arkret-identifiers",
+      "mode": "registered+descriptor",
+      "artifacts": [
+        "registry/contract-registry.json"
+      ]
+    },
+    {
+      "generator": "spec-codegen",
+      "outputs": [
         "crates/schema/src/generated/event_runtime_contracts.rs"
       ],
       "owner": "arkret-schema",

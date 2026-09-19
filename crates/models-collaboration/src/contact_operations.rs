@@ -265,9 +265,11 @@ pub struct RequestAcceptanceReceipt {
 fn request_acceptance_core_digest(
     core: &RequestAcceptanceReceiptCore,
 ) -> arkret_wire::Result<Hash> {
-    let mut bytes = b"ak.contact.request_acceptance_core.v1\n".to_vec();
-    bytes.extend(arkret_canonical::canonical_json_bytes(core)?);
-    Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+    Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(
+        arkret_wire::DomainSeparationId::CONTACT_REQUEST_ACCEPTANCE_CORE_V1,
+        core,
+    )?)
+    .map_err(Into::into)
 }
 
 #[derive(Serialize)]
@@ -708,9 +710,12 @@ impl OutgoingSlotAbsenceTranscript {
     }
 
     pub fn digest(&self) -> arkret_wire::Result<Hash> {
-        let mut bytes = b"ak.contact.no_outgoing_slot.v1\n".to_vec();
-        bytes.extend(self.canonical_bytes()?);
-        Hash::new(arkret_canonical::sha256_digest(bytes)).map_err(Into::into)
+        self.validate_shape()?;
+        Hash::new(arkret_canonical::domain_prefixed_canonical_sha256(
+            arkret_wire::DomainSeparationId::CONTACT_NO_OUTGOING_SLOT_V1,
+            self,
+        )?)
+        .map_err(Into::into)
     }
 
     pub fn verify_digest(&self, expected: &Hash) -> arkret_wire::Result<()> {
