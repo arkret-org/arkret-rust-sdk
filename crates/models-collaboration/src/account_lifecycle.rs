@@ -329,6 +329,7 @@ impl SessionRevokeRequestBody {
 // Field declaration order is byte-for-byte the properties order of
 // account-operations.schema.json#/$defs/session_revoke_outcome.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SessionRevokeOutcome {
     pub revoked_count: u64,
@@ -342,6 +343,14 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[cfg(feature = "openapi")]
+    #[test]
+    fn session_revoke_outcome_exposes_its_canonical_openapi_schema() {
+        fn assert_to_schema<T: salvo_oapi::ToSchema>() {}
+
+        assert_to_schema::<SessionRevokeOutcome>();
+    }
 
     fn proof_value() -> serde_json::Value {
         json!({
