@@ -32,13 +32,15 @@ pub enum DeviceRevocationStateSchema {
 #[serde(rename_all = "snake_case")]
 pub enum DeviceRevocationDeniedAction {
     SessionGrantIssueOrRefresh,
+    DevicePairingCodeClaim,
     KeypackageClaim,
     ToDeviceWrite,
     EventWrite,
 }
 
-pub const DEVICE_REVOCATION_DENIED_ACTIONS: [DeviceRevocationDeniedAction; 4] = [
+pub const DEVICE_REVOCATION_DENIED_ACTIONS: [DeviceRevocationDeniedAction; 5] = [
     DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh,
+    DeviceRevocationDeniedAction::DevicePairingCodeClaim,
     DeviceRevocationDeniedAction::KeypackageClaim,
     DeviceRevocationDeniedAction::ToDeviceWrite,
     DeviceRevocationDeniedAction::EventWrite,
@@ -89,7 +91,7 @@ pub struct DeviceRevocationPendingState {
     pub accepted_at: DateTime<Utc>,
     pub acceptance_seq: u64,
     pub status: DeviceRevocationPendingStatus,
-    pub denied_actions: [DeviceRevocationDeniedAction; 4],
+    pub denied_actions: [DeviceRevocationDeniedAction; 5],
 }
 
 /// A rejected revocation clears only the pending gate for this exact proposal
@@ -1243,6 +1245,7 @@ mod tests {
             DeviceRevocationDeniedAction::EventWrite,
             DeviceRevocationDeniedAction::KeypackageClaim,
             DeviceRevocationDeniedAction::ToDeviceWrite,
+            DeviceRevocationDeniedAction::DevicePairingCodeClaim,
             DeviceRevocationDeniedAction::SessionGrantIssueOrRefresh,
         ];
         assert!(reordered.validate().is_err());
