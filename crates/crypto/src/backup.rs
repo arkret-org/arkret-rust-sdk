@@ -18,8 +18,8 @@ use arkret_models_crypto::artifacts_keys::{KeyBackupPlaintext, SecretStorageSecr
 use arkret_models_crypto::key_backup::{
     BackupKind, KeyBackup, KeyBackupAead, KeyBackupAeadName, KeyBackupAuthData,
     KeyBackupDomainSeparation, KeyBackupEncryption, KeyBackupKdf, KeyBackupKdfName,
-    KeyBackupKdfParams, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm, KeyBackupSourceRef,
-    SecretStorageContentIndex, SecretStorageItemKind,
+    KeyBackupKdfParams, KeyBackupRecipientMethod, KeyBackupSignatureAlgorithm,
+    KeyBackupSourceCommitRef, SecretStorageContentIndex, SecretStorageItemKind,
 };
 use arkret_wire::{
     ActorId, BackupId, BackupSeriesId, Base64UrlString, DeviceId, DidUrl, EventId, Hash,
@@ -589,7 +589,7 @@ pub fn build_key_backup_envelope_with_extensions(
     items: Vec<SecretStorageSecret>,
     auth: &KeyBackupAuthBinding,
     sign: KeyBackupSignFn<'_>,
-    source_ref: Option<KeyBackupSourceRef>,
+    source_commit_ref: Option<KeyBackupSourceCommitRef>,
 ) -> Result<KeyBackup> {
     let series_id = BackupSeriesId::new(arkret_wire::new_prefixed_uuid7("ak:backup_series:"))
         .map_err(|error| {
@@ -611,7 +611,7 @@ pub fn build_key_backup_envelope_with_extensions(
         0,
         None,
         None,
-        source_ref,
+        source_commit_ref,
     )
 }
 
@@ -632,16 +632,19 @@ pub fn build_key_backup_successor_envelope(
     items: Vec<SecretStorageSecret>,
     auth: &KeyBackupAuthBinding,
     sign: KeyBackupSignFn<'_>,
-    source_ref: KeyBackupSourceRef,
+    source_commit_ref: Option<KeyBackupSourceCommitRef>,
 ) -> Result<KeyBackup> {
     if backup_id == predecessor.backup_id {
         return Err(KeyBackupError::InvalidInput(
             "successor backup_id must differ from predecessor".to_owned(),
         ));
     }
-    if source_ref.device_generation_ref.trim().is_empty() {
+    if source_commit_ref
+        .as_ref()
+        .is_some_and(|source| source.device_generation_ref == 0)
+    {
         return Err(KeyBackupError::InvalidInput(
-            "successor source_ref.device_generation_ref must not be empty".to_owned(),
+            "successor source_commit_ref.device_generation_ref must be positive".to_owned(),
         ));
     }
     let series_seq = predecessor
@@ -665,7 +668,7 @@ pub fn build_key_backup_successor_envelope(
         series_seq,
         Some(predecessor.backup_id.clone()),
         Some(supersedes_digest),
-        Some(source_ref),
+        source_commit_ref,
     )
 }
 
@@ -698,8 +701,16 @@ fn build_key_backup_envelope_in_series(
     series_seq: u64,
     supersedes_id: Option<BackupId>,
     supersedes_digest: Option<Hash>,
-    source_ref: Option<KeyBackupSourceRef>,
+    source_commit_ref: Option<KeyBackupSourceCommitRef>,
 ) -> Result<KeyBackup> {
+    if source_commit_ref
+        .as_ref()
+        .is_some_and(|source| source.device_generation_ref == 0)
+    {
+        return Err(KeyBackupError::InvalidInput(
+            "source_commit_ref.device_generation_ref must be positive".to_owned(),
+        ));
+    }
     if items.is_empty() {
         return Err(KeyBackupError::InvalidInput(
             "key backup plaintext items must not be empty".to_owned(),
@@ -823,7 +834,7 @@ fn build_key_backup_envelope_in_series(
         series_seq,
         supersedes_id,
         supersedes_digest,
-        source_ref,
+        source_commit_ref,
         extra: XExtensionMap::default(),
     };
 
@@ -961,21 +972,12 @@ mod tests {
         ]
     }
 
-    fn source_ref() -> KeyBackupSourceRef {
-        KeyBackupSourceRef {
-            committed_event_ref: arkret_wire::CommittedEventRef {
-                event_id: AUTHORIZE_EVENT.parse().unwrap(),
-                commit_id: "ak:realm_commit:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB"
-                    .parse()
-                    .unwrap(),
-                stream_ref: arkret_wire::CommitStreamRef::Realm {
-                    realm_id: arkret_wire::RealmId::from_event_id(
-                        &AUTHORIZE_EVENT.parse::<EventId>().unwrap(),
-                    ),
-                },
-                stream_position: 7,
-            },
-            device_generation_ref: "4".to_owned(),
+    fn source_commit_ref() -> KeyBackupSourceCommitRef {
+        KeyBackupSourceCommitRef {
+            realm_commit_id: "ak:realm_commit:AQNy1zG98lAoTz0YOf-2Yp2-GXeJioPlyg8nW6qxW-OB"
+                .parse()
+                .unwrap(),
+            device_generation_ref: 4,
         }
     }
 
@@ -1182,7 +1184,7 @@ mod tests {
             items(),
             &auth(),
             &sign,
-            source_ref(),
+            Some(source_commit_ref()),
         )
         .unwrap();
 
@@ -1196,12 +1198,37 @@ mod tests {
             successor.supersedes_digest.as_ref().unwrap().as_str(),
             sha256_digest(predecessor.signing_payload_bytes().unwrap())
         );
-        assert_eq!(successor.source_ref.as_ref().unwrap(), &source_ref());
+        assert_eq!(
+            successor.source_commit_ref.as_ref().unwrap(),
+            &source_commit_ref()
+        );
         assert_eq!(
             successor.domain_separation.subdomain,
             predecessor.domain_separation.subdomain
         );
         assert!(decrypt_key_backup_envelope(PASSPHRASE, &successor).is_ok());
+
+        let without_source = build_key_backup_successor_envelope(
+            "ak:backup:01964137-0000-7000-8000-00000000000e"
+                .parse()
+                .unwrap(),
+            &predecessor,
+            Some(DEVICE.parse().unwrap()),
+            "kb_2",
+            &kek,
+            items(),
+            &auth(),
+            &sign,
+            None,
+        )
+        .unwrap();
+        assert!(without_source.source_commit_ref.is_none());
+        assert_eq!(without_source.series_seq, predecessor.series_seq + 1);
+        assert_eq!(
+            without_source.supersedes_id.as_ref(),
+            Some(&predecessor.backup_id)
+        );
+        assert!(without_source.supersedes_digest.is_some());
 
         // Re-pointing the link at another envelope breaks the chain digest.
         let mut relinked = successor;
@@ -1222,10 +1249,83 @@ mod tests {
                 items(),
                 &auth(),
                 &sign,
-                source_ref(),
+                Some(source_commit_ref()),
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn envelope_source_commit_ref_has_the_only_canonical_wire_shape() {
+        let kek = derive_vault_kek_with_salt(PASSPHRASE, &[7u8; VAULT_SALT_LEN]).unwrap();
+        let seen = std::cell::RefCell::new(Vec::new());
+        let predecessor = genesis(&kek, &seen);
+        let sign = recording_signer(&seen);
+        let successor = build_key_backup_successor_envelope(
+            "ak:backup:01964137-0000-7000-8000-000000000012"
+                .parse()
+                .unwrap(),
+            &predecessor,
+            Some(DEVICE.parse().unwrap()),
+            "kb_2",
+            &kek,
+            items(),
+            &auth(),
+            &sign,
+            Some(source_commit_ref()),
+        )
+        .unwrap();
+
+        let canonical = serde_json::to_value(&successor).unwrap();
+        assert!(canonical.get("source_ref").is_none());
+        assert_eq!(
+            canonical["source_commit_ref"],
+            json!({
+                "realm_commit_id": source_commit_ref().realm_commit_id,
+                "device_generation_ref": 4
+            })
+        );
+
+        let mut alias = canonical.clone();
+        let source = alias
+            .as_object_mut()
+            .unwrap()
+            .remove("source_commit_ref")
+            .unwrap();
+        alias
+            .as_object_mut()
+            .unwrap()
+            .insert("source_ref".to_owned(), source);
+        assert!(serde_json::from_value::<KeyBackup>(alias).is_err());
+
+        let mut full_committed_ref = canonical.clone();
+        full_committed_ref["source_commit_ref"] = json!({
+            "committed_event_ref": {
+                "event_id": AUTHORIZE_EVENT,
+                "commit_id": source_commit_ref().realm_commit_id,
+                "stream_ref": {
+                    "kind": "realm",
+                    "realm_id": arkret_wire::RealmId::from_event_id(
+                        &AUTHORIZE_EVENT.parse::<EventId>().unwrap()
+                    )
+                },
+                "stream_position": 7
+            },
+            "device_generation_ref": 4
+        });
+        assert!(serde_json::from_value::<KeyBackup>(full_committed_ref).is_err());
+
+        let mut string_generation = canonical.clone();
+        string_generation["source_commit_ref"]["device_generation_ref"] = json!("4");
+        assert!(serde_json::from_value::<KeyBackup>(string_generation).is_err());
+
+        let mut zero_generation = successor;
+        zero_generation
+            .source_commit_ref
+            .as_mut()
+            .unwrap()
+            .device_generation_ref = 0;
+        assert!(zero_generation.validate().is_err());
     }
 
     #[test]
@@ -1252,7 +1352,7 @@ mod tests {
             items(),
             &auth(),
             &sign,
-            Some(source_ref()),
+            Some(source_commit_ref()),
         )
         .unwrap();
 

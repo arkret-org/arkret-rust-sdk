@@ -6,8 +6,8 @@
 use std::collections::BTreeMap;
 
 use arkret_wire::{
-    ActorId, BackupId, BackupSeriesId, Base64UrlString, CommittedEventRef, DeviceId, DidUrl,
-    EventId, HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, ReasonCode, Result,
+    ActorId, BackupId, BackupSeriesId, Base64UrlString, DeviceId, DidUrl, EventId,
+    HPKE_SUITE_X25519_CHACHA20POLY1305_V1, HPKE_SUITES, Hash, RealmCommitId, ReasonCode, Result,
     SchemaId, WireError, XExtensionMap,
 };
 use chrono::{DateTime, Utc};
@@ -48,9 +48,9 @@ impl TryFrom<&str> for BackupKind {
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyBackupSourceRef {
-    pub committed_event_ref: CommittedEventRef,
-    pub device_generation_ref: String,
+pub struct KeyBackupSourceCommitRef {
+    pub realm_commit_id: RealmCommitId,
+    pub device_generation_ref: u64,
 }
 
 #[cfg_attr(feature = "openapi", derive(salvo_oapi::ToSchema))]
@@ -91,7 +91,7 @@ pub struct KeyBackup {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supersedes_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_ref: Option<KeyBackupSourceRef>,
+    pub source_commit_ref: Option<KeyBackupSourceCommitRef>,
     #[serde(default, flatten)]
     pub extra: XExtensionMap,
 }
@@ -111,6 +111,13 @@ impl KeyBackup {
                 return protocol("key backup successor requires prior backup id and digest");
             }
             _ => {}
+        }
+        if self
+            .source_commit_ref
+            .as_ref()
+            .is_some_and(|source| source.device_generation_ref == 0)
+        {
+            return protocol("key backup source_commit_ref generation must be positive");
         }
         if self
             .device_id
