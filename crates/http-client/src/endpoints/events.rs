@@ -10,14 +10,16 @@
 //! "the Realm's position": a Realm's Circles and Sidecars are separate streams
 //! and a single number could not name a point in all of them.
 
+use arkret_models_collaboration::authority_commit::{
+    SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
+};
 use arkret_models_collaboration::event_query::EventView;
 use arkret_models_collaboration::sync_frames::events_subscribe::{
     EventsStreamTrace, EventsSubscribeFrame,
 };
 use arkret_wire::{
-    ActorId, AuthoritySubmitOutcome, AuthoritySubmitRequest, CommitStreamRef,
-    EventCommitSubmission, EventId, MlsCommitSubmission, RealmId, RealmStateSnapshot,
-    StreamScanOutcome, StreamScanRequest,
+    ActorId, AuthoritySubmitOutcome, CommitStreamRef, EventCommitSubmission, EventId,
+    MlsCommitSubmission, RealmId, RealmStateSnapshot, StreamScanOutcome, StreamScanRequest,
 };
 use reqwest::header::CONTENT_TYPE;
 use reqwest::{Method, RequestBuilder, Response};
@@ -224,8 +226,13 @@ impl Client {
         submission: &EventCommitSubmission,
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
-        let request = AuthoritySubmitRequest::Event(submission.clone());
-        self.submit_to_realm_authority(&request, options).await
+        let request = SelfAuthoritySubmitRequest::Event(submission.clone());
+        match self.submit_to_realm_authority(&request, options).await? {
+            SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
+            _ => Err(Error::Protocol(
+                "ordinary Event submission returned an aggregate outcome".to_owned(),
+            )),
+        }
     }
 
     /// Submit one MLS Commit Event with every Welcome its Add proposals need,
@@ -248,8 +255,13 @@ impl Client {
         submission: &MlsCommitSubmission,
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
-        let request = AuthoritySubmitRequest::MlsCommit(submission.clone());
-        self.submit_to_realm_authority(&request, options).await
+        let request = SelfAuthoritySubmitRequest::MlsCommit(submission.clone());
+        match self.submit_to_realm_authority(&request, options).await? {
+            SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
+            _ => Err(Error::Protocol(
+                "ordinary MLS submission returned an aggregate outcome".to_owned(),
+            )),
+        }
     }
 
     /// Read one authorized stream's tail from `after_position` forward.

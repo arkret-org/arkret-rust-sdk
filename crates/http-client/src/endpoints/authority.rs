@@ -1,9 +1,13 @@
 //! Authority-commit submission, replication, discovery, and handoff methods.
 
+use arkret_models_collaboration::authority_commit::{
+    PeerAuthoritySubmitOutcome, PeerAuthoritySubmitRequest, SelfAuthoritySubmitOutcome,
+    SelfAuthoritySubmitRequest,
+};
 use arkret_wire::{
-    AuthorityBundleRequest, AuthorityHandoffRequest, AuthoritySubmitOutcome,
-    AuthoritySubmitRequest, CommittedEventResolveOutcome, CommittedEventResolveRequest,
-    RealmAuthorityBundle, RealmAuthorityHandoff, StreamScanOutcome, StreamScanRequest,
+    AuthorityBundleRequest, AuthorityHandoffRequest, CommittedEventResolveOutcome,
+    CommittedEventResolveRequest, RealmAuthorityBundle, RealmAuthorityHandoff, StreamScanOutcome,
+    StreamScanRequest,
 };
 use reqwest::Method;
 use serde::Serialize;
@@ -26,12 +30,26 @@ impl Client {
     /// to the current Realm governance Station.
     pub async fn submit_to_realm_authority(
         &self,
-        request: &AuthoritySubmitRequest,
+        request: &SelfAuthoritySubmitRequest,
         options: &ClientRequestOptions,
-    ) -> Result<AuthoritySubmitOutcome> {
+    ) -> Result<SelfAuthoritySubmitOutcome> {
         request.validate()?;
-        let outcome: AuthoritySubmitOutcome = self
+        let outcome: SelfAuthoritySubmitOutcome = self
             .post_with_options("/_arkret/self/events", request, options)
+            .await?;
+        outcome.validate_for_request(request)?;
+        Ok(outcome)
+    }
+
+    /// Submit one explicitly discriminated peer Event ingress branch.
+    pub async fn submit_to_peer_authority(
+        &self,
+        request: &PeerAuthoritySubmitRequest,
+        options: &ClientRequestOptions,
+    ) -> Result<PeerAuthoritySubmitOutcome> {
+        request.validate()?;
+        let outcome: PeerAuthoritySubmitOutcome = self
+            .post_with_options("/_arkret/peer/events", request, options)
             .await?;
         outcome.validate_for_request(request)?;
         Ok(outcome)

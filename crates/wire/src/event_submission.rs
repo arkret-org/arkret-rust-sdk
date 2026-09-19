@@ -45,7 +45,7 @@ impl EventSubmitEnvelope {
     /// Lift this envelope into the sole Station submission shape.
     #[must_use]
     pub fn into_commit_submission(self) -> EventCommitSubmission {
-        EventCommitSubmission { event: self.0 }
+        EventCommitSubmission::new(self.0)
     }
 }
 
@@ -167,10 +167,9 @@ mod tests {
 
     #[test]
     fn batch_body_round_trips_over_commit_submissions() {
-        let body = EventsSubmitBatchRequestBody::new(vec![EventCommitSubmission {
-            event: fixture_event(),
-        }])
-        .unwrap();
+        let body =
+            EventsSubmitBatchRequestBody::new(vec![EventCommitSubmission::new(fixture_event())])
+                .unwrap();
         let encoded = serde_json::to_value(&body).unwrap();
         assert!(encoded["events"][0].get("event").is_some());
 
@@ -203,9 +202,7 @@ mod tests {
     fn batch_body_bounds_the_event_count() {
         assert!(EventsSubmitBatchRequestBody::new(Vec::new()).is_err());
         let oversized = (0..=EVENTS_SUBMIT_BATCH_MAX_EVENTS)
-            .map(|_| EventCommitSubmission {
-                event: fixture_event(),
-            })
+            .map(|_| EventCommitSubmission::new(fixture_event()))
             .collect::<Vec<_>>();
         assert!(EventsSubmitBatchRequestBody::new(oversized).is_err());
     }

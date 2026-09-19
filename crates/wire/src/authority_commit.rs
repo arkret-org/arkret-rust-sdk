@@ -4,7 +4,7 @@
 //! is deliberately no Realm-global position or ordering across those streams.
 
 use arkret_identifiers::{
-    CircleId, DidCoreId, EventId, Hash, KeypackageClaimId, MlsWelcomeDeliveryId,
+    CircleId, Did, DidCoreId, EventId, GrantId, Hash, KeypackageClaimId, MlsWelcomeDeliveryId,
     RealmAuthorityHandoffId, RealmCommitId, RealmId, RealmSnapshotId, SidecarId, StrandId,
 };
 use chrono::{DateTime, Utc};
@@ -13,8 +13,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    ActorId, Base64UrlString, DeviceId, DidUrl, DirectorySourceRefAccess, Event, HistoryAccess,
-    Result, ScopeRef, WireError,
+    ActorId, Base64UrlString, CapabilityActionId, DeviceId, DidUrl, DirectorySourceRefAccess,
+    Event, HistoryAccess, Result, ScopeRef, WireError,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -273,7 +273,7 @@ fn detached_signature_service_id(signature: &DetachedObjectSignature) -> Result<
                 "authority signature verification_method needs a fragment".to_owned(),
             )
         })?;
-    Ok(crate::project_did_to_core_id(&crate::Did::new(
+    Ok(crate::project_did_to_core_id(&Did::new(
         controller.to_owned(),
     )?)?)
 }
@@ -527,6 +527,79 @@ impl MlsWelcomeDelivery {
 #[serde(deny_unknown_fields)]
 pub struct EventCommitSubmission {
     pub event: Event,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub approval_signatures: Option<Vec<ApprovalSignature>>,
+}
+
+impl EventCommitSubmission {
+    #[must_use]
+    pub fn new(event: Event) -> Self {
+        Self {
+            event,
+            approval_signatures: None,
+        }
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.event.validate_for_submit_structural()?;
+        if self.approval_signatures.as_ref().is_some_and(Vec::is_empty) {
+            return Err(WireError::Protocol(
+                "approval_signatures must be omitted or non-empty".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "context_kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ApprovalContext {
+    Grant { grant_id: GrantId },
+    RealmGovernance,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "target_kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ApprovalTarget {
+    Event { event_id: EventId },
+    Operation,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalSignatureInput {
+    pub approval_context: ApprovalContext,
+    pub approval_target: ApprovalTarget,
+    pub request_canonical_digest: Hash,
+    pub operation: String,
+    pub action: CapabilityActionId,
+    pub realm_id: RealmId,
+    pub initiating_actor_id: ActorId,
+    pub approver_did: Did,
+    #[serde(with = "crate::serde_helpers::canonical_timestamp")]
+    pub approved_at: DateTime<Utc>,
+    pub nonce: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ApprovalSignatureProofKind {
+    #[serde(rename = "detached_jws")]
+    DetachedJws,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalSignatureProof {
+    pub kind: ApprovalSignatureProofKind,
+    pub verification_method: DidUrl,
+    pub jws: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ApprovalSignature {
+    pub input: ApprovalSignatureInput,
+    pub proof: ApprovalSignatureProof,
 }
 
 /// Exact ordered, atomic PCR genesis unit: an identity-root signed
@@ -753,7 +826,7 @@ pub enum AuthoritySubmitRequest {
 impl AuthoritySubmitRequest {
     pub fn validate(&self) -> Result<()> {
         match self {
-            Self::Event(submission) => submission.event.validate_for_submit_structural(),
+            Self::Event(submission) => submission.validate(),
             Self::MlsCommit(submission) => submission.validate(),
         }
     }
@@ -775,6 +848,7 @@ pub enum AuthorityRejectionStatus {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(clippy::large_enum_variant)]
 pub enum AuthoritySubmitOutcome {
     Accepted {
         status: AuthorityCommitStatus,

@@ -407,18 +407,10 @@ pub fn applet_managed_actor_unit_submissions(
 
     bundle.validate_bindings(request)?;
     Ok([
-        EventCommitSubmission {
-            event: bundle.managed_actor_provision_event.clone(),
-        },
-        EventCommitSubmission {
-            event: bundle.pcr_genesis_event.clone(),
-        },
-        EventCommitSubmission {
-            event: bundle.accountability_grant_event.clone(),
-        },
-        EventCommitSubmission {
-            event: bundle.profile_event.clone(),
-        },
+        EventCommitSubmission::new(bundle.managed_actor_provision_event.clone()),
+        EventCommitSubmission::new(bundle.pcr_genesis_event.clone()),
+        EventCommitSubmission::new(bundle.accountability_grant_event.clone()),
+        EventCommitSubmission::new(bundle.profile_event.clone()),
     ])
 }
 

@@ -336,8 +336,8 @@ mod tests {
             arkret_canonical::DigestSuite::Sha256,
             [0x21; 32],
         ));
-        EventCommitSubmission {
-            event: test_support::raw_event_for_actor_at(
+        EventCommitSubmission::new(
+            test_support::raw_event_for_actor_at(
                 kind.as_str(),
                 ScopeRef::Realm { realm_id },
                 holder_actor_id(),
@@ -345,7 +345,7 @@ mod tests {
                 Utc.timestamp_opt(1_800_000_000, 0).unwrap(),
             )
             .unwrap(),
-        }
+        )
     }
 
     fn request_consent_value() -> Value {

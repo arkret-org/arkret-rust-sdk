@@ -1,9 +1,12 @@
 //! Message submission through the Realm governance authority.
 
+use arkret_models_collaboration::authority_commit::{
+    SelfAuthoritySubmitOutcome, SelfAuthoritySubmitRequest,
+};
 use arkret_models_collaboration::message_authoring::MessageSubmitRequestBody;
-use arkret_wire::{AuthoritySubmitOutcome, AuthoritySubmitRequest};
+use arkret_wire::AuthoritySubmitOutcome;
 
-use crate::{Client, ClientRequestOptions, Result};
+use crate::{Client, ClientRequestOptions, Error, Result};
 
 impl Client {
     /// Submit a fully producer-authored `ak.message.create` Event. Finality is
@@ -14,10 +17,17 @@ impl Client {
         options: &ClientRequestOptions,
     ) -> Result<AuthoritySubmitOutcome> {
         request.validate()?;
-        self.submit_to_realm_authority(
-            &AuthoritySubmitRequest::Event(request.submission.clone()),
-            options,
-        )
-        .await
+        match self
+            .submit_to_realm_authority(
+                &SelfAuthoritySubmitRequest::Event(request.submission.clone()),
+                options,
+            )
+            .await?
+        {
+            SelfAuthoritySubmitOutcome::Ordinary(outcome) => Ok(outcome),
+            _ => Err(Error::Protocol(
+                "message Event submission returned an aggregate outcome".to_owned(),
+            )),
+        }
     }
 }
