@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use arkret_canonical::base64url_encode;
+use arkret_canonical::{base64url_decode, base64url_encode};
 use arkret_models_crypto::{
     KeyOperationSignature, KeyPackageUploadEntry, KeyPackagesConsumeRequestBody,
     KeyPackagesConsumeUnsignedRequest, KeyPackagesUploadRequestBody,
@@ -279,6 +279,21 @@ impl ArkretMlsIdentity {
         if record.actor_id != self.actor_id || record.endpoint != self.endpoint_identity() {
             return Err(Error::Protocol(
                 "MLS KeyPackage record owner differs from identity".to_owned(),
+            ));
+        }
+        let keypackage = base64url_decode(record.keypackage.as_bytes())
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        let leaf = author_leaf_from_key_package_bytes(&keypackage, 0)?;
+        let crate::AuthorLeafCredential::Basic { identity } = leaf.credential else {
+            return Err(Error::Protocol(
+                "uploaded KeyPackage does not carry an Arkret BasicCredential".to_owned(),
+            ));
+        };
+        let credential_actor = decode_mls_basic_credential_identity(&identity)
+            .map_err(|error| Error::Protocol(error.to_string()))?;
+        if credential_actor != record.actor_id {
+            return Err(Error::Protocol(
+                "uploaded KeyPackage credential differs from record actor_id".to_owned(),
             ));
         }
         mls_key_package_record_upload_entry(record)
